@@ -697,17 +697,19 @@ class ProcessingPipeline:
     )  # pipeline state: allows to set variables that can be used in conversion (e.g. indices, data model names etc.)
 
     def __post_init__(self) -> None:
-        if not all((isinstance(item, ProcessingItem) for item in self.items)):
+        if self.items and not all((isinstance(item, ProcessingItem) for item in self.items)):
             raise TypeError(
                 "Each item in a processing pipeline must be a ProcessingItem - don't use processing classes directly!"
             )
-        if not all(
+        if self.postprocessing_items and not all(
             (isinstance(item, QueryPostprocessingItem) for item in self.postprocessing_items)
         ):
             raise TypeError(
                 "Each item in a postprocessing pipeline must be a QueryPostprocessingItem - don't use processing classes directly!"
             )
-        if not all((isinstance(finalizer, Finalizer) for finalizer in self.finalizers)):
+        if self.finalizers and not all(
+            (isinstance(finalizer, Finalizer) for finalizer in self.finalizers)
+        ):
             raise TypeError("Each item in a finalizer pipeline must be a Finalizer")
 
         # Initialize contained items with just instantiated processing pipeline as context.

@@ -24,8 +24,8 @@ class CreateNatsTriggerJsonBody:
         nats_resource_path (str): Path to the NATS resource containing connection configuration
         use_jetstream (bool): If true, uses NATS JetStream for durable message delivery
         subjects (List[str]): Array of NATS subjects to subscribe to
-        stream_name (Union[Unset, str]): JetStream stream name (required when use_jetstream is true)
-        consumer_name (Union[Unset, str]): JetStream consumer name (required when use_jetstream is true)
+        stream_name (Union[Unset, None, str]): JetStream stream name (required when use_jetstream is true)
+        consumer_name (Union[Unset, None, str]): JetStream consumer name (required when use_jetstream is true)
         mode (Union[Unset, CreateNatsTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, CreateNatsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
@@ -39,8 +39,8 @@ class CreateNatsTriggerJsonBody:
     nats_resource_path: str
     use_jetstream: bool
     subjects: List[str]
-    stream_name: Union[Unset, str] = UNSET
-    consumer_name: Union[Unset, str] = UNSET
+    stream_name: Union[Unset, None, str] = UNSET
+    consumer_name: Union[Unset, None, str] = UNSET
     mode: Union[Unset, CreateNatsTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "CreateNatsTriggerJsonBodyErrorHandlerArgs"] = UNSET

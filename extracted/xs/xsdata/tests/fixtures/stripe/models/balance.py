@@ -11,13 +11,11 @@ class ConnectReserved:
     amount: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     currency: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -30,13 +28,11 @@ class SourceTypes:
     bank_account: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     card: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -49,19 +45,16 @@ class Available:
     amount: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     currency: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     source_types: SourceTypes = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -74,19 +67,16 @@ class Pending:
     amount: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     currency: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     source_types: SourceTypes = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -100,7 +90,6 @@ class Balance:
         metadata={
             "name": "object",
             "type": "Element",
-            "required": True,
         }
     )
     available: tuple[Available, ...] = field(
@@ -120,7 +109,6 @@ class Balance:
     livemode: bool = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     pending: tuple[Pending, ...] = field(

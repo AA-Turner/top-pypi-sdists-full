@@ -1,4 +1,55 @@
 """
+The message bus system can be used to receive notifications when properties of
+Blender data-blocks are changed via the data API.
+
+
+--------------------
+
+The message bus system is triggered by updates via the RNA system. This means
+that the following updates will result in a notification on the message bus:
+
+* Changes via the Python API, for example some_object.location.x += 3
+
+.
+* Changes via the sliders, fields, and buttons in the user interface.
+
+The following updates do not trigger message bus notifications:
+
+* Moving objects in the 3D Viewport.
+* Changes performed by the animation system.
+
+Changes done from msgbus
+
+ callbacks are not included in related undo steps,
+so users can easily skip their effects by using Undo followed by Redo.
+
+Unlike properties update
+
+ callbacks, message bus update callbacks are postponed
+until all operators have finished executing.
+Additionally, for each property the callback is only triggered once per update cycle,
+even if the property was changed multiple times during that period.
+
+
+--------------------
+
+Below is an example of subscription to changes in the active object's location.
+
+```../examples/bpy.msgbus.1.py```
+
+Some properties are converted to Python objects when you retrieve them. This
+needs to be avoided in order to create the subscription, by using
+datablock.path_resolve("property_name", False)
+
+:
+
+```../examples/bpy.msgbus.2.py```
+
+It is also possible to create subscriptions on a property of all instances of a
+certain type:
+
+```../examples/bpy.msgbus.3.py```
+
 [NOTE]
 All subscribers will be cleared on file-load. Subscribers can be re-registered on load,
 see bpy.app.handlers.load_post.

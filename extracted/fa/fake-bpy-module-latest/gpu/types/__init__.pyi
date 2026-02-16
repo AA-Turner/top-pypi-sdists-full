@@ -179,8 +179,11 @@ class GPUOffScreen:
     width: int
     """ Width of the texture."""
 
-    def bind(self) -> None:
-        """Context manager to ensure balanced bind calls, even in the case of an error."""
+    def bind(self) -> OffScreenStackContext:
+        """Context manager to ensure balanced bind calls, even in the case of an error.
+
+        :return: A context manager for the off-screen binding.
+        """
 
     def draw_view3d(
         self,
@@ -884,3 +887,9 @@ class GPUVertFormat:
         reduced precision. E.g. you can store a float in only 1 byte but it will be
         converted to a normal 4 byte float when used.
         """
+
+class MatrixStackContext:
+    """Context manager for matrix stack push/pop."""
+
+class OffScreenStackContext:
+    """Context manager for off-screen framebuffer binding."""

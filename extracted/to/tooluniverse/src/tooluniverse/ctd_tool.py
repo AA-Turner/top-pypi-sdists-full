@@ -1,0 +1,115 @@
+# ctd_tool.py
+"""
+CTD (Comparative Toxicogenomics Database) REST API tool for ToolUniverse.
+
+CTD is a curated database that advances understanding about how environmental
+exposures affect human health. It provides manually curated interactions between
+chemicals, genes, phenotypes, diseases, and exposure data.
+
+API: https://ctdbase.org/tools/batchQuery.go
+No authentication required. Free for academic/research use.
+"""
+
+import requests
+from typing import Dict, Any
+from .base_tool import BaseTool
+from .tool_registry import register_tool
+
+CTD_BASE_URL = "https://ctdbase.org/tools/batchQuery.go"
+
+
+@register_tool("CTDTool")
+class CTDTool(BaseTool):
+    """
+    Tool for querying the Comparative Toxicogenomics Database (CTD).
+
+    CTD curates chemical-gene, chemical-disease, and gene-disease relationships
+    from peer-reviewed literature. Supports queries by chemical names, gene
+    symbols, disease names, or their standard identifiers.
+
+    No authentication required.
+    """
+
+    def __init__(self, tool_config: Dict[str, Any]):
+        super().__init__(tool_config)
+        self.timeout = tool_config.get("timeout", 60)
+        self.input_type = tool_config.get("fields", {}).get("input_type", "chem")
+        self.report_type = tool_config.get("fields", {}).get(
+            "report_type", "genes_curated"
+        )
+
+    def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute the CTD batch query API call."""
+        try:
+            return self._query(arguments)
+        except requests.exceptions.Timeout:
+            return {"error": f"CTD API request timed out after {self.timeout} seconds"}
+        except requests.exceptions.ConnectionError:
+            return {
+                "error": "Failed to connect to CTD API. Check network connectivity."
+            }
+        except requests.exceptions.HTTPError as e:
+            return {"error": f"CTD API HTTP error: {e.response.status_code}"}
+        except Exception as e:
+            return {"error": f"Unexpected error querying CTD: {str(e)}"}
+
+    def _query(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Execute a CTD batch query and return structured results."""
+        input_terms = arguments.get("input_terms", "")
+        if not input_terms:
+            return {"error": "input_terms parameter is required"}
+
+        # Allow overriding input_type and report_type from arguments
+        input_type = arguments.get("input_type", self.input_type)
+        report_type = arguments.get("report_type", self.report_type)
+
+        params = {
+            "inputType": input_type,
+            "inputTerms": input_terms,
+            "report": report_type,
+            "format": "json",
+        }
+
+        response = requests.get(CTD_BASE_URL, params=params, timeout=self.timeout)
+        response.raise_for_status()
+
+        raw_text = response.text.strip()
+
+        if not raw_text or raw_text == "[]":
+            return {
+                "data": [],
+                "metadata": {
+                    "total_results": 0,
+                    "input_type": input_type,
+                    "report_type": report_type,
+                    "query": input_terms,
+                },
+            }
+
+        try:
+            data = response.json()
+        except ValueError:
+            return {"error": "CTD API returned non-JSON response"}
+
+        if isinstance(data, list):
+            return {
+                "data": data,
+                "metadata": {
+                    "total_results": len(data),
+                    "input_type": input_type,
+                    "report_type": report_type,
+                    "query": input_terms,
+                },
+            }
+        elif isinstance(data, dict):
+            return {
+                "data": data,
+                "metadata": {
+                    "total_results": 1,
+                    "input_type": input_type,
+                    "report_type": report_type,
+                    "query": input_terms,
+                },
+            }
+        else:
+            return {"error": f"Unexpected CTD response type: {type(data).__name__}"}

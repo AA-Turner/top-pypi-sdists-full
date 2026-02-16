@@ -2,9 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bl_operators.wm
 import bpy.stub_internal.rna_enums
-import bpy.types
 import mathutils
 
 def alembic_export(
@@ -12,7 +10,7 @@ def alembic_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -36,7 +34,7 @@ def alembic_export(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str = "*.abc",
+    filter_glob: str | None = "*.abc",
     start: int | None = -2147483648,
     end: int | None = -2147483648,
     xsamples: int | None = 1,
@@ -45,7 +43,7 @@ def alembic_export(
     sh_close: float | None = 1.0,
     selected: bool | None = False,
     flatten: bool | None = False,
-    collection: str = "",
+    collection: str | None = "",
     uvs: bool | None = True,
     packuv: bool | None = True,
     normals: bool | None = True,
@@ -58,9 +56,9 @@ def alembic_export(
     use_instancing: bool | None = True,
     global_scale: float | None = 1.0,
     triangulate: bool | None = False,
-    quad_method: bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
     | None = "SHORTEST_DIAGONAL",
-    ngon_method: bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
     | None = "BEAUTY",
     export_hair: bool | None = True,
     export_particles: bool | None = True,
@@ -68,29 +66,29 @@ def alembic_export(
     as_background_job: bool | None = False,
     evaluation_mode: typing.Literal["RENDER", "VIEWPORT"] | None = "RENDER",
     init_scene_frame_range: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export current scene in an Alembic archive
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -103,41 +101,44 @@ def alembic_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param start: Start Frame, Start frame of the export, use the default value to take the start frame of the current scene
-        :param end: End Frame, End frame of the export, use the default value to take the end frame of the current scene
-        :param xsamples: Transform Samples, Number of times per frame transformations are sampled
-        :param gsamples: Geometry Samples, Number of times per frame object data are sampled
-        :param sh_open: Shutter Open, Time at which the shutter is open
-        :param sh_close: Shutter Close, Time at which the shutter is closed
-        :param selected: Selected Objects Only, Export only selected objects
-        :param flatten: Flatten Hierarchy, Do not preserve objects parent/children relationship
-        :param collection: Collection
-        :param uvs: UV Coordinates, Export UV coordinates
-        :param packuv: Merge UVs
-        :param normals: Normals, Export normals
-        :param vcolors: Color Attributes, Export color attributes
-        :param orcos: Generated Coordinates, Export undeformed mesh vertex coordinates
-        :param face_sets: Face Sets, Export per face shading group assignments
-        :param subdiv_schema: Use Subdivision Schema, Export meshes using Alembics subdivision schema
-        :param apply_subdiv: Apply Subdivision Surface, Export subdivision surfaces as meshes
-        :param curves_as_mesh: Curves as Mesh, Export curves and NURBS surfaces as meshes
-        :param use_instancing: Use Instancing, Export data of duplicated objects as Alembic instances; speeds up the export and can be disabled for compatibility with other software
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param triangulate: Triangulate, Export polygons (quads and n-gons) as triangles
-        :param quad_method: Quad Method, Method for splitting the quads into triangles
-        :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles
-        :param export_hair: Export Hair, Exports hair particle systems as animated curves
-        :param export_particles: Export Particles, Exports non-hair particle systems
-        :param export_custom_properties: Export Custom Properties, Export custom properties to Alembic .userProperties
-        :param as_background_job: Run as Background Job, Enable this to run the import in the background, disable to block Blender while importing. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job
-        :param evaluation_mode: Settings, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering
+        :param sort_method: File sorting mode, (optional)
+        :param filter_glob: (optional, never None)
+        :param start: Start Frame, Start frame of the export, use the default value to take the start frame of the current scene (in [-inf, inf], optional)
+        :param end: End Frame, End frame of the export, use the default value to take the end frame of the current scene (in [-inf, inf], optional)
+        :param xsamples: Transform Samples, Number of times per frame transformations are sampled (in [1, 128], optional)
+        :param gsamples: Geometry Samples, Number of times per frame object data are sampled (in [1, 128], optional)
+        :param sh_open: Shutter Open, Time at which the shutter is open (in [-1, 1], optional)
+        :param sh_close: Shutter Close, Time at which the shutter is closed (in [-1, 1], optional)
+        :param selected: Selected Objects Only, Export only selected objects (optional)
+        :param flatten: Flatten Hierarchy, Do not preserve objects parent/children relationship (optional)
+        :param collection: Collection, (optional, never None)
+        :param uvs: UV Coordinates, Export UV coordinates (optional)
+        :param packuv: Merge UVs, (optional)
+        :param normals: Normals, Export normals (optional)
+        :param vcolors: Color Attributes, Export color attributes (optional)
+        :param orcos: Generated Coordinates, Export undeformed mesh vertex coordinates (optional)
+        :param face_sets: Face Sets, Export per face shading group assignments (optional)
+        :param subdiv_schema: Use Subdivision Schema, Export meshes using Alembics subdivision schema (optional)
+        :param apply_subdiv: Apply Subdivision Surface, Export subdivision surfaces as meshes (optional)
+        :param curves_as_mesh: Curves as Mesh, Export curves and NURBS surfaces as meshes (optional)
+        :param use_instancing: Use Instancing, Export data of duplicated objects as Alembic instances; speeds up the export and can be disabled for compatibility with other software (optional)
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 1000], optional)
+        :param triangulate: Triangulate, Export polygons (quads and n-gons) as triangles (optional)
+        :param quad_method: Quad Method, Method for splitting the quads into triangles (optional)
+        :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles (optional)
+        :param export_hair: Export Hair, Exports hair particle systems as animated curves (optional)
+        :param export_particles: Export Particles, Exports non-hair particle systems (optional)
+        :param export_custom_properties: Export Custom Properties, Export custom properties to Alembic .userProperties (optional)
+        :param as_background_job: Run as Background Job, Enable this to run the import in the background, disable to block Blender while importing. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job (optional)
+        :param evaluation_mode: Settings, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering (optional)
 
     RENDER
     Render -- Use Render settings for object visibility, modifier settings, etc.
 
     VIEWPORT
     Viewport -- Use Viewport settings for object visibility, modifier settings, etc.
+        :param init_scene_frame_range: (optional)
+        :return: Result of the operator call.
     """
 
 def alembic_import(
@@ -145,10 +146,9 @@ def alembic_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -173,39 +173,39 @@ def alembic_import(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str = "*.abc",
+    filter_glob: str | None = "*.abc",
     scale: float | None = 1.0,
     set_frame_range: bool | None = True,
     validate_meshes: bool | None = False,
     always_add_cache_reader: bool | None = False,
     is_sequence: bool | None = False,
     as_background_job: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load an Alembic archive
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -218,13 +218,15 @@ def alembic_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param set_frame_range: Set Frame Range, If checked, update scenes start and end frame to match those of the Alembic archive
-        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :param always_add_cache_reader: Always Add Cache Reader, Add cache modifiers and constraints to imported objects even if they are not animated so that they can be updated when reloading the Alembic archive
-        :param is_sequence: Is Sequence, Set to true if the cache is split into separate files
-        :param as_background_job: Run as Background Job, Enable this to run the export in the background, disable to block Blender while exporting. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job
+        :param sort_method: File sorting mode, (optional)
+        :param filter_glob: (optional, never None)
+        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 1000], optional)
+        :param set_frame_range: Set Frame Range, If checked, update scenes start and end frame to match those of the Alembic archive (optional)
+        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing) (optional)
+        :param always_add_cache_reader: Always Add Cache Reader, Add cache modifiers and constraints to imported objects even if they are not animated so that they can be updated when reloading the Alembic archive (optional)
+        :param is_sequence: Is Sequence, Set to true if the cache is split into separate files (optional)
+        :param as_background_job: Run as Background Job, Enable this to run the export in the background, disable to block Blender while exporting. This option is deprecated; EXECUTE this operator to run in the foreground, and INVOKE it to run as a background job (optional)
+        :return: Result of the operator call.
     """
 
 def append(
@@ -232,11 +234,10 @@ def append(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    filename: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    filename: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -269,32 +270,32 @@ def append(
     instance_object_data: bool | None = True,
     set_fake: bool | None = False,
     use_recursive: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Append from a Library .blend file
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param filename: File Name, Name of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param filename: File Name, Name of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -307,16 +308,17 @@ def append(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param link: Link, Link the objects or data-blocks rather than appending
-        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :param autoselect: Select, Select new objects
-        :param active_collection: Active Collection, Put new objects on the active collection
-        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
-        :param set_fake: Fake User, Set "Fake User" for appended items (except objects and collections)
-        :param use_recursive: Localize All, Localize all appended data, including those indirectly linked from other libraries
+        :param sort_method: File sorting mode, (optional)
+        :param link: Link, Link the objects or data-blocks rather than appending (optional)
+        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy (optional)
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block (optional)
+        :param autoselect: Select, Select new objects (optional)
+        :param active_collection: Active Collection, Put new objects on the active collection (optional)
+        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene (optional)
+        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects (optional)
+        :param set_fake: Fake User, Set "Fake User" for appended items (except objects and collections) (optional)
+        :param use_recursive: Localize All, Localize all appended data, including those indirectly linked from other libraries (optional)
+        :return: Result of the operator call.
     """
 
 def batch_rename(
@@ -348,33 +350,37 @@ def batch_rename(
     ]
     | None = "OBJECT",
     data_source: typing.Literal["SELECT", "ALL"] | None = "SELECT",
-    actions: bpy.types.bpy_prop_collection[bl_operators.wm.BatchRenameAction]
-    | None = None,
-) -> None:
+    actions=None,
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename multiple items at once
 
-    :param data_type: Type, Type of data to rename
-    :param data_source: Source
-    :param actions: actions
+    :param data_type: Type, Type of data to rename (optional)
+    :param data_source: Source, (optional)
+    :param actions: actions, (optional)
+    :return: Result of the operator call.
     """
 
 def blend_strings_utf8_validate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Check and fix all strings in current .blend file to be valid UTF-8 Unicode (needed for some old, 2.4x area files)
+
+    :return: Result of the operator call.
+    """
 
 def call_asset_shelf_popover(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
-) -> None:
+    name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined asset shelf in a popup
 
-    :param name: Asset Shelf Name, Identifier of the asset shelf to display
+    :param name: Asset Shelf Name, Identifier of the asset shelf to display (optional, never None)
+    :return: Result of the operator call.
     """
 
 def call_menu(
@@ -382,11 +388,12 @@ def call_menu(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
-) -> None:
+    name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined menu
 
-    :param name: Name, Name of the menu
+    :param name: Name, Name of the menu (optional, never None)
+    :return: Result of the operator call.
     """
 
 def call_menu_pie(
@@ -394,11 +401,12 @@ def call_menu_pie(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
-) -> None:
+    name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined pie menu
 
-    :param name: Name, Name of the pie menu
+    :param name: Name, Name of the pie menu (optional, never None)
+    :return: Result of the operator call.
     """
 
 def call_panel(
@@ -406,13 +414,14 @@ def call_panel(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     keep_open: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a predefined panel
 
-    :param name: Name, Name of the menu
-    :param keep_open: Keep Open
+    :param name: Name, Name of the menu (optional, never None)
+    :param keep_open: Keep Open, (optional)
+    :return: Result of the operator call.
     """
 
 def clear_recent_files(
@@ -421,33 +430,38 @@ def clear_recent_files(
     /,
     *,
     remove: typing.Literal["ALL", "MISSING"] | None = "ALL",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear the recent files list
 
-    :param remove: Remove
+    :param remove: Remove, (optional)
+    :return: Result of the operator call.
     """
 
 def collection_export_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Invoke all configured exporters for all collections"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Invoke all configured exporters for all collections
+
+    :return: Result of the operator call.
+    """
 
 def context_collection_boolean_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    data_path_iter: str = "",
-    data_path_item: str = "",
+    data_path_iter: str | None = "",
+    data_path_item: str | None = "",
     type: typing.Literal["TOGGLE", "ENABLE", "DISABLE"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set boolean values for a collection of items
 
-    :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable
-    :param data_path_item: data_path_item, The data path from each iterable to the value (int or float)
-    :param type: Type
+    :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable (optional, never None)
+    :param data_path_item: data_path_item, The data path from each iterable to the value (int or float) (optional, never None)
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def context_cycle_array(
@@ -455,13 +469,14 @@ def context_cycle_array(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     reverse: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context array value (useful for cycling the active mesh edit mode)
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param reverse: Reverse, Cycle backwards
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param reverse: Reverse, Cycle backwards (optional)
+    :return: Result of the operator call.
     """
 
 def context_cycle_enum(
@@ -469,15 +484,16 @@ def context_cycle_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param reverse: Reverse, Cycle backwards
-    :param wrap: Wrap, Wrap back to the first/last values
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param reverse: Reverse, Cycle backwards (optional)
+    :param wrap: Wrap, Wrap back to the first/last values (optional)
+    :return: Result of the operator call.
     """
 
 def context_cycle_int(
@@ -485,15 +501,16 @@ def context_cycle_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     reverse: bool | None = False,
     wrap: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value (useful for cycling active material, shape keys, groups, etc.)
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param reverse: Reverse, Cycle backwards
-    :param wrap: Wrap, Wrap back to the first/last values
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param reverse: Reverse, Cycle backwards (optional)
+    :param wrap: Wrap, Wrap back to the first/last values (optional)
+    :return: Result of the operator call.
     """
 
 def context_menu_enum(
@@ -501,11 +518,12 @@ def context_menu_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-) -> None:
+    data_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_modal_mouse(
@@ -513,21 +531,22 @@ def context_modal_mouse(
     undo: bool | None = None,
     /,
     *,
-    data_path_iter: str = "",
-    data_path_item: str = "",
-    header_text: str = "",
+    data_path_iter: str | None = "",
+    data_path_item: str | None = "",
+    header_text: str | None = "",
     input_scale: float | None = 0.01,
     invert: bool | None = False,
     initial_x: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust arbitrary values with mouse input
 
-    :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable
-    :param data_path_item: data_path_item, The data path from each iterable to the value (int or float)
-    :param header_text: Header Text, Text to display in header during scale
-    :param input_scale: input_scale, Scale the mouse movement by this value before applying the delta
-    :param invert: invert, Invert the mouse input
-    :param initial_x: initial_x
+    :param data_path_iter: data_path_iter, The data path relative to the context, must point to an iterable (optional, never None)
+    :param data_path_item: data_path_item, The data path from each iterable to the value (int or float) (optional, never None)
+    :param header_text: Header Text, Text to display in header during scale (optional, never None)
+    :param input_scale: input_scale, Scale the mouse movement by this value before applying the delta (in [-inf, inf], optional)
+    :param invert: invert, Invert the mouse input (optional)
+    :param initial_x: initial_x, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def context_pie_enum(
@@ -535,11 +554,12 @@ def context_pie_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-) -> None:
+    data_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_scale_float(
@@ -547,13 +567,14 @@ def context_scale_float(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     value: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale a float context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assign value
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assign value (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def context_scale_int(
@@ -561,15 +582,16 @@ def context_scale_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     value: float | None = 1.0,
     always_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Scale an int context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assign value
-    :param always_step: Always Step, Always adjust the value by a minimum of 1 when value is not 1.0
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assign value (in [-inf, inf], optional)
+    :param always_step: Always Step, Always adjust the value by a minimum of 1 when value is not 1.0 (optional)
+    :return: Result of the operator call.
     """
 
 def context_set_boolean(
@@ -577,13 +599,14 @@ def context_set_boolean(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     value: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assignment value
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assignment value (optional)
+    :return: Result of the operator call.
     """
 
 def context_set_enum(
@@ -591,13 +614,14 @@ def context_set_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    value: str = "",
-) -> None:
+    data_path: str | None = "",
+    value: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assignment value (as a string)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assignment value (as a string) (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_set_float(
@@ -605,15 +629,16 @@ def context_set_float(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     value: float | None = 0.0,
     relative: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assignment value
-    :param relative: Relative, Apply relative to the current value (delta)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assignment value (in [-inf, inf], optional)
+    :param relative: Relative, Apply relative to the current value (delta) (optional)
+    :return: Result of the operator call.
     """
 
 def context_set_id(
@@ -621,13 +646,14 @@ def context_set_id(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    value: str = "",
-) -> None:
+    data_path: str | None = "",
+    value: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value to an ID data-block
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assign value
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assign value (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_set_int(
@@ -635,15 +661,16 @@ def context_set_int(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
+    data_path: str | None = "",
     value: int | None = 0,
     relative: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assign value
-    :param relative: Relative, Apply relative to the current value (delta)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assign value (in [-inf, inf], optional)
+    :param relative: Relative, Apply relative to the current value (delta) (optional)
+    :return: Result of the operator call.
     """
 
 def context_set_string(
@@ -651,13 +678,14 @@ def context_set_string(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    value: str = "",
-) -> None:
+    data_path: str | None = "",
+    value: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assign value
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assign value (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_set_value(
@@ -665,13 +693,14 @@ def context_set_value(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    value: str = "",
-) -> None:
+    data_path: str | None = "",
+    value: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value: Value, Assignment value (as a string)
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value: Value, Assignment value (as a string) (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_toggle(
@@ -679,13 +708,14 @@ def context_toggle(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    module: str = "",
-) -> None:
+    data_path: str | None = "",
+    module: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param module: Module, Optionally override the context with a module
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param module: Module, Optionally override the context with a module (optional, never None)
+    :return: Result of the operator call.
     """
 
 def context_toggle_enum(
@@ -693,15 +723,16 @@ def context_toggle_enum(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    value_1: str = "",
-    value_2: str = "",
-) -> None:
+    data_path: str | None = "",
+    value_1: str | None = "",
+    value_2: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle a context value
 
-    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file)
-    :param value_1: Value, Toggle enum
-    :param value_2: Value, Toggle enum
+    :param data_path: Context Attributes, Context data-path (expanded using visible windows in the current .blend file) (optional, never None)
+    :param value_1: Value, Toggle enum (optional, never None)
+    :param value_2: Value, Toggle enum (optional, never None)
+    :return: Result of the operator call.
     """
 
 def debug_menu(
@@ -710,10 +741,11 @@ def debug_menu(
     /,
     *,
     debug_value: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a popup to set the debug level
 
-    :param debug_value: Debug Value
+    :param debug_value: Debug Value, (in [-32768, 32767], optional)
+    :return: Result of the operator call.
     """
 
 def doc_view(
@@ -721,11 +753,12 @@ def doc_view(
     undo: bool | None = None,
     /,
     *,
-    doc_id: str = "",
-) -> None:
+    doc_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open online reference docs in a web browser
 
-    :param doc_id: Doc ID
+    :param doc_id: Doc ID, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def doc_view_manual(
@@ -733,30 +766,35 @@ def doc_view_manual(
     undo: bool | None = None,
     /,
     *,
-    doc_id: str = "",
-) -> None:
+    doc_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load online manual
 
-    :param doc_id: Doc ID
+    :param doc_id: Doc ID, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def doc_view_manual_ui_context(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """View a context based online manual in a web browser"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """View a context based online manual in a web browser
+
+    :return: Result of the operator call.
+    """
 
 def drop_blend_file(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-) -> None:
+    filepath: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param filepath: filepath
+    :param filepath: filepath, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def drop_import_file(
@@ -764,14 +802,14 @@ def drop_import_file(
     undo: bool | None = None,
     /,
     *,
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
-) -> None:
+    directory: str | None = "",
+    files=None,
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Operator that allows file handlers to receive file drops
 
-    :param directory: Directory, Directory of the file
-    :param files: Files
+    :param directory: Directory, Directory of the file (optional, never None)
+    :param files: Files, (optional)
+    :return: Result of the operator call.
     """
 
 def fbx_import(
@@ -779,10 +817,9 @@ def fbx_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -818,32 +855,32 @@ def fbx_import(
     validate_meshes: bool | None = True,
     use_anim: bool | None = True,
     anim_offset: float | None = 1.0,
-    filter_glob: str = "*.fbx",
-) -> None:
+    filter_glob: str | None = "*.fbx",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import FBX file into current scene
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -856,16 +893,16 @@ def fbx_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param global_scale: Scale
-        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
+        :param sort_method: File sorting mode, (optional)
+        :param global_scale: Scale, (in [1e-06, 1e+06], optional)
+        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material (optional)
 
     MAKE_UNIQUE
     Make Unique -- Import each FBX material as a unique Blender material.
 
     REFERENCE_EXISTING
     Reference Existing -- If a material with the same name already exists, reference that instead of importing.
-        :param import_colors: Vertex Colors, Import vertex color attributes
+        :param import_colors: Vertex Colors, Import vertex color attributes (optional)
 
     NONE
     None -- Do not import color attributes.
@@ -875,15 +912,16 @@ def fbx_import(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :param use_custom_normals: Custom Normals, Import custom normals, if available (otherwise Blender will compute them)
-        :param use_custom_props: Custom Properties, Import user properties as custom properties
-        :param use_custom_props_enum_as_string: Enums As Strings, Store custom property enumeration values as strings
-        :param import_subdivision: Subdivision Data, Import FBX subdivision information as subdivision surface modifiers
-        :param ignore_leaf_bones: Ignore Leaf Bones, Ignore the last bone at the end of each chain (used to mark the length of the previous bone)
-        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :param use_anim: Import Animation, Import FBX animation
-        :param anim_offset: Offset, Offset to apply to animation timestamps, in frames
-        :param filter_glob: Extension Filter
+        :param use_custom_normals: Custom Normals, Import custom normals, if available (otherwise Blender will compute them) (optional)
+        :param use_custom_props: Custom Properties, Import user properties as custom properties (optional)
+        :param use_custom_props_enum_as_string: Enums As Strings, Store custom property enumeration values as strings (optional)
+        :param import_subdivision: Subdivision Data, Import FBX subdivision information as subdivision surface modifiers (optional)
+        :param ignore_leaf_bones: Ignore Leaf Bones, Ignore the last bone at the end of each chain (used to mark the length of the previous bone) (optional)
+        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing) (optional)
+        :param use_anim: Import Animation, Import FBX animation (optional)
+        :param anim_offset: Offset, Offset to apply to animation timestamps, in frames (in [-1e+06, 1e+06], optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def grease_pencil_export_pdf(
@@ -891,7 +929,7 @@ def grease_pencil_export_pdf(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -921,29 +959,29 @@ def grease_pencil_export_pdf(
     frame_mode: typing.Literal["ACTIVE", "SELECTED", "SCENE"] | None = "ACTIVE",
     stroke_sample: float | None = 0.0,
     use_uniform_width: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export Grease Pencil to PDF
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -956,9 +994,9 @@ def grease_pencil_export_pdf(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param use_fill: Fill, Export strokes with fill enabled
-        :param selected_object_type: Object, Which objects to include in the export
+        :param sort_method: File sorting mode, (optional)
+        :param use_fill: Fill, Export strokes with fill enabled (optional)
+        :param selected_object_type: Object, Which objects to include in the export (optional)
 
     ACTIVE
     Active -- Include only the active object.
@@ -968,7 +1006,7 @@ def grease_pencil_export_pdf(
 
     VISIBLE
     Visible -- Include all visible objects.
-        :param frame_mode: Frames, Which frames to include in the export
+        :param frame_mode: Frames, Which frames to include in the export (optional)
 
     ACTIVE
     Active -- Include only active frame.
@@ -978,8 +1016,9 @@ def grease_pencil_export_pdf(
 
     SCENE
     Scene -- Include all scene frames.
-        :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling
-        :param use_uniform_width: Uniform Width, Export strokes with uniform width
+        :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling (in [0, 100], optional)
+        :param use_uniform_width: Uniform Width, Export strokes with uniform width (optional)
+        :return: Result of the operator call.
     """
 
 def grease_pencil_export_svg(
@@ -987,7 +1026,7 @@ def grease_pencil_export_svg(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1018,29 +1057,29 @@ def grease_pencil_export_svg(
     stroke_sample: float | None = 0.0,
     use_uniform_width: bool | None = False,
     use_clip_camera: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export Grease Pencil to SVG
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1053,9 +1092,9 @@ def grease_pencil_export_svg(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param use_fill: Fill, Export strokes with fill enabled
-        :param selected_object_type: Object, Which objects to include in the export
+        :param sort_method: File sorting mode, (optional)
+        :param use_fill: Fill, Export strokes with fill enabled (optional)
+        :param selected_object_type: Object, Which objects to include in the export (optional)
 
     ACTIVE
     Active -- Include only the active object.
@@ -1065,7 +1104,7 @@ def grease_pencil_export_svg(
 
     VISIBLE
     Visible -- Include all visible objects.
-        :param frame_mode: Frames, Which frames to include in the export
+        :param frame_mode: Frames, Which frames to include in the export (optional)
 
     ACTIVE
     Active -- Include only active frame.
@@ -1075,9 +1114,10 @@ def grease_pencil_export_svg(
 
     SCENE
     Scene -- Include all scene frames.
-        :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling
-        :param use_uniform_width: Uniform Width, Export strokes with uniform width
-        :param use_clip_camera: Clip Camera, Clip drawings to camera size when exporting in camera view
+        :param stroke_sample: Sampling, Precision of stroke sampling. Low values mean a more precise result, and zero disables sampling (in [0, 100], optional)
+        :param use_uniform_width: Uniform Width, Export strokes with uniform width (optional)
+        :param use_clip_camera: Clip Camera, Clip drawings to camera size when exporting in camera view (optional)
+        :return: Result of the operator call.
     """
 
 def grease_pencil_import_svg(
@@ -1085,10 +1125,9 @@ def grease_pencil_import_svg(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1116,32 +1155,32 @@ def grease_pencil_import_svg(
     resolution: int | None = 10,
     scale: float | None = 10.0,
     use_scene_unit: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import SVG into Grease Pencil
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1154,10 +1193,11 @@ def grease_pencil_import_svg(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param resolution: Resolution, Resolution of the generated strokes
-        :param scale: Scale, Scale of the final strokes
-        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
+        :param sort_method: File sorting mode, (optional)
+        :param resolution: Resolution, Resolution of the generated strokes (in [1, 100000], optional)
+        :param scale: Scale, Scale of the final strokes (in [1e-06, 1e+06], optional)
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data (optional)
+        :return: Result of the operator call.
     """
 
 def id_linked_relocate(
@@ -1166,9 +1206,9 @@ def id_linked_relocate(
     /,
     *,
     id_session_uid: int | None = 0,
-    filepath: str = "",
-    directory: str = "",
-    filename: str = "",
+    filepath: str | None = "",
+    directory: str | None = "",
+    filename: str | None = "",
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -1200,33 +1240,33 @@ def id_linked_relocate(
     active_collection: bool | None = False,
     instance_collections: bool | None = False,
     instance_object_data: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relocate a linked ID, i.e. select another ID to link, and remap its local usages to that newly linked data-block). Currently only designed as an internal operator, not directly exposed to the user
 
-        :param id_session_uid: Linked ID Session UID, Unique runtime identifier for the linked ID to relocate
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param filename: File Name, Name of the file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param id_session_uid: Linked ID Session UID, Unique runtime identifier for the linked ID to relocate (in [0, inf], optional)
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param filename: File Name, Name of the file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1239,14 +1279,15 @@ def id_linked_relocate(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param link: Link, Link the objects or data-blocks rather than appending
-        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :param autoselect: Select, Select new objects
-        :param active_collection: Active Collection, Put new objects on the active collection
-        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
+        :param sort_method: File sorting mode, (optional)
+        :param link: Link, Link the objects or data-blocks rather than appending (optional)
+        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy (optional)
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block (optional)
+        :param autoselect: Select, Select new objects (optional)
+        :param active_collection: Active Collection, Put new objects on the active collection (optional)
+        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene (optional)
+        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects (optional)
+        :return: Result of the operator call.
     """
 
 def interface_theme_preset_add(
@@ -1254,15 +1295,16 @@ def interface_theme_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a custom theme to the preset list
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def interface_theme_preset_remove(
@@ -1270,15 +1312,16 @@ def interface_theme_preset_remove(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a custom theme from the preset list
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def interface_theme_preset_save(
@@ -1286,15 +1329,16 @@ def interface_theme_preset_save(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a custom theme in the preset list
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def keyconfig_preset_add(
@@ -1302,15 +1346,16 @@ def keyconfig_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a custom keymap configuration to the preset list
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def keyconfig_preset_remove(
@@ -1318,15 +1363,16 @@ def keyconfig_preset_remove(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a custom keymap configuration from the preset list
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def lib_reload(
@@ -1334,10 +1380,10 @@ def lib_reload(
     undo: bool | None = None,
     /,
     *,
-    library: str = "",
-    filepath: str = "",
-    directory: str = "",
-    filename: str = "",
+    library: str | None = "",
+    filepath: str | None = "",
+    directory: str | None = "",
+    filename: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -1363,34 +1409,34 @@ def lib_reload(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload the given library
 
-        :param library: Library, Library to reload
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param filename: File Name, Name of the file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param library: Library, Library to reload (optional, never None)
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param filename: File Name, Name of the file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1403,7 +1449,8 @@ def lib_reload(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def lib_relocate(
@@ -1411,12 +1458,11 @@ def lib_relocate(
     undo: bool | None = None,
     /,
     *,
-    library: str = "",
-    filepath: str = "",
-    directory: str = "",
-    filename: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    library: str | None = "",
+    filepath: str | None = "",
+    directory: str | None = "",
+    filename: str | None = "",
+    files=None,
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -1442,35 +1488,35 @@ def lib_relocate(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relocate the given library to one or several others
 
-        :param library: Library, Library to relocate
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param filename: File Name, Name of the file
-        :param files: Files
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param library: Library, Library to relocate (optional, never None)
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param filename: File Name, Name of the file (optional, never None)
+        :param files: Files, (optional)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1483,7 +1529,8 @@ def lib_relocate(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def link(
@@ -1491,11 +1538,10 @@ def link(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    filename: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    filename: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
     filter_backup: bool | None = False,
@@ -1527,33 +1573,33 @@ def link(
     active_collection: bool | None = True,
     instance_collections: bool | None = True,
     instance_object_data: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Link from a Library .blend file
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param filename: File Name, Name of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param filename: File Name, Name of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1566,29 +1612,33 @@ def link(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param link: Link, Link the objects or data-blocks rather than appending
-        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy
-        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block
-        :param autoselect: Select, Select new objects
-        :param active_collection: Active Collection, Put new objects on the active collection
-        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene
-        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects
+        :param sort_method: File sorting mode, (optional)
+        :param link: Link, Link the objects or data-blocks rather than appending (optional)
+        :param do_reuse_local_id: Re-Use Local Data, Try to re-use previously matching appended data-blocks instead of appending a new copy (optional)
+        :param clear_asset_data: Clear Asset Data, Dont add asset meta-data or tags from the original data-block (optional)
+        :param autoselect: Select, Select new objects (optional)
+        :param active_collection: Active Collection, Put new objects on the active collection (optional)
+        :param instance_collections: Instance Collections, Create instances for collections, rather than adding them directly to the scene (optional)
+        :param instance_object_data: Instance Object Data, Create instances for object data which are not referenced by any objects (optional)
+        :return: Result of the operator call.
     """
 
 def memory_statistics(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Print memory statistics to the console"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Print memory statistics to the console
+
+    :return: Result of the operator call.
+    """
 
 def obj_export(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1641,31 +1691,31 @@ def obj_export(
     export_vertex_groups: bool | None = False,
     export_smooth_groups: bool | None = False,
     smooth_group_bitflags: bool | None = False,
-    filter_glob: str = "*.obj;*.mtl",
-    collection: str = "",
-) -> None:
+    filter_glob: str | None = "*.obj;*.mtl",
+    collection: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a Wavefront OBJ file
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1678,11 +1728,11 @@ def obj_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param export_animation: Export Animation, Export multiple frames instead of the current frame only
-        :param start_frame: Start Frame, The first frame to be exported
-        :param end_frame: End Frame, The last frame to be exported
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param export_animation: Export Animation, Export multiple frames instead of the current frame only (optional)
+        :param start_frame: Start Frame, The first frame to be exported (in [-inf, inf], optional)
+        :param end_frame: End Frame, The last frame to be exported (in [-inf, inf], optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -1701,7 +1751,7 @@ def obj_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -1720,23 +1770,23 @@ def obj_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :param apply_transform: Apply Transform, Apply object transforms to exported vertices
-        :param export_eval_mode: Object Properties, Determines properties like object visibility, modifiers etc., where they differ for Render and Viewport
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 10000], optional)
+        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes (optional)
+        :param apply_transform: Apply Transform, Apply object transforms to exported vertices (optional)
+        :param export_eval_mode: Object Properties, Determines properties like object visibility, modifiers etc., where they differ for Render and Viewport (optional)
 
     DAG_EVAL_RENDER
     Render -- Export objects as they appear in render.
 
     DAG_EVAL_VIEWPORT
     Viewport -- Export objects as they appear in the viewport.
-        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :param export_uv: Export UVs
-        :param export_normals: Export Normals, Export per-face normals if the face is flat-shaded, per-face-corner normals if smooth-shaded
-        :param export_colors: Export Colors, Export per-vertex colors
-        :param export_materials: Export Materials, Export MTL library. There must be a Principled-BSDF node for image textures to be exported to the MTL file
-        :param export_pbr_extensions: Export Materials with PBR Extensions, Export MTL library using PBR extensions (roughness, metallic, sheen, coat, anisotropy, transmission)
-        :param path_mode: Path Mode, Method used to reference paths
+        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects (optional)
+        :param export_uv: Export UVs, (optional)
+        :param export_normals: Export Normals, Export per-face normals if the face is flat-shaded, per-face-corner normals if smooth-shaded (optional)
+        :param export_colors: Export Colors, Export per-vertex colors (optional)
+        :param export_materials: Export Materials, Export MTL library. There must be a Principled-BSDF node for image textures to be exported to the MTL file (optional)
+        :param export_pbr_extensions: Export Materials with PBR Extensions, Export MTL library using PBR extensions (roughness, metallic, sheen, coat, anisotropy, transmission) (optional)
+        :param path_mode: Path Mode, Method used to reference paths (optional)
 
     AUTO
     Auto -- Use relative paths with subdirectories only.
@@ -1755,15 +1805,16 @@ def obj_export(
 
     COPY
     Copy -- Copy the file to the destination path.
-        :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4
-        :param export_curves_as_nurbs: Export Curves as NURBS, Export curves in parametric form instead of exporting as mesh
-        :param export_object_groups: Export Object Groups, Append mesh name to object name, separated by a _
-        :param export_material_groups: Export Material Groups, Generate an OBJ group for each part of a geometry using a different material
-        :param export_vertex_groups: Export Vertex Groups, Export the name of the vertex group of a face. It is approximated by choosing the vertex group with the most members among the vertices of a face
-        :param export_smooth_groups: Export Smooth Groups, Generate smooth groups identifiers for each group of smooth faces, as unique integer values by default
-        :param smooth_group_bitflags: Bitflags Smooth Groups, If exporting smoothgroups, generate bitflags values for the groups, instead of unique integer values. The same bitflag value can be re-used for different groups of smooth faces, as long as they have no common sharp edges or vertices
-        :param filter_glob: Extension Filter
-        :param collection: Collection
+        :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4 (optional)
+        :param export_curves_as_nurbs: Export Curves as NURBS, Export curves in parametric form instead of exporting as mesh (optional)
+        :param export_object_groups: Export Object Groups, Append mesh name to object name, separated by a _ (optional)
+        :param export_material_groups: Export Material Groups, Generate an OBJ group for each part of a geometry using a different material (optional)
+        :param export_vertex_groups: Export Vertex Groups, Export the name of the vertex group of a face. It is approximated by choosing the vertex group with the most members among the vertices of a face (optional)
+        :param export_smooth_groups: Export Smooth Groups, Generate smooth groups identifiers for each group of smooth faces, as unique integer values by default (optional)
+        :param smooth_group_bitflags: Bitflags Smooth Groups, If exporting smoothgroups, generate bitflags values for the groups, instead of unique integer values. The same bitflag value can be re-used for different groups of smooth faces, as long as they have no common sharp edges or vertices (optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :param collection: Collection, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def obj_import(
@@ -1771,10 +1822,9 @@ def obj_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -1811,35 +1861,35 @@ def obj_import(
     import_vertex_groups: bool | None = False,
     validate_meshes: bool | None = True,
     close_spline_loops: bool | None = True,
-    collection_separator: str = "",
+    collection_separator: str | None = "",
     mtl_name_collision_mode: typing.Literal["MAKE_UNIQUE", "REFERENCE_EXISTING"]
     | None = "MAKE_UNIQUE",
-    filter_glob: str = "*.obj;*.mtl",
-) -> None:
+    filter_glob: str | None = "*.obj;*.mtl",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a Wavefront OBJ scene
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1852,10 +1902,10 @@ def obj_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param clamp_size: Clamp Bounding Box, Resize the objects to keep bounding box under this value. Value 0 disables clamping
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 10000], optional)
+        :param clamp_size: Clamp Bounding Box, Resize the objects to keep bounding box under this value. Value 0 disables clamping (in [0, 1000], optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -1874,7 +1924,7 @@ def obj_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -1893,20 +1943,21 @@ def obj_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param use_split_objects: Split By Object, Import each OBJ o as a separate object
-        :param use_split_groups: Split By Group, Import each OBJ g as a separate object
-        :param import_vertex_groups: Vertex Groups, Import OBJ groups as vertex groups
-        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :param close_spline_loops: Detect Cyclic Curves, Join curve endpoints if overlapping control points are detected (if disabled, no curves will be cyclic)
-        :param collection_separator: Path Separator, Character used to separate objects name into hierarchical structure
-        :param mtl_name_collision_mode: Material Name Collision, How to handle naming collisions when importing materials
+        :param use_split_objects: Split By Object, Import each OBJ o as a separate object (optional)
+        :param use_split_groups: Split By Group, Import each OBJ g as a separate object (optional)
+        :param import_vertex_groups: Vertex Groups, Import OBJ groups as vertex groups (optional)
+        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing) (optional)
+        :param close_spline_loops: Detect Cyclic Curves, Join curve endpoints if overlapping control points are detected (if disabled, no curves will be cyclic) (optional)
+        :param collection_separator: Path Separator, Character used to separate objects name into hierarchical structure (optional, never None)
+        :param mtl_name_collision_mode: Material Name Collision, How to handle naming collisions when importing materials (optional)
 
     MAKE_UNIQUE
     Make Unique -- Create new materials with unique names for each OBJ file.
 
     REFERENCE_EXISTING
     Reference Existing -- Use existing materials with same name instead of creating new ones.
-        :param filter_glob: Extension Filter
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def open_mainfile(
@@ -1914,7 +1965,7 @@ def open_mainfile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -1943,30 +1994,30 @@ def open_mainfile(
     use_scripts: bool | None = False,
     display_file_selector: bool | None = True,
     state: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a Blender file
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -1979,39 +2030,47 @@ def open_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param load_ui: Load UI, Load user interface setup in the .blend file
-        :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
-        :param display_file_selector: Display File Selector
-        :param state: State
+        :param sort_method: File sorting mode, (optional)
+        :param load_ui: Load UI, Load user interface setup in the .blend file (optional)
+        :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
+        :param display_file_selector: Display File Selector, (optional)
+        :param state: State, (in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def operator_cheat_sheet(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """List all the operators in a text-block, useful for scripting"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """List all the operators in a text-block, useful for scripting
+
+    :return: Result of the operator call.
+    """
 
 def operator_defaults(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Set the active operator to its default values"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Set the active operator to its default values
+
+    :return: Result of the operator call.
+    """
 
 def operator_pie_enum(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    prop_string: str = "",
-) -> None:
+    data_path: str | None = "",
+    prop_string: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param data_path: Operator, Operator name (in Python as string)
-    :param prop_string: Property, Property name (as a string)
+    :param data_path: Operator, Operator name (in Python as string) (optional, never None)
+    :param prop_string: Property, Property name (as a string) (optional, never None)
+    :return: Result of the operator call.
     """
 
 def operator_preset_add(
@@ -2019,17 +2078,18 @@ def operator_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-    operator: str = "",
-) -> None:
+    operator: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove an Operator Preset
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
-    :param operator: Operator
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :param operator: Operator, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def operator_presets_cleanup(
@@ -2037,14 +2097,14 @@ def operator_presets_cleanup(
     undo: bool | None = None,
     /,
     *,
-    operator: str = "",
-    properties: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
-) -> None:
+    operator: str | None = "",
+    properties=None,
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove outdated operator properties from presets that may cause problems
 
-    :param operator: operator
-    :param properties: properties
+    :param operator: operator, (optional, never None)
+    :param properties: properties, (optional)
+    :return: Result of the operator call.
     """
 
 def owner_disable(
@@ -2052,11 +2112,12 @@ def owner_disable(
     undo: bool | None = None,
     /,
     *,
-    owner_id: str = "",
-) -> None:
+    owner_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable add-on for workspace
 
-    :param owner_id: UI Tag
+    :param owner_id: UI Tag, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def owner_enable(
@@ -2064,11 +2125,12 @@ def owner_enable(
     undo: bool | None = None,
     /,
     *,
-    owner_id: str = "",
-) -> None:
+    owner_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enable add-on for workspace
 
-    :param owner_id: UI Tag
+    :param owner_id: UI Tag, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def path_open(
@@ -2076,11 +2138,12 @@ def path_open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-) -> None:
+    filepath: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a path in a file browser
 
-    :param filepath: filepath
+    :param filepath: filepath, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def ply_export(
@@ -2088,7 +2151,7 @@ def ply_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2121,37 +2184,37 @@ def ply_export(
     global_scale: float | None = 1.0,
     apply_modifiers: bool | None = True,
     export_selected_objects: bool | None = False,
-    collection: str = "",
+    collection: str | None = "",
     export_uv: bool | None = True,
     export_normals: bool | None = False,
     export_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     export_attributes: bool | None = True,
     export_triangulated_mesh: bool | None = False,
     ascii_format: bool | None = False,
-    filter_glob: str = "*.ply",
-) -> None:
+    filter_glob: str | None = "*.ply",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to a PLY file
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -2164,8 +2227,8 @@ def ply_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -2184,7 +2247,7 @@ def ply_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -2203,13 +2266,13 @@ def ply_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :param collection: Source Collection, Export only objects from this collection (and its children)
-        :param export_uv: Export UVs
-        :param export_normals: Export Vertex Normals, Export specific vertex normals if available, export calculated normals otherwise
-        :param export_colors: Export Vertex Colors, Export vertex color attributes
+        :param global_scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 10000], optional)
+        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes (optional)
+        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects (optional)
+        :param collection: Source Collection, Export only objects from this collection (and its children) (optional, never None)
+        :param export_uv: Export UVs, (optional)
+        :param export_normals: Export Vertex Normals, Export specific vertex normals if available, export calculated normals otherwise (optional)
+        :param export_colors: Export Vertex Colors, Export vertex color attributes (optional)
 
     NONE
     None -- Do not import/export color attributes.
@@ -2219,10 +2282,11 @@ def ply_export(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :param export_attributes: Export Vertex Attributes, Export custom vertex attributes
-        :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4
-        :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise
-        :param filter_glob: Extension Filter
+        :param export_attributes: Export Vertex Attributes, Export custom vertex attributes (optional)
+        :param export_triangulated_mesh: Export Triangulated Mesh, All ngons with four or more vertices will be triangulated. Meshes in the scene will not be affected. Behaves like Triangulate Modifier with ngon-method: "Beauty", quad-method: "Shortest Diagonal", min vertices: 4 (optional)
+        :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise (optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def ply_import(
@@ -2230,10 +2294,9 @@ def ply_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -2268,32 +2331,32 @@ def ply_import(
     merge_verts: bool | None = False,
     import_colors: typing.Literal["NONE", "SRGB", "LINEAR"] | None = "SRGB",
     import_attributes: bool | None = True,
-    filter_glob: str = "*.ply",
-) -> None:
+    filter_glob: str | None = "*.ply",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an PLY file as an object
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -2306,10 +2369,10 @@ def ply_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param global_scale: Scale
-        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param global_scale: Scale, (in [1e-06, 1e+06], optional)
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data (optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -2328,7 +2391,7 @@ def ply_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -2347,8 +2410,8 @@ def ply_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param merge_verts: Merge Vertices, Merges vertices by distance
-        :param import_colors: Vertex Colors, Import vertex color attributes
+        :param merge_verts: Merge Vertices, Merges vertices by distance (optional)
+        :param import_colors: Vertex Colors, Import vertex color attributes (optional)
 
     NONE
     None -- Do not import/export color attributes.
@@ -2358,8 +2421,9 @@ def ply_import(
 
     LINEAR
     Linear -- Vertex colors in the file are in linear color space.
-        :param import_attributes: Vertex Attributes, Import custom vertex attributes
-        :param filter_glob: Extension Filter
+        :param import_attributes: Vertex Attributes, Import custom vertex attributes (optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def previews_batch_clear(
@@ -2367,9 +2431,8 @@ def previews_batch_clear(
     undo: bool | None = None,
     /,
     *,
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
-    directory: str = "",
+    files=None,
+    directory: str | None = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
     use_scenes: bool | None = True,
@@ -2378,19 +2441,20 @@ def previews_batch_clear(
     use_intern_data: bool | None = True,
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear selected .blend files previews
 
-    :param files: files
-    :param directory: directory
-    :param filter_blender: filter_blender
-    :param filter_folder: filter_folder
-    :param use_scenes: Scenes, Clear scenes previews
-    :param use_collections: Collections, Clear collections previews
-    :param use_objects: Objects, Clear objects previews
-    :param use_intern_data: Materials & Textures, Clear internal previews (materials, textures, images, etc.)
-    :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
-    :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with cleared previews
+    :param files: files, (optional)
+    :param directory: directory, (optional, never None)
+    :param filter_blender: filter_blender, (optional)
+    :param filter_folder: filter_folder, (optional)
+    :param use_scenes: Scenes, Clear scenes previews (optional)
+    :param use_collections: Collections, Clear collections previews (optional)
+    :param use_objects: Objects, Clear objects previews (optional)
+    :param use_intern_data: Materials & Textures, Clear internal previews (materials, textures, images, etc.) (optional)
+    :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files (optional)
+    :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with cleared previews (optional)
+    :return: Result of the operator call.
     """
 
 def previews_batch_generate(
@@ -2398,9 +2462,8 @@ def previews_batch_generate(
     undo: bool | None = None,
     /,
     *,
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
-    directory: str = "",
+    files=None,
+    directory: str | None = "",
     filter_blender: bool | None = True,
     filter_folder: bool | None = True,
     use_scenes: bool | None = True,
@@ -2409,19 +2472,20 @@ def previews_batch_generate(
     use_intern_data: bool | None = True,
     use_trusted: bool | None = False,
     use_backups: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate selected .blend files previews
 
-    :param files: Collection of file paths with common directory root
-    :param directory: Root path of all files listed in files collection
-    :param filter_blender: Show Blender files in the File Browser
-    :param filter_folder: Show folders in the File Browser
-    :param use_scenes: Scenes, Generate scenes previews
-    :param use_collections: Collections, Generate collections previews
-    :param use_objects: Objects, Generate objects previews
-    :param use_intern_data: Materials & Textures, Generate internal previews (materials, textures, images, etc.)
-    :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files
-    :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with generated previews
+    :param files: Collection of file paths with common directory root (optional)
+    :param directory: Root path of all files listed in files collection (optional, never None)
+    :param filter_blender: Show Blender files in the File Browser (optional)
+    :param filter_folder: Show folders in the File Browser (optional)
+    :param use_scenes: Scenes, Generate scenes previews (optional)
+    :param use_collections: Collections, Generate collections previews (optional)
+    :param use_objects: Objects, Generate objects previews (optional)
+    :param use_intern_data: Materials & Textures, Generate internal previews (materials, textures, images, etc.) (optional)
+    :param use_trusted: Trusted Blend Files, Enable Python evaluation for selected files (optional)
+    :param use_backups: Save Backups, Keep a backup (.blend1) version of the files when saving with generated previews (optional)
+    :return: Result of the operator call.
     """
 
 def previews_clear(
@@ -2445,10 +2509,10 @@ def previews_clear(
         ]
     ]
     | None = {},
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Clear data-block previews (only for some types like objects, materials, textures, etc.)
 
-        :param id_type: Data-Block Type, Which data-block previews to clear
+        :param id_type: Data-Block Type, Which data-block previews to clear (optional)
 
     ALL
     All Types.
@@ -2482,25 +2546,30 @@ def previews_clear(
 
     IMAGE
     Images.
+        :return: Result of the operator call.
     """
 
 def previews_ensure(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Ensure data-block previews are available and up-to-date (to be saved in .blend file, only for some types like materials, textures, etc.)
+
+    :return: Result of the operator call.
+    """
 
 def properties_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-) -> None:
+    data_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add your own property to the data-block
 
-    :param data_path: Property Edit, Property data_path edit
+    :param data_path: Property Edit, Property data_path edit (optional, never None)
+    :return: Result of the operator call.
     """
 
 def properties_context_change(
@@ -2508,11 +2577,12 @@ def properties_context_change(
     undo: bool | None = None,
     /,
     *,
-    context: str = "",
-) -> None:
+    context: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to a different tab inside the properties editor
 
-    :param context: Context
+    :param context: Context, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def properties_edit(
@@ -2520,8 +2590,8 @@ def properties_edit(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    property_name: str = "",
+    data_path: str | None = "",
+    property_name: str | None = "",
     property_type: typing.Literal[
         "FLOAT",
         "FLOAT_ARRAY",
@@ -2535,10 +2605,10 @@ def properties_edit(
     ]
     | None = "FLOAT",
     is_overridable_library: bool | None = False,
-    description: str = "",
+    description: str | None = "",
     use_soft_limits: bool | None = False,
     array_length: int | None = 3,
-    default_int: collections.abc.Iterable[int] | None = (
+    default_int: collections.abc.Sequence[int] | None = (
         0,
         0,
         0,
@@ -2577,7 +2647,7 @@ def properties_edit(
     soft_min_int: int | None = -10000,
     soft_max_int: int | None = 10000,
     step_int: int | None = 1,
-    default_bool: collections.abc.Iterable[bool] | None = (
+    default_bool: collections.abc.Sequence[bool] | None = (
         False,
         False,
         False,
@@ -2611,7 +2681,7 @@ def properties_edit(
         False,
         False,
     ),
-    default_float: collections.abc.Iterable[float] | None = (
+    default_float: collections.abc.Sequence[float] | None = (
         0.0,
         0.0,
         0.0,
@@ -2652,7 +2722,7 @@ def properties_edit(
     precision: int | None = 3,
     step_float: float | None = 0.1,
     subtype: str | None = "",
-    default_string: str = "",
+    default_string: str | None = "",
     id_type: typing.Literal[
         "ACTION",
         "ARMATURE",
@@ -2695,13 +2765,13 @@ def properties_edit(
         "WORLD",
     ]
     | None = "OBJECT",
-    eval_string: str = "",
-) -> None:
+    eval_string: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change a custom propertys type, or adjust how it is displayed in the interface
 
-        :param data_path: Property Edit, Property data_path edit
-        :param property_name: Property Name, Property name edit
-        :param property_type: Type
+        :param data_path: Property Edit, Property data_path edit (optional, never None)
+        :param property_name: Property Name, Property name edit (optional, never None)
+        :param property_type: Type, (optional)
 
     FLOAT
     Float -- A single floating-point value.
@@ -2729,28 +2799,29 @@ def properties_edit(
 
     PYTHON
     Python -- Edit a Python value directly, for unsupported property types.
-        :param is_overridable_library: Library Overridable, Allow the property to be overridden when the data-block is linked
-        :param description: Description
-        :param use_soft_limits: Soft Limits, Limits the Property Value slider to a range, values outside the range must be inputted numerically
-        :param array_length: Array Length
-        :param default_int: Default Value
-        :param min_int: Min
-        :param max_int: Max
-        :param soft_min_int: Soft Min
-        :param soft_max_int: Soft Max
-        :param step_int: Step
-        :param default_bool: Default Value
-        :param default_float: Default Value
-        :param min_float: Min
-        :param max_float: Max
-        :param soft_min_float: Soft Min
-        :param soft_max_float: Soft Max
-        :param precision: Precision
-        :param step_float: Step
-        :param subtype: Subtype
-        :param default_string: Default Value
-        :param id_type: ID Type
-        :param eval_string: Value, Python value for unsupported custom property types
+        :param is_overridable_library: Library Overridable, Allow the property to be overridden when the data-block is linked (optional)
+        :param description: Description, (optional, never None)
+        :param use_soft_limits: Soft Limits, Limits the Property Value slider to a range, values outside the range must be inputted numerically (optional)
+        :param array_length: Array Length, (in [1, 32], optional)
+        :param default_int: Default Value, (array of 32 items, in [-inf, inf], optional)
+        :param min_int: Min, (in [-inf, inf], optional)
+        :param max_int: Max, (in [-inf, inf], optional)
+        :param soft_min_int: Soft Min, (in [-inf, inf], optional)
+        :param soft_max_int: Soft Max, (in [-inf, inf], optional)
+        :param step_int: Step, (in [1, inf], optional)
+        :param default_bool: Default Value, (array of 32 items, optional)
+        :param default_float: Default Value, (array of 32 items, in [-inf, inf], optional)
+        :param min_float: Min, (in [-inf, inf], optional)
+        :param max_float: Max, (in [-inf, inf], optional)
+        :param soft_min_float: Soft Min, (in [-inf, inf], optional)
+        :param soft_max_float: Soft Max, (in [-inf, inf], optional)
+        :param precision: Precision, (in [0, 8], optional)
+        :param step_float: Step, (in [0.001, inf], optional)
+        :param subtype: Subtype, (optional)
+        :param default_string: Default Value, (optional, never None)
+        :param id_type: ID Type, (optional)
+        :param eval_string: Value, Python value for unsupported custom property types (optional, never None)
+        :return: Result of the operator call.
     """
 
 def properties_edit_value(
@@ -2758,15 +2829,16 @@ def properties_edit_value(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    property_name: str = "",
-    eval_string: str = "",
-) -> None:
+    data_path: str | None = "",
+    property_name: str | None = "",
+    eval_string: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit the value of a custom property
 
-    :param data_path: Property Edit, Property data_path edit
-    :param property_name: Property Name, Property name edit
-    :param eval_string: Value, Value for custom property types that can only be edited as a Python expression
+    :param data_path: Property Edit, Property data_path edit (optional, never None)
+    :param property_name: Property Name, Property name edit (optional, never None)
+    :param eval_string: Value, Value for custom property types that can only be edited as a Python expression (optional, never None)
+    :return: Result of the operator call.
     """
 
 def properties_remove(
@@ -2774,54 +2846,59 @@ def properties_remove(
     undo: bool | None = None,
     /,
     *,
-    data_path: str = "",
-    property_name: str = "",
-) -> None:
+    data_path: str | None = "",
+    property_name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Internal use (edit a property data_path)
 
-    :param data_path: Property Edit, Property data_path edit
-    :param property_name: Property Name, Property name edit
+    :param data_path: Property Edit, Property data_path edit (optional, never None)
+    :param property_name: Property Name, Property name edit (optional, never None)
+    :return: Result of the operator call.
     """
 
 def quit_blender(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Quit Blender"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Quit Blender
+
+    :return: Result of the operator call.
+    """
 
 def radial_control(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    data_path_primary: str = "",
-    data_path_secondary: str = "",
-    use_secondary: str = "",
-    rotation_path: str = "",
-    color_path: str = "",
-    fill_color_path: str = "",
-    fill_color_override_path: str = "",
-    fill_color_override_test_path: str = "",
-    zoom_path: str = "",
-    image_id: str = "",
+    data_path_primary: str | None = "",
+    data_path_secondary: str | None = "",
+    use_secondary: str | None = "",
+    rotation_path: str | None = "",
+    color_path: str | None = "",
+    fill_color_path: str | None = "",
+    fill_color_override_path: str | None = "",
+    fill_color_override_test_path: str | None = "",
+    zoom_path: str | None = "",
+    image_id: str | None = "",
     secondary_tex: bool | None = False,
     release_confirm: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set some size property (e.g. brush size) with mouse wheel
 
-    :param data_path_primary: Primary Data Path, Primary path of property to be set by the radial control
-    :param data_path_secondary: Secondary Data Path, Secondary path of property to be set by the radial control
-    :param use_secondary: Use Secondary, Path of property to select between the primary and secondary data paths
-    :param rotation_path: Rotation Path, Path of property used to rotate the texture display
-    :param color_path: Color Path, Path of property used to set the color of the control
-    :param fill_color_path: Fill Color Path, Path of property used to set the fill color of the control
-    :param fill_color_override_path: Fill Color Override Path
-    :param fill_color_override_test_path: Fill Color Override Test
-    :param zoom_path: Zoom Path, Path of property used to set the zoom level for the control
-    :param image_id: Image ID, Path of ID that is used to generate an image for the control
-    :param secondary_tex: Secondary Texture, Tweak brush secondary/mask texture
-    :param release_confirm: Confirm On Release, Finish operation on key release
+    :param data_path_primary: Primary Data Path, Primary path of property to be set by the radial control (optional, never None)
+    :param data_path_secondary: Secondary Data Path, Secondary path of property to be set by the radial control (optional, never None)
+    :param use_secondary: Use Secondary, Path of property to select between the primary and secondary data paths (optional, never None)
+    :param rotation_path: Rotation Path, Path of property used to rotate the texture display (optional, never None)
+    :param color_path: Color Path, Path of property used to set the color of the control (optional, never None)
+    :param fill_color_path: Fill Color Path, Path of property used to set the fill color of the control (optional, never None)
+    :param fill_color_override_path: Fill Color Override Path, (optional, never None)
+    :param fill_color_override_test_path: Fill Color Override Test, (optional, never None)
+    :param zoom_path: Zoom Path, Path of property used to set the zoom level for the control (optional, never None)
+    :param image_id: Image ID, Path of ID that is used to generate an image for the control (optional, never None)
+    :param secondary_tex: Secondary Texture, Tweak brush secondary/mask texture (optional)
+    :param release_confirm: Confirm On Release, Finish operation on key release (optional)
+    :return: Result of the operator call.
     """
 
 def read_factory_settings(
@@ -2830,13 +2907,15 @@ def read_factory_settings(
     /,
     *,
     use_factory_startup_app_template_only: bool | None = False,
-    app_template: str = "Template",
+    app_template: str | None = "Template",
     use_empty: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load factory default startup file and preferences. To make changes permanent, use "Save Startup File" and "Save Preferences"
 
-    :param use_factory_startup_app_template_only: Factory Startup App-Template Only
-    :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ...
+    :param use_factory_startup_app_template_only: Factory Startup App-Template Only, (optional)
+    :param app_template: (optional, never None)
+    :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ... (optional)
+    :return: Result of the operator call.
     """
 
 def read_factory_userpref(
@@ -2845,55 +2924,64 @@ def read_factory_userpref(
     /,
     *,
     use_factory_startup_app_template_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load factory default preferences. To make changes to preferences permanent, use "Save Preferences"
 
-    :param use_factory_startup_app_template_only: Factory Startup App-Template Only
+    :param use_factory_startup_app_template_only: Factory Startup App-Template Only, (optional)
+    :return: Result of the operator call.
     """
 
 def read_history(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reloads history and bookmarks"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reloads history and bookmarks
+
+    :return: Result of the operator call.
+    """
 
 def read_homefile(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     load_ui: bool | None = True,
     use_splash: bool | None = False,
     use_factory_startup: bool | None = False,
     use_factory_startup_app_template_only: bool | None = False,
-    app_template: str = "Template",
+    app_template: str | None = "Template",
     use_empty: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the default file
 
-    :param filepath: File Path, Path to an alternative start-up file
-    :param load_ui: Load UI, Load user interface setup from the .blend file
-    :param use_splash: Splash
-    :param use_factory_startup: Factory Startup, Load the default (factory startup) blend file. This is independent of the normal start-up file that the user can save
-    :param use_factory_startup_app_template_only: Factory Startup App-Template Only
-    :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ...
+    :param filepath: File Path, Path to an alternative start-up file (optional, never None)
+    :param load_ui: Load UI, Load user interface setup from the .blend file (optional)
+    :param use_splash: Splash, (optional)
+    :param use_factory_startup: Factory Startup, Load the default (factory startup) blend file. This is independent of the normal start-up file that the user can save (optional)
+    :param use_factory_startup_app_template_only: Factory Startup App-Template Only, (optional)
+    :param app_template: (optional, never None)
+    :param use_empty: Empty, After loading, remove everything except scenes, windows, and workspaces. This makes it possible to load the startup file with its scene configuration and window layout intact, but no objects, materials, animations, ... (optional)
+    :return: Result of the operator call.
     """
 
 def read_userpref(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Load last saved preferences"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Load last saved preferences
+
+    :return: Result of the operator call.
+    """
 
 def recover_auto_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = True,
@@ -2919,30 +3007,30 @@ def recover_auto_save(
     | None = "LIST_VERTICAL",
     sort_method: str | None = "",
     use_scripts: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open an automatically saved file to recover it
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -2955,8 +3043,9 @@ def recover_auto_save(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
+        :param sort_method: File sorting mode, (optional)
+        :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
+        :return: Result of the operator call.
     """
 
 def recover_last_session(
@@ -2965,10 +3054,11 @@ def recover_last_session(
     /,
     *,
     use_scripts: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open the last closed file ("quit.blend")
 
-    :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
+    :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
+    :return: Result of the operator call.
     """
 
 def redraw_timer(
@@ -2988,10 +3078,10 @@ def redraw_timer(
     | None = "DRAW",
     iterations: int | None = 10,
     time_limit: float | None = 0.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Simple redraw timer to test the speed of updating the interface
 
-        :param type: Type
+        :param type: Type, (optional)
 
     DRAW
     Draw Region -- Draw region.
@@ -3013,8 +3103,9 @@ def redraw_timer(
 
     UNDO
     Undo/Redo -- Undo and redo.
-        :param iterations: Iterations, Number of times to redraw
-        :param time_limit: Time Limit, Seconds to run the test for (override iterations)
+        :param iterations: Iterations, Number of times to redraw (in [1, inf], optional)
+        :param time_limit: Time Limit, Seconds to run the test for (override iterations) (in [0, inf], optional)
+        :return: Result of the operator call.
     """
 
 def revert_mainfile(
@@ -3023,10 +3114,11 @@ def revert_mainfile(
     /,
     *,
     use_scripts: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reload the saved file
 
-    :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences
+    :param use_scripts: Trusted Source, Allow .blend file to execute scripts automatically, default available from system preferences (optional)
+    :return: Result of the operator call.
     """
 
 def save_as_mainfile(
@@ -3034,7 +3126,7 @@ def save_as_mainfile(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -3062,30 +3154,30 @@ def save_as_mainfile(
     compress: bool | None = False,
     relative_remap: bool | None = True,
     copy: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current file in the desired location
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -3098,25 +3190,29 @@ def save_as_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param compress: Compress, Write compressed .blend file
-        :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory
-        :param copy: Save Copy, Save a copy of the actual working state but does not make saved file active
+        :param sort_method: File sorting mode, (optional)
+        :param compress: Compress, Write compressed .blend file (optional)
+        :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory (optional)
+        :param copy: Save Copy, Save a copy of the actual working state but does not make saved file active (optional)
+        :return: Result of the operator call.
     """
 
 def save_homefile(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make the current file the default startup file"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make the current file the default startup file
+
+    :return: Result of the operator call.
+    """
 
 def save_mainfile(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -3145,30 +3241,30 @@ def save_mainfile(
     relative_remap: bool | None = False,
     exit: bool | None = False,
     incremental: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the current Blender file
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -3181,46 +3277,57 @@ def save_mainfile(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param compress: Compress, Write compressed .blend file
-        :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory
-        :param exit: Exit, Exit Blender after saving
-        :param incremental: Incremental, Save the current Blender file with a numerically incremented name that does not overwrite any existing files
+        :param sort_method: File sorting mode, (optional)
+        :param compress: Compress, Write compressed .blend file (optional)
+        :param relative_remap: Remap Relative, Remap relative paths when saving to a different directory (optional)
+        :param exit: Exit, Exit Blender after saving (optional)
+        :param incremental: Incremental, Save the current Blender file with a numerically incremented name that does not overwrite any existing files (optional)
+        :return: Result of the operator call.
     """
 
 def save_userpref(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make the current preferences default"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make the current preferences default
+
+    :return: Result of the operator call.
+    """
 
 def search_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Pop-up a search over all menus in the current context"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Pop-up a search over all menus in the current context
+
+    :return: Result of the operator call.
+    """
 
 def search_operator(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Pop-up a search over all available operators in current context"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Pop-up a search over all available operators in current context
+
+    :return: Result of the operator call.
+    """
 
 def search_single_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    menu_idname: str = "",
-    initial_query: str = "",
-) -> None:
+    menu_idname: str | None = "",
+    initial_query: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pop-up a search for a menu in current context
 
-    :param menu_idname: Menu Name, Menu to search in
-    :param initial_query: Initial Query, Query to insert into the search box
+    :param menu_idname: Menu Name, Menu to search in (optional, never None)
+    :param initial_query: Initial Query, Query to insert into the search box (optional, never None)
+    :return: Result of the operator call.
     """
 
 def set_stereo_3d(
@@ -3228,21 +3335,23 @@ def set_stereo_3d(
     undo: bool | None = None,
     /,
     *,
-    display_mode: bpy.stub_internal.rna_enums.Stereo3DDisplayItems | None = "ANAGLYPH",
-    anaglyph_type: bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems
+    display_mode: Literal[bpy.stub_internal.rna_enums.Stereo3DDisplayItems]
+    | None = "ANAGLYPH",
+    anaglyph_type: Literal[bpy.stub_internal.rna_enums.Stereo3DAnaglyphTypeItems]
     | None = "RED_CYAN",
-    interlace_type: bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems
+    interlace_type: Literal[bpy.stub_internal.rna_enums.Stereo3DInterlaceTypeItems]
     | None = "ROW_INTERLEAVED",
     use_interlace_swap: bool | None = False,
     use_sidebyside_crosseyed: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle 3D stereo support for current window (or change the display mode)
 
-    :param display_mode: Display Mode
-    :param anaglyph_type: Anaglyph Type
-    :param interlace_type: Interlace Type
-    :param use_interlace_swap: Swap Left/Right, Swap left and right stereo channels
-    :param use_sidebyside_crosseyed: Cross-Eyed, Right eye should see left image and vice versa
+    :param display_mode: Display Mode, (optional)
+    :param anaglyph_type: Anaglyph Type, (optional)
+    :param interlace_type: Interlace Type, (optional)
+    :param use_interlace_swap: Swap Left/Right, Swap left and right stereo channels (optional)
+    :param use_sidebyside_crosseyed: Cross-Eyed, Right eye should see left image and vice versa (optional)
+    :return: Result of the operator call.
     """
 
 def set_working_color_space(
@@ -3252,33 +3361,40 @@ def set_working_color_space(
     *,
     convert_colors: bool | None = True,
     working_space: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the working color space of all colors in this blend file
 
-    :param convert_colors: Convert Colors in All Data-blocks, Change colors in all data-blocks to the new working space
-    :param working_space: Working Space, Color space to set
+    :param convert_colors: Convert Colors in All Data-blocks, Change colors in all data-blocks to the new working space (optional)
+    :param working_space: Working Space, Color space to set (optional)
+    :return: Result of the operator call.
     """
 
 def splash(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Open the splash screen with release info"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Open the splash screen with release info
+
+    :return: Result of the operator call.
+    """
 
 def splash_about(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Open a window with information about Blender"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Open a window with information about Blender
+
+    :return: Result of the operator call.
+    """
 
 def stl_export(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -3305,7 +3421,7 @@ def stl_export(
     ascii_format: bool | None = False,
     use_batch: bool | None = False,
     export_selected_objects: bool | None = False,
-    collection: str = "",
+    collection: str | None = "",
     global_scale: float | None = 1.0,
     use_scene_unit: bool | None = False,
     forward_axis: typing.Literal[
@@ -3315,30 +3431,30 @@ def stl_export(
     up_axis: typing.Literal["X", "Y", "Z", "NEGATIVE_X", "NEGATIVE_Y", "NEGATIVE_Z"]
     | None = "Z",
     apply_modifiers: bool | None = True,
-    filter_glob: str = "*.stl",
-) -> None:
+    filter_glob: str | None = "*.stl",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save the scene to an STL file
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -3351,14 +3467,14 @@ def stl_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise
-        :param use_batch: Batch Export, Export each object to a separate file
-        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects
-        :param collection: Source Collection, Export only objects from this collection (and its children)
-        :param global_scale: Scale
-        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to exported data
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param ascii_format: ASCII Format, Export file in ASCII format, export as binary otherwise (optional)
+        :param use_batch: Batch Export, Export each object to a separate file (optional)
+        :param export_selected_objects: Export Selected Objects, Export only selected objects instead of all supported objects (optional)
+        :param collection: Source Collection, Export only objects from this collection (and its children) (optional, never None)
+        :param global_scale: Scale, (in [1e-06, 1e+06], optional)
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to exported data (optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3377,7 +3493,7 @@ def stl_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3396,8 +3512,9 @@ def stl_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes
-        :param filter_glob: Extension Filter
+        :param apply_modifiers: Apply Modifiers, Apply modifiers to exported meshes (optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def stl_import(
@@ -3405,10 +3522,9 @@ def stl_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
+    filepath: str | None = "",
+    directory: str | None = "",
+    files=None,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -3442,32 +3558,32 @@ def stl_import(
     up_axis: typing.Literal["X", "Y", "Z", "NEGATIVE_X", "NEGATIVE_Y", "NEGATIVE_Z"]
     | None = "Z",
     use_mesh_validate: bool | None = True,
-    filter_glob: str = "*.stl",
-) -> None:
+    filter_glob: str | None = "*.stl",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import an STL file as an object
 
-        :param filepath: File Path, Path to file
-        :param directory: Directory, Directory of the file
-        :param files: Files
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param directory: Directory, Directory of the file (optional, never None)
+        :param files: Files, (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -3480,11 +3596,11 @@ def stl_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param global_scale: Scale
-        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data
-        :param use_facet_normal: Facet Normals, Use (import) facet normals (note that this will still give flat shading)
-        :param forward_axis: Forward Axis
+        :param sort_method: File sorting mode, (optional)
+        :param global_scale: Scale, (in [1e-06, 1e+06], optional)
+        :param use_scene_unit: Scene Unit, Apply current scenes unit (as defined by unit scale) to imported data (optional)
+        :param use_facet_normal: Facet Normals, Use (import) facet normals (note that this will still give flat shading) (optional)
+        :param forward_axis: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3503,7 +3619,7 @@ def stl_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param up_axis: Up Axis
+        :param up_axis: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3522,8 +3638,9 @@ def stl_import(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param use_mesh_validate: Validate Mesh, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :param filter_glob: Extension Filter
+        :param use_mesh_validate: Validate Mesh, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing) (optional)
+        :param filter_glob: Extension Filter, (optional, never None)
+        :return: Result of the operator call.
     """
 
 def sysinfo(
@@ -3531,11 +3648,12 @@ def sysinfo(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-) -> None:
+    filepath: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate system information, saved into a text file
 
-    :param filepath: filepath
+    :param filepath: filepath, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def tool_set_by_brush_type(
@@ -3543,7 +3661,7 @@ def tool_set_by_brush_type(
     undo: bool | None = None,
     /,
     *,
-    brush_type: str = "",
+    brush_type: str | None = "",
     space_type: typing.Literal[
         "EMPTY",
         "VIEW_3D",
@@ -3566,11 +3684,12 @@ def tool_set_by_brush_type(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Look up the most appropriate tool for the given brush type and activate that
 
-    :param brush_type: Brush Type, Brush type identifier for which the most appropriate tool will be looked up
-    :param space_type: Type
+    :param brush_type: Brush Type, Brush type identifier for which the most appropriate tool will be looked up (optional, never None)
+    :param space_type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def tool_set_by_id(
@@ -3578,7 +3697,7 @@ def tool_set_by_id(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     cycle: bool | None = False,
     as_fallback: bool | None = False,
     space_type: typing.Literal[
@@ -3603,13 +3722,14 @@ def tool_set_by_id(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the tool by name (for key-maps)
 
-    :param name: Identifier, Identifier of the tool
-    :param cycle: Cycle, Cycle through tools in this group
-    :param as_fallback: Set Fallback, Set the fallback tool instead of the primary tool
-    :param space_type: Type
+    :param name: Identifier, Identifier of the tool (optional, never None)
+    :param cycle: Cycle, Cycle through tools in this group (optional)
+    :param as_fallback: Set Fallback, Set the fallback tool instead of the primary tool (optional)
+    :param space_type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def tool_set_by_index(
@@ -3643,47 +3763,58 @@ def tool_set_by_index(
         "PREFERENCES",
     ]
     | None = "EMPTY",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the tool by index (for key-maps)
 
-    :param index: Index in Toolbar
-    :param cycle: Cycle, Cycle through tools in this group
-    :param expand: expand, Include tool subgroups
-    :param as_fallback: Set Fallback, Set the fallback tool instead of the primary
-    :param space_type: Type
+    :param index: Index in Toolbar, (in [-inf, inf], optional)
+    :param cycle: Cycle, Cycle through tools in this group (optional)
+    :param expand: expand, Include tool subgroups (optional)
+    :param as_fallback: Set Fallback, Set the fallback tool instead of the primary (optional)
+    :param space_type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def toolbar(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def toolbar_fallback_pie(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def toolbar_prompt(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Leader key like functionality for accessing tools"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Leader key like functionality for accessing tools
+
+    :return: Result of the operator call.
+    """
 
 def url_open(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    url: str = "",
-) -> None:
+    url: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a website in the web browser
 
-    :param url: URL, URL to open
+    :param url: URL, URL to open (optional, never None)
+    :return: Result of the operator call.
     """
 
 def url_open_preset(
@@ -3692,10 +3823,11 @@ def url_open_preset(
     /,
     *,
     type: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a preset website in the web browser
 
-    :param type: Site
+    :param type: Site, (optional)
+    :return: Result of the operator call.
     """
 
 def usd_export(
@@ -3703,7 +3835,7 @@ def usd_export(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -3727,9 +3859,9 @@ def usd_export(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str = "*.usd",
+    filter_glob: str | None = "*.usd",
     selected_objects_only: bool | None = False,
-    collection: str = "",
+    collection: str | None = "",
     export_animation: bool | None = False,
     export_hair: bool | None = False,
     export_uvmaps: bool | None = True,
@@ -3759,11 +3891,11 @@ def usd_export(
     overwrite_textures: bool | None = False,
     relative_paths: bool | None = True,
     xform_op_mode: typing.Literal["TRS", "TOS", "MAT"] | None = "TRS",
-    root_prim_path: str = "/root",
+    root_prim_path: str | None = "/root",
     export_custom_properties: bool | None = True,
-    custom_properties_namespace: str = "userProperties",
-    accessibility_label: str = "",
-    accessibility_description: str = "",
+    custom_properties_namespace: str | None = "userProperties",
+    accessibility_label: str | None = "",
+    accessibility_description: str | None = "",
     author_blender_name: bool | None = True,
     convert_world_material: bool | None = True,
     allow_unicode: bool | None = True,
@@ -3774,9 +3906,9 @@ def usd_export(
     export_points: bool | None = True,
     export_volumes: bool | None = True,
     triangulate_meshes: bool | None = False,
-    quad_method: bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
     | None = "SHORTEST_DIAGONAL",
-    ngon_method: bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
     | None = "BEAUTY",
     usdz_downscale_size: typing.Literal[
         "KEEP", "256", "512", "1024", "2048", "4096", "CUSTOM"
@@ -3796,29 +3928,29 @@ def usd_export(
     ]
     | None = "METERS",
     meters_per_unit: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Export current scene in a USD archive
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -3831,17 +3963,18 @@ def usd_export(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param selected_objects_only: Selection Only, Only export selected objects. Unselected parents of selected objects are exported as empty transform
-        :param collection: Collection
-        :param export_animation: Animation, Export all frames in the render frame range, rather than only the current frame
-        :param export_hair: Hair, Export hair particle systems as USD curves
-        :param export_uvmaps: UV Maps, Include all mesh UV maps in the export
-        :param rename_uvmaps: Rename UV Maps, Rename active render UV map to "st" to match USD conventions
-        :param export_mesh_colors: Color Attributes, Include mesh color attributes in the export
-        :param export_normals: Normals, Include normals of exported meshes in the export
-        :param export_materials: Materials, Export viewport settings of materials as USD preview materials, and export material assignments as geometry subsets
-        :param export_subdivision: Subdivision, Choose how subdivision modifiers will be mapped to the USD subdivision scheme during export
+        :param sort_method: File sorting mode, (optional)
+        :param filter_glob: (optional, never None)
+        :param selected_objects_only: Selection Only, Only export selected objects. Unselected parents of selected objects are exported as empty transform (optional)
+        :param collection: Collection, (optional, never None)
+        :param export_animation: Animation, Export all frames in the render frame range, rather than only the current frame (optional)
+        :param export_hair: Hair, Export hair particle systems as USD curves (optional)
+        :param export_uvmaps: UV Maps, Include all mesh UV maps in the export (optional)
+        :param rename_uvmaps: Rename UV Maps, Rename active render UV map to "st" to match USD conventions (optional)
+        :param export_mesh_colors: Color Attributes, Include mesh color attributes in the export (optional)
+        :param export_normals: Normals, Include normals of exported meshes in the export (optional)
+        :param export_materials: Materials, Export viewport settings of materials as USD preview materials, and export material assignments as geometry subsets (optional)
+        :param export_subdivision: Subdivision, Choose how subdivision modifiers will be mapped to the USD subdivision scheme during export (optional)
 
     IGNORE
     Ignore -- Scheme = None. Export base mesh without subdivision.
@@ -3851,21 +3984,21 @@ def usd_export(
 
     BEST_MATCH
     Best Match -- Scheme = Catmull-Clark, when possible. Reverts to exporting the subdivided mesh for the Simple subdivision type.
-        :param export_armatures: Armatures, Export armatures and meshes with armature modifiers as USD skeletons and skinned meshes
-        :param only_deform_bones: Only Deform Bones, Only export deform bones and their parents
-        :param export_shapekeys: Shape Keys, Export shape keys as USD blend shapes
-        :param use_instancing: Instancing, Export instanced objects as references in USD rather than real objects
-        :param evaluation_mode: Use Settings for, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering
+        :param export_armatures: Armatures, Export armatures and meshes with armature modifiers as USD skeletons and skinned meshes (optional)
+        :param only_deform_bones: Only Deform Bones, Only export deform bones and their parents (optional)
+        :param export_shapekeys: Shape Keys, Export shape keys as USD blend shapes (optional)
+        :param use_instancing: Instancing, Export instanced objects as references in USD rather than real objects (optional)
+        :param evaluation_mode: Use Settings for, Determines visibility of objects, modifier settings, and other areas where there are different settings for viewport and rendering (optional)
 
     RENDER
     Render -- Use Render settings for object visibility, modifier settings, etc.
 
     VIEWPORT
     Viewport -- Use Viewport settings for object visibility, modifier settings, etc.
-        :param generate_preview_surface: USD Preview Surface Network, Generate an approximate USD Preview Surface shader representation of a Principled BSDF node network
-        :param generate_materialx_network: MaterialX Network, Generate a MaterialX network representation of the materials
-        :param convert_orientation: Convert Orientation, Convert orientation axis to a different convention to match other applications
-        :param export_global_forward_selection: Forward Axis
+        :param generate_preview_surface: USD Preview Surface Network, Generate an approximate USD Preview Surface shader representation of a Principled BSDF node network (optional)
+        :param generate_materialx_network: MaterialX Network, Generate a MaterialX network representation of the materials (optional)
+        :param convert_orientation: Convert Orientation, Convert orientation axis to a different convention to match other applications (optional)
+        :param export_global_forward_selection: Forward Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3884,7 +4017,7 @@ def usd_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param export_global_up_selection: Up Axis
+        :param export_global_up_selection: Up Axis, (optional)
 
     X
     X -- Positive X axis.
@@ -3903,7 +4036,7 @@ def usd_export(
 
     NEGATIVE_Z
     -Z -- Negative Z axis.
-        :param export_textures_mode: Export Textures, Texture export method
+        :param export_textures_mode: Export Textures, Texture export method (optional)
 
     KEEP
     Keep -- Use original location of textures.
@@ -3914,9 +4047,9 @@ def usd_export(
 
     NEW
     New Path -- Export textures to a textures folder next to the USD file.
-        :param overwrite_textures: Overwrite Textures, Overwrite existing files when exporting textures
-        :param relative_paths: Relative Paths, Use relative paths to reference external files (i.e. textures, volumes) in USD, otherwise use absolute paths
-        :param xform_op_mode: Xform Ops, The type of transform operators to write
+        :param overwrite_textures: Overwrite Textures, Overwrite existing files when exporting textures (optional)
+        :param relative_paths: Relative Paths, Use relative paths to reference external files (i.e. textures, volumes) in USD, otherwise use absolute paths (optional)
+        :param xform_op_mode: Xform Ops, The type of transform operators to write (optional)
 
     TRS
     Translate, Rotate, Scale -- Export with translate, rotate, and scale Xform operators.
@@ -3926,24 +4059,24 @@ def usd_export(
 
     MAT
     Matrix -- Export matrix operator.
-        :param root_prim_path: Root Prim, If set, add a transform primitive with the given path to the stage as the parent of all exported data
-        :param export_custom_properties: Custom Properties, Export custom properties as USD attributes
-        :param custom_properties_namespace: Namespace, If set, add the given namespace as a prefix to exported custom property names. This only applies to property names that do not already have a prefix (e.g., it would apply to name bar but not foo:bar) and does not apply to blender object and data names which are always exported in the userProperties:blender namespace
-        :param accessibility_label: Label, Set the accessibility label for the exported stages default prim
-        :param accessibility_description: Description, Set the accessibility description for the exported stages default prim
-        :param author_blender_name: Blender Names, Author USD custom attributes containing the original Blender object and object data names
-        :param convert_world_material: World Dome Light, Convert the world material to a USD dome light. Currently works for simple materials, consisting of an environment texture connected to a background shader, with an optional vector multiply of the texture color
-        :param allow_unicode: Allow Unicode, Preserve UTF-8 encoded characters when writing USD prim and property names (requires software utilizing USD 24.03 or greater when opening the resulting files)
-        :param export_meshes: Meshes, Export all meshes
-        :param export_lights: Lights, Export all lights
-        :param export_cameras: Cameras, Export all cameras
-        :param export_curves: Curves, Export all curves
-        :param export_points: Point Clouds, Export all point clouds
-        :param export_volumes: Volumes, Export all volumes
-        :param triangulate_meshes: Triangulate Meshes, Triangulate meshes during export
-        :param quad_method: Quad Method, Method for splitting the quads into triangles
-        :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles
-        :param usdz_downscale_size: USDZ Texture Downsampling, Choose a maximum size for all exported textures
+        :param root_prim_path: Root Prim, If set, add a transform primitive with the given path to the stage as the parent of all exported data (optional, never None)
+        :param export_custom_properties: Custom Properties, Export custom properties as USD attributes (optional)
+        :param custom_properties_namespace: Namespace, If set, add the given namespace as a prefix to exported custom property names. This only applies to property names that do not already have a prefix (e.g., it would apply to name bar but not foo:bar) and does not apply to blender object and data names which are always exported in the userProperties:blender namespace (optional, never None)
+        :param accessibility_label: Label, Set the accessibility label for the exported stages default prim (optional, never None)
+        :param accessibility_description: Description, Set the accessibility description for the exported stages default prim (optional, never None)
+        :param author_blender_name: Blender Names, Author USD custom attributes containing the original Blender object and object data names (optional)
+        :param convert_world_material: World Dome Light, Convert the world material to a USD dome light. Currently works for simple materials, consisting of an environment texture connected to a background shader, with an optional vector multiply of the texture color (optional)
+        :param allow_unicode: Allow Unicode, Preserve UTF-8 encoded characters when writing USD prim and property names (requires software utilizing USD 24.03 or greater when opening the resulting files) (optional)
+        :param export_meshes: Meshes, Export all meshes (optional)
+        :param export_lights: Lights, Export all lights (optional)
+        :param export_cameras: Cameras, Export all cameras (optional)
+        :param export_curves: Curves, Export all curves (optional)
+        :param export_points: Point Clouds, Export all point clouds (optional)
+        :param export_volumes: Volumes, Export all volumes (optional)
+        :param triangulate_meshes: Triangulate Meshes, Triangulate meshes during export (optional)
+        :param quad_method: Quad Method, Method for splitting the quads into triangles (optional)
+        :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles (optional)
+        :param usdz_downscale_size: USDZ Texture Downsampling, Choose a maximum size for all exported textures (optional)
 
     KEEP
     Keep -- Keep all current texture sizes.
@@ -3965,9 +4098,9 @@ def usd_export(
 
     CUSTOM
     Custom -- Specify a custom size.
-        :param usdz_downscale_custom_size: USDZ Custom Downscale Size, Custom size for downscaling exported textures
-        :param merge_parent_xform: Merge parent Xform, Merge USD primitives with their Xform parent if possible. USD does not allow nested UsdGeomGprims, intermediary Xform prims will be defined to keep the USD file valid when encountering object hierarchies.
-        :param convert_scene_units: Units, Set the USD Stage meters per unit to the chosen measurement, or a custom value
+        :param usdz_downscale_custom_size: USDZ Custom Downscale Size, Custom size for downscaling exported textures (in [64, 16384], optional)
+        :param merge_parent_xform: Merge parent Xform, Merge USD primitives with their Xform parent if possible. USD does not allow nested UsdGeomGprims, intermediary Xform prims will be defined to keep the USD file valid when encountering object hierarchies. (optional)
+        :param convert_scene_units: Units, Set the USD Stage meters per unit to the chosen measurement, or a custom value (optional)
 
     METERS
     Meters -- Scene meters per unit to 1.0.
@@ -3992,7 +4125,8 @@ def usd_export(
 
     CUSTOM
     Custom -- Specify a custom scene meters per unit value.
-        :param meters_per_unit: Meters Per Unit, Custom value for meters per unit in the USD Stage
+        :param meters_per_unit: Meters Per Unit, Custom value for meters per unit in the USD Stage (in [0.0001, 1000], optional)
+        :return: Result of the operator call.
     """
 
 def usd_import(
@@ -4000,7 +4134,7 @@ def usd_import(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -4025,7 +4159,7 @@ def usd_import(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-    filter_glob: str = "*.usd",
+    filter_glob: str | None = "*.usd",
     scale: float | None = 1.0,
     set_frame_range: bool | None = True,
     import_cameras: bool | None = True,
@@ -4045,7 +4179,7 @@ def usd_import(
     read_mesh_uvs: bool | None = True,
     read_mesh_colors: bool | None = True,
     read_mesh_attributes: bool | None = True,
-    prim_path_mask: str = "",
+    prim_path_mask: str | None = "",
     import_guide: bool | None = False,
     import_proxy: bool | None = False,
     import_render: bool | None = True,
@@ -4059,7 +4193,7 @@ def usd_import(
     | None = "MAKE_UNIQUE",
     import_textures_mode: typing.Literal["IMPORT_NONE", "IMPORT_PACK", "IMPORT_COPY"]
     | None = "IMPORT_PACK",
-    import_textures_dir: str = "//textures/",
+    import_textures_dir: str | None = "//textures/",
     tex_name_collision_mode: typing.Literal["USE_EXISTING", "OVERWRITE"]
     | None = "USE_EXISTING",
     property_import_mode: typing.Literal["NONE", "USER", "ALL"] | None = "ALL",
@@ -4068,30 +4202,30 @@ def usd_import(
     import_defined_only: bool | None = True,
     merge_parent_xform: bool | None = True,
     apply_unit_conversion_scale: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import USD stage into current scene
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -4104,35 +4238,36 @@ def usd_import(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin
-        :param set_frame_range: Set Frame Range, Update the scenes start and end frame to match those of the USD archive
-        :param import_cameras: Cameras
-        :param import_curves: Curves
-        :param import_lights: Lights
-        :param import_materials: Materials
-        :param import_meshes: Meshes
-        :param import_volumes: Volumes
-        :param import_shapes: USD Shapes
-        :param import_skeletons: Armatures
-        :param import_blendshapes: Shape Keys
-        :param import_points: Point Clouds
-        :param import_subdivision: Import Subdivision Scheme, Create subdivision surface modifiers based on the USD SubdivisionScheme attribute
-        :param support_scene_instancing: Scene Instancing, Import USD scene graph instances as collection instances
-        :param import_visible_only: Visible Primitives Only, Do not import invisible USD primitives. Only applies to primitives with a non-animated visibility attribute. Primitives with animated visibility will always be imported
-        :param create_collection: Create Collection, Add all imported objects to a new collection
-        :param read_mesh_uvs: UV Coordinates, Read mesh UV coordinates
-        :param read_mesh_colors: Color Attributes, Read mesh color attributes
-        :param read_mesh_attributes: Mesh Attributes, Read USD Primvars as mesh attributes
-        :param prim_path_mask: Path Mask, Import only the primitive at the given path and its descendants. Multiple paths may be specified in a list delimited by commas or semicolons
-        :param import_guide: Guide, Import guide geometry
-        :param import_proxy: Proxy, Import proxy geometry
-        :param import_render: Render, Import final render geometry
-        :param import_all_materials: Import All Materials, Also import materials that are not used by any geometry. Note that when this option is false, materials referenced by geometry will still be imported
-        :param import_usd_preview: Import USD Preview, Convert UsdPreviewSurface shaders to Principled BSDF shader networks
-        :param set_material_blend: Set Material Blend, If the Import USD Preview option is enabled, the material blend method will automatically be set based on the shaders opacity and opacityThreshold inputs
-        :param light_intensity_scale: Light Intensity Scale, Scale for the intensity of imported lights
-        :param mtl_purpose: Material Purpose, Attempt to import materials with the given purpose. If no material with this purpose is bound to the primitive, fall back on loading any other bound material
+        :param sort_method: File sorting mode, (optional)
+        :param filter_glob: (optional, never None)
+        :param scale: Scale, Value by which to enlarge or shrink the objects with respect to the worlds origin (in [0.0001, 1000], optional)
+        :param set_frame_range: Set Frame Range, Update the scenes start and end frame to match those of the USD archive (optional)
+        :param import_cameras: Cameras, (optional)
+        :param import_curves: Curves, (optional)
+        :param import_lights: Lights, (optional)
+        :param import_materials: Materials, (optional)
+        :param import_meshes: Meshes, (optional)
+        :param import_volumes: Volumes, (optional)
+        :param import_shapes: USD Shapes, (optional)
+        :param import_skeletons: Armatures, (optional)
+        :param import_blendshapes: Shape Keys, (optional)
+        :param import_points: Point Clouds, (optional)
+        :param import_subdivision: Import Subdivision Scheme, Create subdivision surface modifiers based on the USD SubdivisionScheme attribute (optional)
+        :param support_scene_instancing: Scene Instancing, Import USD scene graph instances as collection instances (optional)
+        :param import_visible_only: Visible Primitives Only, Do not import invisible USD primitives. Only applies to primitives with a non-animated visibility attribute. Primitives with animated visibility will always be imported (optional)
+        :param create_collection: Create Collection, Add all imported objects to a new collection (optional)
+        :param read_mesh_uvs: UV Coordinates, Read mesh UV coordinates (optional)
+        :param read_mesh_colors: Color Attributes, Read mesh color attributes (optional)
+        :param read_mesh_attributes: Mesh Attributes, Read USD Primvars as mesh attributes (optional)
+        :param prim_path_mask: Path Mask, Import only the primitive at the given path and its descendants. Multiple paths may be specified in a list delimited by commas or semicolons (optional, never None)
+        :param import_guide: Guide, Import guide geometry (optional)
+        :param import_proxy: Proxy, Import proxy geometry (optional)
+        :param import_render: Render, Import final render geometry (optional)
+        :param import_all_materials: Import All Materials, Also import materials that are not used by any geometry. Note that when this option is false, materials referenced by geometry will still be imported (optional)
+        :param import_usd_preview: Import USD Preview, Convert UsdPreviewSurface shaders to Principled BSDF shader networks (optional)
+        :param set_material_blend: Set Material Blend, If the Import USD Preview option is enabled, the material blend method will automatically be set based on the shaders opacity and opacityThreshold inputs (optional)
+        :param light_intensity_scale: Light Intensity Scale, Scale for the intensity of imported lights (in [0.0001, 10000], optional)
+        :param mtl_purpose: Material Purpose, Attempt to import materials with the given purpose. If no material with this purpose is bound to the primitive, fall back on loading any other bound material (optional)
 
     MTL_ALL_PURPOSE
     All Purpose -- Attempt to import allPurpose materials..
@@ -4142,14 +4277,14 @@ def usd_import(
 
     MTL_FULL
     Full -- Attempt to import full materials. Load allPurpose or preview materials, in that order, as a fallback.
-        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material
+        :param mtl_name_collision_mode: Material Name Collision, Behavior when the name of an imported material conflicts with an existing material (optional)
 
     MAKE_UNIQUE
     Make Unique -- Import each USD material as a unique Blender material.
 
     REFERENCE_EXISTING
     Reference Existing -- If a material with the same name already exists, reference that instead of importing.
-        :param import_textures_mode: Import Textures, Behavior when importing textures from a USDZ archive
+        :param import_textures_mode: Import Textures, Behavior when importing textures from a USDZ archive (optional)
 
     IMPORT_NONE
     None -- Dont import textures.
@@ -4159,15 +4294,15 @@ def usd_import(
 
     IMPORT_COPY
     Copy -- Copy files to textures directory.
-        :param import_textures_dir: Textures Directory, Path to the directory where imported textures will be copied
-        :param tex_name_collision_mode: File Name Collision, Behavior when the name of an imported texture file conflicts with an existing file
+        :param import_textures_dir: Textures Directory, Path to the directory where imported textures will be copied (optional, never None)
+        :param tex_name_collision_mode: File Name Collision, Behavior when the name of an imported texture file conflicts with an existing file (optional)
 
     USE_EXISTING
     Use Existing -- If a file with the same name already exists, use that instead of copying.
 
     OVERWRITE
     Overwrite -- Overwrite existing files.
-        :param property_import_mode: Custom Properties, Behavior when importing USD attributes as Blender custom properties
+        :param property_import_mode: Custom Properties, Behavior when importing USD attributes as Blender custom properties (optional)
 
     NONE
     None -- Do not import USD custom attributes.
@@ -4177,40 +4312,53 @@ def usd_import(
 
     ALL
     All Custom -- Import all USD custom attributes as Blender custom properties. Namespaces will be retained in the property names.
-        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing)
-        :param create_world_material: World Dome Light, Convert the first discovered USD dome light to a world background shader
-        :param import_defined_only: Defined Primitives Only, Import only defined USD primitives. When disabled this allows importing USD primitives which are not defined, such as those with an override specifier
-        :param merge_parent_xform: Merge parent Xform, Allow USD primitives to merge with their Xform parent if they are the only child in the hierarchy
-        :param apply_unit_conversion_scale: Apply Unit Conversion Scale, Scale the scene objects by the USD stages meters per unit value. This scaling is applied in addition to the value specified in the Scale option
+        :param validate_meshes: Validate Meshes, Ensure the data is valid (when disabled, data may be imported which causes crashes displaying or editing) (optional)
+        :param create_world_material: World Dome Light, Convert the first discovered USD dome light to a world background shader (optional)
+        :param import_defined_only: Defined Primitives Only, Import only defined USD primitives. When disabled this allows importing USD primitives which are not defined, such as those with an override specifier (optional)
+        :param merge_parent_xform: Merge parent Xform, Allow USD primitives to merge with their Xform parent if they are the only child in the hierarchy (optional)
+        :param apply_unit_conversion_scale: Apply Unit Conversion Scale, Scale the scene objects by the USD stages meters per unit value. This scaling is applied in addition to the value specified in the Scale option (optional)
+        :return: Result of the operator call.
     """
 
 def window_close(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Close the current window"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Close the current window
+
+    :return: Result of the operator call.
+    """
 
 def window_fullscreen_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle the current window full-screen"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle the current window full-screen
+
+    :return: Result of the operator call.
+    """
 
 def window_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create a new window"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create a new window
+
+    :return: Result of the operator call.
+    """
 
 def window_new_main(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create a new main window with its own workspace and scene selection"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create a new main window with its own workspace and scene selection
+
+    :return: Result of the operator call.
+    """
 
 def xr_navigation_fly(
     execution_context: int | str | None = None,
@@ -4265,10 +4413,10 @@ def xr_navigation_fly(
     | None = "VIEWER_FORWARD",
     alt_lock_location_z: bool | None = False,
     alt_lock_direction: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move/turn relative to the VR viewer or controller
 
-        :param mode: Mode, Fly mode
+        :param mode: Mode, Fly mode (optional)
 
     FORWARD
     Forward -- Move along navigation forward axis.
@@ -4308,15 +4456,15 @@ def xr_navigation_fly(
 
     CONTROLLER_FORWARD
     Controller Forward -- Move along controllers forward axis.
-        :param snap_turn_threshold: Snap Turn Threshold, Input state threshold when using snap turn
-        :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation
-        :param lock_direction: Lock Direction, Limit movement to viewers initial direction
-        :param speed_frame_based: Frame Based Speed, Apply fixed movement deltas every update
-        :param turn_speed_factor: Turn Speed Factor, Ratio between the min and max turn speed
-        :param fly_speed_factor: Fly Speed Factor, Ratio between the min and max fly speed
-        :param speed_interpolation0: Speed Interpolation 0, First cubic spline control point between min/max speeds
-        :param speed_interpolation1: Speed Interpolation 1, Second cubic spline control point between min/max speeds
-        :param alt_mode: Mode (Alt), Fly mode when hands are swapped
+        :param snap_turn_threshold: Snap Turn Threshold, Input state threshold when using snap turn (in [0, 1], optional)
+        :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation (optional)
+        :param lock_direction: Lock Direction, Limit movement to viewers initial direction (optional)
+        :param speed_frame_based: Frame Based Speed, Apply fixed movement deltas every update (optional)
+        :param turn_speed_factor: Turn Speed Factor, Ratio between the min and max turn speed (in [0, 1], optional)
+        :param fly_speed_factor: Fly Speed Factor, Ratio between the min and max fly speed (in [0, 1], optional)
+        :param speed_interpolation0: Speed Interpolation 0, First cubic spline control point between min/max speeds (array of 2 items, in [0, 1], optional)
+        :param speed_interpolation1: Speed Interpolation 1, Second cubic spline control point between min/max speeds (array of 2 items, in [0, 1], optional)
+        :param alt_mode: Mode (Alt), Fly mode when hands are swapped (optional)
 
     FORWARD
     Forward -- Move along navigation forward axis.
@@ -4356,8 +4504,9 @@ def xr_navigation_fly(
 
     CONTROLLER_FORWARD
     Controller Forward -- Move along controllers forward axis.
-        :param alt_lock_location_z: Lock Elevation (Alt), When hands are swapped, prevent changes to viewer elevation
-        :param alt_lock_direction: Lock Direction (Alt), When hands are swapped, limit movement to viewers initial direction
+        :param alt_lock_location_z: Lock Elevation (Alt), When hands are swapped, prevent changes to viewer elevation (optional)
+        :param alt_lock_direction: Lock Direction (Alt), When hands are swapped, limit movement to viewers initial direction (optional)
+        :return: Result of the operator call.
     """
 
 def xr_navigation_grab(
@@ -4370,14 +4519,15 @@ def xr_navigation_grab(
     lock_rotation: bool | None = False,
     lock_rotation_z: bool | None = False,
     lock_scale: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Navigate the VR scene by grabbing with controllers
 
-    :param lock_location: Lock Location, Prevent changes to viewer location
-    :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation
-    :param lock_rotation: Lock Rotation, Prevent changes to viewer rotation
-    :param lock_rotation_z: Lock Up Orientation, Prevent changes to viewer up orientation
-    :param lock_scale: Lock Scale, Prevent changes to viewer scale
+    :param lock_location: Lock Location, Prevent changes to viewer location (optional)
+    :param lock_location_z: Lock Elevation, Prevent changes to viewer elevation (optional)
+    :param lock_rotation: Lock Rotation, Prevent changes to viewer rotation (optional)
+    :param lock_rotation_z: Lock Up Orientation, Prevent changes to viewer up orientation (optional)
+    :param lock_scale: Lock Scale, Prevent changes to viewer scale (optional)
+    :return: Result of the operator call.
     """
 
 def xr_navigation_reset(
@@ -4388,20 +4538,24 @@ def xr_navigation_reset(
     location: bool | None = True,
     rotation: bool | None = True,
     scale: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset VR navigation deltas relative to session base pose
 
-    :param location: Location, Reset location deltas
-    :param rotation: Rotation, Reset rotation deltas
-    :param scale: Scale, Reset scale deltas
+    :param location: Location, Reset location deltas (optional)
+    :param rotation: Rotation, Reset rotation deltas (optional)
+    :param scale: Scale, Reset scale deltas (optional)
+    :return: Result of the operator call.
     """
 
 def xr_navigation_swap_hands(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Swap VR navigation controls between left / right controllers"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Swap VR navigation controls between left / right controllers
+
+    :return: Result of the operator call.
+    """
 
 def xr_navigation_teleport(
     execution_context: int | str | None = None,
@@ -4413,25 +4567,29 @@ def xr_navigation_teleport(
     range: float | None = 0.15,
     ray_line_width: float | None = 6.0,
     destination_indicator_width: float | None = 0.18,
-    hit_color: collections.abc.Iterable[float] | None = (0.4, 0.6, 0.9, 1.0),
-    miss_color: collections.abc.Iterable[float] | None = (1.0, 0.35, 0.35, 1.0),
-    fallback_color: collections.abc.Iterable[float] | None = (0.5, 0.45, 0.8, 1.0),
-) -> None:
+    hit_color: collections.abc.Sequence[float] | None = (0.4, 0.6, 0.9, 1.0),
+    miss_color: collections.abc.Sequence[float] | None = (1.0, 0.35, 0.35, 1.0),
+    fallback_color: collections.abc.Sequence[float] | None = (0.5, 0.45, 0.8, 1.0),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set VR viewer location to controller raycast hit location
 
-    :param selectable_only: Selectable Only, Only allow selectable objects to influence raycast result
-    :param force: Force, Velocity force controlling the teleportation arc parabola in m/s
-    :param range: Range, Time step range controlling the teleportation arc parabola
-    :param ray_line_width: Ray Line Width, Visual width of the teleportation ray line
-    :param destination_indicator_width: Destination Indicator Width, Visual width of the hit destination indicator
-    :param hit_color: Hit Color, Color of raycast when it succeeds
-    :param miss_color: Miss Color, Color of raycast when it misses
-    :param fallback_color: Fallback Color, Color of raycast when a fallback case succeeds
+    :param selectable_only: Selectable Only, Only allow selectable objects to influence raycast result (optional)
+    :param force: Force, Velocity force controlling the teleportation arc parabola in m/s (in [0, inf], optional)
+    :param range: Range, Time step range controlling the teleportation arc parabola (in [0, inf], optional)
+    :param ray_line_width: Ray Line Width, Visual width of the teleportation ray line (in [0, inf], optional)
+    :param destination_indicator_width: Destination Indicator Width, Visual width of the hit destination indicator (in [0, inf], optional)
+    :param hit_color: Hit Color, Color of raycast when it succeeds (array of 4 items, in [0, 1], optional)
+    :param miss_color: Miss Color, Color of raycast when it misses (array of 4 items, in [0, 1], optional)
+    :param fallback_color: Fallback Color, Color of raycast when a fallback case succeeds (array of 4 items, in [0, 1], optional)
+    :return: Result of the operator call.
     """
 
 def xr_session_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Open a view for use with virtual reality headsets, or close it if already opened"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Open a view for use with virtual reality headsets, or close it if already opened
+
+    :return: Result of the operator call.
+    """

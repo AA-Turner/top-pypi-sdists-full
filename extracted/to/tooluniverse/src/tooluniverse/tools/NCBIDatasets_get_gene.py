@@ -1,0 +1,46 @@
+"""
+NCBIDatasets_get_gene
+
+Get comprehensive gene information from NCBI by Gene ID. Returns gene symbol, description, chromo...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def NCBIDatasets_get_gene(
+    gene_id: str,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> Any:
+    """
+    Get comprehensive gene information from NCBI by Gene ID. Returns gene symbol, description, chromo...
+
+    Parameters
+    ----------
+    gene_id : str
+        NCBI Gene ID (numeric). Examples: '7157' (TP53), '672' (BRCA1), '3630' (INS),...
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    Any
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {"name": "NCBIDatasets_get_gene", "arguments": {"gene_id": gene_id}},
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["NCBIDatasets_get_gene"]

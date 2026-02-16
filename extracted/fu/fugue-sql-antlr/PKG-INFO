@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: fugue-sql-antlr
-Version: 0.2.2
+Version: 0.2.3
 Summary: Fugue SQL Antlr Parser
 Home-page: http://github.com/fugue-project/fugue
 Author: The Fugue Development Team
@@ -12,17 +12,36 @@ Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: cpp
-Provides-Extra: test
 License-File: LICENSE
+Requires-Dist: triad>=0.6.8
+Requires-Dist: antlr4-python3-runtime<4.14,>=4.13.2
+Requires-Dist: jinja2
+Requires-Dist: packaging
+Provides-Extra: cpp
+Requires-Dist: fugue-sql-antlr-cpp==0.2.3; extra == "cpp"
+Provides-Extra: test
+Requires-Dist: speedy_antlr_tool; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Fugue SQL Antlr Parser
 

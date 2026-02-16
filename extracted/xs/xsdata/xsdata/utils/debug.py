@@ -4,7 +4,7 @@ from typing import Any
 
 
 def dump(obj: Any) -> None:
-    """Write any object into a dump json file.
+    """Write any object into a dump JSON file.
 
     For internal troubleshooting purposes only!!!
     """
@@ -14,16 +14,22 @@ def dump(obj: Any) -> None:
 
 def convert(obj: Any) -> Any:
     """Dump any obj into a readable dictionary."""
-    if not obj:
+    if obj is None:
         return obj
 
-    if isinstance(obj, list):
+    if isinstance(obj, (list, tuple)):
         return list(map(convert, obj))
 
     if isinstance(obj, dict):
-        return {key: convert(value) for key, value in obj.items()}
+        return {convert(key): convert(value) for key, value in obj.items()}
 
     if hasattr(obj, "__slots__") and obj.__slots__:
         return {name: convert(getattr(obj, name)) for name in obj.__slots__}
 
-    return str(obj)
+    if isinstance(obj, type):
+        return f"{obj.__module__}.{obj.__qualname__}"
+
+    if isinstance(obj, (str, int, bool, float)):
+        return obj
+
+    return repr(obj)

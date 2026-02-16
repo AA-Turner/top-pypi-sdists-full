@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sqlalchemy-searchable
-Version: 2.1.0
+Version: 2.2.0
 Summary: Provides fulltext search capabilities for declarative SQLAlchemy models.
 Project-URL: Code, https://github.com/falcony-io/sqlalchemy-searchable
 Project-URL: Documentation, https://sqlalchemy-searchable.readthedocs.io/
@@ -19,6 +19,8 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8

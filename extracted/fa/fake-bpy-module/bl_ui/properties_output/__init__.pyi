@@ -300,6 +300,12 @@ class RENDER_PT_output(RenderOutputButtonsPanel, _bpy_types.Panel):
         :param context:
         """
 
+    def draw_header(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class RENDER_PT_output_color_management(RenderOutputButtonsPanel, _bpy_types.Panel):
     COMPAT_ENGINES: typing.Any
     bl_context: typing.Any

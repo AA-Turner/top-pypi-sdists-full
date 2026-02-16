@@ -9,6 +9,14 @@ need to use the GPU module gpu as well.
 
 ```../examples/blf.0.py```
 
+
+--------------------
+
+Example showing how text can be drawn into an image.
+This can be done by binding an image buffer (imbuf) to the font's ID.
+
+```../examples/blf.1.py```
+
 """
 
 import typing
@@ -24,11 +32,14 @@ def aspect(fontid: int, aspect: float) -> None:
     :param aspect: The aspect ratio for text drawing to use.
     """
 
-def bind_imbuf(fontid: int, imbuf: imbuf.types.ImBuf) -> None:
+def bind_imbuf(
+    fontid: int, imbuf: imbuf.types.ImBuf, *, display_name: None | str | None = None
+) -> None:
     """Context manager to draw text into an image buffer instead of the GPUs context.
 
     :param fontid: The id of the typeface as returned by `blf.load`, for default font use 0.
     :param imbuf: The image to draw into.
+    :param display_name: Ignored, kept for backwards compatibility.
     :return: The BLF ImBuf context manager.
     """
 

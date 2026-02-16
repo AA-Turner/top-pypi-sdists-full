@@ -144,7 +144,11 @@ def all_deps_depending_on_dep(
     Returns:
         List of imported module objects for dependent packages.
     """
-    return DependencyGraph().all_depending_on(dep, include_self=include_self)
+    deps = DependencyGraph().all_depending_on(dep, include_self=include_self)
+    # clear the DependencyGraph cache to optimize memory usage,
+    # we don't need to keep the full graph in memory after this
+    DependencyGraph.clear_cache()
+    return deps
 
 
 @cache
@@ -326,7 +330,7 @@ def discover_subclasses_across_dependents[T: type](
         logger.debug("Discarding parent classes. Only keeping leaf classes...")
         subclasses = discard_parent_classes(subclasses)
     logger.debug(
-        "Found final leaf subclasses of %s: %s",
+        "Found subclasses of %s: %s",
         cls.__name__,
         [c.__name__ for c in subclasses],
     )

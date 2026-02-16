@@ -55,6 +55,36 @@ def json_type_to_python(json_type: str | list) -> str:
     }.get(json_type, "Any")
 
 
+def _deduplicate_types(types: list) -> str:
+    """Join a list of Python type strings with '|', removing duplicates while preserving order."""
+    if not types:
+        return "Any"
+    if len(types) == 1:
+        return types[0]
+    seen = set()
+    unique = []
+    for t in types:
+        if t not in seen:
+            seen.add(t)
+            unique.append(t)
+    return " | ".join(unique)
+
+
+def _resolve_single_type(type_name: str, schema_context: Dict[str, Any] = None) -> str:
+    """Convert a single JSON schema type to a Python type string.
+
+    For 'array' types, inspects schema_context['items'] to determine element type.
+    """
+    if type_name == "string":
+        return "str"
+    if type_name == "array":
+        items = (schema_context or {}).get("items", {})
+        if items.get("type") == "string":
+            return "list[str]"
+        return "list[Any]"
+    return json_type_to_python(type_name)
+
+
 def prop_to_python_type(prop: Dict[str, Any]) -> str:
     """Convert a JSON schema property to Python type, handling oneOf schemas.
 
@@ -66,73 +96,23 @@ def prop_to_python_type(prop: Dict[str, Any]) -> str:
     """
     # Handle oneOf schemas (e.g., string or array)
     if "oneOf" in prop:
-        types = []
-        for one_of_item in prop["oneOf"]:
-            item_type = one_of_item.get("type")
-            if item_type == "string":
-                types.append("str")
-            elif item_type == "array":
-                # Check if it's an array of strings
-                items = one_of_item.get("items", {})
-                if items.get("type") == "string":
-                    types.append("list[str]")
-                else:
-                    types.append("list[Any]")
-            elif item_type:
-                types.append(json_type_to_python(item_type))
-
-        if len(types) == 1:
-            return types[0]
-        elif len(types) > 1:
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_types = []
-            for t in types:
-                if t not in seen:
-                    seen.add(t)
-                    unique_types.append(t)
-            return " | ".join(unique_types)
+        types = [
+            _resolve_single_type(item.get("type", ""), item)
+            for item in prop["oneOf"]
+            if item.get("type")
+        ]
+        return _deduplicate_types(types)
 
     # Fall back to regular type handling
     json_type = prop.get("type", "string")
 
     # Handle when type is a list (e.g., ["string", "array"])
     if isinstance(json_type, list):
-        types = []
-        for item_type in json_type:
-            if item_type == "string":
-                types.append("str")
-            elif item_type == "array":
-                # Check if it's an array of strings
-                items = prop.get("items", {})
-                if items.get("type") == "string":
-                    types.append("list[str]")
-                else:
-                    types.append("list[Any]")
-            elif item_type:
-                types.append(json_type_to_python(item_type))
-
-        if len(types) == 1:
-            return types[0]
-        elif len(types) > 1:
-            # Remove duplicates while preserving order
-            seen = set()
-            unique_types = []
-            for t in types:
-                if t not in seen:
-                    seen.add(t)
-                    unique_types.append(t)
-            return " | ".join(unique_types)
-        else:
-            return "Any"
+        types = [_resolve_single_type(t, prop) for t in json_type if t]
+        return _deduplicate_types(types)
 
     if json_type == "array":
-        # Check if it's an array of a specific type
-        items = prop.get("items", {})
-        if items.get("type") == "string":
-            return "list[str]"
-        else:
-            return "list[Any]"
+        return _resolve_single_type("array", prop)
 
     return json_type_to_python(json_type)
 

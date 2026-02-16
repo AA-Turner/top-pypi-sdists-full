@@ -194,8 +194,7 @@ MODEL_PRICE = {
     "vip/nano-banana-pro": 0.15 * 4,
     "vip/nano-banana-pro_4k": 0.3 * 4,
 
-    "gemini-3-pro-image-preview": 0.1,
-    "gemini-3-pro-video": 0.1,
+    "gemini-3-pro-image-preview": 0.2,
 
     "gemini-2.5-flash-image": 0.03,
     "gemini-2.5-flash-image-preview": 0.03,
@@ -513,19 +512,6 @@ MODEL_PRICE = {
     "flux.1-krea-dev": 0.1,
     "black-forest-labs/flux.1.1-pro": 0.1,
 
-    "step-1x-medium": 0.2,
-    "chat-step-1x-medium": 0.2,
-
-    "chat-flux-schnell": 0.01,
-    "chat-flux-dev": 0.03,
-    "chat-flux-pro": 0.05,
-    "chat-flux-pro-max": 0.1,
-    "chat-ideogram": 0.3,
-
-    "chat-kolors": 0.02,
-    "chat-kling": 0.02,
-    "chat-video": 0.1,
-    "chat-flux.1.1-pro": 0.1,
 
     # aitools
     "api-aitools": 0.007,
@@ -539,7 +525,9 @@ MODEL_PRICE = {
     "api-images-edits-clarity-baidu": 0.01,  # 官方api
 
     "api-images-edits-expand": 0.01,
-    "api-images-edits-rmbg-2.0": 0.01,
+
+    #
+    "rmbg-2.0": 0.01,
 
     # 文档智能
     "api-textin": 0.02,
@@ -554,30 +542,12 @@ MODEL_PRICE = {
     "api-pcedit": 0.007,
     "api-faceswap": 0.01,
 
-    "api-kling": 0.1,
-    "api-kling-vip": 0.5,
-
-    "api-kling-v1.6-std-5s": 1 * 0.8,
-    "api-kling-v1.6-std-10s": 2 * 0.8,
-    "api-kling-v1.6-pro-5s": 1 * 0.8 * 1.75,
-    "api-kling-v1.6-pro-10s": 2 * 0.8 * 1.75,
-
-    "api-vidu": 0.09,
-    "api-vidu-vip": 0.6,
-
-    "api-cogvideox": 0.1,
-    "api-cogvideox-vip": 0.4,
-
     #
     "runway_video": 0.6,
     "runway_video2video": 0.6,
     "runway_act_one": 1,
     "runwayml_image_to_video": 0.8,
 
-    "api-runwayml-gen3": 0.1,
-
-    "api-translator": 0.0001,
-    "api-voice-clone": 0.01,
 
     # textin
     "textin/watermark-remove": 0.03,
@@ -592,7 +562,6 @@ MODEL_PRICE = {
     "suno_upload": 0.01,
     "suno_concat": 0.01,
     "chirp-v3-5": 0.5,
-    "chat-suno": 0.6,
 
     # all
     "gemini-3-flash-all": 0.01,

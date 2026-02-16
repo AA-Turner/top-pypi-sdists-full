@@ -1,6 +1,6 @@
 [project]
 name = "ida-hcli"
-version = "0.15.13"
+version = "0.16.0"
 description = "HCLI - Hex-Rays CLI Utility"
 requires-python = ">=3.10"
 license = "MIT"
@@ -88,6 +88,10 @@ line-length = 120
 target-version = "py310"
 fix = true
 
+[tool.ruff.lint]
+preview = true
+extend-select = ["PLW1514"]
+
 [tool.mypy]
 check_untyped_defs = true
 
@@ -96,6 +100,7 @@ version_toml = ["pyproject.toml:project.version"]  # or wherever your version is
 version_variables = ["src/hcli/__init__.py:__version__"]  # update your actual path
 build_command = """
     uv lock --upgrade-package "$PACKAGE_NAME"
+    git add uv.lock
     uv run hcli
     uv build
 """

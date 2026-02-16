@@ -34,7 +34,8 @@ class CreateGcpTriggerJsonBody:
         delivery_type (Union[Unset, CreateGcpTriggerJsonBodyDeliveryType]): Delivery mode for messages. 'push' for HTTP
             push delivery where messages are sent to a webhook endpoint, 'pull' for polling where the trigger actively
             fetches messages.
-        delivery_config (Union[Unset, CreateGcpTriggerJsonBodyDeliveryConfig]): Configuration for push delivery mode.
+        delivery_config (Union[Unset, None, CreateGcpTriggerJsonBodyDeliveryConfig]): Configuration for push delivery
+            mode.
         mode (Union[Unset, CreateGcpTriggerJsonBodyMode]): job trigger mode
         auto_acknowledge_msg (Union[Unset, bool]): If true, automatically acknowledge messages after processing.
         ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
@@ -54,7 +55,7 @@ class CreateGcpTriggerJsonBody:
     subscription_id: Union[Unset, str] = UNSET
     base_endpoint: Union[Unset, str] = UNSET
     delivery_type: Union[Unset, CreateGcpTriggerJsonBodyDeliveryType] = UNSET
-    delivery_config: Union[Unset, "CreateGcpTriggerJsonBodyDeliveryConfig"] = UNSET
+    delivery_config: Union[Unset, None, "CreateGcpTriggerJsonBodyDeliveryConfig"] = UNSET
     mode: Union[Unset, CreateGcpTriggerJsonBodyMode] = UNSET
     auto_acknowledge_msg: Union[Unset, bool] = UNSET
     ack_deadline: Union[Unset, int] = UNSET
@@ -77,9 +78,9 @@ class CreateGcpTriggerJsonBody:
         if not isinstance(self.delivery_type, Unset):
             delivery_type = self.delivery_type.value
 
-        delivery_config: Union[Unset, Dict[str, Any]] = UNSET
+        delivery_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.delivery_config, Unset):
-            delivery_config = self.delivery_config.to_dict()
+            delivery_config = self.delivery_config.to_dict() if self.delivery_config else None
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
@@ -162,8 +163,10 @@ class CreateGcpTriggerJsonBody:
             delivery_type = CreateGcpTriggerJsonBodyDeliveryType(_delivery_type)
 
         _delivery_config = d.pop("delivery_config", UNSET)
-        delivery_config: Union[Unset, CreateGcpTriggerJsonBodyDeliveryConfig]
-        if isinstance(_delivery_config, Unset):
+        delivery_config: Union[Unset, None, CreateGcpTriggerJsonBodyDeliveryConfig]
+        if _delivery_config is None:
+            delivery_config = None
+        elif isinstance(_delivery_config, Unset):
             delivery_config = UNSET
         else:
             delivery_config = CreateGcpTriggerJsonBodyDeliveryConfig.from_dict(_delivery_config)

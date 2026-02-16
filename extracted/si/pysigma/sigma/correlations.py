@@ -1,10 +1,23 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import TYPE_CHECKING, Any, Literal
 
 from typing_extensions import Self
+from typing import Union, ClassVar, cast
+from pyparsing import (
+    Word,
+    alphas,
+    alphanums,
+    Keyword,
+    infix_notation,
+    opAssoc,
+    ParseResults,
+    ParseException,
+)
+from abc import ABC
 
 import sigma.exceptions as sigma_exceptions
 from sigma.exceptions import SigmaRuleLocation, SigmaTimespanError
@@ -39,6 +52,8 @@ SigmaCorrelationTypeLiteral = Literal[
     "value_count",
     "temporal",
     "temporal_ordered",
+    "temporal_extended",
+    "temporal_ordered_extended",
     "value_sum",
     "value_avg",
     "value_percentile",
@@ -64,6 +79,11 @@ class SigmaRuleReference:
             sigma_exceptions.SigmaRuleNotFoundError: If the referenced rule cannot be found in the given rule collection.
         """
         self.rule = rule_collection[self.reference]
+
+    @classmethod
+    def from_parsed(cls, s: str, l: int, t: ParseResults) -> list["SigmaRuleReference"]:
+        """Create rule reference from parse result (for pyparsing integration)."""
+        return [cls(t[0])]
 
 
 class SigmaCorrelationConditionOperator(Enum):
@@ -154,6 +174,152 @@ class SigmaCorrelationCondition:
         if self.percentile is not None:
             result["percentile"] = self.percentile
         return result
+
+
+# Correlation condition parse tree classes
+@dataclass
+class CorrelationConditionItem(ABC):
+    """Base class for correlation condition parse tree items."""
+
+    arg_count: ClassVar[int]
+    args: list[Union[SigmaRuleReference, "CorrelationConditionItem"]]
+
+    @classmethod
+    def from_parsed(
+        cls,
+        s: str,
+        l: int,
+        t: Union[ParseResults, list[Union[SigmaRuleReference, "CorrelationConditionItem"]]],
+    ) -> list["CorrelationConditionItem"]:
+        """Create condition object from parse result."""
+        if cls.arg_count == 1:
+            # Unary operator (NOT)
+            if isinstance(t, ParseResults):
+                args = [t[0][-1]]
+            else:
+                args = [t[-1]]
+        elif cls.arg_count > 1:
+            # Binary operators (AND, OR) - handle flat lists from pyparsing
+            if isinstance(t, ParseResults):
+                args = t[0][0::2]  # Take every other element (skip operators)
+            else:
+                args = t[0::2]
+        else:
+            args = list()
+        return [cls(args)]
+
+
+@dataclass
+class CorrelationConditionOR(CorrelationConditionItem):
+    """OR operator in correlation condition."""
+
+    arg_count: ClassVar[int] = 2
+
+
+@dataclass
+class CorrelationConditionAND(CorrelationConditionItem):
+    """AND operator in correlation condition."""
+
+    arg_count: ClassVar[int] = 2
+
+
+@dataclass
+class CorrelationConditionNOT(CorrelationConditionItem):
+    """NOT operator in correlation condition."""
+
+    arg_count: ClassVar[int] = 1
+
+
+@dataclass
+class SigmaExtendedCorrelationCondition:
+    """
+    Extended correlation condition supporting boolean expressions with 'and', 'or', and 'not' operators.
+    Uses pyparsing to parse the condition string into a structured representation.
+    """
+
+    expression: str
+    source: SigmaRuleLocation | None = field(default=None, compare=False)
+    _parsed: Union[CorrelationConditionItem, SigmaRuleReference] = field(
+        init=False, repr=False, compare=False
+    )
+
+    def __post_init__(self: Self) -> None:
+        """Parse and validate the extended condition expression."""
+        try:
+            self._parsed = self.parse(self.expression)
+        except ParseException as e:
+            raise sigma_exceptions.SigmaCorrelationConditionError(
+                f"Failed to parse extended condition expression: {str(e)}",
+                source=self.source,
+            )
+
+    @classmethod
+    def parse(cls, expression: str) -> Union[CorrelationConditionItem, SigmaRuleReference]:
+        """
+        Parse an extended correlation condition expression.
+
+        Grammar:
+            rule_identifier: Word(alphas + "_", alphanums + "_")
+            and_operator: Keyword("and")
+            or_operator: Keyword("or")
+            not_operator: Keyword("not")
+            expr: infix_notation with standard precedence (not > and > or)
+
+        Returns:
+            Parse tree with CorrelationCondition* objects.
+        """
+        # Define rule identifier - starts with letter or underscore, followed by alphanumerics or underscores
+        rule_identifier = Word(alphas + "_", alphanums + "_")
+        rule_identifier.set_parse_action(SigmaRuleReference.from_parsed)
+
+        # Define expression using infix notation
+        # Precedence: not (highest) > and > or (lowest)
+        expr = infix_notation(
+            rule_identifier,
+            [
+                (Keyword("not"), 1, opAssoc.RIGHT, CorrelationConditionNOT.from_parsed),
+                (Keyword("and"), 2, opAssoc.LEFT, CorrelationConditionAND.from_parsed),
+                (Keyword("or"), 2, opAssoc.LEFT, CorrelationConditionOR.from_parsed),
+            ],
+        )
+
+        result = expr.parse_string(expression, parse_all=True)
+        return cast(Union[CorrelationConditionItem, SigmaRuleReference], result[0])
+
+    @property
+    def parsed(self) -> Union[CorrelationConditionItem, SigmaRuleReference]:
+        """Return the parsed correlation condition tree."""
+        return self._parsed
+
+    def get_referenced_rules(self) -> list[str]:
+        """
+        Extract all rule identifiers referenced in the condition expression in order of appearance.
+        Traverses the parse tree to find all SigmaRuleReference leaf nodes.
+
+        Returns:
+            List of unique rule identifier strings in the order they first appear.
+        """
+        seen = set()
+        referenced = []
+
+        def traverse(node: Union[CorrelationConditionItem, SigmaRuleReference]) -> None:
+            """Recursively traverse the parse tree to find rule references."""
+            if isinstance(node, SigmaRuleReference):
+                # Leaf node - extract the rule reference
+                if node.reference not in seen:
+                    seen.add(node.reference)
+                    referenced.append(node.reference)
+            elif isinstance(node, CorrelationConditionItem):
+                # Internal node - traverse children
+                for arg in node.args:
+                    traverse(arg)
+
+        traverse(self._parsed)
+        return referenced
+
+    def to_dict(self: Self) -> str:
+        """Return the expression string for serialization."""
+        return self.expression
 
 
 @dataclass
@@ -263,24 +429,66 @@ class SigmaCorrelationFieldAliases:
 @dataclass
 class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
     type: SigmaCorrelationType = SigmaCorrelationType.EVENT_COUNT
-    rules: list[SigmaRuleReference] = field(default_factory=list)
+    rules: list[SigmaRuleReference] | None = None
     generate: bool = field(default=False)
     timespan: SigmaCorrelationTimespan = field(
         default_factory=lambda: SigmaCorrelationTimespan("1m")
     )
     group_by: list[str] | None = None
     aliases: SigmaCorrelationFieldAliases = field(default_factory=SigmaCorrelationFieldAliases)
-    condition: SigmaCorrelationCondition = field(
+    condition: SigmaCorrelationCondition | SigmaExtendedCorrelationCondition = field(
         default_factory=lambda: SigmaCorrelationCondition(SigmaCorrelationConditionOperator.GTE, 1)
+    )
+    referenced_rules: list[SigmaRuleReference] = field(
+        default_factory=list, init=False, repr=False, compare=False
     )
     source: SigmaRuleLocation | None = field(default=None, compare=False)
 
     def __post_init__(self: Self) -> None:
         super().__post_init__()
-        if (
-            self.type not in {SigmaCorrelationType.TEMPORAL, SigmaCorrelationType.TEMPORAL_ORDERED}
-            and self.condition is None
-        ):
+        # Validate rules is not None unless extended correlation condition is defined
+        if self.rules is None and not isinstance(self.condition, SigmaExtendedCorrelationCondition):
+            raise sigma_exceptions.SigmaCorrelationRuleError(
+                "Sigma correlation rule without rules list requires an extended correlation condition",
+                source=self.source,
+            )
+
+        # Validate extended conditions are only used with temporal correlation types
+        if isinstance(self.condition, SigmaExtendedCorrelationCondition) and self.type not in {
+            SigmaCorrelationType.TEMPORAL,
+            SigmaCorrelationType.TEMPORAL_ORDERED,
+        }:
+            raise sigma_exceptions.SigmaCorrelationConditionError(
+                "Extended conditions can only be used with temporal or temporal_ordered correlation types",
+                source=self.source,
+            )
+
+        # Validate that all rules in the rules list are referenced in extended condition
+        if isinstance(self.condition, SigmaExtendedCorrelationCondition) and self.rules is not None:
+            referenced_rules = set(self.condition.get_referenced_rules())
+
+            # Get all rule references from the rules list
+            defined_rules = {rule.reference for rule in self.rules}
+
+            # Check if all defined rules are referenced in the condition
+            unreferenced_rules = defined_rules - referenced_rules
+            if unreferenced_rules:
+                raise sigma_exceptions.SigmaCorrelationConditionError(
+                    f"Rules defined but not referenced in extended condition: {', '.join(sorted(unreferenced_rules))}",
+                    source=self.source,
+                )
+            # Check if all rules referenced in the condition are defined in the rules list
+            undefined_rules = referenced_rules - defined_rules
+            if undefined_rules:
+                raise sigma_exceptions.SigmaCorrelationConditionError(
+                    f"Rules referenced in extended condition but not defined in rules list: {', '.join(sorted(undefined_rules))}",
+                    source=self.source,
+                )
+
+        if self.type not in {
+            SigmaCorrelationType.TEMPORAL,
+            SigmaCorrelationType.TEMPORAL_ORDERED,
+        } and not isinstance(self.condition, SigmaCorrelationCondition):
             raise sigma_exceptions.SigmaCorrelationRuleError(
                 "Non-temporal Sigma correlation rule without condition", source=self.source
             )
@@ -293,6 +501,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
                 SigmaCorrelationType.VALUE_PERCENTILE,
                 SigmaCorrelationType.VALUE_MEDIAN,
             }
+            and isinstance(self.condition, SigmaCorrelationCondition)
             and self.condition.fieldref is None
         ):
             # Format type name for error message (special case for VALUE_COUNT to match existing tests)
@@ -334,19 +543,25 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             )
 
         # Rules
-        rules = correlation_rule.get("rules")
-        if rules is not None:
-            if isinstance(rules, str):
-                rules = [SigmaRuleReference(rules)]
-            elif isinstance(rules, list):
-                rules = [SigmaRuleReference(rule) for rule in rules]
+        rules_value = correlation_rule.get("rules")
+        rules: list[SigmaRuleReference] | None = []  # Initialize to empty list
+        if rules_value is not None:
+            if isinstance(rules_value, str):
+                # Simple rule reference
+                rules = [SigmaRuleReference(rules_value)]
+            elif isinstance(rules_value, list):
+                rules = [SigmaRuleReference(rule) for rule in rules_value]
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
                         "Rule reference must be plain string or list.", source=source
                     )
                 )
-        else:
+        elif correlation_type not in (
+            SigmaCorrelationType.TEMPORAL,
+            SigmaCorrelationType.TEMPORAL_ORDERED,
+        ):
+            # Only require rules for non-temporal types (temporal types can extract from condition)
             errors.append(
                 sigma_exceptions.SigmaCorrelationRuleError(
                     "Sigma correlation rule without rule references", source=source
@@ -408,15 +623,39 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         else:
             aliases = SigmaCorrelationFieldAliases()
 
-        # Condition
-        condition = correlation_rule.get("condition")
-        if condition is not None:
-            if isinstance(condition, dict):
-                condition = SigmaCorrelationCondition.from_dict(condition, source=source)
+        # Condition - can be either a dict (basic condition) or a string (extended condition)
+        condition_value = correlation_rule.get("condition")
+        condition: SigmaCorrelationCondition | SigmaExtendedCorrelationCondition
+
+        if condition_value is not None:
+            if isinstance(condition_value, dict):
+                # Basic condition
+                condition = SigmaCorrelationCondition.from_dict(condition_value, source=source)
+            elif isinstance(condition_value, str):
+                # Extended condition - only valid for temporal types
+                if correlation_type not in (
+                    SigmaCorrelationType.TEMPORAL,
+                    SigmaCorrelationType.TEMPORAL_ORDERED,
+                ):
+                    errors.append(
+                        sigma_exceptions.SigmaCorrelationRuleError(
+                            "Extended conditions (string) can only be used with temporal or temporal_ordered correlation types",
+                            source=source,
+                        )
+                    )
+                else:
+                    # Extended condition - parse as SigmaExtendedCorrelationCondition
+                    try:
+                        condition = SigmaExtendedCorrelationCondition(
+                            condition_value, source=source
+                        )
+                    except sigma_exceptions.SigmaCorrelationConditionError as e:
+                        errors.append(e)
             else:
                 errors.append(
                     sigma_exceptions.SigmaCorrelationRuleError(
-                        "Sigma correlation condition definition must be a dict", source=source
+                        "Sigma correlation condition definition must be a dict or string",
+                        source=source,
                     )
                 )
         elif correlation_type not in (
@@ -431,13 +670,24 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         elif correlation_type in (
             SigmaCorrelationType.TEMPORAL,
             SigmaCorrelationType.TEMPORAL_ORDERED,
-        ):  # default condition for temporal correlation rules: count >= number of rules
+        ):
+            # For temporal types without condition, set default
+            # default condition for temporal correlation rules: count >= number of rules
+            rules_count = len(rules) if rules is not None else 0
             condition = SigmaCorrelationCondition(
-                op=SigmaCorrelationConditionOperator.GTE, count=len(rules), source=source
+                op=SigmaCorrelationConditionOperator.GTE, count=rules_count, source=source
             )
 
         if not collect_errors and errors:
             raise errors[0]
+
+        # Convert empty rules list to None if using extended condition
+        if (
+            rules is not None
+            and not rules
+            and isinstance(condition, SigmaExtendedCorrelationCondition)
+        ):
+            rules = None
 
         return cls(
             type=correlation_type,
@@ -460,12 +710,16 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
         d = super().to_dict()
         dc = {
             "type": self.type.name.lower(),
-            "rules": [rule.reference for rule in self.rules],
+            "rules": [rule.reference for rule in self.rules] if self.rules is not None else [],
             "timespan": self.timespan.spec,
             "group-by": self.group_by,
             "aliases": self.aliases.to_dict() if self.aliases is not None else None,
-            "condition": self.condition.to_dict() if self.condition is not None else None,
         }
+
+        # Serialize condition based on its type
+        if self.condition is not None:
+            dc["condition"] = self.condition.to_dict()
+
         d["correlation"] = dc
 
         return d
@@ -473,18 +727,28 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
     def resolve_rule_references(self: Self, rule_collection: SigmaCollection) -> None:
         """
         Resolves all rule references in the rules property to actual Sigma rules.
+        If rules is None and an extended condition is defined, extracts rule references
+        from the condition. Populates the referenced_rules list with resolved references.
 
         Raises:
             sigma_exceptions.SigmaRuleNotFoundError: If a referenced rule cannot be found in the given rule collection.
         """
-        for rule_ref in self.rules:
+        # Determine which rules to use: explicit rules or extracted from extended condition
+        if self.rules is not None:
+            self.referenced_rules = self.rules
+        elif isinstance(self.condition, SigmaExtendedCorrelationCondition):
+            referenced_rule_names = self.condition.get_referenced_rules()
+            self.referenced_rules = [SigmaRuleReference(name) for name in referenced_rule_names]
+        else:
+            self.referenced_rules = []
+
+        # Resolve all rule references
+        for rule_ref in self.referenced_rules:
             rule_ref.resolve(rule_collection)
             rule = rule_ref.rule
             rule.add_backreference(self)
             if not self.generate:
                 rule.disable_output()
-
-        self.aliases.resolve_rule_references(rule_collection)
 
     def flatten_rules(
         self: Self, include_correlations: bool = True
@@ -497,7 +761,7 @@ class SigmaCorrelationRule(SigmaRuleBase, ProcessingItemTrackingMixin):
             List of Sigma rules.
         """
         rules: list[SigmaRule | SigmaCorrelationRule] = []
-        for rule_ref in self.rules:
+        for rule_ref in self.referenced_rules:
             rule = rule_ref.rule
             if isinstance(rule, SigmaCorrelationRule):
                 if include_correlations:

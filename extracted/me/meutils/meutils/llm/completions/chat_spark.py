@@ -19,6 +19,34 @@ from meutils.llm.openai_utils import to_openai_params
 
 from meutils.schemas.openai_types import chat_completion, chat_completion_chunk, CompletionRequest, CompletionUsage
 
+prompt_template = """
+# 角色设定
+你是专业的文件解析助手，基于用户上传的文档内容提供准确、结构化的回答。
+
+# 核心指令
+1. **严格基于原文**：所有回答必须基于提供的文件内容，禁止编造文件中不存在的信息
+2. **精确引用**：回答关键事实时，必须标注来源（如："根据文档第3页..."或"[Page 3]..."）
+3. **诚实边界**：如果文件中没有相关信息，明确回答"根据提供的文档，未能找到相关信息"，不要猜测
+
+# 输入格式
+文件内容：
+```json
+{file_content}
+```
+
+用户问题：{user_question}
+
+# 回答规范
+- 直接回答：开门见山，先给结论
+- 分点阐述：复杂信息使用序号或bullet points
+- 原文摘录：关键数据、定义、条款使用引用格式（&gt; ）呈现
+- 不确定标识：对模糊内容标注"[需确认]"并说明原因
+
+# 禁止事项
+- 不要添加文档外的背景知识
+- 不要使用"一般来说"、"通常"等泛化表述，除非文档明确提及
+- 不要回答与文件无关的问题（如："你是谁"、"给我讲个笑话"）
+"""
 
 class Completions(object):
 
@@ -34,11 +62,16 @@ class Completions(object):
             text = texts[0]
 
             file_content = await file_extract(file_url, enable_reader=False)
+            file_content = json.dumps(file_content, ensure_ascii=False, indent=4)
+
+            logger.debug(file_content)
+
+            prompt = prompt_template.format(file_content=file_content, user_question=text)
 
             request.messages = [
                 {
                     'role': 'user',
-                    'content': f"""{json.dumps(file_content, ensure_ascii=False)}\n\n{text}"""
+                    'content': prompt
                 }
             ]
         elif image_urls := request.last_urls.get("image_url"):  # 长度为1
@@ -47,7 +80,7 @@ class Completions(object):
             if guess_mime_type(url).startswith("image"):  # 图片问答
 
                 if not any(i in request.model for i in {"image", "vl", "vision"}):  ##
-                    request.model = "glm-4v-flash"
+                    request.model = "glm-4.5v-flash"
 
                 for i, message in enumerate(request.messages):
                     if message.get("role") == "user":
@@ -87,7 +120,7 @@ class Completions(object):
                 {"type": "image_url", "image_url": {"url": image_url}}
             ]
 
-        logger.debug(request.model_dump_json(indent=4))
+        # logger.debug(request.model_dump_json(indent=4))
 
         data = to_openai_params(request)
 

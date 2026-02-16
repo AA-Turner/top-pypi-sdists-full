@@ -2,30 +2,29 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.types
+import bpy.stub_internal.rna_enums
 
 def brush_stroke(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sculpt curves using a brush
 
-        :param stroke: Stroke
-        :param mode: Stroke Mode, Action taken when a paint stroke is made
+        :param stroke: Stroke, (optional)
+        :param mode: Stroke Mode, Action taken when a paint stroke is made (optional)
 
     NORMAL
     Regular -- Apply brush normally.
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
-        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke (optional)
 
     None
     None -- Apply brush normally.
@@ -38,15 +37,19 @@ def brush_stroke(
 
     MASK
     Mask -- Switch to mask brush for duration of stroke.
-        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+        :return: Result of the operator call.
     """
 
 def min_distance_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Change the minimum distance used by the density brush"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Change the minimum distance used by the density brush
+
+    :return: Result of the operator call.
+    """
 
 def select_grow(
     execution_context: int | str | None = None,
@@ -54,10 +57,11 @@ def select_grow(
     /,
     *,
     distance: float | None = 0.1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select curves which are close to curves that are selected already
 
-    :param distance: Distance, By how much to grow the selection
+    :param distance: Distance, By how much to grow the selection (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def select_random(
@@ -70,12 +74,13 @@ def select_random(
     probability: float | None = 0.5,
     min: float | None = 0.0,
     constant_per_curve: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomizes existing selection or create new random selection
 
-    :param seed: Seed, Source of randomness
-    :param partial: Partial, Allow points or curves to be selected partially
-    :param probability: Probability, Chance of every point or curve being included in the selection
-    :param min: Min, Minimum value for the random selection
-    :param constant_per_curve: Constant per Curve, The generated random number is the same for every control point of a curve
+    :param seed: Seed, Source of randomness (in [-inf, inf], optional)
+    :param partial: Partial, Allow points or curves to be selected partially (optional)
+    :param probability: Probability, Chance of every point or curve being included in the selection (in [0, 1], optional)
+    :param min: Min, Minimum value for the random selection (in [0, 1], optional)
+    :param constant_per_curve: Constant per Curve, The generated random number is the same for every control point of a curve (optional)
+    :return: Result of the operator call.
     """

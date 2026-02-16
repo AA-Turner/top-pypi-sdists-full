@@ -9,41 +9,46 @@ def asset_activate(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
     | None = "LOCAL",
-    asset_library_identifier: str = "",
-    relative_asset_identifier: str = "",
+    asset_library_identifier: str | None = "",
+    relative_asset_identifier: str | None = "",
     use_toggle: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Activate a brush asset as current sculpt and paint tool
 
-    :param asset_library_type: Asset Library Type
-    :param asset_library_identifier: Asset Library Identifier
-    :param relative_asset_identifier: Relative Asset Identifier
-    :param use_toggle: Toggle, Switch between the current and assigned brushes on consecutive uses.
+    :param asset_library_type: Asset Library Type, (optional)
+    :param asset_library_identifier: Asset Library Identifier, (optional, never None)
+    :param relative_asset_identifier: Relative Asset Identifier, (optional, never None)
+    :param use_toggle: Toggle, Switch between the current and assigned brushes on consecutive uses. (optional)
+    :return: Result of the operator call.
     """
 
 def asset_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete the active brush asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete the active brush asset
+
+    :return: Result of the operator call.
+    """
 
 def asset_edit_metadata(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    catalog_path: str = "",
-    author: str = "",
-    description: str = "",
-) -> None:
+    catalog_path: str | None = "",
+    author: str | None = "",
+    description: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit asset information like the catalog, preview image, tags, or author
 
-    :param catalog_path: Catalog, The assets catalog path
-    :param author: Author
-    :param description: Description
+    :param catalog_path: Catalog, The assets catalog path (optional, never None)
+    :param author: Author, (optional, never None)
+    :param description: Description, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def asset_load_preview(
@@ -51,7 +56,7 @@ def asset_load_preview(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -78,32 +83,32 @@ def asset_load_preview(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Choose a preview image for the brush
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param show_multiview: Enable Multi-View
-        :param use_multiview: Use Multi-View
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param show_multiview: Enable Multi-View, (optional)
+        :param use_multiview: Use Multi-View, (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -116,37 +121,45 @@ def asset_load_preview(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def asset_revert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Revert the active brush settings to the default values from the asset library"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Revert the active brush settings to the default values from the asset library
+
+    :return: Result of the operator call.
+    """
 
 def asset_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Update the active brush asset in the asset library with current settings"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Update the active brush asset in the asset library with current settings
+
+    :return: Result of the operator call.
+    """
 
 def asset_save_as(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     asset_library_reference: str | None = "",
-    catalog_path: str = "",
-) -> None:
+    catalog_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save a copy of the active brush asset into the default asset library, and make it the active brush
 
-    :param name: Name, Name for the new brush asset
-    :param asset_library_reference: Library, Asset library used to store the new brush
-    :param catalog_path: Catalog, Catalog to use for the new asset
+    :param name: Name, Name for the new brush asset (optional, never None)
+    :param asset_library_reference: Library, Asset library used to store the new brush (optional)
+    :param catalog_path: Catalog, Catalog to use for the new asset (optional, never None)
+    :return: Result of the operator call.
     """
 
 def scale_size(
@@ -155,10 +168,11 @@ def scale_size(
     /,
     *,
     scalar: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change brush size by a scalar
 
-    :param scalar: Scalar, Factor to scale brush size by
+    :param scalar: Scalar, Factor to scale brush size by (in [0, 2], optional)
+    :return: Result of the operator call.
     """
 
 def stencil_control(
@@ -168,11 +182,12 @@ def stencil_control(
     *,
     mode: typing.Literal["TRANSLATION", "SCALE", "ROTATION"] | None = "TRANSLATION",
     texmode: typing.Literal["PRIMARY", "SECONDARY"] | None = "PRIMARY",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Control the stencil brush
 
-    :param mode: Tool
-    :param texmode: Tool
+    :param mode: Tool, (optional)
+    :param texmode: Tool, (optional)
+    :return: Result of the operator call.
     """
 
 def stencil_fit_image_aspect(
@@ -183,12 +198,13 @@ def stencil_fit_image_aspect(
     use_repeat: bool | None = True,
     use_scale: bool | None = True,
     mask: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """When using an image texture, adjust the stencil size to fit the image aspect ratio
 
-    :param use_repeat: Use Repeat, Use repeat mapping values
-    :param use_scale: Use Scale, Use texture scale values
-    :param mask: Modify Mask Stencil, Modify either the primary or mask stencil
+    :param use_repeat: Use Repeat, Use repeat mapping values (optional)
+    :param use_scale: Use Scale, Use texture scale values (optional)
+    :param mask: Modify Mask Stencil, Modify either the primary or mask stencil (optional)
+    :return: Result of the operator call.
     """
 
 def stencil_reset_transform(
@@ -197,8 +213,9 @@ def stencil_reset_transform(
     /,
     *,
     mask: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset the stencil transformation to the default
 
-    :param mask: Modify Mask Stencil, Modify either the primary or mask stencil
+    :param mask: Modify Mask Stencil, Modify either the primary or mask stencil (optional)
+    :return: Result of the operator call.
     """

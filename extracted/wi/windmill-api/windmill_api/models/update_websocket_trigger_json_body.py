@@ -37,11 +37,11 @@ class UpdateWebsocketTriggerJsonBody:
             messages (only matching messages trigger the script)
         can_return_message (bool): If true, the script can return a message to send back through the WebSocket
         can_return_error_result (bool): If true, error results are sent back through the WebSocket
-        initial_messages (Union[Unset, List[Union['UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0',
+        initial_messages (Union[Unset, None, List[Union['UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0',
             'UpdateWebsocketTriggerJsonBodyInitialMessagesItemType1']]]): Messages to send immediately after connecting (can
             be raw strings or computed by runnables)
-        url_runnable_args (Union[Unset, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]): The arguments to pass to the
-            script or flow
+        url_runnable_args (Union[Unset, None, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]): The arguments to pass to
+            the script or flow
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateWebsocketTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
@@ -57,6 +57,7 @@ class UpdateWebsocketTriggerJsonBody:
     can_return_error_result: bool
     initial_messages: Union[
         Unset,
+        None,
         List[
             Union[
                 "UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0",
@@ -64,7 +65,7 @@ class UpdateWebsocketTriggerJsonBody:
             ]
         ],
     ] = UNSET
-    url_runnable_args: Union[Unset, "UpdateWebsocketTriggerJsonBodyUrlRunnableArgs"] = UNSET
+    url_runnable_args: Union[Unset, None, "UpdateWebsocketTriggerJsonBodyUrlRunnableArgs"] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateWebsocketTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "UpdateWebsocketTriggerJsonBodyRetry"] = UNSET
@@ -87,23 +88,26 @@ class UpdateWebsocketTriggerJsonBody:
 
         can_return_message = self.can_return_message
         can_return_error_result = self.can_return_error_result
-        initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
+        initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
-            initial_messages = []
-            for initial_messages_item_data in self.initial_messages:
-                initial_messages_item: Dict[str, Any]
+            if self.initial_messages is None:
+                initial_messages = None
+            else:
+                initial_messages = []
+                for initial_messages_item_data in self.initial_messages:
+                    initial_messages_item: Dict[str, Any]
 
-                if isinstance(initial_messages_item_data, UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0):
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    if isinstance(initial_messages_item_data, UpdateWebsocketTriggerJsonBodyInitialMessagesItemType0):
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                else:
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    else:
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                initial_messages.append(initial_messages_item)
+                    initial_messages.append(initial_messages_item)
 
-        url_runnable_args: Union[Unset, Dict[str, Any]] = UNSET
+        url_runnable_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.url_runnable_args, Unset):
-            url_runnable_args = self.url_runnable_args.to_dict()
+            url_runnable_args = self.url_runnable_args.to_dict() if self.url_runnable_args else None
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -208,8 +212,10 @@ class UpdateWebsocketTriggerJsonBody:
             initial_messages.append(initial_messages_item)
 
         _url_runnable_args = d.pop("url_runnable_args", UNSET)
-        url_runnable_args: Union[Unset, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]
-        if isinstance(_url_runnable_args, Unset):
+        url_runnable_args: Union[Unset, None, UpdateWebsocketTriggerJsonBodyUrlRunnableArgs]
+        if _url_runnable_args is None:
+            url_runnable_args = None
+        elif isinstance(_url_runnable_args, Unset):
             url_runnable_args = UNSET
         else:
             url_runnable_args = UpdateWebsocketTriggerJsonBodyUrlRunnableArgs.from_dict(_url_runnable_args)

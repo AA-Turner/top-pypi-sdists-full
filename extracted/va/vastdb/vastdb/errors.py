@@ -2,10 +2,13 @@ import logging
 import xml.etree.ElementTree
 from dataclasses import dataclass
 from enum import Enum
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 import pyarrow as pa
 import requests
+
+if TYPE_CHECKING:
+    from vastdb.table_metadata import TableRef
 
 
 class HttpStatus(Enum):
@@ -168,6 +171,20 @@ class MissingProjection(Missing):
 
     def __post_init__(self):
         self.args = [vars(self)]
+
+
+@dataclass
+class MissingBlobExpansion(Missing):
+    """Raised when a blob expansion is not found."""
+
+    table_ref: "TableRef"
+    source_column: str
+
+    def __post_init__(self):
+        self.args = [{"bucket": self.table_ref.bucket,
+                      "schema": self.table_ref.schema,
+                      "table": self.table_ref.table,
+                      "source_column": self.source_column}]
 
 
 class Exists(Exception):

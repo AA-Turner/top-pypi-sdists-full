@@ -154,11 +154,17 @@ class Job:
 
     def __init__(self, command: str = None, raw_command: str = None, job_id: str = None, extra: dict[str, str] = {}):
         self.command = command
+
         self.raw_command = raw_command
         if hasattr(thread_local, 'cmd'):
             self.raw_command = thread_local.cmd
         if self.raw_command is None:
             self.raw_command = ''
+
+        self.scheduled_command = ''
+        if hasattr(thread_local, 'scheduled_command'):
+            self.scheduled_command = thread_local.scheduled_command
+
         self.job_id = job_id
         self.extra = extra
         # print('SEAN Job init', self.job_id, self.command)

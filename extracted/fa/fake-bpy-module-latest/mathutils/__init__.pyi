@@ -468,7 +468,7 @@ class Matrix:
     matrices from 2x2 up to 4x4.
     """
 
-    col: typing.Any
+    col: MatrixAccess
     """ Access the matrix by columns, 3x3 and 4x4 only, (read-only)."""
 
     is_frozen: bool
@@ -498,7 +498,7 @@ class Matrix:
     owner: typing.Any
     """ The item this is wrapping or None (read-only)."""
 
-    row: typing.Any
+    row: MatrixAccess
     """ Access the matrix by rows (default), (read-only)."""
 
     translation: Vector
@@ -507,7 +507,7 @@ class Matrix:
     @classmethod
     def Diagonal(
         cls,
-        vector: Vector | collections.abc.Sequence[float],
+        vector: collections.abc.Sequence[float],
         /,
     ) -> typing_extensions.Self:
         """Create a diagonal (scaling) matrix using the values from the vector.
@@ -531,14 +531,14 @@ class Matrix:
     @classmethod
     def LocRotScale(
         cls,
-        location: None | Vector | collections.abc.Sequence[float],
+        location: None | collections.abc.Sequence[float],
         rotation: Euler
         | None
         | Quaternion
         | collections.abc.Sequence[collections.abc.Sequence[float]]
         | collections.abc.Sequence[float]
         | typing_extensions.Self,
-        scale: None | Vector | collections.abc.Sequence[float],
+        scale: None | collections.abc.Sequence[float],
         /,
     ) -> typing_extensions.Self:
         """Create a matrix combining translation, rotation and scale,
@@ -553,8 +553,7 @@ class Matrix:
     @classmethod
     def OrthoProjection(
         cls,
-        axis: Vector
-        | collections.abc.Sequence[float]
+        axis: collections.abc.Sequence[float]
         | typing.Literal["X", "Y", "XY", "XZ", "YZ"],
         size: int,
         /,
@@ -573,8 +572,7 @@ class Matrix:
         cls,
         angle: float,
         size: int,
-        axis: Vector
-        | collections.abc.Sequence[float]
+        axis: collections.abc.Sequence[float]
         | typing.Literal["X", "Y", "Z"]
         | None = [],
         /,
@@ -593,7 +591,7 @@ class Matrix:
         cls,
         factor: float,
         size: int,
-        axis: Vector | collections.abc.Sequence[float] | None = [],
+        axis: collections.abc.Sequence[float] | None = [],
         /,
     ) -> typing_extensions.Self:
         """Create a matrix representing a scaling.
@@ -624,7 +622,7 @@ class Matrix:
     @classmethod
     def Translation(
         cls,
-        vector: Vector | collections.abc.Sequence[float],
+        vector: collections.abc.Sequence[float],
         /,
     ) -> typing_extensions.Self:
         """Create a matrix representing a translation.
@@ -977,6 +975,9 @@ class Matrix:
         :param other:
         :return:
         """
+
+class MatrixAccess:
+    """An indexable type for accessing matrix rows or columns as `Vector` types."""
 
 class Quaternion:
     """This object gives access to Quaternions in Blender.The constructor takes arguments in various forms:"""

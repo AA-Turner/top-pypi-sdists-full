@@ -7,7 +7,7 @@ def get_work_dir(options: dict) -> Path:
     return Path(work_dir)
 
 def calculate_root_dir(bricks: dict) -> Union[str, None]:
-    brick_path = next((v for v in bricks.values()), None)
+    brick_path = next(iter(bricks.values()), None)
     return str.split(brick_path, '/')[0] if brick_path else None
 
 def calculate_destination_dir(data: dict) -> Union[Path, None]:

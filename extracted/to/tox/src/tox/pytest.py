@@ -316,12 +316,13 @@ def enable_pep517_backend_coverage() -> Iterator[None]:
         result.append("COV_*")
         return result
 
+    # monkey-patch to inject COV_* env vars, session-scoped so mocker unavailable
     previous = Pep517VirtualEnvPackager._default_pass_env  # noqa: SLF001
     try:
-        Pep517VirtualEnvPackager._default_pass_env = default_pass_env  # type: ignore[assignment]  # noqa: SLF001
+        Pep517VirtualEnvPackager._default_pass_env = default_pass_env  # noqa: SLF001  # ty: ignore[invalid-assignment]
         yield
     finally:
-        Pep517VirtualEnvPackager._default_pass_env = previous  # type: ignore[method-assign]  # noqa: SLF001
+        Pep517VirtualEnvPackager._default_pass_env = previous  # noqa: SLF001
 
 
 class ToxRunOutcome:
@@ -425,7 +426,7 @@ def init_fixture(
     mocker: MockerFixture,
 ) -> ToxProjectCreator:
     def _init(files: dict[str, Any], base: Path | None = None, prj_path: Path | None = None) -> ToxProject:
-        """Create tox  projects."""
+        """Create tox projects."""
         return ToxProject(files, base, prj_path or tmp_path / "p", capfd, monkeypatch, mocker)
 
     return _init
@@ -523,7 +524,7 @@ def register_inline_plugin(mocker: MockerFixture, *args: Callable[..., Any]) -> 
     assert caller_module is not None  # noqa: S101
     plugin = ModuleType(f"{caller_module.__name__}|{frame_info[3]}")
     plugin.__file__ = caller_module.__file__
-    plugin.__dict__.update({f.__name__: f for f in args})
+    plugin.__dict__.update({f.__name__: f for f in args})  # ty: ignore[unresolved-attribute] # https://github.com/astral-sh/ty/issues/1495
     mocker.patch("tox.plugin.manager.load_inline", return_value=plugin)
 
 

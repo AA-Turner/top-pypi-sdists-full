@@ -39,6 +39,9 @@ class NodeTool(Command):
     def backgrounable(self):
         return True
 
+    def schedulable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)

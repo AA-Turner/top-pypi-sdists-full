@@ -39,7 +39,7 @@ class CassandraPodService:
                 elif arg != '-e':
                     cqls.append(arg)
             if not cqls:
-                if self.state.in_repl:
+                if state.in_repl:
                     log2('Please enter cql statement. e.g. select host_id from system.local')
                 else:
                     log2('* CQL statement is missing.')

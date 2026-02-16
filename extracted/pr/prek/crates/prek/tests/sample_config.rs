@@ -111,9 +111,9 @@ fn sample_config_toml() {
     "#);
 
     insta::assert_snapshot!(context.read("prek.toml"), @r#"
-    #:schema: https://www.schemastore.org/prek.json
     # Configuration file for `prek`, a git hook framework written in Rust.
     # See https://prek.j178.dev for more information.
+    #:schema https://www.schemastore.org/prek.json
 
     [[repos]]
     repo = "builtin"
@@ -133,9 +133,9 @@ fn sample_config_format() {
     success: true
     exit_code: 0
     ----- stdout -----
-    #:schema: https://www.schemastore.org/prek.json
     # Configuration file for `prek`, a git hook framework written in Rust.
     # See https://prek.j178.dev for more information.
+    #:schema https://www.schemastore.org/prek.json
 
     [[repos]]
     repo = "builtin"
@@ -222,9 +222,9 @@ fn respect_format_if_filename_missing() {
     ");
 
     insta::assert_snapshot!(context.read("prek.toml"), @r#"
-    #:schema: https://www.schemastore.org/prek.json
     # Configuration file for `prek`, a git hook framework written in Rust.
     # See https://prek.j178.dev for more information.
+    #:schema https://www.schemastore.org/prek.json
 
     [[repos]]
     repo = "builtin"

@@ -8,8 +8,11 @@ def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete active scene"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete active scene
+
+    :return: Result of the operator call.
+    """
 
 def drop_scene_asset(
     execution_context: int | str | None = None,
@@ -17,37 +20,45 @@ def drop_scene_asset(
     /,
     *,
     session_uid: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Import scene and set it as the active one in the window
 
-    :param session_uid: Session UID, Session UID of the data-block to use by the operator
+    :param session_uid: Session UID, Session UID of the data-block to use by the operator (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_add_edge_marks_to_keying_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add the data paths to the Freestyle Edge Mark property of selected edges to the active keying set
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_add_face_marks_to_keying_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add the data paths to the Freestyle Face Mark property of selected polygons to the active keying set
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_alpha_modifier_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems
+    type: Literal[bpy.stub_internal.rna_enums.LinestyleAlphaModifierTypeItems]
     | None = "ALONG_STROKE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an alpha transparency modifier to the line style associated with the active lineset
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_color_modifier_add(
@@ -55,12 +66,13 @@ def freestyle_color_modifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems
+    type: Literal[bpy.stub_internal.rna_enums.LinestyleColorModifierTypeItems]
     | None = "ALONG_STROKE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a line color modifier to the line style associated with the active lineset
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_fill_range_by_selection(
@@ -69,11 +81,11 @@ def freestyle_fill_range_by_selection(
     /,
     *,
     type: typing.Literal["COLOR", "ALPHA", "THICKNESS"] | None = "COLOR",
-    name: str = "",
-) -> None:
+    name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the Range Min/Max entries by the min/max distance between selected mesh objects and the source object (either a user-specified object or the active camera)
 
-        :param type: Type, Type of the modifier to work on
+        :param type: Type, Type of the modifier to work on (optional)
 
     COLOR
     Color -- Color modifier type.
@@ -83,7 +95,8 @@ def freestyle_fill_range_by_selection(
 
     THICKNESS
     Thickness -- Thickness modifier type.
-        :param name: Name, Name of the modifier to work on
+        :param name: Name, Name of the modifier to work on (optional, never None)
+        :return: Result of the operator call.
     """
 
 def freestyle_geometry_modifier_add(
@@ -91,27 +104,34 @@ def freestyle_geometry_modifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems
+    type: Literal[bpy.stub_internal.rna_enums.LinestyleGeometryModifierTypeItems]
     | None = "2D_OFFSET",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a stroke geometry modifier to the line style associated with the active lineset
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_lineset_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a line set into the list of line sets"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a line set into the list of line sets
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_lineset_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Copy the active line set to the internal clipboard"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Copy the active line set to the internal clipboard
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_lineset_move(
     execution_context: int | str | None = None,
@@ -119,39 +139,52 @@ def freestyle_lineset_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the position of the active line set within the list of line sets
 
-    :param direction: Direction, Direction to move the active line set towards
+    :param direction: Direction, Direction to move the active line set towards (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_lineset_paste(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Paste the internal clipboard content to the active line set"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Paste the internal clipboard content to the active line set
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_lineset_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the active line set from the list of line sets"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the active line set from the list of line sets
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_linestyle_new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create a new line style, reusable by multiple line sets"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create a new line style, reusable by multiple line sets
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_modifier_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Duplicate the modifier within the list of modifiers"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Duplicate the modifier within the list of modifiers
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_modifier_move(
     execution_context: int | str | None = None,
@@ -159,25 +192,32 @@ def freestyle_modifier_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the modifier within the list of modifiers
 
-    :param direction: Direction, Direction to move the chosen modifier towards
+    :param direction: Direction, Direction to move the chosen modifier towards (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_modifier_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the modifier from the list of modifiers"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the modifier from the list of modifiers
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_module_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a style module into the list of modules"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a style module into the list of modules
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_module_move(
     execution_context: int | str | None = None,
@@ -185,10 +225,11 @@ def freestyle_module_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the position of the style module within in the list of style modules
 
-    :param direction: Direction, Direction to move the chosen style module towards
+    :param direction: Direction, Direction to move the chosen style module towards (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_module_open(
@@ -196,63 +237,75 @@ def freestyle_module_open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     make_internal: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a style module file
 
-    :param filepath: filepath
-    :param make_internal: Make internal, Make module file internal after loading
+    :param filepath: filepath, (optional, never None)
+    :param make_internal: Make internal, Make module file internal after loading (optional)
+    :return: Result of the operator call.
     """
 
 def freestyle_module_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the style module from the stack"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the style module from the stack
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_stroke_material_create(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create Freestyle stroke material for testing"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create Freestyle stroke material for testing
+
+    :return: Result of the operator call.
+    """
 
 def freestyle_thickness_modifier_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems
+    type: Literal[bpy.stub_internal.rna_enums.LinestyleThicknessModifierTypeItems]
     | None = "ALONG_STROKE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a line thickness modifier to the line style associated with the active lineset
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def gltf2_action_filter_refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Refresh list of actions"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Refresh list of actions
+
+    :return: Result of the operator call.
+    """
 
 def gpencil_brush_preset_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove Grease Pencil brush preset
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def gpencil_material_preset_add(
@@ -260,15 +313,16 @@ def gpencil_material_preset_add(
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
+    name: str | None = "",
     remove_name: bool | None = False,
     remove_active: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add or remove Grease Pencil material preset
 
-    :param name: Name, Name of the preset, used to make the path name
-    :param remove_name: remove_name
-    :param remove_active: remove_active
+    :param name: Name, Name of the preset, used to make the path name (optional, never None)
+    :param remove_name: remove_name, (optional)
+    :param remove_active: remove_active, (optional)
+    :return: Result of the operator call.
     """
 
 def new(
@@ -277,10 +331,10 @@ def new(
     /,
     *,
     type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new scene by type
 
-        :param type: Type
+        :param type: Type, (optional)
 
     NEW
     New -- Add a new, empty scene with default settings.
@@ -293,6 +347,7 @@ def new(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
+        :return: Result of the operator call.
     """
 
 def new_sequencer(
@@ -301,10 +356,10 @@ def new_sequencer(
     /,
     *,
     type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new scene by type in the sequence editor and assign to active strip
 
-        :param type: Type
+        :param type: Type, (optional)
 
     NEW
     New -- Add a new, empty scene with default settings.
@@ -317,6 +372,7 @@ def new_sequencer(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
+        :return: Result of the operator call.
     """
 
 def new_sequencer_scene(
@@ -325,10 +381,10 @@ def new_sequencer_scene(
     /,
     *,
     type: typing.Literal["NEW", "EMPTY", "LINK_COPY", "FULL_COPY"] | None = "NEW",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new scene to be used by the sequencer
 
-        :param type: Type
+        :param type: Type, (optional)
 
     NEW
     New -- Add a new, empty scene with default settings.
@@ -341,21 +397,28 @@ def new_sequencer_scene(
 
     FULL_COPY
     Full Copy -- Make a full copy of the current scene.
+        :return: Result of the operator call.
     """
 
 def render_view_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a render view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a render view
+
+    :return: Result of the operator call.
+    """
 
 def render_view_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the selected render view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the selected render view
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_add(
     execution_context: int | str | None = None,
@@ -363,10 +426,10 @@ def view_layer_add(
     /,
     *,
     type: typing.Literal["NEW", "COPY", "EMPTY"] | None = "NEW",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a view layer
 
-        :param type: Type
+        :param type: Type, (optional)
 
     NEW
     New -- Add a new view layer.
@@ -376,58 +439,78 @@ def view_layer_add(
 
     EMPTY
     Blank -- Add a new view layer with all collections disabled.
+        :return: Result of the operator call.
     """
 
 def view_layer_add_aov(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a Shader AOV"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a Shader AOV
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_add_lightgroup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    name: str = "",
-) -> None:
+    name: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a Light Group
 
-    :param name: Name, Name of newly created lightgroup
+    :param name: Name, Name of newly created lightgroup (optional, never None)
+    :return: Result of the operator call.
     """
 
 def view_layer_add_used_lightgroups(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add all used Light Groups"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add all used Light Groups
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the selected view layer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the selected view layer
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_remove_aov(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove Active AOV"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Active AOV
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_remove_lightgroup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove Active Lightgroup"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Active Lightgroup
+
+    :return: Result of the operator call.
+    """
 
 def view_layer_remove_unused_lightgroups(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove all unused Light Groups"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove all unused Light Groups
+
+    :return: Result of the operator call.
+    """

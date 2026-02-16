@@ -449,6 +449,9 @@ class Filters:
             **restrictions,
         }
 
+        if not attr.is_attribute or attr.default is None:
+            metadata.pop("required", None)
+
         if self.docstring_style == DocstringStyle.ACCESSIBLE and attr.help:
             metadata["doc"] = self.clean_docstring(attr.help, False)
 

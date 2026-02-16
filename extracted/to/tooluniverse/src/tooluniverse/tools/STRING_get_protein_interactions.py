@@ -1,7 +1,7 @@
 """
 STRING_get_protein_interactions
 
-Query protein-protein interactions from the STRING database. STRING is a comprehensive database o...
+Alternative method to retrieve protein interactions from STRING (Search Tool for Retrieval of Int...
 """
 
 from typing import Any, Optional, Callable
@@ -20,7 +20,7 @@ def STRING_get_protein_interactions(
     validate: bool = True,
 ) -> dict[str, Any]:
     """
-    Query protein-protein interactions from the STRING database. STRING is a comprehensive database o...
+    Alternative method to retrieve protein interactions from STRING (Search Tool for Retrieval of Int...
 
     Parameters
     ----------

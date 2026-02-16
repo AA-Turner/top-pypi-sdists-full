@@ -6,38 +6,48 @@ import bpy.types
 import mathutils
 
 class ExportHelper:
-    def check(self, _context) -> None:
-        """
+    def check(self, _context) -> bool:
+        """Validate the filepath and axis conversion settings.
 
         :param _context:
+        :return: True when a property was updated.
         """
 
-    def invoke(self, context, _event) -> None:
-        """
+    def invoke(self, context: bpy.types.Context, _event) -> set[str]:
+        """Invoke the file selector for exporting, setting a default filepath
+        based on the current blend file name.
 
-        :param context:
-        :param _event:
+                :param context: The context.
+                :param _event:
+                :return: The operator return value.
         """
 
 class ImportHelper:
-    def check(self, _context) -> None:
-        """
+    def check(self, _context) -> bool:
+        """Validate axis conversion settings.
 
         :param _context:
+        :return: True when a property was updated.
         """
 
-    def invoke(self, context, _event) -> None:
-        """
+    def invoke(self, context: bpy.types.Context, _event) -> set[str]:
+        """Invoke the file selector for importing.
 
-        :param context:
+        :param context: The context.
         :param _event:
+        :return: The operator return value.
         """
 
-    def invoke_popup(self, context, confirm_text="") -> None:
-        """
+    def invoke_popup(
+        self, context: bpy.types.Context, confirm_text: str = ""
+    ) -> set[str]:
+        """Invoke as a popup confirmation dialog when a filepath is already set,
+        otherwise fall back to the file selector.
 
-        :param context:
-        :param confirm_text:
+                :param context: The context.
+                :param confirm_text: Label for the confirm button,
+        defaults to the operator label.
+                :return: The operator return value.
         """
 
 def axis_conversion(

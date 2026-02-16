@@ -531,7 +531,10 @@ class EventGeneratorTests(TestCase):
 
     def test_convert_tokens(self) -> None:
         var = XmlVarFactory.create(
-            xml_type=XmlType.ELEMENT, local_name="a", tokens_factory=list
+            xml_type=XmlType.ELEMENT,
+            local_name="a",
+            tokens_factory=list,
+            nillable=False,
         )
 
         result = self.generator.convert_value(None, var, "xsdata")
@@ -544,19 +547,16 @@ class EventGeneratorTests(TestCase):
 
         expected = [
             ("start", "a"),
+            ("attr", "{http://www.w3.org/2001/XMLSchema-instance}nil", "true"),
             ("data", []),
             ("end", "a"),
         ]
-        var.required = True
+        var.nillable = True
         result = self.generator.convert_value([], var, "xsdata")
         self.assertIsInstance(result, Generator)
         self.assertListEqual(expected, list(result))
 
-        expected = [
-            ("start", "a"),
-            ("data", ["1", QName("{a}b"), "3"]),
-            ("end", "a"),
-        ]
+        expected = [("start", "a"), ("data", ["1", QName("{a}b"), "3"]), ("end", "a")]
         result = self.generator.convert_value([1, QName("{a}b"), 3], var, "xsdata")
         self.assertEqual(expected, list(result))
 
@@ -791,11 +791,11 @@ class EventGeneratorTests(TestCase):
         expected = [
             ("start", "a"),
             ("attr", QNames.XSI_NIL, "true"),
-            ("data", "123"),
+            ("data", None),
             ("end", "a"),
         ]
 
-        result = self.generator.convert_value("123", var, "xsdata")
+        result = self.generator.convert_value(None, var, "xsdata")
         self.assertIsInstance(result, Generator)
         self.assertEqual(expected, list(result))
 
@@ -877,10 +877,10 @@ class EventGeneratorTests(TestCase):
         expected = [
             ("start", "a"),
             ("attr", "a0", "foo"),
-            ("start", "{xsdata}x6"),
-            ("attr", QNames.XSI_NIL, "true"),
+            ("start", "{xsdata}x5"),
+            ("attr", "{http://www.w3.org/2001/XMLSchema-instance}nil", "true"),
             ("data", None),
-            ("end", "{xsdata}x6"),
+            ("end", "{xsdata}x5"),
             ("end", "a"),
         ]
 
@@ -1023,7 +1023,7 @@ class EventGeneratorTests(TestCase):
         x2 = next(meta.find_children("x2"))
         x3 = next(meta.find_children("x3"))
         x4 = next(meta.find_children("x4"))
-        x6 = next(meta.find_children("x6"))
+        x5 = next(meta.find_children("x5"))
 
         actual = self.generator.next_value(obj, meta)
         expected = [
@@ -1035,7 +1035,7 @@ class EventGeneratorTests(TestCase):
             (x1, 4),
             (x3, 9),
             (x4, 10),
-            (x6, None),
+            (x5, None),
         ]
 
         self.assertIsInstance(actual, Generator)

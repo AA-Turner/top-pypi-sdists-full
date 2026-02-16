@@ -7,9 +7,9 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    String,
+    Text,
     text,
-    Unicode,
-    UnicodeText,
 )
 from sqlalchemy.orm import (
     close_all_sessions,
@@ -61,7 +61,6 @@ def engine():
     url = f"postgresql://{db_user}:{db_password}@localhost/{db_name}"
 
     engine = create_engine(url, future=True)
-    engine.echo = True
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS hstore"))
 
@@ -130,11 +129,6 @@ def Base(search_manager_regconfig):
 
 
 @pytest.fixture
-def remove_symbols():
-    return "-@."
-
-
-@pytest.fixture
 def search_trigger_name():
     return "{table}_{column}_trigger"
 
@@ -145,11 +139,8 @@ def search_trigger_function_name():
 
 
 @pytest.fixture
-def ts_vector_options(
-    remove_symbols, search_trigger_name, search_trigger_function_name
-):
+def ts_vector_options(search_trigger_name, search_trigger_function_name):
     return {
-        "remove_symbols": remove_symbols,
         "search_trigger_name": search_trigger_name,
         "search_trigger_function_name": search_trigger_function_name,
         "auto_index": True,
@@ -176,12 +167,12 @@ def TextItem(Base, ts_vector_options):
 
         id = Column(Integer, primary_key=True, autoincrement=True)
 
-        name = Column(Unicode(255))
+        name = Column(String(255))
 
         search_vector = Column(TSVectorType("name", "content", **ts_vector_options))
         content_search_vector = Column(TSVectorType("content", **ts_vector_options))
 
-        content = Column(UnicodeText)
+        content = Column(Text)
 
     return TextItem
 

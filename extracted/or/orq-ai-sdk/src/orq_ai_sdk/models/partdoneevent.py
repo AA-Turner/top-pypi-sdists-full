@@ -40,7 +40,7 @@ class PartReasoningPart(BaseModel):
     r"""The reasoning or thought process behind the response. Used for chain-of-thought or extended thinking."""
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "reasoning_01kghb3k3gb6d7kn4jcqbvphqa"
+        "reasoning_01khhj2zpd6g3prcwgg714wrjd"
     )
     r"""Unique identifier for the part. Format: reasoning_{ulid} (e.g., reasoning_01hxyz...)"""
 
@@ -98,3 +98,13 @@ class PartDoneEvent(BaseModel):
     r"""ISO timestamp of when the event occurred"""
 
     data: PartDoneEventData
+
+
+try:
+    PartReasoningPart.model_rebuild()
+except NameError:
+    pass
+try:
+    PartDoneEventData.model_rebuild()
+except NameError:
+    pass

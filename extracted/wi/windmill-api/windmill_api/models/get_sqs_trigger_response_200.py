@@ -35,7 +35,8 @@ class GetSqsTriggerResponse200:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (GetSqsTriggerResponse200Mode): job trigger mode
-        message_attributes (Union[Unset, List[str]]): Array of SQS message attribute names to include with each message
+        message_attributes (Union[Unset, None, List[str]]): Array of SQS message attribute names to include with each
+            message
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -57,7 +58,7 @@ class GetSqsTriggerResponse200:
     edited_at: datetime.datetime
     is_flow: bool
     mode: GetSqsTriggerResponse200Mode
-    message_attributes: Union[Unset, List[str]] = UNSET
+    message_attributes: Union[Unset, None, List[str]] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -83,9 +84,12 @@ class GetSqsTriggerResponse200:
         is_flow = self.is_flow
         mode = self.mode.value
 
-        message_attributes: Union[Unset, List[str]] = UNSET
+        message_attributes: Union[Unset, None, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
-            message_attributes = self.message_attributes
+            if self.message_attributes is None:
+                message_attributes = None
+            else:
+                message_attributes = self.message_attributes
 
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET

@@ -663,7 +663,7 @@ class EventGenerator:
         Yields:
             An iterator of sax events.
         """
-        if value or var.nillable or var.required:
+        if value or var.nillable:
             if value and collections.is_array(value[0]):
                 for val in value:
                     yield from self.convert_element(val, var, namespace)
@@ -880,7 +880,7 @@ class EventGenerator:
         """
         yield XmlWriterEvent.START, var.qname
 
-        if var.nillable:
+        if var.nillable and not value:
             yield XmlWriterEvent.ATTR, QNames.XSI_NIL, "true"
 
         if value is not None and value != "" and var.any_type:
@@ -929,7 +929,7 @@ class EventGenerator:
 
             if var.sequence is None:
                 value = getattr(obj, var.name)
-                if value is not None or (var.nillable and var.required):
+                if value is not None or var.nillable:
                     yield var, value
                 index += 1
                 continue
@@ -951,11 +951,11 @@ class EventGenerator:
                         if j < len(values):
                             rolling = True
                             value = values[j]
-                            if value is not None or (var.nillable and var.required):
+                            if value is not None or var.nillable:
                                 yield var, value
                     elif j == 0:
                         rolling = True
-                        if values is not None or (var.nillable and var.required):
+                        if values is not None or var.nillable:
                             yield var, values
 
                 j += 1

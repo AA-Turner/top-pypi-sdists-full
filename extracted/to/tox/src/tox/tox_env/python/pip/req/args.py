@@ -3,7 +3,7 @@ from __future__ import annotations
 import bisect
 import re
 from argparse import Action, ArgumentParser, ArgumentTypeError, Namespace
-from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, NoReturn, Protocol, TypeVar, cast
 
 from tox.tox_env.python.pip.req.util import handle_binary_option
 
@@ -20,7 +20,7 @@ class _SupportsWrite(Protocol[_T_contra]):
 
 class _OurArgumentParser(ArgumentParser):
     def print_usage(self, file: _SupportsWrite[str] | None = None) -> None:
-        """ """
+        pass
 
     def exit(self, status: int = 0, message: str | None = None) -> NoReturn:  # noqa: ARG002, PLR6301
         message = "" if message is None else message
@@ -84,8 +84,8 @@ class AddSortedUniqueAction(Action):
         if getattr(namespace, self.dest, None) is None:
             setattr(namespace, self.dest, [])
         current = getattr(namespace, self.dest)
-        if values not in current:
-            bisect.insort(current, values)
+        if values is not None and values not in current:
+            bisect.insort(current, cast("str", values))
 
 
 class AddUniqueAction(Action):

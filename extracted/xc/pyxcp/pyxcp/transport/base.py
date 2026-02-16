@@ -12,6 +12,7 @@ from pyxcp.transport.transport_ext import (
     FrameCategory,
     FrameAcquisitionPolicy,
     LegacyFrameAcquisitionPolicy,
+    NoOpPolicy,
     XcpFraming,
     XcpFramingConfig,
     XcpTransportLayerType,  # noqa: F401
@@ -21,7 +22,6 @@ from pyxcp.utils import (
     CurrentDatetime,
     hexDump,
     seconds_to_nanoseconds,
-    short_sleep,
 )
 
 
@@ -70,13 +70,25 @@ class BaseTransport(metaclass=abc.ABCMeta):
         self.transport_layer_interface: Optional[Any] = transport_layer_interface
         self.parent = None
         self.framing = XcpFraming(framing_config)
-        self.policy: FrameAcquisitionPolicy = policy or LegacyFrameAcquisitionPolicy()
+        self.policy: FrameAcquisitionPolicy = policy or NoOpPolicy(filtered_out=None)
         self.closeEvent: threading.Event = threading.Event()
+
+        # Emit deprecation warning if LegacyFrameAcquisitionPolicy is explicitly used
+        if isinstance(policy, LegacyFrameAcquisitionPolicy):
+            import warnings
+
+            warnings.warn(
+                "LegacyFrameAcquisitionPolicy is deprecated and has unbounded memory growth. "
+                "Consider using FrameRecorderPolicy, StdoutPolicy, or a custom PyFrameAcquisitionPolicy. "
+                "See documentation for migration guide.",
+                DeprecationWarning,
+                stacklevel=3,
+            )
 
         self.command_lock: threading.Lock = threading.Lock()
         self.policy_lock: threading.Lock = threading.Lock()
 
-        self.logger = logging.getLogger("PyXCP")
+        self.logger = logging.getLogger("pyxcp.transport")
         self._debug: bool = self.logger.level == 10
         if transport_layer_interface:
             self.logger.info(f"Transport - User Supplied Transport-Layer Interface: '{transport_layer_interface!s}'")
@@ -89,6 +101,7 @@ class BaseTransport(metaclass=abc.ABCMeta):
         self.timer_restart_event: threading.Event = threading.Event()
         self.timing: Timing = Timing()
         self.resQueue: deque = deque()
+        self.resQueue_condition: threading.Condition = threading.Condition()
         self.listener: threading.Thread = threading.Thread(
             target=self.listen,
             args=(),
@@ -102,6 +115,12 @@ class BaseTransport(metaclass=abc.ABCMeta):
         self.pre_send_timestamp: int = self.timestamp.value
         self.post_send_timestamp: int = self.timestamp.value
         self.recv_timestamp: int = self.timestamp.value
+
+        # Frame counters for diagnostics
+        self.frames_sent = 0
+        self.frames_received = 0
+        self.last_command_sent = None
+
         # Ring buffer for last PDUs to aid diagnostics on failures
         try:
             from collections import deque as _dq
@@ -122,12 +141,13 @@ class BaseTransport(metaclass=abc.ABCMeta):
     def close(self) -> None:
         """Close the transport-layer connection and event-loop."""
         self.finish_listener()
-        # Avoid indefinite blocking on buggy threads
+        # Optimized: reduced from 2.0s to 0.5s timeout since listener now uses
+        # 0.1s recv() timeout and should exit quickly when closeEvent is set
         try:
             if self.listener.is_alive():
-                self.listener.join(timeout=2.0)
-        except Exception:
-            pass
+                self.listener.join(timeout=0.5)
+        except Exception:  # nosec
+            pass  # Listener thread cleanup failure is non-critical
         self.close_connection()
 
     @abc.abstractmethod
@@ -135,17 +155,35 @@ class BaseTransport(metaclass=abc.ABCMeta):
         pass
 
     def get(self):
-        """Get an item from a deque considering a timeout condition."""
+        """Get an item from resQueue with blocking wait and timeout."""
         start: int = self.timestamp.value
-        while not self.resQueue:
-            if self.timer_restart_event.is_set():
-                start: int = self.timestamp.value
-                self.timer_restart_event.clear()
-            if self.timestamp.value - start > self.timeout:
-                raise EmptyFrameError
-            short_sleep()
-        item = self.resQueue.popleft()
-        return item
+        timeout_ns: int = self.timeout
+
+        with self.resQueue_condition:
+            while not self.resQueue:
+                # Check for timeout
+                if self.timer_restart_event.is_set():
+                    start = self.timestamp.value
+                    self.timer_restart_event.clear()
+
+                elapsed = self.timestamp.value - start
+                if elapsed > timeout_ns:
+                    raise EmptyFrameError
+
+                # Calculate remaining timeout in seconds for wait()
+                remaining_ns = timeout_ns - elapsed
+                remaining_sec = remaining_ns / 1_000_000_000.0
+
+                # Wait for notification or timeout
+                # Use a small max timeout to check timer_restart_event periodically
+                wait_time = min(remaining_sec, 0.1)
+                if not self.resQueue_condition.wait(timeout=wait_time):
+                    # Timeout occurred, loop will check timeout condition
+                    continue
+
+            # Item is available
+            item = self.resQueue.popleft()
+            return item
 
     @property
     def start_datetime(self) -> int:
@@ -160,8 +198,8 @@ class BaseTransport(metaclass=abc.ABCMeta):
     def start_listener(self):
         if self.listener.is_alive():
             self.finish_listener()
-            # Avoid indefinite blocking on buggy threads
-            self.listener.join(timeout=2.0)
+            # Optimized: reduced from 2.0s to 0.5s timeout
+            self.listener.join(timeout=0.5)
 
         # Ensure the close event is cleared before starting a new listener thread.
         if hasattr(self, "closeEvent"):
@@ -180,12 +218,19 @@ class BaseTransport(metaclass=abc.ABCMeta):
             self.timing.start()
             with self.policy_lock:
                 self.policy.feed(FrameCategory.CMD, self.framing.counter_send, self.timestamp.value, frame)
+
+            # Track command for diagnostics
+            self.last_command_sent = cmd
+            self.frames_sent += 1
+
             self.send(frame)
             try:
                 xcpPDU = self.get()
+                self.frames_received += 1
             except EmptyFrameError:
                 if not ignore_timeout:
-                    MSG = f"Response timed out (timeout={self.timeout / 1_000_000_000}s)"
+                    # Build enhanced timeout message with diagnostics
+                    MSG = self._build_timeout_message(cmd)
                     with self.policy_lock:
                         self.policy.feed(
                             FrameCategory.METADATA, self.framing.counter_send, self.timestamp.value, bytes(MSG, "ascii")
@@ -271,21 +316,33 @@ class BaseTransport(metaclass=abc.ABCMeta):
         """
         block_response = b""
         start = self.timestamp.value
+        timeout_ns = self.timeout
+
         while len(block_response) < length_required:
-            if len(self.resQueue):
-                partial_response = self.resQueue.popleft()
-                block_response += partial_response[1:]
-            else:
-                if self.timestamp.value - start > self.timeout:
-                    waited = (self.timestamp.value - start) / 1e9 if hasattr(self.timestamp, "value") else None
+            with self.resQueue_condition:
+                # Check if data is available
+                if len(self.resQueue):
+                    partial_response = self.resQueue.popleft()
+                    block_response += partial_response[1:]
+                    continue
+
+                # No data available, check timeout
+                elapsed = self.timestamp.value - start
+                if elapsed > timeout_ns:
+                    waited = elapsed / 1e9
                     msg = f"Response timed out [block_receive]: received {len(block_response)} of {length_required} bytes"
-                    if waited is not None:
-                        msg += f" after {waited:.3f}s"
-                    # Attach diagnostics
-                    # diag = self._build_diagnostics_dump() if self._diagnostics_enabled() else ""
+                    msg += f" after {waited:.3f}s"
+                    msg += f"\nFrames sent: {self.frames_sent}, received: {self.frames_received}"
+                    msg += f"\nTry: c.Transport.timeout = {(timeout_ns / 1_000_000_000) * 2:.1f}  # Increase timeout"
                     self.logger.debug("XCP block_receive timeout", extra={"event": "timeout"})
                     raise types.XcpTimeoutError(msg) from None
-                short_sleep()
+
+                # Wait for data with remaining timeout
+                remaining_ns = timeout_ns - elapsed
+                remaining_sec = remaining_ns / 1_000_000_000.0
+                wait_time = min(remaining_sec, 0.1)
+                self.resQueue_condition.wait(timeout=wait_time)
+
         return block_response
 
     @abc.abstractmethod
@@ -331,17 +388,22 @@ class BaseTransport(metaclass=abc.ABCMeta):
                 length,
             )
             if pid >= 0xFE:
-                self.resQueue.append(response)
+                # Trim response to actual length to remove padding (e.g., CAN 0xAA padding)
+                # Issue #205: CAN-FD with max_dlc_required pads frames, causing parsers
+                # to interpret padding bytes as data (e.g., 0xAA read as maxCto=170)
+                with self.resQueue_condition:
+                    self.resQueue.append(response[:length])
+                    self.resQueue_condition.notify()
                 with self.policy_lock:
-                    self.policy.feed(FrameCategory.RESPONSE, self.counter_received, self.timestamp.value, response)
+                    self.policy.feed(FrameCategory.RESPONSE, self.counter_received, self.timestamp.value, response[:length])
                 self.recv_timestamp = recv_timestamp
             elif pid == 0xFD:
-                self.process_event_packet(response)
+                self.process_event_packet(response[:length])
                 with self.policy_lock:
-                    self.policy.feed(FrameCategory.EVENT, self.counter_received, self.timestamp.value, response)
+                    self.policy.feed(FrameCategory.EVENT, self.counter_received, self.timestamp.value, response[:length])
             elif pid == 0xFC:
                 with self.policy_lock:
-                    self.policy.feed(FrameCategory.SERV, self.counter_received, self.timestamp.value, response)
+                    self.policy.feed(FrameCategory.SERV, self.counter_received, self.timestamp.value, response[:length])
         else:
             # DAQ traffic: Some transports reuse or do not advance the counter for DAQ frames.
             # Do not drop DAQ frames on duplicate counters to avoid losing measurements.
@@ -366,7 +428,7 @@ class BaseTransport(metaclass=abc.ABCMeta):
             # outstanding request, similar to EV_CMD_PENDING behavior on stacks that don't emit it.
             self.timer_restart_event.set()
             with self.policy_lock:
-                self.policy.feed(FrameCategory.DAQ, self.counter_received, timestamp, response)
+                self.policy.feed(FrameCategory.DAQ, self.counter_received, timestamp, response[:length])
 
     def _record_pdu(
         self,
@@ -393,8 +455,17 @@ class BaseTransport(metaclass=abc.ABCMeta):
     def _build_diagnostics_dump(self) -> str:
         import json as _json
 
-        # transport params
-        tp = {"transport": self.__class__.__name__}
+        # transport params - use getattr with defaults for robustness
+        frames_sent = getattr(self, "frames_sent", 0)
+        frames_received = getattr(self, "frames_received", 0)
+        last_cmd = getattr(self, "last_command_sent", None)
+
+        tp = {
+            "transport": self.__class__.__name__,
+            "frames_sent": frames_sent,
+            "frames_received": frames_received,
+            "last_command": last_cmd.name if last_cmd else None,
+        }
         cfg = getattr(self, "config", None)
         # Extract common Eth/Can fields when available
         for key in (
@@ -435,6 +506,48 @@ class BaseTransport(metaclass=abc.ABCMeta):
         # Add a small header to explain what follows
         header = "--- Diagnostics (for troubleshooting) ---"
         return f"{header}\n{body}"
+
+    def _build_timeout_message(self, cmd) -> str:
+        """Build enhanced timeout error message with diagnostics and troubleshooting hints."""
+        timeout_sec = self.timeout / 1_000_000_000
+
+        # Count received frames since connection
+        received_count = self.frames_received
+
+        # Build base message
+        parts = [
+            f"Response timed out after {timeout_sec:.1f}s for command {cmd.name}.",
+            f"Frames sent: {self.frames_sent}, received: {received_count}.",
+        ]
+
+        # Add specific troubleshooting hints based on transport type
+        transport_name = self.__class__.__name__.lower()
+
+        if received_count == 0:
+            parts.append("No responses received - check:")
+            if "can" in transport_name:
+                parts.append("  1. ECU powered and connected?")
+                parts.append("  2. CAN termination (120Ω) present?")
+                parts.append("  3. CAN IDs correct (check A2L file)?")
+                parts.append("  4. CAN bitrate matches ECU?")
+            elif "eth" in transport_name:
+                parts.append("  1. ECU powered and network cable connected?")
+                parts.append("  2. IP address and port correct?")
+                parts.append("  3. Firewall blocking connection?")
+                parts.append("  4. ECU in correct mode (measurement vs bootloader)?")
+            else:
+                parts.append("  1. ECU powered and connected?")
+                parts.append("  2. Transport parameters correct?")
+                parts.append("  3. ECU in correct mode?")
+        else:
+            parts.append("Some responses received - possible:")
+            parts.append("  1. Timeout too short for this command")
+            parts.append("  2. ECU overloaded (reduce DAQ rate)")
+            parts.append("  3. Intermittent connection issue")
+
+        parts.append(f"\nTry: c.Transport.timeout = {timeout_sec * 2:.1f}  # Increase timeout")
+
+        return "\n".join(parts)
 
     def _diagnostics_enabled(self) -> bool:
         try:

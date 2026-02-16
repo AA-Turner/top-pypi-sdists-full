@@ -10,19 +10,19 @@ class CommandFilter:
         pass
 
     @abstractmethod
-    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], str]:
+    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], ReplState, str]:
         pass
 
-    def process_config(self, state: ReplState, cmd: str, word: str, config_key: str, value = True, default = False) -> tuple[Callable[[], None], str]:
+    def process_config(self, state: ReplState, cmd: str, word: str, config_key: str, value = True, default = False) -> tuple[Callable[[], None], ReplState, str]:
         if (pre := f'{word} ') and cmd.startswith(pre):
             cmd = cmd[len(pre):]
             final_value = Config().get(config_key, default=default)
 
             Config().set(config_key, value)
 
-            return lambda results: Config().set(config_key, final_value), cmd
+            return lambda results: Config().set(config_key, final_value), state, cmd
 
-        return None, cmd
+        return None, state, cmd
 
     def help(self, _: ReplState, desc: str = None, command: str = None):
         if not desc:

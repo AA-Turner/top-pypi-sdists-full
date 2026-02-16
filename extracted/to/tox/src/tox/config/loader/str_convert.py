@@ -7,13 +7,14 @@ import sys
 from inspect import isclass
 from itertools import chain
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from tox.config.loader.convert import Convert
 from tox.config.types import Command, EnvList
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
+    from io import StringIO
     from typing import Final
 
 
@@ -54,11 +55,11 @@ class StrConvert(Convert[str]):
 
     @staticmethod
     def _win32_process_path_backslash(value: str, escape: str, special_chars: str) -> str:
-        """
-        Escape backslash in value that is not followed by a special character.
+        """Escape backslash in value that is not followed by a special character.
 
-        This allows windows paths to be written without double backslash, while
-        retaining the POSIX backslash escape semantics for quotes and escapes.
+        This allows windows paths to be written without double backslash, while retaining the POSIX backslash escape
+        semantics for quotes and escapes.
+
         """
         result = []
         for ix, char in enumerate(value):
@@ -74,10 +75,10 @@ class StrConvert(Convert[str]):
 
     @staticmethod
     def to_command(value: str) -> Command | None:
-        """
-        At this point, ``value`` has already been substituted out, and all punctuation / escapes are final.
+        """At this point, ``value`` has already been substituted out, and all punctuation / escapes are final.
 
         Value will typically be stripped of whitespace when coming from an ini file.
+
         """
         value = value.replace(r"\#", "#")
         is_win = sys.platform == "win32"
@@ -99,7 +100,7 @@ class StrConvert(Convert[str]):
                     # on Windows quoted arguments will remain quoted, strip it
                     arg = arg[1:-1]  # noqa: PLW2901
                 args.append(arg)
-                pos = splitter.instream.tell()  # type: ignore[attr-defined]
+                pos = cast("StringIO", splitter.instream).tell()
         except ValueError:
             args.append(value[pos:])
         if len(args) == 0:

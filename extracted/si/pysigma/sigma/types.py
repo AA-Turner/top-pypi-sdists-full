@@ -142,16 +142,17 @@ class SigmaString(SigmaType):
         self.original = s
 
         r: list[Union[str, SpecialChars, Placeholder]] = list()
-        acc = ""  # string accumulation until special character appears
+        acc = []  # list accumulation until special character appears
         escaped = False  # escape mode flag: characters in this mode are always accumulated
         for c in s:
             if escaped:  # escaping mode?
                 if (
                     c in char_mapping or c == escape_char
                 ):  # accumulate if character is special or escaping character
-                    acc += c
+                    acc.append(c)
                 else:  # accumulate escaping and current character (this allows to use plain backslashes in values)
-                    acc += escape_char + c
+                    acc.append(escape_char)
+                    acc.append(c)
                 escaped = False
             elif (
                 c == escape_char and escape
@@ -159,18 +160,18 @@ class SigmaString(SigmaType):
                 escaped = True
             else:  # "normal" string parsing
                 if c in char_mapping:  # character is special character?
-                    if acc != "":
+                    if acc:
                         r.append(
-                            acc
+                            "".join(acc)
                         )  # append accumulated string to parsed result if there was something
                     r.append(char_mapping[c])  # append special character to parsed result
-                    acc = ""  # accumulation reset
+                    acc = []  # accumulation reset
                 else:  # characters without special meaning aren't accumulated
-                    acc += c
+                    acc.append(c)
         if escaped:  # String ended in escaping mode: accumulate escaping character
-            acc += escape_char
-        if acc != "":  # append accumulated remainder
-            r.append(acc)
+            acc.append(escape_char)
+        if acc:  # append accumulated remainder
+            r.append("".join(acc))
         self.s = r
 
     @classmethod
@@ -912,8 +913,8 @@ class SigmaCIDRExpression(NoPlainConversionMixin, SigmaType):
                     patterns.append(
                         str(subnet_v6)[:i] + wildcard
                     )  # Generate pattern by cutting of at first difference
-                else:  # The /128 case - no differences
-                    patterns.append(str(subnet_v6))  # Return the single address
+                else:  # The /128 case - single address, use network_address not network (avoid "::1/128" literal)
+                    patterns.append(str(subnet_v6.network_address))
         return patterns
 
 

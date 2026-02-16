@@ -42,7 +42,8 @@ class GetGcpTriggerResponse200:
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (GetGcpTriggerResponse200Mode): job trigger mode
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal use).
-        delivery_config (Union[Unset, GetGcpTriggerResponse200DeliveryConfig]): Configuration for push delivery mode.
+        delivery_config (Union[Unset, None, GetGcpTriggerResponse200DeliveryConfig]): Configuration for push delivery
+            mode.
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal use).
         error (Union[Unset, str]): Last error message if the trigger failed.
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails.
@@ -66,7 +67,7 @@ class GetGcpTriggerResponse200:
     is_flow: bool
     mode: GetGcpTriggerResponse200Mode
     server_id: Union[Unset, str] = UNSET
-    delivery_config: Union[Unset, "GetGcpTriggerResponse200DeliveryConfig"] = UNSET
+    delivery_config: Union[Unset, None, "GetGcpTriggerResponse200DeliveryConfig"] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
@@ -95,9 +96,9 @@ class GetGcpTriggerResponse200:
         mode = self.mode.value
 
         server_id = self.server_id
-        delivery_config: Union[Unset, Dict[str, Any]] = UNSET
+        delivery_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.delivery_config, Unset):
-            delivery_config = self.delivery_config.to_dict()
+            delivery_config = self.delivery_config.to_dict() if self.delivery_config else None
 
         last_server_ping: Union[Unset, str] = UNSET
         if not isinstance(self.last_server_ping, Unset):
@@ -189,8 +190,10 @@ class GetGcpTriggerResponse200:
         server_id = d.pop("server_id", UNSET)
 
         _delivery_config = d.pop("delivery_config", UNSET)
-        delivery_config: Union[Unset, GetGcpTriggerResponse200DeliveryConfig]
-        if isinstance(_delivery_config, Unset):
+        delivery_config: Union[Unset, None, GetGcpTriggerResponse200DeliveryConfig]
+        if _delivery_config is None:
+            delivery_config = None
+        elif isinstance(_delivery_config, Unset):
             delivery_config = UNSET
         else:
             delivery_config = GetGcpTriggerResponse200DeliveryConfig.from_dict(_delivery_config)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: phonopy
-Version: 2.47.1
+Version: 2.48.0
 Summary: This is the phonopy module.
 Author-Email: Atsushi Togo <atz.togo@gmail.com>
 License-Expression: BSD-3-Clause
@@ -23,6 +23,10 @@ Requires-Dist: pypolymlp>=0.10.0; extra == "pypolymlp"
 Provides-Extra: tools
 Requires-Dist: seekpath; extra == "tools"
 Requires-Dist: pypolymlp>=0.10.0; extra == "tools"
+Provides-Extra: dev
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+Requires-Dist: mypy; extra == "dev"
 Description-Content-Type: text/markdown
 
 [![Version Badge](https://anaconda.org/conda-forge/phonopy/badges/version.svg)](https://anaconda.org/conda-forge/phonopy)

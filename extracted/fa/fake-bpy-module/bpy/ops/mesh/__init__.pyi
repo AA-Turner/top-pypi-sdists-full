@@ -2,7 +2,6 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.ops.transform
 import bpy.stub_internal.rna_enums
 import mathutils
 
@@ -12,22 +11,23 @@ def attribute_set(
     /,
     *,
     value_float: float | None = 0.0,
-    value_float_vector_2d: collections.abc.Iterable[float] | None = (0.0, 0.0),
-    value_float_vector_3d: collections.abc.Iterable[float] | None = (0.0, 0.0, 0.0),
+    value_float_vector_2d: collections.abc.Sequence[float] | None = (0.0, 0.0),
+    value_float_vector_3d: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0),
     value_int: int | None = 0,
-    value_int_vector_2d: collections.abc.Iterable[int] | None = (0, 0),
-    value_color: collections.abc.Iterable[float] | None = (1.0, 1.0, 1.0, 1.0),
+    value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
+    value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
     value_bool: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set values of the active attribute for selected elements
 
-    :param value_float: Value
-    :param value_float_vector_2d: Value
-    :param value_float_vector_3d: Value
-    :param value_int: Value
-    :param value_int_vector_2d: Value
-    :param value_color: Value
-    :param value_bool: Value
+    :param value_float: Value, (in [-inf, inf], optional)
+    :param value_float_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
+    :param value_float_vector_3d: Value, (array of 3 items, in [-inf, inf], optional)
+    :param value_int: Value, (in [-inf, inf], optional)
+    :param value_int_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
+    :param value_color: Value, (array of 4 items, in [-inf, inf], optional)
+    :param value_bool: Value, (optional)
+    :return: Result of the operator call.
     """
 
 def average_normals(
@@ -39,10 +39,10 @@ def average_normals(
     | None = "CUSTOM_NORMAL",
     weight: int | None = 50,
     threshold: float | None = 0.01,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Average custom normals of selected vertices
 
-        :param average_type: Type, Averaging method
+        :param average_type: Type, Averaging method (optional)
 
     CUSTOM_NORMAL
     Custom Normal -- Take average of vertex normals.
@@ -52,8 +52,9 @@ def average_normals(
 
     CORNER_ANGLE
     Corner Angle -- Set all vertex normals by corner angle.
-        :param weight: Weight, Weight applied per face
-        :param threshold: Threshold, Threshold value for different weights to be considered equal
+        :param weight: Weight, Weight applied per face (in [1, 100], optional)
+        :param threshold: Threshold, Threshold value for different weights to be considered equal (in [0, 10], optional)
+        :return: Result of the operator call.
     """
 
 def beautify_fill(
@@ -62,10 +63,11 @@ def beautify_fill(
     /,
     *,
     angle_limit: float | None = 3.14159,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rearrange some faces to try to get less degenerated geometry
 
-    :param angle_limit: Max Angle, Angle limit
+    :param angle_limit: Max Angle, Angle limit (in [0, 3.14159], optional)
+    :return: Result of the operator call.
     """
 
 def bevel(
@@ -94,10 +96,10 @@ def bevel(
     spread: float | None = 0.1,
     vmesh_method: typing.Literal["ADJ", "CUTOFF"] | None = "ADJ",
     release_confirm: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut into selected items at an angle to create bevel or chamfer
 
-        :param offset_type: Width Type, The method for determining the size of the bevel
+        :param offset_type: Width Type, The method for determining the size of the bevel (optional)
 
     OFFSET
     Offset -- Amount is offset of new edges from original.
@@ -113,31 +115,31 @@ def bevel(
 
     ABSOLUTE
     Absolute -- Amount is absolute distance along adjacent edge.
-        :param offset: Width, Bevel amount
-        :param profile_type: Profile Type, The type of shape used to rebuild a beveled section
+        :param offset: Width, Bevel amount (in [0, 1e+06], optional)
+        :param profile_type: Profile Type, The type of shape used to rebuild a beveled section (optional)
 
     SUPERELLIPSE
     Superellipse -- The profile can be a concave or convex curve.
 
     CUSTOM
     Custom -- The profile can be any arbitrary path between its endpoints.
-        :param offset_pct: Width Percent, Bevel amount for percentage method
-        :param segments: Segments, Segments for curved edge
-        :param profile: Profile, Controls profile shape (0.5 = round)
-        :param affect: Affect, Affect edges or vertices
+        :param offset_pct: Width Percent, Bevel amount for percentage method (in [0, 100], optional)
+        :param segments: Segments, Segments for curved edge (in [1, 1000], optional)
+        :param profile: Profile, Controls profile shape (0.5 = round) (in [0, 1], optional)
+        :param affect: Affect, Affect edges or vertices (optional)
 
     VERTICES
     Vertices -- Affect only vertices.
 
     EDGES
     Edges -- Affect only edges.
-        :param clamp_overlap: Clamp Overlap, Do not allow beveled edges/vertices to overlap each other
-        :param loop_slide: Loop Slide, Prefer sliding along edges to even widths
-        :param mark_seam: Mark Seams, Preserve seams along beveled edges
-        :param mark_sharp: Mark Sharp, Preserve sharp edges along beveled edges
-        :param material: Material Index, Material for bevel faces (-1 means use adjacent faces)
-        :param harden_normals: Harden Normals, Match normals of new faces to adjacent faces
-        :param face_strength_mode: Face Strength Mode, Whether to set face strength, and which faces to set face strength on
+        :param clamp_overlap: Clamp Overlap, Do not allow beveled edges/vertices to overlap each other (optional)
+        :param loop_slide: Loop Slide, Prefer sliding along edges to even widths (optional)
+        :param mark_seam: Mark Seams, Preserve seams along beveled edges (optional)
+        :param mark_sharp: Mark Sharp, Preserve sharp edges along beveled edges (optional)
+        :param material: Material Index, Material for bevel faces (-1 means use adjacent faces) (in [-1, inf], optional)
+        :param harden_normals: Harden Normals, Match normals of new faces to adjacent faces (optional)
+        :param face_strength_mode: Face Strength Mode, Whether to set face strength, and which faces to set face strength on (optional)
 
     NONE
     None -- Do not set face strength.
@@ -150,7 +152,7 @@ def bevel(
 
     ALL
     All -- Set face strength on all faces.
-        :param miter_outer: Outer Miter, Pattern to use for outside of miters
+        :param miter_outer: Outer Miter, Pattern to use for outside of miters (optional)
 
     SHARP
     Sharp -- Outside of miter is sharp.
@@ -160,22 +162,23 @@ def bevel(
 
     ARC
     Arc -- Outside of miter is arc.
-        :param miter_inner: Inner Miter, Pattern to use for inside of miters
+        :param miter_inner: Inner Miter, Pattern to use for inside of miters (optional)
 
     SHARP
     Sharp -- Inside of miter is sharp.
 
     ARC
     Arc -- Inside of miter is arc.
-        :param spread: Spread, Amount to spread arcs for arc inner miters
-        :param vmesh_method: Vertex Mesh Method, The method to use to create meshes at intersections
+        :param spread: Spread, Amount to spread arcs for arc inner miters (in [0, 1e+06], optional)
+        :param vmesh_method: Vertex Mesh Method, The method to use to create meshes at intersections (optional)
 
     ADJ
     Grid Fill -- Default patterned fill.
 
     CUTOFF
     Cutoff -- A cutoff at each profiles end before the intersection.
-        :param release_confirm: Confirm on Release
+        :param release_confirm: Confirm on Release, (optional)
+        :return: Result of the operator call.
     """
 
 def bisect(
@@ -203,21 +206,22 @@ def bisect(
     yend: int | None = 0,
     flip: bool | None = False,
     cursor: int | None = 5,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut geometry along a plane (click-drag to define plane)
 
-    :param plane_co: Plane Point, A point on the plane
-    :param plane_no: Plane Normal, The direction the plane points
-    :param use_fill: Fill, Fill in the cut
-    :param clear_inner: Clear Inner, Remove geometry behind the plane
-    :param clear_outer: Clear Outer, Remove geometry in front of the plane
-    :param threshold: Axis Threshold, Preserves the existing geometry along the cut plane
-    :param xstart: X Start
-    :param xend: X End
-    :param ystart: Y Start
-    :param yend: Y End
-    :param flip: Flip
-    :param cursor: Cursor, Mouse cursor style to use during the modal operator
+    :param plane_co: Plane Point, A point on the plane (array of 3 items, in [-inf, inf], optional)
+    :param plane_no: Plane Normal, The direction the plane points (array of 3 items, in [-1, 1], optional)
+    :param use_fill: Fill, Fill in the cut (optional)
+    :param clear_inner: Clear Inner, Remove geometry behind the plane (optional)
+    :param clear_outer: Clear Outer, Remove geometry in front of the plane (optional)
+    :param threshold: Axis Threshold, Preserves the existing geometry along the cut plane (in [0, 10], optional)
+    :param xstart: X Start, (in [-inf, inf], optional)
+    :param xend: X End, (in [-inf, inf], optional)
+    :param ystart: Y Start, (in [-inf, inf], optional)
+    :param yend: Y End, (in [-inf, inf], optional)
+    :param flip: Flip, (optional)
+    :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def blend_from_shape(
@@ -228,12 +232,13 @@ def blend_from_shape(
     shape: str | None = "",
     blend: float | None = 1.0,
     add: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend in shape from a shape key
 
-    :param shape: Shape, Shape key to use for blending
-    :param blend: Blend, Blending factor
-    :param add: Add, Add rather than blend between shapes
+    :param shape: Shape, Shape key to use for blending (optional)
+    :param blend: Blend, Blending factor (in [-1000, 1000], optional)
+    :param add: Add, Add rather than blend between shapes (optional)
+    :return: Result of the operator call.
     """
 
 def bridge_edge_loops(
@@ -249,28 +254,34 @@ def bridge_edge_loops(
     interpolation: typing.Literal["LINEAR", "PATH", "SURFACE"] | None = "PATH",
     smoothness: float | None = 1.0,
     profile_shape_factor: float | None = 0.0,
-    profile_shape: bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    profile_shape: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    ]
     | None = "SMOOTH",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a bridge of faces between two or more selected edge loops
 
-    :param type: Connect Loops, Method of bridging multiple loops
-    :param use_merge: Merge, Merge rather than creating faces
-    :param merge_factor: Merge Factor
-    :param twist_offset: Twist, Twist offset for closed loops
-    :param number_cuts: Number of Cuts
-    :param interpolation: Interpolation, Interpolation method
-    :param smoothness: Smoothness, Smoothness factor
-    :param profile_shape_factor: Profile Factor, How much intermediary new edges are shrunk/expanded
-    :param profile_shape: Profile Shape, Shape of the profile
+    :param type: Connect Loops, Method of bridging multiple loops (optional)
+    :param use_merge: Merge, Merge rather than creating faces (optional)
+    :param merge_factor: Merge Factor, (in [0, 1], optional)
+    :param twist_offset: Twist, Twist offset for closed loops (in [-1000, 1000], optional)
+    :param number_cuts: Number of Cuts, (in [0, 1000], optional)
+    :param interpolation: Interpolation, Interpolation method (optional)
+    :param smoothness: Smoothness, Smoothness factor (in [0, 1000], optional)
+    :param profile_shape_factor: Profile Factor, How much intermediary new edges are shrunk/expanded (in [-1000, 1000], optional)
+    :param profile_shape: Profile Shape, Shape of the profile (optional)
+    :return: Result of the operator call.
     """
 
 def colors_reverse(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Flip direction of face corner color attribute inside faces"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Flip direction of face corner color attribute inside faces
+
+    :return: Result of the operator call.
+    """
 
 def colors_rotate(
     execution_context: int | str | None = None,
@@ -278,10 +289,11 @@ def colors_rotate(
     /,
     *,
     use_ccw: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate face corner color attribute inside faces
 
-    :param use_ccw: Counter Clockwise
+    :param use_ccw: Counter Clockwise, (optional)
+    :return: Result of the operator call.
     """
 
 def convex_hull(
@@ -302,58 +314,74 @@ def convex_hull(
     sharp: bool | None = False,
     materials: bool | None = False,
     deselect_joined: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enclose selected vertices in a convex polyhedron
 
-    :param delete_unused: Delete Unused, Delete selected elements that are not used by the hull
-    :param use_existing_faces: Use Existing Faces, Skip hull triangles that are covered by a pre-existing face
-    :param make_holes: Make Holes, Delete selected faces that are used by the hull
-    :param join_triangles: Join Triangles, Merge adjacent triangles into quads
-    :param face_threshold: Max Face Angle, Face angle limit
-    :param shape_threshold: Max Shape Angle, Shape angle limit
-    :param topology_influence: Topology Influence, How much to prioritize regular grids of quads as well as quads that touch existing quads
-    :param uvs: Compare UVs
-    :param vcols: Compare Color Attributes
-    :param seam: Compare Seam
-    :param sharp: Compare Sharp
-    :param materials: Compare Materials
-    :param deselect_joined: Deselect Joined, Only select remaining triangles that were not merged
+    :param delete_unused: Delete Unused, Delete selected elements that are not used by the hull (optional)
+    :param use_existing_faces: Use Existing Faces, Skip hull triangles that are covered by a pre-existing face (optional)
+    :param make_holes: Make Holes, Delete selected faces that are used by the hull (optional)
+    :param join_triangles: Join Triangles, Merge adjacent triangles into quads (optional)
+    :param face_threshold: Max Face Angle, Face angle limit (in [0, 3.14159], optional)
+    :param shape_threshold: Max Shape Angle, Shape angle limit (in [0, 3.14159], optional)
+    :param topology_influence: Topology Influence, How much to prioritize regular grids of quads as well as quads that touch existing quads (in [0, 2], optional)
+    :param uvs: Compare UVs, (optional)
+    :param vcols: Compare Color Attributes, (optional)
+    :param seam: Compare Seam, (optional)
+    :param sharp: Compare Sharp, (optional)
+    :param materials: Compare Materials, (optional)
+    :param deselect_joined: Deselect Joined, Only select remaining triangles that were not merged (optional)
+    :return: Result of the operator call.
     """
 
 def customdata_custom_splitnormals_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a custom normals layer, if none exists yet"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a custom normals layer, if none exists yet
+
+    :return: Result of the operator call.
+    """
 
 def customdata_custom_splitnormals_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the custom normals layer, if it exists"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the custom normals layer, if it exists
+
+    :return: Result of the operator call.
+    """
 
 def customdata_mask_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Clear vertex sculpt masking data from the mesh"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Clear vertex sculpt masking data from the mesh
+
+    :return: Result of the operator call.
+    """
 
 def customdata_skin_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a vertex skin layer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a vertex skin layer
+
+    :return: Result of the operator call.
+    """
 
 def customdata_skin_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Clear vertex skin layer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Clear vertex skin layer
+
+    :return: Result of the operator call.
+    """
 
 def decimate(
     execution_context: int | str | None = None,
@@ -365,16 +393,17 @@ def decimate(
     vertex_group_factor: float | None = 1.0,
     invert_vertex_group: bool | None = False,
     use_symmetry: bool | None = False,
-    symmetry_axis: bpy.stub_internal.rna_enums.AxisXyzItems | None = "Y",
-) -> None:
+    symmetry_axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "Y",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Simplify geometry by collapsing edges
 
-    :param ratio: Ratio
-    :param use_vertex_group: Vertex Group, Use active vertex group as an influence
-    :param vertex_group_factor: Weight, Vertex group strength
-    :param invert_vertex_group: Invert, Invert vertex group influence
-    :param use_symmetry: Symmetry, Maintain symmetry on an axis
-    :param symmetry_axis: Axis, Axis of symmetry
+    :param ratio: Ratio, (in [0, 1], optional)
+    :param use_vertex_group: Vertex Group, Use active vertex group as an influence (optional)
+    :param vertex_group_factor: Weight, Vertex group strength (in [0, 1000], optional)
+    :param invert_vertex_group: Invert, Invert vertex group influence (optional)
+    :param use_symmetry: Symmetry, Maintain symmetry on an axis (optional)
+    :param symmetry_axis: Axis, Axis of symmetry (optional)
+    :return: Result of the operator call.
     """
 
 def delete(
@@ -384,10 +413,11 @@ def delete(
     *,
     type: typing.Literal["VERT", "EDGE", "FACE", "EDGE_FACE", "ONLY_FACE"]
     | None = "VERT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected vertices, edges or faces
 
-    :param type: Type, Method used for deleting mesh data
+    :param type: Type, Method used for deleting mesh data (optional)
+    :return: Result of the operator call.
     """
 
 def delete_edgeloop(
@@ -396,10 +426,11 @@ def delete_edgeloop(
     /,
     *,
     use_face_split: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete an edge loop by merging the faces on each side
 
-    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry
+    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
+    :return: Result of the operator call.
     """
 
 def delete_loose(
@@ -410,12 +441,13 @@ def delete_loose(
     use_verts: bool | None = True,
     use_edges: bool | None = True,
     use_faces: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete loose vertices, edges or faces
 
-    :param use_verts: Vertices, Remove loose vertices
-    :param use_edges: Edges, Remove loose edges
-    :param use_faces: Faces, Remove loose faces
+    :param use_verts: Vertices, Remove loose vertices (optional)
+    :param use_edges: Edges, Remove loose edges (optional)
+    :param use_faces: Faces, Remove loose faces (optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_degenerate(
@@ -424,10 +456,11 @@ def dissolve_degenerate(
     /,
     *,
     threshold: float | None = 0.0001,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve zero area faces and zero length edges
 
-    :param threshold: Merge Distance, Maximum distance between elements to merge
+    :param threshold: Merge Distance, Maximum distance between elements to merge (in [1e-06, 50], optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_edges(
@@ -438,12 +471,13 @@ def dissolve_edges(
     use_verts: bool | None = True,
     angle_threshold: float | None = 3.14159,
     use_face_split: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve edges, merging faces
 
-    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges
-    :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold.
-    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry
+    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges (optional)
+    :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold. (in [0, 3.14159], optional)
+    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_faces(
@@ -452,10 +486,11 @@ def dissolve_faces(
     /,
     *,
     use_verts: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve faces
 
-    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges
+    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges (optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_limited(
@@ -465,13 +500,16 @@ def dissolve_limited(
     *,
     angle_limit: float | None = 0.0872665,
     use_dissolve_boundaries: bool | None = False,
-    delimit: set[bpy.stub_internal.rna_enums.MeshDelimitModeItems] | None = {"NORMAL"},
-) -> None:
+    delimit: set[Literal[bpy.stub_internal.rna_enums.MeshDelimitModeItems]] | None = {
+        "NORMAL"
+    },
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve selected edges and vertices, limited by the angle of surrounding geometry
 
-    :param angle_limit: Max Angle, Angle limit
-    :param use_dissolve_boundaries: All Boundaries, Dissolve all vertices in between face boundaries
-    :param delimit: Delimit, Delimit dissolve operation
+    :param angle_limit: Max Angle, Angle limit (in [0, 3.14159], optional)
+    :param use_dissolve_boundaries: All Boundaries, Dissolve all vertices in between face boundaries (optional)
+    :param delimit: Delimit, Delimit dissolve operation (optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_mode(
@@ -483,13 +521,14 @@ def dissolve_mode(
     angle_threshold: float | None = 3.14159,
     use_face_split: bool | None = False,
     use_boundary_tear: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve geometry based on the selection mode
 
-    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges
-    :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold.
-    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry
-    :param use_boundary_tear: Tear Boundary, Split off face corners instead of merging faces
+    :param use_verts: Dissolve Vertices, Dissolve remaining vertices which connect to only two edges (optional)
+    :param angle_threshold: Angle Threshold, Remaining vertices which separate edge pairs are preserved if their edge angle exceeds this threshold. (in [0, 3.14159], optional)
+    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
+    :param use_boundary_tear: Tear Boundary, Split off face corners instead of merging faces (optional)
+    :return: Result of the operator call.
     """
 
 def dissolve_verts(
@@ -499,11 +538,12 @@ def dissolve_verts(
     *,
     use_face_split: bool | None = False,
     use_boundary_tear: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Dissolve vertices, merge edges and faces
 
-    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry
-    :param use_boundary_tear: Tear Boundary, Split off face corners instead of merging faces
+    :param use_face_split: Face Split, Split off face corners to maintain surrounding geometry (optional)
+    :param use_boundary_tear: Tear Boundary, Split off face corners instead of merging faces (optional)
+    :return: Result of the operator call.
     """
 
 def dupli_extrude_cursor(
@@ -512,10 +552,11 @@ def dupli_extrude_cursor(
     /,
     *,
     rotate_source: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate and extrude selected vertices, edges or faces towards the mouse cursor
 
-    :param rotate_source: Rotate Source, Rotate initial selection giving better shape
+    :param rotate_source: Rotate Source, Rotate initial selection giving better shape (optional)
+    :return: Result of the operator call.
     """
 
 def duplicate(
@@ -524,10 +565,11 @@ def duplicate(
     /,
     *,
     mode: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected vertices, edges or faces
 
-    :param mode: Mode
+    :param mode: Mode, (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def duplicate_move(
@@ -535,28 +577,35 @@ def duplicate_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_duplicate: duplicate | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_duplicate: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate mesh and move
 
-    :param MESH_OT_duplicate: Duplicate, Duplicate selected vertices, edges or faces
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_duplicate: Duplicate, Duplicate selected vertices, edges or faces (optional, `bpy.ops.mesh.duplicate` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def edge_collapse(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Collapse isolated edge and face regions, merging data such as UVs and color attributes. This can collapse edge-rings as well as regions of connected faces into vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Collapse isolated edge and face regions, merging data such as UVs and color attributes. This can collapse edge-rings as well as regions of connected faces into vertices
+
+    :return: Result of the operator call.
+    """
 
 def edge_face_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add an edge or face to selected"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add an edge or face to selected
+
+    :return: Result of the operator call.
+    """
 
 def edge_rotate(
     execution_context: int | str | None = None,
@@ -564,10 +613,11 @@ def edge_rotate(
     /,
     *,
     use_ccw: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate selected edge or adjoining faces
 
-    :param use_ccw: Counter Clockwise
+    :param use_ccw: Counter Clockwise, (optional)
+    :return: Result of the operator call.
     """
 
 def edge_split(
@@ -576,16 +626,17 @@ def edge_split(
     /,
     *,
     type: typing.Literal["EDGE", "VERT"] | None = "EDGE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected edges so that each neighbor face gets its own copy
 
-        :param type: Type, Method to use for splitting
+        :param type: Type, Method to use for splitting (optional)
 
     EDGE
     Faces by Edges -- Split faces along selected edges.
 
     VERT
     Faces & Edges by Vertices -- Split faces and edges connected to selected vertices.
+        :return: Result of the operator call.
     """
 
 def edgering_select(
@@ -593,7 +644,9 @@ def edgering_select(
     undo: bool | None = None,
     /,
     *,
-    delimit_edge_ring: set[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeRingItems]
+    delimit_edge_ring: set[
+        Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeRingItems]
+    ]
     | None = {"NGONS"},
     extend: bool | None = False,
     deselect: bool | None = False,
@@ -602,13 +655,18 @@ def edgering_select(
     edge_index: int | None = -1,
     vert_index: int | None = -1,
     face_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select an edge ring
 
-    :param delimit_edge_ring: Edge Ring Delimit, Delimit edge ring selection
-    :param extend: Extend Select, Extend the selection
-    :param deselect: Deselect, Remove from the selection
-    :param toggle: Toggle Select, Toggle the selection
+    :param delimit_edge_ring: Edge Ring Delimit, Delimit edge ring selection (optional)
+    :param extend: Extend Select, Extend the selection (optional)
+    :param deselect: Deselect, Remove from the selection (optional)
+    :param toggle: Toggle Select, Toggle the selection (optional)
+    :param object_index: (in [-1, inf], optional)
+    :param edge_index: (in [-1, inf], optional)
+    :param vert_index: (in [-1, inf], optional)
+    :param face_index: (in [-1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def edges_select_sharp(
@@ -617,10 +675,11 @@ def edges_select_sharp(
     /,
     *,
     sharpness: float | None = 0.523599,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all sharp enough edges
 
-    :param sharpness: Sharpness
+    :param sharpness: Sharpness, (in [0.000174533, 3.14159], optional)
+    :return: Result of the operator call.
     """
 
 def extrude_context(
@@ -631,12 +690,13 @@ def extrude_context(
     use_normal_flip: bool | None = False,
     use_dissolve_ortho_edges: bool | None = False,
     mirror: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude selection
 
-    :param use_normal_flip: Flip Normals
-    :param use_dissolve_ortho_edges: Dissolve Orthogonal Edges
-    :param mirror: Mirror Editing
+    :param use_normal_flip: Flip Normals, (optional)
+    :param use_dissolve_ortho_edges: Dissolve Orthogonal Edges, (optional)
+    :param mirror: Mirror Editing, (optional)
+    :return: Result of the operator call.
     """
 
 def extrude_context_move(
@@ -644,13 +704,14 @@ def extrude_context_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_context: extrude_context | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_extrude_context: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region together along the average normal
 
-    :param MESH_OT_extrude_context: Extrude Context, Extrude selection
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_extrude_context: Extrude Context, Extrude selection (optional, `bpy.ops.mesh.extrude_context` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_edges_indiv(
@@ -660,11 +721,12 @@ def extrude_edges_indiv(
     *,
     use_normal_flip: bool | None = False,
     mirror: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude individual edges only
 
-    :param use_normal_flip: Flip Normals
-    :param mirror: Mirror Editing
+    :param use_normal_flip: Flip Normals, (optional)
+    :param mirror: Mirror Editing, (optional)
+    :return: Result of the operator call.
     """
 
 def extrude_edges_move(
@@ -672,13 +734,14 @@ def extrude_edges_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_edges_indiv: extrude_edges_indiv | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_extrude_edges_indiv: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude edges and move result
 
-    :param MESH_OT_extrude_edges_indiv: Extrude Only Edges, Extrude individual edges only
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_extrude_edges_indiv: Extrude Only Edges, Extrude individual edges only (optional, `bpy.ops.mesh.extrude_edges_indiv` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_faces_indiv(
@@ -687,10 +750,11 @@ def extrude_faces_indiv(
     /,
     *,
     mirror: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude individual faces only
 
-    :param mirror: Mirror Editing
+    :param mirror: Mirror Editing, (optional)
+    :return: Result of the operator call.
     """
 
 def extrude_faces_move(
@@ -698,13 +762,14 @@ def extrude_faces_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_faces_indiv: extrude_faces_indiv | None = None,
-    TRANSFORM_OT_shrink_fatten: bpy.ops.transform.shrink_fatten | None = None,
-) -> None:
+    MESH_OT_extrude_faces_indiv: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_shrink_fatten: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude each individual face separately along local normals
 
-    :param MESH_OT_extrude_faces_indiv: Extrude Individual Faces, Extrude individual faces only
-    :param TRANSFORM_OT_shrink_fatten: Shrink/Fatten, Shrink/fatten selected vertices along normals
+    :param MESH_OT_extrude_faces_indiv: Extrude Individual Faces, Extrude individual faces only (optional, `bpy.ops.mesh.extrude_faces_indiv` keyword arguments)
+    :param TRANSFORM_OT_shrink_fatten: Shrink/Fatten, Shrink/fatten selected vertices along normals (optional, `bpy.ops.transform.shrink_fatten` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_manifold(
@@ -712,13 +777,14 @@ def extrude_manifold(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_region: extrude_region | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_extrude_region: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude, dissolves edges whose faces form a flat surface and intersect new edges
 
-    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces (optional, `bpy.ops.mesh.extrude_region` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_region(
@@ -729,12 +795,13 @@ def extrude_region(
     use_normal_flip: bool | None = False,
     use_dissolve_ortho_edges: bool | None = False,
     mirror: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region of faces
 
-    :param use_normal_flip: Flip Normals
-    :param use_dissolve_ortho_edges: Dissolve Orthogonal Edges
-    :param mirror: Mirror Editing
+    :param use_normal_flip: Flip Normals, (optional)
+    :param use_dissolve_ortho_edges: Dissolve Orthogonal Edges, (optional)
+    :param mirror: Mirror Editing, (optional)
+    :return: Result of the operator call.
     """
 
 def extrude_region_move(
@@ -742,13 +809,14 @@ def extrude_region_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_region: extrude_region | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_extrude_region: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region and move result
 
-    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces (optional, `bpy.ops.mesh.extrude_region` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_region_shrink_fatten(
@@ -756,13 +824,14 @@ def extrude_region_shrink_fatten(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_region: extrude_region | None = None,
-    TRANSFORM_OT_shrink_fatten: bpy.ops.transform.shrink_fatten | None = None,
-) -> None:
+    MESH_OT_extrude_region: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_shrink_fatten: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region together along local normals
 
-    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces
-    :param TRANSFORM_OT_shrink_fatten: Shrink/Fatten, Shrink/fatten selected vertices along normals
+    :param MESH_OT_extrude_region: Extrude Region, Extrude region of faces (optional, `bpy.ops.mesh.extrude_region` keyword arguments)
+    :param TRANSFORM_OT_shrink_fatten: Shrink/Fatten, Shrink/fatten selected vertices along normals (optional, `bpy.ops.transform.shrink_fatten` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_repeat(
@@ -773,12 +842,13 @@ def extrude_repeat(
     steps: int | None = 10,
     offset: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
     scale_offset: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude selected vertices, edges or faces repeatedly
 
-    :param steps: Steps
-    :param offset: Offset, Offset vector
-    :param scale_offset: Scale Offset
+    :param steps: Steps, (in [0, 1000000], optional)
+    :param offset: Offset, Offset vector (array of 3 items, in [-100000, 100000], optional)
+    :param scale_offset: Scale Offset, (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def extrude_vertices_move(
@@ -786,13 +856,14 @@ def extrude_vertices_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_extrude_verts_indiv: extrude_verts_indiv | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_extrude_verts_indiv: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude vertices and move result
 
-    :param MESH_OT_extrude_verts_indiv: Extrude Only Vertices, Extrude individual vertices only
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_extrude_verts_indiv: Extrude Only Vertices, Extrude individual vertices only (optional, `bpy.ops.mesh.extrude_verts_indiv` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def extrude_verts_indiv(
@@ -801,10 +872,11 @@ def extrude_verts_indiv(
     /,
     *,
     mirror: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude individual vertices only
 
-    :param mirror: Mirror Editing
+    :param mirror: Mirror Editing, (optional)
+    :return: Result of the operator call.
     """
 
 def face_make_planar(
@@ -814,19 +886,23 @@ def face_make_planar(
     *,
     factor: float | None = 1.0,
     repeat: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flatten selected faces
 
-    :param factor: Factor
-    :param repeat: Iterations
+    :param factor: Factor, (in [-10, 10], optional)
+    :param repeat: Iterations, (in [1, 10000], optional)
+    :return: Result of the operator call.
     """
 
 def face_split_by_edges(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Weld loose edges into faces (splitting them into new faces)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Weld loose edges into faces (splitting them into new faces)
+
+    :return: Result of the operator call.
+    """
 
 def faces_select_linked_flat(
     execution_context: int | str | None = None,
@@ -834,25 +910,32 @@ def faces_select_linked_flat(
     /,
     *,
     sharpness: float | None = 0.0174533,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked faces by angle
 
-    :param sharpness: Sharpness
+    :param sharpness: Sharpness, (in [0.000174533, 3.14159], optional)
+    :return: Result of the operator call.
     """
 
 def faces_shade_flat(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Display faces flat"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Display faces flat
+
+    :return: Result of the operator call.
+    """
 
 def faces_shade_smooth(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Display faces smooth (using vertex normals)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Display faces smooth (using vertex normals)
+
+    :return: Result of the operator call.
+    """
 
 def fill(
     execution_context: int | str | None = None,
@@ -860,10 +943,11 @@ def fill(
     /,
     *,
     use_beauty: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill a selected edge loop with faces
 
-    :param use_beauty: Beauty, Use best triangulation division
+    :param use_beauty: Beauty, Use best triangulation division (optional)
+    :return: Result of the operator call.
     """
 
 def fill_grid(
@@ -874,12 +958,13 @@ def fill_grid(
     span: int | None = 1,
     offset: int | None = 0,
     use_interp_simple: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill grid from two loops
 
-    :param span: Span, Number of grid columns
-    :param offset: Offset, Vertex that is the corner of the grid
-    :param use_interp_simple: Simple Blending, Use simple interpolation of grid vertices
+    :param span: Span, Number of grid columns (in [1, 1000], optional)
+    :param offset: Offset, Vertex that is the corner of the grid (in [-1000, 1000], optional)
+    :param use_interp_simple: Simple Blending, Use simple interpolation of grid vertices (optional)
+    :return: Result of the operator call.
     """
 
 def fill_holes(
@@ -888,10 +973,11 @@ def fill_holes(
     /,
     *,
     sides: int | None = 4,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill in holes (boundary edge loops)
 
-    :param sides: Sides, Number of sides in hole required to fill (zero fills all holes)
+    :param sides: Sides, Number of sides in hole required to fill (zero fills all holes) (in [0, 1000], optional)
+    :return: Result of the operator call.
     """
 
 def flip_normals(
@@ -900,18 +986,22 @@ def flip_normals(
     /,
     *,
     only_clnors: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flip the direction of selected faces normals (and of their vertices)
 
-    :param only_clnors: Custom Normals Only, Only flip the custom loop normals of the selected elements
+    :param only_clnors: Custom Normals Only, Only flip the custom loop normals of the selected elements (optional)
+    :return: Result of the operator call.
     """
 
 def flip_quad_tessellation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Flips the tessellation of selected quads"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Flips the tessellation of selected quads
+
+    :return: Result of the operator call.
+    """
 
 def hide(
     execution_context: int | str | None = None,
@@ -919,10 +1009,11 @@ def hide(
     /,
     *,
     unselected: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide (un)selected vertices, edges or faces
 
-    :param unselected: Unselected, Hide unselected rather than selected
+    :param unselected: Unselected, Hide unselected rather than selected (optional)
+    :return: Result of the operator call.
     """
 
 def inset(
@@ -941,20 +1032,21 @@ def inset(
     use_individual: bool | None = False,
     use_interpolate: bool | None = True,
     release_confirm: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Inset new faces into selected faces
 
-    :param use_boundary: Boundary, Inset face boundaries
-    :param use_even_offset: Offset Even, Scale the offset to give more even thickness
-    :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry
-    :param use_edge_rail: Edge Rail, Inset the region along existing edges
-    :param thickness: Thickness
-    :param depth: Depth
-    :param use_outset: Outset, Outset rather than inset
-    :param use_select_inset: Select Outer, Select the new inset faces
-    :param use_individual: Individual, Individual face inset
-    :param use_interpolate: Interpolate, Blend face data across the inset
-    :param release_confirm: Confirm on Release
+    :param use_boundary: Boundary, Inset face boundaries (optional)
+    :param use_even_offset: Offset Even, Scale the offset to give more even thickness (optional)
+    :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry (optional)
+    :param use_edge_rail: Edge Rail, Inset the region along existing edges (optional)
+    :param thickness: Thickness, (in [0, inf], optional)
+    :param depth: Depth, (in [-inf, inf], optional)
+    :param use_outset: Outset, Outset rather than inset (optional)
+    :param use_select_inset: Select Outer, Select the new inset faces (optional)
+    :param use_individual: Individual, Individual face inset (optional)
+    :param use_interpolate: Interpolate, Blend face data across the inset (optional)
+    :param release_confirm: Confirm on Release, (optional)
+    :return: Result of the operator call.
     """
 
 def intersect(
@@ -966,17 +1058,17 @@ def intersect(
     separate_mode: typing.Literal["ALL", "CUT", "NONE"] | None = "CUT",
     threshold: float | None = 1e-06,
     solver: typing.Literal["FLOAT", "EXACT"] | None = "EXACT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut an intersection into faces
 
-        :param mode: Source
+        :param mode: Source, (optional)
 
     SELECT
     Self Intersect -- Self intersect selected faces.
 
     SELECT_UNSELECT
     Selected/Unselected -- Intersect selected with unselected faces.
-        :param separate_mode: Separate Mode
+        :param separate_mode: Separate Mode, (optional)
 
     ALL
     All -- Separate all geometry from intersections.
@@ -986,14 +1078,15 @@ def intersect(
 
     NONE
     Merge -- Merge all geometry from the intersection.
-        :param threshold: Merge Threshold
-        :param solver: Solver, Which Intersect solver to use
+        :param threshold: Merge Threshold, (in [0, 0.01], optional)
+        :param solver: Solver, Which Intersect solver to use (optional)
 
     FLOAT
     Float -- Simple solver with good performance, without support for overlapping geometry.
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
+        :return: Result of the operator call.
     """
 
 def intersect_boolean(
@@ -1006,20 +1099,21 @@ def intersect_boolean(
     use_self: bool | None = False,
     threshold: float | None = 1e-06,
     solver: typing.Literal["FLOAT", "EXACT"] | None = "EXACT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut solid geometry from selected to unselected
 
-        :param operation: Boolean Operation, Which boolean operation to apply
-        :param use_swap: Swap, Use with difference intersection to swap which side is kept
-        :param use_self: Self Intersection, Do self-union or self-intersection
-        :param threshold: Merge Threshold
-        :param solver: Solver, Which Boolean solver to use
+        :param operation: Boolean Operation, Which boolean operation to apply (optional)
+        :param use_swap: Swap, Use with difference intersection to swap which side is kept (optional)
+        :param use_self: Self Intersection, Do self-union or self-intersection (optional)
+        :param threshold: Merge Threshold, (in [0, 0.01], optional)
+        :param solver: Solver, Which Boolean solver to use (optional)
 
     FLOAT
     Float -- Faster solver, some limitations.
 
     EXACT
     Exact -- Exact solver, slower, handles more cases.
+        :return: Result of the operator call.
     """
 
 def knife_project(
@@ -1028,10 +1122,11 @@ def knife_project(
     /,
     *,
     cut_through: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use other objects outlines and boundaries to project knife cuts
 
-    :param cut_through: Cut Through, Cut through all faces, not just visible ones
+    :param cut_through: Cut Through, Cut through all faces, not just visible ones (optional)
+    :return: Result of the operator call.
     """
 
 def knife_tool(
@@ -1047,13 +1142,13 @@ def knife_tool(
     angle_snapping: typing.Literal["NONE", "SCREEN", "RELATIVE"] | None = "NONE",
     angle_snapping_increment: float | None = 0.523599,
     wait_for_input: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut new topology
 
-        :param use_occlude_geometry: Occlude Geometry, Only cut the front most geometry
-        :param only_selected: Only Selected, Only cut selected geometry
-        :param xray: X-Ray, Show cuts hidden by geometry
-        :param visible_measurements: Measurements, Visible distance and angle measurements
+        :param use_occlude_geometry: Occlude Geometry, Only cut the front most geometry (optional)
+        :param only_selected: Only Selected, Only cut selected geometry (optional)
+        :param xray: X-Ray, Show cuts hidden by geometry (optional)
+        :param visible_measurements: Measurements, Visible distance and angle measurements (optional)
 
     NONE
     None -- Show no measurements.
@@ -1066,7 +1161,7 @@ def knife_tool(
 
     ANGLE
     Angle -- Show just angle measurements.
-        :param angle_snapping: Angle Snapping, Angle snapping mode
+        :param angle_snapping: Angle Snapping, Angle snapping mode (optional)
 
     NONE
     None -- No angle snapping.
@@ -1076,8 +1171,9 @@ def knife_tool(
 
     RELATIVE
     Relative -- Angle snapping relative to the previous cut edge.
-        :param angle_snapping_increment: Angle Snap Increment, The angle snap increment used when in constrained angle mode
-        :param wait_for_input: Wait for Input
+        :param angle_snapping_increment: Angle Snap Increment, The angle snap increment used when in constrained angle mode (in [0, 3.14159], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :return: Result of the operator call.
     """
 
 def loop_select(
@@ -1085,9 +1181,13 @@ def loop_select(
     undo: bool | None = None,
     /,
     *,
-    delimit_edge_loop: set[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeLoopItems]
+    delimit_edge_loop: set[
+        Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeLoopItems]
+    ]
     | None = {"NGONS", "OUTER_CORNERS"},
-    delimit_face_loop: set[bpy.stub_internal.rna_enums.MeshWalkDelimitFaceLoopItems]
+    delimit_face_loop: set[
+        Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitFaceLoopItems]
+    ]
     | None = {},
     extend: bool | None = False,
     deselect: bool | None = False,
@@ -1096,14 +1196,19 @@ def loop_select(
     edge_index: int | None = -1,
     vert_index: int | None = -1,
     face_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select a loop of connected edges
 
-    :param delimit_edge_loop: Delimit, Delimit edge loop selection
-    :param delimit_face_loop: Face Loop Delimit, Delimit face loop selection
-    :param extend: Extend Select, Extend the selection
-    :param deselect: Deselect, Remove from the selection
-    :param toggle: Toggle Select, Toggle the selection
+    :param delimit_edge_loop: Delimit, Delimit edge loop selection (optional)
+    :param delimit_face_loop: Face Loop Delimit, Delimit face loop selection (optional)
+    :param extend: Extend Select, Extend the selection (optional)
+    :param deselect: Deselect, Remove from the selection (optional)
+    :param toggle: Toggle Select, Toggle the selection (optional)
+    :param object_index: (in [-1, inf], optional)
+    :param edge_index: (in [-1, inf], optional)
+    :param vert_index: (in [-1, inf], optional)
+    :param face_index: (in [-1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def loop_to_region(
@@ -1112,10 +1217,11 @@ def loop_to_region(
     /,
     *,
     select_bigger: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select region of faces inside of a selected loop of edges
 
-    :param select_bigger: Select Bigger, Select bigger regions instead of smaller ones
+    :param select_bigger: Select Bigger, Select bigger regions instead of smaller ones (optional)
+    :return: Result of the operator call.
     """
 
 def loopcut(
@@ -1125,23 +1231,25 @@ def loopcut(
     *,
     number_cuts: int | None = 1,
     smoothness: float | None = 0.0,
-    falloff: bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    falloff: Literal[bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems]
     | None = "INVERSE_SQUARE",
     object_index: int | None = -1,
     edge_index: int | None = -1,
-    mesh_select_mode_init: collections.abc.Iterable[bool] | None = (
+    mesh_select_mode_init: collections.abc.Sequence[bool] | None = (
         False,
         False,
         False,
     ),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a new loop between existing loops
 
-    :param number_cuts: Number of Cuts
-    :param smoothness: Smoothness, Smoothness factor
-    :param falloff: Falloff, Falloff type of the feather
-    :param object_index: Object Index
-    :param edge_index: Edge Index
+    :param number_cuts: Number of Cuts, (in [1, 1000000], optional)
+    :param smoothness: Smoothness, Smoothness factor (in [-1000, 1000], optional)
+    :param falloff: Falloff, Falloff type of the feather (optional)
+    :param object_index: Object Index, (in [-1, inf], optional)
+    :param edge_index: Edge Index, (in [-1, inf], optional)
+    :param mesh_select_mode_init: (array of 3 items, optional)
+    :return: Result of the operator call.
     """
 
 def loopcut_slide(
@@ -1149,13 +1257,14 @@ def loopcut_slide(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_loopcut: loopcut | None = None,
-    TRANSFORM_OT_edge_slide: bpy.ops.transform.edge_slide | None = None,
-) -> None:
+    MESH_OT_loopcut: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_edge_slide: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cut mesh loop and slide it
 
-    :param MESH_OT_loopcut: Loop Cut, Add a new loop between existing loops
-    :param TRANSFORM_OT_edge_slide: Edge Slide, Slide an edge loop along a mesh
+    :param MESH_OT_loopcut: Loop Cut, Add a new loop between existing loops (optional, `bpy.ops.mesh.loopcut` keyword arguments)
+    :param TRANSFORM_OT_edge_slide: Edge Slide, Slide an edge loop along a mesh (optional, `bpy.ops.transform.edge_slide` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def mark_freestyle_edge(
@@ -1164,10 +1273,11 @@ def mark_freestyle_edge(
     /,
     *,
     clear: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(Un)mark selected edges as Freestyle feature edges
 
-    :param clear: Clear
+    :param clear: Clear, (optional)
+    :return: Result of the operator call.
     """
 
 def mark_freestyle_face(
@@ -1176,10 +1286,11 @@ def mark_freestyle_face(
     /,
     *,
     clear: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(Un)mark selected faces for exclusion from Freestyle feature edge detection
 
-    :param clear: Clear
+    :param clear: Clear, (optional)
+    :return: Result of the operator call.
     """
 
 def mark_seam(
@@ -1188,10 +1299,11 @@ def mark_seam(
     /,
     *,
     clear: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(Un)mark selected edges as a seam
 
-    :param clear: Clear
+    :param clear: Clear, (optional)
+    :return: Result of the operator call.
     """
 
 def mark_sharp(
@@ -1201,11 +1313,12 @@ def mark_sharp(
     *,
     clear: bool | None = False,
     use_verts: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(Un)mark selected edges as sharp
 
-    :param clear: Clear
-    :param use_verts: Vertices, Consider vertices instead of edges to select which edges to (un)tag as sharp
+    :param clear: Clear, (optional)
+    :param use_verts: Vertices, Consider vertices instead of edges to select which edges to (un)tag as sharp (optional)
+    :return: Result of the operator call.
     """
 
 def merge(
@@ -1216,19 +1329,23 @@ def merge(
     type: typing.Literal["CENTER", "CURSOR", "COLLAPSE", "FIRST", "LAST"]
     | None = "CENTER",
     uvs: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Merge selected vertices
 
-    :param type: Type, Merge method to use
-    :param uvs: UVs, Move UVs according to merge
+    :param type: Type, Merge method to use (optional)
+    :param uvs: UVs, Move UVs according to merge (optional)
+    :return: Result of the operator call.
     """
 
 def merge_normals(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Merge custom normals of selected vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Merge custom normals of selected vertices
+
+    :return: Result of the operator call.
+    """
 
 def mod_weighted_strength(
     execution_context: int | str | None = None,
@@ -1237,11 +1354,12 @@ def mod_weighted_strength(
     *,
     set: bool | None = False,
     face_strength: typing.Literal["WEAK", "MEDIUM", "STRONG"] | None = "MEDIUM",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set/Get strength of face (used in Weighted Normal modifier)
 
-    :param set: Set Value, Set value of faces
-    :param face_strength: Face Strength, Strength to use for assigning or selecting face influence for weighted normal modifier
+    :param set: Set Value, Set value of faces (optional)
+    :param face_strength: Face Strength, Strength to use for assigning or selecting face influence for weighted normal modifier (optional)
+    :return: Result of the operator call.
     """
 
 def normals_make_consistent(
@@ -1250,10 +1368,11 @@ def normals_make_consistent(
     /,
     *,
     inside: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make face and vertex normals point either outside or inside the mesh
 
-    :param inside: Inside
+    :param inside: Inside, (optional)
+    :return: Result of the operator call.
     """
 
 def normals_tools(
@@ -1263,10 +1382,10 @@ def normals_tools(
     *,
     mode: typing.Literal["COPY", "PASTE", "ADD", "MULTIPLY", "RESET"] | None = "COPY",
     absolute: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Custom normals tools using Normal Vector of UI
 
-        :param mode: Mode, Mode of tools taking input from interface
+        :param mode: Mode, Mode of tools taking input from interface (optional)
 
     COPY
     Copy Normal -- Copy normal to the internal clipboard.
@@ -1282,7 +1401,8 @@ def normals_tools(
 
     RESET
     Reset Normal -- Reset the internal clipboard and/or normal of selected element.
-        :param absolute: Absolute Coordinates, Copy Absolute coordinates of Normal vector
+        :param absolute: Absolute Coordinates, Copy Absolute coordinates of Normal vector (optional)
+        :return: Result of the operator call.
     """
 
 def offset_edge_loops(
@@ -1291,10 +1411,11 @@ def offset_edge_loops(
     /,
     *,
     use_cap_endpoint: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create offset edge loop from the current selection
 
-    :param use_cap_endpoint: Cap Endpoint, Extend loop around end-points
+    :param use_cap_endpoint: Cap Endpoint, Extend loop around end-points (optional)
+    :return: Result of the operator call.
     """
 
 def offset_edge_loops_slide(
@@ -1302,13 +1423,14 @@ def offset_edge_loops_slide(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_offset_edge_loops: offset_edge_loops | None = None,
-    TRANSFORM_OT_edge_slide: bpy.ops.transform.edge_slide | None = None,
-) -> None:
+    MESH_OT_offset_edge_loops: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_edge_slide: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Offset edge loop slide
 
-    :param MESH_OT_offset_edge_loops: Offset Edge Loop, Create offset edge loop from the current selection
-    :param TRANSFORM_OT_edge_slide: Edge Slide, Slide an edge loop along a mesh
+    :param MESH_OT_offset_edge_loops: Offset Edge Loop, Create offset edge loop from the current selection (optional, `bpy.ops.mesh.offset_edge_loops` keyword arguments)
+    :param TRANSFORM_OT_edge_slide: Edge Slide, Slide an edge loop along a mesh (optional, `bpy.ops.transform.edge_slide` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def point_normals(
@@ -1326,21 +1448,22 @@ def point_normals(
     ),
     spherize: bool | None = False,
     spherize_strength: float | None = 0.1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Point selected custom normals to specified Target
 
-        :param mode: Mode, How to define coordinates to point custom normals to
+        :param mode: Mode, How to define coordinates to point custom normals to (optional)
 
     COORDINATES
     Coordinates -- Use static coordinates (defined by various means).
 
     MOUSE
     Mouse -- Follow mouse cursor.
-        :param invert: Invert, Invert affected normals
-        :param align: Align, Make all affected normals parallel
-        :param target_location: Target, Target location to which normals will point
-        :param spherize: Spherize, Interpolate between original and new normals
-        :param spherize_strength: Spherize Strength, Ratio of spherized normal to original normal
+        :param invert: Invert, Invert affected normals (optional)
+        :param align: Align, Make all affected normals parallel (optional)
+        :param target_location: Target, Target location to which normals will point (array of 3 items, in [-inf, inf], optional)
+        :param spherize: Spherize, Interpolate between original and new normals (optional)
+        :param spherize_strength: Spherize Strength, Ratio of spherized normal to original normal (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def poke(
@@ -1352,12 +1475,12 @@ def poke(
     use_relative_offset: bool | None = False,
     center_mode: typing.Literal["MEDIAN_WEIGHTED", "MEDIAN", "BOUNDS"]
     | None = "MEDIAN_WEIGHTED",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split a face into a fan
 
-        :param offset: Poke Offset, Poke Offset
-        :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry
-        :param center_mode: Poke Center, Poke face center calculation
+        :param offset: Poke Offset, Poke Offset (in [-1000, 1000], optional)
+        :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry (optional)
+        :param center_mode: Poke Center, Poke face center calculation (optional)
 
     MEDIAN_WEIGHTED
     Weighted Median -- Weighted median face center.
@@ -1367,6 +1490,7 @@ def poke(
 
     BOUNDS
     Bounds -- Face bounds center.
+        :return: Result of the operator call.
     """
 
 def polybuild_delete_at_cursor(
@@ -1376,47 +1500,54 @@ def polybuild_delete_at_cursor(
     *,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    proportional_edit_falloff: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    ]
     | None = "SMOOTH",
     proportional_size: float | None = 1.0,
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
+    :param mirror: Mirror Editing, (optional)
+    :param use_proportional_edit: Proportional Editing, (optional)
+    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode (optional)
+    :param proportional_size: Proportional Size, (in [1e-06, inf], optional)
+    :param use_proportional_connected: Connected, (optional)
+    :param use_proportional_projected: Projected (2D), (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :param use_accurate: Accurate, Use accurate transformation (optional)
+    :return: Result of the operator call.
     """
 
 def polybuild_dissolve_at_cursor(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def polybuild_extrude_at_cursor_move(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_polybuild_transform_at_cursor: polybuild_transform_at_cursor | None = None,
-    MESH_OT_extrude_edges_indiv: extrude_edges_indiv | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_polybuild_transform_at_cursor: dict[str, typing.Any] | None = {},
+    MESH_OT_extrude_edges_indiv: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param MESH_OT_polybuild_transform_at_cursor: Poly Build Transform at Cursor
-    :param MESH_OT_extrude_edges_indiv: Extrude Only Edges, Extrude individual edges only
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_polybuild_transform_at_cursor: Poly Build Transform at Cursor, (optional, `bpy.ops.mesh.polybuild_transform_at_cursor` keyword arguments)
+    :param MESH_OT_extrude_edges_indiv: Extrude Only Edges, Extrude individual edges only (optional, `bpy.ops.mesh.extrude_edges_indiv` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def polybuild_face_at_cursor(
@@ -1427,25 +1558,28 @@ def polybuild_face_at_cursor(
     create_quads: bool | None = True,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    proportional_edit_falloff: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    ]
     | None = "SMOOTH",
     proportional_size: float | None = 1.0,
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param create_quads: Create Quads, Automatically split edges in triangles to maintain quad topology
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
+    :param create_quads: Create Quads, Automatically split edges in triangles to maintain quad topology (optional)
+    :param mirror: Mirror Editing, (optional)
+    :param use_proportional_edit: Proportional Editing, (optional)
+    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode (optional)
+    :param proportional_size: Proportional Size, (in [1e-06, inf], optional)
+    :param use_proportional_connected: Connected, (optional)
+    :param use_proportional_projected: Projected (2D), (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :param use_accurate: Accurate, Use accurate transformation (optional)
+    :return: Result of the operator call.
     """
 
 def polybuild_face_at_cursor_move(
@@ -1453,13 +1587,14 @@ def polybuild_face_at_cursor_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_polybuild_face_at_cursor: polybuild_face_at_cursor | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_polybuild_face_at_cursor: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param MESH_OT_polybuild_face_at_cursor: Poly Build Face at Cursor
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_polybuild_face_at_cursor: Poly Build Face at Cursor, (optional, `bpy.ops.mesh.polybuild_face_at_cursor` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def polybuild_split_at_cursor(
@@ -1469,24 +1604,27 @@ def polybuild_split_at_cursor(
     *,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    proportional_edit_falloff: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    ]
     | None = "SMOOTH",
     proportional_size: float | None = 1.0,
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
+    :param mirror: Mirror Editing, (optional)
+    :param use_proportional_edit: Proportional Editing, (optional)
+    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode (optional)
+    :param proportional_size: Proportional Size, (in [1e-06, inf], optional)
+    :param use_proportional_connected: Connected, (optional)
+    :param use_proportional_projected: Projected (2D), (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :param use_accurate: Accurate, Use accurate transformation (optional)
+    :return: Result of the operator call.
     """
 
 def polybuild_split_at_cursor_move(
@@ -1494,13 +1632,14 @@ def polybuild_split_at_cursor_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_polybuild_split_at_cursor: polybuild_split_at_cursor | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_polybuild_split_at_cursor: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param MESH_OT_polybuild_split_at_cursor: Poly Build Split at Cursor
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_polybuild_split_at_cursor: Poly Build Split at Cursor, (optional, `bpy.ops.mesh.polybuild_split_at_cursor` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def polybuild_transform_at_cursor(
@@ -1510,24 +1649,27 @@ def polybuild_transform_at_cursor(
     *,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    proportional_edit_falloff: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    ]
     | None = "SMOOTH",
     proportional_size: float | None = 1.0,
     use_proportional_connected: bool | None = False,
     use_proportional_projected: bool | None = False,
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
+    :param mirror: Mirror Editing, (optional)
+    :param use_proportional_edit: Proportional Editing, (optional)
+    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode (optional)
+    :param proportional_size: Proportional Size, (in [1e-06, inf], optional)
+    :param use_proportional_connected: Connected, (optional)
+    :param use_proportional_projected: Projected (2D), (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :param use_accurate: Accurate, Use accurate transformation (optional)
+    :return: Result of the operator call.
     """
 
 def polybuild_transform_at_cursor_move(
@@ -1535,13 +1677,14 @@ def polybuild_transform_at_cursor_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_polybuild_transform_at_cursor: polybuild_transform_at_cursor | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_polybuild_transform_at_cursor: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param MESH_OT_polybuild_transform_at_cursor: Poly Build Transform at Cursor
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_polybuild_transform_at_cursor: Poly Build Transform at Cursor, (optional, `bpy.ops.mesh.polybuild_transform_at_cursor` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def primitive_circle_add(
@@ -1566,12 +1709,12 @@ def primitive_circle_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a circle mesh
 
-        :param vertices: Vertices
-        :param radius: Radius
-        :param fill_type: Fill Type
+        :param vertices: Vertices, (in [3, 10000000], optional)
+        :param radius: Radius, (in [0, inf], optional)
+        :param fill_type: Fill Type, (optional)
 
     NOTHING
     Nothing -- Dont fill at all.
@@ -1581,9 +1724,9 @@ def primitive_circle_add(
 
     TRIFAN
     Triangle Fan -- Use triangle fans.
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1593,9 +1736,10 @@ def primitive_circle_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_cone_add(
@@ -1622,14 +1766,14 @@ def primitive_cone_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a conic mesh
 
-        :param vertices: Vertices
-        :param radius1: Radius 1
-        :param radius2: Radius 2
-        :param depth: Depth
-        :param end_fill_type: Base Fill Type
+        :param vertices: Vertices, (in [3, 10000000], optional)
+        :param radius1: Radius 1, (in [0, inf], optional)
+        :param radius2: Radius 2, (in [0, inf], optional)
+        :param depth: Depth, (in [0, inf], optional)
+        :param end_fill_type: Base Fill Type, (optional)
 
     NOTHING
     Nothing -- Dont fill at all.
@@ -1639,9 +1783,9 @@ def primitive_cone_add(
 
     TRIFAN
     Triangle Fan -- Use triangle fans.
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1651,9 +1795,10 @@ def primitive_cone_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_cube_add(
@@ -1676,13 +1821,13 @@ def primitive_cube_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a cube mesh that consists of six square faces
 
-        :param size: Size
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param size: Size, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1692,9 +1837,10 @@ def primitive_cube_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_cube_add_gizmo(
@@ -1724,12 +1870,12 @@ def primitive_cube_add_gizmo(
         (0.0, 0.0, 0.0, 0.0),
         (0.0, 0.0, 0.0, 0.0),
     ),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a cube mesh
 
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1739,10 +1885,11 @@ def primitive_cube_add_gizmo(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
-        :param matrix: Matrix
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param matrix: Matrix, (multi-dimensional array of 4 * 4 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_cylinder_add(
@@ -1768,13 +1915,13 @@ def primitive_cylinder_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a cylinder mesh
 
-        :param vertices: Vertices
-        :param radius: Radius
-        :param depth: Depth
-        :param end_fill_type: Cap Fill Type
+        :param vertices: Vertices, (in [3, 10000000], optional)
+        :param radius: Radius, (in [0, inf], optional)
+        :param depth: Depth, (in [0, inf], optional)
+        :param end_fill_type: Cap Fill Type, (optional)
 
     NOTHING
     Nothing -- Dont fill at all.
@@ -1784,9 +1931,9 @@ def primitive_cylinder_add(
 
     TRIFAN
     Triangle Fan -- Use triangle fans.
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1796,9 +1943,10 @@ def primitive_cylinder_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_grid_add(
@@ -1823,15 +1971,15 @@ def primitive_grid_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a subdivided plane mesh
 
-        :param x_subdivisions: X Subdivisions
-        :param y_subdivisions: Y Subdivisions
-        :param size: Size
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param x_subdivisions: X Subdivisions, (in [1, 10000000], optional)
+        :param y_subdivisions: Y Subdivisions, (in [1, 10000000], optional)
+        :param size: Size, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1841,9 +1989,10 @@ def primitive_grid_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_ico_sphere_add(
@@ -1867,14 +2016,14 @@ def primitive_ico_sphere_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a spherical mesh that consists of equally sized triangles
 
-        :param subdivisions: Subdivisions
-        :param radius: Radius
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param subdivisions: Subdivisions, (in [1, 10], optional)
+        :param radius: Radius, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1884,9 +2033,10 @@ def primitive_ico_sphere_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_monkey_add(
@@ -1909,13 +2059,13 @@ def primitive_monkey_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Suzanne mesh
 
-        :param size: Size
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param size: Size, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1925,9 +2075,10 @@ def primitive_monkey_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_plane_add(
@@ -1950,13 +2101,13 @@ def primitive_plane_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a filled planar mesh with 4 vertices
 
-        :param size: Size
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param size: Size, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -1966,9 +2117,10 @@ def primitive_plane_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_torus_add(
@@ -1995,10 +2147,10 @@ def primitive_torus_add(
     abso_major_rad: float | None = 1.25,
     abso_minor_rad: float | None = 0.75,
     generate_uvs: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a torus mesh
 
-        :param align: Align
+        :param align: Align, (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -2008,22 +2160,23 @@ def primitive_torus_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location
-        :param rotation: Rotation
-        :param major_segments: Major Segments, Number of segments for the main ring of the torus
-        :param minor_segments: Minor Segments, Number of segments for the minor ring of the torus
-        :param mode: Dimensions Mode
+        :param location: Location, (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, (array of 3 items, in [-inf, inf], optional)
+        :param major_segments: Major Segments, Number of segments for the main ring of the torus (in [3, 256], optional)
+        :param minor_segments: Minor Segments, Number of segments for the minor ring of the torus (in [3, 256], optional)
+        :param mode: Dimensions Mode, (optional)
 
     MAJOR_MINOR
     Major/Minor -- Use the major/minor radii for torus dimensions.
 
     EXT_INT
     Exterior/Interior -- Use the exterior/interior radii for torus dimensions.
-        :param major_radius: Major Radius, Radius from the origin to the center of the cross sections
-        :param minor_radius: Minor Radius, Radius of the torus cross section
-        :param abso_major_rad: Exterior Radius, Total Exterior Radius of the torus
-        :param abso_minor_rad: Interior Radius, Total Interior Radius of the torus
-        :param generate_uvs: Generate UVs, Generate a default UV map
+        :param major_radius: Major Radius, Radius from the origin to the center of the cross sections (in [0, 10000], optional)
+        :param minor_radius: Minor Radius, Radius of the torus cross section (in [0, 10000], optional)
+        :param abso_major_rad: Exterior Radius, Total Exterior Radius of the torus (in [0, 10000], optional)
+        :param abso_minor_rad: Interior Radius, Total Interior Radius of the torus (in [0, 10000], optional)
+        :param generate_uvs: Generate UVs, Generate a default UV map (optional)
+        :return: Result of the operator call.
     """
 
 def primitive_uv_sphere_add(
@@ -2048,15 +2201,15 @@ def primitive_uv_sphere_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a spherical mesh with quad faces, except for triangle faces at the top and bottom
 
-        :param segments: Segments
-        :param ring_count: Rings
-        :param radius: Radius
-        :param calc_uvs: Generate UVs, Generate a default UV map
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param segments: Segments, (in [3, 100000], optional)
+        :param ring_count: Rings, (in [3, 100000], optional)
+        :param radius: Radius, (in [0, inf], optional)
+        :param calc_uvs: Generate UVs, Generate a default UV map (optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -2066,9 +2219,10 @@ def primitive_uv_sphere_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def quads_convert_to_tris(
@@ -2076,23 +2230,27 @@ def quads_convert_to_tris(
     undo: bool | None = None,
     /,
     *,
-    quad_method: bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems
+    quad_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateQuadMethodItems]
     | None = "BEAUTY",
-    ngon_method: bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems
+    ngon_method: Literal[bpy.stub_internal.rna_enums.ModifierTriangulateNgonMethodItems]
     | None = "BEAUTY",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Triangulate selected faces
 
-    :param quad_method: Quad Method, Method for splitting the quads into triangles
-    :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles
+    :param quad_method: Quad Method, Method for splitting the quads into triangles (optional)
+    :param ngon_method: N-gon Method, Method for splitting the n-gons into triangles (optional)
+    :return: Result of the operator call.
     """
 
 def region_to_loop(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select boundary edges around the selected faces"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select boundary edges around the selected faces
+
+    :return: Result of the operator call.
+    """
 
 def remove_doubles(
     execution_context: int | str | None = None,
@@ -2103,21 +2261,25 @@ def remove_doubles(
     use_centroid: bool | None = True,
     use_unselected: bool | None = False,
     use_sharp_edge_from_normals: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Merge vertices based on their proximity
 
-    :param threshold: Merge Distance, Maximum distance between elements to merge
-    :param use_centroid: Centroid Merge, Move vertices to the centroid of the duplicate cluster, otherwise the vertex closest to the centroid is used.
-    :param use_unselected: Unselected, Merge selected to other unselected vertices
-    :param use_sharp_edge_from_normals: Sharp Edges, Calculate sharp edges using custom normal data (when available)
+    :param threshold: Merge Distance, Maximum distance between elements to merge (in [1e-06, 50], optional)
+    :param use_centroid: Centroid Merge, Move vertices to the centroid of the duplicate cluster, otherwise the vertex closest to the centroid is used. (optional)
+    :param use_unselected: Unselected, Merge selected to other unselected vertices (optional)
+    :param use_sharp_edge_from_normals: Sharp Edges, Calculate sharp edges using custom normal data (when available) (optional)
+    :return: Result of the operator call.
     """
 
 def reorder_vertices_spatial(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reorder mesh faces and vertices based on their spatial position for better BVH building and sculpting performance."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reorder mesh faces and vertices based on their spatial position for better BVH building and sculpting performance.
+
+    :return: Result of the operator call.
+    """
 
 def reveal(
     execution_context: int | str | None = None,
@@ -2125,10 +2287,11 @@ def reveal(
     /,
     *,
     select: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal all hidden vertices, edges and faces
 
-    :param select: Select
+    :param select: Select, (optional)
+    :return: Result of the operator call.
     """
 
 def rip(
@@ -2138,7 +2301,9 @@ def rip(
     *,
     mirror: bool | None = False,
     use_proportional_edit: bool | None = False,
-    proportional_edit_falloff: bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    proportional_edit_falloff: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffItems
+    ]
     | None = "SMOOTH",
     proportional_size: float | None = 1.0,
     use_proportional_connected: bool | None = False,
@@ -2146,18 +2311,19 @@ def rip(
     release_confirm: bool | None = False,
     use_accurate: bool | None = False,
     use_fill: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disconnect vertex or edges from connected geometry
 
-    :param mirror: Mirror Editing
-    :param use_proportional_edit: Proportional Editing
-    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode
-    :param proportional_size: Proportional Size
-    :param use_proportional_connected: Connected
-    :param use_proportional_projected: Projected (2D)
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
-    :param use_accurate: Accurate, Use accurate transformation
-    :param use_fill: Fill, Fill the ripped region
+    :param mirror: Mirror Editing, (optional)
+    :param use_proportional_edit: Proportional Editing, (optional)
+    :param proportional_edit_falloff: Proportional Falloff, Falloff type for proportional editing mode (optional)
+    :param proportional_size: Proportional Size, (in [1e-06, inf], optional)
+    :param use_proportional_connected: Connected, (optional)
+    :param use_proportional_projected: Projected (2D), (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :param use_accurate: Accurate, Use accurate transformation (optional)
+    :param use_fill: Fill, Fill the ripped region (optional)
+    :return: Result of the operator call.
     """
 
 def rip_edge(
@@ -2175,11 +2341,12 @@ def rip_edge(
         0.0,
         0.0,
     ),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extend vertices along the edge closest to the cursor
 
-    :param location: Location, World-space ray origin for extending vertices
-    :param direction: Direction, World-space direction vector for extending vertices
+    :param location: Location, World-space ray origin for extending vertices (array of 3 items, in [-inf, inf], optional)
+    :param direction: Direction, World-space direction vector for extending vertices (array of 3 items, in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def rip_edge_move(
@@ -2187,13 +2354,14 @@ def rip_edge_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_rip_edge: rip_edge | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_rip_edge: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extend vertices and move the result
 
-    :param MESH_OT_rip_edge: Extend Vertices, Extend vertices along the edge closest to the cursor
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_rip_edge: Extend Vertices, Extend vertices along the edge closest to the cursor (optional, `bpy.ops.mesh.rip_edge` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def rip_move(
@@ -2201,13 +2369,14 @@ def rip_move(
     undo: bool | None = None,
     /,
     *,
-    MESH_OT_rip: rip | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    MESH_OT_rip: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rip polygons and move the result
 
-    :param MESH_OT_rip: Rip, Disconnect vertex or edges from connected geometry
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param MESH_OT_rip: Rip, Disconnect vertex or edges from connected geometry (optional, `bpy.ops.mesh.rip` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def screw(
@@ -2219,13 +2388,14 @@ def screw(
     turns: int | None = 1,
     center: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
     axis: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude selected vertices in screw-shaped rotation around the cursor in indicated viewport
 
-    :param steps: Steps, Steps
-    :param turns: Turns, Turns
-    :param center: Center, Center in global view space
-    :param axis: Axis, Axis in global view space
+    :param steps: Steps, Steps (in [1, 100000], optional)
+    :param turns: Turns, Turns (in [1, 100000], optional)
+    :param center: Center, Center in global view space (array of 3 items, in [-inf, inf], optional)
+    :param axis: Axis, Axis in global view space (array of 3 items, in [-1, 1], optional)
+    :return: Result of the operator call.
     """
 
 def select_all(
@@ -2234,10 +2404,10 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all vertices, edges or faces
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -2250,6 +2420,7 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def select_axis(
@@ -2257,25 +2428,30 @@ def select_axis(
     undo: bool | None = None,
     /,
     *,
-    orientation: bpy.stub_internal.rna_enums.TransformOrientationItems | None = "LOCAL",
+    orientation: Literal[bpy.stub_internal.rna_enums.TransformOrientationItems]
+    | None = "LOCAL",
     sign: typing.Literal["POS", "NEG", "ALIGN"] | None = "POS",
-    axis: bpy.stub_internal.rna_enums.AxisXyzItems | None = "X",
+    axis: Literal[bpy.stub_internal.rna_enums.AxisXyzItems] | None = "X",
     threshold: float | None = 0.0001,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all data in the mesh on a single axis
 
-    :param orientation: Axis Mode, Axis orientation
-    :param sign: Axis Sign, Side to select
-    :param axis: Axis, Select the axis to compare each vertex on
-    :param threshold: Threshold
+    :param orientation: Axis Mode, Axis orientation (optional)
+    :param sign: Axis Sign, Side to select (optional)
+    :param axis: Axis, Select the axis to compare each vertex on (optional)
+    :param threshold: Threshold, (in [1e-06, 50], optional)
+    :return: Result of the operator call.
     """
 
 def select_by_attribute(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select elements based on the active boolean attribute"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select elements based on the active boolean attribute
+
+    :return: Result of the operator call.
+    """
 
 def select_by_pole_count(
     execution_context: int | str | None = None,
@@ -2286,13 +2462,14 @@ def select_by_pole_count(
     type: typing.Literal["LESS", "EQUAL", "GREATER", "NOTEQUAL"] | None = "NOTEQUAL",
     extend: bool | None = False,
     exclude_nonmanifold: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices at poles by the number of connected edges. In edge and face mode the geometry connected to the vertices is selected
 
-    :param pole_count: Pole Count
-    :param type: Type, Type of comparison to make
-    :param extend: Extend, Extend the selection
-    :param exclude_nonmanifold: Exclude Non Manifold, Exclude non-manifold poles
+    :param pole_count: Pole Count, (in [0, inf], optional)
+    :param type: Type, Type of comparison to make (optional)
+    :param extend: Extend, Extend the selection (optional)
+    :param exclude_nonmanifold: Exclude Non Manifold, Exclude non-manifold poles (optional)
+    :return: Result of the operator call.
     """
 
 def select_edge_loop_multi(
@@ -2300,12 +2477,15 @@ def select_edge_loop_multi(
     undo: bool | None = None,
     /,
     *,
-    delimit_edge_loop: set[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeLoopItems]
+    delimit_edge_loop: set[
+        Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeLoopItems]
+    ]
     | None = {"NGONS", "OUTER_CORNERS"},
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select loops of connected edges from each selected edge
 
-    :param delimit_edge_loop: Delimit, Delimit edge loop selection
+    :param delimit_edge_loop: Delimit, Delimit edge loop selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_edge_ring_multi(
@@ -2313,12 +2493,15 @@ def select_edge_ring_multi(
     undo: bool | None = None,
     /,
     *,
-    delimit_edge_ring: set[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeRingItems]
+    delimit_edge_ring: set[
+        Literal[bpy.stub_internal.rna_enums.MeshWalkDelimitEdgeRingItems]
+    ]
     | None = {"NGONS"},
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select rings of connected edges from each selected edge
 
-    :param delimit_edge_ring: Edge Ring Delimit, Delimit edge ring selection
+    :param delimit_edge_ring: Edge Ring Delimit, Delimit edge ring selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_face_by_sides(
@@ -2329,20 +2512,24 @@ def select_face_by_sides(
     number: int | None = 4,
     type: typing.Literal["LESS", "EQUAL", "GREATER", "NOTEQUAL"] | None = "EQUAL",
     extend: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices or faces by the number of face sides
 
-    :param number: Number of Vertices
-    :param type: Type, Type of comparison to make
-    :param extend: Extend, Extend the selection
+    :param number: Number of Vertices, (in [3, inf], optional)
+    :param type: Type, Type of comparison to make (optional)
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_interior_faces(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select faces where all edges have more than 2 face users"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select faces where all edges have more than 2 face users
+
+    :return: Result of the operator call.
+    """
 
 def select_less(
     execution_context: int | str | None = None,
@@ -2350,10 +2537,11 @@ def select_less(
     /,
     *,
     use_face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect vertices, edges or faces at the boundary of each selection region
 
-    :param use_face_step: Face Step, Connected faces (instead of edges)
+    :param use_face_step: Face Step, Connected faces (instead of edges) (optional)
+    :return: Result of the operator call.
     """
 
 def select_linked(
@@ -2361,11 +2549,14 @@ def select_linked(
     undo: bool | None = None,
     /,
     *,
-    delimit: set[bpy.stub_internal.rna_enums.MeshDelimitModeItems] | None = {"SEAM"},
-) -> None:
+    delimit: set[Literal[bpy.stub_internal.rna_enums.MeshDelimitModeItems]] | None = {
+        "SEAM"
+    },
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all vertices connected to the current selection
 
-    :param delimit: Delimit, Delimit selected region
+    :param delimit: Delimit, Delimit selected region (optional)
+    :return: Result of the operator call.
     """
 
 def select_linked_pick(
@@ -2374,14 +2565,19 @@ def select_linked_pick(
     /,
     *,
     deselect: bool | None = False,
-    delimit: set[bpy.stub_internal.rna_enums.MeshDelimitModeItems] | None = {"SEAM"},
+    delimit: set[Literal[bpy.stub_internal.rna_enums.MeshDelimitModeItems]] | None = {
+        "SEAM"
+    },
     object_index: int | None = -1,
     index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """(De)select all vertices linked to the edge under the mouse cursor
 
-    :param deselect: Deselect
-    :param delimit: Delimit, Delimit selected region
+    :param deselect: Deselect, (optional)
+    :param delimit: Delimit, Delimit selected region (optional)
+    :param object_index: (in [-1, inf], optional)
+    :param index: (in [-1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def select_loose(
@@ -2390,10 +2586,11 @@ def select_loose(
     /,
     *,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select loose geometry based on the selection mode
 
-    :param extend: Extend, Extend the selection
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_mirror(
@@ -2401,13 +2598,14 @@ def select_mirror(
     undo: bool | None = None,
     /,
     *,
-    axis: set[bpy.stub_internal.rna_enums.AxisFlagXyzItems] | None = {"X"},
+    axis: set[Literal[bpy.stub_internal.rna_enums.AxisFlagXyzItems]] | None = {"X"},
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select mesh items at mirrored locations
 
-    :param axis: Axis
-    :param extend: Extend, Extend the existing selection
+    :param axis: Axis, (optional)
+    :param extend: Extend, Extend the existing selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_mode(
@@ -2417,15 +2615,15 @@ def select_mode(
     *,
     use_extend: bool | None = False,
     use_expand: bool | None = False,
-    type: bpy.stub_internal.rna_enums.MeshSelectModeItems | None = "VERT",
+    type: Literal[bpy.stub_internal.rna_enums.MeshSelectModeItems] | None = "VERT",
     action: typing.Literal["DISABLE", "ENABLE", "TOGGLE"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection mode
 
-        :param use_extend: Extend
-        :param use_expand: Expand
-        :param type: Type
-        :param action: Action, Selection action to execute
+        :param use_extend: Extend, (optional)
+        :param use_expand: Expand, (optional)
+        :param type: Type, (optional)
+        :param action: Action, Selection action to execute (optional)
 
     DISABLE
     Disable -- Disable selected markers.
@@ -2435,6 +2633,7 @@ def select_mode(
 
     TOGGLE
     Toggle -- Toggle disabled flag for selected markers.
+        :return: Result of the operator call.
     """
 
 def select_more(
@@ -2443,18 +2642,22 @@ def select_more(
     /,
     *,
     use_face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select more vertices, edges or faces connected to initial selection
 
-    :param use_face_step: Face Step, Connected faces (instead of edges)
+    :param use_face_step: Face Step, Connected faces (instead of edges) (optional)
+    :return: Result of the operator call.
     """
 
 def select_next_item(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select the next element (using selection order)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select the next element (using selection order)
+
+    :return: Result of the operator call.
+    """
 
 def select_non_manifold(
     execution_context: int | str | None = None,
@@ -2467,15 +2670,16 @@ def select_non_manifold(
     use_multi_face: bool | None = True,
     use_non_contiguous: bool | None = True,
     use_verts: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all non-manifold vertices or edges
 
-    :param extend: Extend, Extend the selection
-    :param use_wire: Wire, Wire edges
-    :param use_boundary: Boundaries, Boundary edges
-    :param use_multi_face: Multiple Faces, Edges shared by more than two faces
-    :param use_non_contiguous: Non Contiguous, Edges between faces pointing in alternate directions
-    :param use_verts: Vertices, Vertices connecting multiple face regions
+    :param extend: Extend, Extend the selection (optional)
+    :param use_wire: Wire, Wire edges (optional)
+    :param use_boundary: Boundaries, Boundary edges (optional)
+    :param use_multi_face: Multiple Faces, Edges shared by more than two faces (optional)
+    :param use_non_contiguous: Non Contiguous, Edges between faces pointing in alternate directions (optional)
+    :param use_verts: Vertices, Vertices connecting multiple face regions (optional)
+    :return: Result of the operator call.
     """
 
 def select_nth(
@@ -2486,20 +2690,24 @@ def select_nth(
     skip: int | None = 1,
     nth: int | None = 1,
     offset: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect every Nth element starting from the active vertex, edge or face
 
-    :param skip: Deselected, Number of deselected elements in the repetitive sequence
-    :param nth: Selected, Number of selected elements in the repetitive sequence
-    :param offset: Offset, Offset from the starting point
+    :param skip: Deselected, Number of deselected elements in the repetitive sequence (in [1, inf], optional)
+    :param nth: Selected, Number of selected elements in the repetitive sequence (in [1, inf], optional)
+    :param offset: Offset, Offset from the starting point (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def select_prev_item(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select the previous element (using selection order)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select the previous element (using selection order)
+
+    :return: Result of the operator call.
+    """
 
 def select_random(
     execution_context: int | str | None = None,
@@ -2509,18 +2717,19 @@ def select_random(
     ratio: float | None = 0.5,
     seed: int | None = 0,
     action: typing.Literal["SELECT", "DESELECT"] | None = "SELECT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomly select vertices
 
-        :param ratio: Ratio, Portion of items to select randomly
-        :param seed: Random Seed, Seed for the random number generator
-        :param action: Action, Selection action to execute
+        :param ratio: Ratio, Portion of items to select randomly (in [0, 1], optional)
+        :param seed: Random Seed, Seed for the random number generator (in [0, inf], optional)
+        :param action: Action, Selection action to execute (optional)
 
     SELECT
     Select -- Select all elements.
 
     DESELECT
     Deselect -- Deselect all elements.
+        :return: Result of the operator call.
     """
 
 def select_similar(
@@ -2555,20 +2764,24 @@ def select_similar(
     | None = "VERT_NORMAL",
     compare: typing.Literal["EQUAL", "GREATER", "LESS"] | None = "EQUAL",
     threshold: float | None = 0.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select similar vertices, edges or faces by property types
 
-    :param type: Type
-    :param compare: Compare
-    :param threshold: Threshold
+    :param type: Type, (optional)
+    :param compare: Compare, (optional)
+    :param threshold: Threshold, (in [0, 100000], optional)
+    :return: Result of the operator call.
     """
 
 def select_similar_region(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select similar face regions to the current selection"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select similar face regions to the current selection
+
+    :return: Result of the operator call.
+    """
 
 def select_ungrouped(
     execution_context: int | str | None = None,
@@ -2576,10 +2789,11 @@ def select_ungrouped(
     /,
     *,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices without a group
 
-    :param extend: Extend, Extend the selection
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def separate(
@@ -2588,10 +2802,11 @@ def separate(
     /,
     *,
     type: typing.Literal["SELECTED", "MATERIAL", "LOOSE"] | None = "SELECTED",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Separate selected geometry into a new mesh
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def set_normals_from_faces(
@@ -2600,10 +2815,11 @@ def set_normals_from_faces(
     /,
     *,
     keep_sharp: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the custom normals from the selected faces ones
 
-    :param keep_sharp: Keep Sharp Edges, Do not set sharp edges to face
+    :param keep_sharp: Keep Sharp Edges, Do not set sharp edges to face (optional)
+    :return: Result of the operator call.
     """
 
 def set_sharpness_by_angle(
@@ -2613,19 +2829,23 @@ def set_sharpness_by_angle(
     *,
     angle: float | None = 0.523599,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set edge sharpness based on the angle between neighboring faces
 
-    :param angle: Angle
-    :param extend: Extend, Add new sharp edges without clearing existing sharp edges
+    :param angle: Angle, (in [0.000174533, 3.14159], optional)
+    :param extend: Extend, Add new sharp edges without clearing existing sharp edges (optional)
+    :return: Result of the operator call.
     """
 
 def shape_propagate_to_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Apply selected vertex locations to all other shape keys"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Apply selected vertex locations to all other shape keys
+
+    :return: Result of the operator call.
+    """
 
 def shortest_path_pick(
     execution_context: int | str | None = None,
@@ -2641,16 +2861,18 @@ def shortest_path_pick(
     nth: int | None = 1,
     offset: int | None = 0,
     index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select shortest path between two selections
 
-    :param edge_mode: Edge Tag, The edge flag to tag when selecting the shortest path
-    :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings)
-    :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance
-    :param use_fill: Fill Region, Select all paths between the source/destination elements
-    :param skip: Deselected, Number of deselected elements in the repetitive sequence
-    :param nth: Selected, Number of selected elements in the repetitive sequence
-    :param offset: Offset, Offset from the starting point
+    :param edge_mode: Edge Tag, The edge flag to tag when selecting the shortest path (optional)
+    :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
+    :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance (optional)
+    :param use_fill: Fill Region, Select all paths between the source/destination elements (optional)
+    :param skip: Deselected, Number of deselected elements in the repetitive sequence (in [0, inf], optional)
+    :param nth: Selected, Number of selected elements in the repetitive sequence (in [1, inf], optional)
+    :param offset: Offset, Offset from the starting point (in [-inf, inf], optional)
+    :param index: (in [-1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def shortest_path_select(
@@ -2666,16 +2888,17 @@ def shortest_path_select(
     skip: int | None = 0,
     nth: int | None = 1,
     offset: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Selected shortest path between two vertices/edges/faces
 
-    :param edge_mode: Edge Tag, The edge flag to tag when selecting the shortest path
-    :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings)
-    :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance
-    :param use_fill: Fill Region, Select all paths between the source/destination elements
-    :param skip: Deselected, Number of deselected elements in the repetitive sequence
-    :param nth: Selected, Number of selected elements in the repetitive sequence
-    :param offset: Offset, Offset from the starting point
+    :param edge_mode: Edge Tag, The edge flag to tag when selecting the shortest path (optional)
+    :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
+    :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance (optional)
+    :param use_fill: Fill Region, Select all paths between the source/destination elements (optional)
+    :param skip: Deselected, Number of deselected elements in the repetitive sequence (in [0, inf], optional)
+    :param nth: Selected, Number of selected elements in the repetitive sequence (in [1, inf], optional)
+    :param offset: Offset, Offset from the starting point (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def smooth_normals(
@@ -2684,10 +2907,11 @@ def smooth_normals(
     /,
     *,
     factor: float | None = 0.5,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Smooth custom normals based on adjacent vertex normals
 
-    :param factor: Factor, Specifies weight of smooth vs original normal
+    :param factor: Factor, Specifies weight of smooth vs original normal (in [0, 1], optional)
+    :return: Result of the operator call.
     """
 
 def solidify(
@@ -2696,10 +2920,11 @@ def solidify(
     /,
     *,
     thickness: float | None = 0.01,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a solid skin by extruding, compensating for sharp angles
 
-    :param thickness: Thickness
+    :param thickness: Thickness, (in [-10000, 10000], optional)
+    :return: Result of the operator call.
     """
 
 def sort_elements(
@@ -2720,10 +2945,10 @@ def sort_elements(
     elements: set[typing.Literal["VERT", "EDGE", "FACE"]] | None = {"VERT"},
     reverse: bool | None = False,
     seed: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """The order of selected vertices/edges/faces is modified, based on a given method
 
-        :param type: Type, Type of reordering operation to apply
+        :param type: Type, Type of reordering operation to apply (optional)
 
     VIEW_ZAXIS
     View Z Axis -- Sort selected elements from farthest to nearest one in current view.
@@ -2746,9 +2971,10 @@ def sort_elements(
 
     REVERSE
     Reverse -- Reverse current order of selected elements.
-        :param elements: Elements, Which elements to affect (vertices, edges and/or faces)
-        :param reverse: Reverse, Reverse the sorting effect
-        :param seed: Seed, Seed for random-based operations
+        :param elements: Elements, Which elements to affect (vertices, edges and/or faces) (optional)
+        :param reverse: Reverse, Reverse the sorting effect (optional)
+        :param seed: Seed, Seed for random-based operations (in [0, inf], optional)
+        :return: Result of the operator call.
     """
 
 def spin(
@@ -2763,31 +2989,38 @@ def spin(
     use_normal_flip: bool | None = False,
     center: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
     axis: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude selected vertices in a circle around the cursor in indicated viewport
 
-    :param steps: Steps, Steps
-    :param dupli: Use Duplicates
-    :param angle: Angle, Rotation for each step
-    :param use_auto_merge: Auto Merge, Merge first/last when the angle is a full revolution
-    :param use_normal_flip: Flip Normals
-    :param center: Center, Center in global view space
-    :param axis: Axis, Axis in global view space
+    :param steps: Steps, Steps (in [0, 1000000], optional)
+    :param dupli: Use Duplicates, (optional)
+    :param angle: Angle, Rotation for each step (in [-inf, inf], optional)
+    :param use_auto_merge: Auto Merge, Merge first/last when the angle is a full revolution (optional)
+    :param use_normal_flip: Flip Normals, (optional)
+    :param center: Center, Center in global view space (array of 3 items, in [-inf, inf], optional)
+    :param axis: Axis, Axis in global view space (array of 3 items, in [-1, 1], optional)
+    :return: Result of the operator call.
     """
 
 def split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Split off selected geometry from connected unselected geometry"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Split off selected geometry from connected unselected geometry
+
+    :return: Result of the operator call.
+    """
 
 def split_normals(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Split custom normals of selected vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Split custom normals of selected vertices
+
+    :return: Result of the operator call.
+    """
 
 def subdivide(
     execution_context: int | str | None = None,
@@ -2802,16 +3035,17 @@ def subdivide(
     fractal: float | None = 0.0,
     fractal_along_normal: float | None = 0.0,
     seed: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Subdivide selected edges
 
-    :param number_cuts: Number of Cuts
-    :param smoothness: Smoothness, Smoothness factor
-    :param ngon: Create N-Gons, When disabled, newly created faces are limited to 3 and 4 sided faces
-    :param quadcorner: Quad Corner Type, How to subdivide quad corners (anything other than Straight Cut will prevent n-gons)
-    :param fractal: Fractal, Fractal randomness factor
-    :param fractal_along_normal: Along Normal, Apply fractal displacement along normal only
-    :param seed: Random Seed, Seed for the random number generator
+    :param number_cuts: Number of Cuts, (in [1, 100], optional)
+    :param smoothness: Smoothness, Smoothness factor (in [0, 1000], optional)
+    :param ngon: Create N-Gons, When disabled, newly created faces are limited to 3 and 4 sided faces (optional)
+    :param quadcorner: Quad Corner Type, How to subdivide quad corners (anything other than Straight Cut will prevent n-gons) (optional)
+    :param fractal: Fractal, Fractal randomness factor (in [0, 1e+06], optional)
+    :param fractal_along_normal: Along Normal, Apply fractal displacement along normal only (in [0, 1], optional)
+    :param seed: Random Seed, Seed for the random number generator (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def subdivide_edgering(
@@ -2823,16 +3057,19 @@ def subdivide_edgering(
     interpolation: typing.Literal["LINEAR", "PATH", "SURFACE"] | None = "PATH",
     smoothness: float | None = 1.0,
     profile_shape_factor: float | None = 0.0,
-    profile_shape: bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    profile_shape: Literal[
+        bpy.stub_internal.rna_enums.ProportionalFalloffCurveOnlyItems
+    ]
     | None = "SMOOTH",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Subdivide perpendicular edges to the selected edge-ring
 
-    :param number_cuts: Number of Cuts
-    :param interpolation: Interpolation, Interpolation method
-    :param smoothness: Smoothness, Smoothness factor
-    :param profile_shape_factor: Profile Factor, How much intermediary new edges are shrunk/expanded
-    :param profile_shape: Profile Shape, Shape of the profile
+    :param number_cuts: Number of Cuts, (in [0, 1000], optional)
+    :param interpolation: Interpolation, Interpolation method (optional)
+    :param smoothness: Smoothness, Smoothness factor (in [0, 1000], optional)
+    :param profile_shape_factor: Profile Factor, How much intermediary new edges are shrunk/expanded (in [-1000, 1000], optional)
+    :param profile_shape: Profile Shape, Shape of the profile (optional)
+    :return: Result of the operator call.
     """
 
 def symmetrize(
@@ -2840,14 +3077,15 @@ def symmetrize(
     undo: bool | None = None,
     /,
     *,
-    direction: bpy.stub_internal.rna_enums.SymmetrizeDirectionItems
+    direction: Literal[bpy.stub_internal.rna_enums.SymmetrizeDirectionItems]
     | None = "NEGATIVE_X",
     threshold: float | None = 0.0001,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enforce symmetry (both form and topological) across an axis
 
-    :param direction: Direction, Which sides to copy from and to
-    :param threshold: Threshold, Limit for snap middle vertices to the axis center
+    :param direction: Direction, Which sides to copy from and to (optional)
+    :param threshold: Threshold, Limit for snap middle vertices to the axis center (in [0, 10], optional)
+    :return: Result of the operator call.
     """
 
 def symmetry_snap(
@@ -2855,18 +3093,19 @@ def symmetry_snap(
     undo: bool | None = None,
     /,
     *,
-    direction: bpy.stub_internal.rna_enums.SymmetrizeDirectionItems
+    direction: Literal[bpy.stub_internal.rna_enums.SymmetrizeDirectionItems]
     | None = "NEGATIVE_X",
     threshold: float | None = 0.05,
     factor: float | None = 0.5,
     use_center: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Snap vertex pairs to their mirrored locations
 
-    :param direction: Direction, Which sides to copy from and to
-    :param threshold: Threshold, Distance within which matching vertices are searched
-    :param factor: Factor, Mix factor of the locations of the vertices
-    :param use_center: Center, Snap middle vertices to the axis center
+    :param direction: Direction, Which sides to copy from and to (optional)
+    :param threshold: Threshold, Distance within which matching vertices are searched (in [0, 10], optional)
+    :param factor: Factor, Mix factor of the locations of the vertices (in [0, 1], optional)
+    :param use_center: Center, Snap middle vertices to the axis center (optional)
+    :return: Result of the operator call.
     """
 
 def tris_convert_to_quads(
@@ -2883,18 +3122,19 @@ def tris_convert_to_quads(
     sharp: bool | None = False,
     materials: bool | None = False,
     deselect_joined: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Merge triangles into four sided polygons where possible
 
-    :param face_threshold: Max Face Angle, Face angle limit
-    :param shape_threshold: Max Shape Angle, Shape angle limit
-    :param topology_influence: Topology Influence, How much to prioritize regular grids of quads as well as quads that touch existing quads
-    :param uvs: Compare UVs
-    :param vcols: Compare Color Attributes
-    :param seam: Compare Seam
-    :param sharp: Compare Sharp
-    :param materials: Compare Materials
-    :param deselect_joined: Deselect Joined, Only select remaining triangles that were not merged
+    :param face_threshold: Max Face Angle, Face angle limit (in [0, 3.14159], optional)
+    :param shape_threshold: Max Shape Angle, Shape angle limit (in [0, 3.14159], optional)
+    :param topology_influence: Topology Influence, How much to prioritize regular grids of quads as well as quads that touch existing quads (in [0, 2], optional)
+    :param uvs: Compare UVs, (optional)
+    :param vcols: Compare Color Attributes, (optional)
+    :param seam: Compare Seam, (optional)
+    :param sharp: Compare Sharp, (optional)
+    :param materials: Compare Materials, (optional)
+    :param deselect_joined: Deselect Joined, Only select remaining triangles that were not merged (optional)
+    :return: Result of the operator call.
     """
 
 def unsubdivide(
@@ -2903,32 +3143,42 @@ def unsubdivide(
     /,
     *,
     iterations: int | None = 2,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Un-subdivide selected edges and faces
 
-    :param iterations: Iterations, Number of times to un-subdivide
+    :param iterations: Iterations, Number of times to un-subdivide (in [1, 1000], optional)
+    :return: Result of the operator call.
     """
 
 def uv_texture_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add UV map"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add UV map
+
+    :return: Result of the operator call.
+    """
 
 def uv_texture_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove UV map"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove UV map
+
+    :return: Result of the operator call.
+    """
 
 def uvs_reverse(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Flip direction of UV coordinates inside faces"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Flip direction of UV coordinates inside faces
+
+    :return: Result of the operator call.
+    """
 
 def uvs_rotate(
     execution_context: int | str | None = None,
@@ -2936,25 +3186,32 @@ def uvs_rotate(
     /,
     *,
     use_ccw: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rotate UV coordinates inside faces
 
-    :param use_ccw: Counter Clockwise
+    :param use_ccw: Counter Clockwise, (optional)
+    :return: Result of the operator call.
     """
 
 def vert_connect(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Connect selected vertices of faces, splitting the face"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Connect selected vertices of faces, splitting the face
+
+    :return: Result of the operator call.
+    """
 
 def vert_connect_concave(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make all faces convex"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make all faces convex
+
+    :return: Result of the operator call.
+    """
 
 def vert_connect_nonplanar(
     execution_context: int | str | None = None,
@@ -2962,18 +3219,22 @@ def vert_connect_nonplanar(
     /,
     *,
     angle_limit: float | None = 0.0872665,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split non-planar faces that exceed the angle threshold
 
-    :param angle_limit: Max Angle, Angle limit
+    :param angle_limit: Max Angle, Angle limit (in [0, 3.14159], optional)
+    :return: Result of the operator call.
     """
 
 def vert_connect_path(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Connect vertices by their selection order, creating edges, splitting faces"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Connect vertices by their selection order, creating edges, splitting faces
+
+    :return: Result of the operator call.
+    """
 
 def vertices_smooth(
     execution_context: int | str | None = None,
@@ -2986,15 +3247,16 @@ def vertices_smooth(
     yaxis: bool | None = True,
     zaxis: bool | None = True,
     wait_for_input: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Flatten angles of selected vertices
 
-    :param factor: Smoothing, Smoothing factor
-    :param repeat: Repeat, Number of times to smooth the mesh
-    :param xaxis: X-Axis, Smooth along the X axis
-    :param yaxis: Y-Axis, Smooth along the Y axis
-    :param zaxis: Z-Axis, Smooth along the Z axis
-    :param wait_for_input: Wait for Input
+    :param factor: Smoothing, Smoothing factor (in [-10, 10], optional)
+    :param repeat: Repeat, Number of times to smooth the mesh (in [1, 1000], optional)
+    :param xaxis: X-Axis, Smooth along the X axis (optional)
+    :param yaxis: Y-Axis, Smooth along the Y axis (optional)
+    :param zaxis: Z-Axis, Smooth along the Z axis (optional)
+    :param wait_for_input: Wait for Input, (optional)
+    :return: Result of the operator call.
     """
 
 def vertices_smooth_laplacian(
@@ -3009,16 +3271,17 @@ def vertices_smooth_laplacian(
     use_y: bool | None = True,
     use_z: bool | None = True,
     preserve_volume: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Laplacian smooth of selected vertices
 
-    :param repeat: Number of iterations to smooth the mesh
-    :param lambda_factor: Lambda factor
-    :param lambda_border: Lambda factor in border
-    :param use_x: Smooth X Axis, Smooth object along X axis
-    :param use_y: Smooth Y Axis, Smooth object along Y axis
-    :param use_z: Smooth Z Axis, Smooth object along Z axis
-    :param preserve_volume: Preserve Volume, Apply volume preservation after smooth
+    :param repeat: Number of iterations to smooth the mesh, (in [1, 1000], optional)
+    :param lambda_factor: Lambda factor, (in [1e-07, 1000], optional)
+    :param lambda_border: Lambda factor in border, (in [1e-07, 1000], optional)
+    :param use_x: Smooth X Axis, Smooth object along X axis (optional)
+    :param use_y: Smooth Y Axis, Smooth object along Y axis (optional)
+    :param use_z: Smooth Z Axis, Smooth object along Z axis (optional)
+    :param preserve_volume: Preserve Volume, Apply volume preservation after smooth (optional)
+    :return: Result of the operator call.
     """
 
 def wireframe(
@@ -3034,15 +3297,16 @@ def wireframe(
     offset: float | None = 0.01,
     use_crease: bool | None = False,
     crease_weight: float | None = 0.01,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a solid wireframe from faces
 
-    :param use_boundary: Boundary, Inset face boundaries
-    :param use_even_offset: Offset Even, Scale the offset to give more even thickness
-    :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry
-    :param use_replace: Replace, Remove original faces
-    :param thickness: Thickness
-    :param offset: Offset
-    :param use_crease: Crease, Crease hub edges for an improved subdivision surface
-    :param crease_weight: Crease Weight
+    :param use_boundary: Boundary, Inset face boundaries (optional)
+    :param use_even_offset: Offset Even, Scale the offset to give more even thickness (optional)
+    :param use_relative_offset: Offset Relative, Scale the offset by surrounding geometry (optional)
+    :param use_replace: Replace, Remove original faces (optional)
+    :param thickness: Thickness, (in [0, 10000], optional)
+    :param offset: Offset, (in [0, 10000], optional)
+    :param use_crease: Crease, Crease hub edges for an improved subdivision surface (optional)
+    :param crease_weight: Crease Weight, (in [0, 1000], optional)
+    :return: Result of the operator call.
     """

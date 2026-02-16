@@ -36,7 +36,8 @@ from typing import Any
 
 from pyrig.rig.builders.base.base import BuilderConfigFile
 from pyrig.rig.cli.subcommands import build, protect_repo
-from pyrig.rig.configs.base.yml import YmlConfigFile
+from pyrig.rig.configs.base.base import ConfigDict
+from pyrig.rig.configs.base.yml import DictYmlConfigFile
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tools.container_engine import (
     ContainerEngine,
@@ -55,7 +56,7 @@ from pyrig.src.string_ import (
 )
 
 
-class WorkflowConfigFile(YmlConfigFile):
+class WorkflowConfigFile(DictYmlConfigFile):
     """Abstract base class for GitHub Actions workflow configuration.
 
     Provides a declarative API for building GitHub Actions workflow YAML files
@@ -85,7 +86,7 @@ class WorkflowConfigFile(YmlConfigFile):
         >>>
         >>> class MyWorkflowConfigFile(WorkflowConfigFile):
         ...
-        ...     def jobs(self) -> dict[str, Any]:
+        ...     def jobs(self) -> ConfigDict:
         ...         return self.job(
         ...             job_func=self.jobs,
         ...             steps=[
@@ -95,7 +96,7 @@ class WorkflowConfigFile(YmlConfigFile):
         ...         )
         ...
         ...
-        ...     def workflow_triggers(self) -> dict[str, Any]:
+        ...     def workflow_triggers(self) -> ConfigDict:
         ...         triggers = super().workflow_triggers()
         ...         triggers.update(self.on_push())
         ...         return triggers
@@ -103,7 +104,7 @@ class WorkflowConfigFile(YmlConfigFile):
     See Also:
         pyrig.rig.configs.workflows.health_check.HealthCheckWorkflowConfigFile
             Example concrete workflow implementation
-        pyrig.rig.configs.base.yml.YmlConfigFile
+        pyrig.rig.configs.base.yml.DictYmlConfigFile
             Parent class for .yml configuration files
     """
 
@@ -111,7 +112,7 @@ class WorkflowConfigFile(YmlConfigFile):
     WINDOWS_LATEST = "windows-latest"
     MACOS_LATEST = "macos-latest"
 
-    def _configs(self) -> dict[str, Any]:
+    def _configs(self) -> ConfigDict:
         """Build the complete workflow configuration.
 
         Returns:
@@ -167,7 +168,7 @@ class WorkflowConfigFile(YmlConfigFile):
     # ----------------------------------------------------------------------------
 
     @abstractmethod
-    def jobs(self) -> dict[str, Any]:
+    def jobs(self) -> ConfigDict:
         """Get the workflow jobs.
 
         Subclasses must implement this to define their jobs.
@@ -176,7 +177,7 @@ class WorkflowConfigFile(YmlConfigFile):
             Dict mapping job IDs to job configurations.
         """
 
-    def workflow_triggers(self) -> dict[str, Any]:
+    def workflow_triggers(self) -> ConfigDict:
         """Get the workflow triggers.
 
         Override to customize when the workflow runs.
@@ -187,7 +188,7 @@ class WorkflowConfigFile(YmlConfigFile):
         """
         return self.on_workflow_dispatch()
 
-    def permissions(self) -> dict[str, Any]:
+    def permissions(self) -> ConfigDict:
         """Get the workflow permissions.
 
         Override to request additional permissions.
@@ -198,7 +199,7 @@ class WorkflowConfigFile(YmlConfigFile):
         """
         return {}
 
-    def defaults(self) -> dict[str, Any]:
+    def defaults(self) -> ConfigDict:
         """Get the workflow defaults.
 
         Override to customize default settings.
@@ -209,7 +210,7 @@ class WorkflowConfigFile(YmlConfigFile):
         """
         return {"run": {"shell": "bash"}}
 
-    def global_env(self) -> dict[str, Any]:
+    def global_env(self) -> ConfigDict:
         """Get the global environment variables.
 
         Override to add environment variables.

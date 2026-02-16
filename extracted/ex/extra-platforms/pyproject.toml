@@ -5,11 +5,12 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "9.0.0"
-description = "🔎 Detect architectures, platforms, and CI systems, grouped by family"
+version = "9.1.0"
+description = "🔎 Detect architectures, platforms, shells and CI systems, grouped by family"
 readme = "readme.md"
 keywords = [
   "Almquist Shell",
+  "Alpine Linux",
   "ALT Linux",
   "Amazon Linux",
   "Android",
@@ -57,6 +58,7 @@ keywords = [
   "Intel 80386 (i386)",
   "Intel Pentium (i586)",
   "Intel Pentium Pro (i686)",
+  "Kali Linux",
   "Korn shell",
   "KVM for IBM z Systems",
   "Linux Mint",
@@ -64,6 +66,7 @@ keywords = [
   "macOS",
   "Mageia",
   "Mandriva Linux",
+  "Manjaro Linux",
   "MidnightBSD",
   "MIPS (32-bit, big-endian)",
   "MIPS (32-bit, little-endian)",
@@ -75,7 +78,7 @@ keywords = [
   "Nushell",
   "OpenBSD",
   "openSUSE",
-  "openSUSE Tumbleweed",
+  "OpenWrt",
   "Oracle Linux",
   "OS detection",
   "Parallels",
@@ -204,23 +207,29 @@ dependencies = [
   # distro 1.9.0 adds support for ALT Linux.
   "distro>=1.9",
 ]
-optional-dependencies.pytest = [
+
+[project.entry-points]
+# Make additional fixtures available to pytest.
+# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
+pytest11.extra-platforms = "extra_platforms.pytest"
+
+[project.optional-dependencies]
+pytest = [
   # pytest 8.2.1 is the first version to support Python 3.13.
   "pytest>=8.2.1",
 ]
-urls."Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
-urls."Documentation" = "https://kdeldycke.github.io/extra-platforms"
-urls."Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v9.0.0"
-urls."Funding" = "https://github.com/sponsors/kdeldycke"
-# Package referenced above and also featured in [project.optional-dependencies] or [dependency-groups]
-# will be set without version specifier as they are already constrained.
 
-urls."Homepage" = "https://github.com/kdeldycke/extra-platforms"
-urls."Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
-urls."Repository" = "https://github.com/kdeldycke/extra-platforms"
-# Make additional fixtures available to pytest.
-# See: https://docs.pytest.org/en/latest/how-to/writing_plugins.html#making-your-plugin-installable-by-others
-entry-points.pytest11.extra-platforms = "extra_platforms.pytest"
+[project.scripts]
+extra-platforms = "extra_platforms.__main__:main"
+
+[project.urls]
+"Changelog" = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
+"Documentation" = "https://kdeldycke.github.io/extra-platforms"
+"Download" = "https://github.com/kdeldycke/extra-platforms/releases/tag/v9.1.0"
+"Funding" = "https://github.com/sponsors/kdeldycke"
+"Homepage" = "https://github.com/kdeldycke/extra-platforms"
+"Issues" = "https://github.com/kdeldycke/extra-platforms/issues"
+"Repository" = "https://github.com/kdeldycke/extra-platforms"
 
 [dependency-groups]
 test = [
@@ -262,17 +271,39 @@ typing = [
 ]
 
 [tool.uv]
+dependency-groups.docs = { requires-python = ">= 3.12" }
 # Cooldown period.
-exclude-newer = "2026-02-04T00:00:00Z"
-# XXX Disable exclusion of brand new click-extra releases.
-exclude-newer-package = { "click-extra" = "0 day" }
-
-[tool.uv.build-backend]
+exclude-newer = "2026-02-08T00:00:00Z"
 # Package is at root level, not in "./src/".
-module-root = ""
+build-backend.module-root = ""
 
-[tool.uv.dependency-groups]
-docs = { requires-python = ">= 3.12" }
+# Ruff linter/formatter configuration for Python projects.
+#
+# Native format - can be used standalone as ruff.toml or .ruff.toml.
+# When merged into pyproject.toml via `gha-utils bundled init ruff`,
+# the [tool.ruff] prefix is added automatically.
+[tool.ruff]
+# Enable formatting of Python code blocks in Markdown files.
+# https://docs.astral.sh/ruff/formatter/#markdown-code-formatting
+extend-include = [ "*.{markdown,mdown,mkdn,mdwn,mkd,md,mdtxt,mdtext,mdx}" ]
+preview = true
+fix = true
+unsafe-fixes = true
+show-fixes = true
+# Enable reformatting of code snippets in docstrings.
+# https://docs.astral.sh/ruff/formatter/#docstring-formatting
+format.docstring-code-format = true
+# D400: First line should end with a period.
+#   Allows docstrings to end up with any punctuation, not just a period.
+#   See: https://github.com/astral-sh/ruff/issues/1858#issuecomment-1382640623
+# ERA001: Found commented-out code.
+#   Do not remove commented code, as it might be used for documentation.
+#   See: https://docs.astral.sh/ruff/rules/#eradicate-era
+lint.ignore = [ "D400", "ERA001" ]
+# Allow rules to add `from __future__ import annotations` in cases where
+# this would simplify a fix or enable a new diagnostic.
+# https://docs.astral.sh/ruff/settings/#lint_future-annotations
+lint.future-annotations = true
 
 [tool.typos]
 default.extend-ignore-identifiers-re = [
@@ -296,13 +327,10 @@ default.extend-ignore-identifiers-re = [
   "Sur",
 ]
 
-[tool.pytest.ini_options]
+[tool.pytest]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
-addopts = [
+ini_options.addopts = [
   "--durations=10",
-  "--cov=extra_platforms",
-  "--cov-branch",
-  "--cov-precision=2",
   "--cov-report=term",
   "--cov-report=xml",
   # Codecov.io's test analytics requires a JUnit XML file:
@@ -311,13 +339,17 @@ addopts = [
   "--override-ini=junit_family=legacy",
 ]
 # Make sure tests that are expected to fail do not resurect and start working all of a sudden.
-xfail_strict = true
+ini_options.xfail_strict = true
+
+[tool.coverage]
+# https://coverage.readthedocs.io/en/latest/config.html
+run.branch = true
+run.source = [ "extra_platforms" ]
+report.precision = 2
 
 [tool.bumpversion]
-current_version = "9.0.0"
+current_version = "9.1.0"
 allow_dirty = true
-
-# TODO: Reuse the same search and replace patterns available in the reused workflows' pyproject.toml.
 
 [[tool.bumpversion.files]]
 # Update Python package version in any __init__.py file.
@@ -333,8 +365,8 @@ replace = 'version = "{new_version}"'
 [[tool.bumpversion.files]]
 # Update version in download URL.
 filename = "./pyproject.toml"
-search = 'releases/tag/v{current_version}'
-replace = 'releases/tag/v{new_version}'
+search = "releases/tag/v{current_version}"
+replace = "releases/tag/v{new_version}"
 
 [[tool.bumpversion.files]]
 # Update the version in Markdown changelog.
@@ -362,3 +394,7 @@ warn_unused_ignores = true
 warn_return_any = true
 warn_unreachable = true
 pretty = true
+
+[tool.gha-utils]
+# Building the package with Nuitka is overkill.
+nuitka = false

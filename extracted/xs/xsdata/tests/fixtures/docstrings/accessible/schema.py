@@ -75,7 +75,6 @@ class Root:
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
             "doc": (
                 "This is an inner type '''field''' documentation.\nLorem ipsum"
                 " dolor sit amet, consectetur adipiscing elit. Aliquam "
@@ -87,7 +86,6 @@ class Root:
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
             "doc": "This is a second root type field documentation.",
         }
     )
@@ -95,14 +93,12 @@ class Root:
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     d: RootD = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
 
@@ -116,7 +112,6 @@ class Root:
             metadata={
                 "type": "Element",
                 "namespace": "",
-                "required": True,
                 "doc": (
                     "This is an inner type '''field''' documentation.\nLorem ipsum"
                     " dolor sit amet, consectetur adipiscing elit. Vivamus "

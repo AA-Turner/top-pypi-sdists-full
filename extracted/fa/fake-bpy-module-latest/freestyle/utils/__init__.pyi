@@ -27,6 +27,13 @@ class BoundingBox:
         :param other:
         """
 
+    @classmethod
+    def from_sequence(cls, sequence) -> None:
+        """BoundingBox from sequence of 2D or 3D Vector objects
+
+        :param sequence:
+        """
+
 class StrokeCollector:
     """Collects and Stores stroke objects"""
 

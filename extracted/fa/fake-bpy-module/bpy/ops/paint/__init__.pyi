@@ -3,15 +3,17 @@ import collections.abc
 import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
-import bpy.types
 import mathutils
 
 def add_simple_uvs(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add cube map UVs on mesh"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add cube map UVs on mesh
+
+    :return: Result of the operator call.
+    """
 
 def add_texture_paint_slot(
     execution_context: int | str | None = None,
@@ -29,39 +31,44 @@ def add_texture_paint_slot(
     ]
     | None = "BASE_COLOR",
     slot_type: typing.Literal["IMAGE", "COLOR_ATTRIBUTE"] | None = "IMAGE",
-    name: str = "Untitled",
-    color: collections.abc.Iterable[float] | None = (0.0, 0.0, 0.0, 1.0),
+    name: str | None = "Untitled",
+    color: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0, 1.0),
     width: int | None = 1024,
     height: int | None = 1024,
     alpha: bool | None = True,
-    generated_type: bpy.stub_internal.rna_enums.ImageGeneratedTypeItems
+    generated_type: Literal[bpy.stub_internal.rna_enums.ImageGeneratedTypeItems]
     | None = "BLANK",
     float: bool | None = False,
-    domain: bpy.stub_internal.rna_enums.ColorAttributeDomainItems | None = "POINT",
-    data_type: bpy.stub_internal.rna_enums.ColorAttributeTypeItems
+    domain: Literal[bpy.stub_internal.rna_enums.ColorAttributeDomainItems]
+    | None = "POINT",
+    data_type: Literal[bpy.stub_internal.rna_enums.ColorAttributeTypeItems]
     | None = "FLOAT_COLOR",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a paint slot
 
-    :param type: Material Layer Type, Material layer type of new paint slot
-    :param slot_type: Slot Type, Type of new paint slot
-    :param name: Name, Name for new paint slot source
-    :param color: Color, Default fill color
-    :param width: Width, Image width
-    :param height: Height, Image height
-    :param alpha: Alpha, Create an image with an alpha channel
-    :param generated_type: Generated Type, Fill the image with a grid for UV map testing
-    :param float: 32-bit Float, Create image with 32-bit floating-point bit depth
-    :param domain: Domain, Type of element that attribute is stored on
-    :param data_type: Data Type, Type of data stored in attribute
+    :param type: Material Layer Type, Material layer type of new paint slot (optional)
+    :param slot_type: Slot Type, Type of new paint slot (optional)
+    :param name: Name, Name for new paint slot source (optional, never None)
+    :param color: Color, Default fill color (array of 4 items, in [0, inf], optional)
+    :param width: Width, Image width (in [1, inf], optional)
+    :param height: Height, Image height (in [1, inf], optional)
+    :param alpha: Alpha, Create an image with an alpha channel (optional)
+    :param generated_type: Generated Type, Fill the image with a grid for UV map testing (optional)
+    :param float: 32-bit Float, Create image with 32-bit floating-point bit depth (optional)
+    :param domain: Domain, Type of element that attribute is stored on (optional)
+    :param data_type: Data Type, Type of data stored in attribute (optional)
+    :return: Result of the operator call.
     """
 
 def brush_colors_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Swap primary and secondary brush colors"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Swap primary and secondary brush colors
+
+    :return: Result of the operator call.
+    """
 
 def face_select_all(
     execution_context: int | str | None = None,
@@ -69,10 +76,10 @@ def face_select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection for all faces
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -85,6 +92,7 @@ def face_select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def face_select_hide(
@@ -93,10 +101,11 @@ def face_select_hide(
     /,
     *,
     unselected: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected faces
 
-    :param unselected: Unselected, Hide unselected rather than selected objects
+    :param unselected: Unselected, Hide unselected rather than selected objects (optional)
+    :return: Result of the operator call.
     """
 
 def face_select_less(
@@ -105,18 +114,22 @@ def face_select_less(
     /,
     *,
     face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect Faces connected to existing selection
 
-    :param face_step: Face Step, Also deselect faces that only touch on a corner
+    :param face_step: Face Step, Also deselect faces that only touch on a corner (optional)
+    :return: Result of the operator call.
     """
 
 def face_select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select linked faces"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select linked faces
+
+    :return: Result of the operator call.
+    """
 
 def face_select_linked_pick(
     execution_context: int | str | None = None,
@@ -124,10 +137,11 @@ def face_select_linked_pick(
     /,
     *,
     deselect: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked faces under the cursor
 
-    :param deselect: Deselect, Deselect rather than select items
+    :param deselect: Deselect, Deselect rather than select items (optional)
+    :return: Result of the operator call.
     """
 
 def face_select_loop(
@@ -137,11 +151,12 @@ def face_select_loop(
     *,
     select: bool | None = True,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select face loop under the cursor
 
-    :param select: Select, If false, faces will be deselected
-    :param extend: Extend, Extend the selection
+    :param select: Select, If false, faces will be deselected (optional)
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def face_select_more(
@@ -150,10 +165,11 @@ def face_select_more(
     /,
     *,
     face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select Faces connected to existing selection
 
-    :param face_step: Face Step, Also select faces that only touch on a corner
+    :param face_step: Face Step, Also select faces that only touch on a corner (optional)
+    :return: Result of the operator call.
     """
 
 def face_vert_reveal(
@@ -162,10 +178,11 @@ def face_vert_reveal(
     /,
     *,
     select: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reveal hidden faces and vertices
 
-    :param select: Select, Specifies whether the newly revealed geometry should be selected
+    :param select: Select, Specifies whether the newly revealed geometry should be selected (optional)
+    :return: Result of the operator call.
     """
 
 def grab_clone(
@@ -174,10 +191,11 @@ def grab_clone(
     /,
     *,
     delta: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the clone source image
 
-    :param delta: Delta, Delta offset of clone image in 0.0 to 1.0 coordinates
+    :param delta: Delta, Delta offset of clone image in 0.0 to 1.0 coordinates (array of 2 items, in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def hide_show(
@@ -193,29 +211,30 @@ def hide_show(
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
-        :param xmin: X Min
-        :param xmax: X Max
-        :param ymin: Y Min
-        :param ymax: Y Max
-        :param wait_for_input: Wait for Input
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param xmin: X Min, (in [-inf, inf], optional)
+        :param xmax: X Max, (in [-inf, inf], optional)
+        :param ymin: Y Min, (in [-inf, inf], optional)
+        :param ymax: Y Max, (in [-inf, inf], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
-        :param area: Visibility Area, Which vertices to hide or show
+        :param area: Visibility Area, Which vertices to hide or show (optional)
 
     OUTSIDE
     Outside -- Hide or show vertices outside the selection.
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :return: Result of the operator call.
     """
 
 def hide_show_all(
@@ -224,16 +243,17 @@ def hide_show_all(
     /,
     *,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show all vertices
 
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
+        :return: Result of the operator call.
     """
 
 def hide_show_lasso_gesture(
@@ -241,35 +261,36 @@ def hide_show_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
-        :param path: Path
-        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param path: Path, (optional)
+        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
-        :param area: Visibility Area, Which vertices to hide or show
+        :param area: Visibility Area, Which vertices to hide or show (optional)
 
     OUTSIDE
     Outside -- Hide or show vertices outside the selection.
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :return: Result of the operator call.
     """
 
 def hide_show_line_gesture(
@@ -287,31 +308,32 @@ def hide_show_line_gesture(
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
-        :param xstart: X Start
-        :param xend: X End
-        :param ystart: Y Start
-        :param yend: Y End
-        :param flip: Flip
-        :param cursor: Cursor, Mouse cursor style to use during the modal operator
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param xstart: X Start, (in [-inf, inf], optional)
+        :param xend: X End, (in [-inf, inf], optional)
+        :param ystart: Y Start, (in [-inf, inf], optional)
+        :param yend: Y End, (in [-inf, inf], optional)
+        :param flip: Flip, (optional)
+        :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
-        :param area: Visibility Area, Which vertices to hide or show
+        :param area: Visibility Area, Which vertices to hide or show (optional)
 
     OUTSIDE
     Outside -- Hide or show vertices outside the selection.
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line (optional)
+        :return: Result of the operator call.
     """
 
 def hide_show_masked(
@@ -320,16 +342,17 @@ def hide_show_masked(
     /,
     *,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show all masked vertices above a threshold
 
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
+        :return: Result of the operator call.
     """
 
 def hide_show_polyline_gesture(
@@ -337,29 +360,30 @@ def hide_show_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     action: typing.Literal["HIDE", "SHOW"] | None = "HIDE",
     area: typing.Literal["OUTSIDE", "Inside"] | None = "Inside",
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide/show some vertices
 
-        :param path: Path
-        :param action: Visibility Action, Whether to hide or show vertices
+        :param path: Path, (optional)
+        :param action: Visibility Action, Whether to hide or show vertices (optional)
 
     HIDE
     Hide -- Hide vertices.
 
     SHOW
     Show -- Show vertices.
-        :param area: Visibility Area, Which vertices to hide or show
+        :param area: Visibility Area, Which vertices to hide or show (optional)
 
     OUTSIDE
     Outside -- Hide or show vertices outside the selection.
 
     Inside
     Inside -- Hide or show vertices inside the selection.
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :return: Result of the operator call.
     """
 
 def image_from_view(
@@ -367,11 +391,12 @@ def image_from_view(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-) -> None:
+    filepath: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make an image from biggest 3D view for reprojection
 
-    :param filepath: File Path, Name of the file
+    :param filepath: File Path, Name of the file (optional, never None)
+    :return: Result of the operator call.
     """
 
 def image_paint(
@@ -379,23 +404,22 @@ def image_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke into the image
 
-        :param stroke: Stroke
-        :param mode: Stroke Mode, Action taken when a paint stroke is made
+        :param stroke: Stroke, (optional)
+        :param mode: Stroke Mode, Action taken when a paint stroke is made (optional)
 
     NORMAL
     Regular -- Apply brush normally.
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
-        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke (optional)
 
     None
     None -- Apply brush normally.
@@ -408,7 +432,8 @@ def image_paint(
 
     MASK
     Mask -- Switch to mask brush for duration of stroke.
-        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+        :return: Result of the operator call.
     """
 
 def mask_box_gesture(
@@ -424,16 +449,16 @@ def mask_box_gesture(
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a rectangle defined by the cursor
 
-        :param xmin: X Min
-        :param xmax: X Max
-        :param ymin: Y Min
-        :param ymax: Y Max
-        :param wait_for_input: Wait for Input
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param mode: Mode
+        :param xmin: X Min, (in [-inf, inf], optional)
+        :param xmax: X Max, (in [-inf, inf], optional)
+        :param ymin: Y Min, (in [-inf, inf], optional)
+        :param ymax: Y Max, (in [-inf, inf], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param mode: Mode, (optional)
 
     VALUE
     Value -- Set mask to the level specified by the value property.
@@ -443,7 +468,8 @@ def mask_box_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def mask_flood_fill(
@@ -453,10 +479,10 @@ def mask_flood_fill(
     *,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 0.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the whole mask with a given value, or invert its values
 
-        :param mode: Mode
+        :param mode: Mode, (optional)
 
     VALUE
     Value -- Set mask to the level specified by the value property.
@@ -466,7 +492,8 @@ def mask_flood_fill(
 
     INVERT
     Invert -- Invert the mask.
-        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def mask_lasso_gesture(
@@ -474,22 +501,22 @@ def mask_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a shape defined by the cursor
 
-        :param path: Path
-        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param mode: Mode
+        :param path: Path, (optional)
+        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param mode: Mode, (optional)
 
     VALUE
     Value -- Set mask to the level specified by the value property.
@@ -499,7 +526,8 @@ def mask_lasso_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def mask_line_gesture(
@@ -517,18 +545,18 @@ def mask_line_gesture(
     use_limit_to_segment: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask to one side of a line defined by the cursor
 
-        :param xstart: X Start
-        :param xend: X End
-        :param ystart: Y Start
-        :param yend: Y End
-        :param flip: Flip
-        :param cursor: Cursor, Mouse cursor style to use during the modal operator
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
-        :param mode: Mode
+        :param xstart: X Start, (in [-inf, inf], optional)
+        :param xend: X End, (in [-inf, inf], optional)
+        :param ystart: Y Start, (in [-inf, inf], optional)
+        :param yend: Y End, (in [-inf, inf], optional)
+        :param flip: Flip, (optional)
+        :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line (optional)
+        :param mode: Mode, (optional)
 
     VALUE
     Value -- Set mask to the level specified by the value property.
@@ -538,7 +566,8 @@ def mask_line_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def mask_polyline_gesture(
@@ -546,16 +575,16 @@ def mask_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_front_faces_only: bool | None = False,
     mode: typing.Literal["VALUE", "VALUE_INVERSE", "INVERT"] | None = "VALUE",
     value: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mask within a shape defined by the cursor
 
-        :param path: Path
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param mode: Mode
+        :param path: Path, (optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param mode: Mode, (optional)
 
     VALUE
     Value -- Set mask to the level specified by the value property.
@@ -565,7 +594,8 @@ def mask_polyline_gesture(
 
     INVERT
     Invert -- Invert the mask.
-        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked
+        :param value: Value, Mask level to use when mode is Value; zero means no masking and one is fully masked (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def project_image(
@@ -574,10 +604,11 @@ def project_image(
     /,
     *,
     image: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project an edited render from the active camera back onto the object
 
-    :param image: Image
+    :param image: Image, (optional)
+    :return: Result of the operator call.
     """
 
 def sample_color(
@@ -585,23 +616,27 @@ def sample_color(
     undo: bool | None = None,
     /,
     *,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     merged: bool | None = False,
     palette: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use the mouse to sample a color in the image
 
-    :param location: Location
-    :param merged: Sample Merged, Sample the output display color
-    :param palette: Add to Palette
+    :param location: Location, (array of 2 items, in [0, inf], optional)
+    :param merged: Sample Merged, Sample the output display color (optional)
+    :param palette: Add to Palette, (optional)
+    :return: Result of the operator call.
     """
 
 def texture_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle texture paint mode in 3D view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle texture paint mode in 3D view
+
+    :return: Result of the operator call.
+    """
 
 def vert_select_all(
     execution_context: int | str | None = None,
@@ -609,10 +644,10 @@ def vert_select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection for all vertices
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -625,6 +660,7 @@ def vert_select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def vert_select_hide(
@@ -633,10 +669,11 @@ def vert_select_hide(
     /,
     *,
     unselected: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide selected vertices
 
-    :param unselected: Unselected, Hide unselected rather than selected vertices
+    :param unselected: Unselected, Hide unselected rather than selected vertices (optional)
+    :return: Result of the operator call.
     """
 
 def vert_select_less(
@@ -645,18 +682,22 @@ def vert_select_less(
     /,
     *,
     face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Deselect Vertices connected to existing selection
 
-    :param face_step: Face Step, Also deselect faces that only touch on a corner
+    :param face_step: Face Step, Also deselect faces that only touch on a corner (optional)
+    :return: Result of the operator call.
     """
 
 def vert_select_linked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select linked vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select linked vertices
+
+    :return: Result of the operator call.
+    """
 
 def vert_select_linked_pick(
     execution_context: int | str | None = None,
@@ -664,10 +705,11 @@ def vert_select_linked_pick(
     /,
     *,
     select: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select linked vertices under the cursor
 
-    :param select: Select, Whether to select or deselect linked vertices under the cursor
+    :param select: Select, Whether to select or deselect linked vertices under the cursor (optional)
+    :return: Result of the operator call.
     """
 
 def vert_select_loop(
@@ -677,11 +719,12 @@ def vert_select_loop(
     *,
     select: bool | None = True,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertex loop under the cursor
 
-    :param select: Select, If false, vertices will be deselected
-    :param extend: Extend, Extend the selection
+    :param select: Select, If false, vertices will be deselected (optional)
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def vert_select_more(
@@ -690,10 +733,11 @@ def vert_select_more(
     /,
     *,
     face_step: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select Vertices connected to existing selection
 
-    :param face_step: Face Step, Also select faces that only touch on a corner
+    :param face_step: Face Step, Also select faces that only touch on a corner (optional)
+    :return: Result of the operator call.
     """
 
 def vert_select_ungrouped(
@@ -702,10 +746,11 @@ def vert_select_ungrouped(
     /,
     *,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices without a group
 
-    :param extend: Extend, Extend the selection
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_brightness_contrast(
@@ -715,11 +760,12 @@ def vertex_color_brightness_contrast(
     *,
     brightness: float | None = 0.0,
     contrast: float | None = 0.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust vertex color brightness/contrast
 
-    :param brightness: Brightness
-    :param contrast: Contrast
+    :param brightness: Brightness, (in [-100, 100], optional)
+    :param contrast: Contrast, (in [-100, 100], optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_dirt(
@@ -733,23 +779,27 @@ def vertex_color_dirt(
     dirt_angle: float | None = 0.0,
     dirt_only: bool | None = False,
     normalize: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generate a dirt map gradient based on cavity
 
-    :param blur_strength: Blur Strength, Blur strength per iteration
-    :param blur_iterations: Blur Iterations, Number of times to blur the colors (higher blurs more)
-    :param clean_angle: Highlight Angle, Less than 90 limits the angle used in the tonal range
-    :param dirt_angle: Dirt Angle, Less than 90 limits the angle used in the tonal range
-    :param dirt_only: Dirt Only, Dont calculate cleans for convex areas
-    :param normalize: Normalize, Normalize the colors, increasing the contrast
+    :param blur_strength: Blur Strength, Blur strength per iteration (in [0.01, 1], optional)
+    :param blur_iterations: Blur Iterations, Number of times to blur the colors (higher blurs more) (in [0, 40], optional)
+    :param clean_angle: Highlight Angle, Less than 90 limits the angle used in the tonal range (in [0, 3.14159], optional)
+    :param dirt_angle: Dirt Angle, Less than 90 limits the angle used in the tonal range (in [0, 3.14159], optional)
+    :param dirt_only: Dirt Only, Dont calculate cleans for convex areas (optional)
+    :param normalize: Normalize, Normalize the colors, increasing the contrast (optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_from_weight(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Convert active weight into gray scale vertex colors"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Convert active weight into gray scale vertex colors
+
+    :return: Result of the operator call.
+    """
 
 def vertex_color_hsv(
     execution_context: int | str | None = None,
@@ -759,20 +809,24 @@ def vertex_color_hsv(
     h: float | None = 0.5,
     s: float | None = 1.0,
     v: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust vertex color Hue/Saturation/Value
 
-    :param h: Hue
-    :param s: Saturation
-    :param v: Value
+    :param h: Hue, (in [0, 1], optional)
+    :param s: Saturation, (in [0, 2], optional)
+    :param v: Value, (in [0, 2], optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_invert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Invert RGB values"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Invert RGB values
+
+    :return: Result of the operator call.
+    """
 
 def vertex_color_levels(
     execution_context: int | str | None = None,
@@ -781,11 +835,12 @@ def vertex_color_levels(
     *,
     offset: float | None = 0.0,
     gain: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Adjust levels of vertex colors
 
-    :param offset: Offset, Value to add to colors
-    :param gain: Gain, Value to multiply colors by
+    :param offset: Offset, Value to add to colors (in [-1, 1], optional)
+    :param gain: Gain, Value to multiply colors by (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_set(
@@ -794,42 +849,45 @@ def vertex_color_set(
     /,
     *,
     use_alpha: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Fill the active vertex color layer with the current paint color
 
-    :param use_alpha: Affect Alpha, Set color completely opaque instead of reusing existing alpha
+    :param use_alpha: Affect Alpha, Set color completely opaque instead of reusing existing alpha (optional)
+    :return: Result of the operator call.
     """
 
 def vertex_color_smooth(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Smooth colors across vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Smooth colors across vertices
+
+    :return: Result of the operator call.
+    """
 
 def vertex_paint(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke in the active color attribute layer
 
-        :param stroke: Stroke
-        :param mode: Stroke Mode, Action taken when a paint stroke is made
+        :param stroke: Stroke, (optional)
+        :param mode: Stroke Mode, Action taken when a paint stroke is made (optional)
 
     NORMAL
     Regular -- Apply brush normally.
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
-        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke (optional)
 
     None
     None -- Apply brush normally.
@@ -842,16 +900,20 @@ def vertex_paint(
 
     MASK
     Mask -- Switch to mask brush for duration of stroke.
-        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions (optional)
+        :return: Result of the operator call.
     """
 
 def vertex_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle the vertex paint mode in 3D view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle the vertex paint mode in 3D view
+
+    :return: Result of the operator call.
+    """
 
 def visibility_filter(
     execution_context: int | str | None = None,
@@ -861,26 +923,30 @@ def visibility_filter(
     action: typing.Literal["GROW", "SHRINK"] | None = "GROW",
     iterations: int | None = 1,
     auto_iteration_count: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit the visibility of the current mesh
 
-        :param action: Action
+        :param action: Action, (optional)
 
     GROW
     Grow Visibility -- Grow the visibility by one face based on mesh topology.
 
     SHRINK
     Shrink Visibility -- Shrink the visibility by one face based on mesh topology.
-        :param iterations: Iterations, Number of times that the filter is going to be applied
-        :param auto_iteration_count: Auto Iteration Count, Use an automatic number of iterations based on the number of vertices of the sculpt
+        :param iterations: Iterations, Number of times that the filter is going to be applied (in [1, 100], optional)
+        :param auto_iteration_count: Auto Iteration Count, Use an automatic number of iterations based on the number of vertices of the sculpt (optional)
+        :return: Result of the operator call.
     """
 
 def visibility_invert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Invert the visibility of all vertices"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Invert the visibility of all vertices
+
+    :return: Result of the operator call.
+    """
 
 def weight_from_bones(
     execution_context: int | str | None = None,
@@ -888,16 +954,17 @@ def weight_from_bones(
     /,
     *,
     type: typing.Literal["AUTOMATIC", "ENVELOPES"] | None = "AUTOMATIC",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the weights of the groups matching the attached armatures selected bones, using the distance between the vertices and the bones
 
-        :param type: Type, Method to use for assigning weights
+        :param type: Type, Method to use for assigning weights (optional)
 
     AUTOMATIC
     Automatic -- Automatic weights from bones.
 
     ENVELOPES
     From Envelopes -- Weights from envelopes with user defined radius.
+        :return: Result of the operator call.
     """
 
 def weight_gradient(
@@ -912,16 +979,17 @@ def weight_gradient(
     yend: int | None = 0,
     flip: bool | None = False,
     cursor: int | None = 5,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Draw a line to apply a weight gradient to selected vertices
 
-    :param type: Type
-    :param xstart: X Start
-    :param xend: X End
-    :param ystart: Y Start
-    :param yend: Y End
-    :param flip: Flip
-    :param cursor: Cursor, Mouse cursor style to use during the modal operator
+    :param type: Type, (optional)
+    :param xstart: X Start, (in [-inf, inf], optional)
+    :param xend: X End, (in [-inf, inf], optional)
+    :param ystart: Y Start, (in [-inf, inf], optional)
+    :param yend: Y End, (in [-inf, inf], optional)
+    :param flip: Flip, (optional)
+    :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def weight_paint(
@@ -929,24 +997,23 @@ def weight_paint(
     undo: bool | None = None,
     /,
     *,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paint a stroke in the current vertex groups weights
 
-        :param stroke: Stroke
-        :param mode: Stroke Mode, Action taken when a paint stroke is made
+        :param stroke: Stroke, (optional)
+        :param mode: Stroke Mode, Action taken when a paint stroke is made (optional)
 
     NORMAL
     Regular -- Apply brush normally.
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
-        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke (optional)
 
     None
     None -- Apply brush normally.
@@ -959,34 +1026,47 @@ def weight_paint(
 
     MASK
     Mask -- Switch to mask brush for duration of stroke.
-        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions (optional)
+        :return: Result of the operator call.
     """
 
 def weight_paint_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle weight paint mode in 3D view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle weight paint mode in 3D view
+
+    :return: Result of the operator call.
+    """
 
 def weight_sample(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Use the mouse to sample a weight in the 3D view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Use the mouse to sample a weight in the 3D view
+
+    :return: Result of the operator call.
+    """
 
 def weight_sample_group(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select one of the vertex groups available under current mouse position"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select one of the vertex groups available under current mouse position
+
+    :return: Result of the operator call.
+    """
 
 def weight_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Fill the active vertex group with the current paint weight"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Fill the active vertex group with the current paint weight
+
+    :return: Result of the operator call.
+    """

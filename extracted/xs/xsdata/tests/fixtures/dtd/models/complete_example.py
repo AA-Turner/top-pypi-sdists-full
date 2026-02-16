@@ -6,22 +6,12 @@ from enum import Enum
 
 @dataclass(kw_only=True)
 class Body:
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
 class Origin:
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 class PostStatus(Enum):
@@ -31,32 +21,17 @@ class PostStatus(Enum):
 
 @dataclass(kw_only=True)
 class Source:
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
 class Tag:
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
 class Title:
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
@@ -90,13 +65,11 @@ class Post:
     created_at: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     author: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     origin: list[Origin] = field(
@@ -117,21 +90,18 @@ class Post:
         metadata={
             "name": "Title",
             "type": "Element",
-            "required": True,
         }
     )
     body: Body = field(
         metadata={
             "name": "Body",
             "type": "Element",
-            "required": True,
         }
     )
     tags: Tags = field(
         metadata={
             "name": "Tags",
             "type": "Element",
-            "required": True,
         }
     )
 

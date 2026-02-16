@@ -7,6 +7,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import gpu.types
 import mathutils
 
 def get_model_view_matrix() -> mathutils.Matrix:
@@ -66,11 +67,17 @@ def pop_projection() -> None:
 def push() -> None:
     """Add to the model-view matrix stack."""
 
-def push_pop() -> None:
-    """Context manager to ensure balanced push/pop calls, even in the case of an error."""
+def push_pop() -> gpu.types.MatrixStackContext:
+    """Context manager to ensure balanced push/pop calls, even in the case of an error.
 
-def push_pop_projection() -> None:
-    """Context manager to ensure balanced push/pop calls, even in the case of an error."""
+    :return: The context manager.
+    """
+
+def push_pop_projection() -> gpu.types.MatrixStackContext:
+    """Context manager to ensure balanced push/pop calls, even in the case of an error.
+
+    :return: The context manager.
+    """
 
 def push_projection() -> None:
     """Add to the projection matrix stack."""

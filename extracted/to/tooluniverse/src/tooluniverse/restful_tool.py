@@ -9,19 +9,19 @@ def execute_RESTful_query(endpoint_url, variables=None):
     try:
         result = response.json()
 
-        # Check if the response contains errors
         if "error" in result:
             print("Invalid Query: ", result["error"])
             return False
-        else:
-            return result
+        return result
     except requests.exceptions.JSONDecodeError:
         print("JSONDecodeError: Could not decode the response as JSON")
         return False
     except requests.exceptions.HTTPError as e:
         print(f"HTTP error occurred: {e}")
+        return False
     except Exception as e:
         print(f"An error occurred: {e}")
+        return False
 
 
 @register_tool("RESTfulTool")
@@ -59,7 +59,6 @@ class MonarchTool(RESTfulTool):
         else:
             formatted_endpoint_url = self.endpoint_url
         if isinstance(query_schema_runtime, dict):
-            print(query_schema_runtime)
             if "query" in query_schema_runtime:
                 query_schema_runtime["q"] = query_schema_runtime[
                     "query"

@@ -17,7 +17,6 @@ from xsdata.formats.dataclass.serializers import XmlSerializer
 from xsdata.formats.dataclass.serializers.config import SerializerConfig
 from xsdata.formats.dataclass.serializers.writers import XmlEventWriter
 from xsdata.models.enums import Namespace
-from xsdata.models.mixins import array_element, attribute, element, text_node
 from xsdata.utils import objects, text
 
 
@@ -149,13 +148,15 @@ class OutputFormat:
         slots: Enable __slots__
     """
 
-    value: str = text_node(default="dataclasses", cli="output")
-    repr: bool = attribute(default=True)
-    eq: bool = attribute(default=True)
-    order: bool = attribute(default=False)
-    unsafe_hash: bool = attribute(default=False)
-    frozen: bool = attribute(default=False)
-    slots: bool = attribute(default=False)
+    value: str = field(
+        default="dataclasses", metadata={"type": "Text", "cli": "output"}
+    )
+    repr: bool = field(default=True, metadata={"type": "Attribute"})
+    eq: bool = field(default=True, metadata={"type": "Attribute"})
+    order: bool = field(default=False, metadata={"type": "Attribute"})
+    unsafe_hash: bool = field(default=False, metadata={"type": "Attribute"})
+    frozen: bool = field(default=False, metadata={"type": "Attribute"})
+    slots: bool = field(default=False, metadata={"type": "Attribute"})
 
     def __post_init__(self):
         """Post initialization method."""
@@ -188,11 +189,19 @@ class CompoundFields:
             the default name.
     """
 
-    enabled: bool = text_node(default=False, cli="compound-fields")
-    default_name: str = attribute(default="choice", cli=False)
-    use_substitution_groups: bool = attribute(default=False, cli=False)
-    force_default_name: bool = attribute(default=False, cli=False)
-    max_name_parts: int = attribute(default=3, cli=False)
+    enabled: bool = field(
+        default=False, metadata={"type": "Text", "cli": "compound-fields"}
+    )
+    default_name: str = field(
+        default="choice", metadata={"type": "Attribute", "cli": False}
+    )
+    use_substitution_groups: bool = field(
+        default=False, metadata={"type": "Attribute", "cli": False}
+    )
+    force_default_name: bool = field(
+        default=False, metadata={"type": "Attribute", "cli": False}
+    )
+    max_name_parts: int = field(default=3, metadata={"type": "Attribute", "cli": False})
 
 
 @dataclass
@@ -214,20 +223,27 @@ class GeneratorOutput:
         include_header: Include a header with codegen information in the output
     """
 
-    package: str = element(default="generated")
-    format: OutputFormat = element(default_factory=OutputFormat)
-    structure_style: StructureStyle = element(
-        default=StructureStyle.FILENAMES, name="Structure"
+    package: str = field(default="generated", metadata={"type": "Element"})
+    format: OutputFormat = field(
+        default_factory=OutputFormat, metadata={"type": "Element"}
     )
-    docstring_style: DocstringStyle = element(default=DocstringStyle.RST)
-    relative_imports: bool = element(default=False)
-    compound_fields: CompoundFields = element(default_factory=CompoundFields)
-    wrapper_fields: bool = element(default=False)
-    max_line_length: int = attribute(default=79)
-    generic_collections: bool = attribute(default=False)
-    unnest_classes: bool = element(default=False)
-    ignore_patterns: bool = element(default=False)
-    include_header: bool = element(default=False)
+    structure_style: StructureStyle = field(
+        default=StructureStyle.FILENAMES,
+        metadata={"type": "Element", "name": "Structure"},
+    )
+    docstring_style: DocstringStyle = field(
+        default=DocstringStyle.RST, metadata={"type": "Element"}
+    )
+    relative_imports: bool = field(default=False, metadata={"type": "Element"})
+    compound_fields: CompoundFields = field(
+        default_factory=CompoundFields, metadata={"type": "Element"}
+    )
+    wrapper_fields: bool = field(default=False, metadata={"type": "Element"})
+    max_line_length: int = field(default=79, metadata={"type": "Attribute"})
+    generic_collections: bool = field(default=False, metadata={"type": "Attribute"})
+    unnest_classes: bool = field(default=False, metadata={"type": "Element"})
+    ignore_patterns: bool = field(default=False, metadata={"type": "Element"})
+    include_header: bool = field(default=False, metadata={"type": "Element"})
 
     def __post_init__(self):
         """Post initialization method."""
@@ -258,8 +274,8 @@ class NameConvention:
             one of the reserved words.
     """
 
-    case: NameCase = attribute(optional=False)
-    safe_prefix: str = attribute(optional=False)
+    case: NameCase = field(metadata={"type": "Attribute"})
+    safe_prefix: str = field(metadata={"type": "Attribute"})
 
 
 @dataclass
@@ -273,20 +289,25 @@ class GeneratorConventions:
         package_name: Package naming conventions.
     """
 
-    class_name: NameConvention = element(
-        default_factory=lambda: NameConvention(NameCase.PASCAL, "type")
+    class_name: NameConvention = field(
+        default_factory=lambda: NameConvention(NameCase.PASCAL, "type"),
+        metadata={"type": "Element"},
     )
-    field_name: NameConvention = element(
-        default_factory=lambda: NameConvention(NameCase.SNAKE, "value")
+    field_name: NameConvention = field(
+        default_factory=lambda: NameConvention(NameCase.SNAKE, "value"),
+        metadata={"type": "Element"},
     )
-    constant_name: NameConvention = element(
-        default_factory=lambda: NameConvention(NameCase.SCREAMING_SNAKE, "value")
+    constant_name: NameConvention = field(
+        default_factory=lambda: NameConvention(NameCase.SCREAMING_SNAKE, "value"),
+        metadata={"type": "Element"},
     )
-    module_name: NameConvention = element(
-        default_factory=lambda: NameConvention(NameCase.SNAKE, "mod")
+    module_name: NameConvention = field(
+        default_factory=lambda: NameConvention(NameCase.SNAKE, "mod"),
+        metadata={"type": "Element"},
     )
-    package_name: NameConvention = element(
-        default_factory=lambda: NameConvention(NameCase.SNAKE, "pkg")
+    package_name: NameConvention = field(
+        default_factory=lambda: NameConvention(NameCase.SNAKE, "pkg"),
+        metadata={"type": "Element"},
     )
 
 
@@ -308,8 +329,8 @@ class GeneratorAlias:
         target: The target name of the object.
     """
 
-    source: str = attribute(required=True)
-    target: str = attribute(required=True)
+    source: str = field(metadata={"type": "Attribute", "required": True})
+    target: str = field(metadata={"type": "Attribute", "required": True})
 
 
 @dataclass
@@ -327,10 +348,18 @@ class GeneratorAliases:
         module_name: A list of module name aliases
     """
 
-    class_name: list[GeneratorAlias] = array_element()
-    field_name: list[GeneratorAlias] = array_element()
-    package_name: list[GeneratorAlias] = array_element()
-    module_name: list[GeneratorAlias] = array_element()
+    class_name: list[GeneratorAlias] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
+    field_name: list[GeneratorAlias] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
+    package_name: list[GeneratorAlias] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
+    module_name: list[GeneratorAlias] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
 
 
 @dataclass
@@ -345,9 +374,9 @@ class GeneratorSubstitution:
         replace: The replacement string or pattern object
     """
 
-    type: ObjectType = attribute(required=True)
-    search: str = attribute(required=True)
-    replace: str = attribute(required=True)
+    type: ObjectType = field(metadata={"type": "Attribute", "required": True})
+    search: str = field(metadata={"type": "Attribute", "required": True})
+    replace: str = field(metadata={"type": "Attribute", "required": True})
 
 
 @dataclass
@@ -372,11 +401,17 @@ class GeneratorExtension:
         parent_pattern: The compiled search parent pattern or None
     """
 
-    type: ExtensionType = attribute(required=True)
-    class_name: str = attribute(required=True, name="class")
-    import_string: str = attribute(required=True, name="import")
-    prepend: bool = attribute(default=False)
-    apply_if_derived: bool = attribute(default=False, name="applyIfDerived")
+    type: ExtensionType = field(metadata={"type": "Attribute", "required": True})
+    class_name: str = field(
+        metadata={"type": "Attribute", "required": True, "name": "class"}
+    )
+    import_string: str = field(
+        metadata={"type": "Attribute", "required": True, "name": "import"}
+    )
+    prepend: bool = field(default=False, metadata={"type": "Attribute"})
+    apply_if_derived: bool = field(
+        default=False, metadata={"type": "Attribute", "name": "applyIfDerived"}
+    )
 
     module_path: str = field(
         init=False,
@@ -391,7 +426,10 @@ class GeneratorExtension:
         metadata={"type": "Ignore"},
     )
 
-    parent_path: str = attribute(required=False, name="module")
+    parent_path: str | None = field(
+        default=None,
+        metadata={"type": "Attribute", "required": False, "name": "module"},
+    )
     parent_pattern: Pattern | None = field(
         init=False,
         metadata={"type": "Ignore"},
@@ -442,7 +480,9 @@ class GeneratorSubstitutions:
         substitution: The list of substitution instances
     """
 
-    substitution: list[GeneratorSubstitution] = array_element()
+    substitution: list[GeneratorSubstitution] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
 
 
 @dataclass
@@ -457,7 +497,9 @@ class GeneratorExtensions:
         extension: The list of extension instances
     """
 
-    extension: list[GeneratorExtension] = array_element()
+    extension: list[GeneratorExtension] = field(
+        default_factory=list, metadata={"type": "Element"}
+    )
 
 
 @dataclass
@@ -481,13 +523,19 @@ class GeneratorConfig:
         name = "Config"
         namespace = "http://pypi.org/project/xsdata"
 
-    version: str = attribute(default=__version__)
-    output: GeneratorOutput = element(default_factory=GeneratorOutput)
-    conventions: GeneratorConventions = element(default_factory=GeneratorConventions)
-    substitutions: GeneratorSubstitutions = element(
-        default_factory=GeneratorSubstitutions
+    version: str = field(default=__version__, metadata={"type": "Attribute"})
+    output: GeneratorOutput = field(
+        default_factory=GeneratorOutput, metadata={"type": "Element"}
     )
-    extensions: GeneratorExtensions = element(default_factory=GeneratorExtensions)
+    conventions: GeneratorConventions = field(
+        default_factory=GeneratorConventions, metadata={"type": "Element"}
+    )
+    substitutions: GeneratorSubstitutions = field(
+        default_factory=GeneratorSubstitutions, metadata={"type": "Element"}
+    )
+    extensions: GeneratorExtensions = field(
+        default_factory=GeneratorExtensions, metadata={"type": "Element"}
+    )
 
     @classmethod
     def create(cls) -> "GeneratorConfig":

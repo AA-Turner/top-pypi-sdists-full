@@ -12,7 +12,7 @@ import numpy.typing as npt
 import mathutils
 
 class KDTree:
-    """KDTree(size) -> new kd-tree initialized to hold size items."""
+    """KDTree(size) -> new kd-tree initialized to hold up to size items."""
 
     def balance(self) -> None:
         """Balance the tree."""

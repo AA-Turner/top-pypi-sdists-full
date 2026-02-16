@@ -7,12 +7,12 @@ See Also:
 """
 
 from pathlib import Path
-from typing import Any
 
-from pyrig.rig.configs.base.yml import YmlConfigFile
+from pyrig.rig.configs.base.base import ConfigDict
+from pyrig.rig.configs.base.yml import DictYmlConfigFile
 
 
-class FeatureRequestConfigFile(YmlConfigFile):
+class FeatureRequestConfigFile(DictYmlConfigFile):
     """Manage .github/ISSUE_TEMPLATE/feature_request.yml.
 
     Feature request template with fields for:
@@ -32,7 +32,7 @@ class FeatureRequestConfigFile(YmlConfigFile):
         """Return .github/ISSUE_TEMPLATE/."""
         return Path(".github/ISSUE_TEMPLATE")
 
-    def _configs(self) -> dict[str, Any]:
+    def _configs(self) -> ConfigDict:
         """Return feature request template YAML structure."""
         return {
             "name": "Feature Request",

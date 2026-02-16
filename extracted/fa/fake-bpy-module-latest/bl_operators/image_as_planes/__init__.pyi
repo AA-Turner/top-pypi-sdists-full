@@ -150,11 +150,12 @@ class IMAGE_OT_import_as_mesh_planes(
         :param context:
         """
 
-    def invoke(self, context, _event) -> None:
-        """
+    def invoke(self, context: bpy.types.Context, _event) -> set[str]:
+        """Invoke the file selector for importing.
 
-        :param context:
+        :param context: The context.
         :param _event:
+        :return: The operator return value.
         """
 
     def single_image_spec_to_plane(self, context, img_spec) -> None:

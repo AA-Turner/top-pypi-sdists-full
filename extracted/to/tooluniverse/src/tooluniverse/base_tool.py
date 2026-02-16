@@ -226,6 +226,37 @@ class BaseTool:
         except Exception as e:
             return ToolValidationError(f"Validation error: {str(e)}")
 
+    # Maps keyword groups to (ToolError subclass, message prefix).
+    # Checked in order; first match wins.
+    _ERROR_CLASSIFICATION = [
+        (
+            {"auth", "unauthorized", "401", "403", "api key", "token"},
+            ToolAuthError,
+            "Authentication failed",
+        ),
+        (
+            {"rate limit", "429", "quota", "limit exceeded"},
+            ToolRateLimitError,
+            "Rate limit exceeded",
+        ),
+        (
+            {"unavailable", "timeout", "connection", "network", "not found", "404"},
+            ToolUnavailableError,
+            "Tool unavailable",
+        ),
+        (
+            {"validation", "invalid", "schema", "parameter"},
+            ToolValidationError,
+            "Validation error",
+        ),
+        ({"config", "configuration", "setup"}, ToolConfigError, "Configuration error"),
+        (
+            {"import", "module", "dependency", "package"},
+            ToolDependencyError,
+            "Dependency error",
+        ),
+    ]
+
     def handle_error(self, exception: Exception) -> ToolError:
         """
         Classify a raw exception into a structured ToolError.
@@ -241,44 +272,11 @@ class BaseTool:
         """
         error_str = str(exception).lower()
 
-        if any(
-            keyword in error_str
-            for keyword in ["auth", "unauthorized", "401", "403", "api key", "token"]
-        ):
-            return ToolAuthError(f"Authentication failed: {exception}")
-        elif any(
-            keyword in error_str
-            for keyword in ["rate limit", "429", "quota", "limit exceeded"]
-        ):
-            return ToolRateLimitError(f"Rate limit exceeded: {exception}")
-        elif any(
-            keyword in error_str
-            for keyword in [
-                "unavailable",
-                "timeout",
-                "connection",
-                "network",
-                "not found",
-                "404",
-            ]
-        ):
-            return ToolUnavailableError(f"Tool unavailable: {exception}")
-        elif any(
-            keyword in error_str
-            for keyword in ["validation", "invalid", "schema", "parameter"]
-        ):
-            return ToolValidationError(f"Validation error: {exception}")
-        elif any(
-            keyword in error_str for keyword in ["config", "configuration", "setup"]
-        ):
-            return ToolConfigError(f"Configuration error: {exception}")
-        elif any(
-            keyword in error_str
-            for keyword in ["import", "module", "dependency", "package"]
-        ):
-            return ToolDependencyError(f"Dependency error: {exception}")
-        else:
-            return ToolServerError(f"Unexpected error: {exception}")
+        for keywords, error_class, prefix in self._ERROR_CLASSIFICATION:
+            if any(kw in error_str for kw in keywords):
+                return error_class(f"{prefix}: {exception}")
+
+        return ToolServerError(f"Unexpected error: {exception}")
 
     def get_cache_key(self, arguments: Dict[str, Any]) -> str:
         """

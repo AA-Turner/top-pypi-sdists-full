@@ -101,9 +101,9 @@ pub fn has_custom_element_tags(html: &str) -> bool {
 ///
 /// Returns Some(repaired_html) if repair was successful, None otherwise.
 pub fn repair_with_html5ever(input: &str) -> Option<String> {
+    use crate::rcdom::{RcDom, SerializableHandle};
     use html5ever::serialize::{SerializeOpts, serialize};
     use html5ever::tendril::TendrilSink;
-    use markup5ever_rcdom::{RcDom, SerializableHandle};
 
     let dom = html5ever::parse_document(RcDom::default(), Default::default())
         .from_utf8()

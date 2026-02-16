@@ -24,7 +24,6 @@ class ComposeTool(BaseTool):
     """
 
     def __init__(self, tool_config, tooluniverse=None):
-        super().__init__(tool_config)
         """
         Initialize the ComposeTool.
 
@@ -32,6 +31,7 @@ class ComposeTool(BaseTool):
             tool_config (dict): Tool configuration containing composition code or file reference
             tooluniverse (ToolUniverse): Reference to the ToolUniverse instance
         """
+        super().__init__(tool_config)
         self.tool_config = tool_config
         self.name = tool_config.get("name", "unnamed_compose_tool")
         self.tooluniverse = tooluniverse
@@ -277,7 +277,7 @@ class ComposeTool(BaseTool):
 
         except Exception as e:
             error_msg = f"Error in ComposeTool '{self.name}': {str(e)}"
-            traceback.print_exc()  # 打印完整堆栈
+            traceback.print_exc()  # Print full stack trace
             print(f"\033[91m{error_msg}\033[0m")
 
             return {"error": error_msg, "traceback": traceback.format_exc()}

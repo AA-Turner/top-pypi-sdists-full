@@ -26,7 +26,8 @@ class UpdateSqsTriggerJsonBody:
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when a message is received
         is_flow (bool): True if script_path points to a flow, false if it points to a script
-        message_attributes (Union[Unset, List[str]]): Array of SQS message attribute names to include with each message
+        message_attributes (Union[Unset, None, List[str]]): Array of SQS message attribute names to include with each
+            message
         mode (Union[Unset, UpdateSqsTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateSqsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the script
@@ -40,7 +41,7 @@ class UpdateSqsTriggerJsonBody:
     path: str
     script_path: str
     is_flow: bool
-    message_attributes: Union[Unset, List[str]] = UNSET
+    message_attributes: Union[Unset, None, List[str]] = UNSET
     mode: Union[Unset, UpdateSqsTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateSqsTriggerJsonBodyErrorHandlerArgs"] = UNSET
@@ -55,9 +56,12 @@ class UpdateSqsTriggerJsonBody:
         path = self.path
         script_path = self.script_path
         is_flow = self.is_flow
-        message_attributes: Union[Unset, List[str]] = UNSET
+        message_attributes: Union[Unset, None, List[str]] = UNSET
         if not isinstance(self.message_attributes, Unset):
-            message_attributes = self.message_attributes
+            if self.message_attributes is None:
+                message_attributes = None
+            else:
+                message_attributes = self.message_attributes
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):

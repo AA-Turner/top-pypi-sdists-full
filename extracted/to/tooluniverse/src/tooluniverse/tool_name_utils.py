@@ -66,12 +66,8 @@ def shorten_tool_name(name: str, max_length: int = 50) -> str:
         if len(word) <= 3:
             # Keep very short words intact (by, get, on, or, for, etc.)
             shortened_words.append(word)
-        elif len(word) <= 6:
-            # Medium words: keep first 4 chars
-            shortened_words.append(word[:4])
         else:
-            # Long words: keep first 3-4 chars
-            # Use 4 chars for better readability if possible
+            # Truncate to 4 chars for readability
             shortened_words.append(word[:4])
 
     result = "_".join(shortened_words)

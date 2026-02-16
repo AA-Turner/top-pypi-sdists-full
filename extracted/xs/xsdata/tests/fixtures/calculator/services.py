@@ -14,14 +14,12 @@ class Add:
         metadata={
             "name": "intA",
             "type": "Element",
-            "required": True,
         }
     )
     int_b: int = field(
         metadata={
             "name": "intB",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -35,7 +33,6 @@ class AddResponse:
         metadata={
             "name": "AddResult",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -49,14 +46,12 @@ class Divide:
         metadata={
             "name": "intA",
             "type": "Element",
-            "required": True,
         }
     )
     int_b: int = field(
         metadata={
             "name": "intB",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -70,7 +65,6 @@ class DivideResponse:
         metadata={
             "name": "DivideResult",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -84,14 +78,12 @@ class Multiply:
         metadata={
             "name": "intA",
             "type": "Element",
-            "required": True,
         }
     )
     int_b: int = field(
         metadata={
             "name": "intB",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -105,7 +97,6 @@ class MultiplyResponse:
         metadata={
             "name": "MultiplyResult",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -119,14 +110,12 @@ class Subtract:
         metadata={
             "name": "intA",
             "type": "Element",
-            "required": True,
         }
     )
     int_b: int = field(
         metadata={
             "name": "intB",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -140,7 +129,6 @@ class SubtractResponse:
         metadata={
             "name": "SubtractResult",
             "type": "Element",
-            "required": True,
         }
     )
 

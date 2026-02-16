@@ -54,6 +54,7 @@ from types import ModuleType
 from typing import Any, Self, cast, overload
 
 from pyrig.rig import tests
+from pyrig.rig.configs.base.base import ConfigList
 from pyrig.rig.configs.base.py_package import PythonPackageConfigFile
 from pyrig.src.modules.class_ import all_cls_from_module, all_methods_from_cls
 from pyrig.src.modules.function import all_functions_from_module
@@ -201,11 +202,9 @@ class MirrorTestConfigFile(PythonPackageConfigFile):
             for m in ms
             if ("def " + m + "(") not in test_module_content
         ]
-        return super().is_correct() or not (
-            untested_funcs or untested_classes or untested_methods
-        )
+        return not (untested_funcs or untested_classes or untested_methods)
 
-    def merge_configs(self) -> list[Any]:
+    def merge_configs(self) -> ConfigList:
         """Return test configurations without merging.
 
         For mirror tests, configs() already includes existing tests,

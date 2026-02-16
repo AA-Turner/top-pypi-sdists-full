@@ -33,4 +33,4 @@ def copy_brick(source: str, brick: str, destination_dir: Path, exclude_patterns:
 
 def parse_brick_namespace_from_path(bricks: dict) -> str:
     parts = {str.split(v, '/')[0] for v in bricks.values()}
-    return next((part for part in parts))
+    return next(iter(parts))

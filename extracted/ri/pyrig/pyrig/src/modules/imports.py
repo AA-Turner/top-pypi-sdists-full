@@ -16,6 +16,7 @@ import importlib.util
 import logging
 import pkgutil
 from collections.abc import Generator
+from functools import cache
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -131,6 +132,7 @@ def import_package_with_dir_fallback_with_default(
         return default
 
 
+@cache
 def modules_and_packages_from_package(
     package: ModuleType,
 ) -> tuple[list[ModuleType], list[ModuleType]]:
@@ -176,6 +178,12 @@ def modules_and_packages_from_package(
     packages.sort(key=lambda p: p.__name__)
     modules.sort(key=lambda m: m.__name__)
 
+    logger.debug(
+        "Extracted from package %s: subpackages=%s, modules=%s",
+        package.__name__,
+        [p.__name__ for p in packages],
+        [m.__name__ for m in modules],
+    )
     return packages, modules
 
 
@@ -201,7 +209,6 @@ def walk_package(
         Tuples of (package, modules) where modules is the list of direct
         module children (not subpackages) in that package.
     """
-    logger.debug("Walking package: %s", package.__name__)
     subpackages, submodules = modules_and_packages_from_package(package)
     yield package, submodules
     for subpackage in subpackages:

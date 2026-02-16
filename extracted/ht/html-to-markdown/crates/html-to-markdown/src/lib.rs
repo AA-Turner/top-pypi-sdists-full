@@ -68,6 +68,7 @@ pub mod wrapper;
 mod convert_api;
 mod exports;
 pub mod prelude;
+mod rcdom;
 mod validation;
 
 // ============================================================================

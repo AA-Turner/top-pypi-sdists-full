@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.11.1
+Version: 1.11.2
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
 License: MIT
@@ -461,6 +461,7 @@ export USER_GOOGLE_EMAIL=\
 | `WORKSPACE_MCP_PORT` | Server listening port | `8000` |
 | `WORKSPACE_MCP_HOST` | Server bind host | `0.0.0.0` |
 | `WORKSPACE_EXTERNAL_URL` | External URL for reverse proxy setups | None |
+| `WORKSPACE_ATTACHMENT_DIR` | Directory for downloaded attachments | `~/.workspace-mcp/attachments/` |
 | `GOOGLE_OAUTH_REDIRECT_URI` | Override OAuth callback URL | Auto-constructed |
 | `USER_GOOGLE_EMAIL` | Default auth email | None |
 
@@ -899,7 +900,7 @@ cp .env.oauth21 .env
 |------|------|-------------|
 | `search_drive_files` | **Core** | Search files with query syntax |
 | `get_drive_file_content` | **Core** | Read file content (Office formats) |
-| `get_drive_file_download_url` | **Core** | Get download URL for Drive files |
+| `get_drive_file_download_url` | **Core** | Download Drive files to local disk |
 | `create_drive_file` | **Core** | Create files or fetch from URLs |
 | `import_to_google_doc` | **Core** | Import files (MD, DOCX, HTML, etc.) as Google Docs |
 | `share_drive_file` | **Core** | Share file with users/groups/domains/anyone |
@@ -960,6 +961,24 @@ attachments=[{
 ```
 
 **⚠️ Centrally Hosted Servers**: When the MCP server runs remotely (cloud, shared instance), it cannot access your local filesystem. Use **Option 2** with base64-encoded content. Your MCP client must encode files before sending.
+
+</details>
+
+<details>
+<summary><b>📥 Downloaded Attachment Storage</b> <sub><sup>← Where downloaded files are saved</sup></sub></summary>
+
+When downloading Gmail attachments (`get_gmail_attachment_content`) or Drive files (`get_drive_file_download_url`), files are saved to a persistent local directory rather than a temporary folder in the working directory.
+
+**Default location:** `~/.workspace-mcp/attachments/`
+
+Files are saved with their original filename plus a short UUID suffix for uniqueness (e.g., `invoice_a1b2c3d4.pdf`). In **stdio mode**, the tool returns the absolute file path for direct filesystem access. In **HTTP mode**, it returns a download URL via the `/attachments/{file_id}` endpoint.
+
+To customize the storage directory:
+```bash
+export WORKSPACE_ATTACHMENT_DIR="/path/to/custom/dir"
+```
+
+Saved files expire after 1 hour and are cleaned up automatically.
 
 </details>
 
@@ -1637,6 +1656,12 @@ The credential store automatically handles credential serialization, expiry pars
 - **Transport-Aware Callbacks**: Stdio mode starts a minimal HTTP server only for OAuth, ensuring callbacks work in all modes
 - **Production**: Use HTTPS & OAuth 2.1 and configure accordingly
 - **Scope Minimization**: Tools request only necessary permissions
+- **Local File Access Control**: Tools that read local files (e.g., attachments, `file://` uploads) are restricted to the user's home directory by default. Override this with the `ALLOWED_FILE_DIRS` environment variable:
+  ```bash
+  # Colon-separated list of directories (semicolon on Windows) from which local file reads are permitted
+  export ALLOWED_FILE_DIRS="/home/user/documents:/data/shared"
+  ```
+  Regardless of the allowlist, access to sensitive paths (`.env`, `.ssh/`, `.aws/`, `/etc/shadow`, credential files, etc.) is always blocked.
 
 ---
 

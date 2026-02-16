@@ -119,7 +119,7 @@ class CreateConversationResponsePartReasoningPart(BaseModel):
     r"""The reasoning or thought process behind the response. Used for chain-of-thought or extended thinking."""
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "reasoning_01kghb3kdevwnyzk670ew7r29r"
+        "reasoning_01khhj3018297nzcfpj4gyz4ts"
     )
     r"""Unique identifier for the part. Format: reasoning_{ulid} (e.g., reasoning_01hxyz...)"""
 
@@ -211,7 +211,7 @@ class DeltaReasoningPart(BaseModel):
     r"""The reasoning or thought process behind the response. Used for chain-of-thought or extended thinking."""
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "reasoning_01kghb3kd9k3za2m47w5e3q5sm"
+        "reasoning_01khhj301458eyaxsxmaj5h84g"
     )
     r"""Unique identifier for the part. Format: reasoning_{ulid} (e.g., reasoning_01hxyz...)"""
 
@@ -343,3 +343,21 @@ class CreateConversationResponseResponseBody(BaseModel):
                     m[k] = val
 
         return m
+
+
+try:
+    CreateConversationResponsePartReasoningPart.model_rebuild()
+except NameError:
+    pass
+try:
+    CreateConversationResponseResponseStreamingEventData.model_rebuild()
+except NameError:
+    pass
+try:
+    DeltaReasoningPart.model_rebuild()
+except NameError:
+    pass
+try:
+    ResponseStreamingEventData.model_rebuild()
+except NameError:
+    pass

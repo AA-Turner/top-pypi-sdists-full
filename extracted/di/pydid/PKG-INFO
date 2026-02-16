@@ -1,22 +1,23 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pydid
-Version: 0.5.2
+Version: 0.5.3
 Summary: Python library for validating, constructing, and representing DIDs and DID Documents
 License: Apache 2.0
+License-File: LICENSE
 Keywords: decentralized,identity,ssi,DID,DID Document
 Author: Daniel Bluhm
 Author-email: dbluhm@pm.me
-Requires-Python: >=3.9.0,<4.0.0
+Requires-Python: >=3.10.0,<4.0.0
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: inflection (>=0.5.1,<0.6.0)
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: inflection (>=0.5.0,<0.6.0)
 Requires-Dist: pydantic (>=2.7.0,<3.0.0)
-Requires-Dist: typing-extensions (>=4.7.0,<5.0.0)
+Requires-Dist: typing-extensions (>=4.12.0,<5.0.0)
 Project-URL: Homepage, https://github.com/Indicio-tech/pydid
 Project-URL: Repository, https://github.com/Indicio-tech/pydid
 Description-Content-Type: text/markdown

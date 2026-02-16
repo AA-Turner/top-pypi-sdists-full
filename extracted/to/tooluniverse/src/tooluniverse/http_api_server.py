@@ -130,31 +130,29 @@ def discover_public_methods(cls) -> Dict[str, Dict[str, Any]]:
     """
     methods = {}
 
+    _empty = inspect.Parameter.empty
+
     for name, method in inspect.getmembers(cls, predicate=inspect.isfunction):
         # Skip private/magic methods
         if name.startswith("_"):
             continue
 
         try:
-            # Get method signature
             sig = inspect.signature(method)
-            params = []
-
-            for param_name, param in sig.parameters.items():
-                if param_name == "self":
-                    continue
-
-                param_info = {
+            params = [
+                {
                     "name": param_name,
                     "type": str(param.annotation)
-                    if param.annotation != inspect.Parameter.empty
+                    if param.annotation is not _empty
                     else "Any",
-                    "required": param.default == inspect.Parameter.empty,
+                    "required": param.default is _empty,
                     "default": str(param.default)
-                    if param.default != inspect.Parameter.empty
+                    if param.default is not _empty
                     else None,
                 }
-                params.append(param_info)
+                for param_name, param in sig.parameters.items()
+                if param_name != "self"
+            ]
 
             methods[name] = {
                 "signature": sig,

@@ -1445,6 +1445,7 @@ class VIEW3D_PT_tools_object_options_transform(View3DPanel, _bpy_types.Panel):
     bl_category: typing.Any
     bl_context: typing.Any
     bl_label: typing.Any
+    bl_options: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

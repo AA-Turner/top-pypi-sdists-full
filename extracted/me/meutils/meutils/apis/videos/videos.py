@@ -21,6 +21,7 @@ from meutils.apis.replicate import videos as replicate_videos
 from meutils.apis.grok import videos as grok_videos
 from meutils.apis.volcengine_apis import videos_nx as seedance_videos
 from meutils.apis.volcengine_apis import videos as volc_videos
+from meutils.apis.videos import delay_videos
 
 from meutils.apis.runware import videos as runware_videos  # todo 兼容
 
@@ -48,7 +49,12 @@ class OpenAIVideos(object):
     async def create(self, request: SoraVideoRequest):
         response = {}
 
-        if "seedance" in self.base_url:
+        if "delay" in self.base_url:
+            # 保存请求体
+            response = await delay_videos.Tasks().create(request)
+            await redis_aclient.set(f"request:{response.id}", request.model_dump_json(exclude_none=True), ex=24 * 3600) # 取 执行 存
+
+        elif "seedance" in self.base_url:
             response = await seedance_videos.Tasks(api_key=self.api_key).create(request)
 
         elif "xai" in self.base_url:
@@ -117,6 +123,12 @@ class OpenAIVideos(object):
             return response
 
     async def get(self, task_id):
+        if task_id.startswith("request:"):
+            if _ := await redis_aclient.get(f"response:{task_id}"):
+                return json.loads(_)  # 监听 redis结果
+            else:
+                return Video(id=task_id)
+
         if _ := await redis_aclient.get(f"request-failed:{task_id}"):
             return json.loads(_)
 
@@ -232,6 +244,7 @@ if __name__ == '__main__':
     task_id = "cgt-20260214094312-28ghq"
     task_id = "cgt-20260214170244-m2xzg"
     task_id = "cgt-20260214200101-l64lw"
+    task_id = "cgt-20260215012304-pv8z2"
     videos = OpenAIVideos(api_key=api_key, base_url=base_url)
     arun(videos.get(task_id))
 
@@ -243,8 +256,6 @@ if __name__ == '__main__':
     # arun(videos.get(task_id))
 
     # wJCWwQ5x0CcVIWGzXEp-A
-
-
 
     # {
     #     "id": "35f26664-b847-4821-b940-3f244a641bf7",

@@ -9,11 +9,7 @@ __NAMESPACE__ = "http://domain.org/schema/model"
 
 @dataclass(kw_only=True)
 class Measurement:
-    value: float = field(
-        metadata={
-            "required": True,
-        }
-    )
+    value: float = field()
     unit: None | unit = field(
         default=None,
         metadata={

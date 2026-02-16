@@ -1,8 +1,6 @@
-"""
-Default tool configuration files mapping.
+"""Default tool configuration files mapping.
 
-This module contains the default mapping of tool categories to their JSON configuration files.
-It's separated from __init__.py to avoid circular imports.
+Separated from __init__.py to avoid circular imports.
 """
 
 import os
@@ -48,6 +46,7 @@ default_tool_files = {
     "dblp": os.path.join(current_dir, "data", "dblp_tools.json"),
     "pubmed": os.path.join(current_dir, "data", "pubmed_tools.json"),
     "ncbi_nucleotide": os.path.join(current_dir, "data", "ncbi_nucleotide_tools.json"),
+    "ncbi_sra": os.path.join(current_dir, "data", "ncbi_sra_tools.json"),
     "doaj": os.path.join(current_dir, "data", "doaj_tools.json"),
     "unpaywall": os.path.join(current_dir, "data", "unpaywall_tools.json"),
     "biorxiv": os.path.join(current_dir, "data", "biorxiv_tools.json"),
@@ -100,6 +99,7 @@ default_tool_files = {
     "pubchem": os.path.join(current_dir, "data", "pubchem_tools.json"),
     "medlineplus": os.path.join(current_dir, "data", "medlineplus_tools.json"),
     "rxnorm": os.path.join(current_dir, "data", "rxnorm_tools.json"),
+    "loinc": os.path.join(current_dir, "data", "loinc_tools.json"),
     "uniprot": os.path.join(current_dir, "data", "uniprot_tools.json"),
     "cellosaurus": os.path.join(current_dir, "data", "cellosaurus_tools.json"),
     # 'software': os.path.join(current_dir, 'data', 'software_tools.json'),
@@ -151,6 +151,7 @@ default_tool_files = {
     "screen": os.path.join(current_dir, "data", "screen_tools.json"),
     "pride": os.path.join(current_dir, "data", "pride_tools.json"),
     "emdb": os.path.join(current_dir, "data", "emdb_tools.json"),
+    "sasbdb": os.path.join(current_dir, "data", "sasbdb_tools.json"),
     "gtopdb": os.path.join(current_dir, "data", "gtopdb_tools.json"),
     "mpd": os.path.join(current_dir, "data", "mpd_tools.json"),
     "worms": os.path.join(current_dir, "data", "worms_tools.json"),
@@ -207,6 +208,7 @@ default_tool_files = {
     "odphp": os.path.join(current_dir, "data", "odphp_tools.json"),
     "who_gho": os.path.join(current_dir, "data", "who_gho_tools.json"),
     "umls": os.path.join(current_dir, "data", "umls_tools.json"),
+    "icd": os.path.join(current_dir, "data", "icd_tools.json"),
     "euhealth": os.path.join(current_dir, "data", "euhealth_tools.json"),
     "markitdown": os.path.join(current_dir, "data", "markitdown_tools.json"),
     # Guideline and health policy tools
@@ -277,6 +279,8 @@ default_tool_files = {
     "bigg_models": os.path.join(current_dir, "data", "bigg_models_tools.json"),
     # Protein-Protein Interaction (PPI) tools - STRING and BioGRID
     "ppi": os.path.join(current_dir, "data", "ppi_tools.json"),
+    # BioGRID - Genetic and Protein Interactions, Chemical-Protein, PTMs
+    "biogrid": os.path.join(current_dir, "data", "biogrid_tools.json"),
     # NVIDIA NIM Healthcare APIs - Structure prediction, molecular docking, genomics
     "nvidia_nim": os.path.join(current_dir, "data", "nvidia_nim_tools.json"),
     # COSMIC - Catalogue of Somatic Mutations in Cancer
@@ -336,6 +340,144 @@ default_tool_files = {
     # Expression Atlas - EBI GXA baseline + differential gene expression
     "expression_atlas": os.path.join(
         current_dir, "data", "expression_atlas_tools.json"
+    ),
+    # ProteinsPlus - Protein-ligand docking and binding site analysis
+    "proteinsplus": os.path.join(current_dir, "data", "proteinsplus_tools.json"),
+    # SwissDock - Molecular docking with AutoDock Vina and Attracting Cavities
+    "swissdock": os.path.join(current_dir, "data", "swissdock_tools.json"),
+    # LIPID MAPS - Lipid Structure Database (lipidomics)
+    "lipidmaps": os.path.join(current_dir, "data", "lipidmaps_tools.json"),
+    # USDA FoodData Central - Food composition and nutrient database
+    "fooddata_central": os.path.join(
+        current_dir, "data", "fooddata_central_tools.json"
+    ),
+    # CTD - Comparative Toxicogenomics Database (chemical-gene-disease interactions)
+    "ctd": os.path.join(current_dir, "data", "ctd_tools.json"),
+    # NeuroMorpho - Neuronal morphology database (neuron reconstructions, morphometrics)
+    "neuromorpho": os.path.join(current_dir, "data", "neuromorpho_tools.json"),
+    # Allen Brain Atlas - Brain gene expression and structure data
+    "allen_brain": os.path.join(current_dir, "data", "allen_brain_tools.json"),
+    # GlyGen - Glycoinformatics (glycan structures, glycoproteins, glycosylation sites)
+    "glygen": os.path.join(current_dir, "data", "glygen_tools.json"),
+    # MGnify Expanded - Metagenomics genome catalog, biomes, study details
+    "mgnify_expanded": os.path.join(current_dir, "data", "mgnify_expanded_tools.json"),
+    # SGD - Saccharomyces Genome Database (yeast genes, phenotypes, interactions)
+    "sgd": os.path.join(current_dir, "data", "sgd_tools.json"),
+    # NCBI Datasets API v2 - Gene info, orthologs, taxonomy, genome metadata
+    "ncbi_datasets": os.path.join(current_dir, "data", "ncbi_datasets_tools.json"),
+    # EBI Taxonomy - Taxonomic classification, lineage, name resolution
+    "ebi_taxonomy": os.path.join(current_dir, "data", "ebi_taxonomy_tools.json"),
+    # Alliance of Genome Resources - Cross-species gene data from 7 model organisms
+    "alliance_genome": os.path.join(current_dir, "data", "alliance_genome_tools.json"),
+    # Open Targets Genetics - GWAS variant annotation, credible sets, L2G predictions
+    "opentarget_genetics": os.path.join(
+        current_dir, "data", "opentarget_genetics_tools.json"
+    ),
+    # HGNC - HUGO Gene Nomenclature Committee (authoritative human gene naming)
+    "hgnc": os.path.join(current_dir, "data", "hgnc_tools.json"),
+    # BV-BRC - Bacterial and Viral Bioinformatics Resource Center (pathogen genomics, AMR)
+    "bvbrc": os.path.join(current_dir, "data", "bvbrc_tools.json"),
+    # BioImage Archive - EBI biological imaging data (microscopy, cryo-EM, fluorescence)
+    "bioimage_archive": os.path.join(
+        current_dir, "data", "bioimage_archive_tools.json"
+    ),
+    # Plant Reactome - Gramene plant metabolic and regulatory pathways (140+ species)
+    "plant_reactome": os.path.join(current_dir, "data", "plant_reactome_tools.json"),
+    # Ensembl VEP - Variant Effect Predictor (HGVS, rsID annotation, variant recoding)
+    "ensembl_vep": os.path.join(current_dir, "data", "ensembl_vep_tools.json"),
+    # ITIS - Integrated Taxonomic Information System (US taxonomy, hierarchy, common names)
+    "itis": os.path.join(current_dir, "data", "itis_tools.json"),
+    # QuickGO - EBI Gene Ontology annotation browser (annotations, term details, hierarchy)
+    "quickgo": os.path.join(current_dir, "data", "quickgo_tools.json"),
+    # Bgee - Comparative gene expression across 29+ animal species (RNA-Seq, Affymetrix, EST)
+    "bgee": os.path.join(current_dir, "data", "bgee_tools.json"),
+    # OMA - Orthologous MAtrix Browser (orthology across 2,600+ genomes, HOGs, OMA Groups)
+    "oma": os.path.join(current_dir, "data", "oma_tools.json"),
+    # CATH - Protein Structure Classification (Class, Architecture, Topology, Homologous superfamily)
+    "cath": os.path.join(current_dir, "data", "cath_tools.json"),
+    # MeSH - Medical Subject Headings (NLM controlled vocabulary for PubMed indexing)
+    "mesh": os.path.join(current_dir, "data", "mesh_tools.json"),
+    # JLCSearch - Electronic components search (resistors, capacitors, MCUs, ICs, LEDs, diodes)
+    "jlcsearch": os.path.join(current_dir, "data", "jlcsearch_tools.json"),
+    # Mouser Electronics - Major distributor API (pricing, availability, specs, datasheets)
+    "mouser": os.path.join(current_dir, "data", "mouser_tools.json"),
+    # Digi-Key Electronics - Major distributor API (product search, details, categories)
+    "digikey": os.path.join(current_dir, "data", "digikey_tools.json"),
+    # HPO - Human Phenotype Ontology (phenotype terms, hierarchy, clinical genetics)
+    "hpo": os.path.join(current_dir, "data", "hpo_tools.json"),
+    # Reactome Analysis Service - Pathway enrichment/overrepresentation analysis
+    "reactome_analysis": os.path.join(
+        current_dir, "data", "reactome_analysis_tools.json"
+    ),
+    # Rhea - Expert-curated biochemical reactions (SIB, linked to ChEBI and EC)
+    "rhea": os.path.join(current_dir, "data", "rhea_tools.json"),
+    # PubChem BioAssay - Biological screening data (drug discovery, toxicology)
+    "pubchem_bioassay": os.path.join(
+        current_dir, "data", "pubchem_bioassay_tools.json"
+    ),
+    # ENA Portal API - European Nucleotide Archive search (studies, samples, sequences)
+    "ena_portal": os.path.join(current_dir, "data", "ena_portal_tools.json"),
+    # PomBase - Fission yeast (S. pombe) genome database (gene info, phenotypes, domains)
+    "pombase": os.path.join(current_dir, "data", "pombase_tools.json"),
+    # EBI BioSamples - Biological sample metadata hub (60M+ samples, cross-archive)
+    "biosamples": os.path.join(current_dir, "data", "biosamples_tools.json"),
+    # GNPS - Mass spectrometry spectral library (metabolomics, natural products)
+    "gnps": os.path.join(current_dir, "data", "gnps_tools.json"),
+    # WormBase - C. elegans genome database (gene info, phenotypes, expression)
+    "wormbase": os.path.join(current_dir, "data", "wormbase_tools.json"),
+    # SWISS-MODEL Repository - Pre-computed protein homology models (ExPASy/SIB)
+    "swissmodel": os.path.join(current_dir, "data", "swissmodel_tools.json"),
+    # ProteomeXchange - Proteomics data consortium (PRIDE, MassIVE, jPOST)
+    "proteomexchange": os.path.join(current_dir, "data", "proteomexchange_tools.json"),
+    # PDBe Search - PDB structure search via EBI Solr (full-text, compounds, organisms)
+    "pdbe_search": os.path.join(current_dir, "data", "pdbe_search_tools.json"),
+    # Nextstrain - Pathogen phylogenetics and molecular epidemiology tracking
+    "nextstrain": os.path.join(current_dir, "data", "nextstrain_tools.json"),
+    # UCSC Genome Browser - Genome sequences, gene search, annotation tracks (220+ genomes)
+    "ucsc_genome": os.path.join(current_dir, "data", "ucsc_genome_tools.json"),
+    # ChEBI - Chemical Entities of Biological Interest (EBI chemical ontology, 195K+ compounds)
+    "chebi": os.path.join(current_dir, "data", "chebi_tools.json"),
+    # UniChem - EBI unified chemical cross-referencing across 40+ databases
+    "unichem": os.path.join(current_dir, "data", "unichem_tools.json"),
+    # PANTHER - Protein classification, gene enrichment, and ortholog analysis (144 organisms)
+    "panther": os.path.join(current_dir, "data", "panther_tools.json"),
+    # Ensembl LD - Linkage disequilibrium from 1000 Genomes (population genetics)
+    "ensembl_ld": os.path.join(current_dir, "data", "ensembl_ld_tools.json"),
+    # Ensembl Regulation - TF binding motifs, constrained elements, binding matrices
+    "ensembl_regulation": os.path.join(
+        current_dir, "data", "ensembl_regulation_tools.json"
+    ),
+    # Ensembl Phenotypes - Gene/region/variant phenotype associations (GWAS, ClinVar, OMIM)
+    "ensembl_phenotype": os.path.join(
+        current_dir, "data", "ensembl_phenotype_tools.json"
+    ),
+    # Europe PMC Annotations - Text-mined entities from articles (chemicals, organisms, GO)
+    "europepmc_annotations": os.path.join(
+        current_dir, "data", "europepmc_annotations_tools.json"
+    ),
+    # UniProt ID Mapping - Cross-database identifier conversion (100+ databases)
+    "uniprot_idmapping": os.path.join(
+        current_dir, "data", "uniprot_idmapping_tools.json"
+    ),
+    # Open Tree of Life - Phylogenetic tree of life (name resolution, taxonomy, MRCA, subtrees)
+    "opentree": os.path.join(current_dir, "data", "opentree_tools.json"),
+    # iNaturalist - Citizen science biodiversity observations (taxa, observations, species counts)
+    "inaturalist": os.path.join(current_dir, "data", "inaturalist_tools.json"),
+    # NCI Thesaurus - National Cancer Institute terminology (cancer diseases, drugs, genes)
+    "nci_thesaurus": os.path.join(current_dir, "data", "nci_thesaurus_tools.json"),
+    # ClinGen Allele Registry - Standardized allele IDs (HGVS normalization, cross-references)
+    "clingen_ar": os.path.join(current_dir, "data", "clingen_ar_tools.json"),
+    # NDEx - Network Data Exchange (biological network repository, PPI, signaling, regulatory networks)
+    "ndex": os.path.join(current_dir, "data", "ndex_tools.json"),
+    # Gene Ontology API - GO term details, gene functional annotations, gene-function associations
+    "go_api": os.path.join(current_dir, "data", "go_api_tools.json"),
+    # Ensembl Compara - Comparative genomics (orthologues, paralogues, gene trees)
+    "ensembl_compara": os.path.join(current_dir, "data", "ensembl_compara_tools.json"),
+    # Monarch Initiative V3 - Cross-species gene-disease-phenotype associations
+    "monarch_v3": os.path.join(current_dir, "data", "monarch_v3_tools.json"),
+    # EBI Proteins API Extended - Mutagenesis experiments and PTM proteomics evidence
+    "ebi_proteins_ext": os.path.join(
+        current_dir, "data", "ebi_proteins_ext_tools.json"
     ),
 }
 

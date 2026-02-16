@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 import socket
 import sys
+import time
 from contextlib import suppress
 from errno import EACCES, EEXIST, EPERM, ESRCH
 from pathlib import Path
@@ -18,13 +19,14 @@ class SoftFileLock(BaseFileLock):
     """
     Portable file lock based on file existence.
 
-    Unlike :class:`UnixFileLock <filelock.UnixFileLock>` and :class:`WindowsFileLock <filelock.WindowsFileLock>`,
-    this lock does not use OS-level locking primitives. Instead, it creates the lock file with ``O_CREAT | O_EXCL``
-    and treats its existence as the lock indicator. This makes it work on any filesystem but leaves stale lock files
-    behind if the process crashes without releasing the lock.
+    Unlike :class:`UnixFileLock <filelock.UnixFileLock>` and :class:`WindowsFileLock <filelock.WindowsFileLock>`, this
+    lock does not use OS-level locking primitives. Instead, it creates the lock file with ``O_CREAT | O_EXCL`` and
+    treats its existence as the lock indicator. This makes it work on any filesystem but leaves stale lock files behind
+    if the process crashes without releasing the lock.
 
     To mitigate stale locks, the lock file contains the PID and hostname of the holding process. On contention, if the
     holder is on the same host and its PID no longer exists, the stale lock is broken automatically.
+
     """
 
     def _acquire(self) -> None:
@@ -97,8 +99,27 @@ class SoftFileLock(BaseFileLock):
         assert self._context.lock_file_fd is not None  # noqa: S101
         os.close(self._context.lock_file_fd)
         self._context.lock_file_fd = None
-        with suppress(OSError):  # the file is already deleted and that's what we want
-            Path(self.lock_file).unlink()
+        if sys.platform == "win32":
+            self._windows_unlink_with_retry()
+        else:
+            with suppress(OSError):
+                Path(self.lock_file).unlink()
+
+    def _windows_unlink_with_retry(self) -> None:
+        max_retries = 10
+        retry_delay = 0.001
+        for attempt in range(max_retries):
+            # Windows doesn't immediately release file handles after close, causing EACCES/EPERM on unlink
+            try:
+                Path(self.lock_file).unlink()
+            except OSError as exc:  # noqa: PERF203
+                if exc.errno not in {EACCES, EPERM}:
+                    return
+                if attempt < max_retries - 1:
+                    time.sleep(retry_delay)
+                    retry_delay *= 2
+            else:
+                return
 
 
 __all__ = [

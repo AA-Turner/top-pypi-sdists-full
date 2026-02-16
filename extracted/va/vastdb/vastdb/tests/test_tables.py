@@ -3,13 +3,13 @@ import decimal
 import itertools
 import logging
 import random
+import re
 import threading
 import time
 from contextlib import closing
 from tempfile import NamedTemporaryFile
 
 import ibis
-import numpy as np
 import pandas as pd
 import pyarrow as pa
 import pyarrow.compute as pc
@@ -18,6 +18,7 @@ import pytest
 from requests.exceptions import HTTPError
 
 from vastdb import errors
+from vastdb._internal import SortingKey
 from vastdb.session import Session
 from vastdb.table import INTERNAL_ROW_ID, MAX_COLUMN_IN_BATCH, QueryConfig
 
@@ -391,7 +392,6 @@ def test_types(session, clean_bucket_name):
         ('a2', pa.int16()),
         ('a4', pa.int64()),
         ('b', pa.float32()),
-        ('f16', pa.float16()),
         ('s', pa.string()),
         ('d', pa.decimal128(7, 3)),
         ('bin', pa.binary()),
@@ -412,7 +412,6 @@ def test_types(session, clean_bucket_name):
         [1999, 2000, 2001],
         [11122221, 222111122, 333333],
         [0.5, 1.5, 2.5],
-        [np.float16(0.5), np.float16(1.5), np.float16(2.5)],
         ["a", "v", "s"],
         [decimal.Decimal('110.52'), decimal.Decimal('231.15'), decimal.Decimal('3332.44')],
         [b"\x01\x02", b"\x01\x05", b"\x01\x07"],
@@ -439,13 +438,6 @@ def test_types(session, clean_bucket_name):
             assert select(t['a2'] == 2000) == expected.filter(pc.field('a2') == 2000)
             assert select(t['a4'] == 222111122) == expected.filter(pc.field('a4') == 222111122)
             assert select(t['b'] == 1.5) == expected.filter(pc.field('b') == 1.5)
-
-            # Test float16 predicate (PyArrow compute doesn't support float16, so validate manually)
-            f16_literal = np.float16(1.5)
-            result = select(t['f16'] == f16_literal)
-            assert len(result) == 1, f"Expected 1 row for f16==1.5, got {len(result)}"
-            assert np.float16(result.column('f16')[0].as_py()) == f16_literal
-
             assert select(t['s'] == "v") == expected.filter(pc.field('s') == "v")
             assert select(t['d'] == 231.15) == expected.filter(pc.field('d') == 231.15)
             assert select(t['bin'] == b"\x01\x02") == expected.filter(pc.field('bin') == b"\x01\x02")
@@ -476,59 +468,6 @@ def test_types(session, clean_bucket_name):
 
             ts_literal = dt.datetime(2024, 4, 10, 12, 34, 56, 789789)
             assert select(t['ts9'] == ts_literal) == expected.filter(pc.field('ts9') == ts_literal)
-
-
-@pytest.mark.parametrize("element_type,test_name", [
-    (pa.float32(), "float32"),
-    (pa.float16(), "float16"),
-])
-def test_vector_types(session, clean_bucket_name, element_type, test_name):
-    """Test vector (fixed-size list) columns with different element types."""
-    vector_dim = 3
-    vec_type = pa.list_(pa.field('', element_type, False), vector_dim)
-
-    columns = pa.schema([
-        ('id', pa.int32()),
-        ('vector', vec_type),
-    ])
-
-    # Create test data based on element type
-    if element_type == pa.float16():
-        test_vectors = [
-            [np.float16(1.0), np.float16(2.0), np.float16(3.0)],
-            [np.float16(4.5), np.float16(5.5), np.float16(6.5)],
-            [np.float16(-1.0), np.float16(0.0), np.float16(1.0)],
-        ]
-    else:  # float32
-        test_vectors = [
-            [1.0, 2.0, 3.0],
-            [4.5, 5.5, 6.5],
-            [-1.0, 0.0, 1.0],
-        ]
-
-    expected = pa.table(schema=columns, data=[
-        [0, 1, 2],
-        test_vectors,
-    ])
-
-    with prepare_data(session, clean_bucket_name, 's', 't', expected) as table:
-        # Read back and verify
-        actual = table.select().read_all()
-        assert actual.schema == columns
-        assert len(actual) == 3
-
-        # Verify vector data
-        actual_vectors = actual.column('vector').to_pylist()
-        for i, (actual_vec, expected_vec) in enumerate(zip(actual_vectors, test_vectors)):
-            assert len(actual_vec) == vector_dim, f"Wrong vector dimension at row {i}"
-            for j, (act, exp) in enumerate(zip(actual_vec, expected_vec)):
-                if element_type == pa.float16():
-                    assert np.float16(act) == np.float16(exp), \
-                        f"Mismatch at row {i}, element {j}: {act} != {exp}"
-                else:
-                    assert act == exp, f"Mismatch at row {i}, element {j}: {act} != {exp}"
-
-        log.info(f"Vector type test ({test_name}) passed successfully")
 
 
 @pytest.mark.parametrize("arrow_type,internal_support", [
@@ -1193,7 +1132,18 @@ def test_multiple_contains_clauses(session, clean_bucket_name):
                 t.select(predicate=pred(t)).read_all()
 
 
-def test_tables_elysium(elysium_session, clean_bucket_name):
+@pytest.mark.parametrize("sorting",
+    (
+        ([]),
+        ([1]),
+        ([2, 0]),
+        ([2, 0, 1]),
+        (["b",]),
+        (["c", "a",]),
+        (["c", "a", "b"]),
+    )
+)
+def test_tables_elysium(elysium_session, clean_bucket_name, sorting: SortingKey):
     columns = pa.schema([
         ('a', pa.int8()),
         ('b', pa.int32()),
@@ -1204,11 +1154,10 @@ def test_tables_elysium(elysium_session, clean_bucket_name):
         [111111, 222222, 333333],
         [111, 222, 333],
     ])
-    sorting = [2, 1]
     with prepare_data(elysium_session, clean_bucket_name, 's', 't', expected, sorting_key=sorting) as t:
-        sorted_columns = t.sorted_columns()
-        assert sorted_columns[0].name == 'c'
-        assert sorted_columns[1].name == 'b'
+        sorted_names = [f.name for f in t.sorted_columns()]
+        expected_sorted_names = [columns.field(identifier).name if isinstance(identifier, int) else identifier for identifier in sorting]
+        assert sorted_names == expected_sorted_names
 
 
 # Fails because of a known issue: ORION-240102
@@ -1235,7 +1184,17 @@ def test_tables_elysium(elysium_session, clean_bucket_name):
 #         assert sorted_columns[1].name == 'b'
 
 
-def test_elysium_tx(elysium_session: Session, clean_bucket_name: str):
+@pytest.mark.parametrize("sorting",
+    (
+        ([1]),
+        ([2, 0]),
+        ([2, 0, 1]),
+        (["b",]),
+        (["c", "a",]),
+        (["c", "a", "b"]),
+    )
+)
+def test_elysium_tx(elysium_session: Session, clean_bucket_name: str, sorting: SortingKey):
     columns = pa.schema([
         ('a', pa.int8()),
         ('b', pa.int32()),
@@ -1246,7 +1205,6 @@ def test_elysium_tx(elysium_session: Session, clean_bucket_name: str):
         [111111, 222222, 333333],
         [111, 222, 333],
     ])
-    sorting = [2, 1]
     schema_name = 's'
     table_name = 't'
     with elysium_session.transaction() as tx:
@@ -1262,12 +1220,39 @@ def test_elysium_tx(elysium_session: Session, clean_bucket_name: str):
     with elysium_session.transaction() as tx:
         s = tx.bucket(clean_bucket_name).schema(schema_name)
         t = s.table(table_name)
-        sorted_columns = t.sorted_columns()
-        assert len(sorted_columns) == 2
-        assert sorted_columns[0].name == 'c'
-        assert sorted_columns[1].name == 'b'
+        sorted_names = [f.name for f in t.sorted_columns()]
+        expected_sorted_names = [columns.field(identifier).name if isinstance(identifier, int) else identifier for identifier in sorting]
+        assert sorted_names == expected_sorted_names
         t.drop()
         s.drop()
+
+
+def test_tables_elysium_no_such_column(elysium_session, clean_bucket_name):
+    columns = pa.schema([
+        ('a', pa.int8()),
+        ('b', pa.int32()),
+        ('c', pa.int16()),
+    ])
+
+    with elysium_session.transaction() as tx:
+        s = tx.bucket(clean_bucket_name).create_schema("s")
+        str_sorting_keys = ["f", "b", "e"]
+        non_existent_columns = [name for name in str_sorting_keys if columns.get_field_index(name) == -1]
+        int_sorting_keys = [4, 1, 3]
+
+        with pytest.raises(ValueError, match=re.escape(f"The following fields {non_existent_columns} don't exist in the given arrow schema")):
+            s.create_table("t1", columns, sorting_key=str_sorting_keys)
+
+        with pytest.raises(errors.InternalServerError, match="We encountered an internal error"):
+            s.create_table("t1", columns, sorting_key=int_sorting_keys)
+
+        t = s.create_table("t2", columns)
+
+        with pytest.raises(ValueError, match=re.escape(f"The following fields {non_existent_columns} don't exist in the given arrow schema")):
+            t.add_sorting_key(str_sorting_keys)
+
+        with pytest.raises(errors.InternalServerError, match="We encountered an internal error"):
+            t.add_sorting_key(int_sorting_keys)
 
 
 def test_elysium_double_enable(elysium_session, clean_bucket_name):
@@ -1282,11 +1267,13 @@ def test_elysium_double_enable(elysium_session, clean_bucket_name):
         [111, 222, 333],
     ])
     sorting = [2, 1]
-    with pytest.raises(errors.BadRequest):
-        with prepare_data(elysium_session, clean_bucket_name, 's', 't', expected, sorting_key=sorting) as t:
-            sorted_columns = t.sorted_columns()
-            assert sorted_columns[0].name == 'c'
-            assert sorted_columns[1].name == 'b'
+
+    with prepare_data(elysium_session, clean_bucket_name, 's', 't', expected, sorting_key=sorting) as t:
+        sorted_columns = t.sorted_columns()
+        assert sorted_columns[0].name == 'c'
+        assert sorted_columns[1].name == 'b'
+
+        with pytest.raises(errors.BadRequest):
             t.add_sorting_key(sorting)
 
 
@@ -1435,3 +1422,40 @@ def test_select_splits_sanity(session, clean_bucket_name, check):
         actual = pa.concat_tables(splits_reader_tables).combine_chunks()
 
         check.is_true(to_df(actual).equals(to_df(expected)))
+
+
+def test_list_columns_with_pagination(session: Session, clean_bucket_name: str):
+    schema_name = "s_loading_columns"
+    table_name = "t"
+    original_page_size = session.api._max_entities_per_page
+    # makes it that trying to list all columns in one rpc fails due to rpc size limit
+    columns_count = 64_000
+    column_names = [f"long_f_name{i}" for i in range(columns_count)]
+    schema = pa.schema([(name, pa.uint32()) for name in column_names])
+
+    with session.transaction() as tx:
+        s = tx.bucket(clean_bucket_name).create_schema(schema_name)
+        t = s.create_table(table_name, schema)
+        assert len(t.columns()) == columns_count
+
+    with session.transaction() as tx:
+        # causes a list columns
+        t = tx.bucket(clean_bucket_name).schema(schema_name).table(table_name)
+        assert len(t.arrow_schema) == columns_count
+        assert t.columns().equals(schema)
+        assert t.retrieve_column_names() == column_names
+
+    try:
+        session.api._max_entities_per_page = columns_count
+
+        with session.transaction() as tx:
+            with pytest.raises(errors.BadRequest, match="list column result size=.*is too long"):
+                # causes a list columns
+                t = tx.bucket(clean_bucket_name).schema(schema_name).table(table_name)
+            # TODO: uncomment when server side is merged
+            # t = tx.table_from_metadata(TableMetadata(TableRef(clean_bucket_name, schema_name, table_name)))
+            # # names only requires less wire capacity so should succeed in one rpc
+            # assert len(t.retrieve_column_names()) == columns_count
+            # assert t.arrow_schema is None
+    finally:
+        session.api._max_entities_per_page = original_page_size

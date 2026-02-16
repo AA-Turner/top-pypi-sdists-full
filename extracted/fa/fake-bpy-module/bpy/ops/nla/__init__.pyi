@@ -2,7 +2,6 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.ops.transform
 import bpy.stub_internal.rna_enums
 
 def action_pushdown(
@@ -11,10 +10,11 @@ def action_pushdown(
     /,
     *,
     track_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Push action down onto the top of the NLA stack as a new strip
 
-    :param track_index: Track Index, Index of NLA action track to perform pushdown operation on
+    :param track_index: Track Index, Index of NLA action track to perform pushdown operation on (in [-1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def action_sync_length(
@@ -23,10 +23,11 @@ def action_sync_length(
     /,
     *,
     active: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Synchronize the length of the referenced Action with the length used in the strip
 
-    :param active: Active Strip Only, Only sync the active length for the active strip
+    :param active: Active Strip Only, Only sync the active length for the active strip (optional)
+    :return: Result of the operator call.
     """
 
 def action_unlink(
@@ -35,10 +36,11 @@ def action_unlink(
     /,
     *,
     force_delete: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unlink this action from the active action slot (and/or exit Tweak Mode)
 
-    :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack
+    :param force_delete: Force Delete, Clear Fake User and remove copy stashed in this data-blocks NLA stack (optional)
+    :return: Result of the operator call.
     """
 
 def actionclip_add(
@@ -47,18 +49,22 @@ def actionclip_add(
     /,
     *,
     action: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an Action-Clip strip (i.e. an NLA Strip referencing an Action) to the active track
 
-    :param action: Action
+    :param action: Action, (optional)
+    :return: Result of the operator call.
     """
 
 def apply_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Apply scaling of selected strips to their referenced Actions"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Apply scaling of selected strips to their referenced Actions
+
+    :return: Result of the operator call.
+    """
 
 def bake(
     execution_context: int | str | None = None,
@@ -79,26 +85,26 @@ def bake(
         typing.Literal["LOCATION", "ROTATION", "SCALE", "BBONE", "PROPS"]
     ]
     | None = {"BBONE", "LOCATION", "PROPS", "ROTATION", "SCALE"},
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake all selected objects location/scale/rotation animation to an action
 
-        :param frame_start: Start Frame, Start frame for baking
-        :param frame_end: End Frame, End frame for baking
-        :param step: Frame Step, Number of frames to skip forward while baking each frame
-        :param only_selected: Only Selected Bones, Only key selected bones (Pose baking only)
-        :param visual_keying: Visual Keying, Keyframe from the final transformations (with constraints applied)
-        :param clear_constraints: Clear Local Constraints, Remove all constraints from keyed object/bones. To get a correct bake with this setting Visual Keying should be enabled
-        :param clear_parents: Clear Parents, Bake animation onto the object then clear parents (objects only)
-        :param use_current_action: Overwrite Current Action, Bake animation into current action, instead of creating a new one (useful for baking only part of bones in an armature)
-        :param clean_curves: Clean Curves, After baking curves, remove redundant keys
-        :param bake_types: Bake Data, Which datas transformations to bake
+        :param frame_start: Start Frame, Start frame for baking (in [0, 300000], optional)
+        :param frame_end: End Frame, End frame for baking (in [1, 300000], optional)
+        :param step: Frame Step, Number of frames to skip forward while baking each frame (in [1, 120], optional)
+        :param only_selected: Only Selected Bones, Only key selected bones (Pose baking only) (optional)
+        :param visual_keying: Visual Keying, Keyframe from the final transformations (with constraints applied) (optional)
+        :param clear_constraints: Clear Local Constraints, Remove all constraints from keyed object/bones. To get a correct bake with this setting Visual Keying should be enabled (optional)
+        :param clear_parents: Clear Parents, Bake animation onto the object then clear parents (objects only) (optional)
+        :param use_current_action: Overwrite Current Action, Bake animation into current action, instead of creating a new one (useful for baking only part of bones in an armature) (optional)
+        :param clean_curves: Clean Curves, After baking curves, remove redundant keys (optional)
+        :param bake_types: Bake Data, Which datas transformations to bake (optional)
 
     POSE
     Pose -- Bake bones transformations.
 
     OBJECT
     Object -- Bake object transformations.
-        :param channel_types: Channels, Which channels to bake
+        :param channel_types: Channels, Which channels to bake (optional)
 
     LOCATION
     Location -- Bake location channels.
@@ -114,6 +120,7 @@ def bake(
 
     PROPS
     Custom Properties -- Bake custom properties.
+        :return: Result of the operator call.
     """
 
 def channels_click(
@@ -122,18 +129,22 @@ def channels_click(
     /,
     *,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle clicks to select NLA tracks
 
-    :param extend: Extend Select
+    :param extend: Extend Select, (optional)
+    :return: Result of the operator call.
     """
 
 def clear_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reset scaling of selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reset scaling of selected strips
+
+    :return: Result of the operator call.
+    """
 
 def click_select(
     execution_context: int | str | None = None,
@@ -146,23 +157,27 @@ def click_select(
     mouse_y: int | None = 0,
     extend: bool | None = False,
     deselect_all: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle clicks to select NLA Strips
 
-    :param wait_to_deselect_others: Wait to Deselect Others
-    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
-    :param mouse_x: Mouse X
-    :param mouse_y: Mouse Y
-    :param extend: Extend Select
-    :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
+    :param wait_to_deselect_others: Wait to Deselect Others, (optional)
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release (optional)
+    :param mouse_x: Mouse X, (in [-inf, inf], optional)
+    :param mouse_y: Mouse Y, (in [-inf, inf], optional)
+    :param extend: Extend Select, (optional)
+    :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor (optional)
+    :return: Result of the operator call.
     """
 
 def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete selected strips
+
+    :return: Result of the operator call.
+    """
 
 def duplicate(
     execution_context: int | str | None = None,
@@ -170,10 +185,11 @@ def duplicate(
     /,
     *,
     linked: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
-    :param linked: Linked, When duplicating strips, assign new copies of the actions they use
+    :param linked: Linked, When duplicating strips, assign new copies of the actions they use (optional)
+    :return: Result of the operator call.
     """
 
 def duplicate_linked_move(
@@ -181,13 +197,14 @@ def duplicate_linked_move(
     undo: bool | None = None,
     /,
     *,
-    NLA_OT_duplicate: duplicate | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    NLA_OT_duplicate: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate Linked selected NLA-Strips, adding the new strips to new track(s)
 
-    :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s)
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s) (optional, `bpy.ops.nla.duplicate` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def duplicate_move(
@@ -195,13 +212,14 @@ def duplicate_move(
     undo: bool | None = None,
     /,
     *,
-    NLA_OT_duplicate: duplicate | None = None,
-    TRANSFORM_OT_translate: bpy.ops.transform.translate | None = None,
-) -> None:
+    NLA_OT_duplicate: dict[str, typing.Any] | None = {},
+    TRANSFORM_OT_translate: dict[str, typing.Any] | None = {},
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected NLA-Strips, adding the new strips to new track(s)
 
-    :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s)
-    :param TRANSFORM_OT_translate: Move, Move selected items
+    :param NLA_OT_duplicate: Duplicate Strips, Duplicate selected NLA-Strips, adding the new strips to new track(s) (optional, `bpy.ops.nla.duplicate` keyword arguments)
+    :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
+    :return: Result of the operator call.
     """
 
 def fmodifier_add(
@@ -209,21 +227,25 @@ def fmodifier_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.FmodifierTypeItems | None = "NULL",
+    type: Literal[bpy.stub_internal.rna_enums.FmodifierTypeItems] | None = "NULL",
     only_active: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add F-Modifier to the active/selected NLA-Strips
 
-    :param type: Type
-    :param only_active: Only Active, Only add a F-Modifier of the specified type to the active strip
+    :param type: Type, (optional)
+    :param only_active: Only Active, Only add a F-Modifier of the specified type to the active strip (optional)
+    :return: Result of the operator call.
     """
 
 def fmodifier_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Copy the F-Modifier(s) of the active NLA-Strip"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Copy the F-Modifier(s) of the active NLA-Strip
+
+    :return: Result of the operator call.
+    """
 
 def fmodifier_paste(
     execution_context: int | str | None = None,
@@ -232,11 +254,12 @@ def fmodifier_paste(
     *,
     only_active: bool | None = True,
     replace: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add copied F-Modifiers to the selected NLA-Strips
 
-    :param only_active: Only Active, Only paste F-Modifiers on active strip
-    :param replace: Replace Existing, Replace existing F-Modifiers, instead of just appending to the end of the existing list
+    :param only_active: Only Active, Only paste F-Modifiers on active strip (optional)
+    :param replace: Replace Existing, Replace existing F-Modifiers, instead of just appending to the end of the existing list (optional)
+    :return: Result of the operator call.
     """
 
 def make_single_user(
@@ -245,53 +268,72 @@ def make_single_user(
     /,
     *,
     confirm: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make linked action local to each strip
 
-    :param confirm: Confirm, Prompt for confirmation
+    :param confirm: Confirm, Prompt for confirmation (optional)
+    :return: Result of the operator call.
     """
 
 def meta_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add new meta-strips incorporating the selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add new meta-strips incorporating the selected strips
+
+    :return: Result of the operator call.
+    """
 
 def meta_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Separate out the strips held by the selected meta-strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Separate out the strips held by the selected meta-strips
+
+    :return: Result of the operator call.
+    """
 
 def move_down(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Move selected strips down a track if theres room"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Move selected strips down a track if theres room
+
+    :return: Result of the operator call.
+    """
 
 def move_up(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Move selected strips up a track if theres room"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Move selected strips up a track if theres room
+
+    :return: Result of the operator call.
+    """
 
 def mute_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Mute or un-mute selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Mute or un-mute selected strips
+
+    :return: Result of the operator call.
+    """
 
 def previewrange_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Set Preview Range based on extends of selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Set Preview Range based on extends of selected strips
+
+    :return: Result of the operator call.
+    """
 
 def select_all(
     execution_context: int | str | None = None,
@@ -299,10 +341,10 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select or deselect all NLA-Strips
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -315,6 +357,7 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def select_box(
@@ -330,17 +373,17 @@ def select_box(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Use box selection to grab NLA-Strips
 
-        :param axis_range: Axis Range
-        :param tweak: Tweak, Operator has been activated using a click-drag event
-        :param xmin: X Min
-        :param xmax: X Max
-        :param ymin: Y Min
-        :param ymax: Y Max
-        :param wait_for_input: Wait for Input
-        :param mode: Mode
+        :param axis_range: Axis Range, (optional)
+        :param tweak: Tweak, Operator has been activated using a click-drag event (optional)
+        :param xmin: X Min, (in [-inf, inf], optional)
+        :param xmax: X Max, (in [-inf, inf], optional)
+        :param ymin: Y Min, (in [-inf, inf], optional)
+        :param ymax: Y Max, (in [-inf, inf], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :param mode: Mode, (optional)
 
     SET
     Set -- Set a new selection.
@@ -350,6 +393,7 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
+        :return: Result of the operator call.
     """
 
 def select_leftright(
@@ -359,19 +403,23 @@ def select_leftright(
     *,
     mode: typing.Literal["CHECK", "LEFT", "RIGHT"] | None = "CHECK",
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select strips to the left or the right of the current frame
 
-    :param mode: Mode
-    :param extend: Extend Select
+    :param mode: Mode, (optional)
+    :param extend: Extend Select, (optional)
+    :return: Result of the operator call.
     """
 
 def selected_objects_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make selected objects appear in NLA Editor by adding Animation Data"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make selected objects appear in NLA Editor by adding Animation Data
+
+    :return: Result of the operator call.
+    """
 
 def snap(
     execution_context: int | str | None = None,
@@ -380,32 +428,42 @@ def snap(
     *,
     type: typing.Literal["CFRA", "NEAREST_FRAME", "NEAREST_SECOND", "NEAREST_MARKER"]
     | None = "CFRA",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move start of strips to specified time
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def soundclip_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a strip for controlling when speaker plays its sound clip"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a strip for controlling when speaker plays its sound clip
+
+    :return: Result of the operator call.
+    """
 
 def split(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Split selected strips at their midpoints"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Split selected strips at their midpoints
+
+    :return: Result of the operator call.
+    """
 
 def swap(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Swap order of selected strips within tracks"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Swap order of selected strips within tracks
+
+    :return: Result of the operator call.
+    """
 
 def tracks_add(
     execution_context: int | str | None = None,
@@ -413,25 +471,32 @@ def tracks_add(
     /,
     *,
     above_selected: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add NLA-Tracks above/after the selected tracks
 
-    :param above_selected: Above Selected, Add a new NLA Track above every existing selected one
+    :param above_selected: Above Selected, Add a new NLA Track above every existing selected one (optional)
+    :return: Result of the operator call.
     """
 
 def tracks_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete selected NLA-Tracks and the strips they contain"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete selected NLA-Tracks and the strips they contain
+
+    :return: Result of the operator call.
+    """
 
 def transition_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a transition strip between two adjacent selected strips"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a transition strip between two adjacent selected strips
+
+    :return: Result of the operator call.
+    """
 
 def tweakmode_enter(
     execution_context: int | str | None = None,
@@ -440,11 +505,12 @@ def tweakmode_enter(
     *,
     isolate_action: bool | None = False,
     use_upper_stack_evaluation: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Enter tweaking mode for the action referenced by the active strip to edit its keyframes
 
-    :param isolate_action: Isolate Action, Enable solo on the NLA Track containing the active strip, to edit it without seeing the effects of the NLA stack
-    :param use_upper_stack_evaluation: Evaluate Upper Stack, In tweak mode, display the effects of the tracks above the tweak strip
+    :param isolate_action: Isolate Action, Enable solo on the NLA Track containing the active strip, to edit it without seeing the effects of the NLA stack (optional)
+    :param use_upper_stack_evaluation: Evaluate Upper Stack, In tweak mode, display the effects of the tracks above the tweak strip (optional)
+    :return: Result of the operator call.
     """
 
 def tweakmode_exit(
@@ -453,29 +519,39 @@ def tweakmode_exit(
     /,
     *,
     isolate_action: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Exit tweaking mode for the action referenced by the active strip
 
-    :param isolate_action: Isolate Action, Disable solo on any of the NLA Tracks after exiting tweak mode to get things back to normal
+    :param isolate_action: Isolate Action, Disable solo on any of the NLA Tracks after exiting tweak mode to get things back to normal (optional)
+    :return: Result of the operator call.
     """
 
 def view_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reset viewable area to show full strips range"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reset viewable area to show full strips range
+
+    :return: Result of the operator call.
+    """
 
 def view_frame(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Move the view to the current frame"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Move the view to the current frame
+
+    :return: Result of the operator call.
+    """
 
 def view_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reset viewable area to show selected strips range"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reset viewable area to show selected strips range
+
+    :return: Result of the operator call.
+    """

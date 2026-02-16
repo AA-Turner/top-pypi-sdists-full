@@ -21,11 +21,13 @@ chatfire_client = AsyncOpenAI()
 moonshot_client = AsyncOpenAI(
     api_key=os.getenv("MOONSHOT_API_KEY"),
     # api_key="sk-fWqLGmUtoGgoK9gx5IefO1mWrRF9QHaV7uVRrTcFv1lrJVvJ",
-    base_url=os.getenv("MOONSHOT_BASE_URL")
+    base_url=os.getenv("MOONSHOT_BASE_URL"),
+    project="M"
 )
 zhipuai_client = AsyncOpenAI(
     api_key=os.getenv("ZHIPUAI_API_KEY"),
-    base_url=os.getenv("ZHIPUAI_BASE_URL")
+    base_url=os.getenv("ZHIPUAI_BASE_URL"),
+    project="Z"
 )
 
 zhipuai_sdk_client = ZhipuAI(
@@ -35,7 +37,8 @@ zhipuai_sdk_client = ZhipuAI(
 
 volc_client = AsyncOpenAI(
     api_key=os.getenv("VOLC_API_KEY"),
-    base_url=os.getenv("VOLC_BASE_URL")
+    base_url=os.getenv("VOLC_BASE_URL"),
+    project="V"
 )
 
 # zhipuai_client = OpenAI(
@@ -88,22 +91,26 @@ if __name__ == '__main__':
     #
     # arun(response)
 
-    c = zhipuai_client.chat.completions.create(
-        messages=[
-            {"role": "user", "content": [
-                {
-                    "type": "text",
-                    "text": "总结一下"
-                },
-                {
-                    "type": "image_url",
-                    "image_url": {
-                        "url": "https://oss.ffire.cc/files/kling_watermark.png"
-                    }
-                }
-            ]
-             }],
-        model='glm-4v-flash',
-    )
+    # c = zhipuai_client.chat.completions.create(
+    #     messages=[
+    #         {"role": "user", "content": [
+    #             {
+    #                 "type": "text",
+    #                 "text": "总结一下"
+    #             },
+    #             {
+    #                 "type": "image_url",
+    #                 "image_url": {
+    #                     "url": "https://oss.ffire.cc/files/kling_watermark.png"
+    #                 }
+    #             }
+    #         ]
+    #          }],
+    #     model='glm-4v-flash',
+    # )
 
-    arun(c)
+    # arun(c)
+
+    print(moonshot_client.base_url)
+
+    moonshot_client.organization

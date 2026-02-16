@@ -27,42 +27,36 @@ class BookForm:
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     title: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     genre: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     price: float = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     pub_date: XmlDate = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     review: str = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     id: None | str = field(

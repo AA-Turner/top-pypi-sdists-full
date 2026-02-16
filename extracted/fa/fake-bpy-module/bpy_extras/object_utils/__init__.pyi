@@ -12,6 +12,14 @@ class AddObjectHelper:
         :param _context:
         """
 
+    @classmethod
+    def poll(cls, context: bpy.types.Context) -> bool:
+        """Check the scene is not linked from a library.
+
+        :param context: The context.
+        :return: True when the scene is local (not linked from a library).
+        """
+
 def add_object_align_init(
     context: bpy.types.Context, operator: None | bpy.types.Operator
 ) -> mathutils.Matrix:

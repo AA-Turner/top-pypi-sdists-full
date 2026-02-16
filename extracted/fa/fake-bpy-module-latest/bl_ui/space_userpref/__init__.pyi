@@ -16,6 +16,11 @@ class AnimationPanel:
     bl_region_type: typing.Any
     bl_space_type: typing.Any
 
+class AssetsPanel:
+    bl_context: typing.Any
+    bl_region_type: typing.Any
+    bl_space_type: typing.Any
+
 class CenterAlignMixIn:
     """Base class for panels to center align contents with some horizontal margin.
     Deriving classes need to implement a draw_centered(context, layout) function.
@@ -542,6 +547,59 @@ class USERPREF_PT_animation_timeline(
         :param layout:
         """
 
+class USERPREF_PT_assets(AssetsPanel, _bpy_types.Panel):
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_options: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
+class USERPREF_PT_assets_asset_libraries(AssetsPanel, _bpy_types.Panel):
+    bl_context: typing.Any
+    bl_label: typing.Any
+    bl_region_type: typing.Any
+    bl_rna: typing.Any
+    bl_space_type: typing.Any
+    id_data: typing.Any
+
+    def bl_rna_get_subclass(self) -> bpy.types.Struct:
+        """
+
+        :return: The RNA type or default when not found.
+        """
+
+    def bl_rna_get_subclass_py(self) -> typing.Any:
+        """
+
+        :return: The class or default when not found.
+        """
+
+    def draw(self, context) -> None:
+        """
+
+        :param context:
+        """
+
 class USERPREF_PT_developer_tools(_bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
@@ -1028,32 +1086,6 @@ class USERPREF_PT_file_paths_applications(FilePathsPanel, _bpy_types.Panel):
     bl_context: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-class USERPREF_PT_file_paths_asset_libraries(FilePathsPanel, _bpy_types.Panel):
-    bl_context: typing.Any
-    bl_label: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
     bl_space_type: typing.Any
@@ -3099,7 +3131,7 @@ class USERPREF_UL_asset_libraries(_bpy_types.UIList):
 
     def draw_item(
         self,
-        _context,
+        context,
         layout,
         _data,
         item,
@@ -3110,7 +3142,7 @@ class USERPREF_UL_asset_libraries(_bpy_types.UIList):
     ) -> None:
         """
 
-        :param _context:
+        :param context:
         :param layout:
         :param _data:
         :param item:
@@ -3118,6 +3150,14 @@ class USERPREF_UL_asset_libraries(_bpy_types.UIList):
         :param _active_data:
         :param _active_propname:
         :param _index:
+        """
+
+    def filter_items(self, context, data, property) -> None:
+        """
+
+        :param context:
+        :param data:
+        :param property:
         """
 
 class USERPREF_UL_extension_repos(_bpy_types.UIList):

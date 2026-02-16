@@ -30,13 +30,13 @@ class EditHttpTrigger:
         is_static_website (bool): If true, serves static files from S3/storage instead of running a script
         route_path (Union[Unset, str]): The URL route path that will trigger this endpoint (e.g., 'api/myendpoint').
             Must NOT start with a /.
-        summary (Union[Unset, str]): Short summary describing the purpose of this trigger
-        description (Union[Unset, str]): Detailed description of what this trigger does
+        summary (Union[Unset, None, str]): Short summary describing the purpose of this trigger
+        description (Union[Unset, None, str]): Detailed description of what this trigger does
         workspaced_route (Union[Unset, bool]): If true, the route includes the workspace ID in the path
-        static_asset_config (Union[Unset, EditHttpTriggerStaticAssetConfig]): Configuration for serving static assets
-            (s3 bucket, storage path, filename)
-        authentication_resource_path (Union[Unset, str]): Path to the resource containing authentication configuration
-            (for api_key, basic_http, custom_script, signature methods)
+        static_asset_config (Union[Unset, None, EditHttpTriggerStaticAssetConfig]): Configuration for serving static
+            assets (s3 bucket, storage path, filename)
+        authentication_resource_path (Union[Unset, None, str]): Path to the resource containing authentication
+            configuration (for api_key, basic_http, custom_script, signature methods)
         is_async (Union[Unset, bool]): Deprecated, use request_type instead
         request_type (Union[Unset, EditHttpTriggerRequestType]): How the request is handled - 'sync' waits for result,
             'async' returns job ID immediately, 'sync_sse' streams results via Server-Sent Events
@@ -54,11 +54,11 @@ class EditHttpTrigger:
     authentication_method: EditHttpTriggerAuthenticationMethod
     is_static_website: bool
     route_path: Union[Unset, str] = UNSET
-    summary: Union[Unset, str] = UNSET
-    description: Union[Unset, str] = UNSET
+    summary: Union[Unset, None, str] = UNSET
+    description: Union[Unset, None, str] = UNSET
     workspaced_route: Union[Unset, bool] = UNSET
-    static_asset_config: Union[Unset, "EditHttpTriggerStaticAssetConfig"] = UNSET
-    authentication_resource_path: Union[Unset, str] = UNSET
+    static_asset_config: Union[Unset, None, "EditHttpTriggerStaticAssetConfig"] = UNSET
+    authentication_resource_path: Union[Unset, None, str] = UNSET
     is_async: Union[Unset, bool] = UNSET
     request_type: Union[Unset, EditHttpTriggerRequestType] = UNSET
     wrap_body: Union[Unset, bool] = UNSET
@@ -81,9 +81,9 @@ class EditHttpTrigger:
         summary = self.summary
         description = self.description
         workspaced_route = self.workspaced_route
-        static_asset_config: Union[Unset, Dict[str, Any]] = UNSET
+        static_asset_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
-            static_asset_config = self.static_asset_config.to_dict()
+            static_asset_config = self.static_asset_config.to_dict() if self.static_asset_config else None
 
         authentication_resource_path = self.authentication_resource_path
         is_async = self.is_async
@@ -171,8 +171,10 @@ class EditHttpTrigger:
         workspaced_route = d.pop("workspaced_route", UNSET)
 
         _static_asset_config = d.pop("static_asset_config", UNSET)
-        static_asset_config: Union[Unset, EditHttpTriggerStaticAssetConfig]
-        if isinstance(_static_asset_config, Unset):
+        static_asset_config: Union[Unset, None, EditHttpTriggerStaticAssetConfig]
+        if _static_asset_config is None:
+            static_asset_config = None
+        elif isinstance(_static_asset_config, Unset):
             static_asset_config = UNSET
         else:
             static_asset_config = EditHttpTriggerStaticAssetConfig.from_dict(_static_asset_config)

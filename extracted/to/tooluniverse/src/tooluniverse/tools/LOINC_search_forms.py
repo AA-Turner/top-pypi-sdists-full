@@ -1,0 +1,52 @@
+"""
+LOINC_search_forms
+
+Search LOINC clinical forms and survey instruments such as standardized questionnaires and assess...
+"""
+
+from typing import Any, Optional, Callable
+from ._shared_client import get_shared_client
+
+
+def LOINC_search_forms(
+    terms: str,
+    max_results: Optional[int] = 20,
+    *,
+    stream_callback: Optional[Callable[[str], None]] = None,
+    use_cache: bool = False,
+    validate: bool = True,
+) -> dict[str, Any]:
+    """
+    Search LOINC clinical forms and survey instruments such as standardized questionnaires and assess...
+
+    Parameters
+    ----------
+    terms : str
+        Search terms for clinical forms or survey instruments (e.g., 'PHQ-9', 'depres...
+    max_results : int
+        Maximum number of results to return (default: 20, max: 200)
+    stream_callback : Callable, optional
+        Callback for streaming output
+    use_cache : bool, default False
+        Enable caching
+    validate : bool, default True
+        Validate parameters
+
+    Returns
+    -------
+    dict[str, Any]
+    """
+    # Handle mutable defaults to avoid B006 linting error
+
+    return get_shared_client().run_one_function(
+        {
+            "name": "LOINC_search_forms",
+            "arguments": {"terms": terms, "max_results": max_results},
+        },
+        stream_callback=stream_callback,
+        use_cache=use_cache,
+        validate=validate,
+    )
+
+
+__all__ = ["LOINC_search_forms"]

@@ -743,12 +743,20 @@ class pyTimeColorShader:
         """
 
 class pyTipRemoverShader:
-    """Removes the tips of the stroke.Undocumented"""
+    """Removes the tips of the stroke."""
 
     def shade(self, stroke) -> None:
         """
 
         :param stroke:
+        """
+
+    @staticmethod
+    def check_vertex(v, length) -> None:
+        """
+
+        :param v:
+        :param length:
         """
 
 class pyZDependingThicknessShader:

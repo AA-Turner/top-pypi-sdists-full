@@ -18,12 +18,10 @@ def download_from_hf(tool_config):
     # Compute absolute path to save locally
     project_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
 
-    # If not provided, default to user cache directory under datasets
-    is_missing_path = relative_local_path is None
-    is_empty_string = (
-        isinstance(relative_local_path, str) and relative_local_path.strip() == ""
-    )
-    if is_missing_path or is_empty_string:
+    # If not provided or empty, default to user cache directory under datasets
+    if not relative_local_path or (
+        isinstance(relative_local_path, str) and not relative_local_path.strip()
+    ):
         absolute_local_dir = os.path.join(get_user_cache_dir(), "datasets")
     else:
         # Expand '~' and environment variables
@@ -64,14 +62,8 @@ def download_from_hf(tool_config):
 
 
 def get_md5(input_str):
-    # Create an MD5 hash object
-    md5_hash = hashlib.md5()
-
-    # Encode the string and update the hash object
-    md5_hash.update(input_str.encode("utf-8"))
-
-    # Return the hexadecimal MD5 digest
-    return md5_hash.hexdigest()
+    """Return the hexadecimal MD5 digest of the given string."""
+    return hashlib.md5(input_str.encode("utf-8")).hexdigest()
 
 
 def get_user_cache_dir() -> str:
@@ -114,16 +106,18 @@ def yaml_to_dict(yaml_file_path):
         yaml_file_path (str): Path to the YAML file.
 
     Returns
-        dict: Dictionary representation of the YAML file content.
+        dict or None: Dictionary representation of the YAML file content,
+                      or None if the file is not found or has YAML errors.
     """
     try:
         with open(yaml_file_path, "r", encoding="utf-8") as file:
-            yaml_dict = yaml.safe_load(file)
-            return yaml_dict
+            return yaml.safe_load(file)
     except FileNotFoundError:
         print(f"File not found: {yaml_file_path}")
+        return None
     except yaml.YAMLError as exc:
         print(f"Error in YAML file: {exc}")
+        return None
 
 
 def read_json_list(file_path):
@@ -361,7 +355,6 @@ def extract_function_call_json(lst, return_message=False, verbose=True, format="
                     function_call_str = result_str[
                         index_start + len("[TOOL_CALLS]") : index_end
                     ]
-                # print("function_call_str", function_call_str)
                 function_call_json = json.loads(function_call_str.strip())
             elif format == "qwen":
                 index_start = result_str.find("<tool_call>")

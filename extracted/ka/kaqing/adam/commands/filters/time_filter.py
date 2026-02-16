@@ -6,7 +6,7 @@ class TimeFilter(CommandFilter):
     def command(self) -> str:
         return 'time'
 
-    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], str]:
+    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], ReplState, str]:
         return super().process_config(state, cmd, self.command(), 'debugs.timings', value='on', default='off')
 
     def help(self, state: ReplState) -> str:

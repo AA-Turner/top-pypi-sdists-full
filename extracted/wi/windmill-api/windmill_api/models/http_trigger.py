@@ -45,12 +45,12 @@ class HttpTrigger:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (HttpTriggerMode): job trigger mode
-        static_asset_config (Union[Unset, HttpTriggerStaticAssetConfig]): Configuration for serving static assets (s3
-            bucket, storage path, filename)
-        authentication_resource_path (Union[Unset, str]): Path to the resource containing authentication configuration
-            (for api_key, basic_http, custom_script, signature methods)
-        summary (Union[Unset, str]): Short summary describing the purpose of this trigger
-        description (Union[Unset, str]): Detailed description of what this trigger does
+        static_asset_config (Union[Unset, None, HttpTriggerStaticAssetConfig]): Configuration for serving static assets
+            (s3 bucket, storage path, filename)
+        authentication_resource_path (Union[Unset, None, str]): Path to the resource containing authentication
+            configuration (for api_key, basic_http, custom_script, signature methods)
+        summary (Union[Unset, None, str]): Short summary describing the purpose of this trigger
+        description (Union[Unset, None, str]): Detailed description of what this trigger does
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, HttpTriggerErrorHandlerArgs]): The arguments to pass to the script or flow
         retry (Union[Unset, HttpTriggerRetry]): Retry configuration for failed module executions
@@ -73,10 +73,10 @@ class HttpTrigger:
     edited_at: datetime.datetime
     is_flow: bool
     mode: HttpTriggerMode
-    static_asset_config: Union[Unset, "HttpTriggerStaticAssetConfig"] = UNSET
-    authentication_resource_path: Union[Unset, str] = UNSET
-    summary: Union[Unset, str] = UNSET
-    description: Union[Unset, str] = UNSET
+    static_asset_config: Union[Unset, None, "HttpTriggerStaticAssetConfig"] = UNSET
+    authentication_resource_path: Union[Unset, None, str] = UNSET
+    summary: Union[Unset, None, str] = UNSET
+    description: Union[Unset, None, str] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "HttpTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "HttpTriggerRetry"] = UNSET
@@ -106,9 +106,9 @@ class HttpTrigger:
         is_flow = self.is_flow
         mode = self.mode.value
 
-        static_asset_config: Union[Unset, Dict[str, Any]] = UNSET
+        static_asset_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.static_asset_config, Unset):
-            static_asset_config = self.static_asset_config.to_dict()
+            static_asset_config = self.static_asset_config.to_dict() if self.static_asset_config else None
 
         authentication_resource_path = self.authentication_resource_path
         summary = self.summary
@@ -205,8 +205,10 @@ class HttpTrigger:
         mode = HttpTriggerMode(d.pop("mode"))
 
         _static_asset_config = d.pop("static_asset_config", UNSET)
-        static_asset_config: Union[Unset, HttpTriggerStaticAssetConfig]
-        if isinstance(_static_asset_config, Unset):
+        static_asset_config: Union[Unset, None, HttpTriggerStaticAssetConfig]
+        if _static_asset_config is None:
+            static_asset_config = None
+        elif isinstance(_static_asset_config, Unset):
             static_asset_config = UNSET
         else:
             static_asset_config = HttpTriggerStaticAssetConfig.from_dict(_static_asset_config)

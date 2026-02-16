@@ -10,18 +10,22 @@ def flip(
     /,
     *,
     axis: typing.Literal["U", "V", "W"] | None = "U",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mirror all control points without inverting the lattice deform
 
-    :param axis: Flip Axis, Coordinates along this axis get flipped
+    :param axis: Flip Axis, Coordinates along this axis get flipped (optional)
+    :return: Result of the operator call.
     """
 
 def make_regular(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Set UVW control points a uniform distance apart"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Set UVW control points a uniform distance apart
+
+    :return: Result of the operator call.
+    """
 
 def select_all(
     execution_context: int | str | None = None,
@@ -29,10 +33,10 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all UVW control points
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -45,35 +49,43 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def select_less(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Deselect vertices at the boundary of each selection region"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Deselect vertices at the boundary of each selection region
+
+    :return: Result of the operator call.
+    """
 
 def select_mirror(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    axis: set[bpy.stub_internal.rna_enums.AxisFlagXyzItems] | None = {"X"},
+    axis: set[Literal[bpy.stub_internal.rna_enums.AxisFlagXyzItems]] | None = {"X"},
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select mirrored lattice points
 
-    :param axis: Axis
-    :param extend: Extend, Extend the selection
+    :param axis: Axis, (optional)
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """
 
 def select_more(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select vertex directly linked to already selected ones"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select vertex directly linked to already selected ones
+
+    :return: Result of the operator call.
+    """
 
 def select_random(
     execution_context: int | str | None = None,
@@ -83,18 +95,19 @@ def select_random(
     ratio: float | None = 0.5,
     seed: int | None = 0,
     action: typing.Literal["SELECT", "DESELECT"] | None = "SELECT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Randomly select UVW control points
 
-        :param ratio: Ratio, Portion of items to select randomly
-        :param seed: Random Seed, Seed for the random number generator
-        :param action: Action, Selection action to execute
+        :param ratio: Ratio, Portion of items to select randomly (in [0, 1], optional)
+        :param seed: Random Seed, Seed for the random number generator (in [0, inf], optional)
+        :param action: Action, Selection action to execute (optional)
 
     SELECT
     Select -- Select all elements.
 
     DESELECT
     Deselect -- Deselect all elements.
+        :return: Result of the operator call.
     """
 
 def select_ungrouped(
@@ -103,8 +116,9 @@ def select_ungrouped(
     /,
     *,
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select vertices without a group
 
-    :param extend: Extend, Extend the selection
+    :param extend: Extend, Extend the selection (optional)
+    :return: Result of the operator call.
     """

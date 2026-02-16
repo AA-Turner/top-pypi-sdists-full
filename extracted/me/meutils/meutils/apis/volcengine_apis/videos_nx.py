@@ -311,13 +311,21 @@ class Tasks(object):
             task_id = task_id.split("::")[-1]
             transfer = True
 
+        if len(task_id) == 36 and "cgt-" not in task_id.lower():
+            return  Video(id=task_id, status="failed")
+
+
         response = await self.client.post("/GetVideoGenTask", body={"Id": task_id}, cast_to=object)
-        # logger.debug(response.get("Result"))
+        logger.debug(response.get("Result"))
 
         if (result := (response.get("Result") or {})) and (error := result.get("Error")):
-            logger.debug(bjson(response))
+            # logger.debug(bjson(response))
 
             return Video(id=task_id, status="failed", error=error)
+        elif "failed" in str(response.get("Status")).lower():
+            logger.debug(bjson(response))
+
+            return Video(id=task_id, status="failed", error=str(response))  # todo 根据id判断
 
         elif url := result.get("VideoUrl"):
             logger.debug(bjson(response))
@@ -350,6 +358,11 @@ if __name__ == "__main__":
 
     api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=%E5%88%9B%E5%BB%BA%E8%A7%86%E9%A2%91%E7%94%9F%E6%88%90%E4%BB%BB%E5%8A%A1%20API--%E7%81%AB%E5%B1%B1%E6%96%B9%E8%88%9F%E5%A4%A7%E6%A8%A1%E5%9E%8B%E6%9C%8D%E5%8A%A1%E5%B9%B3%E5%8F%B0-%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E;AccountID=2109091919;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1419;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwOTA5MTkxOSwiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNDk5Mzk0LCJpIjoiMjk2OTc3MmEwODIxMTFmMTlhZjEzNDM2YWMxMjAwM2YiLCJpZF9uIjoiMDQzNeaJi-acuueUqOaItyN5SFNrTXQiLCJtc2ciOm51bGwsInBpZCI6ImNkNDlmYTg3LWI3NzUtNDQwNS1iOTkzLTVmOTA0NTMyNDg5MSIsInNzX24iOiIwNDM15omL5py655So5oi3I3lIU2tNdCIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.cdpiB9xgcokJBJzG-S_BIdllMusycBqNLL8VNEnmlFI5i0fYstJUbAvLC-nbouHZjLhX9XzT45RjIqbFa-f1dnQHE6SmMf_CCPuxoZOpd7UnJTbCqQiKO_KRkdshxpuIxx7mV74ziS3UQWcNARIH663BxmsMsPWFx7Tntx3QOCdu_zljgJkjbxJZhcBhGOqGC2CMZXocr0MorPpcEVtXPOsRi9ulCBMSSH4kI5z4iigbliLyoYcsD3vNCmGO_vTOPDAdyEwGE395FwAnlB62JGnwVAreHvdPLE3YFMBII2JdDT03TGOrb1VFP6tLj2xOAWCDlVJnxRkW2fDZ16d71Q;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1770907429996%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=94cee221b20e31b701a412450300000ce19c18;finance-hub-sdk-lang=zh;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=5eea2c8b9109058ec395ff62598426e3f6bca3f1130a0783b68b2d582593206c616364c03980b1ddde92f7cc;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=499beb4542dac5d353afbb1fffd981eb;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5ZDM1YTQ4YmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEwODAxOTQsImlhdCI6MTc3MDkwNzM5NCwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJjZDQ5ZmE4Ny1iNzc1LTQ0MDUtYjk5My01ZjkwNDUzMjQ4OTEiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTd05MQTB0RFMwbFBoNWR2c1pOb1dtYzl2UHNBbjVjN0U3SmlmbmwrYVZDSngvY09NdHU1UzRnWW14NmJQTzdtZHpkajJmc3VKWngzYmxTby9nYk44U0piQTVXbXpKK2JtNStYbGV1SlFCQWdBQS8vOTdrMG13Y1FBQUFBPT0iLCJuYW1lIjoiMDQzNeaJi-acuueUqOaItyN5SFNrTXQiLCJzdWIiOiIyMTA5MDkxOTE5IiwidG9waWMiOiJzaWduaW5fY3JlZGVudGlhbCIsInRybiI6InRybjppYW06OjIxMDkwOTE5MTk6cm9vdCIsInZlcnNpb24iOiJ2MSIsInppcCI6Imd6aXAifQ.fw4LobnAByUwIaCOWhOOvF5igRzIo_l5lBme2SmfeT5vwky01EI2iBDBayuv_O39Uvl-MzS5Gmg2-tXFN7tqEyH2ERa1ymuZETFkFu3P-su9Uqb1VZnFpkaZsjHzhCTWIxvwDLmBCZM0aLN_LOBjhDyoRjd6agYr8XLrTM3UzVRb-MUg_yYBBSttvUpZdM4pLQ3magTu0xJQY0OfLg4IBTezfg84XsQJkh0wGaJI1N-_aXTTXTFBOBahMS8fKJrNG-mgV52xMxBqS_pt3piGwn3ssMVeD5JD5K474FMKxIhgwJUkdePfsVACAjBhaLmV6AmYX4UXo7lTmjHHIZnp3Q;gfkadpd=520918,36088|3569,42874;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=0008375069127979375;monitor_tracing_cookie=[];monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
     api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E-%E4%BD%A0%E7%9A%84AI%E4%BA%91;AccountID=2109743247;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1423;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwOTc0MzI0NywiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNTk2MTI5LCJpIjoiNjQ2MDRkNTIwOTAyMTFmMTlmYjgzNDM2YWMxMjAwYmUiLCJpZF9uIjoiNDgyMeaJi-acuueUqOaItyN1Wm50VHMiLCJtc2ciOm51bGwsInBpZCI6ImE4ZTk5MzUyLTBmNDUtNDRjMS04YTg1LWQ2Mzg3MmI0YzUxYyIsInNzX24iOiI0ODIx5omL5py655So5oi3I3VabnRUcyIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.VFX4bvxf8qrFPQe3oZYtoUAX2WL0KpBEUZJyV5YlwPW3bDinK2QCV0i9njwGlUv-NOWiRd6qCmUtlWyX61wGKFjDIEs0luZt-LTpDntz219D2FDxim3Ez2hEA9c95D0Kymvcm_snfmx21QXIBHy4AFNpOWXcXanXHRP1rsjzItk56iGz_uCEqiXqGvDf_Z6WTMe-5U668tQhEV8izFI1CZqHVqHz0aMMfNWU8vKqGLaQZ42YFHtO1bY387UxXn7v4Hdl7zHUbRwxuUVG9x8ZeNzBHZnfD-hsVzWqi0koEX-bh3bjGhWrk6VkVIbVZBkTgXU5KURrPKq9ktKAvN7P3g;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1771030034253%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=94cee221b20e31b701a412450300000ce19c18;finance-hub-sdk-lang=zh;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=66d87f8b9109058ec395ff62598426e3f6bca3f1130a0783b68b2d582593206c616364c03980b1dddeaaa7c5;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=3491b1a53d1625d7135f17ecb6c83301;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzExNzY5MjksImlhdCI6MTc3MTAwNDEyOSwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhOGU5OTM1Mi0wZjQ1LTQ0YzEtOGE4NS1kNjM4NzJiNGM1MWMiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTd05EY3hOakl4bDdoOWNPOFpOb1ZISUZMSW40dmRNVGs1dnpTdlJLRC9ZTU03ZGlseEV3c2p3MmVkM2MvbTdIbytaY1d6anUzS3BWRjVKU0hGU21CenROaVM4M056OC9POGNDa0RCQUFBLy8vWVBXOFRjUUFBQUE9PSIsIm5hbWUiOiI0ODIx5omL5py655So5oi3I3VabnRUcyIsInN1YiI6IjIxMDk3NDMyNDciLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjEwOTc0MzI0Nzpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.qwGgvtbf6DdKmtcrLLF8sAJmgyARXbn3J4sKbZXRUZWfXKMmN8hHPwXZfG41UKancOG9yxymjgFtl6NS0BAj52WxrNH4e-xC_Uelivs5Ti564sXOWBXyHRlt4zUUSuNYY_aR0AxDsZaftKP4g2ry-vLkOvAuyCFqGT8nrKSxu09fkGL-HzCYuL9U7yK7zco6Keno19c2Wlmll_ueFEkpoMBGl4i8Y4Uti6v93FfSx2KY683HCCUD78lbCFgLSmqGmJ3GLgEuxNAi2m7lex6mVCbHN40Hcn9N8dHaSmVz1EgzDIgNtAkkq5fxNwN5Iz_N0gkLfFRceMgqZbWh5h5SsA;gfkadpd=3569,42874|520918,36088;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=1896580763093473554;monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;user_locale=zh;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
+
+    api_key = """ve_doc_history=82379%2C6269%2C6256%2C85128%2C86081%2C6348%2C85621%2C6260;_qimei_fingerprint=dd38b822c43601e30b795b0bb06bc28b;hasUserBehavior=1;monitor_huoshan_web_id=7467761534115284489;referrer_title=;AccountID=2119178640;user_locale=zh;signin_i18next=zh;monitor_session_id_flag=1;monitor_traceid_base_cookie=1438;volcengineLoginMethod=pwd;_tea_utm_cache_3569={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};volcfe-uuid=0701f6f2-a611-4599-a2fc-57cb015ff828;userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjExOTE3ODY0MCwiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNzE5OTMwLCJpIjoiYTM2NWVmMzgwYTIyMTFmMTljZDEzNDM2YWMxMjAwY2YiLCJpZF9uIjoiNjExNOaJi-acuueUqOaItyNLS3ZyY3QiLCJtc2ciOm51bGwsInBpZCI6ImY3NmFjNWJhLTNhY2EtNDNjMy04NjNlLTZjYjU1OGRlMTc0NiIsInNzX24iOiI2MTE05omL5py655So5oi3I0tLdnJjdCIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.lB10e3xw0GomkyYxkdvjk9avGg0lpV1zFP2rHiNeSQaieG4h6UQbc0coEYIH68c0VOEG997IKqsjaUfGTxo45t3zm3Ht2FfgpPKPCyItrxgP4RNmczbizKJkoos6v4YBUXOgVkjJFRnFcIGXGn8B6k9qw8rmutOfHXDOYGrYQpSn3bVtKOA0tZIHFgJ8LRWi0TfI3wq-v5nwkpgygt2k6hmHO9kWRRp-3lj5vm9Tb0vAY2oCPj0B5gTQ4-6_rTn88tR_N3CDZxbJzIP-Ifdph_MLy-Fl1qTNSZlaEtvi0xeIP7d4W5wY9m7zU-t9Ytq2ORyR9HkszXNtH6uEhyG_9g;__tea_cache_tokens_3569={%22web_id%22:%227467761534115284489%22%2C%22user_unique_id%22:%227467761534115284489%22%2C%22timestamp%22:1771131957865%2C%22_type_%22:%22default%22};volc-design-locale=zh;_qimei_h38=94cee221b20e31b701a412450300000ce19c18;finance-hub-sdk-lang=zh;verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ=1;p_c_check=1;volc_platform_clear_user_locale=1;__spti=11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC;__sptiho=0B11_000JnXNrWATPtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC;_qimei_i_1=5ae14e8b9109058ec395ff62598426e3f6bca3f1130a0783b68b2d582593206c616364c03980b1dddeb1a086;_qimei_i_3=57ca79d3970c52d9c497aa625d8027e5a6bcf0f71a5b04d4e0872b502092276d32633f973989e28184b1;_qimei_uuid42=19c180a1723100cab20e31b701a4124555c551b916;_tea_utm_cache_520918={%22utm_source%22:%22coopensrc%22%2C%22utm_medium%22:%22github%22%2C%22utm_campaign%22:%22doubao%22%2C%22utm_term%22:%22project%22%2C%22utm_content%22:%22aidrawio%22};csrfToken=09ebbbf8543acc10e9d0ee26b10ccd3f;digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEzMDA3MzAsImlhdCI6MTc3MTEyNzkzMCwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJmNzZhYzViYS0zYWNhLTQzYzMtODYzZS02Y2I1NThkZTE3NDYiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTME5EUzNNRE14a1BqYWNmUU1tOEp2RUNua3o4WHVtSnljWDVwWElqQmg4NEZQN0ZMaVpvYUdKczg2dTUvTjJmVjh5b3BuSGR1VnZiM0xpcEpMbE1EbWFMRWw1K2ZtNXVkNTRWSUdDQUFBLy8vN0p1MFVjUUFBQUE9PSIsIm5hbWUiOiI2MTE05omL5py655So5oi3I0tLdnJjdCIsInN1YiI6IjIxMTkxNzg2NDAiLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjExOTE3ODY0MDpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.Z8e2jIe4nxWmKsAv0poWymn-Ih1ozdNYnfE6pAcQrhJZD50JGC68mjcPaEBwD4GyizR_TM_C8-B0NI2agxhiKHZ-Skb-b8v9Cs2LoVgtXOXGI-fk-ShSzoHQSZRhNSLaInVoo5XsxpKNWXTwGI919i3dlwSCVk2IrCFxSsj6VZHGLGyuudjrS7KWHiWYdIhJ8fF3dMN7KPD9M1woGcW7fVogvSvWwx8e8Whxzcy_Oiec__mOz4pmyzw5Un3CRiOQc6jurdCrqj_T1Iyp8xXdjUvLS2xIqYOHC7zFi24aTVUwiXTtjEitBQDAY0DjTFpBANNzBTVyOU-fS929pCgVuA;gfkadpd=3569,42874|520918,36088;i18next=zh;isIntranet=0;login_scene=11;monitor_session_id=4541778874643941547;monitor_utm=%257B%2522utm_campaign%2522%253A%2522doubao%2522%252C%2522utm_content%2522%253A%2522aidrawio%2522%252C%2522utm_medium%2522%253A%2522github%2522%252C%2522utm_source%2522%253A%2522coopensrc%2522%252C%2522utm_term%2522%253A%2522project%2522%257D;s_v_web_id=verify_mjjfj194_6wx9uxHT_RbvK_42dT_BQQF_Am4VHcR3e6qJ;top_region=;user_locale=zh;vcloudWebId=0d8e34f9-2a27-4f3b-a86a-10cb562dbf67;VOLCFE_im_uuid=1770641165069598896"""
+
+    api_key = """volc_platform_clear_user_locale=1; p_c_check=1; vcloudWebId=11c7ef64-f16e-4289-a696-1fdcf3fc468e; user_locale=zh; monitor_huoshan_web_id=8691040921984375872; monitor_session_id_flag=1; volc-design-locale=zh; isIntranet=0; VOLCFE_im_uuid=1771005499155462938; login_scene=11; volcengineLoginMethod=pwd; i18next=zh; s_v_web_id=verify_mll6ykev_CGHduuU2_f3X8_4fEs_8O4E_8xc0LEWpy3id; finance-hub-sdk-lang=zh; gfkadpd=3569,42874|520918,36088; monitor_traceid_base_cookie=2; verify_mll6ykev_CGHduuU2_f3X8_4fEs_8O4E_8xc0LEWpy3id=1; digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEyNjM0MjYsImlhdCI6MTc3MTA5MDYyNiwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhY2VkMGM0ZS1jMTQwLTQ0Y2EtOWQxYi0wZDIwN2VkNDU5M2UiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTME5EUTNNekV5bFZqLzlOQVpOb1ZESUZMSW40dmRNVGs1dnpTdlJPRGx3Z09mMktYRXpVMHR6WjUxZGorYnMrdjVsQlhQT3JZcjUxVlVoUGtYS29ITjBXSkx6cy9OemMvendxVU1FQUFBLy8vM3Y0MDJjUUFBQUE9PSIsIm5hbWUiOiI3NTk25omL5py655So5oi3I254eFZPcSIsInN1YiI6IjIxMTkxNzY0MjUiLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjExOTE3NjQyNTpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.S1BuXwVp53CVknYjR5CDg2Fi-uUtbAAlA2raKK1TBkWVY8ti83xEI69Tm-2PC7TqKRp3DuKyL8PLNH1mXpCdsncyyrn8HLMgaqar72m4vYenvXfkerZJPRmJ5oa6ZsYQ8dWvUfzvYiDvwgFHeLukAfIM9bWu3Jd4mpg8F9hWzHKkvCOgGBkze__24fUJce8xnyljRC916eY7pMe-QR5C9jIWBV-qH9tXvW698lYjqv3DTFPwUXLojwdXkyZS9D05fsbXLyvWr60lYG_20oX_2EVk1i5Hgsm4QTSU3brawVfCYsS6FYHvod7umYU9MVvXnhVrVK57hPzlCOL3gN564w; digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEyNjM0MjYsImlhdCI6MTc3MTA5MDYyNiwiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhY2VkMGM0ZS1jMTQwLTQ0Y2EtOWQxYi0wZDIwN2VkNDU5M2UiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpTME5EUTNNekV5bFZqLzlOQVpOb1ZESUZMSW40dmRNVGs1dnpTdlJPRGx3Z09mMktYRXpVMHR6WjUxZGorYnMrdjVsQlhQT3JZcjUxVlVoUGtYS29ITjBXSkx6cy9OemMvendxVU1FQUFBLy8vM3Y0MDJjUUFBQUE9PSIsIm5hbWUiOiI3NTk25omL5py655So5oi3I254eFZPcSIsInN1YiI6IjIxMTkxNzY0MjUiLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjExOTE3NjQyNTpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.S1BuXwVp53CVknYjR5CDg2Fi-uUtbAAlA2raKK1TBkWVY8ti83xEI69Tm-2PC7TqKRp3DuKyL8PLNH1mXpCdsncyyrn8HLMgaqar72m4vYenvXfkerZJPRmJ5oa6ZsYQ8dWvUfzvYiDvwgFHeLukAfIM9bWu3Jd4mpg8F9hWzHKkvCOgGBkze__24fUJce8xnyljRC916eY7pMe-QR5C9jIWBV-qH9tXvW698lYjqv3DTFPwUXLojwdXkyZS9D05fsbXLyvWr60lYG_20oX_2EVk1i5Hgsm4QTSU3brawVfCYsS6FYHvod7umYU9MVvXnhVrVK57hPzlCOL3gN564w; AccountID=2119176425; AccountID=2119176425; userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjExOTE3NjQyNSwiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNjgyNjI2LCJpIjoiYzdmYjM3ZmUwOWNiMTFmMTkzNTAzNDM2YWMxMjAwYTgiLCJpZF9uIjoiNzU5NuaJi-acuueUqOaItyNueHhWT3EiLCJtc2ciOm51bGwsInBpZCI6ImFjZWQwYzRlLWMxNDAtNDRjYS05ZDFiLTBkMjA3ZWQ0NTkzZSIsInNzX24iOiI3NTk25omL5py655So5oi3I254eFZPcSIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.YlVVx-SxvltrEhjupyi5Ij3bNl3MWNYOn7hjbI0bm1eKgpYFLraMhDFWD2bgMsH1eEObHaV2tGB-SyEHL0zOy4MRjShlw3fXkix846KLjqOy5VHTJf_o7AnOOZXEsV-wZR1F48NXSabcd5uPr1M94W2-FfGCixARde0cWo3cxW5tL-C7g4sFKE04lL6R2p6GPjVAqfgCnJcJFG9axIFP4Y4-9F70svB0pGD4p7lkjxWW-r7WCmGlFRezBHLBhql7CVnOYmjfUr_nDBDU6G8JxVL8SLRHN5d8vhoClwq8FJrzb8qaoxbyhaTqEZ2osHVT4rOBlPYFGF638SDZvg5PSw; csrfToken=f48ebe0bdcaa711c41af50f14ddeac66; csrfToken=f48ebe0bdcaa711c41af50f14ddeac66; user_locale=zh; monitor_session_id=5508498656706438250; __tea_cache_tokens_3569={%22web_id%22:%227606410636642240036%22%2C%22user_unique_id%22:%227606410636642240036%22%2C%22timestamp%22:1771132529352%2C%22_type_%22:%22default%22}"""
+    api_key = """monitor_huoshan_web_id=5580802690475581165; user_locale=zh; i18next=zh; volcfe-uuid=3638eba7-a4ed-40f3-976e-aade7b4913cf; hasUserBehavior=1; iaas_global_region=cn-beijing; connect.sid=s%3A46e3c0e7-20a2-4155-94fe-b3bce9edb860.nGJw45VefU8pAZ0%2BCE2eTFCLztzlVbmTQifs0O3e6Ck; vcloudWebId=404de0e8-1e9d-4786-ba76-187feb018352; monitor_session_id_flag=1; volc-design-locale=zh; signin_i18next=zh; finance-hub-sdk-lang=zh; top_region=; p_c_check=1; s_v_web_id=verify_mjqg5k9s_WbrSrTd8_T1XG_46c8_9Bu4_3MbAyFhknxHb; __spti=11_000JnIKZEO2PtPrMwlQ3ilQxfn2UtC; __sptiho=4D11_000JnIKZEO2PtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC; __spti=11_000JnIKZEO2PtPrMwlQ3ilQxfn2UtC; __sptiho=4D11_000JnIKZEO2PtPrMwlQ3ilQxfn2UtC_bEv/KoxCOM4AcC; volc_platform_clear_user_locale=1; ve_doc_history=82379%2C6269; VOLCFE_im_uuid=1771059509799536691; login_scene=11; volcengineLoginMethod=pwd; gfkadpd=3569,42874|520918,36088; monitor_session_id=7826853238708166961; isIntranet=0; referrer_title=Seedance%202.0%20&%20Seedream%205.0%20%E5%85%8D%E8%B4%B9%E4%BD%93%E9%AA%8C%20-%20%E7%81%AB%E5%B1%B1%E5%BC%95%E6%93%8E%20AI%20%E4%BD%93%E9%AA%8C%E4%B8%AD%E5%BF%83; monitor_traceid_base_cookie=28; digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEzMjUxMTMsImlhdCI6MTc3MTE1MjMxMywiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhODM1ZjJlZS01YTk2LTQyNDUtYWU2Yy03ZmNkNmIwZTBiNzQiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpRd05iRTBOckUwbE5oeS9OZ1pOb1ZkSUZMSW40dmRNVGs1dnpTdlJPQnovOS9YN0ZMaWxtWkdaczg2dTUvTjJmVjh5b3BuSGR1Vk0xeENnbDBybE1EbWFMRWw1K2ZtNXVkNTRWSUdDQUFBLy8vcnpPM3djUUFBQUE9PSIsIm5hbWUiOiI5NjI25omL5py655So5oi3I2hEVFNFeCIsInN1YiI6IjIxMDU0OTM0OTEiLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjEwNTQ5MzQ5MTpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.DD439j5uhR5kOD0Yz12A0W6K8UljLoGFNRcjStL0bXav4Ml7TjY6fz-k1tsdKB0eGzH5HUL0s9nzS1vv02am1BN1XgweA1pgK8gdeV1uoVXAz9sfccBdhWTKFPES1Pmev4nNp4YpcHIIF50p84sVe65-d9GoBINYlzDr45hqBEwm4jJ1b2ncpJUuMPnXnYN6q4ZYrXx2ErJVTvYlFLOekNtaEssRSv1fMiy8TEYtVp-Ta0_DKuhN7wPa2hhM-EbuYLPUuj3eBZea5VjyQ6Ii0xnjt0VuCMeES82ZFT8kfI_jfDdQNoojD0aII1hpKnYfixxBhmAtRpglA2qYen5Rdg; digest=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5YzBkZmFjYmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhdWQiOlsiY29uc29sZS52b2xjZW5naW5lLmNvbSJdLCJleHAiOjE3NzEzMjUxMTMsImlhdCI6MTc3MTE1MjMxMywiaXNzIjoiaHR0cHM6Ly9zaWduaW4udm9sY2VuZ2luZS5jb20iLCJqdGkiOiJhODM1ZjJlZS01YTk2LTQyNDUtYWU2Yy03ZmNkNmIwZTBiNzQiLCJtc2ciOiJINHNJQUFBQUFBQUMvK0tTNDJMeFM4eE5GZUl5TWpRd05iRTBOckUwbE5oeS9OZ1pOb1ZkSUZMSW40dmRNVGs1dnpTdlJPQnovOS9YN0ZMaWxtWkdaczg2dTUvTjJmVjh5b3BuSGR1Vk0xeENnbDBybE1EbWFMRWw1K2ZtNXVkNTRWSUdDQUFBLy8vcnpPM3djUUFBQUE9PSIsIm5hbWUiOiI5NjI25omL5py655So5oi3I2hEVFNFeCIsInN1YiI6IjIxMDU0OTM0OTEiLCJ0b3BpYyI6InNpZ25pbl9jcmVkZW50aWFsIiwidHJuIjoidHJuOmlhbTo6MjEwNTQ5MzQ5MTpyb290IiwidmVyc2lvbiI6InYxIiwiemlwIjoiZ3ppcCJ9.DD439j5uhR5kOD0Yz12A0W6K8UljLoGFNRcjStL0bXav4Ml7TjY6fz-k1tsdKB0eGzH5HUL0s9nzS1vv02am1BN1XgweA1pgK8gdeV1uoVXAz9sfccBdhWTKFPES1Pmev4nNp4YpcHIIF50p84sVe65-d9GoBINYlzDr45hqBEwm4jJ1b2ncpJUuMPnXnYN6q4ZYrXx2ErJVTvYlFLOekNtaEssRSv1fMiy8TEYtVp-Ta0_DKuhN7wPa2hhM-EbuYLPUuj3eBZea5VjyQ6Ii0xnjt0VuCMeES82ZFT8kfI_jfDdQNoojD0aII1hpKnYfixxBhmAtRpglA2qYen5Rdg; AccountID=2105493491; AccountID=2105493491; userInfo=eyJhbGciOiJSUzI1NiIsImtpZCI6ImE5ZDM1YTQ4YmZiNDExZjA4OWMwMDAxNjNlMDcwOGJkIn0.eyJhY2NfaSI6MjEwNTQ5MzQ5MSwiYXVkIjpbImNvbnNvbGUudm9sY2VuZ2luZS5jb20iXSwiZXhwIjoxNzczNzQ0MzEzLCJpIjoiNjhjNjZlNjYwYTViMTFmMTg2NTIzNDM2YWMxMjAwOTciLCJpZF9uIjoiOTYyNuaJi-acuueUqOaItyNoRFRTRXgiLCJtc2ciOm51bGwsInBpZCI6ImE4MzVmMmVlLTVhOTYtNDI0NS1hZTZjLTdmY2Q2YjBlMGI3NCIsInNzX24iOiI5NjI25omL5py655So5oi3I2hEVFNFeCIsInQiOiJBY2NvdW50IiwidG9waWMiOiJzaWduaW5fdXNlcl9pbmZvIiwidmVyc2lvbiI6InYxIiwiemlwIjoiIn0.S615RupKSuNbmZCRYqgjkb7lgkaUwWO_8QwBZRt9jxBWPUZgFS3tNUTU8hUB7KDfKa0ThN_lsPF48gPxrraah5kUMXAGEuy_5ZfHGb4WpUc44x2viroq-LFFayUX_UpH7AVTEqE8uwyFrECTbxf40USt0m4LvaM8pUaQiOcalhD4fYgi8dDyYW89OUdnlTx7zBrGMmIqr9kmirMmW95HpPeMQS41kqIJAttR_a76HEMJ4Qhqk6vkvADnH24MDQEjr2bc0-emuhq0Dqm1uYhpC_O3AOCp57ynnL-8xAM-9Y0p5T3Gw8X3qJ-ULVkY7NSPlDL8CJPcr_59rFmLgY1q_A; csrfToken=3ae514fef8bca9bbf57567607ad4d189; csrfToken=3ae514fef8bca9bbf57567607ad4d189; user_locale=zh; __tea_cache_tokens_3569={%22web_id%22:%227584046438867830326%22%2C%22user_unique_id%22:%227584046438867830326%22%2C%22timestamp%22:1771154552721%2C%22_type_%22:%22default%22}"""
     request = SoraVideoRequest(
         # prompt="【图片 1】【图片 2】融合起",
         prompt="孙悟空",
@@ -370,8 +383,25 @@ if __name__ == "__main__":
         # last_frame_image="https://storage.googleapis.com/falserverless/example_inputs/nano-banana-edit-input-2.png"
 
     )
+
+    data = {
+        "model": "doubao-seedance-2-0-260128",
+        "prompt": "图2人物替换图1人物\n固定镜头下，金发女孩保持视角不动，1.52秒周期眨眼，上眼睑下垂15°，下眼睑0.5HZ微颤；2000+发丝随颈部后方1.2m/s点状风源飘动，发梢幅度8-12cm。8K超写实面部建模，柔肤滤镜强度40%，虹膜动态高光追踪。原比例",
+        "seconds": "4",
+        "size": "16x9",
+        "input_reference": [
+            "https://static.mindvideo.ai/mindvideo/images/user-1816015/1771135545106.jpg",
+            "https://static.mindvideo.ai/mindvideo/images/user-1816015/1771135553777.jpg"
+        ],
+        "duration": 4,
+        "ratio": "16:9",
+        "aspect_ratio": "16:9",
+        "resolution": "480p"
+    }
+    request = SoraVideoRequest(**data)
+
     task_ids = []
-    Tasks(api_key)
+    # arun(Tasks(api_key).create(request))
     # for i in range(120):
     #     request.prompt = f"孙悟空大声叫 {i}"
     #     video = arun(Tasks(api_key).create(request))
@@ -383,127 +413,15 @@ if __name__ == "__main__":
     # # task_id = "cgt-20260212194710-gwzpn"
     # # task_id = "cgt-20260212200601-474df" # 首尾帧
     # task_id = "cgt-20260212202542-mjzbb"
-    task_id = "sora-2::cgt-20260212224451-6nrdn"
+    # task_id = "sora-2::cgt-20260212224451-6nrdn"
+    task_id = "ba3b657e-efdd-43ce-8d89-efc036965aea"
     arun(Tasks(api_key).get(task_id))
-    arun(Tasks(api_key).get_for_volc(task_id))
+    # arun(Tasks(api_key).get_for_volc(task_id))
 
-    t = ['cgt-20260212202400-zrkm4',
-         'cgt-20260212202401-8ppjx',
-         'cgt-20260212202402-4s2lq',
-         'cgt-20260212202403-vd9mh',
-         'cgt-20260212202404-czg7k',
-         'cgt-20260212202405-tmd9k',
-         'cgt-20260212202406-frjnv',
-         'cgt-20260212202407-ml7zz',
-         'cgt-20260212202407-4j6ws',
-         'cgt-20260212202409-9znbd',
-         'cgt-20260212202410-fll8p',
-         'cgt-20260212202411-6jbp9',
-         'cgt-20260212202412-l464s',
-         'cgt-20260212202413-8vkkg',
-         'cgt-20260212202413-j2m4q',
-         'cgt-20260212202414-rs7wz',
-         'cgt-20260212202415-s642l',
-         'cgt-20260212202416-9jj9p',
-         'cgt-20260212202417-qnb6z',
-         'cgt-20260212202417-2gb8f',
-         'cgt-20260212202418-7l9kr',
-         'cgt-20260212202419-wfmpf',
-         'cgt-20260212202420-j9pqw',
-         'cgt-20260212202421-h7fj9',
-         'cgt-20260212202422-lfvgw',
-         'cgt-20260212202422-xfs4c',
-         'cgt-20260212202423-66krj',
-         'cgt-20260212202424-qvbzd',
-         'cgt-20260212202425-b9nns',
-         'cgt-20260212202426-pwhlq',
-         'cgt-20260212202427-rjmwn',
-         'cgt-20260212202427-q9gjw',
-         'cgt-20260212202428-m2gsg',
-         'cgt-20260212202429-9z8c7',
-         'cgt-20260212202430-6dx2l',
-         'cgt-20260212202431-mjgpl',
-         'cgt-20260212202432-lgxnb',
-         'cgt-20260212202432-6f4pb',
-         'cgt-20260212202433-b8chd',
-         'cgt-20260212202434-5647k',
-         'cgt-20260212202435-4prdm',
-         'cgt-20260212202436-99rcw',
-         'cgt-20260212202437-ztlzw',
-         'cgt-20260212202437-dkvbh',
-         'cgt-20260212202438-k64sd',
-         'cgt-20260212202439-lq4km',
-         'cgt-20260212202440-jf7m4',
-         'cgt-20260212202441-2tb8c',
-         'cgt-20260212202442-j55nz',
-         'cgt-20260212202442-qjqlh',
-         'cgt-20260212202443-rtdl5',
-         'cgt-20260212202444-4wrcf',
-         'cgt-20260212202445-hsxdp',
-         'cgt-20260212202446-z2k2z',
-         'cgt-20260212202447-7cb6f',
-         'cgt-20260212202448-ld76h',
-         'cgt-20260212202448-vp4k6',
-         'cgt-20260212202449-xlgcf',
-         'cgt-20260212202450-qcczc',
-         'cgt-20260212202451-qfdzg',
-         'cgt-20260212202452-xbpvf',
-         'cgt-20260212202453-bzv7s',
-         'cgt-20260212202454-rn9n7',
-         'cgt-20260212202454-jv4gs',
-         'cgt-20260212202455-28wl2',
-         'cgt-20260212202456-rhnq8',
-         'cgt-20260212202457-hrqsb',
-         'cgt-20260212202458-4mdns',
-         'cgt-20260212202459-mmm89',
-         'cgt-20260212202459-27rmp',
-         'cgt-20260212202500-mvn7v',
-         'cgt-20260212202501-hbgfs',
-         'cgt-20260212202502-kvvf8',
-         'cgt-20260212202503-s5qjm',
-         'cgt-20260212202504-p4kkd',
-         'cgt-20260212202504-94cfr',
-         'cgt-20260212202505-8nj6p',
-         'cgt-20260212202506-h6zr4',
-         'cgt-20260212202507-n9vm6',
-         'cgt-20260212202507-w6hh5',
-         'cgt-20260212202508-xtqg7',
-         'cgt-20260212202509-tp5p6',
-         'cgt-20260212202510-9ls7l',
-         'cgt-20260212202511-mfwct',
-         'cgt-20260212202512-7lnrs',
-         'cgt-20260212202513-q84ss',
-         'cgt-20260212202514-rgpmq',
-         'cgt-20260212202514-nng8d',
-         'cgt-20260212202515-rsmgq',
-         'cgt-20260212202516-c8th4',
-         'cgt-20260212202517-g694z',
-         'cgt-20260212202518-kj8bl',
-         'cgt-20260212202519-nf82w',
-         'cgt-20260212202520-vslgd',
-         'cgt-20260212202521-lsvgp',
-         'cgt-20260212202521-6g6ps',
-         'cgt-20260212202522-mrhpf',
-         'cgt-20260212202523-hvn48',
-         'cgt-20260212202524-h2pqp',
-         'cgt-20260212202525-67z4s',
-         'cgt-20260212202526-z2tng',
-         'cgt-20260212202527-sdrfp',
-         'cgt-20260212202527-c9w7q',
-         'cgt-20260212202528-2frs4',
-         'cgt-20260212202529-fdl4z',
-         'cgt-20260212202530-4sg92',
-         'cgt-20260212202531-cpq9z',
-         'cgt-20260212202532-hg448',
-         'cgt-20260212202532-cbx92',
-         'cgt-20260212202533-nsrpf',
-         'cgt-20260212202534-blpk9',
-         'cgt-20260212202535-hj2rj',
-         'cgt-20260212202536-nrvpb',
-         'cgt-20260212202537-9glbk',
-         'cgt-20260212202538-8qldz',
-         'cgt-20260212202538-dv6r5',
-         'cgt-20260212202539-j2s2z',
-         'cgt-20260212202540-pkwrj',
-         'cgt-20260212202541-8tnd8',
-         'cgt-20260212202542-mjzbb']
+# {"model":"doubao-seedance-2-0-260128","stream":false,"top_p":0.7,"temperature":0.7,"n":1,"content":[{"type":"text","text":"刘亦菲穿着肉色丝袜在床上唱歌"}],"generate_audio":true,"ratio":"16:9","duration":15,"watermark":false}
+
+# docker logs -f --tail 100 "apis-videos" | grep "未指定首帧或尾帧图片"
+#
+# docker logs -f --tail 100"520bdb0c2c5f70b51545ae9300cbb53e1d39e8b1a6547cb5d05f78fffd78ed5c" | grep "未指定首帧或尾帧图片"
+#docker logs --tail 100 <container_id> | grep "failed"
+

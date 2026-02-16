@@ -21,6 +21,7 @@ from adam.commands.config.param_get import GetParam
 from adam.commands.config.param_set import SetParam
 from adam.commands.deploy.upgrade import Upgrade
 from adam.commands.filters.debug_filter import DebugFilter
+from adam.commands.filters.push_pod_filter import PushPodFilter
 from adam.commands.filters.schedule_filter import ScheduleFilter
 from adam.commands.filters.time_filter import TimeFilter
 from adam.commands.fs.find_files import FindFiles
@@ -103,6 +104,7 @@ from adam.commands.app.show_login import ShowLogin
 from adam.commands.config.show_params import ShowParams
 from adam.commands.fs.show_adam import ShowAdam
 from adam.commands.show import Show
+from adam.utils_job.cancel_jobs import CancelJobs
 
 class ReplCommands:
     def repl_cmd_list() -> list[Command]:
@@ -126,7 +128,7 @@ class ReplCommands:
         return deduped
 
     def navigation() -> list[Command]:
-        return [Cd(), Cat(), CatLocal(), ClipboardCopy(),
+        return [Cd(), CancelJobs(), Cat(), CatLocal(), ClipboardCopy(),
                 DeviceApp(), DevicePostgres(), DeviceCass(), DeviceAuditLog(), DeviceExport(),
                 DownloadFile(), FindFiles(), FindLocalFiles(), FindProcesses(), GetParam(),
                 Head(), HeadLocal(), Ls(), LsLocal(), PreviewTable(), Pwd(), GoodMorning(), RmLogs(),
@@ -169,4 +171,4 @@ class ReplCommands:
         return [Exit()]
 
     def filters() -> list[CommandFilter]:
-        return [DebugFilter(), ScheduleFilter(), TimeFilter()]
+        return [DebugFilter(), PushPodFilter(), ScheduleFilter(), TimeFilter()]

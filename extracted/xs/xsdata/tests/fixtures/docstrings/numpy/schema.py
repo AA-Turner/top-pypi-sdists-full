@@ -91,28 +91,24 @@ class Root:
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     b: RootB = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     c: RootEnum = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
     d: RootD = field(
         metadata={
             "type": "Element",
             "namespace": "",
-            "required": True,
         }
     )
 
@@ -133,6 +129,5 @@ class Root:
             metadata={
                 "type": "Element",
                 "namespace": "",
-                "required": True,
             }
         )

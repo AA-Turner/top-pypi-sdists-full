@@ -17,7 +17,6 @@ from meutils.io.files_utils import to_bytes
 from meutils.io.openai_files import file_extract, guess_mime_type
 from meutils.str_utils.json_utils import json_path
 from meutils.apis.search import metaso
-# from meutils.apis.chatglm import glm_video_api
 
 from meutils.llm.clients import chatfire_client, zhipuai_client, AsyncOpenAI
 from meutils.llm.openai_utils import to_openai_params

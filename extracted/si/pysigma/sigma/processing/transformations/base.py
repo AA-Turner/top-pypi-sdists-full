@@ -3,7 +3,7 @@ import dataclasses
 from typing import Any, Iterable, Optional, Union, TYPE_CHECKING
 from dataclasses import dataclass, field
 from sigma.conditions import ConditionOR
-from sigma.correlations import SigmaCorrelationRule
+from sigma.correlations import SigmaCorrelationCondition, SigmaCorrelationRule
 from sigma.rule import SigmaRule, SigmaDetection, SigmaDetectionItem
 from sigma.exceptions import (
     SigmaConfigurationError,
@@ -215,7 +215,11 @@ class FieldMappingTransformationBase(DetectionItemTransformation):
                 ]
 
             # finally map the field name in the condition
-            if rule.condition is not None and (fieldref := rule.condition.fieldref) is not None:
+            if (
+                isinstance(rule.condition, SigmaCorrelationCondition)
+                and rule.condition is not None
+                and (fieldref := rule.condition.fieldref) is not None
+            ):
                 if isinstance(fieldref, list):
                     mapped_fields = []
                     for field in fieldref:

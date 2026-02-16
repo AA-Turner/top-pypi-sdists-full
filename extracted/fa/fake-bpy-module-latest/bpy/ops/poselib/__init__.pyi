@@ -9,28 +9,32 @@ def apply_pose_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
     | None = "LOCAL",
-    asset_library_identifier: str = "",
-    relative_asset_identifier: str = "",
+    asset_library_identifier: str | None = "",
+    relative_asset_identifier: str | None = "",
     blend_factor: float | None = 1.0,
     flipped: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Apply the given Pose Action to the rig
 
-    :param asset_library_type: Asset Library Type
-    :param asset_library_identifier: Asset Library Identifier
-    :param relative_asset_identifier: Relative Asset Identifier
-    :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
-    :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis
+    :param asset_library_type: Asset Library Type, (optional)
+    :param asset_library_identifier: Asset Library Identifier, (optional, never None)
+    :param relative_asset_identifier: Relative Asset Identifier, (optional, never None)
+    :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it (in [-inf, inf], optional)
+    :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis (optional)
+    :return: Result of the operator call.
     """
 
 def asset_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete the selected Pose Asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete the selected Pose Asset
+
+    :return: Result of the operator call.
+    """
 
 def asset_modify(
     execution_context: int | str | None = None,
@@ -38,10 +42,10 @@ def asset_modify(
     /,
     *,
     mode: typing.Literal["ADJUST", "REPLACE", "ADD", "REMOVE"] | None = "ADJUST",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Update the selected pose asset in the asset library from the currently selected bones. The mode defines how the asset is updated
 
-        :param mode: Overwrite Mode, Specify which parts of the pose asset are overwritten
+        :param mode: Overwrite Mode, Specify which parts of the pose asset are overwritten (optional)
 
     ADJUST
     Adjust -- Update existing channels in the pose asset but dont remove or add any channels.
@@ -54,6 +58,7 @@ def asset_modify(
 
     REMOVE
     Remove Selected Bones -- Remove channels of the selection from the pose asset.
+        :return: Result of the operator call.
     """
 
 def blend_pose_asset(
@@ -61,53 +66,61 @@ def blend_pose_asset(
     undo: bool | None = None,
     /,
     *,
-    asset_library_type: bpy.stub_internal.rna_enums.AssetLibraryTypeItems
+    asset_library_type: Literal[bpy.stub_internal.rna_enums.AssetLibraryTypeItems]
     | None = "LOCAL",
-    asset_library_identifier: str = "",
-    relative_asset_identifier: str = "",
+    asset_library_identifier: str | None = "",
+    relative_asset_identifier: str | None = "",
     blend_factor: float | None = 0.0,
     flipped: bool | None = False,
     release_confirm: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Blend the given Pose Action to the rig
 
-    :param asset_library_type: Asset Library Type
-    :param asset_library_identifier: Asset Library Identifier
-    :param relative_asset_identifier: Relative Asset Identifier
-    :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it
-    :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis
-    :param release_confirm: Confirm on Release, Always confirm operation when releasing button
+    :param asset_library_type: Asset Library Type, (optional)
+    :param asset_library_identifier: Asset Library Identifier, (optional, never None)
+    :param relative_asset_identifier: Relative Asset Identifier, (optional, never None)
+    :param blend_factor: Blend Factor, Amount that the pose is applied on top of the existing poses. A negative value will subtract the pose instead of adding it (in [-inf, inf], optional)
+    :param flipped: Apply Flipped, When enabled, applies the pose flipped over the X-axis (optional)
+    :param release_confirm: Confirm on Release, Always confirm operation when releasing button (optional)
+    :return: Result of the operator call.
     """
 
 def copy_as_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create a new pose asset on the clipboard, to be pasted into an Asset Browser"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create a new pose asset on the clipboard, to be pasted into an Asset Browser
+
+    :return: Result of the operator call.
+    """
 
 def create_pose_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    pose_name: str = "",
+    pose_name: str | None = "",
     asset_library_reference: str | None = "",
-    catalog_path: str = "",
-) -> None:
+    catalog_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new asset from the selected bones in the scene
 
-    :param pose_name: Pose Name, Name for the new pose asset
-    :param asset_library_reference: Library, Asset library used to store the new pose
-    :param catalog_path: Catalog, Catalog to use for the new asset
+    :param pose_name: Pose Name, Name for the new pose asset (optional, never None)
+    :param asset_library_reference: Library, Asset library used to store the new pose (optional)
+    :param catalog_path: Catalog, Catalog to use for the new asset (optional, never None)
+    :return: Result of the operator call.
     """
 
 def paste_asset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Paste the Asset that was previously copied using Copy As Asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Paste the Asset that was previously copied using Copy As Asset
+
+    :return: Result of the operator call.
+    """
 
 def pose_asset_select_bones(
     execution_context: int | str | None = None,
@@ -116,16 +129,20 @@ def pose_asset_select_bones(
     *,
     select: bool | None = True,
     flipped: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select those bones that are used in this pose
 
-    :param select: Select
-    :param flipped: Flipped
+    :param select: Select, (optional)
+    :param flipped: Flipped, (optional)
+    :return: Result of the operator call.
     """
 
 def restore_previous_action(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Switch back to the previous Action, after creating a pose asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Switch back to the previous Action, after creating a pose asset
+
+    :return: Result of the operator call.
+    """

@@ -23,8 +23,8 @@ class UpdateNatsTriggerJsonBody:
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when a message is received
         is_flow (bool): True if script_path points to a flow, false if it points to a script
-        stream_name (Union[Unset, str]): JetStream stream name (required when use_jetstream is true)
-        consumer_name (Union[Unset, str]): JetStream consumer name (required when use_jetstream is true)
+        stream_name (Union[Unset, None, str]): JetStream stream name (required when use_jetstream is true)
+        consumer_name (Union[Unset, None, str]): JetStream consumer name (required when use_jetstream is true)
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateNatsTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
             script or flow
@@ -37,8 +37,8 @@ class UpdateNatsTriggerJsonBody:
     path: str
     script_path: str
     is_flow: bool
-    stream_name: Union[Unset, str] = UNSET
-    consumer_name: Union[Unset, str] = UNSET
+    stream_name: Union[Unset, None, str] = UNSET
+    consumer_name: Union[Unset, None, str] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateNatsTriggerJsonBodyErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "UpdateNatsTriggerJsonBodyRetry"] = UNSET

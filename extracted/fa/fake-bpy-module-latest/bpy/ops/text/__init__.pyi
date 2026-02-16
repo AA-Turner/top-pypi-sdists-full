@@ -2,13 +2,17 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Show a list of used text in the open document"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Show a list of used text in the open document
+
+    :return: Result of the operator call.
+    """
 
 def comment_toggle(
     execution_context: int | str | None = None,
@@ -16,10 +20,11 @@ def comment_toggle(
     /,
     *,
     type: typing.Literal["TOGGLE", "COMMENT", "UNCOMMENT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param type: Type, Add or remove comments
+    :param type: Type, Add or remove comments (optional)
+    :return: Result of the operator call.
     """
 
 def convert_whitespace(
@@ -28,18 +33,22 @@ def convert_whitespace(
     /,
     *,
     type: typing.Literal["SPACES", "TABS"] | None = "SPACES",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Convert whitespaces by type
 
-    :param type: Type, Type of whitespace to convert to
+    :param type: Type, Type of whitespace to convert to (optional)
+    :return: Result of the operator call.
     """
 
 def copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Copy selected text to clipboard"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Copy selected text to clipboard
+
+    :return: Result of the operator call.
+    """
 
 def cursor_set(
     execution_context: int | str | None = None,
@@ -48,19 +57,23 @@ def cursor_set(
     *,
     x: int | None = 0,
     y: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set cursor position
 
-    :param x: X
-    :param y: Y
+    :param x: X, (in [-inf, inf], optional)
+    :param y: Y, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def cut(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Cut selected text to clipboard"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Cut selected text to clipboard
+
+    :return: Result of the operator call.
+    """
 
 def delete(
     execution_context: int | str | None = None,
@@ -71,57 +84,74 @@ def delete(
         "NEXT_CHARACTER", "PREVIOUS_CHARACTER", "NEXT_WORD", "PREVIOUS_WORD"
     ]
     | None = "NEXT_CHARACTER",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete text by cursor position
 
-    :param type: Type, Which part of the text to delete
+    :param type: Type, Which part of the text to delete (optional)
+    :return: Result of the operator call.
     """
 
 def duplicate_line(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Duplicate the current line"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Duplicate the current line
+
+    :return: Result of the operator call.
+    """
 
 def find(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Find specified text"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Find specified text
+
+    :return: Result of the operator call.
+    """
 
 def find_set_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Find specified text and set as selected"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Find specified text and set as selected
+
+    :return: Result of the operator call.
+    """
 
 def indent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Indent selected text"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Indent selected text
+
+    :return: Result of the operator call.
+    """
 
 def indent_or_autocomplete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Indent selected text or autocomplete"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Indent selected text or autocomplete
+
+    :return: Result of the operator call.
+    """
 
 def insert(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    text: str = "",
-) -> None:
+    text: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Insert text at cursor position
 
-    :param text: Text, Text to insert at the cursor position
+    :param text: Text, Text to insert at the cursor position (optional, never None)
+    :return: Result of the operator call.
     """
 
 def jump(
@@ -130,10 +160,11 @@ def jump(
     /,
     *,
     line: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump cursor to line
 
-    :param line: Line, Line number to jump to
+    :param line: Line, Line number to jump to (in [1, inf], optional)
+    :return: Result of the operator call.
     """
 
 def jump_to_file_at_point(
@@ -141,37 +172,47 @@ def jump_to_file_at_point(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     line: int | None = 0,
     column: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to a file for the text editor
 
-    :param filepath: Filepath
-    :param line: Line, Line to jump to
-    :param column: Column, Column to jump to
+    :param filepath: Filepath, (optional, never None)
+    :param line: Line, Line to jump to (in [0, inf], optional)
+    :param column: Column, Column to jump to (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def line_break(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Insert line break at cursor position"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Insert line break at cursor position
+
+    :return: Result of the operator call.
+    """
 
 def line_number(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """The current line number"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """The current line number
+
+    :return: Result of the operator call.
+    """
 
 def make_internal(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make active text file internal"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make active text file internal
+
+    :return: Result of the operator call.
+    """
 
 def move(
     execution_context: int | str | None = None,
@@ -193,10 +234,11 @@ def move(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move cursor to position type
 
-    :param type: Type, Where to move cursor to
+    :param type: Type, Where to move cursor to (optional)
+    :return: Result of the operator call.
     """
 
 def move_lines(
@@ -205,10 +247,11 @@ def move_lines(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "DOWN",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the currently selected line(s) up/down
 
-    :param direction: Direction
+    :param direction: Direction, (optional)
+    :return: Result of the operator call.
     """
 
 def move_select(
@@ -231,25 +274,29 @@ def move_select(
         "NEXT_PAGE",
     ]
     | None = "LINE_BEGIN",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the cursor while selecting
 
-    :param type: Type, Where to move cursor to, to make a selection
+    :param type: Type, Where to move cursor to, to make a selection (optional)
+    :return: Result of the operator call.
     """
 
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Create a new text data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Create a new text data-block
+
+    :return: Result of the operator call.
+    """
 
 def open(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -284,31 +331,31 @@ def open(
     ]
     | None = "",
     internal: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Open a new text data-block
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -321,7 +368,7 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
 
     DEFAULT
     Default -- Automatically determine sort method for files.
@@ -340,15 +387,19 @@ def open(
 
     ASSET_CATALOG
     Asset Catalog -- Sort the asset list so that assets in the same catalog are kept together. Within a single catalog, assets are ordered by name. The catalogs are in order of the flattened catalog hierarchy..
-        :param internal: Make Internal, Make text file internal after loading
+        :param internal: Make Internal, Make text file internal after loading (optional)
+        :return: Result of the operator call.
     """
 
 def overwrite_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle overwrite while typing"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle overwrite while typing
+
+    :return: Result of the operator call.
+    """
 
 def paste(
     execution_context: int | str | None = None,
@@ -356,18 +407,22 @@ def paste(
     /,
     *,
     selection: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Paste text from clipboard
 
-    :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only)
+    :param selection: Selection, Paste text selected elsewhere rather than copied (X11/Wayland only) (optional)
+    :return: Result of the operator call.
     """
 
 def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reload active text data-block from its file"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reload active text data-block from its file
+
+    :return: Result of the operator call.
+    """
 
 def replace(
     execution_context: int | str | None = None,
@@ -375,18 +430,22 @@ def replace(
     /,
     *,
     all: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Replace text with the specified text
 
-    :param all: Replace All, Replace all occurrences
+    :param all: Replace All, Replace all occurrences (optional)
+    :return: Result of the operator call.
     """
 
 def replace_set_selected(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Replace text with specified text and set as selected"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Replace text with specified text and set as selected
+
+    :return: Result of the operator call.
+    """
 
 def resolve_conflict(
     execution_context: int | str | None = None,
@@ -395,32 +454,39 @@ def resolve_conflict(
     *,
     resolution: typing.Literal["IGNORE", "RELOAD", "SAVE", "MAKE_INTERNAL"]
     | None = "IGNORE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """When external text is out of sync, resolve the conflict
 
-    :param resolution: Resolution, How to solve conflict due to differences in internal and external text
+    :param resolution: Resolution, How to solve conflict due to differences in internal and external text (optional)
+    :return: Result of the operator call.
     """
 
 def run_script(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Run active script"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Run active script
+
+    :return: Result of the operator call.
+    """
 
 def save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Save active text data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Save active text data-block
+
+    :return: Result of the operator call.
+    """
 
 def save_as(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
@@ -445,30 +511,30 @@ def save_as(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Save active text file with options
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -481,7 +547,8 @@ def save_as(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def scroll(
@@ -490,10 +557,11 @@ def scroll(
     /,
     *,
     lines: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param lines: Lines, Number of lines to scroll
+    :param lines: Lines, Number of lines to scroll (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def scroll_bar(
@@ -502,46 +570,62 @@ def scroll_bar(
     /,
     *,
     lines: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param lines: Lines, Number of lines to scroll
+    :param lines: Lines, Number of lines to scroll (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def select_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select all text"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select all text
+
+    :return: Result of the operator call.
+    """
 
 def select_line(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select text by line"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select text by line
+
+    :return: Result of the operator call.
+    """
 
 def select_word(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Select word under cursor"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Select word under cursor
+
+    :return: Result of the operator call.
+    """
 
 def selection_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Set text selection"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Set text selection
+
+    :return: Result of the operator call.
+    """
 
 def start_find(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Start searching text"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Start searching text
+
+    :return: Result of the operator call.
+    """
 
 def to_3d_object(
     execution_context: int | str | None = None,
@@ -549,29 +633,39 @@ def to_3d_object(
     /,
     *,
     split_lines: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create 3D text object from active text data-block
 
-    :param split_lines: Split Lines, Create one object per line in the text
+    :param split_lines: Split Lines, Create one object per line in the text (optional)
+    :return: Result of the operator call.
     """
 
 def unindent(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Unindent selected text"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Unindent selected text
+
+    :return: Result of the operator call.
+    """
 
 def unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Unlink active text data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Unlink active text data-block
+
+    :return: Result of the operator call.
+    """
 
 def update_shader(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Update users of this shader, such as custom cameras and script nodes, with its new sockets and options"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Update users of this shader, such as custom cameras and script nodes, with its new sockets and options
+
+    :return: Result of the operator call.
+    """

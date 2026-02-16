@@ -89,7 +89,7 @@ def test_tox_env_pass_env_fails_on_whitespace(tox_project: ToxProjectCreator) ->
     first, second = "A B", "C D"
     prj = tox_project({"tox.ini": f"[testenv]\npackage=skip\npass_env = {first}\n {second}\n  E"})
     result = prj.run("c", "-k", "pass_env", raise_on_config_fail=False)
-    result.assert_success()
+    result.assert_failed(code=-1)
     msg = (
         '[testenv:py]\npass_env = # Exception: Fail("pass_env values cannot contain whitespace, use comma to have '
         f'multiple values in a single line, invalid values found {first!r}, {second!r}")\n'
@@ -111,6 +111,54 @@ def test_tox_env_pass_env_match_ignore_case(char: str, glob: str) -> None:
     with patch("os.environ", {"A1": "1", "a2": "2", "A2": "3", "B": "4"}):
         env = ToxEnv._load_pass_env([f"{char}{glob}"])  # noqa: SLF001
     assert env == {"A1": "1", "a2": "2", "A2": "3"}
+
+
+def test_disallow_pass_env(tox_project: ToxProjectCreator) -> None:
+    cmd = "import os; print(os.environ.get('FOO_BAR', '')); print(os.environ.get('FOO_SECRET', ''))"
+    toml = f"""
+    [env_run_base]
+    package = "skip"
+    pass_env = ["FOO_*"]
+    disallow_pass_env = ["FOO_SECRET"]
+    commands = [["python", "-c", "{cmd}"]]
+    """
+    project = tox_project({"tox.toml": toml})
+    with patch.dict("os.environ", {"FOO_BAR": "visible", "FOO_SECRET": "hidden"}):
+        result = project.run("r")
+    result.assert_success()
+    assert "visible" in result.out
+    assert "hidden" not in result.out
+
+
+def test_disallow_pass_env_glob(tox_project: ToxProjectCreator) -> None:
+    cmd = "import os; print(os.environ.get('APP_NAME', '')); print(os.environ.get('APP_SECRET_KEY', ''))"
+    toml = f"""
+    [env_run_base]
+    package = "skip"
+    pass_env = ["APP_*"]
+    disallow_pass_env = ["APP_SECRET_*"]
+    commands = [["python", "-c", "{cmd}"]]
+    """
+    project = tox_project({"tox.toml": toml})
+    with patch.dict("os.environ", {"APP_NAME": "myapp", "APP_SECRET_KEY": "s3cret"}):
+        result = project.run("r")
+    result.assert_success()
+    assert "myapp" in result.out
+    assert "s3cret" not in result.out
+
+
+def test_disallow_pass_env_empty(tox_project: ToxProjectCreator) -> None:
+    toml = """
+    [env_run_base]
+    package = "skip"
+    pass_env = ["FOO"]
+    commands = [["python", "-c", "import os; print(os.environ.get('FOO', ''))"]]
+    """
+    project = tox_project({"tox.toml": toml})
+    with patch.dict("os.environ", {"FOO": "bar"}):
+        result = project.run("r")
+    result.assert_success()
+    assert "bar" in result.out
 
 
 def test_change_dir_is_created_if_not_exist(tox_project: ToxProjectCreator) -> None:

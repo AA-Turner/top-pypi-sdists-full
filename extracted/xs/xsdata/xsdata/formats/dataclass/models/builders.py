@@ -390,7 +390,6 @@ class XmlVarBuilder:
         choices = metadata.get("choices", EMPTY_SEQUENCE)
         mixed = metadata.get("mixed", False)
         process_contents = metadata.get("process_contents", "strict")
-        required = metadata.get("required", False)
         nillable = metadata.get("nillable", False)
         format_str = metadata.get("format", None)
         sequence = metadata.get("sequence", None)
@@ -399,9 +398,8 @@ class XmlVarBuilder:
         annotation = evaluate(type_hint, globalns)
 
         try:
-            analyze = evaluations[xml_type]
-            types, factory, tokens_factory = analyze(annotation, tokens=tokens)
-            types = tuple(converter.sort_types(types))
+            result = evaluations[xml_type](annotation, tokens=tokens)
+            types = tuple(converter.sort_types(result.types))
             if not self.is_typing_supported(types):
                 raise TypeError
 
@@ -411,7 +409,14 @@ class XmlVarBuilder:
                 f"Xml {xml_type} does not support typing `{type_hint}`"
             )
 
-        factory = factory or parent_factory
+        factory = result.factory or parent_factory
+        tokens_factory = result.tokens_factory
+        required = not result.optional
+        if xml_type == XmlType.ATTRIBUTE and default_value is not None:
+            required = metadata.get("required", False)
+        elif tokens or factory:
+            required = False
+
         local_name = local_name or self.build_local_name(xml_type, name)
         any_type = self.is_any_type(types, xml_type)
         clazz = first(tp for tp in types if self.class_type.is_model(tp))
@@ -424,6 +429,7 @@ class XmlVarBuilder:
         for choice in self.build_choices(
             model, name, choices, factory, globalns, parent_namespace
         ):
+            choice.required = False
             if choice.is_element:
                 elements[choice.qname] = choice
             else:  # choice.is_wildcard:

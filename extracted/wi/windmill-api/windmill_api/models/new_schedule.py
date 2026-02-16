@@ -1,5 +1,5 @@
 import datetime
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -28,34 +28,37 @@ class NewSchedule:
         timezone (str): IANA timezone for the schedule (e.g., 'UTC', 'Europe/Paris', 'America/New_York')
         script_path (str): Path to the script or flow to execute when triggered
         is_flow (bool): True if script_path points to a flow, false if it points to a script
-        args (NewScheduleArgs): The arguments to pass to the script or flow
+        args (Optional[NewScheduleArgs]): The arguments to pass to the script or flow
         enabled (Union[Unset, bool]): Whether the schedule is currently active and will trigger jobs
-        on_failure (Union[Unset, str]): Path to a script or flow to run when the scheduled job fails
-        on_failure_times (Union[Unset, float]): Number of consecutive failures before the on_failure handler is
+        on_failure (Union[Unset, None, str]): Path to a script or flow to run when the scheduled job fails
+        on_failure_times (Union[Unset, None, float]): Number of consecutive failures before the on_failure handler is
             triggered (default 1)
-        on_failure_exact (Union[Unset, bool]): If true, trigger on_failure handler only on exactly N failures, not on
-            every failure after N
-        on_failure_extra_args (Union[Unset, NewScheduleOnFailureExtraArgs]): The arguments to pass to the script or flow
-        on_recovery (Union[Unset, str]): Path to a script or flow to run when the schedule recovers after failures
-        on_recovery_times (Union[Unset, float]): Number of consecutive successes before the on_recovery handler is
+        on_failure_exact (Union[Unset, None, bool]): If true, trigger on_failure handler only on exactly N failures, not
+            on every failure after N
+        on_failure_extra_args (Union[Unset, None, NewScheduleOnFailureExtraArgs]): The arguments to pass to the script
+            or flow
+        on_recovery (Union[Unset, None, str]): Path to a script or flow to run when the schedule recovers after failures
+        on_recovery_times (Union[Unset, None, float]): Number of consecutive successes before the on_recovery handler is
             triggered (default 1)
-        on_recovery_extra_args (Union[Unset, NewScheduleOnRecoveryExtraArgs]): The arguments to pass to the script or
-            flow
-        on_success (Union[Unset, str]): Path to a script or flow to run after each successful execution
-        on_success_extra_args (Union[Unset, NewScheduleOnSuccessExtraArgs]): The arguments to pass to the script or flow
+        on_recovery_extra_args (Union[Unset, None, NewScheduleOnRecoveryExtraArgs]): The arguments to pass to the script
+            or flow
+        on_success (Union[Unset, None, str]): Path to a script or flow to run after each successful execution
+        on_success_extra_args (Union[Unset, None, NewScheduleOnSuccessExtraArgs]): The arguments to pass to the script
+            or flow
         ws_error_handler_muted (Union[Unset, bool]): If true, the workspace-level error handler will not be triggered
             for this schedule's failures
-        retry (Union[Unset, NewScheduleRetry]): Retry configuration for failed module executions
+        retry (Union[Unset, None, NewScheduleRetry]): Retry configuration for failed module executions
         no_flow_overlap (Union[Unset, bool]): If true, skip this schedule's execution if the previous run is still in
             progress (prevents concurrent runs)
-        summary (Union[Unset, str]): Short summary describing the purpose of this schedule
-        description (Union[Unset, str]): Detailed description of what this schedule does
-        tag (Union[Unset, str]): Worker tag to route jobs to specific worker groups
-        paused_until (Union[Unset, datetime.datetime]): ISO 8601 datetime until which the schedule is paused. Schedule
-            resumes automatically after this time
-        cron_version (Union[Unset, str]): Cron parser version. Use 'v2' for extended syntax with additional features
-        dynamic_skip (Union[Unset, str]): Path to a script that validates scheduled datetimes. Receives scheduled_for
-            datetime and returns boolean to skip (true) or run (false)
+        summary (Union[Unset, None, str]): Short summary describing the purpose of this schedule
+        description (Union[Unset, None, str]): Detailed description of what this schedule does
+        tag (Union[Unset, None, str]): Worker tag to route jobs to specific worker groups
+        paused_until (Union[Unset, None, datetime.datetime]): ISO 8601 datetime until which the schedule is paused.
+            Schedule resumes automatically after this time
+        cron_version (Union[Unset, None, str]): Cron parser version. Use 'v2' for extended syntax with additional
+            features
+        dynamic_skip (Union[Unset, None, str]): Path to a script that validates scheduled datetimes. Receives
+            scheduled_for datetime and returns boolean to skip (true) or run (false)
     """
 
     path: str
@@ -63,26 +66,26 @@ class NewSchedule:
     timezone: str
     script_path: str
     is_flow: bool
-    args: "NewScheduleArgs"
+    args: Optional["NewScheduleArgs"]
     enabled: Union[Unset, bool] = UNSET
-    on_failure: Union[Unset, str] = UNSET
-    on_failure_times: Union[Unset, float] = UNSET
-    on_failure_exact: Union[Unset, bool] = UNSET
-    on_failure_extra_args: Union[Unset, "NewScheduleOnFailureExtraArgs"] = UNSET
-    on_recovery: Union[Unset, str] = UNSET
-    on_recovery_times: Union[Unset, float] = UNSET
-    on_recovery_extra_args: Union[Unset, "NewScheduleOnRecoveryExtraArgs"] = UNSET
-    on_success: Union[Unset, str] = UNSET
-    on_success_extra_args: Union[Unset, "NewScheduleOnSuccessExtraArgs"] = UNSET
+    on_failure: Union[Unset, None, str] = UNSET
+    on_failure_times: Union[Unset, None, float] = UNSET
+    on_failure_exact: Union[Unset, None, bool] = UNSET
+    on_failure_extra_args: Union[Unset, None, "NewScheduleOnFailureExtraArgs"] = UNSET
+    on_recovery: Union[Unset, None, str] = UNSET
+    on_recovery_times: Union[Unset, None, float] = UNSET
+    on_recovery_extra_args: Union[Unset, None, "NewScheduleOnRecoveryExtraArgs"] = UNSET
+    on_success: Union[Unset, None, str] = UNSET
+    on_success_extra_args: Union[Unset, None, "NewScheduleOnSuccessExtraArgs"] = UNSET
     ws_error_handler_muted: Union[Unset, bool] = UNSET
-    retry: Union[Unset, "NewScheduleRetry"] = UNSET
+    retry: Union[Unset, None, "NewScheduleRetry"] = UNSET
     no_flow_overlap: Union[Unset, bool] = UNSET
-    summary: Union[Unset, str] = UNSET
-    description: Union[Unset, str] = UNSET
-    tag: Union[Unset, str] = UNSET
-    paused_until: Union[Unset, datetime.datetime] = UNSET
-    cron_version: Union[Unset, str] = UNSET
-    dynamic_skip: Union[Unset, str] = UNSET
+    summary: Union[Unset, None, str] = UNSET
+    description: Union[Unset, None, str] = UNSET
+    tag: Union[Unset, None, str] = UNSET
+    paused_until: Union[Unset, None, datetime.datetime] = UNSET
+    cron_version: Union[Unset, None, str] = UNSET
+    dynamic_skip: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -91,39 +94,39 @@ class NewSchedule:
         timezone = self.timezone
         script_path = self.script_path
         is_flow = self.is_flow
-        args = self.args.to_dict()
+        args = self.args.to_dict() if self.args else None
 
         enabled = self.enabled
         on_failure = self.on_failure
         on_failure_times = self.on_failure_times
         on_failure_exact = self.on_failure_exact
-        on_failure_extra_args: Union[Unset, Dict[str, Any]] = UNSET
+        on_failure_extra_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.on_failure_extra_args, Unset):
-            on_failure_extra_args = self.on_failure_extra_args.to_dict()
+            on_failure_extra_args = self.on_failure_extra_args.to_dict() if self.on_failure_extra_args else None
 
         on_recovery = self.on_recovery
         on_recovery_times = self.on_recovery_times
-        on_recovery_extra_args: Union[Unset, Dict[str, Any]] = UNSET
+        on_recovery_extra_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.on_recovery_extra_args, Unset):
-            on_recovery_extra_args = self.on_recovery_extra_args.to_dict()
+            on_recovery_extra_args = self.on_recovery_extra_args.to_dict() if self.on_recovery_extra_args else None
 
         on_success = self.on_success
-        on_success_extra_args: Union[Unset, Dict[str, Any]] = UNSET
+        on_success_extra_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.on_success_extra_args, Unset):
-            on_success_extra_args = self.on_success_extra_args.to_dict()
+            on_success_extra_args = self.on_success_extra_args.to_dict() if self.on_success_extra_args else None
 
         ws_error_handler_muted = self.ws_error_handler_muted
-        retry: Union[Unset, Dict[str, Any]] = UNSET
+        retry: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.retry, Unset):
-            retry = self.retry.to_dict()
+            retry = self.retry.to_dict() if self.retry else None
 
         no_flow_overlap = self.no_flow_overlap
         summary = self.summary
         description = self.description
         tag = self.tag
-        paused_until: Union[Unset, str] = UNSET
+        paused_until: Union[Unset, None, str] = UNSET
         if not isinstance(self.paused_until, Unset):
-            paused_until = self.paused_until.isoformat()
+            paused_until = self.paused_until.isoformat() if self.paused_until else None
 
         cron_version = self.cron_version
         dynamic_skip = self.dynamic_skip
@@ -200,7 +203,12 @@ class NewSchedule:
 
         is_flow = d.pop("is_flow")
 
-        args = NewScheduleArgs.from_dict(d.pop("args"))
+        _args = d.pop("args")
+        args: Optional[NewScheduleArgs]
+        if _args is None:
+            args = None
+        else:
+            args = NewScheduleArgs.from_dict(_args)
 
         enabled = d.pop("enabled", UNSET)
 
@@ -211,8 +219,10 @@ class NewSchedule:
         on_failure_exact = d.pop("on_failure_exact", UNSET)
 
         _on_failure_extra_args = d.pop("on_failure_extra_args", UNSET)
-        on_failure_extra_args: Union[Unset, NewScheduleOnFailureExtraArgs]
-        if isinstance(_on_failure_extra_args, Unset):
+        on_failure_extra_args: Union[Unset, None, NewScheduleOnFailureExtraArgs]
+        if _on_failure_extra_args is None:
+            on_failure_extra_args = None
+        elif isinstance(_on_failure_extra_args, Unset):
             on_failure_extra_args = UNSET
         else:
             on_failure_extra_args = NewScheduleOnFailureExtraArgs.from_dict(_on_failure_extra_args)
@@ -222,8 +232,10 @@ class NewSchedule:
         on_recovery_times = d.pop("on_recovery_times", UNSET)
 
         _on_recovery_extra_args = d.pop("on_recovery_extra_args", UNSET)
-        on_recovery_extra_args: Union[Unset, NewScheduleOnRecoveryExtraArgs]
-        if isinstance(_on_recovery_extra_args, Unset):
+        on_recovery_extra_args: Union[Unset, None, NewScheduleOnRecoveryExtraArgs]
+        if _on_recovery_extra_args is None:
+            on_recovery_extra_args = None
+        elif isinstance(_on_recovery_extra_args, Unset):
             on_recovery_extra_args = UNSET
         else:
             on_recovery_extra_args = NewScheduleOnRecoveryExtraArgs.from_dict(_on_recovery_extra_args)
@@ -231,8 +243,10 @@ class NewSchedule:
         on_success = d.pop("on_success", UNSET)
 
         _on_success_extra_args = d.pop("on_success_extra_args", UNSET)
-        on_success_extra_args: Union[Unset, NewScheduleOnSuccessExtraArgs]
-        if isinstance(_on_success_extra_args, Unset):
+        on_success_extra_args: Union[Unset, None, NewScheduleOnSuccessExtraArgs]
+        if _on_success_extra_args is None:
+            on_success_extra_args = None
+        elif isinstance(_on_success_extra_args, Unset):
             on_success_extra_args = UNSET
         else:
             on_success_extra_args = NewScheduleOnSuccessExtraArgs.from_dict(_on_success_extra_args)
@@ -240,8 +254,10 @@ class NewSchedule:
         ws_error_handler_muted = d.pop("ws_error_handler_muted", UNSET)
 
         _retry = d.pop("retry", UNSET)
-        retry: Union[Unset, NewScheduleRetry]
-        if isinstance(_retry, Unset):
+        retry: Union[Unset, None, NewScheduleRetry]
+        if _retry is None:
+            retry = None
+        elif isinstance(_retry, Unset):
             retry = UNSET
         else:
             retry = NewScheduleRetry.from_dict(_retry)
@@ -255,8 +271,10 @@ class NewSchedule:
         tag = d.pop("tag", UNSET)
 
         _paused_until = d.pop("paused_until", UNSET)
-        paused_until: Union[Unset, datetime.datetime]
-        if isinstance(_paused_until, Unset):
+        paused_until: Union[Unset, None, datetime.datetime]
+        if _paused_until is None:
+            paused_until = None
+        elif isinstance(_paused_until, Unset):
             paused_until = UNSET
         else:
             paused_until = isoparse(_paused_until)

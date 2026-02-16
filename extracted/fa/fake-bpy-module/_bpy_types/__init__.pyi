@@ -122,11 +122,14 @@ class Context:
         :return:
         """
 
-    def path_resolve(self, path: str, coerce: bool = True) -> None:
+    def path_resolve(
+        self, path: str, coerce: bool = True
+    ) -> bpy.types.bpy_prop | typing.Any:
         """Returns the property from the path, raise an exception when not found.
 
         :param path: patch which this property resolves.
         :param coerce: optional argument, when True, the property will be converted into its Python representation.
+        :return: Property value or property object.
         """
 
     def temp_override(self) -> bpy.types.ContextTempOverride:
@@ -640,10 +643,11 @@ class Operator:
     bl_rna: typing.Any
     id_data: typing.Any
 
-    def as_keywords(self, *, ignore=()) -> None:
-        """Return a copy of the properties as a dictionary.
+    def as_keywords(self, *, ignore=()) -> dict[str, typing.Any]:
+        """
 
         :param ignore:
+        :return: A copy of the properties as a dictionary.
         """
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:
@@ -781,6 +785,70 @@ class WindowManager(bpy.types.ID):
 
         :param args:
         :param kwargs:
+        """
+
+    def asset_library_status_begin_loading(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_begin_loading(library_url, timeout=0.3)
+        Inform the asset system that the asset library at the given URL is being loaded.
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_failed_loading(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_failed_loading(library_url, message="")
+        Inform the asset system that the asset library at the given URL failed loading, and should be aborted.
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_finished_loading(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_finished_loading(library_url)
+        Inform the asset system that the asset library at the given URL has successfully finished loading.
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_ping_loaded_new_assets(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_ping_loaded_new_assets(library_url)
+        Inform the asset system that new assets were downloaded and available at the expected location on disk
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_ping_loaded_new_pages(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_ping_loaded_new_pages(library_url)
+        Inform the asset system that new content
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_ping_loaded_new_preview(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_ping_loaded_new_preview(preview_full_path)
+        Inform the asset system that a new preview is available and ready for display
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_ping_metafiles_in_place(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_ping_metafiles_in_place(library_url)
+        Inform the asset system that the asset meta files (_asset-library-meta.json, asset-listing.json, blender_assets.cats.txt) are in place and ready to be loaded
+
+                :param args:
+                :param kwargs:
+        """
+
+    def asset_library_status_ping_still_loading(self, *args, **kwargs) -> None:
+        """WindowManager.asset_library_status_ping_still_loading(library_url)
+        Inform the asset system that the loading is still ongoing. Call this regularly to prevent the loading status to timeout.
+
+                :param args:
+                :param kwargs:
         """
 
     def asset_path_dummy(self, *args, **kwargs) -> None:

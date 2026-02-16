@@ -4,25 +4,34 @@ from typing import Callable
 from adam.commands.command_filter import CommandFilter
 from adam.repl_state import ReplState
 from adam.utils_context import Context
+from adam.utils_global import thread_local
 from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_job.job_status import JobStatus
-from adam.utils_log import log2
 
 class ScheduleFilter(CommandFilter):
     def command(self) -> str:
         return 'schedule'
 
-    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], str]:
+    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], ReplState, str]:
         if (pre := f'{self.command()} ') and cmd.startswith(pre):
             cmd = cmd[len(pre):]
 
-            return partial(ScheduleFilter.callback, state, cmd), cmd
+            thread_local.scheduled_command = cmd
 
-        return None, cmd
+            # scheduled job needs background
+            if not cmd.endswith(' &'):
+                cmd = cmd + ' &'
+
+            return partial(ScheduleFilter.callback, state, cmd), state, cmd
+
+        return None, state, cmd
 
     def callback(state: ReplState, cmd: str, result: JobStatus):
+        if hasattr(thread_local, 'scheduled_command'):
+            thread_local.scheduled_command = None
+
         if not isinstance(result, JobStatus):
-            log2('Scheduling is ignored as command is not schedulable.')
+            # log2('Scheduling is ignored as command is not schedulable.')
 
             return
 

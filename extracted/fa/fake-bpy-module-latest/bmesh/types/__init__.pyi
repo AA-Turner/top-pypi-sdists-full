@@ -1098,7 +1098,11 @@ class BMVertSeq:
 
     def new(
         self,
-        co: collections.abc.Sequence[float] | mathutils.Vector = (0.0, 0.0, 0.0),
+        co: collections.abc.Sequence[float] | tuple[float, float, float] = (
+            0.0,
+            0.0,
+            0.0,
+        ),
         source: BMVert | None | None = None,
     ) -> BMVert:
         """Create a new vertex.

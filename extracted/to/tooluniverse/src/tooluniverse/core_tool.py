@@ -43,6 +43,17 @@ except Exception:
     PdfReader = None
 
 
+def _parse_int_param(
+    arguments: Dict[str, Any], key: str, default: int, lo: int, hi: int
+) -> int:
+    """Parse an integer parameter from arguments, clamping to [lo, hi]."""
+    try:
+        value = int(arguments.get(key, default))
+    except (TypeError, ValueError):
+        value = default
+    return max(lo, min(value, hi))
+
+
 @register_tool("CoreTool")
 class CoreTool(BaseTool):
     """Tool for searching CORE open access academic papers."""
@@ -150,14 +161,7 @@ class CoreTool(BaseTool):
         """Extract author names from CORE API response."""
         if not authors:
             return []
-
-        author_names = []
-        for author in authors:
-            name = author.get("name", "")
-            if name:
-                author_names.append(name)
-
-        return author_names
+        return [author["name"] for author in authors if author.get("name")]
 
     def _extract_year(self, published_date: str) -> str:
         """Extract year from published date."""
@@ -286,47 +290,21 @@ class CorePDFSnippetsTool(BaseTool):
                 "retryable": False,
             }
 
-        try:
-            window_chars = int(arguments.get("window_chars", 220))
-        except (TypeError, ValueError):
-            window_chars = 220
-        window_chars = max(20, min(window_chars, 2000))
-
-        try:
-            max_snippets_per_term = int(arguments.get("max_snippets_per_term", 3))
-        except (TypeError, ValueError):
-            max_snippets_per_term = 3
-        max_snippets_per_term = max(1, min(max_snippets_per_term, 10))
-
-        try:
-            max_total_chars = int(arguments.get("max_total_chars", 8000))
-        except (TypeError, ValueError):
-            max_total_chars = 8000
-        max_total_chars = max(1000, min(max_total_chars, 50000))
-
-        try:
-            download_timeout = int(arguments.get("timeout", 20))
-        except (TypeError, ValueError):
-            download_timeout = 20
-        download_timeout = max(5, min(download_timeout, 55))
-
-        try:
-            max_pdf_bytes = int(arguments.get("max_pdf_bytes", 20_000_000))
-        except (TypeError, ValueError):
-            max_pdf_bytes = 20_000_000
-        max_pdf_bytes = max(1_000_000, min(max_pdf_bytes, 100_000_000))
-
-        try:
-            max_pages = int(arguments.get("max_pages", 12))
-        except (TypeError, ValueError):
-            max_pages = 12
-        max_pages = max(1, min(max_pages, 200))
-
-        try:
-            max_text_chars = int(arguments.get("max_text_chars", 400_000))
-        except (TypeError, ValueError):
-            max_text_chars = 400_000
-        max_text_chars = max(50_000, min(max_text_chars, 2_000_000))
+        window_chars = _parse_int_param(arguments, "window_chars", 220, 20, 2000)
+        max_snippets_per_term = _parse_int_param(
+            arguments, "max_snippets_per_term", 3, 1, 10
+        )
+        max_total_chars = _parse_int_param(
+            arguments, "max_total_chars", 8000, 1000, 50000
+        )
+        download_timeout = _parse_int_param(arguments, "timeout", 20, 5, 55)
+        max_pdf_bytes = _parse_int_param(
+            arguments, "max_pdf_bytes", 20_000_000, 1_000_000, 100_000_000
+        )
+        max_pages = _parse_int_param(arguments, "max_pages", 12, 1, 200)
+        max_text_chars = _parse_int_param(
+            arguments, "max_text_chars", 400_000, 50_000, 2_000_000
+        )
 
         retrieval_trace: list[dict[str, Any]] = []
 
@@ -509,27 +487,10 @@ class CorePDFSnippetsTool(BaseTool):
                 pages_scanned = n
                 text = "\n".join(parts)
             else:
-                if extractor == "fitz" and not FITZ_AVAILABLE:
-                    return {
-                        "status": "error",
-                        "error": "PyMuPDF (fitz) not available. Install with: pip install pymupdf",
-                        "retryable": False,
-                        "retrieval_trace": retrieval_trace,
-                    }
-                if extractor == "pypdf" and not PYPDF_AVAILABLE:
-                    return {
-                        "status": "error",
-                        "error": "pypdf not available. Install with: pip install pypdf",
-                        "retryable": False,
-                        "retrieval_trace": retrieval_trace,
-                    }
-                if extractor == "markitdown" and not MARKITDOWN_AVAILABLE:
-                    return {
-                        "status": "error",
-                        "error": "markitdown library not available. Install with: pip install 'markitdown[all]'",
-                        "retryable": False,
-                        "retrieval_trace": retrieval_trace,
-                    }
+                # Specific extractor unavailability is caught by the fail-fast
+                # checks at the top of run(). This else branch is only reachable
+                # when extractor="auto" and both fitz and pypdf are unavailable,
+                # so we fall through to markitdown as a last resort.
                 if not MARKITDOWN_AVAILABLE:
                     return {
                         "status": "error",

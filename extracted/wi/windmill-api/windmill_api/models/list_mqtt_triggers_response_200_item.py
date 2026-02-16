@@ -41,13 +41,13 @@ class ListMqttTriggersResponse200Item:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (ListMqttTriggersResponse200ItemMode): job trigger mode
-        v3_config (Union[Unset, ListMqttTriggersResponse200ItemV3Config]): MQTT v3 specific configuration
+        v3_config (Union[Unset, None, ListMqttTriggersResponse200ItemV3Config]): MQTT v3 specific configuration
             (clean_session)
-        v5_config (Union[Unset, ListMqttTriggersResponse200ItemV5Config]): MQTT v5 specific configuration (clean_start,
-            topic_alias_maximum, session_expiry_interval)
-        client_id (Union[Unset, str]): MQTT client ID for this connection
-        client_version (Union[Unset, ListMqttTriggersResponse200ItemClientVersion]): MQTT protocol version ('v3' or
-            'v5')
+        v5_config (Union[Unset, None, ListMqttTriggersResponse200ItemV5Config]): MQTT v5 specific configuration
+            (clean_start, topic_alias_maximum, session_expiry_interval)
+        client_id (Union[Unset, None, str]): MQTT client ID for this connection
+        client_version (Union[Unset, None, ListMqttTriggersResponse200ItemClientVersion]): MQTT protocol version ('v3'
+            or 'v5')
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -68,10 +68,10 @@ class ListMqttTriggersResponse200Item:
     edited_at: datetime.datetime
     is_flow: bool
     mode: ListMqttTriggersResponse200ItemMode
-    v3_config: Union[Unset, "ListMqttTriggersResponse200ItemV3Config"] = UNSET
-    v5_config: Union[Unset, "ListMqttTriggersResponse200ItemV5Config"] = UNSET
-    client_id: Union[Unset, str] = UNSET
-    client_version: Union[Unset, ListMqttTriggersResponse200ItemClientVersion] = UNSET
+    v3_config: Union[Unset, None, "ListMqttTriggersResponse200ItemV3Config"] = UNSET
+    v5_config: Union[Unset, None, "ListMqttTriggersResponse200ItemV5Config"] = UNSET
+    client_id: Union[Unset, None, str] = UNSET
+    client_version: Union[Unset, None, ListMqttTriggersResponse200ItemClientVersion] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET
@@ -100,18 +100,18 @@ class ListMqttTriggersResponse200Item:
         is_flow = self.is_flow
         mode = self.mode.value
 
-        v3_config: Union[Unset, Dict[str, Any]] = UNSET
+        v3_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.v3_config, Unset):
-            v3_config = self.v3_config.to_dict()
+            v3_config = self.v3_config.to_dict() if self.v3_config else None
 
-        v5_config: Union[Unset, Dict[str, Any]] = UNSET
+        v5_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.v5_config, Unset):
-            v5_config = self.v5_config.to_dict()
+            v5_config = self.v5_config.to_dict() if self.v5_config else None
 
         client_id = self.client_id
-        client_version: Union[Unset, str] = UNSET
+        client_version: Union[Unset, None, str] = UNSET
         if not isinstance(self.client_version, Unset):
-            client_version = self.client_version.value
+            client_version = self.client_version.value if self.client_version else None
 
         server_id = self.server_id
         last_server_ping: Union[Unset, str] = UNSET
@@ -212,15 +212,19 @@ class ListMqttTriggersResponse200Item:
         mode = ListMqttTriggersResponse200ItemMode(d.pop("mode"))
 
         _v3_config = d.pop("v3_config", UNSET)
-        v3_config: Union[Unset, ListMqttTriggersResponse200ItemV3Config]
-        if isinstance(_v3_config, Unset):
+        v3_config: Union[Unset, None, ListMqttTriggersResponse200ItemV3Config]
+        if _v3_config is None:
+            v3_config = None
+        elif isinstance(_v3_config, Unset):
             v3_config = UNSET
         else:
             v3_config = ListMqttTriggersResponse200ItemV3Config.from_dict(_v3_config)
 
         _v5_config = d.pop("v5_config", UNSET)
-        v5_config: Union[Unset, ListMqttTriggersResponse200ItemV5Config]
-        if isinstance(_v5_config, Unset):
+        v5_config: Union[Unset, None, ListMqttTriggersResponse200ItemV5Config]
+        if _v5_config is None:
+            v5_config = None
+        elif isinstance(_v5_config, Unset):
             v5_config = UNSET
         else:
             v5_config = ListMqttTriggersResponse200ItemV5Config.from_dict(_v5_config)
@@ -228,8 +232,10 @@ class ListMqttTriggersResponse200Item:
         client_id = d.pop("client_id", UNSET)
 
         _client_version = d.pop("client_version", UNSET)
-        client_version: Union[Unset, ListMqttTriggersResponse200ItemClientVersion]
-        if isinstance(_client_version, Unset):
+        client_version: Union[Unset, None, ListMqttTriggersResponse200ItemClientVersion]
+        if _client_version is None:
+            client_version = None
+        elif isinstance(_client_version, Unset):
             client_version = UNSET
         else:
             client_version = ListMqttTriggersResponse200ItemClientVersion(_client_version)

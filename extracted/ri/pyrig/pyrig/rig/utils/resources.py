@@ -31,9 +31,10 @@ Note:
 
 import logging
 from collections.abc import Callable
-from functools import wraps
+from functools import cache, wraps
 from typing import Any, ParamSpec
 
+import requests
 from requests import RequestException
 from tenacity import retry, retry_if_exception_type, stop_after_attempt
 
@@ -44,6 +45,21 @@ from pyrig.src.resource import resource_path
 logger = logging.getLogger(__name__)
 
 P = ParamSpec("P")
+
+
+@cache
+def requests_get_text_cached(
+    *args: Any, timeout: tuple[float, float] = (3, 10), **kwargs: Any
+) -> str:
+    """Cached wrapper around requests.get with default timeouts.
+
+    Returns only the response text to avoid caching the full Response object.
+    Calls raise_for_status() before returning.
+    """
+    logger.debug("Making HTTP GET request with args=%s, kwargs=%s", args, kwargs)
+    response = requests.get(*args, timeout=timeout, **kwargs)
+    response.raise_for_status()
+    return response.text
 
 
 def return_resource_file_content_on_exceptions_or_in_dep(

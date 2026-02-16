@@ -5,6 +5,7 @@ import re
 from adam.commands.devices.devices import device
 from adam.commands.export.export_sessions import export_session
 from adam.repl_state import ReplState
+from adam.utils import datetime_sec_precision
 from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
@@ -115,7 +116,7 @@ def find_job_status(state: ReplState, job: Job, ctx = NULL) -> PodJobStatus:
 def find_exit_codes(state: ReplState, job: Job, ctx = NULL) -> list[tuple[str, str]]:
     container = device(state).default_container(state)
 
-    with parallelize(device(state).pod_names(state),
+    with parallelize([state.pod] if state.pod else device(state).pod_names(state),
                      msg='d`Running|Ran find-files onto {size} pods') as exec:
         return exec.map(lambda pod: (pod, find_exit_code_for_pod(pod, container, state.namespace, Directories.remote_log_dir(), job.job_id, remote=True, ctx=ctx)))
 
@@ -155,15 +156,15 @@ def show_last_results_for_node_schedules(state: ReplState, job: Job, ctx = NULL)
 
         for k, v in sorted(list(NodeRestartSchedules.restartings().items()), key=lambda kv: kv[0]):
             in_pending_or_restartings.add(k)
-            lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tIn Restart\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
+            lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tIn Restart\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime_sec_precision(v)}\t-')
         for k, v in sorted(list(NodeRestartSchedules.pending().items()), key=lambda kv: kv[0]):
             in_pending_or_restartings.add(k)
-            lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tPending\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t{wo(k)}')
+            lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tPending\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime_sec_precision(v)}\t{wo(k)}')
 
         restarted_lines = []
         for k, v in sorted(list(NodeRestartSchedules.completed().items()), key=lambda kv: kv[0]):
             if k not in in_pending_or_restartings:
-                restarted_lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tRestarted\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime.fromtimestamp(v).replace(microsecond=0)}\t-')
+                restarted_lines.append(f'{strip_pod_name(k[0])}\t{k[1]}\tRestarted\t{pod_status[k[0]]}\t{node_status(k[0])}\t{datetime_sec_precision(v)}\t-')
 
         tabulize(restarted_lines + lines,
                  header='POD\tNAMESPACE\tRESTART_STATUS\tPOD_STATUS\t\tSCHEDULED/COMPLETED\tWAITING_ON',
@@ -182,10 +183,10 @@ def show_last_results_for_job_schedules(state: ReplState, job: Job, ctx = NULL):
 
         for k, v in sorted(list(JobSchedules._completed.items()), key=lambda kv: kv[0]):
             status: JobStatus = v
-            lines.append(f'{status.job_id()}\tended\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime.fromtimestamp(status.ts).replace(microsecond=0)}')
+            lines.append(f'{status.job_id()}\tended\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime_sec_precision(v)}')
         for k, v in sorted(list(JobSchedules.pending().items()), key=lambda kv: kv[0]):
             status: JobStatus = v
-            lines.append(f'{status.job_id()}\trunning\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime.fromtimestamp(status.ts).replace(microsecond=0)}')
+            lines.append(f'{status.job_id()}\trunning\t{status.running()}\t{status.succeeded()}\t{status.failed()}\t{datetime_sec_precision(v)}')
 
         tabulize(lines,
                  header='JOB_ID\tSTATUS\tRUNNING\tSUCCEEDED\tFAILED\tSCHEDULED/COMPLETED',
@@ -261,16 +262,17 @@ def show_local_log(cmd: Job, ctx = NULL):
             for line in f:
                 ctx.log2(line.strip('\r\n'))
 
-def retry_job(state: ReplState, job_id: str, run_command: callable, ctx = NULL):
+def reschedule_job(state: ReplState, job_id: str, run_command: callable, ctx = NULL):
     job = Job.job(job_id)
     if not job:
         ctx.log2('Job not found.')
         return state
 
+    cmd = job.scheduled_command
 
     # retry job should always background
-    cmd = job.command
-    if not cmd.endswith(' &'):
-        cmd = cmd + ' &'
+    # cmd = job.command
+    # if not cmd.endswith(' &'):
+    #     cmd = cmd + ' &'
 
     return run_command(state, cmd, job=job, ctx=ctx)

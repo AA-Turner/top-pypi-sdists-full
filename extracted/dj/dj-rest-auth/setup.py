@@ -28,7 +28,7 @@ setup(
     keywords='django rest auth registration rest-framework django-registration api',
     zip_safe=False,
     install_requires=[
-        'Django>=4.2,<6.0',
+        'Django>=4.2',
         'djangorestframework>=3.13.0',
     ],
     extras_require={
@@ -37,14 +37,14 @@ setup(
     tests_require=[
         'coveralls>=1.11.1',
         'django-allauth>=64.0.0',
-        'djangorestframework-simplejwt==5.3.1',
+        'djangorestframework-simplejwt==5.5.1',
         'responses==0.12.1',
         'unittest-xml-reporting==3.2.0',
         'flake8==7.1.1',
     ],
     test_suite='runtests.runtests',
     include_package_data=True,
-    python_requires='>=3.8',
+    python_requires='>=3.10',
     classifiers=[
         'Framework :: Django',
         'Intended Audience :: Developers',

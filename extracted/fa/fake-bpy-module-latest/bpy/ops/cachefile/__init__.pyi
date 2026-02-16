@@ -2,13 +2,14 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def layer_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -34,31 +35,31 @@ def layer_add(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add an override layer to the archive
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -71,7 +72,8 @@ def layer_add(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def layer_move(
@@ -80,25 +82,29 @@ def layer_move(
     /,
     *,
     direction: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move layer in the list, layers further down the list will overwrite data from the layers higher up
 
-    :param direction: Direction, Direction to move the active vertex group towards
+    :param direction: Direction, Direction to move the active vertex group towards (optional)
+    :return: Result of the operator call.
     """
 
 def layer_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove an override layer from the archive"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove an override layer from the archive
+
+    :return: Result of the operator call.
+    """
 
 def open(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -124,31 +130,31 @@ def open(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a cache file
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -161,12 +167,16 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Update objects paths list with new data from the archive"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Update objects paths list with new data from the archive
+
+    :return: Result of the operator call.
+    """

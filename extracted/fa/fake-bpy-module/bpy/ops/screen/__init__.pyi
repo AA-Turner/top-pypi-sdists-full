@@ -10,10 +10,11 @@ def actionzone(
     /,
     *,
     modifier: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Handle area action zones for mouse actions/gestures
 
-    :param modifier: Modifier, Modifier state
+    :param modifier: Modifier, Modifier state (in [0, 2], optional)
+    :return: Result of the operator call.
     """
 
 def animation_cancel(
@@ -22,10 +23,11 @@ def animation_cancel(
     /,
     *,
     restore_frame: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cancel animation, returning to the original frame
 
-    :param restore_frame: Restore Frame, Restore the frame when animation was initialized
+    :param restore_frame: Restore Frame, Restore the frame when animation was initialized (optional)
+    :return: Result of the operator call.
     """
 
 def animation_play(
@@ -35,46 +37,57 @@ def animation_play(
     *,
     reverse: bool | None = False,
     sync: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Play animation
 
-    :param reverse: Play in Reverse, Animation is played backwards
-    :param sync: Sync, Drop frames to maintain framerate
+    :param reverse: Play in Reverse, Animation is played backwards (optional)
+    :param sync: Sync, Drop frames to maintain framerate (optional)
+    :return: Result of the operator call.
     """
 
 def animation_step(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Step through animation by position"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Step through animation by position
+
+    :return: Result of the operator call.
+    """
 
 def area_close(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Close selected area"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Close selected area
+
+    :return: Result of the operator call.
+    """
 
 def area_dupli(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Duplicate selected area into new window"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Duplicate selected area into new window
+
+    :return: Result of the operator call.
+    """
 
 def area_join(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    source_xy: collections.abc.Iterable[int] | None = (0, 0),
-    target_xy: collections.abc.Iterable[int] | None = (0, 0),
-) -> None:
+    source_xy: collections.abc.Sequence[int] | None = (0, 0),
+    target_xy: collections.abc.Sequence[int] | None = (0, 0),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Join selected areas into new window
 
-    :param source_xy: Source location
-    :param target_xy: Target location
+    :param source_xy: Source location, (array of 2 items, in [-inf, inf], optional)
+    :param target_xy: Target location, (array of 2 items, in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def area_move(
@@ -86,21 +99,25 @@ def area_move(
     y: int | None = 0,
     delta: int | None = 0,
     snap: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected area edges
 
-    :param x: X
-    :param y: Y
-    :param delta: Delta
-    :param snap: Snapping, Enable snapping
+    :param x: X, (in [-inf, inf], optional)
+    :param y: Y, (in [-inf, inf], optional)
+    :param delta: Delta, (in [-inf, inf], optional)
+    :param snap: Snapping, Enable snapping (optional)
+    :return: Result of the operator call.
     """
 
 def area_options(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Operations for splitting and merging"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Operations for splitting and merging
+
+    :return: Result of the operator call.
+    """
 
 def area_split(
     execution_context: int | str | None = None,
@@ -109,13 +126,14 @@ def area_split(
     *,
     direction: typing.Literal["HORIZONTAL", "VERTICAL"] | None = "HORIZONTAL",
     factor: float | None = 0.5,
-    cursor: collections.abc.Iterable[int] | None = (0, 0),
-) -> None:
+    cursor: collections.abc.Sequence[int] | None = (0, 0),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Split selected area into new windows
 
-    :param direction: Direction
-    :param factor: Factor
-    :param cursor: Cursor
+    :param direction: Direction, (optional)
+    :param factor: Factor, (in [0, 1], optional)
+    :param cursor: Cursor, (array of 2 items, in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def area_swap(
@@ -123,33 +141,43 @@ def area_swap(
     undo: bool | None = None,
     /,
     *,
-    cursor: collections.abc.Iterable[int] | None = (0, 0),
-) -> None:
+    cursor: collections.abc.Sequence[int] | None = (0, 0),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Swap selected areas screen positions
 
-    :param cursor: Cursor
+    :param cursor: Cursor, (array of 2 items, in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def back_to_previous(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Revert back to the original screen layout, before fullscreen area overlay"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Revert back to the original screen layout, before fullscreen area overlay
+
+    :return: Result of the operator call.
+    """
 
 def delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete active screen"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete active screen
+
+    :return: Result of the operator call.
+    """
 
 def drivers_editor_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Show drivers editor in a separate window"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Show drivers editor in a separate window
+
+    :return: Result of the operator call.
+    """
 
 def frame_jump(
     execution_context: int | str | None = None,
@@ -157,10 +185,11 @@ def frame_jump(
     /,
     *,
     end: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to first/last frame in frame range
 
-    :param end: Last Frame, Jump to the last frame of the frame range
+    :param end: Last Frame, Jump to the last frame of the frame range (optional)
+    :return: Result of the operator call.
     """
 
 def frame_offset(
@@ -169,25 +198,32 @@ def frame_offset(
     /,
     *,
     delta: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move current frame forward/backward by a given number
 
-    :param delta: Delta
+    :param delta: Delta, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def header_toggle_menus(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Expand or collapse the header pull-down menus"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Expand or collapse the header pull-down menus
+
+    :return: Result of the operator call.
+    """
 
 def info_log_show(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Show info log in a separate window"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Show info log in a separate window
+
+    :return: Result of the operator call.
+    """
 
 def keyframe_jump(
     execution_context: int | str | None = None,
@@ -195,10 +231,11 @@ def keyframe_jump(
     /,
     *,
     next: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to previous/next keyframe
 
-    :param next: Next Keyframe
+    :param next: Next Keyframe, (optional)
+    :return: Result of the operator call.
     """
 
 def marker_jump(
@@ -207,78 +244,104 @@ def marker_jump(
     /,
     *,
     next: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump to previous/next marker
 
-    :param next: Next Marker
+    :param next: Next Marker, (optional)
+    :return: Result of the operator call.
     """
 
 def new(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a new screen"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a new screen
+
+    :return: Result of the operator call.
+    """
 
 def quadview_size(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Resize Quad View areas"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Resize Quad View areas
+
+    :return: Result of the operator call.
+    """
 
 def redo_last(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Display parameters for last action performed"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Display parameters for last action performed
+
+    :return: Result of the operator call.
+    """
 
 def region_blend(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Blend in and out overlapping region"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Blend in and out overlapping region
+
+    :return: Result of the operator call.
+    """
 
 def region_context_menu(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Display region context menu"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Display region context menu
+
+    :return: Result of the operator call.
+    """
 
 def region_flip(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle the regions alignment (left/right or top/bottom)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle the regions alignment (left/right or top/bottom)
+
+    :return: Result of the operator call.
+    """
 
 def region_quadview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Split selected area into camera, front, right, and top views"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Split selected area into camera, front, right, and top views
+
+    :return: Result of the operator call.
+    """
 
 def region_scale(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Scale selected area"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Scale selected area
+
+    :return: Result of the operator call.
+    """
 
 def region_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    region_type: bpy.stub_internal.rna_enums.RegionTypeItems | None = "WINDOW",
-) -> None:
+    region_type: Literal[bpy.stub_internal.rna_enums.RegionTypeItems] | None = "WINDOW",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Hide or unhide the region
 
-    :param region_type: Region Type, Type of the region to toggle
+    :param region_type: Region Type, Type of the region to toggle (optional)
+    :return: Result of the operator call.
     """
 
 def repeat_history(
@@ -287,18 +350,22 @@ def repeat_history(
     /,
     *,
     index: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Display menu for previous actions performed
 
-    :param index: Index
+    :param index: Index, (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def repeat_last(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Repeat last action"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Repeat last action
+
+    :return: Result of the operator call.
+    """
 
 def screen_full_area(
     execution_context: int | str | None = None,
@@ -306,10 +373,11 @@ def screen_full_area(
     /,
     *,
     use_hide_panels: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Toggle display selected area as fullscreen/maximized
 
-    :param use_hide_panels: Hide Panels, Hide all the panels (Focus Mode)
+    :param use_hide_panels: Hide Panels, Hide all the panels (Focus Mode) (optional)
+    :return: Result of the operator call.
     """
 
 def screen_set(
@@ -318,10 +386,11 @@ def screen_set(
     /,
     *,
     delta: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through available screens
 
-    :param delta: Delta
+    :param delta: Delta, (in [-1, 1], optional)
+    :return: Result of the operator call.
     """
 
 def screenshot(
@@ -329,7 +398,7 @@ def screenshot(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
@@ -356,32 +425,32 @@ def screenshot(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a picture of the whole Blender window
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param show_multiview: Enable Multi-View
-        :param use_multiview: Use Multi-View
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param show_multiview: Enable Multi-View, (optional)
+        :param use_multiview: Use Multi-View, (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -394,7 +463,8 @@ def screenshot(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def screenshot_area(
@@ -402,7 +472,7 @@ def screenshot_area(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
@@ -429,32 +499,32 @@ def screenshot_area(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a picture of an editor
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param show_multiview: Enable Multi-View
-        :param use_multiview: Use Multi-View
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param show_multiview: Enable Multi-View, (optional)
+        :param use_multiview: Use Multi-View, (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -467,7 +537,8 @@ def screenshot_area(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def space_context_cycle(
@@ -476,10 +547,11 @@ def space_context_cycle(
     /,
     *,
     direction: typing.Literal["PREV", "NEXT"] | None = "NEXT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through the editor context by activating the next/previous one
 
-    :param direction: Direction, Direction to cycle through
+    :param direction: Direction, Direction to cycle through (optional)
+    :return: Result of the operator call.
     """
 
 def space_type_set_or_cycle(
@@ -487,19 +559,23 @@ def space_type_set_or_cycle(
     undo: bool | None = None,
     /,
     *,
-    space_type: bpy.stub_internal.rna_enums.SpaceTypeItems | None = "EMPTY",
-) -> None:
+    space_type: Literal[bpy.stub_internal.rna_enums.SpaceTypeItems] | None = "EMPTY",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the space type or cycle subtype
 
-    :param space_type: Type
+    :param space_type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def spacedata_cleanup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove unused settings for invisible editors"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove unused settings for invisible editors
+
+    :return: Result of the operator call.
+    """
 
 def time_jump(
     execution_context: int | str | None = None,
@@ -507,10 +583,11 @@ def time_jump(
     /,
     *,
     backward: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Jump forward/backward by a given number of frames or seconds
 
-    :param backward: Backwards, Jump backwards in time
+    :param backward: Backwards, Jump backwards in time (optional)
+    :return: Result of the operator call.
     """
 
 def userpref_show(
@@ -518,11 +595,13 @@ def userpref_show(
     undo: bool | None = None,
     /,
     *,
-    section: bpy.stub_internal.rna_enums.PreferenceSectionItems | None = "INTERFACE",
-) -> None:
+    section: Literal[bpy.stub_internal.rna_enums.PreferenceSectionItems]
+    | None = "INTERFACE",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edit user preferences and system settings
 
-    :param section: Section to activate in the Preferences
+    :param section: Section to activate in the Preferences (optional)
+    :return: Result of the operator call.
     """
 
 def workspace_cycle(
@@ -531,8 +610,9 @@ def workspace_cycle(
     /,
     *,
     direction: typing.Literal["PREV", "NEXT"] | None = "NEXT",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Cycle through workspaces
 
-    :param direction: Direction, Direction to cycle through
+    :param direction: Direction, Direction to cycle through (optional)
+    :return: Result of the operator call.
     """

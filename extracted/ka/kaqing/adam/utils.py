@@ -32,6 +32,9 @@ REVERSE_SORT = -1
 def ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+def datetime_sec_precision(f: float):
+    return datetime.fromtimestamp(f).replace(microsecond=0)
+
 def convert_seconds(total_seconds_float):
     total_seconds_int = int(total_seconds_float)  # Convert float to integer seconds
 

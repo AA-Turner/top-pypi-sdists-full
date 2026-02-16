@@ -7,10 +7,13 @@ import os
 import time
 from argparse import Action, ArgumentError, ArgumentParser, Namespace
 from concurrent.futures import CancelledError, Future, ThreadPoolExecutor, as_completed
+from fnmatch import fnmatchcase
 from pathlib import Path
 from signal import SIGINT, Handlers, signal
 from threading import Event, Thread
 from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import unquote, urlparse
+from urllib.request import url2pathname
 
 from colorama import Fore
 
@@ -53,12 +56,23 @@ class InstallPackageAction(Action):
     ) -> None:
         if not values:
             raise ArgumentError(self, "cannot be empty")
-        path = Path(cast("str", values)).absolute()
+        raw = cast("str", values)
+        path = self._resolve_path(raw)
         if not path.exists():
             raise ArgumentError(self, f"{path} does not exist")
         if not path.is_file():
             raise ArgumentError(self, f"{path} is not a file")
         setattr(namespace, self.dest, path)
+
+    @staticmethod
+    def _resolve_path(raw: str) -> Path:
+        """Convert a raw string (possibly a ``file:`` URI) to an absolute :class:`~pathlib.Path`."""
+        if raw.startswith("file:"):
+            parsed = urlparse(raw)
+            path = Path(url2pathname(unquote(parsed.path)))
+        else:
+            path = Path(raw)
+        return path.absolute()
 
 
 def env_run_create_flags(parser: ArgumentParser, mode: str) -> None:
@@ -96,6 +110,13 @@ def env_run_create_flags(parser: ArgumentParser, mode: str) -> None:
             of_type=Path | None,
             action=InstallPackageAction,
             dest="install_pkg",
+        )
+        parser.add_argument(
+            "--fail-fast",
+            action="store_true",
+            default=False,
+            dest="fail_fast",
+            help="stop execution after the first environment failure",
         )
     if mode not in {"devenv", "depends"}:
         parser.add_argument(
@@ -193,16 +214,17 @@ def execute(state: State, max_workers: int | None, has_spinner: bool, live: bool
                 if canceled is False and not future.done():  # pragma: no branch
                     tox_env.interrupt()
             done.wait()
-            # workaround for https://bugs.python.org/issue45274
-            lock = getattr(thread, "_tstate_lock", None)
-            if lock is not None and lock.locked():  # pragma: no branch
-                lock.release()  # pragma: no cover
-                # calling private method to fix thread state
-                thread._stop()  # type: ignore[attr-defined] # pragma: no cover # noqa: SLF001
             thread.join()
     finally:
         name_to_run = {r.name: r for r in results}
-        ordered_results: list[ToxEnvRunResult] = [name_to_run[env] for env in to_run_list]
+        ordered_results: list[ToxEnvRunResult] = []
+        for env in to_run_list:
+            if env in name_to_run:
+                ordered_results.append(name_to_run[env])
+            else:
+                ordered_results.append(
+                    ToxEnvRunResult(name=env, skipped=True, code=-2, outcomes=[], duration=MISS_DURATION)
+                )
         # write the journal
         write_journal(getattr(state.conf.options, "result_json", None), state._journal)  # noqa: SLF001
         # report the outcome
@@ -260,8 +282,14 @@ def _queue_and_wait(  # noqa: C901, PLR0913, PLR0915, PLR0912
             try:
                 executor = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="tox-driver")
                 env_list: list[str] = []
+                fail_fast_enabled = options.parsed.fail_fast or any(
+                    cast("RunToxEnv", state.envs[env]).conf["fail_fast"] for env in to_run_list
+                )
                 while True:
-                    for env in env_list:  # queue all available
+                    envs_to_queue = (
+                        env_list[:1] if max_workers == 1 and fail_fast_enabled and not interrupt.is_set() else env_list
+                    )
+                    for env in envs_to_queue:  # queue all available (or one at a time if sequential + fail-fast)
                         tox_env_to_run = cast("RunToxEnv", state.envs[env])
                         if interrupt.is_set():  # queue the rest as failed upfront
                             tox_env_to_run.teardown()
@@ -271,6 +299,7 @@ def _queue_and_wait(  # noqa: C901, PLR0913, PLR0915, PLR0912
                         else:
                             future = executor.submit(_run, tox_env_to_run)
                         future_to_env[future] = tox_env_to_run
+                    env_list = env_list[len(envs_to_queue) :]
 
                     if not future_to_env:
                         result: ToxEnvRunResult | None = None
@@ -291,8 +320,18 @@ def _queue_and_wait(  # noqa: C901, PLR0913, PLR0915, PLR0912
                             )
                         results.append(result)
                         completed.add(result.name)
+                        if (
+                            result.code != Outcome.OK
+                            and not result.ignore_outcome
+                            and (options.parsed.fail_fast or result.fail_fast)
+                        ):
+                            interrupt.set()
+                            env_list = []
+                            for pending_future in list(future_to_env.keys()):
+                                pending_future.cancel()
 
-                    env_list = next(envs_to_run_generator, [])
+                    if not interrupt.is_set() and not env_list:
+                        env_list = next(envs_to_run_generator, [])
                     # if nothing running and nothing more to run we're done
                     final_run = not env_list and not future_to_env
                     if final_run:  # disable report on final env
@@ -366,6 +405,6 @@ def run_order(state: State, to_run: list[str]) -> tuple[list[str], dict[str, set
     for env in to_run:
         run_env = cast("RunToxEnv", state.envs[env])
         depends = set(cast("EnvList", run_env.conf["depends"]).envs)
-        todo[env] = to_run_set & depends
+        todo[env] = {name for dep in depends for name in to_run_set if fnmatchcase(name, dep)} - {env}
     order = stable_topological_sort(todo)
     return order, todo

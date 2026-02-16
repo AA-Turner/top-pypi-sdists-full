@@ -2575,6 +2575,7 @@ type PreferenceSectionItems = typing.Literal[
     "EXTENSIONS",  # Get Extensions.Browse, install and manage extensions from remote and local repositories.
     "ADDONS",  # Add-ons.Manage add-ons installed via Extensions.
     "THEMES",  # Themes.Edit and save themes installed via Extensions.
+    "ASSETS",  # Asset Libraries.
     "INPUT",  # Input.
     "NAVIGATION",  # Navigation.
     "KEYMAP",  # Keymap.

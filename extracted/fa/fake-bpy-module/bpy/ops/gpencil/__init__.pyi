@@ -2,7 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.types
+import bpy.stub_internal.rna_enums
 
 def annotate(
     execution_context: int | str | None = None,
@@ -22,13 +22,12 @@ def annotate(
     use_stabilizer: bool | None = False,
     stabilizer_factor: float | None = 0.75,
     stabilizer_radius: int | None = 35,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     wait_for_input: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Make annotations on the active data
 
-        :param mode: Mode, Way to interpret mouse movements
+        :param mode: Mode, Way to interpret mouse movements (optional)
 
     DRAW
     Draw Freehand -- Draw freehand stroke(s).
@@ -41,7 +40,7 @@ def annotate(
 
     ERASER
     Eraser -- Erase Annotation strokes.
-        :param arrowstyle_start: Start Arrow Style, Stroke start style
+        :param arrowstyle_start: Start Arrow Style, Stroke start style (optional)
 
     NONE
     None -- Dont use any arrow/style in corner.
@@ -57,7 +56,7 @@ def annotate(
 
     DIAMOND
     Square -- Use square style.
-        :param arrowstyle_end: End Arrow Style, Stroke end style
+        :param arrowstyle_end: End Arrow Style, Stroke end style (optional)
 
     NONE
     None -- Dont use any arrow/style in corner.
@@ -73,40 +72,53 @@ def annotate(
 
     DIAMOND
     Square -- Use square style.
-        :param use_stabilizer: Stabilize Stroke, Helper to draw smooth and clean lines. Press Shift for an invert effect (even if this option is not active)
-        :param stabilizer_factor: Stabilizer Stroke Factor, Higher values gives a smoother stroke
-        :param stabilizer_radius: Stabilizer Stroke Radius, Minimum distance from last point before stroke continues
-        :param stroke: Stroke
-        :param wait_for_input: Wait for Input, Wait for first click instead of painting immediately
+        :param use_stabilizer: Stabilize Stroke, Helper to draw smooth and clean lines. Press Shift for an invert effect (even if this option is not active) (optional)
+        :param stabilizer_factor: Stabilizer Stroke Factor, Higher values gives a smoother stroke (in [0, 1], optional)
+        :param stabilizer_radius: Stabilizer Stroke Radius, Minimum distance from last point before stroke continues (in [0, 200], optional)
+        :param stroke: Stroke, (optional)
+        :param wait_for_input: Wait for Input, Wait for first click instead of painting immediately (optional)
+        :return: Result of the operator call.
     """
 
 def annotation_active_frame_delete(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Delete the active frame for the active Annotation Layer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Delete the active frame for the active Annotation Layer
+
+    :return: Result of the operator call.
+    """
 
 def annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add new Annotation data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add new Annotation data-block
+
+    :return: Result of the operator call.
+    """
 
 def data_unlink(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Unlink active Annotation data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Unlink active Annotation data-block
+
+    :return: Result of the operator call.
+    """
 
 def layer_annotation_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add new Annotation layer or note for the active data-block"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add new Annotation layer or note for the active data-block
+
+    :return: Result of the operator call.
+    """
 
 def layer_annotation_move(
     execution_context: int | str | None = None,
@@ -114,15 +126,19 @@ def layer_annotation_move(
     /,
     *,
     type: typing.Literal["UP", "DOWN"] | None = "UP",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move the active Annotation layer up/down in the list
 
-    :param type: Type
+    :param type: Type, (optional)
+    :return: Result of the operator call.
     """
 
 def layer_annotation_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove active Annotation layer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove active Annotation layer
+
+    :return: Result of the operator call.
+    """

@@ -57,8 +57,8 @@ def run_command(state: ReplState,
 
             cmd = f'bash {cmd}'
         else:
-            finalizers, cmd = filtered(state, cmd)
-            targetted_state, cmd = targetted(state, cmd)
+            finalizers, targetted_state, cmd = filtered(state, cmd)
+            # targetted_state, cmd = targetted(state, cmd)
 
         try:
             if cmd and cmd.strip(' ') and not (result := cmds.retry(cmd, job, targetted_state, ctx=ctx) if job else cmds.run(cmd, targetted_state)):
@@ -94,6 +94,9 @@ def run_command(state: ReplState,
                     # if Config().is_debug():
                         traceback.print_exc()
 
+        if hasattr(thread_local, 'cmd'):
+            thread_local.cmd = None
+
         # offload audit logging
         if cmd and (state.device != ReplState.L or Config().get('audit.log-audit-queries', False)):
             if audit_submit:
@@ -106,7 +109,7 @@ def run_command(state: ReplState,
 
     return result or state
 
-def filtered(state: ReplState, cmd: str) -> tuple[list[Callable[[], None]], str]:
+def filtered(state: ReplState, cmd: str) -> tuple[list[Callable[[], None]], ReplState, str]:
     cmd_filters: list[CommandFilter] = ReplCommands.filters()
     # TODO SEAN optimize this
     for f in cmd_filters:
@@ -121,12 +124,12 @@ def filtered(state: ReplState, cmd: str) -> tuple[list[Callable[[], None]], str]
     while filter_processed:
         filter_processed = False
         for filter in cmd_filters:
-            fn, cmd = filter.process(state, cmd)
+            fn, state, cmd = filter.process(state, cmd)
             if fn:
                 final_calls.append(fn)
                 filter_processed = True
 
-    return final_calls, cmd
+    return final_calls, state, cmd
 
 def process_config_filter(state: ReplState, cmd: str, word: str, key: str, value = True, default = False) -> tuple[Callable[[], None], str]:
     if (pre := f'{word} ') and cmd.startswith(pre):
@@ -139,27 +142,27 @@ def process_config_filter(state: ReplState, cmd: str, word: str, key: str, value
 
     return None, cmd
 
-def targetted(state: ReplState, cmd: str):
-    if not (cmd.startswith('@') and len(arry := cmd.split(' ')) > 1):
-        return state, cmd
+# def targetted(state: ReplState, cmd: str):
+#     if not (cmd.startswith('@') and len(arry := cmd.split(' ')) > 1):
+#         return state, cmd
 
-    if state.device == ReplState.A and state.app_app or state.device == ReplState.P:
-        state.push(pod_targetted=True)
+#     if state.device == ReplState.A and state.app_app or state.device == ReplState.P:
+#         state.push(pod_targetted=True)
 
-        state.app_pod = arry[0].strip('@')
-        cmd = ' '.join(arry[1:])
-    elif state.device == ReplState.P:
-        state.push(pod_targetted=True)
+#         state.app_pod = arry[0].strip('@')
+#         cmd = ' '.join(arry[1:])
+#     elif state.device == ReplState.P:
+#         state.push(pod_targetted=True)
 
-        state.app_pod = arry[0].strip('@')
-        cmd = ' '.join(arry[1:])
-    elif state.sts:
-        state.push(pod_targetted=True)
+#         state.app_pod = arry[0].strip('@')
+#         cmd = ' '.join(arry[1:])
+#     elif state.sts:
+#         state.push(pod_targetted=True)
 
-        state.pod = arry[0].strip('@')
-        cmd = ' '.join(arry[1:])
+#         state.pod = arry[0].strip('@')
+#         cmd = ' '.join(arry[1:])
 
-    return (state, cmd)
+#     return (state, cmd)
 
 def cmd_list_n_chain(run_command: callable = None) -> tuple[list[Command], Command]:
     cmd_list: list[Command] = ReplCommands.repl_cmd_list() + [Help()]

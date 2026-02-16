@@ -12,12 +12,13 @@ def bake_to_keyframes(
     frame_start: int | None = 1,
     frame_end: int | None = 250,
     step: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Bake rigid body transformations of selected objects to keyframes
 
-    :param frame_start: Start Frame, Start frame for baking
-    :param frame_end: End Frame, End frame for baking
-    :param step: Frame Step, Frame Step
+    :param frame_start: Start Frame, Start frame for baking (in [0, 300000], optional)
+    :param frame_end: End Frame, End frame for baking (in [1, 300000], optional)
+    :param step: Frame Step, Frame Step (in [1, 120], optional)
+    :return: Result of the operator call.
     """
 
 def connect(
@@ -39,10 +40,10 @@ def connect(
     pivot_type: typing.Literal["CENTER", "ACTIVE", "SELECTED"] | None = "CENTER",
     connection_pattern: typing.Literal["SELECTED_TO_ACTIVE", "CHAIN_DISTANCE"]
     | None = "SELECTED_TO_ACTIVE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create rigid body constraints between selected rigid bodies
 
-        :param con_type: Type, Type of generated constraint
+        :param con_type: Type, Type of generated constraint (optional)
 
     FIXED
     Fixed -- Glue rigid bodies together.
@@ -67,7 +68,7 @@ def connect(
 
     MOTOR
     Motor -- Drive rigid body around or along an axis.
-        :param pivot_type: Location, Constraint pivot location
+        :param pivot_type: Location, Constraint pivot location (optional)
 
     CENTER
     Center -- Pivot location is between the constrained rigid bodies.
@@ -77,13 +78,14 @@ def connect(
 
     SELECTED
     Selected -- Pivot location is at the selected object position.
-        :param connection_pattern: Connection Pattern, Pattern used to connect objects
+        :param connection_pattern: Connection Pattern, Pattern used to connect objects (optional)
 
     SELECTED_TO_ACTIVE
     Selected to Active -- Connect selected objects to the active object.
 
     CHAIN_DISTANCE
     Chain by Distance -- Connect objects as a chain based on distance, starting at the active object.
+        :return: Result of the operator call.
     """
 
 def constraint_add(
@@ -91,32 +93,38 @@ def constraint_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems | None = "FIXED",
-) -> None:
+    type: Literal[bpy.stub_internal.rna_enums.RigidbodyConstraintTypeItems]
+    | None = "FIXED",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add Rigid Body Constraint to active object
 
-    :param type: Rigid Body Constraint Type
+    :param type: Rigid Body Constraint Type, (optional)
+    :return: Result of the operator call.
     """
 
 def constraint_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove Rigid Body Constraint from Object"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Rigid Body Constraint from Object
+
+    :return: Result of the operator call.
+    """
 
 def mass_calculate(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    material: str | None = "DEFAULT",
+    material: typing.Literal["DEFAULT"] | None = "DEFAULT",
     density: float | None = 1.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Automatically calculate mass values for Rigid Body Objects based on volume
 
-    :param material: Material Preset, Type of material that objects are made of (determines material density)
-    :param density: Density, Density value (kg/m^3), allows custom value if the Custom preset is used
+    :param material: Material Preset, Type of material that objects are made of (determines material density) (optional)
+    :param density: Density, Density value (kg/m^3), allows custom value if the Custom preset is used (in [1.17549e-38, inf], optional)
+    :return: Result of the operator call.
     """
 
 def object_add(
@@ -124,68 +132,89 @@ def object_add(
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems | None = "ACTIVE",
-) -> None:
+    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
+    | None = "ACTIVE",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add active object as Rigid Body
 
-    :param type: Rigid Body Type
+    :param type: Rigid Body Type, (optional)
+    :return: Result of the operator call.
     """
 
 def object_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove Rigid Body settings from Object"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Rigid Body settings from Object
+
+    :return: Result of the operator call.
+    """
 
 def object_settings_copy(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Copy Rigid Body settings from active object to selected"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Copy Rigid Body settings from active object to selected
+
+    :return: Result of the operator call.
+    """
 
 def objects_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems | None = "ACTIVE",
-) -> None:
+    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectTypeItems]
+    | None = "ACTIVE",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add selected objects as Rigid Bodies
 
-    :param type: Rigid Body Type
+    :param type: Rigid Body Type, (optional)
+    :return: Result of the operator call.
     """
 
 def objects_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove selected objects from Rigid Body simulation"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove selected objects from Rigid Body simulation
+
+    :return: Result of the operator call.
+    """
 
 def shape_change(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    type: bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems | None = "MESH",
-) -> None:
+    type: Literal[bpy.stub_internal.rna_enums.RigidbodyObjectShapeItems]
+    | None = "MESH",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change collision shapes for selected Rigid Body Objects
 
-    :param type: Rigid Body Shape
+    :param type: Rigid Body Shape, (optional)
+    :return: Result of the operator call.
     """
 
 def world_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add Rigid Body simulation world to the current scene"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add Rigid Body simulation world to the current scene
+
+    :return: Result of the operator call.
+    """
 
 def world_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove Rigid Body simulation world from the current scene"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove Rigid Body simulation world from the current scene
+
+    :return: Result of the operator call.
+    """

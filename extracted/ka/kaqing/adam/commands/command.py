@@ -132,6 +132,9 @@ class Command:
     def backgrounable(self):
         return False
 
+    def schedulable(self):
+        return False
+
     def validate(self, args: list[str], state: ReplState, apply = True):
         return ValidateStateHandler(self, args, state, apply = apply)
 
@@ -435,7 +438,7 @@ class ContextHandler:
         if not self.ignore_bg:
             args, background, _, _ = Command.extract_options(self.args, '&')
             if not self.backgrounable and background:
-                log2(f"'&' is not a valid option for '{self.command}', ignoring")
+                # log2(f"'&' is not a valid option for '{self.command}', ignoring")
                 background = False
 
         ctx = self.ctx

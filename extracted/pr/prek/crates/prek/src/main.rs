@@ -384,6 +384,11 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
 
                 cli::identify(&args.paths, args.output_format, printer)
             }
+            UtilCommand::ListBuiltins(args) => {
+                show_settings!(args);
+
+                cli::list_builtins(args.output_format, cli.globals.verbose > 0, printer)
+            }
             UtilCommand::InitTemplateDir(args) => {
                 show_settings!(args);
 
@@ -401,7 +406,7 @@ async fn run(cli: Cli) -> Result<ExitStatus> {
             UtilCommand::YamlToToml(args) => {
                 show_settings!(args);
 
-                cli::yaml_to_toml(&args.input, args.output, args.force, printer)
+                cli::yaml_to_toml(args.input, args.output, args.force, printer)
             }
             UtilCommand::GenerateShellCompletion(args) => {
                 show_settings!(args);

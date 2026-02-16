@@ -1032,6 +1032,7 @@ class WM_OT_properties_edit(_bpy_types.Operator):
     bl_label: typing.Any
     bl_options: typing.Any
     bl_rna: typing.Any
+    enum_items: typing.Any
     id_data: typing.Any
 
     def bl_rna_get_subclass(self) -> bpy.types.Struct:

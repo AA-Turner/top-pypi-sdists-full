@@ -77,7 +77,7 @@ class Python(ToxEnv, ABC):
         def validate_base_python(value: list[str]) -> list[str]:
             return self._validate_base_python(self.name, value, self.core["ignore_base_python_conflict"])
 
-        self.conf.add_config(
+        self.conf.add_config(  # ty: ignore[no-matching-overload] # https://github.com/astral-sh/ty/issues/2428
             keys=["base_python", "basepython"],
             of_type=list[str],
             default=self.default_base_python,
@@ -212,19 +212,21 @@ class Python(ToxEnv, ABC):
     @classmethod
     @abstractmethod
     def python_spec_for_path(cls, path: Path) -> PythonSpec:
-        """
-        Get the spec for an absolute path to a Python executable.
+        """Get the spec for an absolute path to a Python executable.
 
         :param path: the path investigated
-        :return: the found spec
+
+        :returns: the found spec
+
         """
         raise NotImplementedError
 
     @abstractmethod
     def env_site_package_dir(self) -> Path:
-        """
-        If we have the python we just need to look at the last path under prefix.
-        E.g., Debian derivatives change the site-packages to dist-packages, so we need to fix it for site-packages.
+        """Return the site-packages directory for this environment.
+
+        Debian derivatives change site-packages to dist-packages, so we look at the last path under prefix.
+
         """
         raise NotImplementedError
 
@@ -298,7 +300,7 @@ class Python(ToxEnv, ABC):
                 self.journal["python"] = value
 
         if self._base_python is None:
-            if self.core["skip_missing_interpreters"]:
+            if self.conf["skip_missing_interpreters"]:
                 msg = f"could not find python interpreter with spec(s): {', '.join(base_pythons)}"
                 raise Skip(msg)
             raise NoInterpreter(base_pythons)

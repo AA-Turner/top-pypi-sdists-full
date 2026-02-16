@@ -542,6 +542,15 @@ class ToolFinderKeyword(BaseTool):
                     indent=2,
                 )
 
+            # AUTO-LOAD: If tools not fully loaded, load them now
+            # Check if tools are not loaded or only partially loaded (< 100 tools means incomplete)
+            if len(self.tooluniverse.all_tool_dict) < 100:
+                self.tooluniverse.logger.info(
+                    f"Tool_Finder_Keyword: Only {len(self.tooluniverse.all_tool_dict)} tools loaded, loading all tools now..."
+                )
+                # Force full load by clearing filters and loading everything
+                self.tooluniverse.load_tools(include_tools=None, tool_type=None)
+
             all_tools = self.tooluniverse.return_all_loaded_tools()
 
             # Filter by categories if specified

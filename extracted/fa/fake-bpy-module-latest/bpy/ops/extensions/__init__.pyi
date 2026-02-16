@@ -2,35 +2,39 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.types
+import bpy.stub_internal.rna_enums
 
 def package_disable(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Turn off this extension"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Turn off this extension
+
+    :return: Result of the operator call.
+    """
 
 def package_install(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str = "",
+    repo_directory: str | None = "",
     repo_index: int | None = -1,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     enable_on_install: bool | None = True,
-    url: str = "",
+    url: str | None = "",
     do_legacy_replace: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Download and install the extension
 
-    :param repo_directory: Repo Directory
-    :param repo_index: Repo Index
-    :param pkg_id: Package ID
-    :param enable_on_install: Enable on Install, Enable after installing
-    :param url: URL
-    :param do_legacy_replace: Do Legacy Replace
+    :param repo_directory: Repo Directory, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :param pkg_id: Package ID, (optional, never None)
+    :param enable_on_install: Enable on Install, Enable after installing (optional)
+    :param url: URL, (optional, never None)
+    :param do_legacy_replace: Do Legacy Replace, (optional)
+    :return: Result of the operator call.
     """
 
 def package_install_files(
@@ -38,28 +42,28 @@ def package_install_files(
     undo: bool | None = None,
     /,
     *,
-    filter_glob: str = "*.zip;*.py",
-    directory: str = "",
-    files: bpy.types.bpy_prop_collection[bpy.types.OperatorFileListElement]
-    | None = None,
-    filepath: str = "",
+    filter_glob: str | None = "*.zip;*.py",
+    directory: str | None = "",
+    files=None,
+    filepath: str | None = "",
     repo: str | None = "",
     enable_on_install: bool | None = True,
     target: str | None = "",
     overwrite: bool | None = True,
-    url: str = "",
-) -> None:
+    url: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Install extensions from files into a locally managed repository
 
-    :param filter_glob: filter_glob
-    :param directory: Directory
-    :param files: files
-    :param filepath: filepath
-    :param repo: User Repository, The user repository to install extensions into
-    :param enable_on_install: Enable on Install, Enable after installing
-    :param target: Legacy Target Path, Path to install legacy add-on packages to
-    :param overwrite: Legacy Overwrite, Remove existing add-ons with the same ID
-    :param url: URL
+    :param filter_glob: filter_glob, (optional, never None)
+    :param directory: Directory, (optional, never None)
+    :param files: files, (optional)
+    :param filepath: filepath, (optional, never None)
+    :param repo: User Repository, The user repository to install extensions into (optional)
+    :param enable_on_install: Enable on Install, Enable after installing (optional)
+    :param target: Legacy Target Path, Path to install legacy add-on packages to (optional)
+    :param overwrite: Legacy Overwrite, Remove existing add-ons with the same ID (optional)
+    :param url: URL, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def package_install_marked(
@@ -68,10 +72,11 @@ def package_install_marked(
     /,
     *,
     enable_on_install: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param enable_on_install: Enable on Install, Enable after installing
+    :param enable_on_install: Enable on Install, Enable after installing (optional)
+    :return: Result of the operator call.
     """
 
 def package_mark_clear(
@@ -79,62 +84,74 @@ def package_mark_clear(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_mark_clear_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def package_mark_set(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_mark_set_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def package_obsolete_marked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Zeroes package versions, useful for development - to test upgrading"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Zeroes package versions, useful for development - to test upgrading
+
+    :return: Result of the operator call.
+    """
 
 def package_show_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_show_set(
@@ -142,13 +159,14 @@ def package_show_set(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_show_settings(
@@ -156,13 +174,14 @@ def package_show_settings(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_theme_disable(
@@ -170,13 +189,14 @@ def package_theme_disable(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Reset to the default theme if this theme is active
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_theme_enable(
@@ -184,13 +204,14 @@ def package_theme_enable(
     undo: bool | None = None,
     /,
     *,
-    pkg_id: str = "",
+    pkg_id: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Turn on this theme
 
-    :param pkg_id: Package ID
-    :param repo_index: Repo Index
+    :param pkg_id: Package ID, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def package_uninstall(
@@ -198,30 +219,37 @@ def package_uninstall(
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str = "",
+    repo_directory: str | None = "",
     repo_index: int | None = -1,
-    pkg_id: str = "",
-) -> None:
+    pkg_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Disable and uninstall the extension
 
-    :param repo_directory: Repo Directory
-    :param repo_index: Repo Index
-    :param pkg_id: Package ID
+    :param repo_directory: Repo Directory, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :param pkg_id: Package ID, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def package_uninstall_marked(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def package_uninstall_system(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def package_upgrade_all(
     execution_context: int | str | None = None,
@@ -229,10 +257,11 @@ def package_upgrade_all(
     /,
     *,
     use_active_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Upgrade installed extensions to their latest version from remote repositories
 
-    :param use_active_only: Active Only, Only upgrade the active repository
+    :param use_active_only: Active Only, Only upgrade the active repository (optional)
+    :return: Result of the operator call.
     """
 
 def repo_enable_from_drop(
@@ -241,18 +270,22 @@ def repo_enable_from_drop(
     /,
     *,
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param repo_index: Repo Index
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def repo_lock_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Lock repositories - to test locking"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Lock repositories - to test locking
+
+    :return: Result of the operator call.
+    """
 
 def repo_refresh_all(
     execution_context: int | str | None = None,
@@ -260,10 +293,11 @@ def repo_refresh_all(
     /,
     *,
     use_active_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh extension & legacy add-ons, reloading modules & meta-data (similar to restarting)
 
-    :param use_active_only: Active Only, Only refresh the active repository
+    :param use_active_only: Active Only, Only refresh the active repository (optional)
+    :return: Result of the operator call.
     """
 
 def repo_sync(
@@ -271,13 +305,14 @@ def repo_sync(
     undo: bool | None = None,
     /,
     *,
-    repo_directory: str = "",
+    repo_directory: str | None = "",
     repo_index: int | None = -1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Undocumented, consider contributing.
 
-    :param repo_directory: Repo Directory
-    :param repo_index: Repo Index
+    :param repo_directory: Repo Directory, (optional, never None)
+    :param repo_index: Repo Index, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def repo_sync_all(
@@ -286,67 +321,92 @@ def repo_sync_all(
     /,
     *,
     use_active_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Refresh the list of extensions for all the remote repositories
 
-    :param use_active_only: Active Only, Only sync the active repository
+    :param use_active_only: Active Only, Only sync the active repository (optional)
+    :return: Result of the operator call.
     """
 
 def repo_unlock(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove the repository file-system lock"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove the repository file-system lock
+
+    :return: Result of the operator call.
+    """
 
 def repo_unlock_all(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Unlock repositories - to test unlocking"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Unlock repositories - to test unlocking
+
+    :return: Result of the operator call.
+    """
 
 def status_clear(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def status_clear_errors(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undocumented, consider contributing."""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undocumented, consider contributing.
+
+    :return: Result of the operator call.
+    """
 
 def userpref_allow_online(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
+
+    :return: Result of the operator call.
+    """
 
 def userpref_allow_online_popup(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Allow internet access. Blender may access configured online extension repositories. Installed third party add-ons may access the internet for their own functionality
+
+    :return: Result of the operator call.
+    """
 
 def userpref_show_for_update(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Open extensions preferences"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Open extensions preferences
+
+    :return: Result of the operator call.
+    """
 
 def userpref_show_online(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Show system preferences "Network" panel to allow online access"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Show system preferences "Network" panel to allow online access
+
+    :return: Result of the operator call.
+    """
 
 def userpref_tags_set(
     execution_context: int | str | None = None,
@@ -354,10 +414,11 @@ def userpref_tags_set(
     /,
     *,
     value: bool | None = False,
-    data_path: str = "",
-) -> None:
+    data_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Set the value of all tags
 
-    :param value: Value, Enable or disable all tags
-    :param data_path: Data Path
+    :param value: Value, Enable or disable all tags (optional)
+    :param data_path: Data Path, (optional, never None)
+    :return: Result of the operator call.
     """

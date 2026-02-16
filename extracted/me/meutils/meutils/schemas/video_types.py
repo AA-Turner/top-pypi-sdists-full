@@ -181,8 +181,10 @@ class SoraVideoRequest(BaseModel):
 
         self.duration = self.duration or self.seconds and int(self.seconds)
 
-        if self.input_reference and not isinstance(self.input_reference, list):
-            self.input_reference = [self.input_reference]
+        if self.input_reference:
+            if not isinstance(self.input_reference, list):
+                self.input_reference = [self.input_reference]
+            self.input_reference = list(filter(None, self.input_reference))  # 排除 ["", None]
 
         if self.size:
             self.size = self.size.replace(':', 'x').replace('*', 'x')
@@ -297,7 +299,7 @@ if __name__ == '__main__':
         # model="doubao-seedance-1-0-pro-fast-251015_4k",
         model="doubao-seedance-1-0-pro-fast-251015_3840",
 
-        input_reference=["https://example.com/image.jpg"] * 10,
+        input_reference=["https://example.com/image.jpg"] * 10 + [""],
 
         size="1x1",
         xx=11111111

@@ -259,7 +259,7 @@ class RequestBodyTools(BaseModel):
 
     schema_: Annotated[UpdateToolRequestBodyToolsSchema, pydantic.Field(alias="schema")]
 
-    id: Optional[str] = "01KGHB3KQMDKXWX7MWH3A0EVS1"
+    id: Optional[str] = "01KHHJ30CBYDY1P80WN7KWNP0K"
 
     description: Optional[str] = None
 
@@ -1214,7 +1214,7 @@ class UpdateToolResponseBodyCodeExecutionTool(BaseModel):
     code_tool: UpdateToolResponseBodyCodeTool
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KGHB3KQFNHKWAA9J684KK9C4"
+        "tool_01KHHJ30C5C1EH51TCDC3QPMTC"
     )
 
     display_name: Optional[str] = None
@@ -1345,7 +1345,7 @@ class UpdateToolResponseBodyTools(BaseModel):
         UpdateToolResponseBodyToolsSchema, pydantic.Field(alias="schema")
     ]
 
-    id: Optional[str] = "01KGHB3KQE3YSWX1KQPS157P96"
+    id: Optional[str] = "01KHHJ30C449S92E5WB5AA718G"
 
     description: Optional[str] = None
 
@@ -1476,7 +1476,7 @@ class UpdateToolResponseBodyMCPTool(BaseModel):
     mcp: UpdateToolResponseBodyMcp
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KGHB3KQD010Q98392TW18JXJ"
+        "tool_01KHHJ30C35F12BV8Q8BWSCF74"
     )
 
     display_name: Optional[str] = None
@@ -1777,7 +1777,7 @@ class UpdateToolResponseBodyHTTPTool(BaseModel):
     http: UpdateToolResponseBodyHTTP
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KGHB3KQB4D1V95WMQD3EHWES"
+        "tool_01KHHJ30C1YR8Z5FSMCQ5MPAYV"
     )
 
     display_name: Optional[str] = None
@@ -1972,7 +1972,7 @@ class UpdateToolResponseBodyJSONSchemaTool(BaseModel):
     json_schema: UpdateToolResponseBodyJSONSchema
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KGHB3KQAD9PMFW79S43EHCBC"
+        "tool_01KHHJ30C0CMR8RYSNC86XHSDD"
     )
 
     display_name: Optional[str] = None
@@ -2171,7 +2171,7 @@ class UpdateToolResponseBodyFunctionTool(BaseModel):
     function: UpdateToolResponseBodyFunction
 
     id: Annotated[Optional[str], pydantic.Field(alias="_id")] = (
-        "tool_01KGHB3KQ91FTJZTZGHNM1DRSD"
+        "tool_01KHHJ30BZ2E5AMB4A33Z66N2F"
     )
 
     display_name: Optional[str] = None
@@ -2238,3 +2238,41 @@ UpdateToolResponseBody = Annotated[
     Discriminator(lambda m: get_discriminator(m, "type", "type")),
 ]
 r"""Successfully updated the tool."""
+
+
+try:
+    RequestBodyTools.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolRequestBodyJSONSchema.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyCodeExecutionTool.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyTools.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyMCPTool.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyHTTPTool.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyJSONSchema.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyJSONSchemaTool.model_rebuild()
+except NameError:
+    pass
+try:
+    UpdateToolResponseBodyFunctionTool.model_rebuild()
+except NameError:
+    pass

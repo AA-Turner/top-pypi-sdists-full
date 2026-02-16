@@ -93,6 +93,15 @@ class ToolFinderEmbedding(BaseTool):
             logger.warning("ToolUniverse not initialized, skipping embedding refresh")
             return
 
+        # AUTO-LOAD: If tools not fully loaded, load them now
+        # Check if tools are not loaded or only partially loaded (< 100 tools means incomplete)
+        if len(self.tooluniverse.all_tools) < 100:
+            logger.info(
+                f"Tool_Finder (embedding): Only {len(self.tooluniverse.all_tools)} tools loaded, loading all tools now..."
+            )
+            # Force full load by clearing filters and loading everything
+            self.tooluniverse.load_tools(include_tools=None, tool_type=None)
+
         # Get current tool names (excluding special tools)
         current_tool_names = [
             tool["name"]
@@ -157,7 +166,7 @@ class ToolFinderEmbedding(BaseTool):
         self.rag_model = SentenceTransformer(self.toolfinder_model, device=device)
         self.rag_model.max_seq_length = 4096
         self.rag_model.tokenizer.padding_side = "right"
-        
+
         # Verify model is on correct device
         logger.info(f"Model device after loading: {self.rag_model.device}")
 
@@ -236,36 +245,39 @@ class ToolFinderEmbedding(BaseTool):
             target_device = self.rag_model.device
         else:
             target_device = "cuda" if torch.cuda.is_available() else "cpu"
-        
+
         logger.info(f"Loading embeddings to device: {target_device}")
 
         try:
             # Load embeddings directly to the target device (GPU if available)
             # This is more efficient than loading to CPU then moving to GPU
             self.tool_desc_embedding = torch.load(
-                self.tool_embedding_path, 
-                map_location=target_device,
-                weights_only=False
+                self.tool_embedding_path, map_location=target_device, weights_only=False
             )
-            
+
             # Ensure it is a tensor
             if not isinstance(self.tool_desc_embedding, torch.Tensor):
                 self.tool_desc_embedding = torch.tensor(
-                    self.tool_desc_embedding, 
+                    self.tool_desc_embedding, device=target_device
+                )
+
+            # PyTorch meta tensor fix: handle meta tensors if present
+            if self.tool_desc_embedding.device.type == "meta":
+                logger.info("Detected meta tensor, using to_empty()")
+                self.tool_desc_embedding = self.tool_desc_embedding.to_empty(
                     device=target_device
                 )
-            
-            # PyTorch meta tensor fix: handle meta tensors if present
-            if self.tool_desc_embedding.device.type == 'meta':
-                logger.info("Detected meta tensor, using to_empty()")
-                self.tool_desc_embedding = self.tool_desc_embedding.to_empty(device=target_device)
             elif self.tool_desc_embedding.device != target_device:
                 # Move to target device if not already there
-                logger.info(f"Moving embeddings from {self.tool_desc_embedding.device} to {target_device}")
+                logger.info(
+                    f"Moving embeddings from {self.tool_desc_embedding.device} to {target_device}"
+                )
                 self.tool_desc_embedding = self.tool_desc_embedding.to(target_device)
-            
-            logger.info(f"Embeddings loaded on device: {self.tool_desc_embedding.device}")
-            
+
+            logger.info(
+                f"Embeddings loaded on device: {self.tool_desc_embedding.device}"
+            )
+
             assert len(self.tool_desc_embedding) == len(self.tool_name), (
                 "The number of tools in the tool_name list is not equal to the number of tool_desc_embedding."
             )
@@ -276,7 +288,10 @@ class ToolFinderEmbedding(BaseTool):
 
             # Generate embeddings
             self.tool_desc_embedding = self.rag_model.encode(
-                all_tools_str, prompt="", normalize_embeddings=True, convert_to_tensor=True
+                all_tools_str,
+                prompt="",
+                normalize_embeddings=True,
+                convert_to_tensor=True,
             )
 
             # Save embeddings to disk
@@ -359,12 +374,16 @@ class ToolFinderEmbedding(BaseTool):
             if query_embeddings.device != self.tool_desc_embedding.device:
                 # PyTorch meta tensor fix: use to_empty() for meta tensors, to() for regular tensors
                 target_device = query_embeddings.device
-                if self.tool_desc_embedding.device.type == 'meta':
+                if self.tool_desc_embedding.device.type == "meta":
                     # New PyTorch: meta tensors require to_empty()
-                    self.tool_desc_embedding = self.tool_desc_embedding.to_empty(device=target_device)
+                    self.tool_desc_embedding = self.tool_desc_embedding.to_empty(
+                        device=target_device
+                    )
                 else:
                     # Old PyTorch or regular tensors: use standard to()
-                    self.tool_desc_embedding = self.tool_desc_embedding.to(target_device)
+                    self.tool_desc_embedding = self.tool_desc_embedding.to(
+                        target_device
+                    )
 
         scores = self.rag_model.similarity(query_embeddings, self.tool_desc_embedding)
         top_k = min(top_k, len(self.tool_name))

@@ -7,7 +7,7 @@ from adam.repl_state import ReplState
 from adam.utils_context import NULL, Context
 from adam.utils_job.job_schedules import JobSchedules, ts
 from adam.utils_job.job_status import JobStatus
-from adam.utils_job.utils_job_results import retry_job
+from adam.utils_job.utils_job_results import reschedule_job
 
 class JobScheduler:
     run_command: callable = None
@@ -30,9 +30,24 @@ class JobScheduler:
                 JobScheduler.jobs_thread = threading.Thread(target=JobScheduler.loop, args=(state, ctx,), daemon=True)
                 JobScheduler.jobs_thread.start()
 
+    def cancel_jobs(state: ReplState, job_ids: list[str]):
+        canceled: dict[str, JobStatus] = {}
+
+        # 1. delete from the pending queue first
+        for job_id in job_ids:
+            with JobSchedules.lock:
+                if job_id in JobSchedules._queue:
+                    js = JobSchedules._queue[job_id]
+                    del JobSchedules._queue[job_id]
+                    canceled[job_id] = js
+
+        return canceled
+
     # single queue pattern
     def loop(state: ReplState, ctx = NULL):
         while True:
+            tick_interval = Config().get('job.scheduler.tick-interval-in-secs', 5)
+
             try:
                 while (pendings := JobSchedules.pending().keys()):
                     checked = 0
@@ -41,17 +56,19 @@ class JobScheduler:
 
                         job_ctx = ctx.switch_to_job_context(job_id)
 
-                        status = retry_job(state, job_id, JobScheduler.run_command, ctx=job_ctx)
+                        status = reschedule_job(state, job_id, JobScheduler.run_command, ctx=job_ctx)
                         if not isinstance(status, JobStatus):
                             job_ctx.log2(f'[{ts()}] {job_id}: Scheduling is ignored as command is not schedulable.')
-                            time.sleep(5)
+                            time.sleep(tick_interval)
 
                             continue
 
                         if status.all_completed():
                             JobSchedules.done(status, ctx=ctx)
 
-                        time.sleep(5)
+                        time.sleep(tick_interval)
             except:
                 if Config().is_debug():
                     traceback.print_exc()
+
+            time.sleep(tick_interval)

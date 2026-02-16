@@ -5,7 +5,132 @@ import numpy.typing as npt
 import bpy.types
 
 class AutoKeying:
-    """Auto-keying support.Retrieve the lock status for 4D rotation."""
+    """Auto-keying support."""
+
+    @classmethod
+    def active_keyingset(cls, context: bpy.types.Context) -> None | bpy.types.KeyingSet:
+        """Return the active keying set, if it should be used.Only returns the active keying set when the auto-key settings indicate
+        it should be used, and when it is not using absolute paths (because
+        thats not supported by the Copy Global Transform add-on).
+
+                :param context: The context.
+                :return: The active keying set, or None when it should not be used.
+        """
+
+    @classmethod
+    def autokey_transformation(
+        cls, context: bpy.types.Context, target: bpy.types.Object | bpy.types.PoseBone
+    ) -> None:
+        """Auto-key transformation properties.
+
+        :param context: The context.
+        :param target: The object or pose bone to keyframe.
+        """
+
+    @classmethod
+    def autokeying_options(cls, context: bpy.types.Context) -> None | set[str]:
+        """Retrieve the Auto Keyframe options, or None if disabled.
+
+        :param context: The context.
+        :return: The keyframing option flags, or None when auto-keying is disabled.
+        """
+
+    @classmethod
+    def key_transformation(
+        cls, target: bpy.types.Object | bpy.types.PoseBone, options: set[str]
+    ) -> None:
+        """Keyframe transformation properties, avoiding keying locked channels.
+
+        :param target: The object or pose bone to keyframe.
+        :param options: Keyframing options.
+        """
+
+    @classmethod
+    def key_transformation_via_keyingset(
+        cls,
+        context: bpy.types.Context,
+        target: bpy.types.Object | bpy.types.PoseBone,
+        keyingset: bpy.types.KeyingSet,
+    ) -> None:
+        """Auto-key transformation properties with the given keying set.
+
+        :param context: The context.
+        :param target: The object or pose bone to keyframe.
+        :param keyingset: The keying set to use.
+        """
+
+    @classmethod
+    def keyframe_channels(
+        cls,
+        target: bpy.types.Object | bpy.types.PoseBone,
+        options: set[str],
+        data_path: str,
+        group: str,
+        locks: collections.abc.Iterable[bool],
+    ) -> None:
+        """Keyframe channels, avoiding keying locked channels.
+
+        :param target: The object or pose bone to keyframe.
+        :param options: Keyframing options.
+        :param data_path: The data path to keyframe.
+        :param group: The group name for the keyframes.
+        :param locks: Per-channel lock status.
+        """
+
+    @classmethod
+    def keying_options(cls, context: bpy.types.Context) -> set[str]:
+        """Retrieve the general keyframing options from user preferences.
+
+        :param context: The context.
+        :return: The keyframing option flags.
+        """
+
+    @classmethod
+    def keying_options_from_keyingset(
+        cls, context: bpy.types.Context, keyingset: bpy.types.KeyingSet
+    ) -> set[str]:
+        """Retrieve the general keyframing options from user preferences.
+
+        :param context: The context.
+        :param keyingset: The keying set to read options from.
+        :return: The keyframing option flags.
+        """
+
+    @classmethod
+    def keytype(cls, the_keytype: str) -> None:
+        """Context manager to set the key type thats inserted.
+
+        :param the_keytype: The key type to use.
+        :return: A context manager that resets the key type on exit.
+        """
+
+    @classmethod
+    def options(
+        cls,
+        *,
+        keytype: str = "",
+        use_loc: bool = True,
+        use_rot: bool = True,
+        use_scale: bool = True,
+        force_autokey: bool = False,
+    ) -> None:
+        """Context manager to set various keyframing options.
+
+        :param keytype: The key type to use.
+        :param use_loc: Key location channels.
+        :param use_rot: Key rotation channels.
+        :param use_scale: Key scale channels.
+        :param force_autokey: Allow use without the user activating auto-keying.
+        :return: A context manager that resets the options on exit.
+        """
+
+    @staticmethod
+    def get_4d_rotlock(bone: bpy.types.PoseBone) -> list[bool]:
+        """Retrieve the lock status for 4D rotation.
+
+        :param bone: The pose bone to check.
+        :return: Lock status for W, X, Y, Z rotation channels.
+        """
 
 class BakeOptions:
     """BakeOptions(only_selected: bool, do_pose: bool, do_object: bool, do_visual_keying: bool, do_constraint_clear: bool, do_parents_clear: bool, do_clean: bool, do_location: bool, do_rotation: bool, do_scale: bool, do_bbone: bool, do_custom_props: bool)"""

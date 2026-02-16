@@ -14,7 +14,6 @@ class Alphas:
     alpha: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -40,12 +39,7 @@ class Charlie:
         name = "charlie"
         namespace = "xsdata"
 
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
     lang: None | object = field(
         default=None,
         metadata={
@@ -79,7 +73,6 @@ class Wrapper:
         metadata={
             "wrapper": "alphas",
             "type": "Element",
-            "required": True,
         }
     )
     bravo: list[int] = field(

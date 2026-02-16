@@ -170,14 +170,6 @@ class ElementBase:
                 yield value
 
 
-def text_node(**kwargs: Any) -> Any:
-    """Shortcut method for text node fields."""
-    metadata = extract_metadata(kwargs, type=XmlType.TEXT)
-    add_default_value(kwargs, optional=False)
-
-    return field(metadata=metadata, **kwargs)
-
-
 def attribute(optional: bool = True, **kwargs: Any) -> Any:
     """Shortcut method for attribute fields."""
     metadata = extract_metadata(kwargs, type=XmlType.ATTRIBUTE)

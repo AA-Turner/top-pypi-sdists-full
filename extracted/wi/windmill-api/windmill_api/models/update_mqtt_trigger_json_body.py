@@ -30,11 +30,13 @@ class UpdateMqttTriggerJsonBody:
         path (str): The unique path identifier for this trigger
         script_path (str): Path to the script or flow to execute when a message is received
         is_flow (bool): True if script_path points to a flow, false if it points to a script
-        client_id (Union[Unset, str]): MQTT client ID for this connection
-        v3_config (Union[Unset, UpdateMqttTriggerJsonBodyV3Config]): MQTT v3 specific configuration (clean_session)
-        v5_config (Union[Unset, UpdateMqttTriggerJsonBodyV5Config]): MQTT v5 specific configuration (clean_start,
+        client_id (Union[Unset, None, str]): MQTT client ID for this connection
+        v3_config (Union[Unset, None, UpdateMqttTriggerJsonBodyV3Config]): MQTT v3 specific configuration
+            (clean_session)
+        v5_config (Union[Unset, None, UpdateMqttTriggerJsonBodyV5Config]): MQTT v5 specific configuration (clean_start,
             topic_alias_maximum, session_expiry_interval)
-        client_version (Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]): MQTT protocol version ('v3' or 'v5')
+        client_version (Union[Unset, None, UpdateMqttTriggerJsonBodyClientVersion]): MQTT protocol version ('v3' or
+            'v5')
         mode (Union[Unset, UpdateMqttTriggerJsonBodyMode]): job trigger mode
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, UpdateMqttTriggerJsonBodyErrorHandlerArgs]): The arguments to pass to the
@@ -47,10 +49,10 @@ class UpdateMqttTriggerJsonBody:
     path: str
     script_path: str
     is_flow: bool
-    client_id: Union[Unset, str] = UNSET
-    v3_config: Union[Unset, "UpdateMqttTriggerJsonBodyV3Config"] = UNSET
-    v5_config: Union[Unset, "UpdateMqttTriggerJsonBodyV5Config"] = UNSET
-    client_version: Union[Unset, UpdateMqttTriggerJsonBodyClientVersion] = UNSET
+    client_id: Union[Unset, None, str] = UNSET
+    v3_config: Union[Unset, None, "UpdateMqttTriggerJsonBodyV3Config"] = UNSET
+    v5_config: Union[Unset, None, "UpdateMqttTriggerJsonBodyV5Config"] = UNSET
+    client_version: Union[Unset, None, UpdateMqttTriggerJsonBodyClientVersion] = UNSET
     mode: Union[Unset, UpdateMqttTriggerJsonBodyMode] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "UpdateMqttTriggerJsonBodyErrorHandlerArgs"] = UNSET
@@ -69,17 +71,17 @@ class UpdateMqttTriggerJsonBody:
         script_path = self.script_path
         is_flow = self.is_flow
         client_id = self.client_id
-        v3_config: Union[Unset, Dict[str, Any]] = UNSET
+        v3_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.v3_config, Unset):
-            v3_config = self.v3_config.to_dict()
+            v3_config = self.v3_config.to_dict() if self.v3_config else None
 
-        v5_config: Union[Unset, Dict[str, Any]] = UNSET
+        v5_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.v5_config, Unset):
-            v5_config = self.v5_config.to_dict()
+            v5_config = self.v5_config.to_dict() if self.v5_config else None
 
-        client_version: Union[Unset, str] = UNSET
+        client_version: Union[Unset, None, str] = UNSET
         if not isinstance(self.client_version, Unset):
-            client_version = self.client_version.value
+            client_version = self.client_version.value if self.client_version else None
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
@@ -153,22 +155,28 @@ class UpdateMqttTriggerJsonBody:
         client_id = d.pop("client_id", UNSET)
 
         _v3_config = d.pop("v3_config", UNSET)
-        v3_config: Union[Unset, UpdateMqttTriggerJsonBodyV3Config]
-        if isinstance(_v3_config, Unset):
+        v3_config: Union[Unset, None, UpdateMqttTriggerJsonBodyV3Config]
+        if _v3_config is None:
+            v3_config = None
+        elif isinstance(_v3_config, Unset):
             v3_config = UNSET
         else:
             v3_config = UpdateMqttTriggerJsonBodyV3Config.from_dict(_v3_config)
 
         _v5_config = d.pop("v5_config", UNSET)
-        v5_config: Union[Unset, UpdateMqttTriggerJsonBodyV5Config]
-        if isinstance(_v5_config, Unset):
+        v5_config: Union[Unset, None, UpdateMqttTriggerJsonBodyV5Config]
+        if _v5_config is None:
+            v5_config = None
+        elif isinstance(_v5_config, Unset):
             v5_config = UNSET
         else:
             v5_config = UpdateMqttTriggerJsonBodyV5Config.from_dict(_v5_config)
 
         _client_version = d.pop("client_version", UNSET)
-        client_version: Union[Unset, UpdateMqttTriggerJsonBodyClientVersion]
-        if isinstance(_client_version, Unset):
+        client_version: Union[Unset, None, UpdateMqttTriggerJsonBodyClientVersion]
+        if _client_version is None:
+            client_version = None
+        elif isinstance(_client_version, Unset):
             client_version = UNSET
         else:
             client_version = UpdateMqttTriggerJsonBodyClientVersion(_client_version)

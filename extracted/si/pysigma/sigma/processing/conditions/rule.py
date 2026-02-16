@@ -43,7 +43,7 @@ class LogsourceCondition(RuleProcessingCondition):
             return rule.logsource in self.logsource
         elif isinstance(rule, SigmaCorrelationRule):
             # Will only return true if the rules have been resolved in advance
-            for ref in rule.rules:
+            for ref in rule.referenced_rules:
                 if hasattr(ref, "rule") and isinstance(ref.rule, (SigmaRule, SigmaCorrelationRule)):
                     if self.match(ref.rule):
                         return True

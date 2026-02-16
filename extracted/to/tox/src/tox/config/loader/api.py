@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import abstractmethod
 from argparse import ArgumentTypeError
 from collections.abc import Mapping
-from typing import TYPE_CHECKING, Any, TypeVar
+from typing import TYPE_CHECKING, Any, TypeVar, cast
 
 from tox.plugin import impl
 from tox.tox_env.python.pip.req_file import PythonDeps
@@ -43,12 +43,12 @@ class Override:  # noqa: PLW1641
         return f"{self.namespace}{'.' if self.namespace else ''}{self.key}={self.value}"
 
     def __eq__(self, other: object) -> bool:
-        if type(self) != type(other):  # noqa: E721
+        if not isinstance(other, Override):
             return False
         return (self.namespace, self.key, self.value) == (
-            other.namespace,  # type: ignore[attr-defined]
-            other.key,  # type: ignore[attr-defined]
-            other.value,  # type: ignore[attr-defined]
+            other.namespace,
+            other.key,
+            other.value,
         )
 
     def __ne__(self, other: object) -> bool:
@@ -59,17 +59,17 @@ class ConfigLoadArgs:
     """Arguments that help loading a configuration value."""
 
     def __init__(self, chain: list[str] | None, name: str | None, env_name: str | None) -> None:
-        """
-        :param chain: the configuration chain (useful to detect circular references)
+        """:param chain: the configuration chain (useful to detect circular references)
         :param name: the name of the configuration
         :param env_name: the tox environment this load is for
+
         """
         self.chain: list[str] = chain or []
         self.name = name
         self.env_name = env_name
 
     def copy(self) -> ConfigLoadArgs:
-        """:return: create a copy of the object"""
+        """:returns: create a copy of the object"""
         return ConfigLoadArgs(self.chain.copy(), self.name, self.env_name)
 
 
@@ -83,6 +83,7 @@ class Loader(Convert[T]):
     """Loader loads configuration values and converts it.
 
     :param overrides: A list of overrides to be applied.
+
     """
 
     def __init__(self, section: Section, overrides: list[Override]) -> None:
@@ -99,12 +100,12 @@ class Loader(Convert[T]):
 
     @abstractmethod
     def load_raw(self, key: str, conf: Config | None, env_name: str | None) -> T:
-        """
-        Load the raw object from the config store.
+        """Load the raw object from the config store.
 
         :param key: the key under what we want the configuration
         :param env_name: load for env name
         :param conf: the global config object
+
         """
         raise NotImplementedError
 
@@ -127,15 +128,16 @@ class Loader(Convert[T]):
         conf: Config | None,
         args: ConfigLoadArgs,
     ) -> V:
-        """
-        Load a value (raw and then convert).
+        """Load a value (raw and then convert).
 
         :param key: the key under it lives
         :param of_type: the type to convert to
         :param factory: factory method to build the object
         :param conf: the configuration object of this tox session (needed to manifest the value)
         :param args: the config load arguments
-        :return: the converted type
+
+        :returns: the converted type
+
         """
         from tox.config.set_env import SetEnv  # noqa: PLC0415
 
@@ -154,20 +156,20 @@ class Loader(Convert[T]):
             converted_override = _STR_CONVERT.to(override.value, of_type, factory)
             if override.append and converted is not None:
                 if isinstance(converted, list) and isinstance(converted_override, list):
-                    converted += converted_override  # type: ignore[assignment]
+                    converted += converted_override
                 elif isinstance(converted, dict) and isinstance(converted_override, dict):
                     converted.update(converted_override)
                 elif isinstance(converted, SetEnv) and isinstance(converted_override, SetEnv):
                     converted.update(converted_override, override=True)
                 elif isinstance(converted, PythonDeps) and isinstance(converted_override, PythonDeps):
-                    converted += converted_override  # type: ignore[operator]
+                    converted += converted_override
                 else:
                     msg = "Only able to append to lists and dicts"
                     raise ValueError(msg)
             else:
                 converted = converted_override
 
-        return converted  # type: ignore[return-value]
+        return cast("V", converted)  # guaranteed non-None: either build() succeeded or overrides set it
 
     def build(  # noqa: PLR0913
         self,
@@ -178,8 +180,7 @@ class Loader(Convert[T]):
         raw: T,
         args: ConfigLoadArgs,  # noqa: ARG002
     ) -> V:
-        """
-        Materialize the raw configuration value from the loader.
+        """Materialize the raw configuration value from the loader.
 
         :param future: a future which when called will provide the converted config value
         :param key: the config key
@@ -187,6 +188,7 @@ class Loader(Convert[T]):
         :param conf: the global config
         :param raw: the raw value
         :param args: env args
+
         """
         return self.to(raw, of_type, factory)
 

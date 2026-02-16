@@ -1,6 +1,4 @@
-"""
-tox uses `pluggy <https://pluggy.readthedocs.io/en/stable/>`_ to customize the default behavior. It provides an
-extension mechanism for plugin management by calling hooks.
+"""Plugin management for tox using `pluggy <https://pluggy.readthedocs.io/en/stable/>`_.
 
 Pluggy discovers a plugin by looking up for entry-points named ``tox``, for example in a pyproject.toml:
 
@@ -27,19 +25,16 @@ define a new ``--magic`` command line interface flag the user can specify:
 
 You can define such hooks either in a package installed alongside tox or within a ``toxfile.py`` found alongside your
 tox configuration file (root of your project).
+
 """
 
 from __future__ import annotations
-
-from collections.abc import Callable
-from typing import Any, TypeVar
 
 import pluggy
 
 NAME = "tox"  #: the name of the tox hook
 
-_F = TypeVar("_F", bound=Callable[..., Any])
-impl: Callable[[_F], _F] = pluggy.HookimplMarker(NAME)  #: decorator to mark tox plugin hooks
+impl = pluggy.HookimplMarker(NAME)  #: decorator to mark tox plugin hooks
 
 
 __all__ = (

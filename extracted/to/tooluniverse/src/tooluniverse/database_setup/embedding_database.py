@@ -11,55 +11,11 @@ from ..logging_config import get_logger
 from tooluniverse.database_setup.sqlite_store import SQLiteStore
 from tooluniverse.database_setup.vector_store import VectorStore
 from tooluniverse.database_setup.embedder import Embedder
+from tooluniverse.database_setup.provider_resolver import (
+    resolve_provider as _resolve_provider,
+    resolve_model as _resolve_model,
+)
 from tooluniverse.utils import get_user_cache_dir
-
-# ---------------------------
-# Resolver helpers (provider/model) — no Azure bias
-# ---------------------------
-
-
-def _resolve_provider(explicit: Optional[str] = None) -> str:
-    """
-    Resolution order:
-      1) explicit argument
-      2) EMBED_PROVIDER environment variable
-      3) heuristics by available credentials: azure > openai > huggingface > local
-    """
-    if explicit:
-        return explicit
-    env = os.getenv("EMBED_PROVIDER")
-    if env:
-        return env
-    if os.getenv("AZURE_OPENAI_API_KEY"):
-        return "azure"
-    if os.getenv("OPENAI_API_KEY"):
-        return "openai"
-    if os.getenv("HF_TOKEN"):
-        return "huggingface"
-    return "local"
-
-
-def _resolve_model(provider: str, explicit: Optional[str] = None) -> str:
-    """
-    Resolution order:
-      1) explicit argument
-      2) EMBED_MODEL environment variable
-      3) provider-specific sensible default
-    """
-    if explicit:
-        return explicit
-    if os.getenv("EMBED_MODEL"):
-        return os.getenv("EMBED_MODEL")
-    if provider == "azure":
-        # prefer deployment name for Azure
-        return os.getenv("AZURE_OPENAI_DEPLOYMENT", "text-embedding-3-small")
-    if provider == "huggingface":
-        return os.getenv("HF_EMBED_MODEL", "sentence-transformers/all-MiniLM-L6-v2")
-    if provider == "local":
-        return os.getenv("LOCAL_EMBED_MODEL", "all-MiniLM-L6-v2")
-    # openai + any other: modern default
-    return "text-embedding-3-small"
-
 
 # ---------------------------
 # Misc helpers
@@ -175,6 +131,48 @@ class EmbeddingDatabase(BaseTool):
         cur = vs.db.execute(q, args)
         return {r[0] for r in cur.fetchall()}
 
+    @staticmethod
+    def _validate_doc_args(
+        args: Dict[str, Any],
+    ) -> Tuple[Optional[Dict], str, List[str], List[Dict[str, Any]]]:
+        """Validate and extract common arguments for document operations.
+
+        Returns (error_dict, name, docs, metas) where error_dict is None on success.
+        """
+        name = args.get("database_name")
+        docs: List[str] = args.get("documents", [])
+        metas: List[Dict[str, Any]] = args.get("metadata", [])
+
+        if not name:
+            return {"error": "database_name is required"}, "", [], []
+        if not docs:
+            return {"error": "documents list cannot be empty"}, "", [], []
+        if metas and len(metas) != len(docs):
+            return (
+                {
+                    "error": "metadata length must match documents length (or omit 'metadata')"
+                },
+                "",
+                [],
+                [],
+            )
+        if not metas:
+            metas = [{} for _ in docs]
+        return None, name, docs, metas
+
+    @staticmethod
+    def _build_doc_rows(
+        docs: List[str], metas: List[Dict[str, Any]]
+    ) -> Tuple[List[Tuple], List[str]]:
+        """Build (doc_key, text, meta, text_hash) rows and the corresponding key list."""
+        rows = []
+        doc_keys: List[str] = []
+        for text, meta in zip(docs, metas):
+            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
+            doc_keys.append(text_hash)
+            rows.append((text_hash, text, meta, text_hash))
+        return rows, doc_keys
+
     # ---------------- entry point ----------------
     def run(self, arguments):
         action = arguments.get("action")
@@ -190,21 +188,13 @@ class EmbeddingDatabase(BaseTool):
     # ---------------- actions ----------------
 
     def _create_from_documents(self, args: Dict[str, Any]):
-        name = args.get("database_name")
-        docs: List[str] = args.get("documents", [])
-        metas: List[Dict[str, Any]] = args.get("metadata", [])
+        error, name, docs, metas = self._validate_doc_args(args)
+        if error:
+            return error
+
         provider = _resolve_provider(args.get("provider"))
         model = _resolve_model(provider, args.get("model"))
         description = args.get("description", "")
-
-        if not name:
-            return {"error": "database_name is required"}
-        if not docs:
-            return {"error": "documents list cannot be empty"}
-        if metas and len(metas) != len(docs):
-            return {
-                "error": "metadata length must match documents length (or omit 'metadata')"
-            }
 
         sqlite_store, vector_store, db_path, index_path = self._stores(name)
 
@@ -213,17 +203,7 @@ class EmbeddingDatabase(BaseTool):
                 "error": f"Database '{name}' already exists. Use 'add_docs' to add more documents."
             }
 
-        # Insert docs (dedupe by (collection, doc_key) and (collection, text_hash))
-        if not metas:
-            metas = [{} for _ in docs]
-        rows = []
-        doc_keys: List[str] = []
-        for text, meta in zip(docs, metas):
-            # stable key: sha256 prefix, not md5
-            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-            doc_key = text_hash
-            doc_keys.append(doc_key)
-            rows.append((doc_key, text, meta, text_hash))
+        rows, doc_keys = self._build_doc_rows(docs, metas)
 
         sqlite_store.upsert_collection(
             name,
@@ -266,21 +246,12 @@ class EmbeddingDatabase(BaseTool):
         }
 
     def _add_documents(self, args: Dict[str, Any]):
-        name = args.get("database_name")
-        docs: List[str] = args.get("documents", [])
-        metas: List[Dict[str, Any]] = args.get("metadata", [])
-        # optional overrides; will be validated against collection meta
+        error, name, docs, metas = self._validate_doc_args(args)
+        if error:
+            return error
+
         provider = _resolve_provider(args.get("provider"))
         model_override = args.get("model")
-
-        if not name:
-            return {"error": "database_name is required"}
-        if not docs:
-            return {"error": "documents list cannot be empty"}
-        if metas and len(metas) != len(docs):
-            return {
-                "error": "metadata length must match documents length (or omit 'metadata')"
-            }
 
         sqlite_store, vector_store, db_path, index_path = self._stores(name)
         if not index_path.exists() or not db_path.exists():
@@ -290,7 +261,6 @@ class EmbeddingDatabase(BaseTool):
 
         col_model, col_dim = self._get_collection_meta(sqlite_store, name)
         if col_model in (None, "precomputed"):
-            # if collection didn't store a model, resolve one
             col_model = _resolve_model(provider, model_override)
         elif model_override and model_override != col_model:
             return {
@@ -299,15 +269,7 @@ class EmbeddingDatabase(BaseTool):
 
         emb = self._embedder(provider, col_model)
 
-        if not metas:
-            metas = [{} for _ in docs]
-        rows = []
-        doc_keys: List[str] = []
-        for text, meta in zip(docs, metas):
-            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-            doc_key = text_hash
-            doc_keys.append(doc_key)
-            rows.append((doc_key, text, meta, text_hash))
+        rows, doc_keys = self._build_doc_rows(docs, metas)
 
         # Insert (duplicates ignored by UNIQUE constraints)
         sqlite_store.insert_docs(name, rows)

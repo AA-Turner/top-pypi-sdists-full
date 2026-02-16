@@ -21,6 +21,121 @@ When accessing external non-Blender data, thread safety mechanisms should be con
 
 ```../examples/bpy.props.0.py```
 
+
+--------------------
+
+A common use of custom properties is for Python based Operator
+classes. Test this code by running it in the text editor, or by clicking the
+button in the 3D Viewport's Tools panel. The latter will show the properties
+in the Redo panel and allow you to change them.
+
+```../examples/bpy.props.1.py```
+
+
+--------------------
+
+PropertyGroups can be used for collecting custom settings into one value
+to avoid many individual settings mixed in together.
+
+```../examples/bpy.props.2.py```
+
+
+--------------------
+
+Custom properties can be added to any subclass of an ID,
+Bone and PoseBone.
+
+```../examples/bpy.props.3.py```
+
+
+--------------------
+
+It can be useful to perform an action when a property is changed and can be
+used to update other properties or synchronize with external data.
+
+All properties define update functions except for CollectionProperty.
+
+[WARNING]
+Remember that these callbacks may be executed in threaded context.
+
+[WARNING]
+If the property belongs to an Operator, the update callback's first
+parameter will be an OperatorProperties instance, rather than an instance
+of the operator itself. This means you can't access other internal functions
+of the operator, only its other properties.
+
+```../examples/bpy.props.4.py```
+
+
+--------------------
+
+Accessor functions can be used for boolean, int, float, string and enum properties.
+
+If get
+
+ or set
+
+ callbacks are defined, the property will not be stored in the ID properties
+automatically. Instead, the get
+
+ and set
+
+ functions will be called when the property
+is respectively read or written from the API, and are responsible to handle the data storage.
+
+Note that:
+
+* It is illegal to define a set
+
+ callback without a matching get
+
+ one.
+* When a get
+
+ callback is defined but no set
+
+ one, the property is read-only.
+
+get_transform
+
+ and set_transform
+
+ can be used when the returned value needs to be modified,
+but the default internal storage is still used. They can only transform the value before it is
+set or returned, but do not control how/where that data is stored.
+
+[NOTE]
+It is possible to define both get
+
+/set
+
+ and get_transform
+
+/set_transform
+
+ callbacks
+for the same property. In practice however, this should rarely be needed, as most 'transform'
+operation can also happen within a get
+
+/set
+
+ callback.
+
+[WARNING]
+Remember that these callbacks may be executed in threaded context.
+
+[WARNING]
+Take care when accessing other properties in these callbacks, as it can easily trigger
+complex issues, such as infinite loops (if e.g. two properties try to also set the other
+property's value in their own set
+
+ callback), or unexpected side effects due to changes
+in data, caused e.g. by an update
+
+ callback.
+
+```../examples/bpy.props.5.py```
+
 [NOTE]
 Pointer properties do not support storing references to embedded IDs (e.g. bpy.types.Scene.collection, bpy.types.Material.node_tree).
 These should exclusively be referenced and accessed through their owner ID (e.g. the scene or material).
@@ -33,6 +148,15 @@ import typing_extensions
 import numpy.typing as npt
 import bpy.stub_internal.rna_enums
 import bpy.types
+
+class _PropertyDeferred:
+    """Intermediate storage for properties before registration."""
+
+    function: typing.Any
+    """ Undocumented, consider contributing."""
+
+    keywords: typing.Any
+    """ Undocumented, consider contributing."""
 
 def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     *,
@@ -54,7 +178,7 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     set_transform: None
     | collections.abc.Callable[[bpy.types.bpy_struct, bool, bool, bool], bool]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new boolean property definition.
 
         :param name: Name used in the user interface.
@@ -93,6 +217,7 @@ def BoolProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -129,7 +254,7 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
         collections.abc.Sequence[bool],
     ]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new vector boolean property definition.
 
         :param name: Name used in the user interface.
@@ -169,6 +294,7 @@ def BoolVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def CollectionProperty(
@@ -182,7 +308,7 @@ def CollectionProperty(
         bpy.stub_internal.rna_enums.PropertyOverrideFlagCollectionItems
     ] = set(),
     tags: set[str] | None = set(),
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new collection property definition.
 
     :param type: A subclass of a property group.
@@ -192,6 +318,7 @@ def CollectionProperty(
     :param options: Enumerator in `rna_enum_property_flag_items`.
     :param override: Enumerator in `rna_enum_property_override_flag_collection_items`.
     :param tags: Enumerator of tags that are defined by parent class.
+    :return: Opaque type used for registration.
     """
 
 def EnumProperty[_GenericType1: bpy.types.bpy_struct](
@@ -228,7 +355,7 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     set_transform: None
     | collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new enumerator property definition.
 
         :param items: sequence of enum items formatted:
@@ -310,6 +437,7 @@ def EnumProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def FloatProperty[_GenericType1: bpy.types.bpy_struct](
@@ -339,7 +467,7 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     set_transform: None
     | collections.abc.Callable[[bpy.types.bpy_struct, float, float, bool], float]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new float (single precision) property definition.
 
         :param name: Name used in the user interface.
@@ -385,6 +513,7 @@ def FloatProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -430,7 +559,7 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
         collections.abc.Sequence[float],
     ]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new vector float property definition.
 
         :param name: Name used in the user interface.
@@ -477,6 +606,7 @@ def FloatVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def IntProperty[_GenericType1: bpy.types.bpy_struct](
@@ -504,7 +634,7 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     set_transform: None
     | collections.abc.Callable[[bpy.types.bpy_struct, int, int, bool], int]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new int property definition.
 
         :param name: Name used in the user interface.
@@ -548,6 +678,7 @@ def IntProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
@@ -589,7 +720,7 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
         collections.abc.Sequence[int],
     ]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new vector int property definition.
 
         :param name: Name used in the user interface.
@@ -634,6 +765,7 @@ def IntVectorProperty[_GenericType1: bpy.types.bpy_struct](
     and return the final, transformed value of the property.
 
     The callback is responsible to ensure that value limits (min/max, length...) are respected. Otherwise a ValueError exception is raised.
+        :return: Opaque type used for registration.
     """
 
 def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.types.ID](
@@ -648,7 +780,7 @@ def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.type
     poll: collections.abc.Callable[[_GenericType1, _GenericType2], bool] | None = None,
     update: collections.abc.Callable[[_GenericType1, bpy.types.Context], None]
     | None = None,
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new pointer property definition.
 
         :param type: A subclass of PropertyGroup or ID.
@@ -665,6 +797,7 @@ def PointerProperty[_GenericType1: bpy.types.bpy_struct, _GenericType2: bpy.type
         :param update: Function to be called when this value is modified,
     This function must take 2 values (self, context) and return None.
     Warning there are no safety checks to avoid infinite recursion.
+        :return: Opaque type used for registration.
     """
 
 def RemoveProperty(*, cls: type[bpy.types.bpy_struct] | None, attr: str | None) -> None:
@@ -701,7 +834,7 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     ]
     | None = None,
     search_options: set[str] | None = {"SUGGESTION"},
-) -> None:
+) -> _PropertyDeferred:
     """Returns a new string property definition.
 
         :param name: Name used in the user interface.
@@ -756,4 +889,5 @@ def StringProperty[_GenericType1: bpy.types.bpy_struct](
     SUGGESTION lets the user enter values not found in search candidates.
     WARNING disabling this flag causes the search callback to run on redraw,
     so only disable this flag if its not likely to cause performance issues.
+        :return: Opaque type used for registration.
     """

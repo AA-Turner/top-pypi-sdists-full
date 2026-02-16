@@ -515,9 +515,14 @@ class FiltersTests(FactoryTestCase):
 
         attr.restrictions.min_occurs = 1
         attr.restrictions.max_occurs = 1
-        expected = {"required": True, "max_inclusive": 2}
+        expected = {"max_inclusive": 2}
         self.assertEqual(expected, self.filters.field_metadata(self.obj, attr, None))
 
+        attr.tag = Tag.ATTRIBUTE
+        attr.default = "foo"
+        self.assertIn("required", self.filters.field_metadata(self.obj, attr, None))
+
+        attr.tag = Tag.RESTRICTION
         attr.restrictions.nillable = True
         expected = {"nillable": True, "max_inclusive": 2}
         self.assertEqual(expected, self.filters.field_metadata(self.obj, attr, None))
@@ -593,7 +598,7 @@ class FiltersTests(FactoryTestCase):
         self.assertNotIn("doc", actual[1])
 
     def test_field_type_with_default_value(self) -> None:
-        attr = AttrFactory.create(
+        attr = AttrFactory.element(
             default="1", types=AttrTypeFactory.list(1, qname="foo_bar")
         )
 

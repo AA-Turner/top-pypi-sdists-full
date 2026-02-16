@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scheduler
-Version: 0.8.10
+Version: 0.8.11
 Summary: A simple in-process python scheduler library with asyncio, threading and timezone support.
 Author-email: Fabian Preiss <fpreiss@digon.io>, Jendrik Potyka <jpotyka@digon.io>
 Maintainer-email: Fabian Preiss <fpreiss@digon.io>, Jendrik Potyka <jpotyka@digon.io>

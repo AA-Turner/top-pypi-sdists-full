@@ -322,15 +322,15 @@ fn uninstall() -> anyhow::Result<()> {
 
     // Restore previous hook.
     context.install().assert().success();
-    cmd_snapshot!(context.filters(), context.uninstall(), @r#"
+    cmd_snapshot!(context.filters(), context.uninstall(), @"
     success: true
     exit_code: 0
     ----- stdout -----
     Uninstalled `pre-commit`
-    Restored previous hook to `.git/hooks/pre-commit`
+    Restored `.git/hooks/pre-commit.legacy` to `.git/hooks/pre-commit`
 
     ----- stderr -----
-    "#);
+    ");
 
     // Uninstall multiple hooks.
     context
@@ -341,16 +341,76 @@ fn uninstall() -> anyhow::Result<()> {
         .arg("post-commit")
         .assert()
         .success();
-    cmd_snapshot!(context.filters(), context.uninstall().arg("-t").arg("pre-commit").arg("-t").arg("post-commit"), @r#"
+    cmd_snapshot!(context.filters(), context.uninstall().arg("-t").arg("pre-commit").arg("-t").arg("post-commit"), @"
     success: true
     exit_code: 0
     ----- stdout -----
     Uninstalled `pre-commit`
-    Restored previous hook to `.git/hooks/pre-commit`
+    Restored `.git/hooks/pre-commit.legacy` to `.git/hooks/pre-commit`
     Uninstalled `post-commit`
 
     ----- stderr -----
-    "#);
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn uninstall_remove_legacy_hook() -> anyhow::Result<()> {
+    let context = TestContext::new();
+    context.init_project();
+
+    // Create the `pre-commit` hook.
+    context.install().assert().success();
+    // Create the `pre-commit.legacy` file.
+    fs_err::copy(
+        context.work_dir().join(".git/hooks/pre-commit"),
+        context.work_dir().join(".git/hooks/pre-commit.legacy"),
+    )?;
+
+    // Uninstall should remove the `pre-commit.legacy` file too.
+    cmd_snapshot!(context.filters(), context.uninstall(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Uninstalled `pre-commit`
+
+    ----- stderr -----
+    Found legacy hook at `.git/hooks/pre-commit.legacy`, removing it.
+    ");
+    context
+        .work_dir()
+        .child(".git/hooks/pre-commit")
+        .assert(predicates::path::missing());
+    context
+        .work_dir()
+        .child(".git/hooks/pre-commit.legacy")
+        .assert(predicates::path::missing());
+
+    // Create a legacy script that is not ours and ensure it is not removed.
+    context.install().assert().success();
+    context
+        .work_dir()
+        .child(".git/hooks/pre-commit.legacy")
+        .write_str("#!/bin/sh\necho 'legacy'\n")?;
+
+    cmd_snapshot!(context.filters(), context.uninstall(), @"
+    success: true
+    exit_code: 0
+    ----- stdout -----
+    Uninstalled `pre-commit`
+    Restored `.git/hooks/pre-commit.legacy` to `.git/hooks/pre-commit`
+
+    ----- stderr -----
+    ");
+    context
+        .work_dir()
+        .child(".git/hooks/pre-commit")
+        .assert(predicates::path::exists());
+    context
+        .work_dir()
+        .child(".git/hooks/pre-commit.legacy")
+        .assert(predicates::path::missing());
 
     Ok(())
 }
@@ -944,13 +1004,13 @@ fn install_invalid_config_warning() {
     prek installed at `.git/hooks/pre-commit`
 
     ----- stderr -----
-    warning: Failed to parse `.pre-commit-config.yaml`: error: line 2 column 5: missing field `rev` at line 2, column 5
-     --> <input>:2:5
+    warning: Failed to parse `.pre-commit-config.yaml`: error: line 3 column 5: missing field `rev`
+     --> <input>:3:5
       |
     1 | repos:
     2 |   - repo: https://github.com/pre-commit/pre-commit-hooks
-      |     ^ missing field `rev` at line 2, column 5
     3 |     hooks:
+      |     ^ missing field `rev`
     4 |       - id: trailing-whitespace
       |
     ");

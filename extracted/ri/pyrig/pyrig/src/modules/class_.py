@@ -148,7 +148,6 @@ def discover_all_subclasses[T: type](
         `pyrig.src.modules.imports.walk_package`: Package traversal that
             triggers imports.
     """
-    logger.debug("Discovering subclasses of %s", cls.__name__)
     if load_package_before:
         _ = list(walk_package(load_package_before))
     subclasses_set: set[T] = {cls}
@@ -196,10 +195,11 @@ def discard_parent_classes[T: type](
     Returns:
         The same collection instance with parent classes removed.
     """
-    for cls in classes.copy():
-        if any(child in classes for child in cls.__subclasses__()):
-            classes.remove(cls)
-    return classes
+    return classes.__class__(
+        cls
+        for cls in classes
+        if not any(child in classes for child in cls.__subclasses__())
+    )
 
 
 class classproperty[T]:  # noqa: N801

@@ -7,8 +7,8 @@ cases = [
     (List, False),
     (Tuple, False),
     (Dict[str, int], False),
-    (Dict, ((str,), dict, None)),
-    (Dict[str, str], ((str,), dict, None)),
-    (Mapping[str, str], ((str,), dict, None)),
-    (dict[str, str], ((str,), dict, None)),
+    (Dict, ((str,), dict, None, False)),
+    (Dict[str, str], ((str,), dict, None, False)),
+    (Mapping[str, str], ((str,), dict, None, False)),
+    (dict[str, str], ((str,), dict, None, False)),
 ]

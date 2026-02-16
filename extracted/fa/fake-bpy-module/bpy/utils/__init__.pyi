@@ -202,6 +202,8 @@ def register_class(
         | bpy.types.NodeTree
         | bpy.types.Node
         | bpy.types.NodeSocket
+        | bpy.types.Gizmo
+        | bpy.types.GizmoGroup
     ],
 ) -> None:
     """Register a subclass of a Blender type class.
@@ -223,7 +225,8 @@ def register_cli_command(
     id: str, execute: collections.abc.Callable[[list[str]], int]
 ) -> None:
     """Register a command, accessible via the (-c / --command) command-line argument.Custom CommandsRegistering commands makes it possible to conveniently expose command line
-    functionality via commands passed to (-c / --command).
+    functionality via commands passed to (-c / --command).Using Python Argument ParsingThis example shows how the Python argparse module can be used with a custom command.Using argparse is generally recommended as it has many useful utilities and
+    generates a --help message for your command.
 
         :param id: The command identifier (must pass an str.isidentifier check).
 
@@ -287,11 +290,14 @@ def register_tool(
     """
 
 def resource_path(
-    type: str, *, major: int = bpy.app.version[0], minor: int = bpy.app.version[1]
+    type: typing.Literal["USER", "LOCAL", "SYSTEM"],
+    *,
+    major: int = bpy.app.version[0],
+    minor: int = bpy.app.version[1],
 ) -> str:
     """Return the base path for storing system files.
 
-    :param type: string in [USER, LOCAL, SYSTEM].
+    :param type: The resource type.
     :param major: major version, defaults to current.
     :param minor: minor version, defaults to current.
     :return: the resource path (not necessarily existing).
@@ -403,6 +409,8 @@ def unregister_class(
         | bpy.types.NodeTree
         | bpy.types.Node
         | bpy.types.NodeSocket
+        | bpy.types.Gizmo
+        | bpy.types.GizmoGroup
     ],
 ) -> None:
     """Unload the Python class from blender.

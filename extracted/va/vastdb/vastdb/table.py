@@ -7,6 +7,7 @@ import os
 import queue
 import sys
 from dataclasses import dataclass
+from enum import Enum
 from math import ceil
 from queue import Queue
 from threading import Event
@@ -15,6 +16,7 @@ from typing import (
     Callable,
     Iterable,
     Optional,
+    Sequence,
     Union,
 )
 
@@ -27,7 +29,7 @@ from vastdb.table_metadata import TableMetadata, TableRef, TableStats, TableType
 
 from . import _internal, errors, util
 from ._ibis_support import validate_ibis_support_schema
-from ._internal import VectorIndex
+from ._internal import SortingKey, VectorIndex
 from .config import ImportConfig, QueryConfig
 
 if TYPE_CHECKING:
@@ -48,6 +50,25 @@ MAX_INSERT_ROWS_PER_PATCH = 512 * 1024
 # in case insert has TooWideRow - need to insert in smaller batches - each cell could contain up to 128K, and our wire is limited to 5MB
 MAX_COLUMN_IN_BATCH = int(5 * 1024 / 128)
 SORTING_SCORE_BITS = 63
+
+
+class ExpansionFormat(Enum):
+    """Format for blob expansion data parsing."""
+
+    JSON = "json"
+    """Parse blob data as JSON."""
+
+
+@dataclass
+class BlobExpansionConfig:
+    """Configuration for blob expansion."""
+
+    expansion_format: ExpansionFormat = ExpansionFormat.JSON
+    copy_source_column: bool = False
+    flatten_path: bool = False
+    flatten_delimiter: str = "__"
+    add_missing_values_output: bool = True
+    add_excessive_values_output: bool = True
 
 
 class _EmptyResultException(Exception):
@@ -206,6 +227,19 @@ class TableInTransaction(ITable):
         """Reload Arrow Schema."""
         self._metadata.load_schema(self._tx)
 
+    def retrieve_column_names(self) -> Sequence[str]:
+        """Fetch column names."""
+        columns = self._tx._rpc.api.list_all_columns(
+            self.ref.bucket,
+            self.ref.schema,
+            self.ref.table,
+            sorted_columns=False,
+            txid=self._tx.active_txid,
+            list_imports_table=self._metadata.is_imports_table,
+            names_only=True
+        )
+        return [f.name for f in columns]
+
     def reload_stats(self) -> None:
         """Reload Table Stats."""
         self._metadata.load_stats(self._tx)
@@ -226,7 +260,7 @@ class TableInTransaction(ITable):
 
     @property
     def _internal_rowid_field(self) -> pa.Field:
-        return INTERNAL_ROW_ID_SORTED_FIELD if self._uses_global_row_ids else INTERNAL_ROW_ID_FIELD
+        return INTERNAL_ROW_ID_SORTED_FIELD if self._is_sorted_table else INTERNAL_ROW_ID_FIELD
 
     def sorted_columns(self) -> list[pa.Field]:
         """Return sorted columns' metadata."""
@@ -274,6 +308,33 @@ class TableInTransaction(ITable):
                 break
         return [_parse_projection_info(projection, self._metadata, self._tx) for projection in projections]
 
+    def blob_expansion(self, source_column_name: str = "value") -> "BlobExpansion":
+        """Get a blob expansion by source column name."""
+        self._assert_not_imports_table()
+        self._tx._rpc.features.check_blob_expansion()
+
+        source_column, target_table_name, expansion_format_str, columns, copy_source_column = \
+            self._tx._rpc.api.get_blob_expansion(
+                self.ref, source_column_name, txid=self._tx.active_txid)
+
+        # Convert string format to enum
+        try:
+            expansion_format = ExpansionFormat(expansion_format_str)
+        except ValueError:
+            expansion_format = ExpansionFormat.JSON  # Default fallback
+
+        config = BlobExpansionConfig(
+            expansion_format=expansion_format,
+            copy_source_column=copy_source_column)
+
+        return BlobExpansion(
+            source_column_name=source_column,
+            target_table_name=target_table_name,
+            columns=columns,
+            config=config,
+            _table_metadata=self._metadata,
+            _tx=self._tx)
+
     def import_files(self,
                      files_to_import: Iterable[str],
                      config: Optional[ImportConfig] = None) -> None:
@@ -312,12 +373,18 @@ class TableInTransaction(ITable):
                         source_files: dict[tuple[str, str], bytes],
                         config: Optional[ImportConfig]):
         config = config or ImportConfig()
-        # TODO: Do we want to validate concurrency isn't too high?
-        assert config.import_concurrency > 0
+        if config.data_endpoints is None:
+            # TODO: Do we want to validate concurrency isn't too high?
+            assert config.import_concurrency > 0
+            endpoints = [self._tx._rpc.api.url for _ in range(
+                        config.import_concurrency)]
+        else:
+            log.info("Using concurrency based on endpoints: {}".format(config.data_endpoints))
+            if len(config.data_endpoints) == 0:
+                raise errors.ImportFilesError("Empty data_endpoints is not allowed", {})
+            endpoints = config.data_endpoints
         max_batch_size = 10  # Enforced in server side.
-        # TODO: use valid endpoints...
-        endpoints = [self._tx._rpc.api.url for _ in range(
-            config.import_concurrency)]
+
         files_queue: Queue = Queue()
 
         key_names = config.key_names or []
@@ -330,6 +397,7 @@ class TableInTransaction(ITable):
         stop_event = Event()
         num_files_in_batch = min(
             ceil(len(source_files) / len(endpoints)), max_batch_size)
+        log.info("Setting batch size to %s files", num_files_in_batch)
 
         def import_worker(q, endpoint):
             try:
@@ -346,7 +414,7 @@ class TableInTransaction(ITable):
                             pass
                         if files_batch:
                             log.info(
-                                "Starting import batch of %s files", len(files_batch))
+                                "Starting import batch of %s files on endpoint %s", len(files_batch), endpoint)
                             log.debug(f"starting import of {files_batch}")
                             session.import_data(
                                 self.ref.bucket, self.ref.schema, self.ref.table, files_batch, txid=self._tx.active_txid,
@@ -818,16 +886,6 @@ class TableInTransaction(ITable):
     def _is_sorted_table(self) -> bool:
         return self._metadata.table_type is TableType.Elysium
 
-    @property
-    def _uses_global_row_ids(self) -> bool:
-        """Check if table uses global row IDs (decimal128: ehandle + row_id).
-
-        Both Elysium and Vector Index tables use global row IDs.
-        """
-        # _vector_index is set from list_tables or synced from stats.vector_index by _parse_stats_vector_index()
-        has_vector_index = self._metadata._vector_index is not None
-        return self._is_sorted_table or has_vector_index
-
     def vector_search(
         self,
         vec: list[float],
@@ -939,8 +997,11 @@ class Table(TableInTransaction):
         log.info("Renamed table from %s to %s ", self.ref.table, new_name)
         self._metadata.rename_table(new_name)
 
-    def add_sorting_key(self, sorting_key: list[int]) -> None:
+    def add_sorting_key(self, sorting_key: SortingKey) -> None:
         """Add a sorting key to a table that doesn't have any."""
+        if len(sorting_key) == 0:
+            raise ValueError("Adding a sorting key needs at least one column")
+
         self._tx._rpc.features.check_elysium()
         self._tx._rpc.api.alter_table(self.ref.bucket,
                                       self.ref.schema,
@@ -993,6 +1054,29 @@ class Table(TableInTransaction):
         log.info("Created projection: %s", projection_name)
         return self.projection(projection_name)
 
+    def create_blob_expansion(
+        self,
+        expansion_schema: pa.Schema,
+        target_table_name: str,
+        source_column_name: str = "value",
+        config: Optional[BlobExpansionConfig] = None,
+        target_table_schema: Optional[str] = None,
+    ) -> "BlobExpansion":
+        """Create a blob expansion for the given source column."""
+        self._assert_not_imports_table()
+        self._tx._rpc.features.check_blob_expansion()
+
+        if config is None:
+            config = BlobExpansionConfig()
+
+        self._tx._rpc.api.create_blob_expansion(
+            self.ref,
+            expansion_schema, target_table_name, source_column_name, config, target_table_schema,
+            txid=self._tx.active_txid)
+        log.info("Created blob expansion: source_column=%s expanded_table=%s",
+                 source_column_name, target_table_name)
+        return self.blob_expansion(source_column_name)
+
     def create_imports_table(self, fail_if_exists=True) -> ITable:
         """Create imports table."""
         self._tx._rpc.features.check_imports_table()
@@ -1022,8 +1106,7 @@ class Projection:
         columns = []
         next_key = 0
         while True:
-            curr_columns, next_key, is_truncated, _count, _ = \
-                self.tx._rpc.api.list_projection_columns(
+            curr_columns, next_key, is_truncated, _ = self.tx._rpc.api.list_projection_columns(
                     self.table_metadata.ref.bucket,
                     self.table_metadata.ref.schema,
                     self.table_metadata.ref.table,
@@ -1035,7 +1118,7 @@ class Projection:
             columns.extend(curr_columns)
             if not is_truncated:
                 break
-        self.arrow_schema = pa.schema([(col[0], col[1]) for col in columns])
+        self.arrow_schema = pa.schema(columns)
         return self.arrow_schema
 
     def rename(self, new_name: str) -> None:
@@ -1070,6 +1153,72 @@ def _parse_projection_info(projection_info, table_metadata: "TableMetadata", tx:
                       tx=tx)
 
 
+@dataclass
+class BlobExpansion:
+    """VAST blob expansion."""
+
+    source_column_name: str
+    target_table_name: str
+    columns: list[tuple[str, pa.DataType, dict]]
+    config: BlobExpansionConfig
+    _table_metadata: TableMetadata
+    _tx: "Transaction"
+
+    @property
+    def table_metadata(self) -> TableMetadata:
+        """Return the metadata of the target table."""
+        return self._table_metadata
+
+    @property
+    def tx(self) -> "Transaction":
+        """Return the transaction."""
+        return self._tx
+
+    def add_columns(
+        self,
+        columns_to_add: Optional[pa.Schema] = None,
+        add_copy_source_column: bool = False,
+        add_missing_values_output: bool = False,
+        add_excessive_values_output: bool = False,
+    ) -> None:
+        """Add columns to this blob expansion."""
+        self._tx._rpc.api.alter_blob_expansion_add_columns(
+            self._table_metadata.ref,
+            self.source_column_name,
+            columns_to_add,
+            add_copy_source_column,
+            add_missing_values_output,
+            add_excessive_values_output,
+            txid=self._tx.active_txid)
+        log.info("Added columns to blob expansion: %s", self.source_column_name)
+
+    def drop_columns(
+        self,
+        columns_to_remove: Optional[pa.Schema] = None,
+        remove_copy_source_column: bool = False,
+        remove_missing_values_output: bool = False,
+        remove_excessive_values_output: bool = False,
+    ) -> None:
+        """Remove columns from this blob expansion."""
+        self._tx._rpc.api.alter_blob_expansion_drop_columns(
+            self._table_metadata.ref,
+            self.source_column_name,
+            columns_to_remove,
+            remove_copy_source_column,
+            remove_missing_values_output,
+            remove_excessive_values_output,
+            txid=self._tx.active_txid)
+        log.info("Dropped columns from blob expansion: %s", self.source_column_name)
+
+    def drop(self) -> None:
+        """Drop this blob expansion."""
+        self._tx._rpc.api.drop_blob_expansion(
+            self._table_metadata.ref,
+            self.source_column_name,
+            txid=self._tx.active_txid)
+        log.info("Dropped blob expansion: %s", self.source_column_name)
+
+
 def _parse_bucket_and_object_names(path: str) -> tuple[str, str]:
     if not path.startswith('/'):
         raise errors.InvalidArgument(f"Path {path} must start with a '/'")
@@ -1093,7 +1242,12 @@ def _combine_chunks(col):
         return col
 
 
-__all__ = ["ITable",
-           "Table",
-           "TableInTransaction",
-           "Projection"]
+__all__ = [
+    "BlobExpansion",
+    "BlobExpansionConfig",
+    "ExpansionFormat",
+    "ITable",
+    "Projection",
+    "Table",
+    "TableInTransaction",
+]

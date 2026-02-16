@@ -8,15 +8,18 @@ def bake_animation(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Update the audio animation cache"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Update the audio animation cache
+
+    :return: Result of the operator call.
+    """
 
 def mixdown(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     check_existing: bool | None = True,
     filter_blender: bool | None = False,
     filter_backup: bool | None = False,
@@ -63,30 +66,30 @@ def mixdown(
     mixrate: int | None = 48000,
     bitrate: int | None = 192,
     split_channels: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Mix the scenes audio to a sound file
 
-        :param filepath: File Path, Path to file
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -99,9 +102,9 @@ def mixdown(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param accuracy: Accuracy, Sample accuracy, important for animation data (the lower the value, the more accurate)
-        :param container: Container, File format
+        :param sort_method: File sorting mode, (optional)
+        :param accuracy: Accuracy, Sample accuracy, important for animation data (the lower the value, the more accurate) (in [1, inf], optional)
+        :param container: Container, File format (optional)
 
     AAC
     AAC -- Advanced Audio Coding.
@@ -126,7 +129,7 @@ def mixdown(
 
     WAV
     WAV -- Waveform Audio File Format.
-        :param codec: Codec, Audio Codec
+        :param codec: Codec, Audio Codec (optional)
 
     AAC
     AAC -- Advanced Audio Coding.
@@ -148,7 +151,7 @@ def mixdown(
 
     VORBIS
     Vorbis -- Xiph.Org Vorbis Codec.
-        :param channels: Channels, Audio channel count
+        :param channels: Channels, Audio channel count (optional)
 
     MONO
     Mono -- Single audio channel.
@@ -173,7 +176,7 @@ def mixdown(
 
     SURROUND71
     7.1 Surround -- 7.1 surround sound.
-        :param format: Format, Sample format
+        :param format: Format, Sample format (optional)
 
     U8
     U8 -- 8-bit unsigned.
@@ -192,9 +195,10 @@ def mixdown(
 
     F64
     F64 -- 64-bit floating-point.
-        :param mixrate: Sample Rate, Sample rate in samples/s
-        :param bitrate: Bitrate, Bitrate in kbit/s
-        :param split_channels: Split channels, Each channel will be rendered into a mono file
+        :param mixrate: Sample Rate, Sample rate in samples/s (in [8000, 192000], optional)
+        :param bitrate: Bitrate, Bitrate in kbit/s (in [32, 512], optional)
+        :param split_channels: Split channels, Each channel will be rendered into a mono file (optional)
+        :return: Result of the operator call.
     """
 
 def open(
@@ -202,7 +206,7 @@ def open(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -232,33 +236,33 @@ def open(
     sort_method: str | None = "",
     cache: bool | None = False,
     mono: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a sound file
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param show_multiview: Enable Multi-View
-        :param use_multiview: Use Multi-View
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param show_multiview: Enable Multi-View, (optional)
+        :param use_multiview: Use Multi-View, (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -271,9 +275,10 @@ def open(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param cache: Cache, Cache the sound in memory
-        :param mono: Mono, Merge all the sounds channels into one
+        :param sort_method: File sorting mode, (optional)
+        :param cache: Cache, Cache the sound in memory (optional)
+        :param mono: Mono, Merge all the sounds channels into one (optional)
+        :return: Result of the operator call.
     """
 
 def open_mono(
@@ -281,7 +286,7 @@ def open_mono(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = False,
     filter_blender: bool | None = False,
@@ -311,33 +316,33 @@ def open_mono(
     sort_method: str | None = "",
     cache: bool | None = False,
     mono: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a sound file as mono
 
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param relative_path: Relative Path, Select the file relative to the blend file
-        :param show_multiview: Enable Multi-View
-        :param use_multiview: Use Multi-View
-        :param display_type: Display Type
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param relative_path: Relative Path, Select the file relative to the blend file (optional)
+        :param show_multiview: Enable Multi-View, (optional)
+        :param use_multiview: Use Multi-View, (optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -350,35 +355,43 @@ def open_mono(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
-        :param cache: Cache, Cache the sound in memory
-        :param mono: Mono, Mixdown the sound to mono
+        :param sort_method: File sorting mode, (optional)
+        :param cache: Cache, Cache the sound in memory (optional)
+        :param mono: Mono, Mixdown the sound to mono (optional)
+        :return: Result of the operator call.
     """
 
 def pack(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Pack the sound into the current blend file"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Pack the sound into the current blend file
+
+    :return: Result of the operator call.
+    """
 
 def unpack(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    method: bpy.stub_internal.rna_enums.UnpackMethodItems | None = "USE_LOCAL",
-    id: str = "",
-) -> None:
+    method: Literal[bpy.stub_internal.rna_enums.UnpackMethodItems] | None = "USE_LOCAL",
+    id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Unpack the sound to the samples filename
 
-    :param method: Method, How to unpack
-    :param id: Sound Name, Sound data-block name to unpack
+    :param method: Method, How to unpack (optional)
+    :param id: Sound Name, Sound data-block name to unpack (optional, never None)
+    :return: Result of the operator call.
     """
 
 def update_animation_flags(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Update animation flags"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Update animation flags
+
+    :return: Result of the operator call.
+    """

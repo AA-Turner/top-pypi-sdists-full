@@ -7,12 +7,12 @@ See Also:
 """
 
 from pathlib import Path
-from typing import Any
 
-from pyrig.rig.configs.base.yml import YmlConfigFile
+from pyrig.rig.configs.base.base import ConfigDict
+from pyrig.rig.configs.base.yml import DictYmlConfigFile
 
 
-class BugReportConfigFile(YmlConfigFile):
+class BugReportConfigFile(DictYmlConfigFile):
     """Manage .github/ISSUE_TEMPLATE/bug_report.yml.
 
     Bug report template with fields for:
@@ -34,7 +34,7 @@ class BugReportConfigFile(YmlConfigFile):
         """Return .github/ISSUE_TEMPLATE/."""
         return Path(".github/ISSUE_TEMPLATE")
 
-    def _configs(self) -> dict[str, Any]:
+    def _configs(self) -> ConfigDict:
         """Return bug report template YAML structure."""
         return {
             "name": "Bug Report",

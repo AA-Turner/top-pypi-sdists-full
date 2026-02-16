@@ -5,10 +5,14 @@ import re
 from collections import Counter
 from dataclasses import dataclass
 from difflib import get_close_matches
+from importlib.util import find_spec
 from itertools import chain
 from typing import TYPE_CHECKING, cast
 
+from tox.config.cli.parser import Parsed
 from tox.config.loader.str_convert import StrConvert
+from tox.config.main import Config
+from tox.config.source.discover import discover_source
 from tox.config.types import EnvList
 from tox.report import HandledError
 from tox.tox_env.api import ToxEnvCreateArgs
@@ -18,7 +22,7 @@ from tox.tox_env.register import REGISTER
 from tox.tox_env.runner import RunToxEnv
 
 if TYPE_CHECKING:
-    from argparse import ArgumentParser
+    from argparse import Action, ArgumentParser, Namespace
     from collections.abc import Iterable, Iterator
 
     from tox.session.state import State
@@ -28,23 +32,20 @@ LOGGER = logging.getLogger(__name__)
 
 
 class CliEnv:  # noqa: PLW1641
-    """A `CliEnv` is the user's selection of tox test environments, usually supplied via the ``-e`` command-line option
-    or in a TOML file (typically ``env_list`` in ``tox.ini``). It may be treated as a sequence if it's not a "default"
-    or "all" selection.
+    """The user's selection of tox test environments via ``-e`` or ``env_list`` config.
 
     It is in one of three forms:
 
     - A list of specific environments, instantiated with a string that is a comma-separated list of the environment
       names. (These may have spaces on either side of the commas which are removed.) As a sequence this will be a
       sequence of those names.
-
-    - "ALL" which is all environments defined by the tox configuration. This is instantiated with ``ALL`` either
-      alone or as any element of a comma-separated list; any other environment names are ignored. `is_all()` will be
-      true and as a sequence it will be empty. This prints in string representation as ``ALL``.
-
+    - "ALL" which is all environments defined by the tox configuration. This is instantiated with ``ALL`` either alone
+      or as any element of a comma-separated list; any other environment names are ignored. `is_all()` will be true and
+      as a sequence it will be empty. This prints in string representation as ``ALL``.
     - The default environments as chosen by tox configuration. This is instantiated with `None` as the parameter,
-      `is_default_list()` will be true, and as a sequence this will be empty. This prints in string representation
-      as ``<env_list>``.
+      `is_default_list()` will be true, and as a sequence this will be empty. This prints in string representation as
+      ``<env_list>``.
+
     """
 
     def __init__(self, value: list[str] | str | None = None) -> None:
@@ -67,7 +68,9 @@ class CliEnv:  # noqa: PLW1641
         return f"{self.__class__.__name__}({'' if self.is_default_list else repr(str(self))})"
 
     def __eq__(self, other: object) -> bool:
-        return type(self) == type(other) and self._names == other._names  # type: ignore[attr-defined]  # noqa: E721
+        if not isinstance(other, CliEnv):
+            return False
+        return self._names == other._names
 
     def __ne__(self, other: object) -> bool:
         return not (self == other)
@@ -87,18 +90,18 @@ def register_env_select_flags(
     multiple: bool = True,  # noqa: FBT001, FBT002
     group_only: bool = False,  # noqa: FBT001, FBT002
 ) -> ArgumentParser:
-    """
-    Register environment selection flags.
+    """Register environment selection flags.
 
     :param parser: the parser to register to
     :param default: the default value for env selection
     :param multiple: allow selecting multiple environments
-    :param group_only:
-    :return:
+    :param group_only: only register group selection flags
+
     """
     if multiple:
         group = parser.add_argument_group("select target environment(s)")
-        add_to: ArgumentParser = group.add_mutually_exclusive_group(required=False)  # type: ignore[assignment]
+        # _MutuallyExclusiveGroup is private in argparse https://github.com/python/cpython/issues/144812
+        add_to: ArgumentParser = group.add_mutually_exclusive_group(required=False)  # ty: ignore[invalid-assignment]
     else:
         add_to = parser
     if not group_only:
@@ -106,7 +109,9 @@ def register_env_select_flags(
             help_msg = "enumerate (ALL -> all environments, not set -> use <env_list> from config)"
         else:
             help_msg = "environment to run"
-        add_to.add_argument("-e", dest="env", help=help_msg, default=default, type=CliEnv)
+        action = add_to.add_argument("-e", dest="env", help=help_msg, default=default, type=CliEnv)
+        if find_spec("argcomplete"):
+            action.completer = _env_completer  # type: ignore[attr-defined]
     if multiple:
         help_msg = "labels to evaluate"
         add_to.add_argument("-m", dest="labels", metavar="label", help=help_msg, default=[], type=str, nargs="+")
@@ -126,6 +131,28 @@ def register_env_select_flags(
     help_msg = "exclude all environments selected that match this regular expression"
     add_to.add_argument("--skip-env", dest="skip_env", metavar="re", help=help_msg, default="", type=str)
     return add_to
+
+
+def _env_completer(
+    prefix: str,  # noqa: ARG001
+    action: Action,  # noqa: ARG001
+    parser: ArgumentParser,  # noqa: ARG001
+    parsed_args: Namespace,  # noqa: ARG001
+) -> list[str]:
+    from tox.plugin.manager import MANAGER  # noqa: PLC0415  # circular import
+
+    try:
+        source = discover_source(None, None)
+        conf = Config.make(
+            Parsed(override=[], root_dir=None, work_dir=None),
+            None,
+            source,
+            chain.from_iterable(MANAGER.tox_extend_envs()),
+        )
+    except HandledError:
+        return []
+    else:
+        return ["ALL", *conf]
 
 
 @dataclass
@@ -167,7 +194,7 @@ class EnvSelector:
         return getattr(self._state.conf.options, "env", None)
 
     def _collect_names(self) -> Iterator[tuple[Iterable[str], bool]]:
-        """:return: sources of tox environments defined with name and if is marked as target to run"""
+        """:returns: sources of tox environments defined with name and if is marked as target to run"""
         if self._provision is not None:  # pragma: no branch
             yield (self._provision[1],), False
         env_list, everything_active = self._state.conf.core["env_list"], False
@@ -335,7 +362,8 @@ class EnvSelector:
             try:
                 package_tox_env = self._get_package_env(core_type, name, active.get(name, missing_active))
                 self._pkg_env_counter[name] += 1
-                run_env: RunToxEnv = self._defined_envs_[run_env_name].env  # type: ignore[index,assignment]
+                assert self._defined_envs_ is not None  # noqa: S101
+                run_env = cast("RunToxEnv", self._defined_envs_[run_env_name].env)
                 child_package_envs = package_tox_env.register_run_env(run_env)
                 try:
                     name_type = next(child_package_envs)
@@ -401,9 +429,10 @@ class EnvSelector:
                             break
 
     def __getitem__(self, item: str) -> RunToxEnv | PackageToxEnv:
-        """
-        :param item: the name of the environment
-        :return: the tox environment
+        """:param item: the name of the environment
+
+        :returns: the tox environment
+
         """
         return self._defined_envs[item].env
 
@@ -413,13 +442,13 @@ class EnvSelector:
         only_active: bool = True,
         package: bool = False,
     ) -> Iterator[str]:
-        """
-        Get tox environments.
+        """Get tox environments.
 
         :param only_active: active environments are marked to be executed in the current target
         :param package: return package environments
 
-        :return: an iteration of tox environments
+        :returns: an iteration of tox environments
+
         """
         for name, env_info in self._defined_envs.items():
             if only_active and not env_info.is_active:

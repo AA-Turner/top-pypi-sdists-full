@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def gizmo_select(
     execution_context: int | str | None = None,
@@ -13,19 +14,23 @@ def gizmo_select(
     toggle: bool | None = False,
     deselect_all: bool | None = False,
     select_passthrough: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select the currently highlighted gizmo
 
-    :param extend: Extend, Extend selection instead of deselecting everything first
-    :param deselect: Deselect, Remove from selection
-    :param toggle: Toggle Selection, Toggle the selection
-    :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor
-    :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected
+    :param extend: Extend, Extend selection instead of deselecting everything first (optional)
+    :param deselect: Deselect, Remove from selection (optional)
+    :param toggle: Toggle Selection, Toggle the selection (optional)
+    :param deselect_all: Deselect On Nothing, Deselect all when nothing under the cursor (optional)
+    :param select_passthrough: Only Select Unselected, Ignore the select action when the element is already selected (optional)
+    :return: Result of the operator call.
     """
 
 def gizmo_tweak(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Tweak the active gizmo"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Tweak the active gizmo
+
+    :return: Result of the operator call.
+    """

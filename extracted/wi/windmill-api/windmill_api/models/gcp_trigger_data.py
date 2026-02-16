@@ -34,7 +34,7 @@ class GcpTriggerData:
         delivery_type (Union[Unset, GcpTriggerDataDeliveryType]): Delivery mode for messages. 'push' for HTTP push
             delivery where messages are sent to a webhook endpoint, 'pull' for polling where the trigger actively fetches
             messages.
-        delivery_config (Union[Unset, GcpTriggerDataDeliveryConfig]): Configuration for push delivery mode.
+        delivery_config (Union[Unset, None, GcpTriggerDataDeliveryConfig]): Configuration for push delivery mode.
         mode (Union[Unset, GcpTriggerDataMode]): job trigger mode
         auto_acknowledge_msg (Union[Unset, bool]): If true, automatically acknowledge messages after processing.
         ack_deadline (Union[Unset, int]): Time in seconds within which the message must be acknowledged. If not
@@ -53,7 +53,7 @@ class GcpTriggerData:
     subscription_id: Union[Unset, str] = UNSET
     base_endpoint: Union[Unset, str] = UNSET
     delivery_type: Union[Unset, GcpTriggerDataDeliveryType] = UNSET
-    delivery_config: Union[Unset, "GcpTriggerDataDeliveryConfig"] = UNSET
+    delivery_config: Union[Unset, None, "GcpTriggerDataDeliveryConfig"] = UNSET
     mode: Union[Unset, GcpTriggerDataMode] = UNSET
     auto_acknowledge_msg: Union[Unset, bool] = UNSET
     ack_deadline: Union[Unset, int] = UNSET
@@ -76,9 +76,9 @@ class GcpTriggerData:
         if not isinstance(self.delivery_type, Unset):
             delivery_type = self.delivery_type.value
 
-        delivery_config: Union[Unset, Dict[str, Any]] = UNSET
+        delivery_config: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.delivery_config, Unset):
-            delivery_config = self.delivery_config.to_dict()
+            delivery_config = self.delivery_config.to_dict() if self.delivery_config else None
 
         mode: Union[Unset, str] = UNSET
         if not isinstance(self.mode, Unset):
@@ -161,8 +161,10 @@ class GcpTriggerData:
             delivery_type = GcpTriggerDataDeliveryType(_delivery_type)
 
         _delivery_config = d.pop("delivery_config", UNSET)
-        delivery_config: Union[Unset, GcpTriggerDataDeliveryConfig]
-        if isinstance(_delivery_config, Unset):
+        delivery_config: Union[Unset, None, GcpTriggerDataDeliveryConfig]
+        if _delivery_config is None:
+            delivery_config = None
+        elif isinstance(_delivery_config, Unset):
             delivery_config = UNSET
         else:
             delivery_config = GcpTriggerDataDeliveryConfig.from_dict(_delivery_config)

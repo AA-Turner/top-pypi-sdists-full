@@ -31,11 +31,11 @@ class NewWebsocketTrigger:
         can_return_message (bool): If true, the script can return a message to send back through the WebSocket
         can_return_error_result (bool): If true, error results are sent back through the WebSocket
         mode (Union[Unset, NewWebsocketTriggerMode]): job trigger mode
-        initial_messages (Union[Unset, List[Union['NewWebsocketTriggerInitialMessagesItemType0',
+        initial_messages (Union[Unset, None, List[Union['NewWebsocketTriggerInitialMessagesItemType0',
             'NewWebsocketTriggerInitialMessagesItemType1']]]): Messages to send immediately after connecting (can be raw
             strings or computed by runnables)
-        url_runnable_args (Union[Unset, NewWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script or
-            flow
+        url_runnable_args (Union[Unset, None, NewWebsocketTriggerUrlRunnableArgs]): The arguments to pass to the script
+            or flow
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, NewWebsocketTriggerErrorHandlerArgs]): The arguments to pass to the script or
             flow
@@ -51,9 +51,11 @@ class NewWebsocketTrigger:
     can_return_error_result: bool
     mode: Union[Unset, NewWebsocketTriggerMode] = UNSET
     initial_messages: Union[
-        Unset, List[Union["NewWebsocketTriggerInitialMessagesItemType0", "NewWebsocketTriggerInitialMessagesItemType1"]]
+        Unset,
+        None,
+        List[Union["NewWebsocketTriggerInitialMessagesItemType0", "NewWebsocketTriggerInitialMessagesItemType1"]],
     ] = UNSET
-    url_runnable_args: Union[Unset, "NewWebsocketTriggerUrlRunnableArgs"] = UNSET
+    url_runnable_args: Union[Unset, None, "NewWebsocketTriggerUrlRunnableArgs"] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "NewWebsocketTriggerErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "NewWebsocketTriggerRetry"] = UNSET
@@ -80,23 +82,26 @@ class NewWebsocketTrigger:
         if not isinstance(self.mode, Unset):
             mode = self.mode.value
 
-        initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
+        initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
-            initial_messages = []
-            for initial_messages_item_data in self.initial_messages:
-                initial_messages_item: Dict[str, Any]
+            if self.initial_messages is None:
+                initial_messages = None
+            else:
+                initial_messages = []
+                for initial_messages_item_data in self.initial_messages:
+                    initial_messages_item: Dict[str, Any]
 
-                if isinstance(initial_messages_item_data, NewWebsocketTriggerInitialMessagesItemType0):
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    if isinstance(initial_messages_item_data, NewWebsocketTriggerInitialMessagesItemType0):
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                else:
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    else:
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                initial_messages.append(initial_messages_item)
+                    initial_messages.append(initial_messages_item)
 
-        url_runnable_args: Union[Unset, Dict[str, Any]] = UNSET
+        url_runnable_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.url_runnable_args, Unset):
-            url_runnable_args = self.url_runnable_args.to_dict()
+            url_runnable_args = self.url_runnable_args.to_dict() if self.url_runnable_args else None
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -201,8 +206,10 @@ class NewWebsocketTrigger:
             initial_messages.append(initial_messages_item)
 
         _url_runnable_args = d.pop("url_runnable_args", UNSET)
-        url_runnable_args: Union[Unset, NewWebsocketTriggerUrlRunnableArgs]
-        if isinstance(_url_runnable_args, Unset):
+        url_runnable_args: Union[Unset, None, NewWebsocketTriggerUrlRunnableArgs]
+        if _url_runnable_args is None:
+            url_runnable_args = None
+        elif isinstance(_url_runnable_args, Unset):
             url_runnable_args = UNSET
         else:
             url_runnable_args = NewWebsocketTriggerUrlRunnableArgs.from_dict(_url_runnable_args)

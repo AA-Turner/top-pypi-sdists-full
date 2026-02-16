@@ -2,20 +2,27 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a new time marker"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a new time marker
+
+    :return: Result of the operator call.
+    """
 
 def camera_bind(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Bind the selected camera to a marker on the current frame"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Bind the selected camera to a marker on the current frame
+
+    :return: Result of the operator call.
+    """
 
 def delete(
     execution_context: int | str | None = None,
@@ -23,10 +30,11 @@ def delete(
     /,
     *,
     confirm: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete selected time marker(s)
 
-    :param confirm: Confirm, Prompt for confirmation
+    :param confirm: Confirm, Prompt for confirmation (optional)
+    :return: Result of the operator call.
     """
 
 def duplicate(
@@ -35,10 +43,11 @@ def duplicate(
     /,
     *,
     frames: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Duplicate selected time marker(s)
 
-    :param frames: Frames
+    :param frames: Frames, (in [-inf, inf], optional)
+    :return: Result of the operator call.
     """
 
 def make_links_scene(
@@ -47,10 +56,11 @@ def make_links_scene(
     /,
     *,
     scene: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy selected markers to another scene
 
-    :param scene: Scene
+    :param scene: Scene, (optional)
+    :return: Result of the operator call.
     """
 
 def move(
@@ -60,11 +70,12 @@ def move(
     *,
     frames: int | None = 0,
     tweak: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move selected time marker(s)
 
-    :param frames: Frames
-    :param tweak: Tweak, Operator has been activated using a click-drag event
+    :param frames: Frames, (in [-inf, inf], optional)
+    :param tweak: Tweak, Operator has been activated using a click-drag event (optional)
+    :return: Result of the operator call.
     """
 
 def rename(
@@ -72,11 +83,12 @@ def rename(
     undo: bool | None = None,
     /,
     *,
-    name: str = "RenamedMarker",
-) -> None:
+    name: str | None = "RenamedMarker",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rename first selected time marker
 
-    :param name: Name, New name for marker
+    :param name: Name, New name for marker (optional, never None)
+    :return: Result of the operator call.
     """
 
 def select(
@@ -90,15 +102,16 @@ def select(
     mouse_y: int | None = 0,
     extend: bool | None = False,
     camera: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select time marker(s)
 
-    :param wait_to_deselect_others: Wait to Deselect Others
-    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release
-    :param mouse_x: Mouse X
-    :param mouse_y: Mouse Y
-    :param extend: Extend, Extend the selection
-    :param camera: Camera, Select the camera
+    :param wait_to_deselect_others: Wait to Deselect Others, (optional)
+    :param use_select_on_click: Act on Click, Instead of selecting on mouse press, wait to see if theres drag event. Otherwise select on mouse release (optional)
+    :param mouse_x: Mouse X, (in [-inf, inf], optional)
+    :param mouse_y: Mouse Y, (in [-inf, inf], optional)
+    :param extend: Extend, Extend the selection (optional)
+    :param camera: Camera, Select the camera (optional)
+    :return: Result of the operator call.
     """
 
 def select_all(
@@ -107,10 +120,10 @@ def select_all(
     /,
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change selection of all time markers
 
-        :param action: Action, Selection action to execute
+        :param action: Action, Selection action to execute (optional)
 
     TOGGLE
     Toggle -- Toggle selection for all elements.
@@ -123,6 +136,7 @@ def select_all(
 
     INVERT
     Invert -- Invert selection of all elements.
+        :return: Result of the operator call.
     """
 
 def select_box(
@@ -137,15 +151,15 @@ def select_box(
     wait_for_input: bool | None = True,
     mode: typing.Literal["SET", "ADD", "SUB"] | None = "SET",
     tweak: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all time markers using box selection
 
-        :param xmin: X Min
-        :param xmax: X Max
-        :param ymin: Y Min
-        :param ymax: Y Max
-        :param wait_for_input: Wait for Input
-        :param mode: Mode
+        :param xmin: X Min, (in [-inf, inf], optional)
+        :param xmax: X Max, (in [-inf, inf], optional)
+        :param ymin: Y Min, (in [-inf, inf], optional)
+        :param ymax: Y Max, (in [-inf, inf], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :param mode: Mode, (optional)
 
     SET
     Set -- Set a new selection.
@@ -155,7 +169,8 @@ def select_box(
 
     SUB
     Subtract -- Subtract existing selection.
-        :param tweak: Tweak, Operator has been activated using a click-drag event
+        :param tweak: Tweak, Operator has been activated using a click-drag event (optional)
+        :return: Result of the operator call.
     """
 
 def select_leftright(
@@ -165,9 +180,10 @@ def select_leftright(
     *,
     mode: typing.Literal["LEFT", "RIGHT"] | None = "LEFT",
     extend: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select markers on and left/right of the current frame
 
-    :param mode: Mode
-    :param extend: Extend Select
+    :param mode: Mode, (optional)
+    :param extend: Extend Select, (optional)
+    :return: Result of the operator call.
     """

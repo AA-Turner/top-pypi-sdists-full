@@ -34,14 +34,15 @@ class ImagePreviewCollection(dict[str, bpy.types.ImagePreview]):
         self,
         name: str | None,
         filepath: bytes | str | None,
-        file_type: str | None,
+        file_type: typing.Literal["IMAGE", "MOVIE", "BLEND", "FONT", "OBJECT_IO"]
+        | None,
         force_reload: bool | None = False,
     ) -> bpy.types.ImagePreview:
         """Generate a new preview from given file path.
 
         :param name: The name (unique id) identifying the preview.
         :param filepath: The file path to generate the preview from.
-        :param file_type: The type of file, needed to generate the preview in [IMAGE, MOVIE, BLEND, FONT, OBJECT_IO].
+        :param file_type: The type of file, needed to generate the preview.
         :param force_reload: If True, force running thumbnail manager even if preview already exists in cache.
         :return: The Preview matching given name, or a new empty one.
         """

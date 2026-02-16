@@ -13,8 +13,8 @@ from rich.table import Table
 
 
 def get_third_party_imports(root: Path, ns: str, project_data: dict) -> dict:
-    bases = {b for b in project_data.get("bases", [])}
-    components = {c for c in project_data.get("components", [])}
+    bases = set(project_data.get("bases", []))
+    components = set(project_data.get("components", []))
 
     bases_paths = workspace.paths.collect_bases_paths(root, ns, bases)
     components_paths = workspace.paths.collect_components_paths(root, ns, components)
@@ -148,7 +148,7 @@ def printable_header(header: str, short: bool) -> str:
 
 
 def is_same_version(versions: list) -> bool:
-    unique = set([v for v in versions if v])
+    unique = {v for v in versions if v}
 
     return len(unique) == 1 if unique else True
 

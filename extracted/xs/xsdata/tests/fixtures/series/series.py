@@ -13,13 +13,11 @@ class Country:
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     code: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     timezone: None | str = field(
@@ -38,7 +36,6 @@ class Externals:
     tvrage: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     thetvdb: None | int = field(
@@ -50,7 +47,6 @@ class Externals:
     imdb: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -63,13 +59,11 @@ class Image:
     medium: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     original: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -82,7 +76,6 @@ class Previousepisode:
     href: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -95,7 +88,6 @@ class Rating:
     average: float = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -108,7 +100,6 @@ class Schedule:
     time: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     days: list[str] = field(
@@ -128,7 +119,6 @@ class Self:
     href: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -142,13 +132,11 @@ class Links:
         metadata={
             "name": "self",
             "type": "Element",
-            "required": True,
         }
     )
     previousepisode: Previousepisode = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -167,13 +155,11 @@ class Network:
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     country: Country = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -186,7 +172,6 @@ class Series:
     id: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     url: None | str = field(
@@ -198,20 +183,17 @@ class Series:
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     type_value: str = field(
         metadata={
             "name": "type",
             "type": "Element",
-            "required": True,
         }
     )
     language: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     genres: list[str] = field(
@@ -224,38 +206,32 @@ class Series:
     status: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     runtime: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     premiered: XmlDate = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     official_site: str = field(
         metadata={
             "name": "officialSite",
             "type": "Element",
-            "required": True,
         }
     )
     schedule: Schedule = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     rating: Rating = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     weight: None | int = field(
@@ -267,7 +243,6 @@ class Series:
     network: Network = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     web_channel: None | object = field(
@@ -280,7 +255,6 @@ class Series:
     externals: Externals = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     image: None | Image = field(
@@ -292,13 +266,11 @@ class Series:
     summary: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     updated: int = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     links: None | Links = field(

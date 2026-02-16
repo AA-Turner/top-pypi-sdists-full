@@ -26,7 +26,7 @@ from pyxcp.transport.base import (
     XcpFramingConfig,
     XcpTransportLayerType,
 )
-from ..utils import seconds_to_nanoseconds, short_sleep
+from ..utils import seconds_to_nanoseconds
 
 console = Console()
 
@@ -312,12 +312,18 @@ class PythonCanWrapper:
     def connect(self) -> None:
         if self.connected:
             return
+
+        # Build filter list BEFORE bus initialization
         can_filters = []
         can_filters.append(self.parent.can_id_slave.create_filter_from_id())  # Primary CAN filter.
         if self.parent.daq_identifier:
             # Add filters for DAQ identifiers.
             for daq_id in self.parent.daq_identifier:
                 can_filters.append(daq_id.create_filter_from_id())
+
+        # Log filter configuration BEFORE bus starts
+        self.parent.logger.debug(f"XCPonCAN - Configuring filters: {can_filters}")
+
         if self.parent.has_user_supplied_interface:
             self.saved_filters = self.parent.transport_layer_interface.filters
             merged_filters = can_filters[::]
@@ -330,6 +336,8 @@ class PythonCanWrapper:
             self.software_filter.set_filters(can_filters)  # Filter unwanted traffic.
         else:
             try:
+                # Filters are applied during bus initialization
+                # python-can should activate filters before going on bus
                 self.can_interface = self.can_interface_class(
                     interface=self.interface_name, can_filters=can_filters, **self.parameters
                 )
@@ -339,10 +347,51 @@ class PythonCanWrapper:
                     f"OS error while creating CAN interface {self.interface_name!r}: {ex.__class__.__name__}: {ex}"
                 ) from ex
             self.software_filter.accept_all()
+
+        # Log status AFTER bus is initialized and filters are active
         self.parent.logger.info(f"XCPonCAN - Using Interface: '{self.can_interface!s}'")
         self.parent.logger.info(f"XCPonCAN - Filters used: {self.can_interface.filters}")
         self.parent.logger.info(f"XCPonCAN - State: {self.can_interface.state!s}")
         self.connected = True
+
+    def update_daq_filters(self, daq_identifiers: List) -> None:
+        """Update CAN filters to include DAQ identifiers.
+
+        This method should be called after DAQ configuration when DAQ IDs become known.
+
+        Parameters
+        ----------
+        daq_identifiers : List
+            List of Identifier objects for DAQ messages
+        """
+        if not self.connected:
+            self.parent.logger.warning("Cannot update DAQ filters: not connected")
+            return
+
+        if not daq_identifiers:
+            self.parent.logger.debug("No DAQ identifiers to add to filters")
+            return
+
+        # Build updated filter list
+        can_filters = [self.parent.can_id_slave.create_filter_from_id()]
+        for daq_id in daq_identifiers:
+            can_filters.append(daq_id.create_filter_from_id())
+
+        # Apply filters based on interface type
+        if self.parent.has_user_supplied_interface:
+            merged_filters = can_filters[::]
+            if self.saved_filters:
+                for fltr in self.saved_filters:
+                    if fltr not in merged_filters:
+                        merged_filters.append(fltr)
+            self.can_interface.set_filters(merged_filters)
+            self.software_filter.set_filters(can_filters)
+            self.parent.logger.info(f"XCPonCAN - Updated DAQ filters: {len(daq_identifiers)} DAQ IDs added")
+        else:
+            # Hardware filter update not always supported - use software filter
+            self.software_filter.set_filters(can_filters)
+            self.parent.logger.info(f"XCPonCAN - Updated software DAQ filters: {len(daq_identifiers)} DAQ IDs added")
+            self.parent.logger.debug(f"XCPonCAN - DAQ filters: {can_filters}")
 
     def close(self) -> None:
         if self.connected and not self.parent.has_user_supplied_interface:
@@ -364,7 +413,10 @@ class PythonCanWrapper:
         if not self.connected:
             return None
         try:
-            frame = self.can_interface.recv(self.timeout)
+            # Use short timeout (0.1s) for responsive shutdown while maintaining responsiveness
+            # This allows the listen thread to check closeEvent every 100ms instead of waiting
+            # the full timeout (default 2s), reducing Master.close() delay from ~5s to ~1s
+            frame = self.can_interface.recv(0.1)
         except CanError:
             return None
         else:
@@ -499,47 +551,34 @@ class Can(BaseTransport):
         """Process CAN frames received from the interface.
 
         This method runs in a separate thread and continuously polls the CAN interface
-        for new frames. When a frame is received, it extracts the data and timestamp
-        and passes them to the data_received method for further processing.
+        for new frames using blocking recv() with timeout. When a frame is received,
+        it extracts the data and timestamp and passes them to the data_received method
+        for further processing.
 
-        The method includes periodic sleep to prevent CPU hogging and error handling
-        to ensure the listener thread doesn't crash on exceptions.
+        The recv() call blocks for up to 100ms, which prevents CPU hogging while
+        maintaining responsiveness for shutdown.
         """
         # Cache frequently used methods and attributes for better performance
         close_event_set = self.closeEvent.is_set
         can_interface_read = self.can_interface.read
         data_received = self.data_received
 
-        # State variables for processing
-        last_sleep = self.timestamp.value
-        FIVE_MS = 5_000_000  # Five milliseconds in nanoseconds
-
         while True:
             # Check if we should exit the loop
             if close_event_set():
                 return
 
-            # Periodically sleep to prevent CPU hogging
-            if self.timestamp.value - last_sleep >= FIVE_MS:
-                short_sleep()
-                last_sleep = self.timestamp.value
-
             try:
                 # Try to read a frame from the CAN interface
+                # read() internally uses recv(0.1) which blocks for 100ms max
                 frame = can_interface_read()
                 if frame:
                     # Process the frame if one was received
                     data_received(frame.data, frame.timestamp)
-                else:
-                    # No frame available, sleep briefly to avoid busy waiting
-                    short_sleep()
-                    last_sleep = self.timestamp.value
+                # If no frame (None), recv() already waited 100ms, so loop immediately
             except Exception as e:
                 # Log any exceptions but continue processing
                 self.logger.error(f"Error in CAN listen thread: {e}")
-                # Sleep briefly to avoid tight error loops
-                short_sleep()
-                last_sleep = self.timestamp.value
 
     def connect(self):
         # Start listener lazily after a successful interface connection to avoid a dangling

@@ -23,7 +23,6 @@ class Alias:
         metadata={
             "name": "sort-name",
             "type": "Attribute",
-            "required": True,
         }
     )
     type_value: None | str = field(
@@ -46,12 +45,7 @@ class Alias:
             "type": "Attribute",
         },
     )
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
@@ -63,20 +57,17 @@ class BeginArea:
     id: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     sort_name: str = field(
         metadata={
             "name": "sort-name",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -90,15 +81,9 @@ class Gender:
     id: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
-    value: str = field(
-        default="",
-        metadata={
-            "required": True,
-        },
-    )
+    value: str = field(default="")
 
 
 @dataclass(kw_only=True)
@@ -141,7 +126,6 @@ class Iso31661CodeList:
         metadata={
             "name": "iso-3166-1-code",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -156,7 +140,6 @@ class Iso31662CodeList:
         metadata={
             "name": "iso-3166-2-code",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -170,7 +153,6 @@ class LifeSpan:
     begin: XmlDate | XmlPeriod = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     end: None | XmlDate = field(
@@ -196,7 +178,6 @@ class AliasList:
     count: int = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     alias: list[Alias] = field(
@@ -217,27 +198,23 @@ class Area:
     id: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     sort_name: str = field(
         metadata={
             "name": "sort-name",
             "type": "Element",
-            "required": True,
         }
     )
     iso_3166_1_code_list: Iso31661CodeList = field(
         metadata={
             "name": "iso-3166-1-code-list",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -251,27 +228,23 @@ class EndArea:
     id: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     sort_name: str = field(
         metadata={
             "name": "sort-name",
             "type": "Element",
-            "required": True,
         }
     )
     iso_3166_2_code_list: Iso31662CodeList = field(
         metadata={
             "name": "iso-3166-2-code-list",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -285,34 +258,29 @@ class Artist:
     id: str = field(
         metadata={
             "type": "Attribute",
-            "required": True,
         }
     )
     type_value: str = field(
         metadata={
             "name": "type",
             "type": "Attribute",
-            "required": True,
         }
     )
     type_id: str = field(
         metadata={
             "name": "type-id",
             "type": "Attribute",
-            "required": True,
         }
     )
     name: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     sort_name: str = field(
         metadata={
             "name": "sort-name",
             "type": "Element",
-            "required": True,
         }
     )
     disambiguation: None | str = field(
@@ -338,7 +306,6 @@ class Artist:
         metadata={
             "name": "isni-list",
             "type": "Element",
-            "required": True,
         }
     )
     gender: None | Gender = field(
@@ -350,20 +317,17 @@ class Artist:
     country: str = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     area: Area = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )
     begin_area: BeginArea = field(
         metadata={
             "name": "begin-area",
             "type": "Element",
-            "required": True,
         }
     )
     end_area: None | EndArea = field(
@@ -377,14 +341,12 @@ class Artist:
         metadata={
             "name": "life-span",
             "type": "Element",
-            "required": True,
         }
     )
     alias_list: AliasList = field(
         metadata={
             "name": "alias-list",
             "type": "Element",
-            "required": True,
         }
     )
 
@@ -398,6 +360,5 @@ class Metadata:
     artist: Artist = field(
         metadata={
             "type": "Element",
-            "required": True,
         }
     )

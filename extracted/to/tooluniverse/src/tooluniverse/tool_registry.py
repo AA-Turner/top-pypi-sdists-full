@@ -4,8 +4,6 @@ import importlib
 import sys
 import pkgutil
 import os
-import json
-import glob
 import logging
 import re
 from typing import Dict, Optional
@@ -323,22 +321,15 @@ def build_lazy_registry(package_name=None):
 
     # 1. Try to load pre-computed static registry (for frozen environments)
     try:
-        # Nuitka/PyInstaller needs to see this import to bundle it.
-        # We import it here dynamically, but we should make sure the build handles it.
-        # Adding explicit print for debugging in bundle.
         from tooluniverse._lazy_registry_static import STATIC_LAZY_REGISTRY
 
-        print(
-            f"DEBUG: Loaded static lazy registry with {len(STATIC_LAZY_REGISTRY)} classes.",
-            file=sys.stderr,
+        logger.debug(
+            f"Loaded static lazy registry with {len(STATIC_LAZY_REGISTRY)} classes."
         )
         _lazy_registry.update(STATIC_LAZY_REGISTRY)
         return _lazy_registry.copy()
     except ImportError:
-        print(
-            "DEBUG: No static lazy registry found. Proceeding with AST discovery.",
-            file=sys.stderr,
-        )
+        logger.debug("No static lazy registry found. Proceeding with AST discovery.")
 
     logger.debug(f"Building lazy registry using AST for package: {package_name}")
 
@@ -415,18 +406,6 @@ def auto_discover_tools(package_name=None, lazy=True):
                 imported_count += 1
             except ImportError as e:
                 logger.warning(f"Could not import {modname}: {e}")
-
-    # Also need to handle subpackages if we want full parity, but for now
-    # pkgutil.iter_modules only does top level unless recursive.
-    # But `auto_discover_tools` non-lazy mode was originally just iterating top-level modules.
-    # The AST discovery covers subdirectories, so lazy mode is actually BETTER now.
-
-    # Let's preserve the original behavior for non-lazy mode which seemed to utilize pkgutil
-    # But wait, original code only iterated package_path, so it missed subdirectories?
-    # Original code:
-    # for _importer, modname, _ispkg in pkgutil.iter_modules(package_path):
-    # This implies the original eager loading might have been missing tools in subdirs too!
-    # But our AST discovery fixes that for lazy mode.
 
     _discovery_completed = True
     logger.info(

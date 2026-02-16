@@ -17,10 +17,10 @@ dependencies = [
 description = "A fast and flexible implementation of Rigid Body Dynamics algorithms and their analytical derivatives"
 license = "BSD-3-Clause"
 name = "libpinocchio"
-version = "3.8.0"
+version = "3.9.0"
 
 [project.urls]
-changelog = "https://github.com/stack-of-tasks/pinocchio/blob/master/CHANGELOG.md"
+changelog = "https://github.com/stack-of-tasks/pinocchio/blob/devel/CHANGELOG.md"
 homepage = "https://github.com/cmake-wheel/libpinocchio"
 upstream = "https://github.com/stack-of-tasks/pinocchio"
 

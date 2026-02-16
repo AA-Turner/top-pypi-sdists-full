@@ -37,7 +37,7 @@ Example:
                 return Path()
 
 
-            def _configs(self) -> dict[str, Any]:
+            def _configs(self) -> ConfigDict:
                 '''Define expected configuration.'''
                 return {
                     "app": {
@@ -72,7 +72,7 @@ from concurrent.futures import ThreadPoolExecutor
 from functools import cache
 from pathlib import Path
 from types import ModuleType
-from typing import Any, Self
+from typing import Any, Self, TypeVar
 
 from pyrig.rig import configs
 from pyrig.src.iterate import nested_structure_is_subset
@@ -80,6 +80,12 @@ from pyrig.src.string_ import split_on_uppercase
 from pyrig.src.subclass import SingletonDependencySubclass
 
 logger = logging.getLogger(__name__)
+
+type ConfigDict = dict[str, Any]
+type ConfigList = list[Any]
+type ConfigData = ConfigDict | ConfigList
+
+ConfigT = TypeVar("ConfigT", bound=ConfigData)
 
 
 class Priority:
@@ -91,14 +97,14 @@ class Priority:
     HIGH = MEDIUM + 10
 
 
-class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclass):
+class ConfigFile[ConfigT: ConfigData](SingletonDependencySubclass):
     """Abstract base class for declarative configuration file management.
 
     Declarative, idempotent system for managing config files. Preserves user
     customizations while ensuring required configuration is present.
 
     Type Parameters:
-        ConfigT: The configuration type (dict[str, Any] or list[Any]).
+        ConfigT: The configuration type (ConfigDict or ConfigList).
 
     Subclass Requirements:
         Must implement (internal methods with underscore prefix):
@@ -227,9 +233,11 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclas
             self.create_file()
             self.dump(self.configs())
 
-        if not self.is_correct():
-            config = self.merge_configs()
-            self.dump(config)
+        if self.is_correct():
+            return
+
+        config = self.merge_configs()
+        self.dump(config)
 
         if not self.is_correct():
             msg = f"Config file {path} is not correct after adding missing configs."
@@ -334,7 +342,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclas
         return current_config
 
     def add_missing_dict_val(
-        self, expected_dict: dict[str, Any], actual_dict: dict[str, Any], key: str
+        self, expected_dict: ConfigDict, actual_dict: ConfigDict, key: str
     ) -> None:
         """Merge dict value during config merging (modifies actual_dict in place).
 
@@ -359,7 +367,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclas
             actual_dict[key] = expected_val
 
     def insert_missing_list_val(
-        self, expected_list: list[Any], actual_list: list[Any], index: int
+        self, expected_list: ConfigList, actual_list: ConfigList, index: int
     ) -> None:
         """Insert missing list value during config merging (modifies in place).
 
@@ -448,13 +456,7 @@ class ConfigFile[ConfigT: dict[str, Any] | list[Any]](SingletonDependencySubclas
         for cf in subclasses:
             subclasses_by_priority[cf().priority()].append(cf)
 
-        biggest_group = (
-            max(subclasses_by_priority.values(), key=len)
-            if subclasses_by_priority
-            else []
-        )
-        max_workers = len(biggest_group) or 1
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        with ThreadPoolExecutor() as executor:
             for priority in sorted(subclasses_by_priority.keys(), reverse=True):
                 cf_group = subclasses_by_priority[priority]
                 logger.debug(

@@ -14,7 +14,6 @@ from meutils.apis.utils import make_request_httpx
 from meutils.apis.oneapi.log import get_logs
 from meutils.apis.oneapi.user import update_user_for_refund, get_user
 
-
 # headers
 ACTIONS = {
     # 按量计费的异步任务
@@ -39,7 +38,9 @@ ACTIONS = {
 }
 
 
-async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT_START", return_ids: bool = False):
+async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT_START", channel_id: str = "",
+                    page_size: int = 128,
+                    return_ids: bool = False):
     base_url = "https://api.chatfire.cn"
     path = "/api/task/"
     headers = {
@@ -53,9 +54,9 @@ async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT
 
     params = {
         "p": 1,
-        "page_size": 100,
+        "page_size": page_size,
         "user_id": "",
-        "channel_id": "",
+        "channel_id": channel_id,
         "task_id": "",
         "submit_timestamp": submit_timestamp,
         "end_timestamp": end_timestamp,
@@ -148,7 +149,6 @@ async def refund_tasks(task_id: Optional[str] = None):  # 只补偿一次
 
 
 if __name__ == '__main__':
-
     pass
     arun(polling_tasks())
     # arun(get_tasks(action="jimeng-video-3.0", status="FAILURE"))

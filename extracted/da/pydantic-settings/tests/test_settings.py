@@ -499,6 +499,24 @@ def test_annotated_with_type(env):
     assert s.apples == ['russet', 'granny smith']
 
 
+def test_annotated_with_type_no_decode(env):
+    A = TypeAliasType('A', Annotated[list[str], NoDecode])
+
+    class Settings(BaseSettings):
+        a: A
+
+        # decode the value here. the field value won't be decoded because of NoDecode
+        @field_validator('a', mode='before')
+        @classmethod
+        def decode_a(cls, v: str) -> list[str]:
+            return json.loads(v)
+
+    env.set('a', '["one", "two"]')
+
+    s = Settings()
+    assert s.model_dump() == {'a': ['one', 'two']}
+
+
 def test_set_dict_model(env):
     env.set('bananas', '[1, 2, 3, 3]')
     env.set('CARROTS', '{"a": null, "b": 4}')
@@ -918,6 +936,25 @@ def test_validation_aliases_alias_choices(env):
     assert Settings().foobar == 'val3'
 
 
+def test_validation_alias_alias_choices_with_alias_path_first(env):
+    """Test that AliasPath in AliasChoices doesn't interfere with env var lookup.
+
+    Regression test for https://github.com/pydantic/pydantic-settings/issues/766
+    When AliasChoices has AliasPath as first choice, the env source should not use
+    the AliasPath's first element as the key when a string alias matches.
+    """
+
+    class Settings(BaseSettings):
+        my_field: str = Field(
+            default='default-value',
+            validation_alias=AliasChoices(AliasPath('nested', 'key'), 'MY_FIELD'),
+        )
+
+    # The env var MY_FIELD should be used, not 'nested' from the AliasPath
+    env.set('MY_FIELD', 'env-value')
+    assert Settings().my_field == 'env-value'
+
+
 def test_validation_alias_with_env_prefix(env):
     class Settings(BaseSettings):
         foobar: str = Field(validation_alias='foo')
@@ -932,6 +969,24 @@ def test_validation_alias_with_env_prefix(env):
     ]
 
     env.set('foo', 'bar')
+    assert Settings().foobar == 'bar'
+
+
+@pytest.mark.parametrize('env_prefix_target', ['all', 'alias'])
+def test_validation_alias_with_env_prefix_and_env_prefix_target(env, env_prefix_target):
+    class Settings(BaseSettings):
+        foobar: str = Field(validation_alias='foo')
+
+        model_config = SettingsConfigDict(env_prefix='p_', env_prefix_target=env_prefix_target)
+
+    env.set('foo', 'bar')
+    with pytest.raises(ValidationError) as exc_info:
+        Settings()
+    assert exc_info.value.errors(include_url=False) == [
+        {'type': 'missing', 'loc': ('foo',), 'msg': 'Field required', 'input': {}}
+    ]
+
+    env.set('p_foo', 'bar')
     assert Settings().foobar == 'bar'
 
 
@@ -2065,6 +2120,7 @@ def test_secret_settings_source_custom_env_parse(tmp_path):
 
         model_config = SettingsConfigDict(secrets_dir=tmp_path)
 
+        @classmethod
         def settings_customise_sources(
             cls,
             settings_cls: type[BaseSettings],
@@ -3116,6 +3172,25 @@ def test_dotenv_env_prefix_env_with_alias_without_prefix(tmp_path):
     assert s.model_dump() == {'foo': 'foo'}
 
 
+@pytest.mark.parametrize('env_prefix_target', ['all', 'alias'])
+def test_dotenv_env_prefix_env_with_alias_with_prefix(tmp_path, env_prefix_target):
+    p = tmp_path / '.env'
+    p.write_text('TEST_FooAlias=foo')
+
+    class Settings(BaseSettings):
+        model_config = SettingsConfigDict(
+            env_file=p,
+            env_prefix_target=env_prefix_target,
+            env_prefix='TEST_',
+            extra='ignore',
+        )
+
+        foo: str = Field('xxx', alias='FooAlias')
+
+    s = Settings()
+    assert s.model_dump() == {'foo': 'foo'}
+
+
 def test_parsing_secret_field(env):
     class Settings(BaseSettings):
         foo: Secret[int]
@@ -3264,3 +3339,23 @@ def test_env_strict_coercion(env):
             'my_int': 1,
         },
     }
+
+
+def test_env_source_when_load_multi_nested_config(env):
+    class EmbeddingModel(BaseModel):
+        model: str = 'text-embedding-3-small'
+        keys: list[str] = Field(default_factory=list)
+
+    class LLM(BaseModel):
+        embeddings: dict[str, EmbeddingModel] = Field(default_factory=dict)
+
+    class LLMSettings(BaseSettings):
+        llm: LLM = Field(default_factory=lambda: LLM())
+
+        model_config = SettingsConfigDict(env_prefix='my_prefix_', env_nested_delimiter='__')
+
+    env.set('my_prefix_llm__embeddings__openai__keys', '["sk-..."]')
+    env.set('my_prefix_llm__embeddings__qwen__keys', '["sk-..."]')
+    llm_setting = LLMSettings()
+    assert llm_setting.llm.embeddings['openai'].keys == ['sk-...']
+    assert llm_setting.llm.embeddings['qwen'].keys == ['sk-...']

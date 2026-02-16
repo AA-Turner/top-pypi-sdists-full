@@ -139,8 +139,8 @@ def bisect_plane(
     bm: bmesh.types.BMesh,
     geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
     dist: float = 0,
-    plane_co: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
-    plane_no: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    plane_co: collections.abc.Sequence[float] = mathutils.Vector(),
+    plane_no: collections.abc.Sequence[float] = mathutils.Vector(),
     use_snap_center: bool = False,
     clear_outer: bool = False,
     clear_inner: bool = False,
@@ -151,11 +151,7 @@ def bisect_plane(
         :param geom: Input geometry.
         :param dist: Minimum distance when testing if a vert is exactly on the plane.
         :param plane_co: Point on the plane.
-
-    Accepts any sequence of 3 floats.
         :param plane_no: Direction of the plane.
-
-    Accepts any sequence of 3 floats.
         :param use_snap_center: Snap axis aligned verts to the center.
         :param clear_outer: When enabled, remove all geometry on the positive side of the plane.
         :param clear_inner: When enabled, remove all geometry on the negative side of the plane.
@@ -510,16 +506,13 @@ def create_uvsphere(
     """
 
 def create_vert(
-    bm: bmesh.types.BMesh,
-    co: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    bm: bmesh.types.BMesh, co: collections.abc.Sequence[float] = mathutils.Vector()
 ) -> dict[str, typing.Any]:
     """Make Vertex.Creates a single vertex; this BMOP was necessary
     for click-create-vertex.
 
         :param bm: The bmesh to operate on.
         :param co: The coordinate of the new vert.
-
-    Accepts any sequence of 3 floats.
         :return: vert:
     The new vert.
 
@@ -1078,21 +1071,19 @@ def planar_faces(
 def pointmerge(
     bm: bmesh.types.BMesh,
     verts: list[bmesh.types.BMVert] = [],
-    merge_co: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    merge_co: collections.abc.Sequence[float] = mathutils.Vector(),
 ) -> None:
     """Point Merge.Merge verts together at a point.
 
-        :param bm: The bmesh to operate on.
-        :param verts: Input vertices (all verts will be merged into the first).
-        :param merge_co: Position to merge at.
-
-    Accepts any sequence of 3 floats.
+    :param bm: The bmesh to operate on.
+    :param verts: Input vertices (all verts will be merged into the first).
+    :param merge_co: Position to merge at.
     """
 
 def pointmerge_facedata(
     bm: bmesh.types.BMesh,
     verts: list[bmesh.types.BMVert] = [],
-    vert_snap: bmesh.types.BMVert | None = None,
+    vert_snap: None | bmesh.types.BMVert | None = None,
 ) -> None:
     """Face-Data Point Merge.Merge uv/vcols at a specific vertex.
 
@@ -1205,7 +1196,7 @@ def reverse_uvs(bm: bmesh.types.BMesh, faces: list[bmesh.types.BMFace] = []) -> 
 
 def rotate(
     bm: bmesh.types.BMesh,
-    cent: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    cent: collections.abc.Sequence[float] = mathutils.Vector(),
     matrix: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     verts: list[bmesh.types.BMVert] = [],
@@ -1215,14 +1206,12 @@ def rotate(
 ) -> None:
     """Rotate.Rotate vertices around a center, using a 3x3 rotation matrix.
 
-        :param bm: The bmesh to operate on.
-        :param cent: Center of rotation.
-
-    Accepts any sequence of 3 floats.
-        :param matrix: Matrix defining rotation.
-        :param verts: Input vertices.
-        :param space: Matrix to define the space (typically object matrix).
-        :param use_shapekey: Transform shape keys too.
+    :param bm: The bmesh to operate on.
+    :param cent: Center of rotation.
+    :param matrix: Matrix defining rotation.
+    :param verts: Input vertices.
+    :param space: Matrix to define the space (typically object matrix).
+    :param use_shapekey: Transform shape keys too.
     """
 
 def rotate_colors(
@@ -1266,7 +1255,7 @@ def rotate_uvs(
 
 def scale(
     bm: bmesh.types.BMesh,
-    vec: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    vec: collections.abc.Sequence[float] = mathutils.Vector(),
     space: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     verts: list[bmesh.types.BMVert] = [],
@@ -1274,13 +1263,11 @@ def scale(
 ) -> None:
     """Scale.Scales vertices by a factor.
 
-        :param bm: The bmesh to operate on.
-        :param vec: Scale factor.
-
-    Accepts any sequence of 3 floats.
-        :param space: Matrix to define the space (typically object matrix).
-        :param verts: Input vertices.
-        :param use_shapekey: Transform shape keys too.
+    :param bm: The bmesh to operate on.
+    :param vec: Scale factor.
+    :param space: Matrix to define the space (typically object matrix).
+    :param verts: Input vertices.
+    :param use_shapekey: Transform shape keys too.
     """
 
 def smooth_laplacian_vert(
@@ -1350,9 +1337,9 @@ def solidify(
 def spin(
     bm: bmesh.types.BMesh,
     geom: list[bmesh.types.BMVert | bmesh.types.BMEdge | bmesh.types.BMFace] = [],
-    cent: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
-    axis: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
-    dvec: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    cent: collections.abc.Sequence[float] = mathutils.Vector(),
+    axis: collections.abc.Sequence[float] = mathutils.Vector(),
+    dvec: collections.abc.Sequence[float] = mathutils.Vector(),
     angle: float = 0,
     space: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
@@ -1367,14 +1354,8 @@ def spin(
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
         :param cent: Rotation center.
-
-    Accepts any sequence of 3 floats.
         :param axis: Rotation axis.
-
-    Accepts any sequence of 3 floats.
         :param dvec: Translation delta per step.
-
-    Accepts any sequence of 3 floats.
         :param angle: Total rotation angle (radians).
         :param space: Matrix to define the space (typically object matrix).
         :param steps: Number of steps.
@@ -1562,7 +1543,7 @@ def transform(
 
 def translate(
     bm: bmesh.types.BMesh,
-    vec: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    vec: collections.abc.Sequence[float] = mathutils.Vector(),
     space: collections.abc.Sequence[collections.abc.Sequence[float]]
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     verts: list[bmesh.types.BMVert] = [],
@@ -1570,13 +1551,11 @@ def translate(
 ) -> None:
     """Translate.Translate vertices by an offset.
 
-        :param bm: The bmesh to operate on.
-        :param vec: Translation offset.
-
-    Accepts any sequence of 3 floats.
-        :param space: Matrix to define the space (typically object matrix).
-        :param verts: Input vertices.
-        :param use_shapekey: Transform shape keys too.
+    :param bm: The bmesh to operate on.
+    :param vec: Translation offset.
+    :param space: Matrix to define the space (typically object matrix).
+    :param verts: Input vertices.
+    :param use_shapekey: Transform shape keys too.
     """
 
 def triangle_fill(
@@ -1584,7 +1563,7 @@ def triangle_fill(
     use_beauty: bool = False,
     use_dissolve: bool = False,
     edges: list[bmesh.types.BMEdge] = [],
-    normal: collections.abc.Sequence[float] | mathutils.Vector = mathutils.Vector(),
+    normal: collections.abc.Sequence[float] = mathutils.Vector(),
 ) -> dict[str, typing.Any]:
     """Triangle Fill.Fill edges with triangles
 
@@ -1593,8 +1572,6 @@ def triangle_fill(
         :param use_dissolve: Dissolve resulting faces.
         :param edges: Input edges.
         :param normal: Optionally pass the fill normal to use.
-
-    Accepts any sequence of 3 floats.
         :return: geom:
     New faces and edges.
 

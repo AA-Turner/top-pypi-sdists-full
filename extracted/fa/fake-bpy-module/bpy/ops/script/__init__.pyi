@@ -2,19 +2,21 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 
 def execute_preset(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-    menu_idname: str = "",
-) -> None:
+    filepath: str | None = "",
+    menu_idname: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Load a preset
 
-    :param filepath: filepath
-    :param menu_idname: Menu ID Name, ID name of the menu this was called from
+    :param filepath: filepath, (optional, never None)
+    :param menu_idname: Menu ID Name, ID name of the menu this was called from (optional, never None)
+    :return: Result of the operator call.
     """
 
 def python_file_run(
@@ -22,16 +24,20 @@ def python_file_run(
     undo: bool | None = None,
     /,
     *,
-    filepath: str = "",
-) -> None:
+    filepath: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Run Python file
 
-    :param filepath: Path
+    :param filepath: Path, (optional, never None)
+    :return: Result of the operator call.
     """
 
 def reload(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reload scripts"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reload scripts
+
+    :return: Result of the operator call.
+    """

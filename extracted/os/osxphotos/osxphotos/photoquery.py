@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import dataclasses
+import datetime
 import io
 import pathlib
 import re
@@ -10,7 +11,6 @@ import sys
 from collections import OrderedDict
 from collections.abc import Iterable
 from dataclasses import asdict, dataclass
-from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, List, Optional, Tuple
 
 import bitmath
@@ -28,6 +28,9 @@ if TYPE_CHECKING:
 
 if is_macos:
     import photoscript
+
+# default date for sorting
+DEFAULT_DATE = datetime.datetime(1970, 1, 1, 0, 0, 0, tzinfo=datetime.timezone.utc)
 
 __all__ = [
     "IncompatibleQueryOptions",
@@ -743,19 +746,14 @@ def photo_query(
                 raise ValueError(f"Invalid query_eval CRITERIA: {e}")
 
     if options.duplicate:
-        no_date = datetime(1970, 1, 1)
-        tz = timezone(timedelta(0))
-        no_date = no_date.astimezone(tz=tz)
-        photos = sorted(
-            [p for p in photos if p.duplicates],
-            key=lambda x: x.date_added or no_date,
-        )
+        sort_options = QueryOptions()
+        photos = sort_photos([p for p in photos if p.duplicates], sort_options)
         # gather all duplicates but ensure each uuid is only represented once
         photodict = OrderedDict()
         for p in photos:
             if p.uuid not in photodict:
                 photodict[p.uuid] = p
-                for d in sorted(p.duplicates, key=lambda x: x.date_added or no_date):
+                for d in sort_photos(p.duplicates, sort_options):
                     if d.uuid not in photodict:
                         photodict[d.uuid] = d
         photos = list(photodict.values())
@@ -828,7 +826,7 @@ def photo_query(
         photos = [p for p in photos if p.date_added and p.date_added < added_before]
 
     if options.added_in_last:
-        added_after = datetime.now() - options.added_in_last
+        added_after = datetime.datetime.now() - options.added_in_last
         added_after = datetime_naive_to_local(added_after)
         photos = [p for p in photos if p.date_added and p.date_added > added_after]
 
@@ -886,8 +884,8 @@ def sort_photos(photos: list[PhotoInfo], options: QueryOptions) -> list[PhotoInf
     return sorted(
         photos,
         key=lambda x: (
-            x.date
-            or datetime.datetime(1970, 1, 1, 0, 0, 0, timezone=datetime.timezone.utc),
+            x.date or DEFAULT_DATE,
+            x.date_added or DEFAULT_DATE,
             x.uuid or "",
         ),
         reverse=True if options.newest_first else False,

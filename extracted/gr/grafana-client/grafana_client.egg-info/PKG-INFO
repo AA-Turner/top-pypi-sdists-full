@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grafana-client
-Version: 5.0.1
+Version: 5.0.2
 Summary: A client library for accessing the Grafana HTTP API, written in Python
 Home-page: https://github.com/grafana-toolbox/grafana-client
 Author: Andrew Prokhorenkov
@@ -32,6 +32,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Communications
@@ -63,14 +64,15 @@ Provides-Extra: test
 Requires-Dist: parameterized<1,>=0.8; extra == "test"
 Requires-Dist: codecov<3; extra == "test"
 Requires-Dist: coverage[toml]<8; extra == "test"
-Requires-Dist: unittest-xml-reporting<4; extra == "test"
+Requires-Dist: unittest-xml-reporting<5; extra == "test"
 Requires-Dist: requests-mock<2; extra == "test"
 Provides-Extra: develop
-Requires-Dist: build<2; extra == "develop"
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pip-review<2; extra == "develop"
-Requires-Dist: ruff<0.13; python_version >= "3.7" and extra == "develop"
-Requires-Dist: twine<7; extra == "develop"
+Requires-Dist: ruff<0.16; python_version >= "3.7" and extra == "develop"
+Provides-Extra: release
+Requires-Dist: build<2; extra == "release"
+Requires-Dist: twine<7; extra == "release"
 Dynamic: license-file
 
 # grafana-client
@@ -80,7 +82,7 @@ Dynamic: license-file
 [![License](https://img.shields.io/github/license/grafana-toolbox/grafana-client.svg?style=flat-square)](https://github.com/grafana-toolbox/grafana-client/blob/main/LICENSE)
 
 [![Python versions](https://img.shields.io/pypi/pyversions/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)
-[![Grafana versions](https://img.shields.io/badge/Grafana-5.x%20--%2011.x-blue.svg?style=flat-square)](https://github.com/grafana/grafana)
+[![Grafana versions](https://img.shields.io/badge/Grafana-5.x%20--%2012.x-blue.svg?style=flat-square)](https://github.com/grafana/grafana)
 
 [![Status](https://img.shields.io/pypi/status/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)
 [![PyPI](https://img.shields.io/pypi/v/grafana-client.svg?style=flat-square)](https://pypi.org/project/grafana-client/)

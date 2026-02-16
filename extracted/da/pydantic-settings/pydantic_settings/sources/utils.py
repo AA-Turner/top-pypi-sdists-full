@@ -11,6 +11,7 @@ from typing import Any, cast, get_args, get_origin
 from pydantic import BaseModel, Json, RootModel, Secret
 from pydantic._internal._utils import is_model_class
 from pydantic.dataclasses import is_pydantic_dataclass
+from pydantic.fields import FieldInfo
 from typing_inspection import typing_objects
 
 from ..exceptions import SettingsError
@@ -72,6 +73,18 @@ def _annotation_is_complex(annotation: Any, metadata: list[Any]) -> bool:
     )
 
 
+def _get_field_metadata(field: FieldInfo) -> list[Any]:
+    annotation = field.annotation
+    metadata = field.metadata
+    if typing_objects.is_typealiastype(annotation) or typing_objects.is_typealiastype(get_origin(annotation)):
+        annotation = annotation.__value__  # type: ignore[union-attr]
+    origin = get_origin(annotation)
+    if typing_objects.is_annotated(origin):
+        _, *meta = get_args(annotation)
+        metadata += meta
+    return metadata
+
+
 def _annotation_is_complex_inner(annotation: type[Any] | None) -> bool:
     if _lenient_issubclass(annotation, (str, bytes)):
         return False
@@ -92,6 +105,7 @@ def _annotation_contains_types(
     is_include_origin: bool = True,
     is_strip_annotated: bool = False,
     is_instance: bool = False,
+    collect: set[Any] | None = None,
 ) -> bool:
     """Check if a type annotation contains any of the specified types."""
     if is_strip_annotated:
@@ -99,17 +113,35 @@ def _annotation_contains_types(
     if is_include_origin is True:
         origin = get_origin(annotation)
         if origin in types:
-            return True
+            if collect is None:
+                return True
+            collect.add(annotation)
         if is_instance and any(isinstance(origin, type_) for type_ in types):
-            return True
+            if collect is None:
+                return True
+            collect.add(annotation)
     for type_ in get_args(annotation):
-        if _annotation_contains_types(
-            type_, types, is_include_origin=True, is_strip_annotated=is_strip_annotated, is_instance=is_instance
+        if (
+            _annotation_contains_types(
+                type_,
+                types,
+                is_include_origin=True,
+                is_strip_annotated=is_strip_annotated,
+                is_instance=is_instance,
+                collect=collect,
+            )
+            and collect is None
         ):
             return True
     if is_instance and any(isinstance(annotation, type_) for type_ in types):
+        if collect is None:
+            return True
+        collect.add(annotation)
+    if annotation in types:
+        if collect is not None:
+            collect.add(annotation)
         return True
-    return annotation in types
+    return False
 
 
 def _strip_annotated(annotation: Any) -> Any:
@@ -122,7 +154,7 @@ def _strip_annotated(annotation: Any) -> Any:
 def _annotation_enum_val_to_name(annotation: type[Any] | None, value: Any) -> str | None:
     for type_ in (annotation, get_origin(annotation), *get_args(annotation)):
         if _lenient_issubclass(type_, Enum):
-            if value in tuple(val.value for val in type_):
+            if value in type_.__members__.values():
                 return type_(value).name
     return None
 
@@ -130,7 +162,7 @@ def _annotation_enum_val_to_name(annotation: type[Any] | None, value: Any) -> st
 def _annotation_enum_name_to_val(annotation: type[Any] | None, name: Any) -> Any:
     for type_ in (annotation, get_origin(annotation), *get_args(annotation)):
         if _lenient_issubclass(type_, Enum):
-            if name in tuple(val.name for val in type_):
+            if name in type_.__members__.keys():
                 return type_[name]
     return None
 

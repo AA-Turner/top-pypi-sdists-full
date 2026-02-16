@@ -97,42 +97,28 @@ class TableMetadata:
 
     def load_schema(self, tx: "Transaction") -> None:
         """Load/Reload table schema."""
-        fields = []
-        next_key = 0
-        while True:
-            cur_columns, next_key, is_truncated, _count = tx._rpc.api.list_columns(
-                bucket=self.ref.bucket,
-                schema=self.ref.schema,
-                table=self.ref.table,
-                next_key=next_key,
-                txid=tx.active_txid,
-                list_imports_table=self.is_imports_table,
-            )
-            fields.extend(cur_columns)
-            if not is_truncated:
-                break
-
+        fields = tx._rpc.api.list_all_columns(
+            self.ref.bucket,
+            self.ref.schema,
+            self.ref.table,
+            sorted_columns=False,
+            txid=tx.active_txid,
+            list_imports_table=self.is_imports_table
+        )
         self.arrow_schema = pa.schema(fields)
 
     def load_sorted_columns(self, tx: "Transaction") -> None:
         """Return sorted columns' metadata."""
         fields = []
         try:
-            next_key = 0
-            while True:
-                cur_columns, next_key, is_truncated, _count = (
-                    tx._rpc.api.list_sorted_columns(
-                        bucket=self.ref.bucket,
-                        schema=self.ref.schema,
-                        table=self.ref.table,
-                        next_key=next_key,
-                        txid=tx.active_txid,
-                        list_imports_table=self.is_imports_table,
-                    )
-                )
-                fields.extend(cur_columns)
-                if not is_truncated:
-                    break
+            fields = tx._rpc.api.list_all_columns(
+                self.ref.bucket,
+                self.ref.schema,
+                self.ref.table,
+                sorted_columns=True,
+                txid=tx.active_txid,
+                list_imports_table=self.is_imports_table
+            )
         except errors.BadRequest:
             raise
         except errors.InternalServerError as ise:
@@ -173,14 +159,14 @@ class TableMetadata:
         self._parse_stats_vector_index()
 
     def _parse_stats_vector_index(self):
-        if self._vector_index is not None and self._stats.vector_index != self._vector_index:
-            is_empty_placeholder = not self._vector_index.column and not self._vector_index.distance_metric
-            if not is_empty_placeholder:
-                raise ValueError(
-                    f"Table has index {self._stats.vector_index}, but was initialized as {self._vector_index}"
-                    )
+        vector_index_is_set = self._vector_index is not None
 
-        self._vector_index = self._stats.vector_index
+        if vector_index_is_set and self._stats.vector_index != self._vector_index:
+            raise ValueError(
+                f"Table has index {self._stats.vector_index}, but was initialized as {self._vector_index}"
+                )
+        else:
+            self._vector_index = self._stats.vector_index
 
     def _set_sorted_table(self, tx: "Transaction"):
         self._table_type = TableType.Elysium

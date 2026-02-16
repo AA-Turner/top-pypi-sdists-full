@@ -4,6 +4,10 @@ from contextlib import contextmanager
 import re
 
 from sigma.correlations import (
+    CorrelationConditionItem,
+    CorrelationConditionAND,
+    CorrelationConditionOR,
+    CorrelationConditionNOT,
     SigmaCorrelationCondition,
     SigmaCorrelationConditionOperator,
     SigmaCorrelationFieldAliases,
@@ -11,6 +15,7 @@ from sigma.correlations import (
     SigmaCorrelationTimespan,
     SigmaCorrelationType,
     SigmaCorrelationTypeLiteral,
+    SigmaExtendedCorrelationCondition,
     SigmaRuleReference,
 )
 
@@ -672,16 +677,39 @@ class Backend(ABC):
                 f"Correlation method '{method}' is not supported by backend '{self.name}'.",
             )
         self.last_processing_pipeline.apply(rule)
+
+        # Determine which conversion method to use based on type and condition type
+        from sigma.correlations import SigmaExtendedCorrelationCondition
+
         correlation_methods = {
             SigmaCorrelationType.EVENT_COUNT: self.convert_correlation_event_count_rule,
             SigmaCorrelationType.VALUE_COUNT: self.convert_correlation_value_count_rule,
-            SigmaCorrelationType.TEMPORAL: self.convert_correlation_temporal_rule,
-            SigmaCorrelationType.TEMPORAL_ORDERED: self.convert_correlation_temporal_ordered_rule,
             SigmaCorrelationType.VALUE_SUM: self.convert_correlation_value_sum_rule,
             SigmaCorrelationType.VALUE_AVG: self.convert_correlation_value_avg_rule,
             SigmaCorrelationType.VALUE_PERCENTILE: self.convert_correlation_value_percentile_rule,
             SigmaCorrelationType.VALUE_MEDIAN: self.convert_correlation_value_median_rule,
         }
+
+        # For temporal types, choose extended or regular method based on condition type
+        if rule.type == SigmaCorrelationType.TEMPORAL:
+            if isinstance(rule.condition, SigmaExtendedCorrelationCondition):
+                correlation_methods[SigmaCorrelationType.TEMPORAL] = (
+                    self.convert_correlation_extended_temporal_rule
+                )
+            else:
+                correlation_methods[SigmaCorrelationType.TEMPORAL] = (
+                    self.convert_correlation_temporal_rule
+                )
+        elif rule.type == SigmaCorrelationType.TEMPORAL_ORDERED:
+            if isinstance(rule.condition, SigmaExtendedCorrelationCondition):
+                correlation_methods[SigmaCorrelationType.TEMPORAL_ORDERED] = (
+                    self.convert_correlation_extended_temporal_ordered_rule
+                )
+            else:
+                correlation_methods[SigmaCorrelationType.TEMPORAL_ORDERED] = (
+                    self.convert_correlation_temporal_ordered_rule
+                )
+
         if rule.type not in correlation_methods:
             raise NotImplementedError(
                 f"Conversion of correlation rule type {rule.type} is not implemented."
@@ -792,6 +820,48 @@ class Backend(ABC):
 
         Args:
             rule (SigmaCorrelationRule): The ordered temporal correlation rule to be converted.
+            output_format (Optional[str]): The output format for the conversion. Defaults to None.
+            method (Optional[str]): The correlation method to be used. Defaults to None.
+
+        Returns:
+            Any: The converted data structure.
+        """
+
+    @abstractmethod
+    def convert_correlation_extended_temporal_rule(
+        self,
+        rule: SigmaCorrelationRule,
+        output_format: Optional[str] = None,
+        method: str = "default",
+    ) -> list[Any]:
+        """
+        Convert an extended temporal correlation rule into the target data structure (usually query).
+        Extended temporal correlation rules support boolean conditions with 'and', 'or', and 'not'
+        operators for combining rule references.
+
+        Args:
+            rule (SigmaCorrelationRule): The extended temporal correlation rule to be converted.
+            output_format (Optional[str]): The output format for the conversion. Defaults to None.
+            method (Optional[str]): The correlation method to be used. Defaults to None.
+
+        Returns:
+            Any: The converted data structure.
+        """
+
+    @abstractmethod
+    def convert_correlation_extended_temporal_ordered_rule(
+        self,
+        rule: SigmaCorrelationRule,
+        output_format: Optional[str] = None,
+        method: str = "default",
+    ) -> list[Any]:
+        """
+        Convert an extended ordered temporal correlation rule into the target data structure (usually query).
+        Extended temporal ordered correlation rules support boolean conditions with 'and', 'or', and 'not'
+        operators while maintaining the ordering requirement for non-negated rules.
+
+        Args:
+            rule (SigmaCorrelationRule): The extended ordered temporal correlation rule to be converted.
             output_format (Optional[str]): The output format for the conversion. Defaults to None.
             method (Optional[str]): The correlation method to be used. Defaults to None.
 
@@ -1178,6 +1248,8 @@ class TextQueryBackend(Backend):
     value_count_correlation_query: ClassVar[Optional[dict[str, str]]] = None
     temporal_correlation_query: ClassVar[Optional[dict[str, str]]] = None
     temporal_ordered_correlation_query: ClassVar[Optional[dict[str, str]]] = None
+    temporal_extended_correlation_query: ClassVar[Optional[dict[str, str]]] = None
+    temporal_ordered_extended_correlation_query: ClassVar[Optional[dict[str, str]]] = None
     value_sum_correlation_query: ClassVar[Optional[dict[str, str]]] = None
     value_avg_correlation_query: ClassVar[Optional[dict[str, str]]] = None
     value_percentile_correlation_query: ClassVar[Optional[dict[str, str]]] = None
@@ -1266,6 +1338,12 @@ class TextQueryBackend(Backend):
     temporal_ordered_aggregation_expression: ClassVar[Optional[dict[str, str]]] = (
         None  # Expression for ordered temporal correlation rules
     )
+    temporal_extended_aggregation_expression: ClassVar[Optional[dict[str, str]]] = (
+        None  # Expression for extended temporal correlation rules
+    )
+    temporal_ordered_extended_aggregation_expression: ClassVar[Optional[dict[str, str]]] = (
+        None  # Expression for extended ordered temporal correlation rules
+    )
     value_sum_aggregation_expression: ClassVar[Optional[dict[str, str]]] = (
         None  # Expression for value sum correlation rules
     )
@@ -1330,10 +1408,15 @@ class TextQueryBackend(Backend):
     # * {referenced_rules} contains the Sigma rules that are referred by the correlation rule. This
     #   expression is generated by the referenced_rules_expression template in combination with the
     #   referenced_rules_expression_joiner defined above.
+    # For extended conditions, the template also gets:
+    # * {extended_condition} is the parsed extended condition expression with rule references
+    #   replaced by appropriate query fragments.
     event_count_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     value_count_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     temporal_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     temporal_ordered_condition_expression: ClassVar[Optional[dict[str, str]]] = None
+    temporal_extended_condition_expression: ClassVar[Optional[dict[str, str]]] = None
+    temporal_ordered_extended_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     value_sum_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     value_avg_condition_expression: ClassVar[Optional[dict[str, str]]] = None
     value_percentile_condition_expression: ClassVar[Optional[dict[str, str]]] = None
@@ -1414,41 +1497,65 @@ class TextQueryBackend(Backend):
 
     def compare_precedence(
         self,
-        outer: ConditionItem,
+        outer: Union[ConditionItem, CorrelationConditionItem],
         inner: Union[
-            ConditionItem, ConditionFieldEqualsValueExpression, ConditionValueExpression, None
+            ConditionItem,
+            ConditionFieldEqualsValueExpression,
+            ConditionValueExpression,
+            CorrelationConditionItem,
+            SigmaRuleReference,
+            None,
         ],
     ) -> bool:
         """
         Compare precedence of outer and inner condition items. Return True if precedence of
         enclosing condition item (outer) is lower than the contained (inner) condition item.
         In this case, no additional grouping is required.
+
+        This method works for both regular Sigma rule conditions and extended correlation conditions
+        by mapping correlation condition classes to their regular condition equivalents.
         """
+        # Handle parenthesize mode
         if self.parenthesize and not isinstance(
-            inner, (ConditionFieldEqualsValueExpression, ConditionValueExpression)
+            inner,
+            (ConditionFieldEqualsValueExpression, ConditionValueExpression, SigmaRuleReference),
         ):  # if parenthesize is set, parenthesis are generally put around everything.
             return False
 
-        outer_class = outer.__class__
-        # Special case: Conditions containing a SigmaExpansion value convert into OR conditions and therefore the precedence has to be handled the same way.
-        if isinstance(
+        # Map correlation condition classes to regular condition classes for unified precedence handling
+        precedence_map: dict[Any, Any] = {
+            CorrelationConditionNOT: ConditionNOT,
+            CorrelationConditionAND: ConditionAND,
+            CorrelationConditionOR: ConditionOR,
+        }
+
+        outer_class = precedence_map.get(outer.__class__, outer.__class__)
+
+        # Determine inner class based on type
+        if isinstance(inner, SigmaRuleReference):
+            # Rule references have highest precedence (like field expressions)
+            idx_inner = -1
+        elif isinstance(
             inner, (ConditionFieldEqualsValueExpression, ConditionValueExpression)
         ) and isinstance(inner.value, SigmaExpansion):
+            # Special case: Conditions containing a SigmaExpansion value convert into OR conditions
             inner_class: Type[
-                Union[
-                    ConditionItem,
-                    ConditionFieldEqualsValueExpression,
-                    ConditionValueExpression,
-                    None,
-                ]
+                ConditionItem
+                | CorrelationConditionItem
+                | ConditionFieldEqualsValueExpression
+                | ConditionValueExpression
+                | None
             ] = ConditionOR
+            try:
+                idx_inner = self.precedence.index(inner_class)
+            except ValueError:
+                idx_inner = -1
         else:
-            inner_class = inner.__class__
-
-        try:
-            idx_inner = self.precedence.index(inner_class)
-        except ValueError:  # ConditionItem not in precedence tuple or None
-            idx_inner = -1  # Assume precedence of inner condition item is higher than the outer
+            inner_class = precedence_map.get(inner.__class__, inner.__class__)
+            try:
+                idx_inner = self.precedence.index(inner_class)
+            except ValueError:  # ConditionItem not in precedence tuple or None
+                idx_inner = -1  # Assume precedence of inner condition item is higher than the outer
 
         return idx_inner <= self.precedence.index(outer_class)
 
@@ -2222,7 +2329,7 @@ class TextQueryBackend(Backend):
                     rule, correlation_type, method, search
                 ),
                 condition=self.convert_correlation_condition_from_template(
-                    rule.condition, rule.rules, correlation_type, method
+                    rule.condition, rule.referenced_rules, correlation_type, method
                 ),
                 groupby=self.convert_correlation_aggregation_groupby_from_template(
                     rule.group_by, method
@@ -2261,6 +2368,26 @@ class TextQueryBackend(Backend):
         method: str = "default",
     ) -> list[str]:
         return self.convert_correlation_rule_from_template(rule, "temporal_ordered", method)
+
+    def convert_correlation_extended_temporal_rule(
+        self,
+        rule: SigmaCorrelationRule,
+        output_format: Optional[str] = None,
+        method: str = "default",
+    ) -> list[str]:
+        # Use temporal_extended templates for extended temporal rules
+        return self.convert_correlation_rule_from_template(rule, "temporal_extended", method)
+
+    def convert_correlation_extended_temporal_ordered_rule(
+        self,
+        rule: SigmaCorrelationRule,
+        output_format: Optional[str] = None,
+        method: str = "default",
+    ) -> list[str]:
+        # Use temporal_ordered_extended templates for extended temporal ordered rules
+        return self.convert_correlation_rule_from_template(
+            rule, "temporal_ordered_extended", method
+        )
 
     def convert_correlation_value_sum_rule(
         self,
@@ -2301,8 +2428,12 @@ class TextQueryBackend(Backend):
         **kwargs: dict[str, Any],
     ) -> str:
         if (  # if the correlation rule refers only a single rule and this rule results only in a single query
-            len(rule.rules) == 1
-            and len(queries := ((rule_reference := rule.rules[0]).rule).get_conversion_result())
+            len(rule.referenced_rules) == 1
+            and len(
+                queries := (
+                    (rule_reference := rule.referenced_rules[0]).rule
+                ).get_conversion_result()
+            )
             == 1
             and self.correlation_search_single_rule_expression is not None
         ):
@@ -2337,7 +2468,7 @@ class TextQueryBackend(Backend):
                                 rule_reference,
                             ),
                         )
-                        for rule_reference in rule.rules
+                        for rule_reference in rule.referenced_rules
                         for query in rule_reference.rule.get_conversion_result()
                     )
                 ),
@@ -2399,7 +2530,7 @@ class TextQueryBackend(Backend):
                             ruleid=rule_reference.rule.name or rule_reference.rule.id,
                             query=self.convert_correlation_typing_query_postprocess(query),
                         )
-                        for rule_reference in rule.rules
+                        for rule_reference in rule.referenced_rules
                         for query in rule_reference.rule.get_conversion_result()
                     )
                 )
@@ -2427,7 +2558,13 @@ class TextQueryBackend(Backend):
             )
 
         # Validate that percentile is specified for value_percentile correlation type
-        if correlation_type == "value_percentile" and rule.condition.percentile is None:
+        from sigma.correlations import SigmaCorrelationCondition
+
+        if (
+            correlation_type == "value_percentile"
+            and isinstance(rule.condition, SigmaCorrelationCondition)
+            and rule.condition.percentile is None
+        ):
             raise SigmaConversionError(
                 rule,
                 rule.source,
@@ -2437,17 +2574,26 @@ class TextQueryBackend(Backend):
         template = templates[method]
         return template.format(
             rule=rule,
-            referenced_rules=self.convert_referenced_rules(rule.rules, method),
-            field=rule.condition.fieldref,
+            referenced_rules=self.convert_referenced_rules(rule.referenced_rules, method),
+            field=(
+                rule.condition.fieldref
+                if isinstance(rule.condition, SigmaCorrelationCondition)
+                else ""
+            ),
             fields=self.convert_correlation_aggregation_fields_from_template(
-                rule.fields, rule.rules, rule.group_by, method
+                rule.fields, rule.referenced_rules, rule.group_by, method
             ),
             timespan=self.convert_timespan(rule.timespan, method),
             groupby=self.convert_correlation_aggregation_groupby_from_template(
                 rule.group_by, method
             ),
             search=search,
-            percentile=rule.condition.percentile if rule.condition.percentile is not None else "",
+            percentile=(
+                rule.condition.percentile
+                if isinstance(rule.condition, SigmaCorrelationCondition)
+                and rule.condition.percentile is not None
+                else ""
+            ),
         )
 
     def convert_correlation_aggregation_fields_from_template(
@@ -2539,7 +2685,7 @@ class TextQueryBackend(Backend):
     # Implementation of the condition phase of the correlation query.
     def convert_correlation_condition_from_template(
         self,
-        cond: SigmaCorrelationCondition,
+        cond: Union[SigmaCorrelationCondition, SigmaExtendedCorrelationCondition],
         referenced_rules: list[SigmaRuleReference],
         correlation_type: SigmaCorrelationTypeLiteral,
         method: str,
@@ -2550,12 +2696,155 @@ class TextQueryBackend(Backend):
                 f"Correlation type '{correlation_type}' is not supported by backend."
             )
         template = templates[method]
-        return template.format(
-            field=cond.fieldref,
-            op=self.correlation_condition_mapping[cond.op],
-            count=cond.count,
-            referenced_rules=self.convert_referenced_rules(referenced_rules, method),
-        )
+
+        # Only basic conditions have these attributes
+        if isinstance(cond, SigmaCorrelationCondition):
+            return template.format(
+                field=cond.fieldref,
+                op=self.correlation_condition_mapping[cond.op],
+                count=cond.count,
+                referenced_rules=self.convert_referenced_rules(referenced_rules, method),
+            )
+        else:
+            # Extended conditions - convert parse tree to query expression
+            extended_condition = self.convert_extended_correlation_condition(cond.parsed, method)
+            return template.format(
+                extended_condition=extended_condition,
+                referenced_rules=self.convert_referenced_rules(referenced_rules, method),
+            )
+
+    # Extended correlation condition conversion
+    # The following methods convert the parse tree of extended correlation conditions into
+    # the target query language. They use the same precedence rules as regular conditions.
+    extended_correlation_condition_rule_reference_expression: ClassVar[Optional[dict[str, str]]] = (
+        None  # Expression for a rule reference in extended correlation conditions with {ruleid} placeholder
+    )
+
+    def convert_extended_correlation_condition(
+        self,
+        cond: Union[CorrelationConditionItem, SigmaRuleReference],
+        method: str,
+    ) -> str:
+        """
+        Convert extended correlation condition parse tree item to target query language expression.
+        This is the entry method similar to convert_condition for regular Sigma rule conditions.
+        """
+        if isinstance(cond, SigmaRuleReference):
+            return self.convert_extended_correlation_condition_rule_reference(cond, method)
+        elif isinstance(cond, CorrelationConditionAND):
+            return self.convert_extended_correlation_condition_and(cond, method)
+        elif isinstance(cond, CorrelationConditionOR):
+            return self.convert_extended_correlation_condition_or(cond, method)
+        elif isinstance(cond, CorrelationConditionNOT):
+            return self.convert_extended_correlation_condition_not(cond, method)
+        else:
+            raise TypeError(
+                f"Unexpected correlation condition item type: {cond.__class__.__name__}"
+            )
+
+    def convert_extended_correlation_condition_group(
+        self,
+        cond: Union[CorrelationConditionItem, SigmaRuleReference],
+        method: str,
+    ) -> str:
+        """Group extended correlation condition item if required by precedence rules."""
+        expr = self.convert_extended_correlation_condition(cond, method)
+        if self.group_expression is None:
+            return expr
+        return self.group_expression.format(expr=expr)
+
+    def convert_extended_correlation_condition_and(
+        self, cond: CorrelationConditionItem, method: str
+    ) -> str:
+        """Convert AND operator in extended correlation condition."""
+        try:
+            args = [
+                (
+                    self.convert_extended_correlation_condition_group(arg, method)
+                    if isinstance(arg, CorrelationConditionItem)
+                    and not self.compare_precedence(cond, arg)
+                    else self.convert_extended_correlation_condition(arg, method)
+                )
+                for arg in cond.args
+            ]
+            return self.and_token.join(
+                [
+                    f"{self.token_separator}{arg}{self.token_separator}"
+                    for arg in args
+                    if arg is not None
+                ]
+            ).strip()
+        except TypeError:
+            raise NotImplementedError(
+                "Extended correlation condition AND operator conversion is not supported."
+            )
+
+    def convert_extended_correlation_condition_or(
+        self, cond: CorrelationConditionItem, method: str
+    ) -> str:
+        """Convert OR operator in extended correlation condition."""
+        try:
+            args = [
+                (
+                    self.convert_extended_correlation_condition_group(arg, method)
+                    if isinstance(arg, CorrelationConditionItem)
+                    and not self.compare_precedence(cond, arg)
+                    else self.convert_extended_correlation_condition(arg, method)
+                )
+                for arg in cond.args
+            ]
+            return self.or_token.join(
+                [
+                    f"{self.token_separator}{arg}{self.token_separator}"
+                    for arg in args
+                    if arg is not None
+                ]
+            ).strip()
+        except TypeError:
+            raise NotImplementedError(
+                "Extended correlation condition OR operator conversion is not supported."
+            )
+
+    def convert_extended_correlation_condition_not(
+        self, cond: CorrelationConditionItem, method: str
+    ) -> str:
+        """Convert NOT operator in extended correlation condition."""
+        try:
+            if len(cond.args) != 1:
+                raise ValueError(
+                    f"NOT operator in extended correlation condition must have exactly one argument, got {len(cond.args)}"
+                )
+            arg = cond.args[0]
+            if isinstance(arg, CorrelationConditionItem):
+                expr = self.convert_extended_correlation_condition_group(arg, method)
+            else:
+                expr = self.convert_extended_correlation_condition(arg, method)
+
+            return self.not_token + self.token_separator + expr
+        except TypeError:
+            raise NotImplementedError(
+                "Extended correlation condition NOT operator conversion is not supported."
+            )
+
+    def convert_extended_correlation_condition_rule_reference(
+        self, cond: SigmaRuleReference, method: str
+    ) -> str:
+        """Convert rule reference in extended correlation condition."""
+        if (
+            self.extended_correlation_condition_rule_reference_expression is None
+            or method not in self.extended_correlation_condition_rule_reference_expression
+        ):
+            raise NotImplementedError(
+                "Extended correlation condition rule reference conversion is not supported by backend."
+            )
+
+        template = self.extended_correlation_condition_rule_reference_expression[method]
+        # If rule has been resolved, use its name or id, otherwise use the reference string
+        if hasattr(cond, "rule"):
+            ruleid = cond.rule.name or cond.rule.id
+        else:
+            ruleid = cond.reference
+        return template.format(ruleid=ruleid)
 
     def convert_timespan(
         self,

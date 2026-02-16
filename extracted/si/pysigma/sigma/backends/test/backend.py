@@ -123,6 +123,12 @@ class TextQueryTestBackend(TextQueryBackend):
     temporal_correlation_query: ClassVar[dict[str, str]] = {
         "test": "{search}\n\n{aggregate}\n\n{condition}"
     }
+    temporal_extended_correlation_query: ClassVar[dict[str, str]] = {
+        "test": "{search}\n\n{aggregate}\n\n{condition}"
+    }
+    temporal_ordered_extended_correlation_query: ClassVar[dict[str, str]] = {
+        "test": "{search}\n\n{aggregate}\n\n{condition}"
+    }
 
     correlation_search_single_rule_expression: ClassVar[str] = "{query}"
     correlation_search_multi_rule_expression: ClassVar[str] = "{queries}"
@@ -145,6 +151,12 @@ class TextQueryTestBackend(TextQueryBackend):
     }
     temporal_ordered_aggregation_expression: ClassVar[dict[str, str]] = {
         "test": "| temporal ordered=true window={timespan} eventtypes={referenced_rules}{groupby}"
+    }
+    temporal_extended_aggregation_expression: ClassVar[dict[str, str]] = {
+        "test": "| temporal extended=true window={timespan}{groupby}"
+    }
+    temporal_ordered_extended_aggregation_expression: ClassVar[dict[str, str]] = {
+        "test": "| temporal ordered=true extended=true window={timespan}{groupby}"
     }
     value_sum_aggregation_expression: ClassVar[dict[str, str]] = {
         "test": "| aggregate window={timespan} sum({field}) as value_sum{groupby}"
@@ -181,6 +193,12 @@ class TextQueryTestBackend(TextQueryBackend):
     temporal_ordered_condition_expression: ClassVar[dict[str, str]] = {
         "test": "| where eventtype_count {op} {count} and eventtype_order={referenced_rules}"
     }
+    temporal_extended_condition_expression: ClassVar[dict[str, str]] = {
+        "test": "| where {extended_condition}"
+    }
+    temporal_ordered_extended_condition_expression: ClassVar[dict[str, str]] = {
+        "test": "| where {extended_condition}"
+    }
     value_sum_condition_expression: ClassVar[dict[str, str]] = {
         "test": "| where value_sum {op} {count}"
     }
@@ -192,6 +210,10 @@ class TextQueryTestBackend(TextQueryBackend):
     }
     value_median_condition_expression: ClassVar[dict[str, str]] = {
         "test": "| where value_median {op} {count}"
+    }
+
+    extended_correlation_condition_rule_reference_expression: ClassVar[dict[str, str]] = {
+        "test": 'matched_rules="{ruleid}"'
     }
 
     def __init__(

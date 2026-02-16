@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 9.0.0
-Summary: 🔎 Detect architectures, platforms, and CI systems, grouped by family
-Keywords: Almquist Shell,ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Command Prompt,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,openSUSE Tumbleweed,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,tcsh,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer,Xonsh,Zsh
+Version: 9.1.0
+Summary: 🔎 Detect architectures, platforms, shells and CI systems, grouped by family
+Keywords: Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Command Prompt,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),Kali Linux,Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,tcsh,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer,Xonsh,Zsh
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-File: license
@@ -80,7 +80,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v9.0.0
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v9.1.0
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -111,7 +111,31 @@ Extra Platforms detects the runtime architecture, operating system (including Li
 
 ## Quick start
 
-If you want to play with this library without contaminating your system, you can [use `uv`](https://docs.astral.sh/uv/guides/tools/#running-tools):
+Quickly inspect your current environment without installing anything, thanks to [`uvx`](https://docs.astral.sh/uv/guides/tools/#running-tools):
+
+```shell-session
+$ uvx extra-platforms
+extra-platforms 9.0.1
+
+── Architecture ── 📱 ARM64 (AArch64) ──[AARCH64]────────────
+            id: aarch64
+          (...)
+
+── Platform ── 🍎 macOS ──[MACOS]────────────────────────────
+            id: macos
+          (...)
+
+── Shell ── ℤ Zsh ──[ZSH]───────────────────────────────────
+            id: zsh
+          (...)
+
+── CI ── ❓ Unknown CI ──[UNKNOWN_CI]────────────────────────
+          (...)
+```
+
+The same output is available via `python -m extra_platforms`.
+
+Or if you want to explore usage of the library in a Python REPL:
 
 ```shell-session
 $ uvx --with extra-platforms python
@@ -120,7 +144,7 @@ $ uvx --with extra-platforms python
 ```pycon
 >>> import extra_platforms
 >>> extra_platforms.__version__
-'6.0.0'
+'9.0.1'
 ```
 
 ## Examples
@@ -360,6 +384,7 @@ mindmap
             (⊞ WSL1)
             (⊞ WSL2)
         )🐧 LINUX(
+            (🏔️ ALPINE)
             (Δ ALTLINUX)
             (⤻ AMZN)
             (🤖 ANDROID)
@@ -374,12 +399,15 @@ mindmap
             (🗜️ GENTOO)
             (🐃 GUIX)
             (🤹 IBM_POWERKVM)
+            (🔱 KALI)
             (🤹 KVMIBM)
             (🌿 LINUXMINT)
             (⍥ MAGEIA)
             (💫 MANDRIVA)
+            (▲ MANJARO)
             ( NOBARA)
             (🦎 OPENSUSE)
+            (📶 OPENWRT)
             (🦴 ORACLE)
             (∥ PARALLELS)
             (🍓 PIDORA)
@@ -431,8 +459,8 @@ mindmap
             (𝜈 NUSHELL)
             (🐍 XONSH)
         )🅲 C_SHELLS(
-            (© CSH)
-            (© TCSH)
+            (𝐂 CSH)
+            (𝐓 TCSH)
         )💲 BOURNE_SHELLS(
             (🪶 ASH)
             (＃ BASH)

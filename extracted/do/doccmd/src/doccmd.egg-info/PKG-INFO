@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: doccmd
-Version: 2026.1.31.3
+Version: 2026.2.15
 Summary: Run commands against code blocks in reStructuredText and Markdown files.
 Author-email: Adam Dangoor <adamdangoor@gmail.com>
 License-Expression: MIT
@@ -40,21 +40,21 @@ Requires-Dist: hadolint-bin==2.14.0; sys_platform != "win32" and extra == "dev"
 Requires-Dist: interrogate==1.7.0; extra == "dev"
 Requires-Dist: mypy[faster-cache]==1.19.1; extra == "dev"
 Requires-Dist: mypy-strict-kwargs==2026.1.12; extra == "dev"
-Requires-Dist: prek==0.3.0; extra == "dev"
+Requires-Dist: prek==0.3.2; extra == "dev"
 Requires-Dist: pydocstringformatter==0.7.5; extra == "dev"
 Requires-Dist: pydocstyle==6.3; extra == "dev"
 Requires-Dist: pygments==2.19.2; extra == "dev"
 Requires-Dist: pylint[spelling]==4.0.4; extra == "dev"
 Requires-Dist: pylint-per-file-ignores==3.2.0; extra == "dev"
-Requires-Dist: pyproject-fmt==2.11.1; extra == "dev"
-Requires-Dist: pyrefly==0.50.1; extra == "dev"
+Requires-Dist: pyproject-fmt==2.16.0; extra == "dev"
+Requires-Dist: pyrefly==0.52.0; extra == "dev"
 Requires-Dist: pyright==1.1.408; extra == "dev"
 Requires-Dist: pyroma==5.0.1; extra == "dev"
 Requires-Dist: pytest==9.0.2; extra == "dev"
 Requires-Dist: pytest-cov==7.0.0; extra == "dev"
-Requires-Dist: pytest-regressions==2.9.1; extra == "dev"
+Requires-Dist: pytest-regressions==2.10.0; extra == "dev"
 Requires-Dist: pyyaml==6.0.3; extra == "dev"
-Requires-Dist: ruff==0.14.14; extra == "dev"
+Requires-Dist: ruff==0.15.1; extra == "dev"
 Requires-Dist: shellcheck-py==0.11.0.1; extra == "dev"
 Requires-Dist: shfmt-py==3.12.0.2; extra == "dev"
 Requires-Dist: sphinx>=8.1.3; extra == "dev"
@@ -65,7 +65,7 @@ Requires-Dist: sphinx-lint==1.0.2; extra == "dev"
 Requires-Dist: sphinx-pyproject==0.3.0; extra == "dev"
 Requires-Dist: sphinx-substitution-extensions==2026.1.12; extra == "dev"
 Requires-Dist: sphinxcontrib-spelling==8.0.2; extra == "dev"
-Requires-Dist: ty==0.0.14; extra == "dev"
+Requires-Dist: ty==0.0.16; extra == "dev"
 Requires-Dist: types-pygments==2.19.0.20251121; extra == "dev"
 Requires-Dist: vulture==2.14; extra == "dev"
 Requires-Dist: yamlfix==1.19.1; extra == "dev"
@@ -128,7 +128,7 @@ Pre-built Linux (x86) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.2/doccmd-linux -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.3/doccmd-linux -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -136,7 +136,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.2/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.3/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 Pre-built macOS (ARM) binaries
@@ -144,7 +144,7 @@ Pre-built macOS (ARM) binaries
 
 .. code-block:: console
 
-   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.2/doccmd-macos -o /usr/local/bin/doccmd &&
+   $ curl --fail -L https://github.com/adamtheturtle/doccmd/releases/download/2026.01.31.3/doccmd-macos -o /usr/local/bin/doccmd &&
        chmod +x /usr/local/bin/doccmd
 
 You may need to remove the quarantine attribute to run the binary:
@@ -174,7 +174,7 @@ Requires `Nix`_.
 
 .. code-block:: shell
 
-   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.01.31.2" -- --help
+   $ nix --extra-experimental-features 'nix-command flakes' run "github:adamtheturtle/doccmd/2026.01.31.3" -- --help
 
 To avoid passing ``--extra-experimental-features`` every time, `enable flakes`_ permanently.
 
@@ -197,7 +197,7 @@ To run ``doccmd`` with `pre-commit`_, add hooks like the following to your ``.pr
 .. code-block:: yaml
 
    -   repo: https://github.com/adamtheturtle/doccmd-pre-commit
-       rev: v2026.1.31.2
+       rev: v2026.1.31.3
        hooks:
        -   id: doccmd
            args: ["--language", "shell", "--command", "shellcheck --shell=bash"]

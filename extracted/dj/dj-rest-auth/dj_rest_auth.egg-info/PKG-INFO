@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dj-rest-auth
-Version: 7.0.2
+Version: 7.1.0
 Summary: Authentication and Registration in Django Rest Framework
 Home-page: https://github.com/iMerica/dj-rest-auth
 Author: iMerica
@@ -12,11 +12,11 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: System Administrators
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: Django<6.0,>=4.2
+Requires-Dist: Django>=4.2
 Requires-Dist: djangorestframework>=3.13.0
 Provides-Extra: with-social
 Requires-Dist: django-allauth[socialaccount]>=64.0.0; extra == "with-social"
@@ -43,7 +43,7 @@ with SPAs (e.g., React, Vue, Angular), and Mobile applications.
 
 ## Requirements
 - Django >= 4.2 (See Unit Test Coverage in CI)
-- Python >= 3.8
+- Python >= 3.10
 
 ## Quick Setup
 

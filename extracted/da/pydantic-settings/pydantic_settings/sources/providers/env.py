@@ -17,7 +17,7 @@ from typing_inspection.introspection import is_union_origin
 
 from ...utils import _lenient_issubclass
 from ..base import PydanticBaseEnvSettingsSource
-from ..types import EnvNoneType
+from ..types import EnvNoneType, EnvPrefixTarget
 from ..utils import (
     _annotation_contains_types,
     _annotation_enum_name_to_val,
@@ -40,6 +40,7 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         settings_cls: type[BaseSettings],
         case_sensitive: bool | None = None,
         env_prefix: str | None = None,
+        env_prefix_target: EnvPrefixTarget | None = None,
         env_nested_delimiter: str | None = None,
         env_nested_max_split: int | None = None,
         env_ignore_empty: bool | None = None,
@@ -47,7 +48,13 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
         env_parse_enums: bool | None = None,
     ) -> None:
         super().__init__(
-            settings_cls, case_sensitive, env_prefix, env_ignore_empty, env_parse_none_str, env_parse_enums
+            settings_cls,
+            case_sensitive,
+            env_prefix,
+            env_prefix_target,
+            env_ignore_empty,
+            env_parse_none_str,
+            env_parse_enums,
         )
         self.env_nested_delimiter = (
             env_nested_delimiter if env_nested_delimiter is not None else self.config.get('env_nested_delimiter')
@@ -186,7 +193,10 @@ class EnvSettingsSource(PydanticBaseEnvSettingsSource):
             type_has_key = self.next_field(type_, key, case_sensitive)
             if type_has_key:
                 return type_has_key
-        if is_model_class(annotation) or is_pydantic_dataclass(annotation):  # type: ignore[arg-type]
+        if _lenient_issubclass(get_origin(annotation), dict):
+            # get value type if it's a dict
+            return get_args(annotation)[-1]
+        elif is_model_class(annotation) or is_pydantic_dataclass(annotation):  # type: ignore[arg-type]
             fields = _get_model_fields(annotation)
             # `case_sensitive is None` is here to be compatible with the old behavior.
             # Has to be removed in V3.

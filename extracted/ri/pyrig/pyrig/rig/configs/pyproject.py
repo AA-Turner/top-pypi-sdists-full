@@ -10,15 +10,15 @@ Utility methods: project info, dependencies, Python versions, license detection,
 classifiers.
 """
 
+import json
 from pathlib import Path
-from typing import Any, Literal
+from typing import Literal
 
-import requests
 import spdx_matcher
 from packaging.version import Version
 
 from pyrig.rig.cli import cli
-from pyrig.rig.configs.base.base import Priority
+from pyrig.rig.configs.base.base import ConfigData, ConfigDict, Priority
 from pyrig.rig.configs.base.toml import TomlConfigFile
 from pyrig.rig.configs.license import LicenseConfigFile
 from pyrig.rig.tests.mirror_test import MirrorTestConfigFile
@@ -28,7 +28,10 @@ from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.rig.tools.project_tester import ProjectTester
 from pyrig.rig.tools.remote_version_controller import RemoteVersionController
 from pyrig.rig.tools.version_controller import VersionController
-from pyrig.rig.utils.resources import return_resource_content_on_fetch_error
+from pyrig.rig.utils.resources import (
+    requests_get_text_cached,
+    return_resource_content_on_fetch_error,
+)
 from pyrig.rig.utils.versions import VersionConstraint, adjust_version_to_level
 from pyrig.src.modules.package import (
     package_name_from_cwd,
@@ -55,7 +58,7 @@ class PyprojectConfigFile(TomlConfigFile):
         """Return priority 20 (created early for other configs to read)."""
         return Priority.MEDIUM
 
-    def _dump(self, config: dict[str, Any] | list[Any]) -> None:
+    def _dump(self, config: ConfigData) -> None:
         """Write config with dependency normalization (modifies in-place).
 
         Raises:
@@ -71,7 +74,7 @@ class PyprojectConfigFile(TomlConfigFile):
         """Return project root."""
         return Path()
 
-    def _configs(self) -> dict[str, Any]:
+    def _configs(self) -> ConfigDict:
         """Generate complete pyproject.toml config (metadata, deps, build, tools)."""
         repo_owner, _ = VersionController.I.repo_owner_and_name(check_repo_url=False)
         tests_package_name = MirrorTestConfigFile.I.tests_package_name()
@@ -182,7 +185,7 @@ class PyprojectConfigFile(TomlConfigFile):
             analysis fails.
         """
         content = Path("LICENSE").read_text(encoding="utf-8")
-        licenses: dict[str, dict[str, Any]]
+        licenses: dict[str, ConfigDict]
         licenses, _ = spdx_matcher.analyse_license_text(content)
         licenses = licenses["licenses"]
         if not licenses:
@@ -190,7 +193,7 @@ class PyprojectConfigFile(TomlConfigFile):
             raise ValueError(msg)
         return next(iter(licenses))
 
-    def remove_wrong_dependencies(self, config: dict[str, Any]) -> None:
+    def remove_wrong_dependencies(self, config: ConfigDict) -> None:
         """Normalize dependency versions (modifies in-place)."""
         config["project"]["dependencies"] = self.make_dependency_versions(
             config["project"]["dependencies"]
@@ -289,9 +292,7 @@ class PyprojectConfigFile(TomlConfigFile):
             level: Precision level for the version string.
         """
         url = "https://endoflife.date/api/python.json"
-        resp = requests.get(url, timeout=10)
-        resp.raise_for_status()
-        data: list[dict[str, str]] = resp.json()
+        data: list[dict[str, str]] = json.loads(requests_get_text_cached(url))
         latest_version = data[0]["latest"]
         return str(adjust_version_to_level(Version(latest_version), level))
 

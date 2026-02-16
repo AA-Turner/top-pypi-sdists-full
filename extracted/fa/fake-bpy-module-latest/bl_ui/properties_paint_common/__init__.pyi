@@ -184,39 +184,6 @@ class VIEW3D_MT_tools_projectpaint_clone(_bpy_types.Menu):
         :param context:
         """
 
-class VIEW3D_PT_brush_asset_shelf_filter(_bpy_types.Panel):
-    bl_label: typing.Any
-    bl_parent_id: typing.Any
-    bl_region_type: typing.Any
-    bl_rna: typing.Any
-    bl_space_type: typing.Any
-    id_data: typing.Any
-
-    def bl_rna_get_subclass(self) -> bpy.types.Struct:
-        """
-
-        :return: The RNA type or default when not found.
-        """
-
-    def bl_rna_get_subclass_py(self) -> typing.Any:
-        """
-
-        :return: The class or default when not found.
-        """
-
-    def draw(self, context) -> None:
-        """
-
-        :param context:
-        """
-
-    @classmethod
-    def poll(cls, context) -> None:
-        """
-
-        :param context:
-        """
-
 class BrushPanel(UnifiedPaintPanel):
     @classmethod
     def poll(cls, context) -> None:
@@ -357,6 +324,7 @@ class TextureMaskPanel(BrushPanel):
         :param context:
         """
 
+def brush_asset_shelf_filter_draw(panel, context) -> None: ...
 def brush_basic__draw_color_selector(context, layout, brush, gp_settings) -> None: ...
 def brush_basic_grease_pencil_paint_settings(
     layout, context, brush, props, *, compact=False
@@ -387,3 +355,6 @@ def brush_texture_settings(layout, brush, sculpt) -> None: ...
 def color_jitter_panel(layout, context, brush) -> None: ...
 def draw_color_settings(context, layout, brush, color_type=False) -> None:
     """Draw color wheel and gradient settings."""
+
+def register() -> None: ...
+def unregister() -> None: ...

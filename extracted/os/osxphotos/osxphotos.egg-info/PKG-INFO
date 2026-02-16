@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: osxphotos
-Version: 0.75.3
+Version: 0.75.5
 Summary: Export photos from Apple's macOS Photos app and query the Photos library database to access metadata about images.
 Home-page: https://github.com/RhetTbull/
 Download-URL: https://github.com/RhetTbull/osxphotos
@@ -22,15 +22,15 @@ Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: beautifulsoup4
-Requires-Dist: bitmath<1.4.0.0,>=1.3.3.1
+Requires-Dist: bitmath<2.0.0,>=1.3.3.1
 Requires-Dist: bpylist2<5.0.0,>=4.1.1
 Requires-Dist: cgmetadata>=0.2.0; sys_platform == "darwin"
-Requires-Dist: Click<9.0,>=8.1.3
+Requires-Dist: Click>=8.1.3
 Requires-Dist: mac-alias<3.0.0,>=2.2.2; sys_platform == "darwin"
 Requires-Dist: makelive>=0.6.2; sys_platform == "darwin"
-Requires-Dist: Mako<1.3.0,>=1.2.2
+Requires-Dist: Mako<2.0.0,>=1.2.2
 Requires-Dist: markdown2
-Requires-Dist: more-itertools<9.0.0,>=8.8.0
+Requires-Dist: more-itertools>=8.8.0
 Requires-Dist: objexplore<2.0.0,>=1.6.3
 Requires-Dist: osxmetadata<2.0.0,>=1.4.0; sys_platform == "darwin"
 Requires-Dist: packaging>=21.3
@@ -68,7 +68,7 @@ Requires-Dist: shortuuid<2.0.0,>=1.0.9
 Requires-Dist: strpdatetime>=0.4.0
 Requires-Dist: tenacity<9.0.0,>=8.0.1
 Requires-Dist: textx<5.0.0,>=4.0.1
-Requires-Dist: toml<0.11.0,>=0.10.2
+Requires-Dist: toml<0.12.0,>=0.10.2
 Requires-Dist: tzdata
 Requires-Dist: utitools>=0.3.0
 Requires-Dist: whenever<0.9.0,>=0.8.3

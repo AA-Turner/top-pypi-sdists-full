@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vastdb
-Version: 2.0.8
+Version: 2.0.12
 Summary: VAST Data SDK
 Home-page: https://github.com/vast-data/vastdb_sdk
 Author: VAST DATA
@@ -31,6 +31,7 @@ Requires-Dist: requests
 Requires-Dist: xmltodict
 Requires-Dist: backoff==2.2.1
 Requires-Dist: adbc_driver_manager
+Requires-Dist: protobuf
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

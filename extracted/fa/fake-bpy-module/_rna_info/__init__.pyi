@@ -73,7 +73,10 @@ class InfoPropertyRNA:
         collection_id="Collection",
         enum_descr_override: None | str | None = None,
     ) -> None:
-        """
+        """Return a (type_hint, type_info) pair.type_hint follows Python type-hint conventions as closely as possible
+        (e.g. bool, Literal[A, B], Matrix).type_info is a list of human-readable strings that describe array
+        dimensions, numeric range, default value, and qualifiers such as
+        (readonly) or (never None).
 
                 :param as_ret:
                 :param as_arg:
@@ -113,6 +116,7 @@ class InfoStructRNA:
     def get_py_c_properties_getset(self) -> None: ...
     def get_py_functions(self) -> None: ...
     def get_py_properties(self) -> None: ...
+    def is_operator_properties(self) -> None: ...
 
 def BuildRNAInfo() -> None: ...
 def GetInfoFunctionRNA(bl_rna, parent_id) -> None: ...

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: moto-ext
-Version: 5.1.22
+Version: 5.1.23
 Summary: A library that allows you to easily mock out tests based on AWS infrastructure
 Home-page: https://github.com/localstack/moto
 Author: Steve Pulec
@@ -250,4 +250,4 @@ Dynamic: license-file
 
 # moto-ext
 
-Fork of [Moto](https://github.com/getmoto/moto) with patches and fixes for [LocalStack](https://github.com/localstack/localstack).
+Fork of [Moto](https://github.com/getmoto/moto) with patches and fixes for [LocalStack for AWS](https://www.localstack.cloud/localstack-for-aws).

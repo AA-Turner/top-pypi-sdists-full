@@ -2,7 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
-import bpy.types
+import bpy.stub_internal.rna_enums
 import mathutils
 
 def brush_stroke(
@@ -10,25 +10,24 @@ def brush_stroke(
     undo: bool | None = None,
     /,
     *,
-    stroke: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    stroke=None,
     mode: typing.Literal["NORMAL", "INVERT"] | None = "NORMAL",
     brush_toggle: typing.Literal["None", "SMOOTH", "ERASE", "MASK"] | None = "None",
     pen_flip: bool | None = False,
     override_location: bool | None = False,
     ignore_background_click: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sculpt a stroke into the geometry
 
-        :param stroke: Stroke
-        :param mode: Stroke Mode, Action taken when a paint stroke is made
+        :param stroke: Stroke, (optional)
+        :param mode: Stroke Mode, Action taken when a paint stroke is made (optional)
 
     NORMAL
     Regular -- Apply brush normally.
 
     INVERT
     Invert -- Invert action of brush for duration of stroke.
-        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke
+        :param brush_toggle: Temporary Brush Toggle Type, Brush to use for duration of stroke (optional)
 
     None
     None -- Apply brush normally.
@@ -41,9 +40,10 @@ def brush_stroke(
 
     MASK
     Mask -- Switch to mask brush for duration of stroke.
-        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used
-        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions
-        :param ignore_background_click: Ignore Background Click, Clicks on the background do not start the stroke
+        :param pen_flip: Pen Flip, Whether a tablets eraser mode is being used (optional)
+        :param override_location: Override Location, Override the given "location" array by recalculating object space positions from the provided "mouse_event" positions (optional)
+        :param ignore_background_click: Ignore Background Click, Clicks on the background do not start the stroke (optional)
+        :return: Result of the operator call.
     """
 
 def cloth_filter(
@@ -51,12 +51,11 @@ def cloth_filter(
     undo: bool | None = None,
     /,
     *,
-    start_mouse: collections.abc.Iterable[int] | None = (0, 0),
+    start_mouse: collections.abc.Sequence[int] | None = (0, 0),
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    event_history=None,
     type: typing.Literal["GRAVITY", "INFLATE", "EXPAND", "PINCH", "SCALE"]
     | None = "GRAVITY",
     force_axis: set[typing.Literal["X", "Y", "Z"]] | None = {"X", "Y", "Z"},
@@ -65,14 +64,15 @@ def cloth_filter(
     cloth_damping: float | None = 0.0,
     use_face_sets: bool | None = False,
     use_collisions: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a cloth simulation deformation to the entire mesh
 
-        :param start_mouse: Starting Mouse
-        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius
-        :param strength: Strength, Filter strength
-        :param iteration_count: Repeat, How many times to repeat the filter
-        :param type: Filter Type, Operation that is going to be applied to the mesh
+        :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
+        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius(in [0.001, 5], optional)
+        :param strength: Strength, Filter strength (in [-10, 10], optional)
+        :param iteration_count: Repeat, How many times to repeat the filter (in [1, 10000], optional)
+        :param event_history: (optional)
+        :param type: Filter Type, Operation that is going to be applied to the mesh (optional)
 
     GRAVITY
     Gravity -- Applies gravity to the simulation.
@@ -88,7 +88,7 @@ def cloth_filter(
 
     SCALE
     Scale -- Scales the mesh as a soft body using the origin of the object as scale.
-        :param force_axis: Force Axis, Apply the force in the selected axis
+        :param force_axis: Force Axis, Apply the force in the selected axis (optional)
 
     X
     X -- Apply force in the X axis.
@@ -98,7 +98,7 @@ def cloth_filter(
 
     Z
     Z -- Apply force in the Z axis.
-        :param orientation: Orientation, Orientation of the axis to limit the filter force
+        :param orientation: Orientation, Orientation of the axis to limit the filter force (optional)
 
     LOCAL
     Local -- Use the local axis to limit the force and set the gravity direction.
@@ -108,10 +108,11 @@ def cloth_filter(
 
     VIEW
     View -- Use the view axis to limit the force and set the gravity direction.
-        :param cloth_mass: Cloth Mass, Mass of each simulation particle
-        :param cloth_damping: Cloth Damping, How much the applied forces are propagated through the cloth
-        :param use_face_sets: Use Face Sets, Apply the filter only to the face set under the cursor
-        :param use_collisions: Use Collisions, Collide with other collider objects in the scene
+        :param cloth_mass: Cloth Mass, Mass of each simulation particle (in [0, 2], optional)
+        :param cloth_damping: Cloth Damping, How much the applied forces are propagated through the cloth (in [0, 1], optional)
+        :param use_face_sets: Use Face Sets, Apply the filter only to the face set under the cursor (optional)
+        :param use_collisions: Use Collisions, Collide with other collider objects in the scene (optional)
+        :return: Result of the operator call.
     """
 
 def color_filter(
@@ -119,12 +120,11 @@ def color_filter(
     undo: bool | None = None,
     /,
     *,
-    start_mouse: collections.abc.Iterable[int] | None = (0, 0),
+    start_mouse: collections.abc.Sequence[int] | None = (0, 0),
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    event_history=None,
     type: typing.Literal[
         "FILL",
         "HUE",
@@ -143,14 +143,15 @@ def color_filter(
         1.0,
         1.0,
     ),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the active color attribute
 
-        :param start_mouse: Starting Mouse
-        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius
-        :param strength: Strength, Filter strength
-        :param iteration_count: Repeat, How many times to repeat the filter
-        :param type: Filter Type
+        :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
+        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius(in [0.001, 5], optional)
+        :param strength: Strength, Filter strength (in [-10, 10], optional)
+        :param iteration_count: Repeat, How many times to repeat the filter (in [1, 10000], optional)
+        :param event_history: (optional)
+        :param type: Filter Type, (optional)
 
     FILL
     Fill -- Fill with a specific color.
@@ -181,29 +182,39 @@ def color_filter(
 
     BLUE
     Blue -- Change blue channel.
-        :param fill_color: Fill Color
+        :param fill_color: Fill Color, (array of 3 items, in [0, inf], optional)
+        :return: Result of the operator call.
     """
 
 def detail_flood_fill(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Flood fill the mesh with the selected detail setting"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Flood fill the mesh with the selected detail setting
+
+    :return: Result of the operator call.
+    """
 
 def dynamic_topology_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Dynamic topology alters the mesh topology while sculpting"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Dynamic topology alters the mesh topology while sculpting
+
+    :return: Result of the operator call.
+    """
 
 def dyntopo_detail_size_edit(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Modify the detail size of dyntopo interactively"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Modify the detail size of dyntopo interactively
+
+    :return: Result of the operator call.
+    """
 
 def expand(
     execution_context: int | str | None = None,
@@ -230,19 +241,20 @@ def expand(
     max_geodesic_move_preview: int | None = 10000,
     use_auto_mask: bool | None = False,
     normal_falloff_smooth: int | None = 2,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Generic sculpt expand operator
 
-    :param target: Data Target, Data that is going to be modified in the expand operation
-    :param falloff_type: Falloff Type, Initial falloff of the expand operation
-    :param invert: Invert, Invert the expand active elements
-    :param use_mask_preserve: Preserve Previous, Preserve the previous state of the target data
-    :param use_falloff_gradient: Falloff Gradient, Expand Using a linear falloff
-    :param use_modify_active: Modify Active, Modify the active face set instead of creating a new one
-    :param use_reposition_pivot: Reposition Pivot, Reposition the sculpt transform pivot to the boundary of the expand active area
-    :param max_geodesic_move_preview: Max Vertex Count for Geodesic Move Preview, Maximum number of vertices in the mesh for using geodesic falloff when moving the origin of expand. If the total number of vertices is greater than this value, the falloff will be set to spherical when moving
-    :param use_auto_mask: Auto Create, Fill in mask if nothing is already masked
-    :param normal_falloff_smooth: Normal Smooth, Blurring steps for normal falloff
+    :param target: Data Target, Data that is going to be modified in the expand operation (optional)
+    :param falloff_type: Falloff Type, Initial falloff of the expand operation (optional)
+    :param invert: Invert, Invert the expand active elements (optional)
+    :param use_mask_preserve: Preserve Previous, Preserve the previous state of the target data (optional)
+    :param use_falloff_gradient: Falloff Gradient, Expand Using a linear falloff (optional)
+    :param use_modify_active: Modify Active, Modify the active face set instead of creating a new one (optional)
+    :param use_reposition_pivot: Reposition Pivot, Reposition the sculpt transform pivot to the boundary of the expand active area (optional)
+    :param max_geodesic_move_preview: Max Vertex Count for Geodesic Move Preview, Maximum number of vertices in the mesh for using geodesic falloff when moving the origin of expand. If the total number of vertices is greater than this value, the falloff will be set to spherical when moving (in [0, inf], optional)
+    :param use_auto_mask: Auto Create, Fill in mask if nothing is already masked (optional)
+    :param normal_falloff_smooth: Normal Smooth, Blurring steps for normal falloff (in [0, 10], optional)
+    :return: Result of the operator call.
     """
 
 def face_set_box_gesture(
@@ -256,15 +268,16 @@ def face_set_box_gesture(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a rectangle defined by the cursor
 
-    :param xmin: X Min
-    :param xmax: X Max
-    :param ymin: Y Min
-    :param ymax: Y Max
-    :param wait_for_input: Wait for Input
-    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+    :param xmin: X Min, (in [-inf, inf], optional)
+    :param xmax: X Max, (in [-inf, inf], optional)
+    :param ymin: Y Min, (in [-inf, inf], optional)
+    :param ymax: Y Max, (in [-inf, inf], optional)
+    :param wait_for_input: Wait for Input, (optional)
+    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+    :return: Result of the operator call.
     """
 
 def face_set_change_visibility(
@@ -274,10 +287,10 @@ def face_set_change_visibility(
     *,
     mode: typing.Literal["TOGGLE", "SHOW_ACTIVE", "HIDE_ACTIVE"] | None = "TOGGLE",
     active_face_set: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Change the visibility of the face sets of the sculpt
 
-        :param mode: Mode
+        :param mode: Mode, (optional)
 
     TOGGLE
     Toggle Visibility -- Hide all face sets except for the active one.
@@ -287,7 +300,8 @@ def face_set_change_visibility(
 
     HIDE_ACTIVE
     Hide Active Face Set -- Hide the active face set.
-        :param active_face_set: Active Face Set
+        :param active_face_set: Active Face Set, (in [0, inf], optional)
+        :return: Result of the operator call.
     """
 
 def face_set_edit(
@@ -302,11 +316,11 @@ def face_set_edit(
     | None = "GROW",
     strength: float | None = 1.0,
     modify_hidden: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Edits the current active face set
 
-        :param active_face_set: Active Face Set
-        :param mode: Mode
+        :param active_face_set: Active Face Set, (in [0, inf], optional)
+        :param mode: Mode, (optional)
 
     GROW
     Grow Face Set -- Grows the face set boundary by one face based on mesh topology.
@@ -322,8 +336,9 @@ def face_set_edit(
 
     FAIR_TANGENCY
     Fair Tangency -- Creates a smooth as possible geometry patch from the face set minimizing changes in vertex tangents.
-        :param strength: Strength
-        :param modify_hidden: Modify Hidden, Apply the edit operation to hidden geometry
+        :param strength: Strength, (in [0, 1], optional)
+        :param modify_hidden: Modify Hidden, Apply the edit operation to hidden geometry (optional)
+        :return: Result of the operator call.
     """
 
 def face_set_extract(
@@ -335,13 +350,14 @@ def face_set_extract(
     smooth_iterations: int | None = 4,
     apply_shrinkwrap: bool | None = True,
     add_solidify: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new mesh object from the selected face set
 
-    :param add_boundary_loop: Add Boundary Loop, Add an extra edge loop to better preserve the shape when applying a subdivision surface modifier
-    :param smooth_iterations: Smooth Iterations, Smooth iterations applied to the extracted mesh
-    :param apply_shrinkwrap: Project to Sculpt, Project the extracted mesh into the original sculpt
-    :param add_solidify: Extract as Solid, Extract the mask as a solid object with a solidify modifier
+    :param add_boundary_loop: Add Boundary Loop, Add an extra edge loop to better preserve the shape when applying a subdivision surface modifier (optional)
+    :param smooth_iterations: Smooth Iterations, Smooth iterations applied to the extracted mesh (in [0, inf], optional)
+    :param apply_shrinkwrap: Project to Sculpt, Project the extracted mesh into the original sculpt (optional)
+    :param add_solidify: Extract as Solid, Extract the mask as a solid object with a solidify modifier (optional)
+    :return: Result of the operator call.
     """
 
 def face_set_lasso_gesture(
@@ -349,19 +365,20 @@ def face_set_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a shape defined by the cursor
 
-    :param path: Path
-    :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-    :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+    :param path: Path, (optional)
+    :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
+    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+    :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
+    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+    :return: Result of the operator call.
     """
 
 def face_set_line_gesture(
@@ -377,17 +394,18 @@ def face_set_line_gesture(
     cursor: int | None = 5,
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set to one side of a line defined by the cursor
 
-    :param xstart: X Start
-    :param xend: X End
-    :param ystart: Y Start
-    :param yend: Y End
-    :param flip: Flip
-    :param cursor: Cursor, Mouse cursor style to use during the modal operator
-    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-    :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
+    :param xstart: X Start, (in [-inf, inf], optional)
+    :param xend: X End, (in [-inf, inf], optional)
+    :param ystart: Y Start, (in [-inf, inf], optional)
+    :param yend: Y End, (in [-inf, inf], optional)
+    :param flip: Flip, (optional)
+    :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+    :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line (optional)
+    :return: Result of the operator call.
     """
 
 def face_set_polyline_gesture(
@@ -395,13 +413,14 @@ def face_set_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_front_faces_only: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add a face set in a shape defined by the cursor
 
-    :param path: Path
-    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
+    :param path: Path, (optional)
+    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+    :return: Result of the operator call.
     """
 
 def face_sets_create(
@@ -410,10 +429,10 @@ def face_sets_create(
     /,
     *,
     mode: typing.Literal["MASKED", "VISIBLE", "ALL", "SELECTION"] | None = "MASKED",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new face set
 
-        :param mode: Mode
+        :param mode: Mode, (optional)
 
     MASKED
     Face Set from Masked -- Create a new face set from the masked faces.
@@ -426,6 +445,7 @@ def face_sets_create(
 
     SELECTION
     Face Set from Edit Mode Selection -- Create an face set corresponding to the Edit Mode face selection.
+        :return: Result of the operator call.
     """
 
 def face_sets_init(
@@ -445,10 +465,10 @@ def face_sets_init(
     ]
     | None = "LOOSE_PARTS",
     threshold: float | None = 0.5,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Initializes all face sets in the mesh
 
-        :param mode: Mode
+        :param mode: Mode, (optional)
 
     LOOSE_PARTS
     Face Sets from Loose Parts -- Create a face set per loose part in the mesh.
@@ -473,15 +493,19 @@ def face_sets_init(
 
     FACE_SET_BOUNDARIES
     Face Sets from Face Set Boundaries -- Create a face set per isolated face set.
-        :param threshold: Threshold, Minimum value to consider a certain attribute a boundary when creating the face sets
+        :param threshold: Threshold, Minimum value to consider a certain attribute a boundary when creating the face sets (in [0, 1], optional)
+        :return: Result of the operator call.
     """
 
 def face_sets_randomize_colors(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Generates a new set of random colors to render the face sets in the viewport"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Generates a new set of random colors to render the face sets in the viewport
+
+    :return: Result of the operator call.
+    """
 
 def mask_by_color(
     execution_context: int | str | None = None,
@@ -492,15 +516,16 @@ def mask_by_color(
     invert: bool | None = False,
     preserve_previous_mask: bool | None = False,
     threshold: float | None = 0.35,
-    location: collections.abc.Iterable[int] | None = (0, 0),
-) -> None:
+    location: collections.abc.Sequence[int] | None = (0, 0),
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the active color attribute
 
-    :param contiguous: Contiguous, Mask only contiguous color areas
-    :param invert: Invert, Invert the generated mask
-    :param preserve_previous_mask: Preserve Previous Mask, Preserve the previous mask and add or subtract the new one generated by the colors
-    :param threshold: Threshold, How much changes in color affect the mask generation
-    :param location: Location, Region coordinates of sampling
+    :param contiguous: Contiguous, Mask only contiguous color areas (optional)
+    :param invert: Invert, Invert the generated mask (optional)
+    :param preserve_previous_mask: Preserve Previous Mask, Preserve the previous mask and add or subtract the new one generated by the colors (optional)
+    :param threshold: Threshold, How much changes in color affect the mask generation (in [0, 1], optional)
+    :param location: Location, Region coordinates of sampling (array of 2 items, in [0, 32767], optional)
+    :return: Result of the operator call.
     """
 
 def mask_filter(
@@ -514,12 +539,13 @@ def mask_filter(
     | None = "SMOOTH",
     iterations: int | None = 1,
     auto_iteration_count: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the current mask
 
-    :param filter_type: Type, Filter that is going to be applied to the mask
-    :param iterations: Iterations, Number of times that the filter is going to be applied
-    :param auto_iteration_count: Auto Iteration Count, Use an automatic number of iterations based on the number of vertices of the sculpt
+    :param filter_type: Type, Filter that is going to be applied to the mask (optional)
+    :param iterations: Iterations, Number of times that the filter is going to be applied (in [1, 100], optional)
+    :param auto_iteration_count: Auto Iteration Count, Use an automatic number of iterations based on the number of vertices of the sculpt (optional)
+    :return: Result of the operator call.
     """
 
 def mask_from_boundary(
@@ -533,12 +559,12 @@ def mask_from_boundary(
     settings_source: typing.Literal["OPERATOR", "BRUSH", "SCENE"] | None = "OPERATOR",
     boundary_mode: typing.Literal["MESH", "FACE_SETS"] | None = "MESH",
     propagation_steps: int | None = 1,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the boundaries of the surface
 
-        :param mix_mode: Mode, Mix mode
-        :param mix_factor: Mix Factor
-        :param settings_source: Settings, Use settings from here
+        :param mix_mode: Mode, Mix mode (optional)
+        :param mix_factor: Mix Factor, (in [0, 5], optional)
+        :param settings_source: Settings, Use settings from here (optional)
 
     OPERATOR
     Operator -- Use settings from operator properties.
@@ -548,14 +574,15 @@ def mask_from_boundary(
 
     SCENE
     Scene -- Use settings from scene.
-        :param boundary_mode: Mode, Boundary type to mask
+        :param boundary_mode: Mode, Boundary type to mask (optional)
 
     MESH
     Mesh -- Calculate the boundary mask based on disconnected mesh topology islands.
 
     FACE_SETS
     Face Sets -- Calculate the boundary mask between face sets.
-        :param propagation_steps: Propagation Steps
+        :param propagation_steps: Propagation Steps, (in [1, 20], optional)
+        :return: Result of the operator call.
     """
 
 def mask_from_cavity(
@@ -571,12 +598,12 @@ def mask_from_cavity(
     blur_steps: int | None = 2,
     use_curve: bool | None = False,
     invert: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a mask based on the curvature of the surface
 
-        :param mix_mode: Mode, Mix mode
-        :param mix_factor: Mix Factor
-        :param settings_source: Settings, Use settings from here
+        :param mix_mode: Mode, Mix mode (optional)
+        :param mix_factor: Mix Factor, (in [0, 5], optional)
+        :param settings_source: Settings, Use settings from here (optional)
 
     OPERATOR
     Operator -- Use settings from operator properties.
@@ -586,10 +613,11 @@ def mask_from_cavity(
 
     SCENE
     Scene -- Use settings from scene.
-        :param factor: Factor, The contrast of the cavity mask
-        :param blur_steps: Blur, The number of times the cavity mask is blurred
-        :param use_curve: Custom Curve
-        :param invert: Cavity (Inverted)
+        :param factor: Factor, The contrast of the cavity mask (in [0, 5], optional)
+        :param blur_steps: Blur, The number of times the cavity mask is blurred (in [0, 25], optional)
+        :param use_curve: Custom Curve, (optional)
+        :param invert: Cavity (Inverted), (optional)
+        :return: Result of the operator call.
     """
 
 def mask_init(
@@ -601,10 +629,11 @@ def mask_init(
         "RANDOM_PER_VERTEX", "RANDOM_PER_FACE_SET", "RANDOM_PER_LOOSE_PART"
     ]
     | None = "RANDOM_PER_VERTEX",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Creates a new mask for the entire mesh
 
-    :param mode: Mode
+    :param mode: Mode, (optional)
+    :return: Result of the operator call.
     """
 
 def mesh_filter(
@@ -612,12 +641,11 @@ def mesh_filter(
     undo: bool | None = None,
     /,
     *,
-    start_mouse: collections.abc.Iterable[int] | None = (0, 0),
+    start_mouse: collections.abc.Sequence[int] | None = (0, 0),
     area_normal_radius: float | None = 0.25,
     strength: float | None = 1.0,
     iteration_count: int | None = 1,
-    event_history: bpy.types.bpy_prop_collection[bpy.types.OperatorStrokeElement]
-    | None = None,
+    event_history=None,
     type: typing.Literal[
         "SMOOTH",
         "SCALE",
@@ -639,14 +667,15 @@ def mesh_filter(
     sharpen_smooth_ratio: float | None = 0.35,
     sharpen_intensify_detail_strength: float | None = 0.0,
     sharpen_curvature_smooth_iterations: int | None = 0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Applies a filter to modify the current mesh
 
-        :param start_mouse: Starting Mouse
-        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius
-        :param strength: Strength, Filter strength
-        :param iteration_count: Repeat, How many times to repeat the filter
-        :param type: Filter Type, Operation that is going to be applied to the mesh
+        :param start_mouse: Starting Mouse, (array of 2 items, in [0, 16384], optional)
+        :param area_normal_radius: Normal Radius, Radius used for calculating area normal on initial click,in percentage of brush radius(in [0.001, 5], optional)
+        :param strength: Strength, Filter strength (in [-10, 10], optional)
+        :param iteration_count: Repeat, How many times to repeat the filter (in [1, 10000], optional)
+        :param event_history: (optional)
+        :param type: Filter Type, Operation that is going to be applied to the mesh (optional)
 
     SMOOTH
     Smooth -- Smooth mesh.
@@ -680,7 +709,7 @@ def mesh_filter(
 
     ERASE_DISPLACEMENT
     Erase Displacement -- Deletes the displacement of the Multires Modifier.
-        :param deform_axis: Deform Axis, Apply the deformation in the selected axis
+        :param deform_axis: Deform Axis, Apply the deformation in the selected axis (optional)
 
     X
     X -- Deform in the X axis.
@@ -690,7 +719,7 @@ def mesh_filter(
 
     Z
     Z -- Deform in the Z axis.
-        :param orientation: Orientation, Orientation of the axis to limit the filter displacement
+        :param orientation: Orientation, Orientation of the axis to limit the filter displacement (optional)
 
     LOCAL
     Local -- Use the local axis to limit the displacement.
@@ -700,19 +729,23 @@ def mesh_filter(
 
     VIEW
     View -- Use the view axis to limit the displacement.
-        :param surface_smooth_shape_preservation: Shape Preservation, How much of the original shape is preserved when smoothing
-        :param surface_smooth_current_vertex: Per Vertex Displacement, How much the position of each individual vertex influences the final result
-        :param sharpen_smooth_ratio: Smooth Ratio, How much smoothing is applied to polished surfaces
-        :param sharpen_intensify_detail_strength: Intensify Details, How much creases and valleys are intensified
-        :param sharpen_curvature_smooth_iterations: Curvature Smooth Iterations, How much smooth the resulting shape is, ignoring high frequency details
+        :param surface_smooth_shape_preservation: Shape Preservation, How much of the original shape is preserved when smoothing (in [0, 1], optional)
+        :param surface_smooth_current_vertex: Per Vertex Displacement, How much the position of each individual vertex influences the final result (in [0, 1], optional)
+        :param sharpen_smooth_ratio: Smooth Ratio, How much smoothing is applied to polished surfaces (in [0, 1], optional)
+        :param sharpen_intensify_detail_strength: Intensify Details, How much creases and valleys are intensified (in [0, 10], optional)
+        :param sharpen_curvature_smooth_iterations: Curvature Smooth Iterations, How much smooth the resulting shape is, ignoring high frequency details (in [0, 10], optional)
+        :return: Result of the operator call.
     """
 
 def optimize(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Recalculate the sculpt BVH to improve performance"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Recalculate the sculpt BVH to improve performance
+
+    :return: Result of the operator call.
+    """
 
 def paint_mask_extract(
     execution_context: int | str | None = None,
@@ -724,14 +757,15 @@ def paint_mask_extract(
     smooth_iterations: int | None = 4,
     apply_shrinkwrap: bool | None = True,
     add_solidify: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new mesh object from the current paint mask
 
-    :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh
-    :param add_boundary_loop: Add Boundary Loop, Add an extra edge loop to better preserve the shape when applying a subdivision surface modifier
-    :param smooth_iterations: Smooth Iterations, Smooth iterations applied to the extracted mesh
-    :param apply_shrinkwrap: Project to Sculpt, Project the extracted mesh into the original sculpt
-    :param add_solidify: Extract as Solid, Extract the mask as a solid object with a solidify modifier
+    :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh (in [0, 1], optional)
+    :param add_boundary_loop: Add Boundary Loop, Add an extra edge loop to better preserve the shape when applying a subdivision surface modifier (optional)
+    :param smooth_iterations: Smooth Iterations, Smooth iterations applied to the extracted mesh (in [0, inf], optional)
+    :param apply_shrinkwrap: Project to Sculpt, Project the extracted mesh into the original sculpt (optional)
+    :param add_solidify: Extract as Solid, Extract the mask as a solid object with a solidify modifier (optional)
+    :return: Result of the operator call.
     """
 
 def paint_mask_slice(
@@ -742,12 +776,13 @@ def paint_mask_slice(
     mask_threshold: float | None = 0.5,
     fill_holes: bool | None = True,
     new_object: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Slices the paint mask from the mesh
 
-    :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh
-    :param fill_holes: Fill Holes, Fill holes after slicing the mask
-    :param new_object: Slice to New Object, Create a new object from the sliced mask
+    :param mask_threshold: Threshold, Minimum mask value to consider the vertex valid to extract a face from the original mesh (in [0, 1], optional)
+    :param fill_holes: Fill Holes, Fill holes after slicing the mask (optional)
+    :param new_object: Slice to New Object, Create a new object from the sliced mask (optional)
+    :return: Result of the operator call.
     """
 
 def project_line_gesture(
@@ -763,17 +798,18 @@ def project_line_gesture(
     cursor: int | None = 5,
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Project the geometry onto a plane defined by a line
 
-    :param xstart: X Start
-    :param xend: X End
-    :param ystart: Y Start
-    :param yend: Y End
-    :param flip: Flip
-    :param cursor: Cursor, Mouse cursor style to use during the modal operator
-    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-    :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
+    :param xstart: X Start, (in [-inf, inf], optional)
+    :param xend: X End, (in [-inf, inf], optional)
+    :param ystart: Y Start, (in [-inf, inf], optional)
+    :param yend: Y End, (in [-inf, inf], optional)
+    :param flip: Flip, (optional)
+    :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+    :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+    :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line (optional)
+    :return: Result of the operator call.
     """
 
 def sample_detail_size(
@@ -781,34 +817,41 @@ def sample_detail_size(
     undo: bool | None = None,
     /,
     *,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     mode: typing.Literal["DYNTOPO", "VOXEL"] | None = "DYNTOPO",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sample the mesh detail on clicked point
 
-        :param location: Location, Screen coordinates of sampling
-        :param mode: Detail Mode, Target sculpting workflow that is going to use the sampled size
+        :param location: Location, Screen coordinates of sampling (array of 2 items, in [0, 32767], optional)
+        :param mode: Detail Mode, Target sculpting workflow that is going to use the sampled size (optional)
 
     DYNTOPO
     Dyntopo -- Sample dyntopo detail.
 
     VOXEL
     Voxel -- Sample mesh voxel size.
+        :return: Result of the operator call.
     """
 
 def sculptmode_toggle(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Toggle sculpt mode in 3D view"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Toggle sculpt mode in 3D view
+
+    :return: Result of the operator call.
+    """
 
 def set_persistent_base(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reset the copy of the mesh that is being sculpted on"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reset the copy of the mesh that is being sculpted on
+
+    :return: Result of the operator call.
+    """
 
 def set_pivot_position(
     execution_context: int | str | None = None,
@@ -819,10 +862,10 @@ def set_pivot_position(
     | None = "UNMASKED",
     mouse_x: float | None = 0.0,
     mouse_y: float | None = 0.0,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Sets the sculpt transform pivot position
 
-        :param mode: Mode
+        :param mode: Mode, (optional)
 
     ORIGIN
     Origin -- Sets the pivot to the origin of the sculpt.
@@ -838,8 +881,9 @@ def set_pivot_position(
 
     SURFACE
     Surface -- Sets the pivot position to the surface under the cursor.
-        :param mouse_x: Mouse Position X, Position of the mouse used for "Surface" and "Active Vertex" mode
-        :param mouse_y: Mouse Position Y, Position of the mouse used for "Surface" and "Active Vertex" mode
+        :param mouse_x: Mouse Position X, Position of the mouse used for "Surface" and "Active Vertex" mode (in [0, inf], optional)
+        :param mouse_y: Mouse Position Y, Position of the mouse used for "Surface" and "Active Vertex" mode (in [0, inf], optional)
+        :return: Result of the operator call.
     """
 
 def symmetrize(
@@ -848,10 +892,11 @@ def symmetrize(
     /,
     *,
     merge_tolerance: float | None = 0.0005,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Symmetrize the topology modifications
 
-    :param merge_tolerance: Merge Distance, Distance within which symmetrical vertices are merged
+    :param merge_tolerance: Merge Distance, Distance within which symmetrical vertices are merged (in [0, inf], optional)
+    :return: Result of the operator call.
     """
 
 def trim_box_gesture(
@@ -865,23 +910,23 @@ def trim_box_gesture(
     ymax: int | None = 0,
     wait_for_input: bool | None = True,
     use_front_faces_only: bool | None = False,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     trim_mode: typing.Literal["DIFFERENCE", "UNION", "JOIN"] | None = "DIFFERENCE",
     use_cursor_depth: bool | None = False,
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a rectangle defined by the cursor
 
-        :param xmin: X Min
-        :param xmax: X Max
-        :param ymin: Y Min
-        :param ymax: Y Max
-        :param wait_for_input: Wait for Input
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param location: Location, Mouse location
-        :param trim_mode: Trim Mode
+        :param xmin: X Min, (in [-inf, inf], optional)
+        :param xmax: X Max, (in [-inf, inf], optional)
+        :param ymin: Y Min, (in [-inf, inf], optional)
+        :param ymax: Y Max, (in [-inf, inf], optional)
+        :param wait_for_input: Wait for Input, (optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param location: Location, Mouse location (array of 2 items, in [-inf, inf], optional)
+        :param trim_mode: Trim Mode, (optional)
 
     DIFFERENCE
     Difference -- Use a difference boolean operation.
@@ -891,22 +936,22 @@ def trim_box_gesture(
 
     JOIN
     Join -- Join the new mesh as separate geometry, without performing any boolean operation.
-        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape
-        :param trim_orientation: Shape Orientation
+        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape (optional)
+        :param trim_orientation: Shape Orientation, (optional)
 
     VIEW
     View -- Use the view to orientate the trimming shape.
 
     SURFACE
     Surface -- Use the surface normal to orientate the trimming shape.
-        :param trim_extrude_mode: Extrude Mode
+        :param trim_extrude_mode: Extrude Mode, (optional)
 
     PROJECT
     Project -- Align trim geometry with the perspective of the current view for a tapered shape.
 
     FIXED
     Fixed -- Align trim geometry orthogonally for a shape with 90 degree angles.
-        :param trim_solver: Solver
+        :param trim_solver: Solver, (optional)
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
@@ -916,6 +961,7 @@ def trim_box_gesture(
 
     MANIFOLD
     Manifold -- Fastest solver that works only on manifold meshes but gives better results.
+        :return: Result of the operator call.
     """
 
 def trim_lasso_gesture(
@@ -923,27 +969,27 @@ def trim_lasso_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_smooth_stroke: bool | None = False,
     smooth_stroke_factor: float | None = 0.75,
     smooth_stroke_radius: int | None = 35,
     use_front_faces_only: bool | None = False,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     trim_mode: typing.Literal["DIFFERENCE", "UNION", "JOIN"] | None = "DIFFERENCE",
     use_cursor_depth: bool | None = False,
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a shape defined by the cursor
 
-        :param path: Path
-        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke
-        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param location: Location, Mouse location
-        :param trim_mode: Trim Mode
+        :param path: Path, (optional)
+        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param location: Location, Mouse location (array of 2 items, in [-inf, inf], optional)
+        :param trim_mode: Trim Mode, (optional)
 
     DIFFERENCE
     Difference -- Use a difference boolean operation.
@@ -953,22 +999,22 @@ def trim_lasso_gesture(
 
     JOIN
     Join -- Join the new mesh as separate geometry, without performing any boolean operation.
-        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape
-        :param trim_orientation: Shape Orientation
+        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape (optional)
+        :param trim_orientation: Shape Orientation, (optional)
 
     VIEW
     View -- Use the view to orientate the trimming shape.
 
     SURFACE
     Surface -- Use the surface normal to orientate the trimming shape.
-        :param trim_extrude_mode: Extrude Mode
+        :param trim_extrude_mode: Extrude Mode, (optional)
 
     PROJECT
     Project -- Align trim geometry with the perspective of the current view for a tapered shape.
 
     FIXED
     Fixed -- Align trim geometry orthogonally for a shape with 90 degree angles.
-        :param trim_solver: Solver
+        :param trim_solver: Solver, (optional)
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
@@ -978,6 +1024,7 @@ def trim_lasso_gesture(
 
     MANIFOLD
     Manifold -- Fastest solver that works only on manifold meshes but gives better results.
+        :return: Result of the operator call.
     """
 
 def trim_line_gesture(
@@ -993,25 +1040,25 @@ def trim_line_gesture(
     cursor: int | None = 5,
     use_front_faces_only: bool | None = False,
     use_limit_to_segment: bool | None = False,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     trim_mode: typing.Literal["DIFFERENCE", "UNION", "JOIN"] | None = "DIFFERENCE",
     use_cursor_depth: bool | None = False,
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove a portion of the mesh on one side of a line
 
-        :param xstart: X Start
-        :param xend: X End
-        :param ystart: Y Start
-        :param yend: Y End
-        :param flip: Flip
-        :param cursor: Cursor, Mouse cursor style to use during the modal operator
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line
-        :param location: Location, Mouse location
-        :param trim_mode: Trim Mode
+        :param xstart: X Start, (in [-inf, inf], optional)
+        :param xend: X End, (in [-inf, inf], optional)
+        :param ystart: Y Start, (in [-inf, inf], optional)
+        :param yend: Y End, (in [-inf, inf], optional)
+        :param flip: Flip, (optional)
+        :param cursor: Cursor, Mouse cursor style to use during the modal operator (in [0, inf], optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param use_limit_to_segment: Limit to Segment, Apply the gesture action only to the area that is contained within the segment without extending its effect to the entire line (optional)
+        :param location: Location, Mouse location (array of 2 items, in [-inf, inf], optional)
+        :param trim_mode: Trim Mode, (optional)
 
     DIFFERENCE
     Difference -- Use a difference boolean operation.
@@ -1021,22 +1068,22 @@ def trim_line_gesture(
 
     JOIN
     Join -- Join the new mesh as separate geometry, without performing any boolean operation.
-        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape
-        :param trim_orientation: Shape Orientation
+        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape (optional)
+        :param trim_orientation: Shape Orientation, (optional)
 
     VIEW
     View -- Use the view to orientate the trimming shape.
 
     SURFACE
     Surface -- Use the surface normal to orientate the trimming shape.
-        :param trim_extrude_mode: Extrude Mode
+        :param trim_extrude_mode: Extrude Mode, (optional)
 
     PROJECT
     Project -- Align trim geometry with the perspective of the current view for a tapered shape.
 
     FIXED
     Fixed -- Align trim geometry orthogonally for a shape with 90 degree angles.
-        :param trim_solver: Solver
+        :param trim_solver: Solver, (optional)
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
@@ -1046,6 +1093,7 @@ def trim_line_gesture(
 
     MANIFOLD
     Manifold -- Fastest solver that works only on manifold meshes but gives better results.
+        :return: Result of the operator call.
     """
 
 def trim_polyline_gesture(
@@ -1053,21 +1101,21 @@ def trim_polyline_gesture(
     undo: bool | None = None,
     /,
     *,
-    path: bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath] | None = None,
+    path=None,
     use_front_faces_only: bool | None = False,
-    location: collections.abc.Iterable[int] | None = (0, 0),
+    location: collections.abc.Sequence[int] | None = (0, 0),
     trim_mode: typing.Literal["DIFFERENCE", "UNION", "JOIN"] | None = "DIFFERENCE",
     use_cursor_depth: bool | None = False,
     trim_orientation: typing.Literal["VIEW", "SURFACE"] | None = "VIEW",
     trim_extrude_mode: typing.Literal["PROJECT", "FIXED"] | None = "FIXED",
     trim_solver: typing.Literal["EXACT", "FLOAT", "MANIFOLD"] | None = "MANIFOLD",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Execute a boolean operation on the mesh and a polygonal shape defined by the cursor
 
-        :param path: Path
-        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view
-        :param location: Location, Mouse location
-        :param trim_mode: Trim Mode
+        :param path: Path, (optional)
+        :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
+        :param location: Location, Mouse location (array of 2 items, in [-inf, inf], optional)
+        :param trim_mode: Trim Mode, (optional)
 
     DIFFERENCE
     Difference -- Use a difference boolean operation.
@@ -1077,22 +1125,22 @@ def trim_polyline_gesture(
 
     JOIN
     Join -- Join the new mesh as separate geometry, without performing any boolean operation.
-        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape
-        :param trim_orientation: Shape Orientation
+        :param use_cursor_depth: Use Cursor for Depth, Use cursor location and radius for the dimensions and position of the trimming shape (optional)
+        :param trim_orientation: Shape Orientation, (optional)
 
     VIEW
     View -- Use the view to orientate the trimming shape.
 
     SURFACE
     Surface -- Use the surface normal to orientate the trimming shape.
-        :param trim_extrude_mode: Extrude Mode
+        :param trim_extrude_mode: Extrude Mode, (optional)
 
     PROJECT
     Project -- Align trim geometry with the perspective of the current view for a tapered shape.
 
     FIXED
     Fixed -- Align trim geometry orthogonally for a shape with 90 degree angles.
-        :param trim_solver: Solver
+        :param trim_solver: Solver, (optional)
 
     EXACT
     Exact -- Slower solver with the best results for coplanar faces.
@@ -1102,6 +1150,7 @@ def trim_polyline_gesture(
 
     MANIFOLD
     Manifold -- Fastest solver that works only on manifold meshes but gives better results.
+        :return: Result of the operator call.
     """
 
 def uv_sculpt_grab(
@@ -1110,10 +1159,11 @@ def uv_sculpt_grab(
     /,
     *,
     use_invert: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Grab UVs
 
-    :param use_invert: Invert, Invert action for the duration of the stroke
+    :param use_invert: Invert, Invert action for the duration of the stroke (optional)
+    :return: Result of the operator call.
     """
 
 def uv_sculpt_pinch(
@@ -1122,10 +1172,11 @@ def uv_sculpt_pinch(
     /,
     *,
     use_invert: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Pinch UVs
 
-    :param use_invert: Invert, Invert action for the duration of the stroke
+    :param use_invert: Invert, Invert action for the duration of the stroke (optional)
+    :return: Result of the operator call.
     """
 
 def uv_sculpt_relax(
@@ -1135,11 +1186,11 @@ def uv_sculpt_relax(
     *,
     use_invert: bool | None = False,
     relax_method: typing.Literal["LAPLACIAN", "HC", "COTAN"] | None = "LAPLACIAN",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Relax UVs
 
-        :param use_invert: Invert, Invert action for the duration of the stroke
-        :param relax_method: Relax Method, Algorithm used for UV relaxation
+        :param use_invert: Invert, Invert action for the duration of the stroke (optional)
+        :param relax_method: Relax Method, Algorithm used for UV relaxation (optional)
 
     LAPLACIAN
     Laplacian -- Use Laplacian method for relaxation.
@@ -1149,4 +1200,5 @@ def uv_sculpt_relax(
 
     COTAN
     Geometry -- Use Geometry (cotangent) relaxation, making UVs follow the underlying 3D geometry.
+        :return: Result of the operator call.
     """

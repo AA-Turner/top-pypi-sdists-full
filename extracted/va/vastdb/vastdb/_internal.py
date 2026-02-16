@@ -8,7 +8,17 @@ import urllib.parse
 from collections import defaultdict, namedtuple
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Tuple, Union, cast
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Iterator,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    cast,
+)
 
 import backoff
 import flatbuffers
@@ -120,8 +130,19 @@ from vastdb.vast_flatbuf.tabular.ListTablesResponse import (
 )
 from vastdb.vast_flatbuf.tabular.VectorIndexMetadata import VectorIndexMetadata
 
+# Blob expansion protobuf messages
+from vastdb.vast_protobuf.tabular.blob_expansion_pb2 import (
+    AlterBlobExpansionRequest,
+    CreateBlobExpansionRequest,
+    GetBlobExpansionResponse,
+)
+
 from . import errors, util
 from .config import BackoffConfig
+
+if TYPE_CHECKING:
+    from .table import BlobExpansionConfig
+    from .table_metadata import TableRef
 
 UINT64_MAX = 18446744073709551615
 
@@ -132,7 +153,7 @@ TABULAR_INVALID_ROW_ID = 0xFFFFFFFFFFFF  # (1<<48)-1
 ESTORE_INVALID_EHANDLE = UINT64_MAX
 IMPORTED_OBJECTS_TABLE_NAME = "vastdb-imported-objects"
 
-KAFKA_TOPICS_SCHEMA_NAME = 'kafka_topics'
+SortingKey = Union[list[int], list[str]]
 
 """
 S3 Tabular API
@@ -764,41 +785,16 @@ class ValidateInList:
         return self
 
 
-_int_coding = (lambda x: str(int(x)), lambda x: int(x))
-_prop_coding = {
-        "message.timestamp.type": ValidateInList('CreateTime', 'LogAppendTime'),
-        "retention.ms": _int_coding,
-        "message.timestamp.after.max.ms": _int_coding,
-        "message.timestamp.before.max.ms": _int_coding
-        }
+TableInfo = namedtuple('TableInfo', 'name properties handle num_rows size_in_bytes num_partitions sorting_key_enabled sorting_score write_amplification acummulative_row_insertion_count sorting_done')
 
 
-def _encode_table_props(**kwargs):
-    if all([v is None for v in kwargs.values()]):
-        return None
-    else:
-        pairs = [(k.replace("_", ".").strip(), v) for k, v in kwargs.items() if v is not None]
-        return "$".join([f"{k}={_prop_coding[k][0](v)}" for k, v in pairs])
-
-
-def _decode_table_props(s):
-    if s.strip() == '':
-        return {}
-    triplets = [(x.strip(), x.strip().replace(".", "_"), y.strip()) for x, y in [z.split('=') for z in s.strip().split("$")]]
-    return {y: _prop_coding[x][1](z) for x, y, z in triplets if z != ''}
-
-
-TableInfo = namedtuple('TableInfo', 'name properties handle num_rows size_in_bytes num_partitions sorting_key_enabled sorting_score write_amplification acummulative_row_insertion_count sorting_done vector_index_enabled vector_index_column_name vector_index_distance_metric vector_index_sql_function_name')
-
-
-def _parse_table_info(obj, parse_properties):
+def _parse_table_info(obj) -> TableInfo:
     name = obj.Name().decode()
     properties = obj.Properties().decode()
     handle = obj.Handle().decode()
     num_rows = obj.NumRows()
     used_bytes = obj.SizeInBytes()
     num_partitions = obj.NumPartitions()
-    properties = parse_properties(properties)
     sorting_key_enabled = obj.SortingKeyEnabled()
     sorting_score_raw = obj.SortingScore()
     write_amplification = obj.WriteAmplification()
@@ -806,15 +802,8 @@ def _parse_table_info(obj, parse_properties):
 
     sorting_score = sorting_score_raw & ((1 << 63) - 1)
     sorting_done = bool(sorting_score_raw >> 63)
-
-    vector_index_enabled = obj.VectorIndexEnabled() if hasattr(obj, 'VectorIndexEnabled') else False
-    vector_index_column_name = obj.VectorIndexColumnName().decode() if hasattr(obj, 'VectorIndexColumnName') and obj.VectorIndexColumnName() else ""
-    vector_index_distance_metric = obj.VectorIndexDistanceMetric().decode() if hasattr(obj, 'VectorIndexDistanceMetric') and obj.VectorIndexDistanceMetric() else ""
-    vector_index_sql_function_name = obj.VectorIndexSqlFunctionName().decode() if hasattr(obj, 'VectorIndexSqlFunctionName') and obj.VectorIndexSqlFunctionName() else ""
-
     return TableInfo(name, properties, handle, num_rows, used_bytes, num_partitions, sorting_key_enabled,
-                     sorting_score, write_amplification, acummulative_row_insertion_count, sorting_done,
-                     vector_index_enabled, vector_index_column_name, vector_index_distance_metric, vector_index_sql_function_name)
+                     sorting_score, write_amplification, acummulative_row_insertion_count, sorting_done)
 
 
 @dataclass
@@ -878,17 +867,120 @@ class UnsupportedServer(NotImplementedError):
     pass
 
 
+def build_create_blob_expansion_request(
+    expansion_schema: pa.Schema,
+    target_table_name: Optional[str] = None,
+    config: Optional["BlobExpansionConfig"] = None,
+    target_table_schema: Optional[str] = None,
+) -> bytes:
+    """Build a CreateBlobExpansionRequest protobuf message.
+
+    Parameters
+    ----------
+    expansion_schema : pa.Schema
+        The schema for the expanded columns.
+    target_table_name : str, optional
+        The name of the target table.
+    config : BlobExpansionConfig, optional
+        The configuration for the blob expansion.
+    target_table_schema : str, optional
+        The schema where the target table will be created.
+
+    Returns
+    -------
+    bytes
+        Serialized protobuf message.
+    """
+    # Import here to avoid circular import
+    from .table import BlobExpansionConfig
+
+    if config is None:
+        config = BlobExpansionConfig()
+
+    req = CreateBlobExpansionRequest()
+    if target_table_name:
+        req.target_table_name = target_table_name
+    req.expansion_format = config.expansion_format.value
+    req.arrow_schema = bytes(expansion_schema.serialize())
+    req.copy_source_column = config.copy_source_column
+    req.flatten_path = config.flatten_path
+    req.flatten_delimiter = config.flatten_delimiter
+    if target_table_schema:
+        req.target_table_schema = target_table_schema
+    req.add_missing_values_output = config.add_missing_values_output
+    req.add_excessive_values_output = config.add_excessive_values_output
+    return req.SerializeToString()
+
+
+def build_alter_blob_expansion_request(
+    expansion_schema: Optional[pa.Schema] = None,
+    remove: bool = False,
+    add_copy_source_column: bool = False,
+    remove_copy_source_column: bool = False,
+    add_missing_values_output: bool = False,
+    remove_missing_values_output: bool = False,
+    add_excessive_values_output: bool = False,
+    remove_excessive_values_output: bool = False,
+) -> bytes:
+    """Build an AlterBlobExpansionRequest protobuf message.
+
+    Parameters
+    ----------
+    expansion_schema : pa.Schema, optional
+        The schema for the columns to add or remove.
+    remove : bool
+        If True, remove columns from the expansion. If False, add columns.
+    add_copy_source_column : bool
+        If True, add a copy source column to the expansion.
+    remove_copy_source_column : bool
+        If True, remove a copy source column from the expansion.
+    add_missing_values_output : bool
+        If True, add the missing values output column.
+    remove_missing_values_output : bool
+        If True, remove the missing values output column.
+    add_excessive_values_output : bool
+        If True, add the excessive values output column.
+    remove_excessive_values_output : bool
+        If True, remove the excessive values output column.
+
+    Returns
+    -------
+    bytes
+        Serialized protobuf message.
+    """
+    req = AlterBlobExpansionRequest()
+    if expansion_schema is not None:
+        req.arrow_schema = bytes(expansion_schema.serialize())
+    req.remove = remove
+    if add_copy_source_column:
+        req.add_copy_source_column = add_copy_source_column
+    if remove_copy_source_column:
+        req.remove_copy_source_column = remove_copy_source_column
+    if add_missing_values_output:
+        req.add_missing_values_output = add_missing_values_output
+    if remove_missing_values_output:
+        req.remove_missing_values_output = remove_missing_values_output
+    if add_excessive_values_output:
+        req.add_excessive_values_output = add_excessive_values_output
+    if remove_excessive_values_output:
+        req.remove_excessive_values_output = remove_excessive_values_output
+    return req.SerializeToString()
+
+
 class VastdbApi:
     VAST_SERVER_PREFIX = 'vast'
     # we expect the vast version to be <major>.<minor>.<patch>.<protocol>
     VAST_VERSION_REGEX = re.compile(r'^vast (\d+\.\d+\.\d+\.\d+)$')
 
-    def __init__(self, endpoint, access_key, secret_key,
+    def __init__(self, endpoint: str, access_key: str, secret_key: str,
                  *,
-                 ssl_verify=True,
+                 max_entities_per_page: int,
+                 ssl_verify: bool = True,
                  timeout=None,
                  backoff_config: Optional[BackoffConfig] = None,
-                 version_check=True):
+                 version_check: bool = True):
+        if max_entities_per_page <= 0:
+            raise ValueError("Max entities per page should be positive")
 
         from . import version  # import lazily here (to avoid circular dependencies)
         self.client_sdk_version = f"VAST Database Python SDK {version()} - 2024 (c)"
@@ -898,7 +990,7 @@ class VastdbApi:
         self.secret_key = secret_key
 
         self.timeout = timeout
-        self.default_max_list_columns_page_size = 1000
+        self._max_entities_per_page = max_entities_per_page
         self._session = requests.Session()
         self._session.verify = ssl_verify
         self._session.headers['user-agent'] = self.client_sdk_version
@@ -961,11 +1053,12 @@ class VastdbApi:
         """Make sure that the connections closed."""
         self._session.close()
 
-    def with_endpoint(self, endpoint) -> 'VastdbApi':
+    def with_endpoint(self, endpoint: str) -> 'VastdbApi':
         """Open a new session for targeting a specific endpoint."""
         return VastdbApi(endpoint=endpoint,
             access_key=self.access_key,
             secret_key=self.secret_key,
+            max_entities_per_page=self._max_entities_per_page,
             ssl_verify=self._session.verify,
             timeout=self.timeout,
             backoff_config=self.backoff_config,
@@ -1089,8 +1182,12 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=name, command="schema"),
             headers=headers)
 
-    def list_schemas(self, bucket, schema="", txid=0, client_tags=[], max_keys=1000, next_key=0, name_prefix="",
-                     exact_match=False, expected_retvals=[], count_only=False):
+    def _max_keys(self, max_keys: Optional[int]) -> int:
+        return max_keys if max_keys is not None else self._max_entities_per_page
+
+    def list_schemas(self, bucket: str, schema: str = "", txid: int = 0, client_tags=[], max_keys: Optional[int] = None,
+                     next_key: int = 0, name_prefix: str = "", exact_match: bool = False,
+                     count_only: bool = False) -> tuple[str, list[tuple[str, str]], int, bool, int]:
         """
         List all schemas
         GET /bucket/schema_path?schema HTTP/1.1
@@ -1105,7 +1202,7 @@ class VastdbApi:
         The List will return the list in flatbuf format
         """
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
-        headers['tabular-max-keys'] = str(max_keys)
+        headers['tabular-max-keys'] = str(self._max_keys(max_keys))
         headers['tabular-next-key'] = str(next_key)
         if exact_match:
             headers['tabular-name-exact-match'] = name_prefix
@@ -1134,13 +1231,20 @@ class VastdbApi:
             schema_obj = lists.Schemas(i)
             name = schema_obj.Name().decode()
             properties = schema_obj.Properties().decode()
-            schemas.append([name, properties])
+            schemas.append((name, properties))
 
         return bucket_name, schemas, next_key, is_truncated, count
 
-    def list_snapshots(self, bucket, max_keys=1000, next_token=None, name_prefix=''):
+    def list_snapshots(self, bucket: str, max_keys: Optional[int] = None, next_token=None,
+                       name_prefix: str = '') -> tuple[list[str], bool, Any]:
         next_token = next_token or ''
-        url_params = {'list_type': '2', 'prefix': '.snapshot/' + name_prefix, 'delimiter': '/', 'max_keys': str(max_keys)}
+        url_params = {
+            'list_type': '2',
+            'prefix': '.snapshot/' + name_prefix,
+            'delimiter': '/',
+            'max_keys': str(self._max_keys(max_keys))
+        }
+
         if next_token:
             url_params['continuation-token'] = next_token
 
@@ -1157,7 +1261,6 @@ class VastdbApi:
         if isinstance(common_prefixes, dict):  # in case there is a single snapshot
             common_prefixes = [common_prefixes]
         snapshots = [v['Prefix'] for v in common_prefixes]
-
         return snapshots, is_truncated, marker
 
     def _make_sure_schema_exists(self, bucket, schema, timeout_sec=3):
@@ -1169,10 +1272,10 @@ class VastdbApi:
             self.create_schema(bucket, schema)
         raise Exception(f"Failed to find or create schema {schema} in {timeout_sec} seconds.")
 
-    def create_table(self, bucket, schema, name, arrow_schema=None,
-                     txid=0, client_tags=[], expected_retvals=[],
-                     create_imports_table=False, use_external_row_ids_allocation=False, table_props=None,
-                     sorting_key=[], vector_index: Optional[VectorIndexSpec] = None):
+    def create_table(self, bucket: str, schema: str, name: str, arrow_schema: pa.Schema = None,
+                     txid=0, client_tags=[],
+                     create_imports_table: bool = False, use_external_row_ids_allocation: bool = False, table_props=None,
+                     sorting_key: SortingKey = [], vector_index: Optional[VectorIndexSpec] = None) -> None:
         """
         Create a table in the specified bucket and schema.
 
@@ -1192,30 +1295,16 @@ class VastdbApi:
         """
         self._create_table_internal(bucket=bucket, schema=schema, name=name, arrow_schema=arrow_schema,
                                     txid=txid, client_tags=client_tags,
-                                    expected_retvals=expected_retvals,
                                     create_imports_table=create_imports_table,
                                     use_external_row_ids_allocation=use_external_row_ids_allocation,
                                     table_props=table_props, sorting_key=sorting_key,
                                     vector_index=vector_index)
 
-    def create_topic(self, bucket, name, topic_partitions, expected_retvals=[],
-                     message_timestamp_type=None, retention_ms=None, message_timestamp_after_max_ms=None,
-                     message_timestamp_before_max_ms=None):
-        self._make_sure_schema_exists(bucket, KAFKA_TOPICS_SCHEMA_NAME)
-        table_props = _encode_table_props(message_timestamp_type=message_timestamp_type,
-                                          retention_ms=retention_ms,
-                                          message_timestamp_after_max_ms=message_timestamp_after_max_ms,
-                                          message_timestamp_before_max_ms=message_timestamp_before_max_ms)
-
-        self._create_table_internal(bucket=bucket, schema=KAFKA_TOPICS_SCHEMA_NAME, name=name, arrow_schema=None,
-                                    expected_retvals=expected_retvals, topic_partitions=topic_partitions,
-                                    table_props=table_props)
-
-    def _create_table_internal(self, bucket, schema, name, arrow_schema=None,
-                               txid=0, client_tags=[], expected_retvals=[], topic_partitions=0,
-                               create_imports_table=False, use_external_row_ids_allocation=False,
-                               table_props=None, sorting_key=[],
-                               vector_index: Optional[VectorIndexSpec] = None):
+    def _create_table_internal(self, bucket: str, schema: str, name: str, arrow_schema: pa.Schema = None,
+                               txid=0, client_tags=[], topic_partitions=0,
+                               create_imports_table: bool = False, use_external_row_ids_allocation: bool = False,
+                               table_props=None, sorting_key: SortingKey = [],
+                               vector_index: Optional[VectorIndexSpec] = None) -> None:
         """
         Create a table, use the following request
         POST /bucket/schema/table?table HTTP/1.1
@@ -1232,6 +1321,12 @@ class VastdbApi:
         The request will look like:
         POST /bucket/schema/table?table&sub-table=vastdb-imported-objects HTTP/1.1
         """
+        if len(sorting_key) > 0 and isinstance(sorting_key[0], str):
+            if arrow_schema is None:
+                raise ValueError("Using a sorting key with no schema is not allowed")
+
+            sorting_key = VastdbApi._convert_column_names_to_indices(arrow_schema, cast(list[str], sorting_key))
+
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags, sorting_key=sorting_key)
         if arrow_schema is None:
             arrow_schema = pa.schema([])
@@ -1257,8 +1352,15 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=schema, table=name, command="table", url_params=url_params),
             data=serialized_schema, headers=headers)
 
-    def get_topic_stats(self, bucket, name, expected_retvals=[]) -> TableStats:
-        return self.get_table_stats(bucket=bucket, schema=KAFKA_TOPICS_SCHEMA_NAME, name=name, expected_retvals=expected_retvals)
+    @staticmethod
+    def _convert_column_names_to_indices(arrow_schema: pa.Schema, sorting_key: list[str]) -> list[int]:
+        field_and_indices = [(key, arrow_schema.get_field_index(key)) for key in sorting_key]
+        non_existent_fields = [key for key, index in field_and_indices if index == -1]
+
+        if len(non_existent_fields) > 0:
+            raise ValueError(f"The following fields {non_existent_fields} don't exist in the given arrow schema")
+
+        return [index for _, index in field_and_indices]
 
     def get_table_stats(self, bucket, schema, name, txid=0, client_tags=[], expected_retvals=[], imports_table_stats=False) -> TableStats:
         """
@@ -1322,22 +1424,8 @@ class VastdbApi:
           endpoints=tuple(endpoints),
           vector_index=vector_index)
 
-    def alter_topic(self, bucket, name,
-                    new_name="", expected_retvals=[],
-                    message_timestamp_type=None, retention_ms=None, message_timestamp_after_max_ms=None,
-                    message_timestamp_before_max_ms=None):
-        table_properties = _encode_table_props(message_timestamp_type=message_timestamp_type,
-                                               retention_ms=retention_ms,
-                                               message_timestamp_after_max_ms=message_timestamp_after_max_ms,
-                                               message_timestamp_before_max_ms=message_timestamp_before_max_ms)
-        if table_properties is None:
-            table_properties = ""
-
-        self.alter_table(bucket=bucket, schema=KAFKA_TOPICS_SCHEMA_NAME, name=name,
-                         table_properties=table_properties, new_name=new_name, expected_retvals=expected_retvals)
-
-    def alter_table(self, bucket, schema, name, txid=0, client_tags=[], table_properties="",
-                    new_name="", expected_retvals=[], sorting_key=[]):
+    def alter_table(self, bucket: str, schema: str, name: str, txid=0, client_tags=[], table_properties="",
+                    new_name: str = "", sorting_key: SortingKey = []) -> None:
         """
         PUT /mybucket/myschema/mytable?table HTTP/1.1
         Content-Length: ContentLength
@@ -1347,6 +1435,12 @@ class VastdbApi:
         Request Body Flatbuffer
         Table properties
         """
+        if len(sorting_key) > 0 and isinstance(sorting_key[0], str):
+            arrow_schema = pa.schema(self.list_all_columns(
+                bucket, schema, name, sorted_columns=False, txid=txid
+            ))
+            sorting_key = VastdbApi._convert_column_names_to_indices(arrow_schema, cast(list[str], sorting_key))
+
         builder = flatbuffers.Builder(1024)
 
         if table_properties is None:
@@ -1370,10 +1464,6 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=schema, table=name, command="table", url_params=url_params),
             data=alter_table_req, headers=headers)
 
-    def drop_topic(self, bucket, name, expected_retvals=[]):
-        self.drop_table(bucket=bucket, schema=KAFKA_TOPICS_SCHEMA_NAME, name=name,
-                        expected_retvals=expected_retvals)
-
     def drop_table(self, bucket, schema, name, txid=0, client_tags=[], expected_retvals=[], remove_imports_table=False):
         """
         DELETE /mybucket/schema_path/mytable?table HTTP/1.1
@@ -1390,30 +1480,9 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=schema, table=name, command="table", url_params=url_params),
             headers=headers)
 
-    def list_topics(self, bucket, max_keys=1000, next_key=0, name_prefix="",
-                    exact_match=False, expected_retvals=[], include_list_stats=False, count_only=False):
-        return self._list_tables_internal(bucket=bucket, schema=KAFKA_TOPICS_SCHEMA_NAME,
-                                          parse_properties=_decode_table_props, max_keys=max_keys,
-                                          next_key=next_key, name_prefix=name_prefix, exact_match=exact_match,
-                                          expected_retvals=expected_retvals,
-                                          include_list_stats=include_list_stats, count_only=count_only,
-                                          include_vector_index_metadata=False)
-
-    def list_tables(self, bucket, schema, txid=0, client_tags=[], max_keys=1000, next_key=0, name_prefix="",
-                    exact_match=False, expected_retvals=[], include_list_stats=False, count_only=False,
-                    include_vector_index_metadata=False):
-        def parse_properties(x):
-            return x
-        return self._list_tables_internal(bucket=bucket, schema=schema, txid=txid, client_tags=client_tags,
-                                          parse_properties=parse_properties, max_keys=max_keys, next_key=next_key,
-                                          name_prefix=name_prefix, exact_match=exact_match,
-                                          expected_retvals=expected_retvals,
-                                          include_list_stats=include_list_stats, count_only=count_only,
-                                          include_vector_index_metadata=include_vector_index_metadata)
-
-    def _list_tables_raw(self, bucket, schema, txid=0, client_tags=[], max_keys=1000, next_key=0, name_prefix="",
-                         exact_match=False, expected_retvals=[], include_list_stats=False, count_only=False,
-                         include_vector_index_metadata=False):
+    def _list_tables_raw(self, bucket: str, schema: str, txid: int = 0, client_tags=[], max_keys: Optional[int] = None,
+                         next_key: int = 0, name_prefix: str = "", exact_match: bool = False,
+                         include_list_stats: bool = False, count_only: bool = False) -> tuple[list_tables, int, bool, int]:
         """
         GET /mybucket/schema_path?table HTTP/1.1
         tabular-txid: TransactionId
@@ -1423,7 +1492,7 @@ class VastdbApi:
         tabular-next-key: NextKey (Name)
         """
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
-        headers['tabular-max-keys'] = str(max_keys)
+        headers['tabular-max-keys'] = str(self._max_keys(max_keys))
         headers['tabular-next-key'] = str(next_key)
         if exact_match:
             headers['tabular-name-exact-match'] = name_prefix
@@ -1432,7 +1501,6 @@ class VastdbApi:
 
         headers['tabular-list-count-only'] = str(count_only)
         headers['tabular-include-list-stats'] = str(include_list_stats)
-        headers['tabular-include-vector-index-meta-data'] = str(include_vector_index_metadata).lower()
 
         res = self._request(
             method="GET",
@@ -1447,22 +1515,19 @@ class VastdbApi:
         count = int(res_headers['tabular-list-count']) if count_only else tables_length
         return lists, next_key, is_truncated, count
 
-    def _list_tables_internal(self, bucket, schema, parse_properties, txid=0, client_tags=[], max_keys=1000, next_key=0, name_prefix="",
-                              exact_match=False, expected_retvals=[], include_list_stats=False, count_only=False,
-                              include_vector_index_metadata=False):
+    def list_tables(self, bucket: str, schema: str, txid: int = 0, client_tags=[],
+                              max_keys: Optional[int] = None, next_key: int = 0, name_prefix: str = "", exact_match: bool = False,
+                              include_list_stats: bool = False, count_only: bool = False) -> tuple[str, str, list[TableInfo], int, bool, int]:
         tables = []
         lists, next_key, is_truncated, count = self._list_tables_raw(bucket, schema, txid=txid, client_tags=client_tags, max_keys=max_keys,
-                                 next_key=next_key, name_prefix=name_prefix, exact_match=exact_match, expected_retvals=expected_retvals,
-                                 include_list_stats=include_list_stats, count_only=count_only,
-                                 include_vector_index_metadata=include_vector_index_metadata)
+                                 next_key=next_key, name_prefix=name_prefix, exact_match=exact_match,
+                                 include_list_stats=include_list_stats, count_only=count_only)
         bucket_name = lists.BucketName().decode()
         schema_name = lists.SchemaName().decode()
         if not bucket.startswith(bucket_name):  # ignore snapshot name
             raise ValueError(f'bucket: {bucket} did not start from {bucket_name}')
         tables_length = lists.TablesLength()
-        for i in range(tables_length):
-            tables.append(_parse_table_info(lists.Tables(i), parse_properties))
-
+        tables = [_parse_table_info(lists.Tables(i)) for i in range(tables_length)]
         return bucket_name, schema_name, tables, next_key, is_truncated, count
 
     def raw_sorting_score(self, bucket, schema, txid, name):
@@ -1555,9 +1620,10 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=schema, table=table, command="column"),
             data=serialized_schema, headers=headers)
 
-    def _list_columns_internal(self, command, bucket, schema, table, txid, client_tags, max_keys, next_key,
-                               count_only, name_prefix, exact_match, expected_retvals, bc_list_internals,
-                               list_imports_table):
+    def list_columns(self, command: str, bucket: str, schema: str, table: str, *, txid=0,
+                               client_tags=None, max_keys: Optional[int] = None, next_key: int = 0, count_only: bool = False,
+                               name_prefix: str = "", exact_match: bool = False, bc_list_internals: bool = False,
+                               list_imports_table: bool = False, names_only: bool = False) -> tuple[list[pa.Field], int, bool, int]:
         """
         GET /mybucket/myschema/mytable?columns HTTP/1.1
         tabular-txid: TransactionId
@@ -1568,14 +1634,16 @@ class VastdbApi:
 
         To list the columns of the internal vastdb-imported-objects table, set list_import_table=True
         """
-        max_keys = max_keys or self.default_max_list_columns_page_size
         client_tags = client_tags or []
-        expected_retvals = expected_retvals or []
 
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
-        headers['tabular-max-keys'] = str(max_keys)
+        headers['tabular-max-keys'] = str(self._max_keys(max_keys))
         headers['tabular-next-key'] = str(next_key)
         headers['tabular-list-count-only'] = str(count_only)
+
+        if names_only:
+            headers['tabular-only-column-names'] = "true"
+
         if bc_list_internals:
             headers['tabular-bc-list-internal-col'] = "true"
 
@@ -1598,19 +1666,25 @@ class VastdbApi:
 
         return columns, next_key, is_truncated, count
 
-    def list_columns(self, bucket, schema, table, *, txid=0, client_tags=None, max_keys=None, next_key=0,
-                     count_only=False, name_prefix="", exact_match=False,
-                     expected_retvals=None, bc_list_internals=False, list_imports_table=False):
-        return self._list_columns_internal('column', bucket, schema, table, txid, client_tags, max_keys, next_key,
-                                           count_only, name_prefix, exact_match, expected_retvals, bc_list_internals,
-                                           list_imports_table)
+    def list_all_columns(self, bucket: str, schema: str, table: str, *, sorted_columns: bool, txid=0, client_tags=None,
+                         max_keys: Optional[int] = None, name_prefix: str = "", exact_match: bool = False,
+                         bc_list_internals: bool = False, list_imports_table: bool = False, names_only: bool = False) -> list[pa.Field]:
+        fields = []
+        command = "sorted-columns" if sorted_columns else "column"
+        next_key = 0
 
-    def list_sorted_columns(self, bucket, schema, table, *, txid=0, client_tags=None, max_keys=None, next_key=0,
-                            count_only=False, name_prefix="", exact_match=False,
-                            expected_retvals=None, bc_list_internals=False, list_imports_table=False):
-        return self._list_columns_internal('sorted-columns', bucket, schema, table, txid, client_tags, max_keys, next_key,
-                                           count_only, name_prefix, exact_match, expected_retvals, bc_list_internals,
-                                           list_imports_table)
+        while True:
+            cur_columns, next_key, is_truncated, _ = self.list_columns(
+                command, bucket, schema, table, txid=txid, next_key=next_key,
+                name_prefix=name_prefix, exact_match=exact_match, client_tags=client_tags, max_keys=max_keys,
+                bc_list_internals=bc_list_internals, list_imports_table=list_imports_table, names_only=names_only
+            )
+            fields.extend(cur_columns)
+
+            if not is_truncated:
+                break
+
+        return fields
 
     def head_bucket(self, bucket_name):
         """
@@ -2033,8 +2107,304 @@ class VastdbApi:
             url=self._url(bucket=bucket, schema=schema, table=table, command="projection", url_params=url_params),
             headers=headers)
 
-    def list_projections(self, bucket, schema, table, txid=0, client_tags=[], max_keys=1000, next_key=0, name_prefix="",
-                         exact_match=False, expected_retvals=[], include_list_stats=False, count_only=False):
+    def create_blob_expansion(
+        self,
+        table_ref: "TableRef",
+        expansion_schema: pa.Schema,
+        target_table_name: str,
+        source_column_name: str = "value",
+        config: Optional["BlobExpansionConfig"] = None,
+        target_table_schema: Optional[str] = None,
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> None:
+        """
+        Create a blob expansion by expanding a source table column into a target table
+        POST /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        table_ref : TableRef
+            The reference to the source table.
+        source_column_name : string
+            The name of the blob column to expand.
+        target_table_name : string, optional
+            The name of the target table. If not provided, defaults to source table name + "_expanded".
+        expansion_format : string, optional
+            The format of the expanded data (default: "json").
+        expansion_schema : pyarrow.Schema
+            The schema for the expanded columns.
+        copy_source_column : bool, optional
+            Whether to copy the source column to the target table (default: False).
+        flatten_path : bool, optional
+            Whether to flatten nested struct columns (default: False).
+        flatten_delimiter : string, optional
+            Delimiter for flattened path column names (default: "__").
+        target_table_schema : string, optional
+            The schema where the target table will be created (defaults to source table's schema).
+        add_missing_values_output : bool, optional
+            Whether to add the missing values output column (default: True).
+        add_excessive_values_output : bool, optional
+            Whether to add the excessive values output column (default: True).
+        """
+        create_blob_expansion_req = build_create_blob_expansion_request(
+            expansion_schema=expansion_schema,
+            target_table_name=target_table_name,
+            config=config,
+            target_table_schema=target_table_schema)
+
+        headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
+        headers['Content-Length'] = str(len(create_blob_expansion_req))
+        url_params = {'source-column-name': source_column_name}
+
+        self._request(
+            method="POST",
+            url=self._url(table_ref.bucket, table_ref.schema, table_ref.table, command="blob-expansion", url_params=url_params),
+            data=create_blob_expansion_req,
+            headers=headers)
+
+    def alter_blob_expansion(
+        self,
+        table_ref: "TableRef",
+        source_column_name: str = "value",
+        expansion_schema: Optional[pa.Schema] = None,
+        remove: bool = False,
+        add_copy_source_column: bool = False,
+        remove_copy_source_column: bool = False,
+        add_missing_values_output: bool = False,
+        remove_missing_values_output: bool = False,
+        add_excessive_values_output: bool = False,
+        remove_excessive_values_output: bool = False,
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> None:
+        """
+        Alter a blob expansion by adding or removing columns to/from the target table
+        PUT /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        bucket : string
+            The bucket containing the source table.
+        schema : string
+            The schema containing the source table.
+        table : string
+            The source table name.
+        source_column_name : string
+            The name of the blob column to expand.
+        expansion_schema : pyarrow.Schema, optional
+            The schema for the columns to add or remove.
+        remove : bool
+            If True, remove columns from the expansion. If False, add columns.
+        add_copy_source_column : bool
+            If True, add a copy source column to the expansion.
+        remove_copy_source_column : bool
+            If True, remove a copy source column from the expansion.
+        add_missing_values_output : bool
+            If True, add the missing values output column.
+        remove_missing_values_output : bool
+            If True, remove the missing values output column.
+        add_excessive_values_output : bool
+            If True, add the excessive values output column.
+        remove_excessive_values_output : bool
+            If True, remove the excessive values output column.
+        """
+        alter_blob_expansion_req = build_alter_blob_expansion_request(
+            expansion_schema=expansion_schema,
+            remove=remove,
+            add_copy_source_column=add_copy_source_column,
+            remove_copy_source_column=remove_copy_source_column,
+            add_missing_values_output=add_missing_values_output,
+            remove_missing_values_output=remove_missing_values_output,
+            add_excessive_values_output=add_excessive_values_output,
+            remove_excessive_values_output=remove_excessive_values_output)
+
+        headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
+        headers['Content-Length'] = str(len(alter_blob_expansion_req))
+        url_params = {'source-column-name': source_column_name}
+
+        self._request(
+            method="PUT",
+            url=self._url(table_ref.bucket, table_ref.schema, table_ref.table, command="blob-expansion", url_params=url_params),
+            data=alter_blob_expansion_req,
+            headers=headers)
+
+    def alter_blob_expansion_add_columns(
+        self,
+        table_ref: "TableRef",
+        source_column_name: str = "value",
+        columns_to_add: Optional[pa.Schema] = None,
+        add_copy_source_column: bool = False,
+        add_missing_values_output: bool = False,
+        add_excessive_values_output: bool = False,
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> None:
+        """
+        Alter a blob expansion by adding columns to the target table
+        PUT /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        table_ref : TableRef
+            The reference to the source table.
+        source_column_name : string
+            The name of the blob column to expand.
+        columns_to_add : pyarrow.Schema, optional
+            The columns to add to the expansion.
+        add_copy_source_column : bool
+            If True, add a copy source column to the expansion.
+        add_missing_values_output : bool
+            If True, add the missing values output column.
+        add_excessive_values_output : bool
+            If True, add the excessive values output column.
+        """
+        return self.alter_blob_expansion(table_ref=table_ref,
+                                        source_column_name=source_column_name,
+                                        expansion_schema=columns_to_add,
+                                        remove=False,
+                                        add_copy_source_column=add_copy_source_column,
+                                        add_missing_values_output=add_missing_values_output,
+                                        add_excessive_values_output=add_excessive_values_output,
+                                        txid=txid, client_tags=client_tags,
+                                        expected_retvals=expected_retvals)
+
+    def alter_blob_expansion_drop_columns(
+        self,
+        table_ref: "TableRef",
+        source_column_name: str = "value",
+        columns_to_remove: Optional[pa.Schema] = None,
+        remove_copy_source_column: bool = False,
+        remove_missing_values_output: bool = False,
+        remove_excessive_values_output: bool = False,
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> None:
+        """
+        Alter a blob expansion by removing columns from the target table
+        PUT /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        table_ref : TableRef
+            The reference to the source table.
+        source_column_name : string
+            The name of the blob column to expand.
+        columns_to_remove : pyarrow.Schema, optional
+            The columns to remove from the expansion.
+        remove_copy_source_column : bool
+            If True, remove a copy source column from the expansion.
+        remove_missing_values_output : bool
+            If True, remove the missing values output column.
+        remove_excessive_values_output : bool
+            If True, remove the excessive values output column.
+        """
+        return self.alter_blob_expansion(table_ref=table_ref,
+                                        source_column_name=source_column_name,
+                                        expansion_schema=columns_to_remove,
+                                        remove=True,
+                                        remove_copy_source_column=remove_copy_source_column,
+                                        remove_missing_values_output=remove_missing_values_output,
+                                        remove_excessive_values_output=remove_excessive_values_output,
+                                        txid=txid, client_tags=client_tags,
+                                        expected_retvals=expected_retvals)
+
+    def drop_blob_expansion(
+        self,
+        table_ref: "TableRef",
+        source_column_name: str = "value",
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> None:
+        """
+        Drop a blob expansion and stop the blob expansion mechanism.
+        Keeps the target table as-is but removes blob expansion metadata and clears flags.
+        DELETE /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        table_ref : TableRef
+            The reference to the source table.
+        source_column_name : string
+            The name of the blob column that was expanded.
+        """
+        headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
+        url_params = {'source-column-name': source_column_name}
+
+        self._request(
+            method="DELETE",
+            url=self._url(table_ref.bucket, table_ref.schema, table_ref.table, command="blob-expansion", url_params=url_params),
+            headers=headers)
+
+    def get_blob_expansion(
+        self,
+        table_ref: "TableRef",
+        source_column_name: str = "value",
+        txid: int = 0,
+        client_tags: list = [],
+        expected_retvals: list = [],
+    ) -> tuple[str, str, str, list, bool]:
+        """
+        Show a blob expansion by showing the target table
+        GET /bucket/schema/table?blob-expansion HTTP/1.1
+
+        Parameters
+        ----------
+        table_ref : TableRef
+            The reference to the source table.
+        source_column_name : string
+            The name of the blob column to expand.
+
+        Returns
+        -------
+        tuple
+            (source_column_name, target_table_name, expansion_format, columns, copy_source_column)
+            where columns is a list of [column_name, column_type, column_metadata] tuples
+
+        Raises
+        ------
+        errors.MissingBlobExpansion
+            If the blob expansion does not exist or the response is invalid.
+        """
+        headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
+        url_params = {'source-column-name': source_column_name}
+
+        try:
+            res = self._request(
+                method="GET",
+                url=self._url(table_ref.bucket, table_ref.schema, table_ref.table, command="blob-expansion", url_params=url_params),
+                headers=headers)
+        except errors.InternalServerError as e:
+            raise errors.MissingBlobExpansion(table_ref, source_column_name) from e
+
+        rsp = GetBlobExpansionResponse()
+        rsp.ParseFromString(res.content)
+
+        columns = []
+        if rsp.arrow_schema:
+            arrow_schema = pa.ipc.read_schema(pa.py_buffer(rsp.arrow_schema))
+            for field in arrow_schema:
+                columns.append([field.name, field.type, field.metadata])
+
+        result = (rsp.source_column_name, rsp.target_table_name, rsp.expansion_format, columns, rsp.copy_source_column)
+
+        if not result:
+            raise errors.MissingBlobExpansion(table_ref, source_column_name)
+
+        for item in result:
+            if item is None:
+                raise errors.MissingBlobExpansion(table_ref, source_column_name)
+
+        return result
+
+    def list_projections(self, bucket: str, schema: str, table: str, txid: int = 0, client_tags=[], max_keys: Optional[int] = None,
+                         next_key: int = 0, name_prefix: str = "", exact_match: bool = False,
+                         include_list_stats: bool = False, count_only: bool = False) -> tuple[str, str, str, list[TableInfo], int, bool, int]:
         """
         GET /mybucket/schema_path/my_table?projection HTTP/1.1
         tabular-txid: TransactionId
@@ -2044,7 +2414,7 @@ class VastdbApi:
         tabular-next-key: NextKey (Name)
         """
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
-        headers['tabular-max-keys'] = str(max_keys)
+        headers['tabular-max-keys'] = str(self._max_keys(max_keys))
         headers['tabular-next-key'] = str(next_key)
         if exact_match:
             headers['tabular-name-exact-match'] = name_prefix
@@ -2067,18 +2437,18 @@ class VastdbApi:
         bucket_name = lists.BucketName().decode()
         schema_name = lists.SchemaName().decode()
         table_name = lists.TableName().decode()
+
         if not bucket.startswith(bucket_name):  # ignore snapshot name
             raise ValueError(f'bucket: {bucket} did not start from {bucket_name}')
+
         projections_length = lists.ProjectionsLength()
         count = int(res_headers['tabular-list-count']) if count_only else projections_length
-        for i in range(projections_length):
-            projections.append(_parse_table_info(lists.Projections(i), lambda x: x))
-
+        projections = [_parse_table_info(lists.Projections(i)) for i in range(projections_length)]
         return bucket_name, schema_name, table_name, projections, next_key, is_truncated, count
 
-    def list_projection_columns(self, bucket, schema, table, projection, txid=0, client_tags=[], max_keys=1000,
-                                next_key=0, count_only=False, name_prefix="", exact_match=False,
-                                expected_retvals=None):
+    def list_projection_columns(self, bucket: str, schema: str, table: str, projection, txid: int = 0, client_tags=[],
+                                max_keys: Optional[int] = None, next_key: int = 0, count_only: bool = False, name_prefix: str = "",
+                                exact_match: bool = False) -> tuple[list[pa.Field], int, bool, int]:
         """
         GET /mybucket/myschema/mytable?projection-columns HTTP/1.1
         tabular-txid: TransactionId
@@ -2088,10 +2458,9 @@ class VastdbApi:
         tabular-next-key: NextColumnId
         """
         client_tags = client_tags or []
-        expected_retvals = expected_retvals or []
 
         headers = self._fill_common_headers(txid=txid, client_tags=client_tags)
-        headers['tabular-max-keys'] = str(max_keys)
+        headers['tabular-max-keys'] = str(self._max_keys(max_keys))
         headers['tabular-next-key'] = str(next_key)
         headers['tabular-list-count-only'] = str(count_only)
 
@@ -2111,9 +2480,7 @@ class VastdbApi:
         res_headers = res.headers
         next_key = int(res_headers['tabular-next-key'])
         is_truncated = res_headers['tabular-is-truncated'] == 'true'
-        columns = [] if count_only else [[f.name, f.type, f.metadata] for f in
-                                         pa.ipc.open_stream(res.content).schema]
-
+        columns = [] if count_only else [f for f in pa.ipc.open_stream(res.content).schema]
         count = int(res_headers['tabular-list-count']) if count_only else len(columns)
         return columns, next_key, is_truncated, count
 

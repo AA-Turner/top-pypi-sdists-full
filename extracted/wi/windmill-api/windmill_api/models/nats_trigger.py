@@ -33,8 +33,8 @@ class NatsTrigger:
         edited_at (datetime.datetime): Timestamp of the last edit
         is_flow (bool): True if script_path points to a flow, false if it points to a script
         mode (NatsTriggerMode): job trigger mode
-        stream_name (Union[Unset, str]): JetStream stream name (required when use_jetstream is true)
-        consumer_name (Union[Unset, str]): JetStream consumer name (required when use_jetstream is true)
+        stream_name (Union[Unset, None, str]): JetStream stream name (required when use_jetstream is true)
+        consumer_name (Union[Unset, None, str]): JetStream consumer name (required when use_jetstream is true)
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
@@ -55,8 +55,8 @@ class NatsTrigger:
     edited_at: datetime.datetime
     is_flow: bool
     mode: NatsTriggerMode
-    stream_name: Union[Unset, str] = UNSET
-    consumer_name: Union[Unset, str] = UNSET
+    stream_name: Union[Unset, None, str] = UNSET
+    consumer_name: Union[Unset, None, str] = UNSET
     server_id: Union[Unset, str] = UNSET
     last_server_ping: Union[Unset, datetime.datetime] = UNSET
     error: Union[Unset, str] = UNSET

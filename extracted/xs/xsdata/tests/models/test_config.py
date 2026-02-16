@@ -150,7 +150,9 @@ class GeneratorConfigTests(TestCase):
         cases = [None, "", "bar"]
         for case in cases:
             with self.assertRaises(CodegenError):
-                GeneratorExtension(type=ExtensionType.DECORATOR, import_string=case)
+                GeneratorExtension(
+                    type=ExtensionType.DECORATOR, import_string=case, class_name="Test"
+                )
 
     def test_extension_with_invalid_class_name_pattern(self) -> None:
         with self.assertRaises(CodegenError):

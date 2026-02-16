@@ -14,7 +14,7 @@ from vastdb.table_metadata import TableMetadata, TableRef, TableType
 
 from . import bucket, errors, schema, table
 from ._ibis_support import validate_ibis_support_schema
-from ._internal import VectorIndex, VectorIndexSpec
+from ._internal import SortingKey, VectorIndexSpec
 
 if TYPE_CHECKING:
     from .table import Table
@@ -73,15 +73,17 @@ class Schema:
             batch_size = 1000
         result: List["Schema"] = []
         while True:
-            _bucket_name, curr_schemas, next_key, is_truncated, _ = \
-                self.tx._rpc.api.list_schemas(bucket=self.bucket.name, schema=self.name, next_key=next_key, max_keys=batch_size, txid=self.tx.txid)
+            _, curr_schemas, next_key, is_truncated, _ = self.tx._rpc.api.list_schemas(
+                bucket=self.bucket.name, schema=self.name, next_key=next_key,
+                max_keys=batch_size, txid=self.tx.txid
+            )
             result.extend(schema.Schema(name=self._subschema_full_name(name), bucket=self.bucket) for name, *_ in curr_schemas)
             if not is_truncated:
                 break
         return result
 
-    def create_table(self, table_name: str, columns: pa.Schema, fail_if_exists=True,
-                     use_external_row_ids_allocation=False, sorting_key=[],
+    def create_table(self, table_name: str, columns: pa.Schema, fail_if_exists: bool = True,
+                     use_external_row_ids_allocation: bool = False, sorting_key: SortingKey = [],
                      vector_index: Optional[VectorIndexSpec] = None) -> "Table":
         """Create a new table under this schema.
 
@@ -130,17 +132,17 @@ class Schema:
         log.debug("Found table: %s", t[0])
         return t[0]
 
-    def _iter_tables(self, table_name=None, page_size=1000, include_vector_index_metadata=False):
+    def _iter_tables(self, table_name=None, page_size=1000):
         next_key = 0
         name_prefix = table_name if table_name else ""
         exact_match = bool(table_name)
         while True:
-            _bucket_name, _schema_name, curr_tables, next_key, is_truncated, _ = \
-                self.tx._rpc.api.list_tables(
-                    bucket=self.bucket.name, schema=self.name, next_key=next_key, max_keys=page_size, txid=self.tx.active_txid,
-                    exact_match=exact_match, name_prefix=name_prefix, include_list_stats=exact_match,
-                    include_vector_index_metadata=include_vector_index_metadata)
-            if not curr_tables:
+            _, _, curr_tables, next_key, is_truncated, _ = self.tx._rpc.api.list_tables(
+                bucket=self.bucket.name, schema=self.name, next_key=next_key, max_keys=page_size, txid=self.tx.active_txid,
+                exact_match=exact_match, name_prefix=name_prefix, include_list_stats=exact_match
+            )
+
+            if not curr_tables:  # Is this a bug? should be on is_truncated
                 break
             yield from curr_tables
             if not is_truncated:
@@ -178,17 +180,7 @@ def _parse_table_info(table_info, schema: "schema.Schema"):
                    table=table_info.name)
 
     table_type = TableType.Elysium if table_info.sorting_key_enabled else TableType.Regular
-
-    # populate vector_index from list_tables if vector index is enabled
-    vector_index = None
-    if table_info.vector_index_enabled:
-        vector_index = VectorIndex(
-            column=table_info.vector_index_column_name,
-            distance_metric=table_info.vector_index_distance_metric,
-            sql_distance_function=table_info.vector_index_sql_function_name
-        )
-
-    table_metadata = TableMetadata(ref, table_type=table_type, vector_index=vector_index)
+    table_metadata = TableMetadata(ref, table_type=table_type)
 
     return table.Table(handle=int(table_info.handle),
                        metadata=table_metadata,

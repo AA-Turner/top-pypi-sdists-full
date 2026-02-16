@@ -16,18 +16,26 @@ from onnx2tf.tflite_builder.op_builders import (
     build_flatten_op,
     build_fully_connected_from_gemm_or_matmul,
     build_gather_op,
+    build_qgemm_op,
     build_identity_op,
     build_l2_normalization_op,
     build_logistic_op,
     build_pool2d_op,
     build_prelu_op,
     build_qlinear_add_op,
+    build_qlinear_average_pool_op,
+    build_qlinear_concat_op,
     build_qlinear_conv_op,
+    build_qlinear_global_average_pool_op,
     build_qlinear_matmul_op,
     build_qlinear_mul_op,
+    build_qlinear_sigmoid_op,
+    build_qlinear_softmax_op,
     build_quantize_linear_op,
     build_reduce_op,
+    build_resize_op,
     build_reshape_op,
+    build_slice_op,
     build_space_to_depth_op,
     build_squeeze_op,
     build_softmax_op,
@@ -226,6 +234,75 @@ def _validate_reshape(node: Any, ctx: Any) -> None:
     _require_const_input(node, ctx, 1, "reshape shape")
 
 
+def _validate_slice(node: Any, ctx: Any) -> None:
+    starts = _require_const_input(node, ctx, 1, "slice starts")
+    ends = _require_const_input(node, ctx, 2, "slice ends")
+    starts_values = [int(v) for v in np.asarray(starts).reshape(-1).tolist()]
+    ends_values = [int(v) for v in np.asarray(ends).reshape(-1).tolist()]
+    if len(starts_values) != len(ends_values):
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                f"Slice starts/ends length mismatch. "
+                f"starts_len={len(starts_values)} ends_len={len(ends_values)}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    rank = len(ctx.get_tensor_shape(node.inputs[0].name))
+    axes = _extract_axes(
+        node=node,
+        ctx=ctx,
+        input_index=3,
+        attr_name="axes",
+        default_if_missing=[int(v) for v in range(len(starts_values))],
+    )
+    normalized_axes = _normalize_axes_for_rank(axes=axes, rank=rank, node=node)
+    if len(normalized_axes) != len(starts_values):
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                f"Slice starts/axes length mismatch. "
+                f"starts_len={len(starts_values)} axes_len={len(normalized_axes)}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    if len(node.inputs) >= 5:
+        steps_arr = _require_const_input(node, ctx, 4, "slice steps")
+        steps = [int(v) for v in np.asarray(steps_arr).reshape(-1).tolist()]
+    elif "steps" in node.attrs:
+        attr_steps = node.attrs.get("steps")
+        if isinstance(attr_steps, (list, tuple, np.ndarray)):
+            steps = [int(v) for v in np.asarray(attr_steps).reshape(-1).tolist()]
+        elif attr_steps is None:
+            steps = [1 for _ in range(len(starts_values))]
+        else:
+            steps = [int(attr_steps)]
+    else:
+        steps = [1 for _ in range(len(starts_values))]
+
+    if len(steps) != len(starts_values):
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                f"Slice starts/steps length mismatch. "
+                f"starts_len={len(starts_values)} steps_len={len(steps)}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if any(int(step) != 1 for step in steps):
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Slice steps must all be 1. steps={steps}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
 def _validate_transpose(node: Any, ctx: Any) -> None:
     if len(node.inputs) >= 2:
         _require_const_input(node, ctx, 1, "transpose permutation")
@@ -278,13 +355,23 @@ def _validate_conv(node: Any, ctx: Any) -> None:
 
 
 def _validate_pool(node: Any, ctx: Any) -> None:
-    if int(node.attrs.get("ceil_mode", 0)) != 0:
-        raise NodeValidationError(
-            reason_code="unsupported_attribute_value",
-            message="Pool ceil_mode must be 0.",
-            node_name=node.name,
-            node_op=node.op,
-        )
+    ceil_mode = int(node.attrs.get("ceil_mode", 0))
+    if node.op == "MaxPool":
+        if ceil_mode not in [0, 1]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=f"MaxPool ceil_mode must be 0 or 1. got={ceil_mode}",
+                node_name=node.name,
+                node_op=node.op,
+            )
+    else:
+        if ceil_mode != 0:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message="Pool ceil_mode must be 0.",
+                node_name=node.name,
+                node_op=node.op,
+            )
 
 
 def _validate_fc(node: Any, ctx: Any) -> None:
@@ -585,6 +672,46 @@ def _validate_qlinear_binary(node: Any, ctx: Any) -> None:
         _require_const_input(node, ctx, idx, f"{node.op} {label}")
 
 
+def _validate_qlinear_concat(node: Any, ctx: Any) -> None:
+    if len(node.inputs) < 5 or (len(node.inputs) - 2) % 3 != 0:
+        raise NodeValidationError(
+            reason_code="invalid_input_count",
+            message=(
+                "QLinearConcat expects [y_scale, y_zero_point, (x, x_scale, x_zero_point)+]. "
+                f"input_count={len(node.inputs)}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    _require_const_input(node, ctx, 0, "QLinearConcat y_scale")
+    _require_const_input(node, ctx, 1, "QLinearConcat y_zero_point")
+
+    first_input_shape = ctx.get_tensor_shape(node.inputs[2].name)
+    rank = len(first_input_shape)
+    axis = int(node.attrs.get("axis", 1))
+    _ = _normalize_axis_for_rank(axis=axis, rank=rank, node=node)
+
+    for group_idx in range((len(node.inputs) - 2) // 3):
+        base = 2 + group_idx * 3
+        x_name = node.inputs[base].name
+        x_scale_name = node.inputs[base + 1].name
+        x_zero_name = node.inputs[base + 2].name
+        _require_const_input(node, ctx, base + 1, f"QLinearConcat input[{group_idx}] scale")
+        _require_const_input(node, ctx, base + 2, f"QLinearConcat input[{group_idx}] zero_point")
+        shape_i = ctx.get_tensor_shape(x_name)
+        if len(shape_i) != rank:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=(
+                    f"QLinearConcat input ranks must match. "
+                    f"input={x_name} shape={shape_i} expected_rank={rank}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+
 def _validate_qlinear_conv(node: Any, ctx: Any) -> None:
     input_shape = ctx.get_tensor_shape(node.inputs[0].name)
     output_shape = ctx.get_tensor_shape(node.outputs[0].name)
@@ -659,6 +786,275 @@ def _validate_qlinear_matmul(node: Any, ctx: Any) -> None:
         (7, "y_zero_point"),
     ]:
         _require_const_input(node, ctx, idx, f"QLinearMatMul {label}")
+
+
+def _validate_qgemm(node: Any, ctx: Any) -> None:
+    input_rank = len(ctx.get_tensor_shape(node.inputs[0].name))
+    if input_rank not in [1, 2]:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"QGemm input rank must be 1 or 2. rank={input_rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    weights = _require_const_input(node, ctx, 3, "QGemm weights")
+    if weights.ndim != 2:
+        raise NodeValidationError(
+            reason_code="unsupported_weight_rank",
+            message=f"QGemm weight rank must be 2. weight_shape={list(weights.shape)}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    for idx, label in [
+        (1, "a_scale"),
+        (2, "a_zero_point"),
+        (4, "b_scale"),
+        (5, "b_zero_point"),
+        (6, "bias"),
+        (7, "y_scale"),
+        (8, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QGemm {label}")
+    trans_a = int(node.attrs.get("transA", 0))
+    trans_b = int(node.attrs.get("transB", 0))
+    if trans_a != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QGemm transA must be 0. got={trans_a}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if trans_b not in [0, 1]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QGemm transB must be 0 or 1. got={trans_b}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_qlinear_sigmoid(node: Any, ctx: Any) -> None:
+    for idx, label in [
+        (1, "x_scale"),
+        (2, "x_zero_point"),
+        (3, "y_scale"),
+        (4, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QLinearSigmoid {label}")
+
+
+def _validate_qlinear_softmax(node: Any, ctx: Any) -> None:
+    for idx, label in [
+        (1, "x_scale"),
+        (2, "x_zero_point"),
+        (3, "y_scale"),
+        (4, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QLinearSoftmax {label}")
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    axis = int(node.attrs.get("axis", 1))
+    if axis < 0:
+        axis += len(input_shape)
+    if axis != len(input_shape) - 1:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearSoftmax axis must be last dimension. axis={axis} shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_qlinear_global_average_pool(node: Any, ctx: Any) -> None:
+    for idx, label in [
+        (1, "x_scale"),
+        (2, "x_zero_point"),
+        (3, "y_scale"),
+        (4, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QLinearGlobalAveragePool {label}")
+
+    channels_last = int(node.attrs.get("channels_last", 0))
+    if channels_last not in [0, 1]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearGlobalAveragePool channels_last must be 0 or 1. got={channels_last}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    if input_shape != [1] and len(input_shape) < 3:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"QLinearGlobalAveragePool input rank must be >=3. input_shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_qlinear_average_pool(node: Any, ctx: Any) -> None:
+    for idx, label in [
+        (1, "x_scale"),
+        (2, "x_zero_point"),
+        (3, "y_scale"),
+        (4, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QLinearAveragePool {label}")
+
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    if input_shape != [1] and len(input_shape) != 4:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"QLinearAveragePool supports rank-4 input. input_shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    kernel = [int(v) for v in list(node.attrs.get("kernel_shape", []))]
+    if len(kernel) != 2:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearAveragePool kernel_shape must be 2D. kernel_shape={kernel}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    strides = [int(v) for v in list(node.attrs.get("strides", [1, 1]))]
+    if len(strides) != 2:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearAveragePool strides must be 2D. strides={strides}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    dilations = [int(v) for v in list(node.attrs.get("dilations", [1, 1]))]
+    if dilations != [1, 1]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearAveragePool dilations must be [1,1]. dilations={dilations}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    ceil_mode = int(node.attrs.get("ceil_mode", 0))
+    if ceil_mode not in [0, 1]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"QLinearAveragePool ceil_mode must be 0 or 1. got={ceil_mode}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if ceil_mode == 1:
+        auto_pad = str(node.attrs.get("auto_pad", "NOTSET")).upper()
+        pads = [int(v) for v in list(node.attrs.get("pads", [0, 0, 0, 0]))]
+        if len(pads) < 4:
+            pads = [0, 0, 0, 0]
+        if auto_pad not in ["NOTSET", "SAME", "SAME_UPPER", "SAME_LOWER"]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "QLinearAveragePool ceil_mode=1 supports auto_pad "
+                    "NOTSET/SAME/SAME_UPPER/SAME_LOWER only."
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if auto_pad == "NOTSET" and any(int(v) != 0 for v in pads):
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message="QLinearAveragePool ceil_mode=1 with auto_pad=NOTSET requires pads=[0,0,0,0].",
+                node_name=node.name,
+                node_op=node.op,
+            )
+    if int(node.attrs.get("count_include_pad", 0)) != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message="QLinearAveragePool count_include_pad must be 0.",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_resize(node: Any, ctx: Any) -> None:
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    output_shape = ctx.get_tensor_shape(node.outputs[0].name)
+    if input_shape != [1] and len(input_shape) != 4:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"Resize supports rank-4 input. input_shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if output_shape != [1] and len(output_shape) != 4:
+        raise NodeValidationError(
+            reason_code="unsupported_output_rank",
+            message=f"Resize supports rank-4 output. output_shape={output_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    mode = str(node.attrs.get("mode", "nearest")).lower()
+    if mode not in ["nearest", "linear"]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Resize mode must be nearest or linear. got={mode}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    ctm = str(node.attrs.get("coordinate_transformation_mode", "half_pixel")).lower()
+    if mode == "nearest":
+        if ctm not in ["asymmetric", "half_pixel"]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "Resize(nearest) supports coordinate_transformation_mode "
+                    f"asymmetric/half_pixel only. got={ctm}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        nearest_mode = str(node.attrs.get("nearest_mode", "round_prefer_floor")).lower()
+        if nearest_mode not in ["floor", "round_prefer_floor"]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=f"Resize nearest_mode must be floor or round_prefer_floor. got={nearest_mode}",
+                node_name=node.name,
+                node_op=node.op,
+            )
+    else:
+        if ctm not in ["half_pixel", "asymmetric", "align_corners"]:
+            raise NodeValidationError(
+                reason_code="unsupported_attribute_value",
+                message=(
+                    "Resize(linear) supports coordinate_transformation_mode "
+                    f"half_pixel/asymmetric/align_corners only. got={ctm}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+
+    has_const_param = False
+    if len(node.inputs) >= 4:
+        tensor_name = node.inputs[3].name
+        if tensor_name != "":
+            arr = _require_const_input(node, ctx, 3, "Resize sizes")
+            if int(np.asarray(arr).size) > 0:
+                has_const_param = True
+    if len(node.inputs) >= 3:
+        tensor_name = node.inputs[2].name
+        if tensor_name != "":
+            arr = _require_const_input(node, ctx, 2, "Resize scales")
+            if int(np.asarray(arr).size) > 0:
+                has_const_param = True
+    if len(node.inputs) == 2:
+        arr = _require_const_input(node, ctx, 1, "Resize scales/sizes")
+        if int(np.asarray(arr).size) > 0:
+            has_const_param = True
+    if not has_const_param:
+        raise NodeValidationError(
+            reason_code="requires_constant_input",
+            message="Resize requires non-empty constant scales or sizes.",
+            node_name=node.name,
+            node_op=node.op,
+        )
 
 
 def _validate_prelu(node: Any, ctx: Any) -> None:
@@ -854,6 +1250,13 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=8, max_inputs=8, min_outputs=1, max_outputs=1),
         extra_validator=_validate_qlinear_binary,
     ),
+    "QLinearConcat": DispatchEntry(
+        onnx_op="QLinearConcat",
+        tflite_ops=["DEQUANTIZE", "CONCATENATION", "QUANTIZE"],
+        builder=build_qlinear_concat_op,
+        validation=ValidationSpec(min_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qlinear_concat,
+    ),
     "QLinearMul": DispatchEntry(
         onnx_op="QLinearMul",
         tflite_ops=["MUL"],
@@ -879,6 +1282,47 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         builder=build_qlinear_matmul_op,
         validation=ValidationSpec(min_inputs=8, max_inputs=8, min_outputs=1, max_outputs=1),
         extra_validator=_validate_qlinear_matmul,
+    ),
+    "QGemm": DispatchEntry(
+        onnx_op="QGemm",
+        tflite_ops=["FULLY_CONNECTED"],
+        builder=build_qgemm_op,
+        validation=ValidationSpec(min_inputs=9, max_inputs=9, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qgemm,
+    ),
+    "QLinearSigmoid": DispatchEntry(
+        onnx_op="QLinearSigmoid",
+        tflite_ops=["DEQUANTIZE", "LOGISTIC", "QUANTIZE"],
+        builder=build_qlinear_sigmoid_op,
+        validation=ValidationSpec(min_inputs=5, max_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qlinear_sigmoid,
+    ),
+    "QLinearSoftmax": DispatchEntry(
+        onnx_op="QLinearSoftmax",
+        tflite_ops=["DEQUANTIZE", "SOFTMAX", "QUANTIZE"],
+        builder=build_qlinear_softmax_op,
+        validation=ValidationSpec(min_inputs=5, max_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qlinear_softmax,
+    ),
+    "QLinearGlobalAveragePool": DispatchEntry(
+        onnx_op="QLinearGlobalAveragePool",
+        tflite_ops=["DEQUANTIZE", "MEAN", "QUANTIZE"],
+        builder=build_qlinear_global_average_pool_op,
+        validation=ValidationSpec(min_inputs=5, max_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qlinear_global_average_pool,
+    ),
+    "QLinearAveragePool": DispatchEntry(
+        onnx_op="QLinearAveragePool",
+        tflite_ops=["DEQUANTIZE", "TRANSPOSE", "AVERAGE_POOL_2D", "TRANSPOSE", "QUANTIZE"],
+        builder=build_qlinear_average_pool_op,
+        validation=ValidationSpec(
+            min_inputs=5,
+            max_inputs=5,
+            min_outputs=1,
+            max_outputs=1,
+            required_attrs=["kernel_shape"],
+        ),
+        extra_validator=_validate_qlinear_average_pool,
     ),
     "BatchNormalization": DispatchEntry(
         onnx_op="BatchNormalization",
@@ -1013,11 +1457,25 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
         extra_validator=_validate_gather,
     ),
+    "Slice": DispatchEntry(
+        onnx_op="Slice",
+        tflite_ops=["SLICE"],
+        builder=build_slice_op,
+        validation=ValidationSpec(min_inputs=3, max_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_slice,
+    ),
     "Identity": DispatchEntry(
         onnx_op="Identity",
         tflite_ops=["RESHAPE"],
         builder=build_identity_op,
         validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+    ),
+    "Resize": DispatchEntry(
+        onnx_op="Resize",
+        tflite_ops=["RESIZE_NEAREST_NEIGHBOR", "RESIZE_BILINEAR"],
+        builder=build_resize_op,
+        validation=ValidationSpec(min_inputs=1, max_inputs=4, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_resize,
     ),
     "SpaceToDepth": DispatchEntry(
         onnx_op="SpaceToDepth",
@@ -1058,7 +1516,7 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             max_outputs=1,
             required_attrs=["kernel_shape"],
             input_rank={0: [4]},
-            output_rank={0: [4]},
+            output_rank={0: [1, 4]},
         ),
         extra_validator=_validate_pool,
     ),
@@ -1073,7 +1531,7 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
             max_outputs=1,
             required_attrs=["kernel_shape"],
             input_rank={0: [4]},
-            output_rank={0: [4]},
+            output_rank={0: [1, 4]},
         ),
         extra_validator=_validate_pool,
     ),

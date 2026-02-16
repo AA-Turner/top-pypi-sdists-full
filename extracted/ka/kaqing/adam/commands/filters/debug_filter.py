@@ -6,7 +6,7 @@ class DebugFilter(CommandFilter):
     def command(self) -> str:
         return 'debug'
 
-    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], str]:
+    def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], ReplState, str]:
         return super().process_config(state, cmd, self.command(), 'debug')
 
     def help(self, state: ReplState) -> str:

@@ -5,6 +5,11 @@ import hashlib
 from pathlib import Path
 from typing import Dict, Any, Set, Tuple
 
+# Fields excluded from hash calculation and comparison (metadata/timestamp fields)
+_EXCLUDED_FIELDS = frozenset(
+    {"timestamp", "last_updated", "created_at", "_cache", "_metadata"}
+)
+
 
 def _normalize_value(value: Any) -> Any:
     """Recursively normalize values for consistent hashing."""
@@ -31,15 +36,12 @@ def calculate_tool_hash(tool_config: Dict[str, Any], verbose: bool = False) -> s
     Returns:
         MD5 hash string of the normalized configuration
     """
-    # Fields to exclude from hash calculation (metadata/timestamp fields)
-    excluded_fields = {"timestamp", "last_updated", "created_at", "_cache", "_metadata"}
-
     # Create a normalized version of the config for hashing
     normalized_config = {}
     excluded_values = []
 
     for key, value in sorted(tool_config.items()):
-        if key not in excluded_fields:
+        if key not in _EXCLUDED_FIELDS:
             # Recursively normalize nested structures
             normalized_config[key] = _normalize_value(value)
         elif verbose:
@@ -101,10 +103,9 @@ def _compare_configs(old_config: Dict[str, Any], new_config: Dict[str, Any]) -> 
     changes = []
 
     all_keys = set(old_config.keys()) | set(new_config.keys())
-    excluded_fields = {"timestamp", "last_updated", "created_at", "_cache", "_metadata"}
 
     for key in all_keys:
-        if key in excluded_fields:
+        if key in _EXCLUDED_FIELDS:
             continue
 
         old_val = old_config.get(key)

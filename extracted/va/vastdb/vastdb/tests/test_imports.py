@@ -9,6 +9,7 @@ import pytest
 from vastdb import util
 from vastdb.config import ImportConfig
 from vastdb.errors import (
+    ConnectionError,
     ImportFilesError,
     InternalServerError,
     InvalidArgument,
@@ -29,9 +30,31 @@ def zip_import_session(session):
             pytest.skip("Skipped because this test requires version 5.3.1")
 
 
-def test_parallel_imports(session: Session, clean_bucket_name: str, s3):
-    num_rows = 1000
+def test_parallel_imports_with_endpoints_negative(session: Session, clean_bucket_name: str, s3):
+    files = [f"/clean_bucket_name/file{i}" for i in range(1, 50)]
+    with session.transaction() as tx:
+        b = tx.bucket(clean_bucket_name)
+        s = b.create_schema('s1')
+        t = s.create_table('t1', pa.schema([('num', pa.int64())]))
+        log.info("Starting import of %d files", len(files))
+        with pytest.raises(ConnectionError):
+            t.import_files(files, config=ImportConfig(data_endpoints=['http://no.such.endpoint']))
+        with pytest.raises(ImportFilesError):
+            t.import_files(files, config=ImportConfig(data_endpoints=[]))
+
+
+def test_parallel_imports_with_endpoints(session: Session, clean_bucket_name: str, s3):
+    num_files = 53 * 2
+    exec_parallel_import_test(session, clean_bucket_name, s3, num_files, use_endpoints=True)
+
+
+def test_parallel_imports_no_endpoints(session: Session, clean_bucket_name: str, s3):
     num_files = 53
+    exec_parallel_import_test(session, clean_bucket_name, s3, num_files, use_endpoints=False)
+
+
+def exec_parallel_import_test(session: Session, clean_bucket_name: str, s3, num_files: int, use_endpoints: bool):
+    num_rows = 1000
     ds = {'num': [i for i in range(num_rows)]}
     files = []
     table = pa.Table.from_pydict(ds)
@@ -47,15 +70,18 @@ def test_parallel_imports(session: Session, clean_bucket_name: str, s3):
         }
         s3.copy(copy_source, clean_bucket_name, f'prq{i}')
         files.append(f'/{clean_bucket_name}/prq{i}')
-
     with session.transaction() as tx:
         b = tx.bucket(clean_bucket_name)
         s = b.create_schema('s1')
         t = s.create_table('t1', pa.schema([('num', pa.int64())]))
         with pytest.raises(InternalServerError):
             t.create_imports_table()
+        config = ImportConfig()
+        if use_endpoints:
+            data_endpoints = list(t.get_stats().endpoints)
+            config.data_endpoints = data_endpoints
         log.info("Starting import of %d files", num_files)
-        t.import_files(files)
+        t.import_files(files, config=config)
         arrow_table = t.select(columns=['num']).read_all()
         assert arrow_table.num_rows == num_rows * num_files
         arrow_table = t.select(columns=['num'], predicate=t['num'] == 100).read_all()
@@ -66,7 +92,7 @@ def test_parallel_imports(session: Session, clean_bucket_name: str, s3):
         objects_name = objects_name.to_pydict()
         object_names = set(objects_name['ObjectName'])
         prefix = 'prq'
-        numbers = set(range(53))
+        numbers = set(range(num_files))
         assert all(name.startswith(prefix) for name in object_names)
         numbers.issubset(int(name.replace(prefix, '')) for name in object_names)
         assert len(object_names) == len(objects_name['ObjectName'])
@@ -111,6 +137,40 @@ def test_create_table_from_files(session, clean_bucket_name, s3):
 
         util.create_table_from_files(s, 't2', different_schema_files, schema_merge_func=util.union_schema_merge)
         util.create_table_from_files(s, 't3', same_schema_files, schema_merge_func=util.strict_schema_merge)
+
+
+def test_import_partitioned_files(session, clean_bucket_name, s3):
+    datasets = [
+        {'num': [123],
+         'varch': ['abc']},
+        {'num': [456, 789],
+         'varch': ['def', 'ghi']},
+    ]
+    for i, ds in enumerate(datasets):
+        table = pa.Table.from_pydict(ds)
+        with NamedTemporaryFile() as f:
+            pq.write_table(table, f.name)
+            s3.put_object(Bucket=clean_bucket_name, Key=f'prq{i}', Body=f)
+
+    with session.transaction() as tx:
+        b = tx.bucket(clean_bucket_name)
+        s = b.create_schema('s1')
+        part_schema = pa.schema([('part', pa.string())])
+        t = s.create_table('t1', pa.schema([('num', pa.int64()), ('varch', pa.string()), *part_schema]))
+        files_and_partitions = {
+            f'/{clean_bucket_name}/prq0': pa.RecordBatch.from_arrays([pa.array(["Part1"])], schema=part_schema),
+            f'/{clean_bucket_name}/prq1': pa.RecordBatch.from_arrays([pa.array(["Part2"])], schema=part_schema)
+        }
+        t.import_partitioned_files(files_and_partitions)
+
+    with session.transaction() as tx:
+        t = tx.bucket(clean_bucket_name).schema('s1').table('t1')
+        res = t.select(columns=['num']).read_all()
+        assert res.num_rows == 3, f"Expected 3 rows, got {res.num_rows} rows"
+        res = t.select(columns=['num'], predicate=t['part'] == 'Part1').read_all()
+        assert res.num_rows == 1, f"Expected to get 1 row with part == 'Part1', got {res.num_rows} rows"
+        res = t.select(columns=['num'], predicate=t['part'] == 'Part2').read_all()
+        assert res.num_rows == 2, f"Expected to get 2 rows with part == 'Part2', got {res.num_rows} rows"
 
 
 def test_import_name_mismatch_error(session, clean_bucket_name, s3):

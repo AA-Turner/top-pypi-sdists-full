@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: immutabledict
-Version: 4.3.0
+Version: 4.3.1
 Summary: Immutable wrapper around dictionaries (a fork of frozendict)
 License-Expression: MIT
 License-File: LICENSE

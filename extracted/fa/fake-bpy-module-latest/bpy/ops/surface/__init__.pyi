@@ -2,6 +2,7 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
 import mathutils
 
 def primitive_nurbs_surface_circle_add(
@@ -23,12 +24,12 @@ def primitive_nurbs_surface_circle_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Circle
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -38,9 +39,10 @@ def primitive_nurbs_surface_circle_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_nurbs_surface_curve_add(
@@ -62,12 +64,12 @@ def primitive_nurbs_surface_curve_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Curve
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -77,9 +79,10 @@ def primitive_nurbs_surface_curve_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_nurbs_surface_cylinder_add(
@@ -101,12 +104,12 @@ def primitive_nurbs_surface_cylinder_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Cylinder
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -116,9 +119,10 @@ def primitive_nurbs_surface_cylinder_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_nurbs_surface_sphere_add(
@@ -140,12 +144,12 @@ def primitive_nurbs_surface_sphere_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Sphere
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -155,9 +159,10 @@ def primitive_nurbs_surface_sphere_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_nurbs_surface_surface_add(
@@ -179,12 +184,12 @@ def primitive_nurbs_surface_surface_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Patch
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -194,9 +199,10 @@ def primitive_nurbs_surface_surface_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """
 
 def primitive_nurbs_surface_torus_add(
@@ -218,12 +224,12 @@ def primitive_nurbs_surface_torus_add(
         0.0,
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Construct a Nurbs surface Torus
 
-        :param radius: Radius
-        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object
-        :param align: Align, The alignment of the new object
+        :param radius: Radius, (in [0, inf], optional)
+        :param enter_editmode: Enter Edit Mode, Enter edit mode when adding this object (optional)
+        :param align: Align, The alignment of the new object (optional)
 
     WORLD
     World -- Align the new object to the world.
@@ -233,7 +239,8 @@ def primitive_nurbs_surface_torus_add(
 
     CURSOR
     3D Cursor -- Use the 3D cursor orientation for the new object.
-        :param location: Location, Location for the newly added object
-        :param rotation: Rotation, Rotation for the newly added object
-        :param scale: Scale, Scale for the newly added object
+        :param location: Location, Location for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param rotation: Rotation, Rotation for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :param scale: Scale, Scale for the newly added object (array of 3 items, in [-inf, inf], optional)
+        :return: Result of the operator call.
     """

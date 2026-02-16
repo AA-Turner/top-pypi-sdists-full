@@ -50,11 +50,11 @@ class GetWebsocketTriggerResponse200:
         server_id (Union[Unset, str]): ID of the server currently handling this trigger (internal)
         last_server_ping (Union[Unset, datetime.datetime]): Timestamp of last server heartbeat (internal)
         error (Union[Unset, str]): Last error message if the trigger failed
-        initial_messages (Union[Unset, List[Union['GetWebsocketTriggerResponse200InitialMessagesItemType0',
+        initial_messages (Union[Unset, None, List[Union['GetWebsocketTriggerResponse200InitialMessagesItemType0',
             'GetWebsocketTriggerResponse200InitialMessagesItemType1']]]): Messages to send immediately after connecting (can
             be raw strings or computed by runnables)
-        url_runnable_args (Union[Unset, GetWebsocketTriggerResponse200UrlRunnableArgs]): The arguments to pass to the
-            script or flow
+        url_runnable_args (Union[Unset, None, GetWebsocketTriggerResponse200UrlRunnableArgs]): The arguments to pass to
+            the script or flow
         error_handler_path (Union[Unset, str]): Path to a script or flow to run when the triggered job fails
         error_handler_args (Union[Unset, GetWebsocketTriggerResponse200ErrorHandlerArgs]): The arguments to pass to the
             script or flow
@@ -79,6 +79,7 @@ class GetWebsocketTriggerResponse200:
     error: Union[Unset, str] = UNSET
     initial_messages: Union[
         Unset,
+        None,
         List[
             Union[
                 "GetWebsocketTriggerResponse200InitialMessagesItemType0",
@@ -86,7 +87,7 @@ class GetWebsocketTriggerResponse200:
             ]
         ],
     ] = UNSET
-    url_runnable_args: Union[Unset, "GetWebsocketTriggerResponse200UrlRunnableArgs"] = UNSET
+    url_runnable_args: Union[Unset, None, "GetWebsocketTriggerResponse200UrlRunnableArgs"] = UNSET
     error_handler_path: Union[Unset, str] = UNSET
     error_handler_args: Union[Unset, "GetWebsocketTriggerResponse200ErrorHandlerArgs"] = UNSET
     retry: Union[Unset, "GetWebsocketTriggerResponse200Retry"] = UNSET
@@ -124,23 +125,26 @@ class GetWebsocketTriggerResponse200:
             last_server_ping = self.last_server_ping.isoformat()
 
         error = self.error
-        initial_messages: Union[Unset, List[Dict[str, Any]]] = UNSET
+        initial_messages: Union[Unset, None, List[Dict[str, Any]]] = UNSET
         if not isinstance(self.initial_messages, Unset):
-            initial_messages = []
-            for initial_messages_item_data in self.initial_messages:
-                initial_messages_item: Dict[str, Any]
+            if self.initial_messages is None:
+                initial_messages = None
+            else:
+                initial_messages = []
+                for initial_messages_item_data in self.initial_messages:
+                    initial_messages_item: Dict[str, Any]
 
-                if isinstance(initial_messages_item_data, GetWebsocketTriggerResponse200InitialMessagesItemType0):
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    if isinstance(initial_messages_item_data, GetWebsocketTriggerResponse200InitialMessagesItemType0):
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                else:
-                    initial_messages_item = initial_messages_item_data.to_dict()
+                    else:
+                        initial_messages_item = initial_messages_item_data.to_dict()
 
-                initial_messages.append(initial_messages_item)
+                    initial_messages.append(initial_messages_item)
 
-        url_runnable_args: Union[Unset, Dict[str, Any]] = UNSET
+        url_runnable_args: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.url_runnable_args, Unset):
-            url_runnable_args = self.url_runnable_args.to_dict()
+            url_runnable_args = self.url_runnable_args.to_dict() if self.url_runnable_args else None
 
         error_handler_path = self.error_handler_path
         error_handler_args: Union[Unset, Dict[str, Any]] = UNSET
@@ -281,8 +285,10 @@ class GetWebsocketTriggerResponse200:
             initial_messages.append(initial_messages_item)
 
         _url_runnable_args = d.pop("url_runnable_args", UNSET)
-        url_runnable_args: Union[Unset, GetWebsocketTriggerResponse200UrlRunnableArgs]
-        if isinstance(_url_runnable_args, Unset):
+        url_runnable_args: Union[Unset, None, GetWebsocketTriggerResponse200UrlRunnableArgs]
+        if _url_runnable_args is None:
+            url_runnable_args = None
+        elif isinstance(_url_runnable_args, Unset):
             url_runnable_args = UNSET
         else:
             url_runnable_args = GetWebsocketTriggerResponse200UrlRunnableArgs.from_dict(_url_runnable_args)

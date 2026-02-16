@@ -56,11 +56,13 @@ async def file_extract(file, enable_reader: bool = True):
     :param file: url bytes path
     :return:
     """
-    # url
+    logger.debug(f"FileExtract: {file}")
+
     if isinstance(file, list):
         return await asyncio.gather(*map(file_extract, file))
 
     filename = Path(file).name if isinstance(file, str) else 'untitled'
+    filename = f"{str(datetime.datetime.today())[:19]} {filename}"
     mime_type = guess_mime_type(file)
 
     if enable_reader and str(file).startswith("http") and mime_type in {"application/octet-stream", "text/html"}:
@@ -87,7 +89,6 @@ async def file_extract(file, enable_reader: bool = True):
             logger.debug(file_object)
 
             response = await client.files.content(file_id=file_object.id)
-
             return response.json()
 
         except Exception as e:
@@ -135,10 +136,10 @@ if __name__ == '__main__':
 
     # openai.BadRequestError: Error code: 400 - {'error': {'message': 'text extract error: 没有解析出内容', 'type': 'invalid_request_error'}}
     # file = "https://oss.ffire.cc/files/kling_watermark.png"
-    file = "/Users/betterme/PycharmProjects/AI/xx.sh"
-
-    file = [file] * 10
-    file = []
+    # file = "/Users/betterme/PycharmProjects/AI/xx.sh"
+    #
+    # file = [file] * 10
+    # file = []
 
     # print(Path(file).read_text())
 
@@ -161,6 +162,7 @@ if __name__ == '__main__':
         # file = "https://s3.ffire.cc/files/pdf_to_markdown.jpg"
 
         file = "https://119.29.101.125:25388/down/D2coOP0jVkNx.xlsx"
+        file = "https://cos.imyaigc.com/files/2025-12-24/72c839ea54555018b8eaadb28a660c043_i3aGe.pdf"
 
         print(guess_mime_type(file))
 

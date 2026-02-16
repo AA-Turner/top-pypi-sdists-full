@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "code-puppy"
-version = "0.0.407"
+version = "0.0.410"
 description = "Code generation agent"
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -67,7 +67,6 @@ ignore_no_config = true
 
 [tool.hatch.build]
 packages = ["code_puppy"]
-build_data = true
 
 [tool.hatch.build.targets.wheel.shared-data]
 "code_puppy/models.json" = "code_puppy/models.json"

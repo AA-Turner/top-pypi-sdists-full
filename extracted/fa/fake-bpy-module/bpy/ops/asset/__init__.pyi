@@ -2,13 +2,27 @@ import typing
 import collections.abc
 import typing_extensions
 import numpy.typing as npt
+import bpy.stub_internal.rna_enums
+
+def assets_download(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Download the selected asset(s)
+
+    :return: Result of the operator call.
+    """
 
 def assign_action(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Set this pose Action as active Action on the active Object"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Set this pose Action as active Action on the active Object
+
+    :return: Result of the operator call.
+    """
 
 def bundle_install(
     execution_context: int | str | None = None,
@@ -16,7 +30,7 @@ def bundle_install(
     /,
     *,
     asset_library_reference: str | None = "",
-    filepath: str = "",
+    filepath: str | None = "",
     hide_props_region: bool | None = True,
     check_existing: bool | None = True,
     filter_blender: bool | None = True,
@@ -41,31 +55,31 @@ def bundle_install(
     ]
     | None = "DEFAULT",
     sort_method: str | None = "",
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy the current .blend file into an Asset Library. Only works on standalone .blend files (i.e. when no other files are referenced)
 
-        :param asset_library_reference: asset_library_reference
-        :param filepath: File Path, Path to file
-        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings
-        :param check_existing: Check Existing, Check and warn on overwriting existing files
-        :param filter_blender: Filter .blend files
-        :param filter_backup: Filter .blend files
-        :param filter_image: Filter image files
-        :param filter_movie: Filter movie files
-        :param filter_python: Filter Python files
-        :param filter_font: Filter font files
-        :param filter_sound: Filter sound files
-        :param filter_text: Filter text files
-        :param filter_archive: Filter archive files
-        :param filter_btx: Filter btx files
-        :param filter_alembic: Filter Alembic files
-        :param filter_usd: Filter USD files
-        :param filter_obj: Filter OBJ files
-        :param filter_volume: Filter OpenVDB volume files
-        :param filter_folder: Filter folders
-        :param filter_blenlib: Filter Blender IDs
-        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file
-        :param display_type: Display Type
+        :param asset_library_reference: asset_library_reference, (optional)
+        :param filepath: File Path, Path to file (optional, never None)
+        :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
+        :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
+        :param filter_blender: Filter .blend files, (optional)
+        :param filter_backup: Filter .blend files, (optional)
+        :param filter_image: Filter image files, (optional)
+        :param filter_movie: Filter movie files, (optional)
+        :param filter_python: Filter Python files, (optional)
+        :param filter_font: Filter font files, (optional)
+        :param filter_sound: Filter sound files, (optional)
+        :param filter_text: Filter text files, (optional)
+        :param filter_archive: Filter archive files, (optional)
+        :param filter_btx: Filter btx files, (optional)
+        :param filter_alembic: Filter Alembic files, (optional)
+        :param filter_usd: Filter USD files, (optional)
+        :param filter_obj: Filter OBJ files, (optional)
+        :param filter_volume: Filter OpenVDB volume files, (optional)
+        :param filter_folder: Filter folders, (optional)
+        :param filter_blenlib: Filter Blender IDs, (optional)
+        :param filemode: File Browser Mode, The setting for the file browser mode to load a .blend file, a library or a special file (in [1, 9], optional)
+        :param display_type: Display Type, (optional)
 
     DEFAULT
     Default -- Automatically determine display type for files.
@@ -78,7 +92,8 @@ def bundle_install(
 
     THUMBNAIL
     Thumbnails -- Display files as thumbnails.
-        :param sort_method: File sorting mode
+        :param sort_method: File sorting mode, (optional)
+        :return: Result of the operator call.
     """
 
 def catalog_delete(
@@ -86,11 +101,12 @@ def catalog_delete(
     undo: bool | None = None,
     /,
     *,
-    catalog_id: str = "",
-) -> None:
+    catalog_id: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Remove an asset catalog from the asset library (contained assets will not be affected and show up as unassigned)
 
-    :param catalog_id: Catalog ID, ID of the catalog to delete
+    :param catalog_id: Catalog ID, ID of the catalog to delete (optional, never None)
+    :return: Result of the operator call.
     """
 
 def catalog_new(
@@ -98,40 +114,53 @@ def catalog_new(
     undo: bool | None = None,
     /,
     *,
-    parent_path: str = "",
-) -> None:
+    parent_path: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Create a new catalog to put assets in
 
-    :param parent_path: Parent Path, Optional path defining the location to put the new catalog under
+    :param parent_path: Parent Path, Optional path defining the location to put the new catalog under (optional, never None)
+    :return: Result of the operator call.
     """
 
 def catalog_redo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Redo the last undone edit to the asset catalogs"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Redo the last undone edit to the asset catalogs
+
+    :return: Result of the operator call.
+    """
 
 def catalog_undo(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Undo the last edit to the asset catalogs"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Undo the last edit to the asset catalogs
+
+    :return: Result of the operator call.
+    """
 
 def catalog_undo_push(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Store the current state of the asset catalogs in the undo buffer"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Store the current state of the asset catalogs in the undo buffer
+
+    :return: Result of the operator call.
+    """
 
 def catalogs_save(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Make any edits to any catalogs permanent by writing the current set up to the asset library"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Make any edits to any catalogs permanent by writing the current set up to the asset library
+
+    :return: Result of the operator call.
+    """
 
 def clear(
     execution_context: int | str | None = None,
@@ -139,10 +168,11 @@ def clear(
     /,
     *,
     set_fake_user: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all asset metadata and turn the selected asset data-blocks back into normal data-blocks
 
-    :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset
+    :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset (optional)
+    :return: Result of the operator call.
     """
 
 def clear_single(
@@ -151,66 +181,86 @@ def clear_single(
     /,
     *,
     set_fake_user: bool | None = False,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Delete all asset metadata and turn the asset data-block back into a normal data-block
 
-    :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset
+    :param set_fake_user: Set Fake User, Ensure the data-block is saved, even when it is no longer marked as asset (optional)
+    :return: Result of the operator call.
     """
 
 def library_refresh(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Reread assets and asset catalogs from the asset library on disk"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Reread assets and asset catalogs from the asset library on disk
+
+    :return: Result of the operator call.
+    """
 
 def mark(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Enable easier reuse of selected data-blocks through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Enable easier reuse of selected data-blocks through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
+
+    :return: Result of the operator call.
+    """
 
 def mark_single(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Enable easier reuse of a data-block through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Enable easier reuse of a data-block through the Asset Browser, with the help of customizable metadata (like previews, descriptions and tags)
+
+    :return: Result of the operator call.
+    """
 
 def open_containing_blend_file(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Open the blend file that contains the active asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Open the blend file that contains the active asset
+
+    :return: Result of the operator call.
+    """
 
 def screenshot_preview(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
     *,
-    p1: collections.abc.Iterable[int] | None = (0, 0),
-    p2: collections.abc.Iterable[int] | None = (0, 0),
+    p1: collections.abc.Sequence[int] | None = (0, 0),
+    p2: collections.abc.Sequence[int] | None = (0, 0),
     force_square: bool | None = True,
-) -> None:
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Capture a screenshot to use as a preview for the selected asset
 
-    :param p1: Point 1, First point of the screenshot in screenspace
-    :param p2: Point 2, Second point of the screenshot in screenspace
-    :param force_square: Force Square, If enabled, the screenshot will have the same height as width
+    :param p1: Point 1, First point of the screenshot in screenspace (array of 2 items, in [0, inf], optional)
+    :param p2: Point 2, Second point of the screenshot in screenspace (array of 2 items, in [0, inf], optional)
+    :param force_square: Force Square, If enabled, the screenshot will have the same height as width (optional)
+    :return: Result of the operator call.
     """
 
 def tag_add(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Add a new keyword tag to the active asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Add a new keyword tag to the active asset
+
+    :return: Result of the operator call.
+    """
 
 def tag_remove(
     execution_context: int | str | None = None,
     undo: bool | None = None,
     /,
-) -> None:
-    """Remove an existing keyword tag from the active asset"""
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Remove an existing keyword tag from the active asset
+
+    :return: Result of the operator call.
+    """

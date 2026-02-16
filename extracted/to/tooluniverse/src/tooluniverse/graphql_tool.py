@@ -52,7 +52,6 @@ def execute_query(endpoint_url, query, variables=None):
     )
     try:
         result = response.json()
-        # result = json.dumps(result, ensure_ascii=False)
         result = remove_none_and_empty_values(result)
         # Check if the response contains errors
         if "errors" in result:

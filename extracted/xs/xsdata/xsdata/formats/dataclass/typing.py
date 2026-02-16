@@ -3,7 +3,6 @@ from collections.abc import Callable, Iterable, Mapping, Sequence
 from types import UnionType
 from typing import Any, NamedTuple, TypeVar, Union, get_args, get_origin
 
-foo: Sequence = []
 if (3, 9) <= sys.version_info[:2] <= (3, 10):
     # Backport this fix for python 3.9 and 3.10
     # https://github.com/python/cpython/pull/30900
@@ -58,6 +57,7 @@ class Result(NamedTuple):
     types: tuple[type[Any], ...]
     factory: Callable | None = None
     tokens_factory: Callable | None = None
+    optional: bool = False
 
 
 def analyze_token_args(origin: Any, args: tuple[Any, ...]) -> tuple[Any]:
@@ -124,11 +124,16 @@ def evaluate_text(annotation: Any, tokens: bool = False) -> Result:
 
 
 def evaluate_attribute(annotation: Any, tokens: bool = False) -> Result:
-    """Validate annotations for a xml attribute."""
+    """Validate annotations for an XML attribute."""
     types = (annotation,)
     origin = get_origin(annotation)
     args = get_args(annotation)
     tokens_factory = None
+
+    if origin in UNION_TYPES:
+        optional = NONE_TYPE in args
+    else:
+        optional = False
 
     if tokens:
         origin, args, types = analyze_optional_origin(origin, args, types)
@@ -155,11 +160,11 @@ def evaluate_attribute(annotation: Any, tokens: bool = False) -> Result:
     if any(get_origin(tp) for tp in types):
         raise TypeError
 
-    return Result(types=types, tokens_factory=tokens_factory)
+    return Result(types=types, tokens_factory=tokens_factory, optional=optional)
 
 
 def evaluate_attributes(annotation: Any, **_: Any) -> Result:
-    """Validate annotations for xml wildcard attributes."""
+    """Validate annotations for XML wildcard attributes."""
     if annotation is dict:
         args = ()
     else:
@@ -172,11 +177,12 @@ def evaluate_attributes(annotation: Any, **_: Any) -> Result:
     if args and not all(arg is str for arg in args):
         raise TypeError
 
-    return Result(types=(str,), factory=dict)
+    # Attributes always have optional=False (nothing else is supported)
+    return Result(types=(str,), factory=dict, optional=False)
 
 
 def evaluate_element(annotation: Any, tokens: bool = False) -> Result:
-    """Validate annotations for a xml element."""
+    """Validate annotations for an XML element."""
     # Only the derived element value field is allowed a typevar
     if isinstance(annotation, TypeVar) and annotation.__bound__ is object:
         annotation = object
@@ -185,6 +191,12 @@ def evaluate_element(annotation: Any, tokens: bool = False) -> Result:
     origin = get_origin(annotation)
     args = get_args(annotation)
     tokens_factory = factory = None
+
+    # Compute optional status from original annotation before any processing
+    if origin in UNION_TYPES:
+        optional = NONE_TYPE in args
+    else:
+        optional = False
 
     origin, args, types = analyze_optional_origin(origin, args, types)
 
@@ -222,30 +234,38 @@ def evaluate_element(annotation: Any, tokens: bool = False) -> Result:
     if tokens_factory in LIST_CONTAINERS:
         tokens_factory = list
 
-    return Result(types=types, factory=factory, tokens_factory=tokens_factory)
+    return Result(
+        types=types,
+        factory=factory,
+        tokens_factory=tokens_factory,
+        optional=optional,
+    )
 
 
 def evaluate_elements(annotation: Any, **_: Any) -> Result:
-    """Validate annotations for a xml compound field."""
-    (
-        types,
-        factory,
-        __,
-    ) = evaluate_element(annotation, tokens=False)
+    """Validate annotations for an XML compound field."""
+    result = evaluate_element(annotation, tokens=False)
 
-    for tp in types:
+    for tp in result.types:
         evaluate_element(tp, tokens=False)
 
-    return Result(types=(object,), factory=factory)
+    return Result(types=(object,), factory=result.factory, optional=result.optional)
 
 
 def evaluate_wildcard(annotation: Any, **_: Any) -> Result:
-    """Validate annotations for a xml wildcard."""
+    """Validate annotations for an XML wildcard."""
     origin = get_origin(annotation)
     factory = None
 
+    # Compute optional status from original annotation
     if origin in UNION_TYPES:
-        types = filter_none_type(get_args(annotation))
+        args = get_args(annotation)
+        optional = NONE_TYPE in args
+    else:
+        optional = False
+
+    if origin in UNION_TYPES:
+        types = filter_none_type(args)
     elif origin in ITERABLE_TYPES:
         factory = list if origin in LIST_CONTAINERS else origin
         types = filter_ellipsis(get_args(annotation))
@@ -257,4 +277,4 @@ def evaluate_wildcard(annotation: Any, **_: Any) -> Result:
     if len(types) != 1 or object not in types:
         raise TypeError
 
-    return Result(types=types, factory=factory)
+    return Result(types=types, factory=factory, optional=optional)
