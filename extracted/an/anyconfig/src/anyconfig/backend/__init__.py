@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011 - 2021 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2011 - 2024 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # Suppress import positions after some global variables are defined
@@ -16,10 +16,10 @@ from . import (
     sh,
     toml,
     yaml,
-    xml
+    xml,
 )
 from .base import (
-    ParserT, ParsersT, ParserClssT
+    ParserT, ParsersT, ParserClssT,
 )
 
 
@@ -29,28 +29,28 @@ PARSERS: ParserClssT = [
 ]
 
 
-def warn(name: str, feature: str):
+def warn(name: str, feature: str) -> None:
     """Wraper for warnings.warn."""
     warnings.warn(
         f"'{name}' module is not available. Disabled {feature} support.",
-        category=ImportWarning, stacklevel=2
+        category=ImportWarning, stacklevel=2,
     )
 
 
 if yaml.PARSERS:
     PARSERS.extend(yaml.PARSERS)
 else:
-    warn('yaml', 'YAML')
+    warn("yaml", "YAML")
 
 if toml.PARSERS:
     PARSERS.extend(toml.PARSERS)
 else:
-    warn('toml', 'TOML')
+    warn("toml", "TOML")
 
 
 __all__ = [
-    'ParserT', 'ParsersT', 'ParserClssT',
-    'PARSERS',
+    "PARSERS",
+    "ParserClssT",
+    "ParserT",
+    "ParsersT",
 ]
-
-# vim:sw=4:ts=4:et:

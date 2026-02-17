@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pytest-mypy-plugins
-Version: 3.2.0
+Version: 3.3.0
 Summary: pytest plugin for writing tests for mypy plugins
 Home-page: https://github.com/TypedDjango/pytest-mypy-plugins
 Author: Maksim Kurnikov
@@ -8,16 +8,16 @@ Author-email: maxim.kurnikov@gmail.com
 Maintainer: Nikita Sobolev
 Maintainer-email: mail@sobolevn.me
 License: MIT
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: Jinja2
@@ -29,6 +29,19 @@ Requires-Dist: pytest>=7.0.0
 Requires-Dist: pyyaml
 Requires-Dist: regex
 Requires-Dist: tomlkit>=0.11
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 <img src="http://mypy-lang.org/static/mypy_light.svg" alt="mypy logo" width="300px"/>
 

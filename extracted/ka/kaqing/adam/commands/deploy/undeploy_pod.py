@@ -6,7 +6,7 @@ from adam.utils_k8s.config_maps import ConfigMaps
 from adam.utils_k8s.deployment import Deployments
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.service_accounts import ServiceAccounts
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class UndeployPod(Command):
     COMMAND = 'undeploy pod'

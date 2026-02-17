@@ -20,8 +20,10 @@
 #  pragma system_header
 #endif // no system header
 
+#include <cuda/__memory/address_space.h>
 #include <cuda/std/__atomic/types/common.h>
 #include <cuda/std/cstdint>
+#include <cuda/std/cstring>
 
 // This file works around a bug in CUDA in which the compiler miscompiles
 // atomics to automatic storage (local memory). This bug is not fixed on any
@@ -30,28 +32,23 @@
 // CUDA compilers < 12.3 also miscompile __isLocal, such that the library cannot
 // detect automatic storage and error. Therefore, in CUDA < 12.3 compilers this
 // uses inline PTX to bypass __isLocal.
+
+#include <cuda/std/__cccl/prologue.h>
+
 _LIBCUDACXX_BEGIN_NAMESPACE_STD
 
-#if _CCCL_HAS_CUDA_COMPILER
+#if _CCCL_CUDA_COMPILATION()
 
 _CCCL_DEVICE inline bool __cuda_is_local(const volatile void* __ptr)
 {
-#  if defined(_LIBCUDACXX_ATOMIC_UNSAFE_AUTOMATIC_STORAGE)
+#  if defined(_LIBCUDACXX_ATOMIC_UNSAFE_AUTOMATIC_STORAGE) && !defined(_LIBCUDACXX_FORCE_PTX_AUTOMATIC_STORAGE_PATH)
   return false;
-// Only NVCC+NVRTC define __isLocal, so drop to PTX
-#  elif _CCCL_CUDACC_BELOW(12, 3) || _CCCL_CUDA_COMPILER(NVHPC)
-  int __tmp = 0;
-  asm("{\n\t"
-      "  .reg .pred p;\n\t"
-      "  isspacep.local p, %1;\n\t"
-      "  @p mov.s32 %0, 1;\n\t"
-      "}\n\t"
-      : "=r"(__tmp)
-      : "l"(const_cast<const void*>(__ptr)));
-  return __tmp == 1;
-#  else // ^^^ _CCCL_CUDACC_BELOW(12, 3) || _CCCL_CUDA_COMPILER(NVHPC) ^^^ / vvv other compiler vvv
-  return __isLocal(const_cast<const void*>(__ptr));
-#  endif // _CCCL_CUDACC_AT_LEAST(12, 3) && !_CCCL_CUDA_COMPILER(NVHPC)
+#  else // ^^^ _LIBCUDACXX_ATOMIC_UNSAFE_AUTOMATIC_STORAGE && !defined(_LIBCUDACXX_FORCE_PTX_AUTOMATIC_STORAGE_PATH) ^^^
+        // / vvv !_LIBCUDACXX_ATOMIC_UNSAFE_AUTOMATIC_STORAGE || defined(_LIBCUDACXX_FORCE_PTX_AUTOMATIC_STORAGE_PATH)
+        // vvv
+  return _CUDA_DEVICE::is_address_from(__ptr, _CUDA_DEVICE::address_space::local);
+#  endif // ^^^ !_LIBCUDACXX_ATOMIC_UNSAFE_AUTOMATIC_STORAGE || defined(_LIBCUDACXX_FORCE_PTX_AUTOMATIC_STORAGE_PATH)
+         // ^^^
 }
 
 template <class _Type>
@@ -96,7 +93,7 @@ _CCCL_DEVICE inline bool __cuda_load_weak_if_local(const volatile void* __ptr, v
   {
     return false;
   }
-  memcpy(__ret, const_cast<const void*>(__ptr), __size);
+  _CUDA_VSTD::memcpy(__ret, const_cast<const void*>(__ptr), __size);
   // Required to workaround a compiler bug, see nvbug/4064730
   NV_IF_TARGET(NV_PROVIDES_SM_70, (__nanosleep(0);))
   return true;
@@ -108,7 +105,7 @@ _CCCL_DEVICE inline bool __cuda_store_weak_if_local(volatile void* __ptr, const 
   {
     return false;
   }
-  memcpy(const_cast<void*>(__ptr), __val, __size);
+  _CUDA_VSTD::memcpy(const_cast<void*>(__ptr), __val, __size);
   return true;
 }
 
@@ -122,12 +119,12 @@ __cuda_compare_exchange_weak_if_local(volatile _Type* __ptr, _Type* __expected, 
   }
   if (__atomic_memcmp(const_cast<const _Type*>(__ptr), const_cast<const _Type*>(__expected), sizeof(_Type)) == 0)
   {
-    memcpy(const_cast<_Type*>(__ptr), const_cast<_Type const*>(__desired), sizeof(_Type));
+    _CUDA_VSTD::memcpy(const_cast<_Type*>(__ptr), const_cast<_Type const*>(__desired), sizeof(_Type));
     *__success = true;
   }
   else
   {
-    memcpy(const_cast<_Type*>(__expected), const_cast<_Type const*>(__ptr), sizeof(_Type));
+    _CUDA_VSTD::memcpy(const_cast<_Type*>(__expected), const_cast<_Type const*>(__ptr), sizeof(_Type));
     *__success = false;
   }
   NV_IF_TARGET(NV_PROVIDES_SM_70, (__nanosleep(0);))
@@ -141,8 +138,8 @@ _CCCL_DEVICE bool __cuda_exchange_weak_if_local(volatile _Type* __ptr, _Type* __
   {
     return false;
   }
-  memcpy(const_cast<_Type*>(__ret), const_cast<const _Type*>(__ptr), sizeof(_Type));
-  memcpy(const_cast<_Type*>(__ptr), const_cast<const _Type*>(__val), sizeof(_Type));
+  _CUDA_VSTD::memcpy(const_cast<_Type*>(__ret), const_cast<const _Type*>(__ptr), sizeof(_Type));
+  _CUDA_VSTD::memcpy(const_cast<_Type*>(__ptr), const_cast<const _Type*>(__val), sizeof(_Type));
   NV_IF_TARGET(NV_PROVIDES_SM_70, (__nanosleep(0);))
   return true;
 }
@@ -154,7 +151,7 @@ _CCCL_DEVICE bool __cuda_fetch_weak_if_local(volatile _Type* __ptr, _Type __val,
   {
     return false;
   }
-  memcpy(const_cast<_Type*>(__ret), const_cast<const _Type*>(__ptr), sizeof(_Type));
+  _CUDA_VSTD::memcpy(const_cast<_Type*>(__ret), const_cast<const _Type*>(__ptr), sizeof(_Type));
   __bop(*__ptr, __val);
   NV_IF_TARGET(NV_PROVIDES_SM_70, (__nanosleep(0);))
   return true;
@@ -202,8 +199,10 @@ _CCCL_DEVICE bool __cuda_fetch_min_weak_if_local(volatile _Type* __ptr, _Type __
   return __cuda_fetch_weak_if_local(__ptr, __val, __ret, __cuda_fetch_local_bop_min<_Type>);
 }
 
-#endif // _CCCL_HAS_CUDA_COMPILER
+#endif // _CCCL_CUDA_COMPILATION()
 
 _LIBCUDACXX_END_NAMESPACE_STD
+
+#include <cuda/std/__cccl/epilogue.h>
 
 #endif // __LIBCUDACXX___ATOMIC_FUNCTIONS_CUDA_LOCAL_H

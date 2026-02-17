@@ -26,7 +26,6 @@ class Tasks(object):
 
     async def create(self, request: SoraVideoRequest):
         task_id = f"delay::{shortuuid.random()}"
-
         return Video(id=task_id)
 
     async def get(self, task_id: str):

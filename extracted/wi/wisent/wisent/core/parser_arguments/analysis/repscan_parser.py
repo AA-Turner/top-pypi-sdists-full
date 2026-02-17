@@ -23,12 +23,6 @@ def setup_repscan_parser(parser):
         metavar="PATH",
         help="Load activations from local cache pickle file"
     )
-    data_source.add_argument(
-        "--from-json",
-        type=str,
-        metavar="PATH",
-        help="Load activations from get-activations JSON output file"
-    )
 
     # Model and task (required only for --from-database)
     parser.add_argument(
@@ -64,7 +58,7 @@ def setup_repscan_parser(parser):
         "--extraction-strategy",
         type=str,
         default="last_token",
-        choices=["last_token", "first_token"],
+        choices=["last_token", "first_token", "chat_last"],
         help="Token extraction strategy (default: last_token)"
     )
     parser.add_argument(
@@ -85,14 +79,15 @@ def setup_repscan_parser(parser):
         "--steps",
         type=str,
         default="all",
-        help="Protocol steps to run: 'all', 'signal', 'geometry', 'decomposition', 'intervention', 'editability', or comma-separated (e.g., 'signal,editability')"
+        help="Protocol steps to run: 'all', 'signal', 'geometry', 'decomposition', 'intervention', or comma-separated (e.g., 'signal,geometry')"
     )
 
     # Analysis options
     parser.add_argument(
-        "--visualizations",
+        "--no-visualizations",
         action="store_true",
-        help="Generate visualization figures"
+        default=False,
+        help="Disable visualization generation (visualizations are on by default)"
     )
     parser.add_argument(
         "--llm-model",

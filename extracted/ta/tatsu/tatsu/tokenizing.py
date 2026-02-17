@@ -1,7 +1,29 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
 from itertools import starmap
 from typing import Any, NamedTuple, Protocol, runtime_checkable
+
+
+class LineIndexInfo(NamedTuple):
+    filename: str
+    line: int
+
+    @staticmethod
+    def block_index(name, n) -> list[LineIndexInfo]:
+        return list(
+            starmap(LineIndexInfo, zip(n * [name], range(n), strict=False)),
+        )
+
+
+class LineInfo(NamedTuple):
+    filename: str
+    line: int
+    col: int
+    start: int
+    end: int
+    text: str
 
 
 @runtime_checkable
@@ -23,6 +45,10 @@ class Tokenizer(Protocol):
 
     @property
     def pos(self) -> int:
+        ...
+
+    @property
+    def line(self) -> int:
         ...
 
     def goto(self, pos) -> None:
@@ -57,7 +83,7 @@ class Tokenizer(Protocol):
     def posline(self, pos: int | None = None) -> int:
         ...
 
-    def line_info(self, pos: int | None = None) -> LineInfo:
+    def lineinfo(self, pos: int | None = None) -> LineInfo:
         ...
 
     def get_line(self, n: int | None = None) -> str:
@@ -96,6 +122,10 @@ class NullTokenizer(Tokenizer):
     def pos(self) -> int:
         return 0
 
+    @property
+    def line(self) -> int:
+        return 0
+
     def goto(self, pos) -> None:
         return
 
@@ -128,7 +158,7 @@ class NullTokenizer(Tokenizer):
     def posline(self, pos: int | None = None) -> int:
         return 0
 
-    def line_info(self, pos: int | None = None) -> LineInfo:
+    def lineinfo(self, pos: int | None = None) -> LineInfo:
         return LineInfo('', 0, 0, 0, 0, '')
 
     def get_line(self, n: int | None = None) -> str:
@@ -145,54 +175,3 @@ class NullTokenizer(Tokenizer):
 
     def lookahead_pos(self) -> str:
         return ''
-
-
-class LineIndexInfo(NamedTuple):
-    filename: str
-    line: int
-
-    @staticmethod
-    def block_index(name, n):
-        return list(
-            starmap(LineIndexInfo, zip(n * [name], range(n), strict=False)),
-        )
-
-
-class LineInfo(NamedTuple):
-    filename: str
-    line: int
-    col: int
-    start: int
-    end: int
-    text: str
-
-
-class PosLine(NamedTuple):
-    start: int
-    line: int
-    length: int
-
-    @staticmethod
-    def build_line_cache(lines):
-        cache = []
-        n = 0
-        i = 0
-        for n, line in enumerate(lines):
-            pl = PosLine(i, n, len(line))
-            for _ in line:
-                cache.append(pl)  # noqa: PERF401
-            i += len(line)
-        n += 1
-        if lines and lines[-1] and lines[-1][-1] in '\r\n':
-            n += 1
-        cache.append(PosLine(i, n, 0))
-        return cache, n
-
-
-class CommentInfo(NamedTuple):
-    inline: list
-    eol: list
-
-    @staticmethod
-    def new_comment():
-        return CommentInfo([], [])

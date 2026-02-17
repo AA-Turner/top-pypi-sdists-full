@@ -175,6 +175,20 @@ class Trade(System.Object):
         """The IDs of the orders related to this trade"""
         ...
 
+    @overload
+    def __init__(self) -> None:
+        """Creates a new instance of the Trade class"""
+        ...
+
+    @overload
+    def __init__(self, other: QuantConnect.Statistics.Trade) -> None:
+        """
+        Creates a new instance of the Trade class by copying another trade
+        
+        :param other: The trade to copy
+        """
+        ...
+
 
 class TradeStatistics(System.Object):
     """The TradeStatistics class represents a set of statistics calculated from a list of closed trades"""
@@ -924,6 +938,164 @@ class StatisticsResults(System.Object):
         ...
 
 
+class StatisticsBuilder(System.Object):
+    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
+
+    @staticmethod
+    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Yields pairs of date and percentage change for the period
+        
+        :param points: The values to calculate percentage change for
+        :param from_date: Starting date (inclusive)
+        :param to_date: Ending date (inclusive)
+        :returns: Pairs of date and percentage change.
+        """
+        ...
+
+    @staticmethod
+    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Generates the statistics and returns the results
+        
+        :param trades: The list of closed trades
+        :param profit_loss: Trade record of profits and losses
+        :param points_equity: The list of daily equity values
+        :param points_performance: The list of algorithm performance values
+        :param points_benchmark: The list of benchmark values
+        :param points_portfolio_turnover: The list of portfolio turnover daily samples
+        :param starting_capital: The algorithm starting capital
+        :param total_fees: The total fees
+        :param total_orders: The total number of transactions
+        :param estimated_strategy_capacity: The estimated capacity of this strategy
+        :param account_currency_symbol: The account currency symbol
+        :param transactions: The transaction manager to get number of winning and losing transactions
+        :param risk_free_interest_rate_model: The risk free interest rate model to use
+        :param trading_days_per_year: The number of trading days per year
+        :returns: Returns a StatisticsResults object.
+        """
+        ...
+
+    @staticmethod
+    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
+        """
+        Skips the first two entries from the given points and divides each entry by 100
+        
+        :param points: The values to divide by 100
+        :returns: Pairs of date and performance value divided by 100.
+        """
+        ...
+
+
+class PerformanceMetrics(System.Object):
+    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
+
+    ALPHA: str = "Alpha"
+    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
+
+    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
+    """Annualized standard deviation"""
+
+    ANNUAL_VARIANCE: str = "Annual Variance"
+    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
+
+    AVERAGE_LOSS: str = "Average Loss"
+    """The average rate of return for losing trades"""
+
+    AVERAGE_WIN: str = "Average Win"
+    """The average rate of return for winning trades"""
+
+    BETA: str = "Beta"
+    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
+
+    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
+    """Annual compounded returns statistic based on the final-starting capital and years."""
+
+    DRAWDOWN: str = "Drawdown"
+    """Drawdown maximum percentage."""
+
+    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
+    """Total capacity of the algorithm"""
+
+    EXPECTANCY: str = "Expectancy"
+    """The expected value of the rate of return"""
+
+    START_EQUITY: str = "Start Equity"
+    """Initial Equity Total Value"""
+
+    END_EQUITY: str = "End Equity"
+    """Final Equity Total Value"""
+
+    INFORMATION_RATIO: str = "Information Ratio"
+    """Information ratio - risk adjusted return"""
+
+    LOSS_RATE: str = "Loss Rate"
+    """The ratio of the number of losing trades to the total number of trades"""
+
+    NET_PROFIT: str = "Net Profit"
+    """Total net profit percentage"""
+
+    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
+    """
+    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
+    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
+    """
+
+    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
+    """The ratio of the average win rate to the average loss rate"""
+
+    SHARPE_RATIO: str = "Sharpe Ratio"
+    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
+
+    SORTINO_RATIO: str = "Sortino Ratio"
+    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
+
+    TOTAL_FEES: str = "Total Fees"
+    """Total amount of fees in the account currency"""
+
+    TOTAL_ORDERS: str = "Total Orders"
+    """Total amount of orders in the algorithm"""
+
+    TRACKING_ERROR: str = "Tracking Error"
+    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
+
+    TREYNOR_RATIO: str = "Treynor Ratio"
+    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
+
+    WIN_RATE: str = "Win Rate"
+    """The ratio of the number of winning trades to the total number of trades"""
+
+    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
+    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
+
+    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
+    """The average Portfolio Turnover"""
+
+    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
+    """The recovery time of the maximum drawdown."""
+
+
+class IStatisticsService(metaclass=abc.ABCMeta):
+    """This interface exposes methods for accessing algorithm statistics results at runtime."""
+
+    def set_summary_statistic(self, name: str, value: str) -> None:
+        """
+        Sets or updates a custom summary statistic
+        
+        :param name: The statistic name
+        :param value: The statistic value
+        """
+        ...
+
+    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
+        """
+        Calculates and gets the current statistics for the algorithm
+        
+        :returns: The current statistics.
+        """
+        ...
+
+
 class FillGroupingMethod(IntEnum):
     """The method used to group order fills into trades"""
 
@@ -1038,115 +1210,6 @@ class DrawdownMetrics(System.Object):
         
         :param drawdown: The maximum drawdown as a positive percentage.
         :param recovery_time: The maximum number of days it took to recover from a drawdown.
-        """
-        ...
-
-
-class PerformanceMetrics(System.Object):
-    """PerformanceMetrics contains the names of the various performance metrics used for evaluation purposes."""
-
-    ALPHA: str = "Alpha"
-    """Algorithm "Alpha" statistic - abnormal returns over the risk free rate and the relationshio (beta) with the benchmark returns."""
-
-    ANNUAL_STANDARD_DEVIATION: str = "Annual Standard Deviation"
-    """Annualized standard deviation"""
-
-    ANNUAL_VARIANCE: str = "Annual Variance"
-    """Annualized variance statistic calculation using the daily performance variance and trading days per year."""
-
-    AVERAGE_LOSS: str = "Average Loss"
-    """The average rate of return for losing trades"""
-
-    AVERAGE_WIN: str = "Average Win"
-    """The average rate of return for winning trades"""
-
-    BETA: str = "Beta"
-    """Algorithm "beta" statistic - the covariance between the algorithm and benchmark performance, divided by benchmark's variance"""
-
-    COMPOUNDING_ANNUAL_RETURN: str = "Compounding Annual Return"
-    """Annual compounded returns statistic based on the final-starting capital and years."""
-
-    DRAWDOWN: str = "Drawdown"
-    """Drawdown maximum percentage."""
-
-    ESTIMATED_STRATEGY_CAPACITY: str = "Estimated Strategy Capacity"
-    """Total capacity of the algorithm"""
-
-    EXPECTANCY: str = "Expectancy"
-    """The expected value of the rate of return"""
-
-    START_EQUITY: str = "Start Equity"
-    """Initial Equity Total Value"""
-
-    END_EQUITY: str = "End Equity"
-    """Final Equity Total Value"""
-
-    INFORMATION_RATIO: str = "Information Ratio"
-    """Information ratio - risk adjusted return"""
-
-    LOSS_RATE: str = "Loss Rate"
-    """The ratio of the number of losing trades to the total number of trades"""
-
-    NET_PROFIT: str = "Net Profit"
-    """Total net profit percentage"""
-
-    PROBABILISTIC_SHARPE_RATIO: str = "Probabilistic Sharpe Ratio"
-    """
-    Probabilistic Sharpe Ratio is a probability measure associated with the Sharpe ratio.
-    It informs us of the probability that the estimated Sharpe ratio is greater than a chosen benchmark
-    """
-
-    PROFIT_LOSS_RATIO: str = "Profit-Loss Ratio"
-    """The ratio of the average win rate to the average loss rate"""
-
-    SHARPE_RATIO: str = "Sharpe Ratio"
-    """Sharpe ratio with respect to risk free rate: measures excess of return per unit of risk."""
-
-    SORTINO_RATIO: str = "Sortino Ratio"
-    """Sortino ratio with respect to risk free rate: measures excess of return per unit of downside risk."""
-
-    TOTAL_FEES: str = "Total Fees"
-    """Total amount of fees in the account currency"""
-
-    TOTAL_ORDERS: str = "Total Orders"
-    """Total amount of orders in the algorithm"""
-
-    TRACKING_ERROR: str = "Tracking Error"
-    """Tracking error volatility (TEV) statistic - a measure of how closely a portfolio follows the index to which it is benchmarked"""
-
-    TREYNOR_RATIO: str = "Treynor Ratio"
-    """Treynor ratio statistic is a measurement of the returns earned in excess of that which could have been earned on an investment that has no diversifiable risk"""
-
-    WIN_RATE: str = "Win Rate"
-    """The ratio of the number of winning trades to the total number of trades"""
-
-    LOWEST_CAPACITY_ASSET: str = "Lowest Capacity Asset"
-    """Provide a reference to the lowest capacity symbol used in scaling down the capacity for debugging."""
-
-    PORTFOLIO_TURNOVER: str = "Portfolio Turnover"
-    """The average Portfolio Turnover"""
-
-    DRAWDOWN_RECOVERY: str = "Drawdown Recovery"
-    """The recovery time of the maximum drawdown."""
-
-
-class IStatisticsService(metaclass=abc.ABCMeta):
-    """This interface exposes methods for accessing algorithm statistics results at runtime."""
-
-    def set_summary_statistic(self, name: str, value: str) -> None:
-        """
-        Sets or updates a custom summary statistic
-        
-        :param name: The statistic name
-        :param value: The statistic value
-        """
-        ...
-
-    def statistics_results(self) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Calculates and gets the current statistics for the algorithm
-        
-        :returns: The current statistics.
         """
         ...
 
@@ -1316,55 +1379,6 @@ class Statistics(System.Object):
         :param benchmark_performance: Double collection of benchmark daily performance values
         :param trading_days_per_year: Number of trading days per year
         :returns: Value for tracking error.
-        """
-        ...
-
-
-class StatisticsBuilder(System.Object):
-    """The StatisticsBuilder class creates summary and rolling statistics from trades, equity and benchmark points"""
-
-    @staticmethod
-    def create_benchmark_differences(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]], from_date: typing.Union[datetime.datetime, datetime.date], to_date: typing.Union[datetime.datetime, datetime.date]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Yields pairs of date and percentage change for the period
-        
-        :param points: The values to calculate percentage change for
-        :param from_date: Starting date (inclusive)
-        :param to_date: Ending date (inclusive)
-        :returns: Pairs of date and percentage change.
-        """
-        ...
-
-    @staticmethod
-    def generate(trades: typing.List[QuantConnect.Statistics.Trade], profit_loss: System.Collections.Generic.SortedDictionary[datetime.datetime, float], points_equity: typing.List[QuantConnect.ISeriesPoint], points_performance: typing.List[QuantConnect.ISeriesPoint], points_benchmark: typing.List[QuantConnect.ISeriesPoint], points_portfolio_turnover: typing.List[QuantConnect.ISeriesPoint], starting_capital: float, total_fees: float, total_orders: int, estimated_strategy_capacity: QuantConnect.CapacityEstimate, account_currency_symbol: str, transactions: QuantConnect.Securities.SecurityTransactionManager, risk_free_interest_rate_model: QuantConnect.Data.IRiskFreeInterestRateModel, trading_days_per_year: int) -> QuantConnect.Statistics.StatisticsResults:
-        """
-        Generates the statistics and returns the results
-        
-        :param trades: The list of closed trades
-        :param profit_loss: Trade record of profits and losses
-        :param points_equity: The list of daily equity values
-        :param points_performance: The list of algorithm performance values
-        :param points_benchmark: The list of benchmark values
-        :param points_portfolio_turnover: The list of portfolio turnover daily samples
-        :param starting_capital: The algorithm starting capital
-        :param total_fees: The total fees
-        :param total_orders: The total number of transactions
-        :param estimated_strategy_capacity: The estimated capacity of this strategy
-        :param account_currency_symbol: The account currency symbol
-        :param transactions: The transaction manager to get number of winning and losing transactions
-        :param risk_free_interest_rate_model: The risk free interest rate model to use
-        :param trading_days_per_year: The number of trading days per year
-        :returns: Returns a StatisticsResults object.
-        """
-        ...
-
-    @staticmethod
-    def preprocess_performance_values(points: typing.List[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]) -> typing.Iterable[System.Collections.Generic.KeyValuePair[datetime.datetime, float]]:
-        """
-        Skips the first two entries from the given points and divides each entry by 100
-        
-        :param points: The values to divide by 100
-        :returns: Pairs of date and performance value divided by 100.
         """
         ...
 

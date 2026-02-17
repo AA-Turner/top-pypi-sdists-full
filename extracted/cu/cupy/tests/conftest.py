@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import collections
 import os
 import subprocess
@@ -5,6 +7,11 @@ import sys
 
 import pytest
 
+
+# enable NEP 50 weak promotion rules
+import numpy
+if numpy.lib.NumpyVersion(numpy.__version__) < "2.0.0":
+    numpy._set_promotion_state("weak")
 
 # Enable `testdir` fixture to test `cupy.testing`.
 # `pytest_plugins` cannot be locally configured. See also

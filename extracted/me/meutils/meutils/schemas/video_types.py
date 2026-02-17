@@ -299,8 +299,8 @@ if __name__ == '__main__':
         # model="doubao-seedance-1-0-pro-fast-251015_4k",
         model="doubao-seedance-1-0-pro-fast-251015_3840",
 
-        input_reference=["https://example.com/image.jpg"] * 10 + [""],
-
+        # input_reference=["https://example.com/image.jpg"] * 10 + [""],
+        # input_reference
         size="1x1",
         xx=11111111
     )

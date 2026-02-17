@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.devices.device_export import DeviceExport
 from adam.commands.export.export_databases import export_db
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class ShowExportDatabases(Command):
     COMMAND = 'show export databases'

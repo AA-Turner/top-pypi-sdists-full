@@ -3004,7 +3004,7 @@ class EC2Client(BaseClient):
         self, **kwargs: Unpack[CreateSecondaryNetworkRequestTypeDef]
     ) -> CreateSecondaryNetworkResultTypeDef:
         """
-        Creates an Amazon secondary network.
+        Creates a secondary network.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_secondary_network.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/client/#create_secondary_network)

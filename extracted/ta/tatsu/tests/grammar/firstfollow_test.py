@@ -1,3 +1,7 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import unittest
 
 from tatsu import grammars
@@ -31,7 +35,7 @@ class FirstFollowTests(unittest.TestCase):
 
             number
                 =
-                ?/[0-9]+/?
+                /[0-9]+/
                 ;
         """
         model = compile(grammar, 'test')
@@ -58,9 +62,10 @@ class FirstFollowTests(unittest.TestCase):
             start = x $ ;
             x = expr ;
             expr = x '-' num | num;
-            num = ?/[0-9]+/? ;
+            num = /[0-9]+/ ;
         """
         model = compile(grammar, 'test')
+        start = model.rulemap['start']
         x = model.rulemap['x']
         expr = model.rulemap['expr']
         num = model.rulemap['num']
@@ -78,6 +83,8 @@ class FirstFollowTests(unittest.TestCase):
 
         assert ref('x') in x.lookahead()
         assert ref('expr') in expr.lookahead()
+
+        assert ref('start') not in start.lookahead()
 
     def test_nullability(self):
         grammar = """

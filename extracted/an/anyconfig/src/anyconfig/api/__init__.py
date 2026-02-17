@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=unused-import,import-error,invalid-name
@@ -83,14 +83,14 @@ r"""Public APIs of anyconfig module.
 
    - Export factory method (create) of anyconfig.mergeabledict.MergeableDict
 """
-import typing
+from __future__ import annotations
 
 from .datatypes import MaybeDataT
 from ._dump import (
-    dump, dumps
+    dump, dumps,
 )
 from ._load import (
-    single_load, multi_load, load, loads
+    single_load, multi_load, load, loads,
 )
 from ._open import open  # pylint: disable=redefined-builtin
 
@@ -99,7 +99,7 @@ from ..backend import ParserT
 from ..common import (
     InDataT, InDataExT,
     UnknownFileTypeError, UnknownParserTypeError,
-    UnknownProcessorTypeError, ValidationError
+    UnknownProcessorTypeError, ValidationError,
 )
 from ..dicts import (
     MS_REPLACE, MS_NO_REPLACE, MS_DICTS, MS_DICTS_AND_LISTS, MERGE_STRATEGIES,
@@ -110,57 +110,55 @@ from ..ioinfo import (
 )
 from ..parsers import (
     load_plugins, list_types, list_by_cid, list_by_type, list_by_extension,
-    findall, find, MaybeParserT
+    findall, find, MaybeParserT,
 )
 from ..query import try_query
 from ..schema import (
-    validate, is_valid, gen_schema
+    validate, is_valid, gen_schema,
 )
 
 
-__version__ = '0.14.0'
+__version__ = "0.15.1"
 
 
-def version() -> typing.List[str]:
+def version() -> list[str]:
     """Version info.
 
     :return: A list of version info, [major, minor, release[, e.g. [0, 8, 2]
     """
-    return __version__.split('.')
+    return __version__.split(".")
 
 
 __all__ = [
-    'MaybeDataT',
-    'dump', 'dumps',
-    'single_load', 'multi_load', 'load', 'loads',
-    'open', 'version',
+    "MaybeDataT",
+    "dump", "dumps",
+    "single_load", "multi_load", "load", "loads",
+    "open", "version",
 
     # anyconfig.backend
-    'ParserT',
+    "ParserT",
 
     # anyconfig.common
-    'InDataT', 'InDataExT',
-    'UnknownFileTypeError', 'UnknownParserTypeError',
-    'UnknownProcessorTypeError', 'ValidationError',
+    "InDataT", "InDataExT",
+    "UnknownFileTypeError", "UnknownParserTypeError",
+    "UnknownProcessorTypeError", "ValidationError",
 
     # anyconfig.dicsts
-    'MS_REPLACE', 'MS_NO_REPLACE', 'MS_DICTS', 'MS_DICTS_AND_LISTS',
-    'MERGE_STRATEGIES',
-    'merge', 'get', 'set_',
+    "MS_REPLACE", "MS_NO_REPLACE", "MS_DICTS", "MS_DICTS_AND_LISTS",
+    "MERGE_STRATEGIES",
+    "merge", "get", "set_",
 
     # anyconfig.ioinfo
-    'IOInfo', 'ioinfo_make', 'ioinfo_makes',
+    "IOInfo", "ioinfo_make", "ioinfo_makes",
 
     # anyconfig.parsers
-    'load_plugins', 'list_types', 'list_by_cid', 'list_by_type',
-    'list_by_extension', 'findall', 'find',
-    'MaybeParserT',
+    "load_plugins", "list_types", "list_by_cid", "list_by_type",
+    "list_by_extension", "findall", "find",
+    "MaybeParserT",
 
     # anyconfig.query
-    'try_query',
+    "try_query",
 
     # anyconfig.validate
-    'validate', 'is_valid', 'gen_schema'
+    "validate", "is_valid", "gen_schema",
 ]
-
-# vim:sw=4:ts=4:et:

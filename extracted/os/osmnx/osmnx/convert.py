@@ -7,7 +7,6 @@ import logging as lg
 from typing import Any
 from typing import Literal
 from typing import overload
-from warnings import warn
 
 import geopandas as gpd
 import networkx as nx
@@ -15,7 +14,63 @@ import pandas as pd
 from shapely import LineString
 from shapely import Point
 
+from . import _validate
 from . import utils
+
+
+def validate_graph(G: nx.MultiDiGraph, *, strict: bool = True) -> None:
+    """
+    Validate that a graph object satisfies OSMnx expectations.
+
+    Raises `ox._errors.GraphValidationError` if validation fails.
+
+    Parameters
+    ----------
+    G
+        The input graph.
+    strict
+        If `True`, enforce optional rules in addition to required rules. These
+        optional rules primarily enforce expected attribute data types.
+    """
+    _validate._validate_graph(G, strict=strict)
+
+
+def validate_node_edge_gdfs(
+    gdf_nodes: gpd.GeoDataFrame,
+    gdf_edges: gpd.GeoDataFrame,
+    *,
+    strict: bool = True,
+) -> None:
+    """
+    Validate that node/edge GeoDataFrames can be converted to a MultiDiGraph.
+
+    Raises a `ValidationError` if validation fails.
+
+    Parameters
+    ----------
+    gdf_nodes
+        GeoDataFrame of graph nodes uniquely indexed by `osmid`.
+    gdf_edges
+        GeoDataFrame of graph edges uniquely multi-indexed by `(u, v, key)`.
+    strict
+        If `True`, elevate warnings to errors.
+    """
+    _validate._validate_node_edge_gdfs(gdf_nodes, gdf_edges, strict=strict)
+
+
+def validate_features_gdf(gdf: gpd.GeoDataFrame) -> None:
+    """
+    Validate that features GeoDataFrame satisfies OSMnx expectations.
+
+    Raises a `ValidationError` if validation fails.
+
+    Parameters
+    ----------
+    gdf
+        GeoDataFrame of features uniquely multi-indexed by
+        `(element_type, osmid)`.
+    """
+    _validate._validate_features_gdf(gdf)
 
 
 # nodes and edges are both missing (therefore both default true)
@@ -150,7 +205,7 @@ def graph_to_gdfs(
             msg = "Graph contains no nodes."
             raise ValueError(msg)
 
-        uvk, data = zip(*G.nodes(data=True))
+        uvk, data = zip(*G.nodes(data=True), strict=True)
 
         if node_geometry:
             # convert node x/y attributes to Points for geometry column
@@ -168,7 +223,7 @@ def graph_to_gdfs(
             msg = "Graph contains no edges."
             raise ValueError(msg)
 
-        u, v, k, data = zip(*G.edges(keys=True, data=True))
+        u, v, k, data = zip(*G.edges(keys=True, data=True), strict=True)
 
         if fill_edge_geometry:
             node_coords = {n: (G.nodes[n]["x"], G.nodes[n]["y"]) for n in G}
@@ -208,60 +263,6 @@ def graph_to_gdfs(
     raise ValueError(msg)
 
 
-def _validate_node_edge_gdfs(
-    gdf_nodes: gpd.GeoDataFrame,
-    gdf_edges: gpd.GeoDataFrame,
-) -> None:
-    """
-    Validate that node/edge GeoDataFrames can be converted to a MultiDiGraph.
-
-    Raises a `ValueError` if validation fails.
-
-    Parameters
-    ----------
-    gdf_nodes
-        GeoDataFrame of graph nodes uniquely indexed by `osmid`.
-    gdf_edges
-        GeoDataFrame of graph edges uniquely multi-indexed by `(u, v, key)`.
-    """
-    # ensure gdf_nodes contains x and y columns representing node geometries
-    if not ("x" in gdf_nodes.columns and "y" in gdf_nodes.columns):  # pragma: no cover
-        msg = "`gdf_nodes` must contain 'x' and 'y' columns."
-        raise ValueError(msg)
-
-    # ensure gdf_nodes and gdf_edges are uniquely indexed
-    if not (gdf_nodes.index.is_unique and gdf_edges.index.is_unique):  # pragma: no cover
-        msg = "`gdf_nodes` and `gdf_edges` must each be uniquely indexed."
-        raise ValueError(msg)
-
-    # ensure 1) gdf_edges are multi-indexed with 3 levels and 2) that its u
-    # and v values (first two index levels) all appear among gdf_nodes index
-    edges_index_levels = 3
-    check1 = gdf_edges.index.nlevels == edges_index_levels
-    uv = set(gdf_edges.index.get_level_values(0)) | set(gdf_edges.index.get_level_values(1))
-    check2 = uv.issubset(set(gdf_nodes.index))
-    if not (check1 and check2):  # pragma: no cover
-        msg = "`gdf_edges` must be multi-indexed by `(u, v, key)`."
-        raise ValueError(msg)
-
-    # warn user if geometry values differ from coordinates in x/y columns,
-    # because we discard the geometry column
-    if gdf_nodes.active_geometry_name is not None:  # pragma: no cover
-        msg = (
-            "Discarding the `gdf_nodes` 'geometry' column, though its values "
-            "differ from the coordinates in the 'x' and 'y' columns."
-        )
-        try:
-            all_x_match = (gdf_nodes.geometry.x == gdf_nodes["x"]).all()
-            all_y_match = (gdf_nodes.geometry.y == gdf_nodes["y"]).all()
-            if not (all_x_match and all_y_match):
-                # warn if x/y coords don't match geometry column
-                warn(msg, category=UserWarning, stacklevel=2)
-        except ValueError:  # pragma: no cover
-            # warn if geometry column contains non-point geometry types
-            warn(msg, category=UserWarning, stacklevel=2)
-
-
 def graph_from_gdfs(
     gdf_nodes: gpd.GeoDataFrame,
     gdf_edges: gpd.GeoDataFrame,
@@ -299,7 +300,7 @@ def graph_from_gdfs(
     G
         The converted MultiDiGraph.
     """
-    _validate_node_edge_gdfs(gdf_nodes, gdf_edges)
+    validate_node_edge_gdfs(gdf_nodes, gdf_edges)
 
     # drop geometry column from gdf_nodes (since we use x and y for geometry
     # information), but warn the user if the geometry values differ from the
@@ -317,8 +318,8 @@ def graph_from_gdfs(
     # add edges and their attributes to graph, but filter out null attribute
     # values so that edges only get attributes with non-null values
     attr_names = gdf_edges.columns.to_list()
-    for (u, v, k), attr_vals in zip(gdf_edges.index, gdf_edges.to_numpy()):
-        data_all = zip(attr_names, attr_vals)
+    for (u, v, k), attr_vals in zip(gdf_edges.index, gdf_edges.to_numpy(), strict=True):
+        data_all = zip(attr_names, attr_vals, strict=True)
         data = {name: val for name, val in data_all if isinstance(val, list) or pd.notna(val)}
         G.add_edge(u, v, key=k, **data)
 
@@ -327,7 +328,7 @@ def graph_from_gdfs(
 
     # now all nodes are added, so set nodes' attributes
     for col in df_nodes.columns:
-        nx.set_node_attributes(G, name=col, values=df_nodes[col].dropna())
+        nx.set_node_attributes(G, values=df_nodes[col].dropna().to_dict(), name=col)
 
     msg = "Created graph from node/edge GeoDataFrames"
     utils.log(msg, level=lg.INFO)

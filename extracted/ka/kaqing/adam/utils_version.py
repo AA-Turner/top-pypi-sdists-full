@@ -2,10 +2,10 @@ import re
 
 from adam.commands.postgres.utils_postgres import ops
 from adam.config import Config
-from adam.repl_state import ReplState
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_local import local_exec
+from adam.utils_repl.repl_state import ReplState
 
 def get_container_version(state: ReplState, ctx = NULL) -> tuple[str, int, str]:
     # #!/usr/bin/env python

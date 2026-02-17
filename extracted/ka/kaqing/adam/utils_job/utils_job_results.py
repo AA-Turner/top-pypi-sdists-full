@@ -1,10 +1,9 @@
-from datetime import datetime
 import os
 import re
 
 from adam.commands.devices.devices import device
 from adam.commands.export.export_sessions import export_session
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import datetime_sec_precision
 from adam.utils_color import Color
 from adam.utils_cassandra.cassandra_status import CassandraStatus
@@ -261,18 +260,3 @@ def show_local_log(cmd: Job, ctx = NULL):
         with open(log_file, 'r') as f:
             for line in f:
                 ctx.log2(line.strip('\r\n'))
-
-def reschedule_job(state: ReplState, job_id: str, run_command: callable, ctx = NULL):
-    job = Job.job(job_id)
-    if not job:
-        ctx.log2('Job not found.')
-        return state
-
-    cmd = job.scheduled_command
-
-    # retry job should always background
-    # cmd = job.command
-    # if not cmd.endswith(' &'):
-    #     cmd = cmd + ' &'
-
-    return run_command(state, cmd, job=job, ctx=ctx)

@@ -18,14 +18,18 @@ __device__ static inline void tensormap_cp_fenceproxy(
 */
 #if __cccl_ptx_isa >= 830
 extern "C" _CCCL_DEVICE void __cuda_ptx_tensormap_cp_fenceproxy_is_not_supported_before_SM_90__();
-template <int _N32, dot_scope _Scope>
-_CCCL_DEVICE static inline void
-tensormap_cp_fenceproxy(sem_release_t, scope_t<_Scope> __scope, void* __dst, const void* __src, n32_t<_N32> __size)
+template <int _N32, ::cuda::ptx::dot_scope _Scope>
+_CCCL_DEVICE static inline void tensormap_cp_fenceproxy(
+  ::cuda::ptx::sem_release_t,
+  ::cuda::ptx::scope_t<_Scope> __scope,
+  void* __dst,
+  const void* __src,
+  ::cuda::ptx::n32_t<_N32> __size)
 {
   // __sem == sem_release (due to parameter type constraint)
   static_assert(__scope == scope_cta || __scope == scope_cluster || __scope == scope_gpu || __scope == scope_sys, "");
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 900
-  _CCCL_IF_CONSTEXPR (__scope == scope_cta)
+  if constexpr (__scope == scope_cta)
   {
     asm volatile(
       "tensormap.cp_fenceproxy.global.shared::cta.tensormap::generic.release.cta.sync.aligned  [%0], [%1], %2;"
@@ -33,7 +37,7 @@ tensormap_cp_fenceproxy(sem_release_t, scope_t<_Scope> __scope, void* __dst, con
       : "l"(__as_ptr_gmem(__dst)), "r"(__as_ptr_smem(__src)), "n"(__size.value)
       : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_cluster)
+  else if constexpr (__scope == scope_cluster)
   {
     asm volatile(
       "tensormap.cp_fenceproxy.global.shared::cta.tensormap::generic.release.cluster.sync.aligned  [%0], [%1], %2;"
@@ -41,7 +45,7 @@ tensormap_cp_fenceproxy(sem_release_t, scope_t<_Scope> __scope, void* __dst, con
       : "l"(__as_ptr_gmem(__dst)), "r"(__as_ptr_smem(__src)), "n"(__size.value)
       : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_gpu)
+  else if constexpr (__scope == scope_gpu)
   {
     asm volatile(
       "tensormap.cp_fenceproxy.global.shared::cta.tensormap::generic.release.gpu.sync.aligned  [%0], [%1], %2;"
@@ -49,7 +53,7 @@ tensormap_cp_fenceproxy(sem_release_t, scope_t<_Scope> __scope, void* __dst, con
       : "l"(__as_ptr_gmem(__dst)), "r"(__as_ptr_smem(__src)), "n"(__size.value)
       : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_sys)
+  else if constexpr (__scope == scope_sys)
   {
     asm volatile(
       "tensormap.cp_fenceproxy.global.shared::cta.tensormap::generic.release.sys.sync.aligned  [%0], [%1], %2;"

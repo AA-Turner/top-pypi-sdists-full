@@ -1473,7 +1473,7 @@ def wait_job(
             if "progress_percentage" in res:
                 progress_bar.update(int(round(res["progress_percentage"])) - progress_bar.pos)
             elif res["status"] != "working":
-                progress_bar.update(progress_bar.length if progress_bar.length else 0)
+                progress_bar.update(progress_bar.length or 0)
 
         try:
             result = wait_job_no_ui(tb_client, job_id, progressbar_cb)

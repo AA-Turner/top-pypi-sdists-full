@@ -14,8 +14,6 @@ Exceptions:
     - ConfigError: Custom exception for configuration-related errors.
 """
 
-from __future__ import annotations
-
 import sys
 import time
 
@@ -223,7 +221,9 @@ class Configuration:
         )
         self.verify = config_dict.get("verify", True)
         self.additional_headers = config_dict.get("additional_headers", {})
-        self.suppress_deprecation_warnings = config_dict.get("suppress_deprecation_warnings", False)
+        self.suppress_deprecation_warnings = config_dict.get(
+            "suppress_deprecation_warnings", False
+        )
 
     def _handle_nearest_node(
         self,

@@ -199,7 +199,7 @@ class Comment:
 
 class Placeholder:
     def __init__(self, name=None, line=None):
-        self.name = name if name else "__no_value__"
+        self.name = name or "__no_value__"
         self.line = line or "unknown"
 
     def __str__(self):

@@ -1,6 +1,6 @@
 [package]
 name = "spnl"
-version = "0.17.0"
+version = "0.18.1"
 edition = "2024"
 license = "Apache-2.0"
 readme = "README.md"
@@ -105,3 +105,9 @@ tabled = { version = "0.20", optional = true }
 cargo-husky.workspace = true
 tower-test = "0.4"
 http = "1.0"
+criterion = { version = "0.8", features = ["async_tokio"] }
+lipsum = { git = "https://github.com/mgeisler/lipsum.git" }
+petname = "2.0.2"
+rand = "0.9.2"
+flate2 = "1.0"
+indicatif = "0.18.0"

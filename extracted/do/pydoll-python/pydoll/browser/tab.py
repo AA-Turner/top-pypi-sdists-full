@@ -2,9 +2,12 @@ from __future__ import annotations
 
 import asyncio
 import base64 as _b64
+import contextlib
+import io
 import logging
 import shutil
 import warnings
+import zipfile
 from contextlib import asynccontextmanager
 from functools import partial
 from pathlib import Path
@@ -60,8 +63,9 @@ from pydoll.interactions import KeyboardAPI, MouseAPI, ScrollAPI
 from pydoll.interactions.iframe import IFrameContext
 from pydoll.protocol.browser.types import DownloadBehavior, DownloadProgressState
 from pydoll.protocol.dom.types import Node, ShadowRootType
+from pydoll.protocol.network.types import ResourceType
 from pydoll.protocol.page.events import PageEvent
-from pydoll.protocol.page.types import ScreenshotFormat
+from pydoll.protocol.page.types import FrameResourceTree, ScreenshotFormat
 from pydoll.protocol.runtime.methods import (
     CallFunctionOnResponse,
     EvaluateResponse,
@@ -72,6 +76,13 @@ from pydoll.protocol.target.types import TargetInfo
 from pydoll.utils import (
     decode_base64_to_bytes,
     has_return_outside_function,
+)
+from pydoll.utils.bundle import (
+    build_asset_filename,
+    collect_frame_resources,
+    filter_fetchable_resources,
+    inline_all_assets,
+    rewrite_html_urls,
 )
 
 if TYPE_CHECKING:
@@ -95,10 +106,14 @@ if TYPE_CHECKING:
         CookieParam,
         ErrorReason,
         RequestMethod,
-        ResourceType,
     )
     from pydoll.protocol.page.events import FileChooserOpenedEvent
-    from pydoll.protocol.page.methods import CaptureScreenshotResponse, PrintToPDFResponse
+    from pydoll.protocol.page.methods import (
+        CaptureScreenshotResponse,
+        GetResourceContentResponse,
+        GetResourceTreeResponse,
+        PrintToPDFResponse,
+    )
     from pydoll.protocol.runtime.methods import CallFunctionOnResponse, EvaluateResponse
     from pydoll.protocol.storage.methods import GetCookiesResponse as StorageGetCookiesResponse
     from pydoll.protocol.target.methods import AttachToTargetResponse, GetTargetsResponse
@@ -120,8 +135,6 @@ class Tab(FindElementsMixin):
     JavaScript execution, event handling, network monitoring, and specialized tasks
     like Cloudflare bypass.
     """
-
-    _READY_STATE_ORDER = (PageLoadState.LOADING, PageLoadState.INTERACTIVE, PageLoadState.COMPLETE)
 
     def __init__(
         self,
@@ -893,14 +906,9 @@ class Tab(FindElementsMixin):
             logger.debug('URL matches current page; refreshing instead')
             return
 
-        await self._execute_command(PageCommands.navigate(url))
-
-        try:
-            await self._wait_page_load(timeout=timeout)
-            logger.info(f'Navigation complete: {url}')
-        except WaitElementTimeout:
-            logger.error(f'Page load timeout after {timeout}s for URL: {url}')
-            raise PageLoadTimeout()
+        async with self._wait_page_load(timeout=timeout):
+            await self._execute_command(PageCommands.navigate(url))
+        logger.info(f'Navigation complete: {url}')
 
     async def refresh(
         self,
@@ -921,17 +929,14 @@ class Tab(FindElementsMixin):
             f'Reloading page (ignore_cache={ignore_cache}, '
             f'script_on_load={bool(script_to_evaluate_on_load)})'
         )
-        await self._execute_command(
-            PageCommands.reload(
-                ignore_cache=ignore_cache, script_to_evaluate_on_load=script_to_evaluate_on_load
+        async with self._wait_page_load():
+            await self._execute_command(
+                PageCommands.reload(
+                    ignore_cache=ignore_cache,
+                    script_to_evaluate_on_load=script_to_evaluate_on_load,
+                )
             )
-        )
-        try:
-            await self._wait_page_load()
-            logger.info('Page reloaded successfully')
-        except WaitElementTimeout:
-            logger.error('Page reload timed out')
-            raise PageLoadTimeout()
+        logger.info('Page reloaded successfully')
 
     async def take_screenshot(
         self,
@@ -1064,6 +1069,110 @@ class Tab(FindElementsMixin):
         logger.info(f'PDF saved to: {path}')
 
         return None
+
+    async def save_bundle(self, path: str | Path, inline_assets: bool = False) -> None:
+        """
+        Save current page and its assets as a .zip bundle for offline viewing.
+
+        Captures the page HTML along with CSS, JS, images, fonts, and media
+        into a single zip archive. The archive contains an ``index.html`` with
+        URLs rewritten to reference local asset files.
+
+        Args:
+            path: Destination path for the ``.zip`` file.
+            inline_assets: When True, embed all assets directly into
+                ``index.html`` using data URIs, ``<style>``, and ``<script>``
+                tags instead of saving them as separate files.
+
+        Raises:
+            InvalidFileExtension: If path does not end with ``.zip``.
+        """
+        path = Path(path)
+        if path.suffix.lower() != '.zip':
+            raise InvalidFileExtension(f'Expected .zip extension, got {path.suffix!r}')
+
+        logger.info(f'Saving page bundle: path={path}, inline={inline_assets}')
+
+        page_was_enabled = self.page_events_enabled
+        if not page_was_enabled:
+            await self.enable_page_events()
+
+        try:
+            tree_response: GetResourceTreeResponse = await self._execute_command(
+                PageCommands.get_resource_tree()
+            )
+            frame_tree: FrameResourceTree = tree_response['result']['frameTree']
+            page_url = frame_tree['frame']['url']
+            html = await self._fetch_document_html(frame_tree)
+            asset_map = await self._fetch_bundle_assets(frame_tree, page_url)
+
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+                if inline_assets:
+                    html = inline_all_assets(html, asset_map)
+                else:
+                    html = rewrite_html_urls(html, asset_map)
+                zf.writestr('index.html', html.encode('utf-8'))
+                if not inline_assets:
+                    for _url, (filename, data, _mime, _rtype) in asset_map.items():
+                        zf.writestr(f'assets/{filename}', data)
+
+            async with aiofiles.open(path, 'wb') as f:
+                await f.write(buf.getvalue())
+            logger.info(f'Page bundle saved to: {path}')
+        finally:
+            if not page_was_enabled:
+                await self.disable_page_events()
+
+    async def _fetch_document_html(self, frame_tree: FrameResourceTree) -> str:
+        """Fetch the main document HTML from the frame tree."""
+        frame_id = frame_tree['frame']['id']
+        page_url = frame_tree['frame']['url']
+        try:
+            doc_response: GetResourceContentResponse = await self._execute_command(
+                PageCommands.get_resource_content(frame_id, page_url)
+            )
+            result = doc_response['result']
+            html = result['content']
+            if result.get('base64Encoded'):
+                html = _b64.b64decode(html).decode('utf-8', errors='replace')
+            return html
+        except Exception:
+            logger.debug('getResourceContent failed for document, falling back to JS')
+            response = await self.execute_script('return document.documentElement.outerHTML')
+            return cast(str, response['result']['result']['value'])
+
+    async def _fetch_bundle_assets(
+        self,
+        frame_tree: FrameResourceTree,
+        page_url: str,
+    ) -> dict[str, tuple[str, bytes, str, ResourceType]]:
+        """Fetch all bundleable resources and return an asset map."""
+        all_resources = collect_frame_resources(frame_tree)
+        fetchable = filter_fetchable_resources(all_resources, page_url)
+
+        fetch_tasks: list[Awaitable[GetResourceContentResponse]] = [
+            self._execute_command(PageCommands.get_resource_content(fid, res['url']))
+            for fid, res in fetchable
+        ]
+        results = await asyncio.gather(*fetch_tasks, return_exceptions=True)
+
+        asset_map: dict[str, tuple[str, bytes, str, ResourceType]] = {}
+        for idx, ((_fid, res), result) in enumerate(zip(fetchable, results)):
+            if isinstance(result, BaseException):
+                logger.warning(f'Failed to fetch resource {res["url"]}: {result}')
+                continue
+            response: GetResourceContentResponse = result
+            content_result = response.get('result')
+            if content_result is None:
+                logger.warning(f'No result for resource {res["url"]}: {response.get("error")}')
+                continue
+            raw_content: str = content_result['content']
+            is_base64: bool = content_result.get('base64Encoded', False)
+            data = _b64.b64decode(raw_content) if is_base64 else raw_content.encode('utf-8')
+            filename = build_asset_filename(res['url'], res['mimeType'], idx)
+            asset_map[res['url']] = (filename, data, res['mimeType'], res['type'])
+        return asset_map
 
     async def has_dialog(self) -> bool:
         """
@@ -1747,36 +1856,60 @@ class Tab(FindElementsMixin):
         if 'argument is not defined' in description:
             raise InvalidScriptWithElement('Script contains "argument" but no element was provided')
 
-    async def _wait_page_load(self, timeout: int = 300):
-        """
-        Wait for page to finish loading.
+    _PAGE_LOAD_EVENT_MAP = {
+        PageLoadState.INTERACTIVE: PageEvent.DOM_CONTENT_EVENT_FIRED,
+        PageLoadState.COMPLETE: PageEvent.LOAD_EVENT_FIRED,
+    }
 
-        Waits until ``document.readyState`` reaches **at least** the level
-        configured in ``browser.options.page_load_state``.  For example, when
-        the target state is ``interactive``, both ``"interactive"`` and
-        ``"complete"`` satisfy the condition — this prevents an infinite
-        polling loop when the page transitions past ``interactive`` before the
-        first check runs.
+    @asynccontextmanager
+    async def _wait_page_load(self, timeout: int = 300):
+        """Wait for page to reach the configured load state using CDP events.
+
+        Registers a CDP event listener **before** yielding so the navigation
+        command can be issued inside the ``async with`` block without race
+        conditions.  This replaces the former ``document.readyState`` polling
+        loop, eliminating the dependency on ``Runtime.evaluate`` during page
+        load and the risk of inner command timeouts.
+
+        The CDP event used depends on ``browser.options.page_load_state``:
+
+        * ``INTERACTIVE`` — waits for ``Page.domContentEventFired``.
+        * ``COMPLETE`` — waits for ``Page.loadEventFired``.
+
+        Args:
+            timeout: Maximum seconds to wait for the target load state.
 
         Raises:
-            WaitElementTimeout: If page doesn't load within *timeout* seconds.
+            PageLoadTimeout: If the page doesn't reach the target state in time.
         """
-        target_state = self._browser.options.page_load_state.value
-        target_index = self._READY_STATE_ORDER.index(target_state)
-        start_time = asyncio.get_event_loop().time()
-        logger.debug(f'Waiting for page load (timeout={timeout}s)')
-        while True:
-            response: EvaluateResponse = await self._execute_command(
-                RuntimeCommands.evaluate(expression='document.readyState')
-            )
-            current_state = response['result']['result']['value']
-            current_index = self._READY_STATE_ORDER.index(current_state)
-            if current_index >= target_index:
-                logger.debug(f'Page load state reached: {current_state} (target: {target_state})')
-                break
-            if asyncio.get_event_loop().time() - start_time > timeout:
-                raise WaitElementTimeout('Page load timed out')
-            await asyncio.sleep(0.5)
+        target_state = self._browser.options.page_load_state
+
+        page_loaded = asyncio.Event()
+        event_name = self._PAGE_LOAD_EVENT_MAP[target_state]
+        cleanup_page_events = not self._page_events_enabled
+
+        if cleanup_page_events:
+            await self.enable_page_events()
+
+        def on_loaded(_: dict):
+            page_loaded.set()
+
+        callback_id = await self.on(event_name, on_loaded, temporary=True)
+        logger.debug(f'Waiting for page load via {event_name} (timeout={timeout}s)')
+
+        try:
+            yield
+            await asyncio.wait_for(page_loaded.wait(), timeout=timeout)
+            logger.debug(f'Page load event received: {event_name}')
+        except asyncio.TimeoutError:
+            logger.error(f'Page load timeout after {timeout}s waiting for {event_name}')
+            raise PageLoadTimeout()
+        finally:
+            with contextlib.suppress(Exception):
+                await self.remove_callback(callback_id)
+            if cleanup_page_events:
+                with contextlib.suppress(Exception):
+                    await self.disable_page_events()
 
     async def _find_cloudflare_shadow_root(self, timeout: float) -> ShadowRoot:
         """Poll for the Cloudflare Turnstile shadow root.

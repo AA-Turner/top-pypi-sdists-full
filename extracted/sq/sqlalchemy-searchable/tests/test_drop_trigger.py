@@ -1,7 +1,11 @@
+from collections.abc import Generator
+from typing import Any
+
 import pytest
 from sqlalchemy import text
+from sqlalchemy.engine import Connection, Engine
 
-from sqlalchemy_searchable import drop_trigger, sync_trigger
+from sqlalchemy_searchable import drop_trigger, SearchOptions, sync_trigger
 
 
 class TestDropTrigger:
@@ -11,7 +15,7 @@ class TestDropTrigger:
             "{table}_{column}_trg",
         ]
     )
-    def search_trigger_name(self, request):
+    def search_trigger_name(self, request: pytest.FixtureRequest) -> Any:
         return request.param
 
     @pytest.fixture(
@@ -20,11 +24,11 @@ class TestDropTrigger:
             "{table}_{column}_update",
         ]
     )
-    def search_trigger_function_name(self, request):
+    def search_trigger_function_name(self, request: pytest.FixtureRequest) -> Any:
         return request.param
 
     @pytest.fixture(autouse=True)
-    def create_tables(self, engine):
+    def create_tables(self, engine: Engine) -> Generator[None, None, None]:
         with engine.begin() as conn:
             conn.execute(
                 text(
@@ -44,8 +48,12 @@ class TestDropTrigger:
         with engine.begin() as conn:
             conn.execute(text("DROP TABLE article"))
 
-    def test_drops_triggers_and_functions(self, engine, ts_vector_options):
-        def trigger_exist(conn):
+    def test_drops_triggers_and_functions(
+        self,
+        engine: Engine,
+        search_options: SearchOptions,
+    ) -> None:
+        def trigger_exist(conn: Connection) -> Any:
             return conn.execute(
                 text(
                     """SELECT COUNT(*)
@@ -54,14 +62,14 @@ class TestDropTrigger:
                     """
                 ),
                 {
-                    "trigger_name": ts_vector_options["search_trigger_name"].format(
+                    "trigger_name": search_options.search_trigger_name.format(
                         table="article",
                         column="search_vector",
                     )
                 },
-            ).scalar()
+            ).scalar_one()
 
-        def function_exist(conn):
+        def function_exist(conn: Connection) -> Any:
             return conn.execute(
                 text(
                     """SELECT COUNT(*)
@@ -70,14 +78,12 @@ class TestDropTrigger:
                    """
                 ),
                 {
-                    "function_name": ts_vector_options[
-                        "search_trigger_function_name"
-                    ].format(
+                    "function_name": search_options.search_trigger_function_name.format(
                         table="article",
                         column="search_vector",
                     )
                 },
-            ).scalar()
+            ).scalar_one()
 
         with engine.begin() as conn:
             sync_trigger(
@@ -85,13 +91,13 @@ class TestDropTrigger:
                 "article",
                 "search_vector",
                 ["name", "content"],
-                options=ts_vector_options,
+                options=search_options,
             )
 
             assert trigger_exist(conn) == 1
             assert function_exist(conn) == 1
 
-            drop_trigger(conn, "article", "search_vector", options=ts_vector_options)
+            drop_trigger(conn, "article", "search_vector", options=search_options)
 
             assert trigger_exist(conn) == 0
             assert function_exist(conn) == 0

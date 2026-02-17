@@ -199,7 +199,7 @@ def change_path(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -524,7 +524,7 @@ def export_subtitles(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -687,7 +687,7 @@ def image_strip_add(
         :param files: Files, (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -906,7 +906,7 @@ def movie_strip_add(
         :param files: Files, (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -1560,7 +1560,7 @@ def select_lasso(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param mode: Mode, (optional)
 
@@ -1761,7 +1761,7 @@ def sound_strip_add(
         :param files: Files, (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -1882,7 +1882,7 @@ def strip_jump(
     next: bool | None = True,
     center: bool | None = True,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Move frame to previous edit point
+    """Move frame to next or previous edit point
 
     :param next: Next Strip, (optional)
     :param center: Use Strip Center, (optional)

@@ -5,10 +5,11 @@
 from typing import Any
 
 import pytest
+import toml_rs
 import toml_rs as tomllib
 
 
-def test_line_and_col():
+def test_line_and_col() -> None:
     # invalid mantissa
     with pytest.raises(tomllib.TOMLDecodeError) as exc:
         tomllib.loads("val=.")
@@ -54,8 +55,14 @@ def test_line_and_col():
     assert "line 3, column" in msg
     assert "missing value" in msg
 
+    with pytest.raises(tomllib.TOMLDecodeError) as exc:
+        tomllib.loads("val = 0b_1")
+    msg = str(exc.value)
+    assert "line 1, column 9" in msg
+    assert "`_` may only go between digits, expected nothing" in msg
 
-def test_missing_value():
+
+def test_missing_value() -> None:
     with pytest.raises(tomllib.TOMLDecodeError) as exc:
         tomllib.loads("\n\nfwfw=")
     msg = str(exc.value)
@@ -63,13 +70,13 @@ def test_missing_value():
     assert "string values must be quoted" in msg
 
 
-def test_invalid_char_quotes():
+def test_invalid_char_quotes() -> None:
     with pytest.raises(tomllib.TOMLDecodeError) as exc:
         tomllib.loads("v = '\n'")
     assert "key with no value, expected `=`" in str(exc.value)
 
 
-def test_type_error():
+def test_type_error() -> None:
     with pytest.raises(TypeError) as exc:
         tomllib.loads(b"v = 1")  # type: ignore[arg-type]
     assert str(exc.value) in (
@@ -83,7 +90,7 @@ def test_type_error():
     )
 
 
-def test_invalid_parse_float():
+def test_invalid_parse_float() -> None:
     def dict_returner(s: str) -> dict[Any, Any]:
         return {}
 
@@ -98,7 +105,7 @@ def test_invalid_parse_float():
         assert str(exc.value) == err_msg
 
 
-def test_tomldecodeerror_attributes():
+def test_tomldecodeerror_attributes() -> None:
     data = """\
 title = "TOML Example"
 
@@ -121,9 +128,16 @@ x =
     assert f"line {exc.lineno}, column {exc.colno}" in str(exc)
 
 
-def test_unsupported_version():
+def test_unsupported_version() -> None:
     with pytest.raises(
             ValueError,
             match="Unsupported TOML version",
     ):
         tomllib.loads("x = 1", toml_version="2")  # ty: ignore[invalid-argument-type]
+
+
+def test_incorrect_suffix(toml_version: toml_rs._lib.TomlVersion) -> None:
+    t1 = "x = -_1"
+
+    with pytest.raises(tomllib.TOMLDecodeError):
+        tomllib.loads(t1, toml_version=toml_version)

@@ -8,8 +8,8 @@ from adam.commands.audit.show_slow10 import ShowSlow10
 from adam.commands.audit.show_top10 import ShowTop10
 from adam.commands.command import Command
 from adam.commands.intermediate_command import IntermediateCommand
-from adam.repl_state import ReplState
-from adam.utils_athena import Athena
+from adam.rdbms.utils_athena import Athena
+from adam.utils_repl.repl_state import ReplState
 
 class Audit(IntermediateCommand):
     COMMAND = 'audit'

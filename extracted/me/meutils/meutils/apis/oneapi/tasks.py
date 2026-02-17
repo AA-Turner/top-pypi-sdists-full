@@ -40,6 +40,8 @@ ACTIONS = {
 
 async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT_START", channel_id: str = "",
                     page_size: int = 128,
+                    end_timestamp: Optional[int] = None,
+                    submit_timestamp: Optional[int] = None,
                     return_ids: bool = False):
     base_url = "https://api.chatfire.cn"
     path = "/api/task/"
@@ -50,7 +52,7 @@ async def get_tasks(platform: str = "flux", action: str = "", status: str = "NOT
     }
 
     submit_timestamp = int(time.time() - 24 * 3600)
-    end_timestamp = int(time.time() - 5 * 60)
+    end_timestamp = end_timestamp or int(time.time() - 5 * 60)
 
     params = {
         "p": 1,

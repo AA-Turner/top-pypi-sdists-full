@@ -405,8 +405,8 @@ async def init_cicd(
 ):
     provider = ask_provider_interactively()
     if provider:
-        path = path if path else getcwd()
-        data_project_dir = data_project_dir if data_project_dir else "."
+        path = path or getcwd()
+        data_project_dir = data_project_dir or "."
         generator = CICDGeneratorBase.build_generator(provider)
         workspace_info = await client.workspace_info()
         token = await client.get_token_by_name("admin token")
@@ -426,7 +426,7 @@ async def init_cicd(
 
 
 async def check_cicd_exists(path: Optional[str] = None) -> Optional[Provider]:
-    path = path if path else getcwd()
+    path = path or getcwd()
     for provider in Provider:
         generator = CICDGeneratorBase.build_generator(provider.name)
         if generator.is_already_generated(path):

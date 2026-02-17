@@ -245,9 +245,7 @@ def test_discovery_via_path_with_file(tmp_path, monkeypatch):
 
 
 def test_absolute_path_does_not_exist(tmp_path):
-    """
-    Test that virtualenv does not fail when an absolute path that does not exist is provided.
-    """
+    """Test that virtualenv does not fail when an absolute path that does not exist is provided."""
     # Create a command that uses an absolute path that does not exist
     # and a valid python executable.
     command = [
@@ -275,9 +273,7 @@ def test_absolute_path_does_not_exist(tmp_path):
 
 
 def test_absolute_path_does_not_exist_fails(tmp_path):
-    """
-    Test that virtualenv fails when a single absolute path that does not exist is provided.
-    """
+    """Test that virtualenv fails when a single absolute path that does not exist is provided."""
     # Create a command that uses an absolute path that does not exist
     command = [
         sys.executable,
@@ -356,3 +352,32 @@ def test_discovery_via_version_specifier(session_app_data):
     if current.implementation == "CPython":
         assert interpreter is not None
         assert interpreter.implementation == "CPython"
+
+
+def test_invalid_discovery_via_env_var(monkeypatch, tmp_path):
+    """When VIRTUALENV_DISCOVERY is set to an unavailable plugin, raise a clear error instead of KeyError."""
+    monkeypatch.setenv("VIRTUALENV_DISCOVERY", "nonexistent_plugin")
+    process = subprocess.run(
+        [sys.executable, "-m", "virtualenv", str(tmp_path / "env")],
+        capture_output=True,
+        text=True,
+        check=False,
+        encoding="utf-8",
+    )
+    assert process.returncode != 0
+    output = process.stdout + process.stderr
+    assert "nonexistent_plugin" in output
+    assert "is not available" in output
+    # Should NOT be a raw KeyError
+    assert "KeyError" not in output
+
+
+def test_invalid_discovery_via_env_var_unit(monkeypatch):
+    """Unit test: get_discover raises RuntimeError with helpful message for unknown discovery method."""
+    from virtualenv.config.cli.parser import VirtualEnvConfigParser  # noqa: PLC0415
+    from virtualenv.run.plugin.discovery import get_discover  # noqa: PLC0415
+
+    monkeypatch.setenv("VIRTUALENV_DISCOVERY", "nonexistent_plugin")
+    parser = VirtualEnvConfigParser()
+    with pytest.raises(RuntimeError, match=r"nonexistent_plugin.*is not available"):
+        get_discover(parser, [])

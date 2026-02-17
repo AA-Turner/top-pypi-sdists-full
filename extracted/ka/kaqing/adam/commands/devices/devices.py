@@ -4,7 +4,7 @@ from adam.commands.devices.device_auit_log import DeviceAuditLog
 from adam.commands.devices.device_cass import DeviceCass
 from adam.commands.devices.device_export import DeviceExport
 from adam.commands.devices.device_postgres import DevicePostgres
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 def device(state: ReplState) -> Device:
     if state.device == ReplState.A:

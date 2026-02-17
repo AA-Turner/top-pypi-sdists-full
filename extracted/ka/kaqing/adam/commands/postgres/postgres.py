@@ -8,7 +8,7 @@ from adam.commands.postgres.completions_p import psql0_completions, completions_
 from adam.commands.postgres.postgres_ls import PostgresLs
 from adam.commands.postgres.postgres_preview import PostgresPreview
 from adam.commands.postgres.utils_postgres import pg_table_names, postgres
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import ExecResult
 from adam.utils_log import log, log2, log_timing
 

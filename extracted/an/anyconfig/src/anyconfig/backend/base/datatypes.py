@@ -1,23 +1,28 @@
 #
-# Copyright (C) 2021 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2021 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """Utility functions in anyconfig.backend.base."""
+from __future__ import annotations
+
+import collections.abc
+import pathlib
 import typing
 
 from ...common import (
-    InDataT, InDataExT
+    InDataT, InDataExT,
 )
 from ...ioinfo import (
-    IOInfo, PathOrIOInfoT
+    IOInfo, PathOrIOInfoT,
 )
+
 
 OutDataExT = InDataExT
 
 IoiT = IOInfo
 MaybeFilePathT = typing.Optional[PathOrIOInfoT]
 
-GenContainerT = typing.Callable[..., InDataT]
-OptionsT = typing.Dict[str, typing.Any]
+GenContainerT = collections.abc.Callable[..., InDataT]
+OptionsT = dict[str, typing.Any]
 
-# vim:sw=4:ts=4:et:
+PathOrStrT = typing.Union[str, pathlib.Path]

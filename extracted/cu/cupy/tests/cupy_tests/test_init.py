@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import operator
 import os
 import shutil
@@ -68,6 +70,7 @@ class TestAvailable(unittest.TestCase):
         assert available
 
 
+@pytest.mark.thread_unsafe(reason="modifies environment variables")
 class TestNotAvailable(unittest.TestCase):
 
     def setUp(self):
@@ -133,16 +136,16 @@ class TestAliases(unittest.TestCase):
             assert xp.bitwise_not is xp.invert
 
 
+@testing.with_requires("numpy>=2.0")
 @pytest.mark.parametrize('name', [
-    'AxisError',
-    'ComplexWarning',
-    'ModuleDeprecationWarning',
-    'RankWarning',
-    'TooHardError',
-    'VisibleDeprecationWarning',
+    'exceptions.AxisError',
+    'exceptions.ComplexWarning',
+    'exceptions.ModuleDeprecationWarning',
+    'exceptions.RankWarning',
+    'exceptions.TooHardError',
+    'exceptions.VisibleDeprecationWarning',
     'linalg.LinAlgError'
 ])
-@testing.with_requires('numpy<2.0')
 def test_error_classes(name):
     get = operator.attrgetter(name)
     assert issubclass(get(cupy), get(numpy))

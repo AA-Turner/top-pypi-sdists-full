@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-utils
-Version: 0.1.2
+Version: 0.2.0
 Summary: Utilities for the Earthkit ecosystem
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -13,14 +13,13 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: array-api-compat
@@ -42,6 +41,7 @@ Requires-Dist: nbconvert; extra == "test"
 Requires-Dist: nbformat; extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: pytest-reraise; extra == "test"
 Requires-Dist: xarray; extra == "test"
 Dynamic: license-file
 
@@ -70,7 +70,7 @@ Dynamic: license-file
 > \[!IMPORTANT\]
 > This software is **Emerging** and subject to ECMWF's guidelines on [Software Maturity](https://github.com/ecmwf/codex/raw/refs/heads/main/Project%20Maturity).
 
-Utilities for the Earthkit ecosystem.
+Utilities for the [earthkit](https://github.com/ecmwf/earthkit) ecosystem.
 
 ## Licence
 

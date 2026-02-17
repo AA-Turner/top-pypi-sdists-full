@@ -1,11 +1,15 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import unittest
 
 import pytest
 
 from tatsu import tool
 from tatsu.exceptions import FailedParse, FailedToken
-from tatsu.ngcodegen import codegen
-from tatsu.parser import EBNFBuffer
+from tatsu.ngcodegen import pythongen
+from tatsu.parser import TatSuBuffer
 from tatsu.tool import compile
 from tatsu.util import trim
 
@@ -23,7 +27,7 @@ class SyntaxTests(unittest.TestCase):
         grammar = """
             start = items: { item } * $ ;
             item = @:{ subitem } * "0" ;
-            subitem = ?/1+/? ;
+            subitem = /1+/ ;
         """
         m = compile(grammar, 'Update')
         ast = m.parse('1101110100', nameguard=False)
@@ -34,12 +38,12 @@ class SyntaxTests(unittest.TestCase):
         included_grammar = "plu = 'aaaa';"
 
         overridden = "%s@override\nplu = 'plu';"
-        inclusion = f'#include :: {gr}.ebnf\n'
+        inclusion = f'#include :: {gr}.tatsu\n'
 
         including_grammar = overridden % (inclusion)
         whole_grammar = overridden % (included_grammar)
 
-        class FakeIncludesBuffer(EBNFBuffer):
+        class FakeIncludesBuffer(TatSuBuffer):
             def get_include(self, source, filename):
                 return included_grammar, source + '/' + filename
 
@@ -263,7 +267,7 @@ class SyntaxTests(unittest.TestCase):
         """
 
         model = compile(grammar, 'final')
-        codegen(model)
+        pythongen(model)
         model.parse('(sometype){boolean = true}')
 
     def test_empty_match_token(self):
@@ -283,7 +287,7 @@ class SyntaxTests(unittest.TestCase):
             start = {'x'}+ {} 'y'$;
         """
         model = compile(grammar, 'test')
-        codegen(model)
+        pythongen(model)
         ast = model.parse('xxxy', nameguard=False)
         self.assertEqual((['x', 'x', 'x'], [], 'y'), ast)
 
@@ -388,16 +392,16 @@ import re
         pytest.param(
             "# This comment should be stripped",
             {
-                "eol_comments_re": re.compile(r"(?m)#.*?$"),
-                "eol_comments": r"(?m)#.*?$",
+                "eol_comments_re": r"(?m)#[^\n]*$",
+                "comments": re.compile(r"(?sm)[(][*](?:.|\n)*?[*][)]"),
             },
             id="eol_comments override",
         ),
         pytest.param(
             "(* This comment should be stripped *)",
             {
-                "comments_re": re.compile(r"(?sm)[(][*](?:.|\n)*?[*][)]"),
-                "comments": r"(?sm)[(][*](?:.|\n)*?[*][)]",
+                "eol_comments": re.compile(r"(?m)#[^\n]*$"),
+                "comments_re": r"(?sm)[(][*](?:.|\n)*?[*][)]",
             },
             id="comments override",
         ),
@@ -418,5 +422,5 @@ def test_deprecated_comments_override_failures(comment, option):
         {comment}
         a
     """
-    with pytest.raises(AttributeError):
+    with pytest.warns(UserWarning, match=r'ParserConfig\..*?comments_re.*?is deprecated'):
         tool.parse(grammar, text, **option)

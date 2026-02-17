@@ -1,6 +1,6 @@
 from adam.commands import app, extract_options
 from adam.commands.command import Command
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class ShowAppQueues(Command):
     COMMAND = 'show app queues'

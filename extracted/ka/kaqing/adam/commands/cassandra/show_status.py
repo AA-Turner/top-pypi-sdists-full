@@ -7,7 +7,7 @@ from adam.commands.devices.devices import device
 from adam.config import Config
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_context import NULL
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_color import Color
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_tabulize import tabulize

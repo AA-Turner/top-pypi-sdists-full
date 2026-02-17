@@ -21,13 +21,14 @@
 #  pragma system_header
 #endif // no system header
 
-#if !_CCCL_COMPILER(MSVC2017) && defined(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
+#if defined(LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE)
 
 #  include <cuda/__memory_resource/get_property.h>
 #  include <cuda/__memory_resource/properties.h>
 #  include <cuda/__memory_resource/resource.h>
 #  include <cuda/std/__concepts/concept_macros.h>
 #  include <cuda/std/__memory/addressof.h>
+#  include <cuda/std/__new/device_new.h>
 #  include <cuda/std/__type_traits/is_base_of.h>
 #  include <cuda/std/__type_traits/is_nothrow_move_constructible.h>
 #  include <cuda/std/__type_traits/type_set.h>
@@ -36,13 +37,13 @@
 #  include <cuda/std/cstddef>
 #  include <cuda/stream_ref>
 
-#  if _CCCL_STD_VER >= 2014
+#  include <cuda/std/__cccl/prologue.h>
 
 _LIBCUDACXX_BEGIN_NAMESPACE_CUDA_MR
 
 union _AnyResourceStorage
 {
-  _LIBCUDACXX_HIDE_FROM_ABI constexpr _AnyResourceStorage(void* __ptr = nullptr) noexcept
+  _CCCL_API constexpr _AnyResourceStorage(void* __ptr = nullptr) noexcept
       : __ptr_(__ptr)
   {}
 
@@ -78,17 +79,17 @@ enum class _WrapperType
 
 enum class _AllocType
 {
+  _Synchronous,
   _Default,
-  _Async,
 };
 
 struct _Alloc_vtable
 {
   using _AllocFn   = void* (*) (void*, size_t, size_t);
-  using _DeallocFn = void (*)(void*, void*, size_t, size_t) _CCCL_FUNCTION_TYPE_NOEXCEPT;
+  using _DeallocFn = void (*)(void*, void*, size_t, size_t) noexcept;
   using _EqualFn   = bool (*)(void*, void*);
-  using _DestroyFn = void (*)(_AnyResourceStorage*) _CCCL_FUNCTION_TYPE_NOEXCEPT;
-  using _MoveFn    = void (*)(_AnyResourceStorage*, _AnyResourceStorage*) _CCCL_FUNCTION_TYPE_NOEXCEPT;
+  using _DestroyFn = void (*)(_AnyResourceStorage*) noexcept;
+  using _MoveFn    = void (*)(_AnyResourceStorage*, _AnyResourceStorage*) noexcept;
   using _CopyFn    = void (*)(_AnyResourceStorage*, const _AnyResourceStorage*);
 
   bool __is_small;
@@ -155,30 +156,30 @@ struct _Resource_vtable_builder
   template <class _Resource>
   static void* _Alloc(void* __object, size_t __bytes, size_t __alignment)
   {
-    return static_cast<_Resource*>(__object)->allocate(__bytes, __alignment);
+    return static_cast<_Resource*>(__object)->allocate_sync(__bytes, __alignment);
   }
 
   template <class _Resource>
   static void _Dealloc(void* __object, void* __ptr, size_t __bytes, size_t __alignment) noexcept
   {
     // TODO: this breaks RMM because their memory resources do not declare their
-    // deallocate functions to be noexcept. Comment out the check for now until
+    // deallocate_sync functions to be noexcept. Comment out the check for now until
     // we can fix RMM.
     // static_assert(noexcept(static_cast<_Resource*>(__object)->deallocate(__ptr, __bytes, __alignment)));
-    return static_cast<_Resource*>(__object)->deallocate(__ptr, __bytes, __alignment);
+    return static_cast<_Resource*>(__object)->deallocate_sync(__ptr, __bytes, __alignment);
   }
 
   template <class _Resource>
   static void* _Alloc_async(void* __object, size_t __bytes, size_t __alignment, ::cuda::stream_ref __stream)
   {
-    return static_cast<_Resource*>(__object)->allocate_async(__bytes, __alignment, __stream);
+    return static_cast<_Resource*>(__object)->allocate(__stream, __bytes, __alignment);
   }
 
   template <class _Resource>
   static void
   _Dealloc_async(void* __object, void* __ptr, size_t __bytes, size_t __alignment, ::cuda::stream_ref __stream)
   {
-    return static_cast<_Resource*>(__object)->deallocate_async(__ptr, __bytes, __alignment, __stream);
+    return static_cast<_Resource*>(__object)->deallocate(__stream, __ptr, __bytes, __alignment);
   }
 
   template <class _Resource>
@@ -191,7 +192,7 @@ struct _Resource_vtable_builder
   static void _Destroy_impl(_AnyResourceStorage* __object_, __wrapper_type<_WrapperType::_Owning>) noexcept
   {
     _Resource* __object = _Any_resource_cast<_Resource>(__object_);
-    _CCCL_IF_CONSTEXPR (_IsSmall<_Resource>())
+    if constexpr (_IsSmall<_Resource>())
     {
       __object->~_Resource();
     }
@@ -215,7 +216,7 @@ struct _Resource_vtable_builder
   static void _Move_impl(
     _AnyResourceStorage* __object, _AnyResourceStorage* __other_, __wrapper_type<_WrapperType::_Owning>) noexcept
   {
-    _CCCL_IF_CONSTEXPR (_IsSmall<_Resource>())
+    if constexpr (_IsSmall<_Resource>())
     {
       _Resource* __other = _Any_resource_cast<_Resource>(__other_);
       ::new (static_cast<void*>(__object->__buf_)) _Resource(_CUDA_VSTD::move(*__other));
@@ -241,7 +242,7 @@ struct _Resource_vtable_builder
   static void _Copy_impl(
     _AnyResourceStorage* __object, const _AnyResourceStorage* __other, __wrapper_type<_WrapperType::_Owning>) noexcept
   {
-    _CCCL_IF_CONSTEXPR (_IsSmall<_Resource>())
+    if constexpr (_IsSmall<_Resource>())
     {
       ::new (static_cast<void*>(__object->__buf_)) _Resource(*_Any_resource_cast<_Resource>(__other));
     }
@@ -263,7 +264,7 @@ struct _Resource_vtable_builder
   }
 
   _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type, _WrapperType _Wrapper_type)
-  _CCCL_REQUIRES((_Alloc_type == _AllocType::_Default))
+  _CCCL_REQUIRES((_Alloc_type == _AllocType::_Synchronous))
   static constexpr _Alloc_vtable _Create() noexcept
   {
     return {_IsSmall<_Resource>(),
@@ -276,7 +277,7 @@ struct _Resource_vtable_builder
   }
 
   _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type, _WrapperType _Wrapper_type)
-  _CCCL_REQUIRES((_Alloc_type == _AllocType::_Async))
+  _CCCL_REQUIRES((_Alloc_type == _AllocType::_Default))
   static constexpr _Async_alloc_vtable _Create() noexcept
   {
     return {_IsSmall<_Resource>(),
@@ -387,12 +388,12 @@ struct _CCCL_DECLSPEC_EMPTY_BASES _Alloc_base : _Resource_ref_base
       , __static_vtable(__static_vtabl_)
   {}
 
-  _CCCL_NODISCARD void* allocate(size_t __bytes, size_t __alignment = alignof(_CUDA_VSTD::max_align_t))
+  [[nodiscard]] void* allocate_sync(size_t __bytes, size_t __alignment = alignof(_CUDA_VSTD::max_align_t))
   {
     return __static_vtable->__alloc_fn(_Get_object(), __bytes, __alignment);
   }
 
-  void deallocate(void* _Ptr, size_t __bytes, size_t __alignment = alignof(_CUDA_VSTD::max_align_t)) noexcept
+  void deallocate_sync(void* _Ptr, size_t __bytes, size_t __alignment = alignof(_CUDA_VSTD::max_align_t)) noexcept
   {
     __static_vtable->__dealloc_fn(_Get_object(), _Ptr, __bytes, __alignment);
   }
@@ -427,22 +428,22 @@ struct _Async_alloc_base : public _Alloc_base<_Vtable, _Wrapper_type>
       : _Alloc_base<_Vtable, _Wrapper_type>(__object_, __static_vtabl_)
   {}
 
-  _CCCL_NODISCARD void* allocate_async(size_t __bytes, size_t __alignment, ::cuda::stream_ref __stream)
+  [[nodiscard]] void* allocate(::cuda::stream_ref __stream, size_t __bytes, size_t __alignment)
   {
     return this->__static_vtable->__async_alloc_fn(this->_Get_object(), __bytes, __alignment, __stream);
   }
 
-  _CCCL_NODISCARD void* allocate_async(size_t __bytes, ::cuda::stream_ref __stream)
+  [[nodiscard]] void* allocate(::cuda::stream_ref __stream, size_t __bytes)
   {
     return this->__static_vtable->__async_alloc_fn(this->_Get_object(), __bytes, alignof(max_align_t), __stream);
   }
 
-  void deallocate_async(void* _Ptr, size_t __bytes, ::cuda::stream_ref __stream)
+  void deallocate(::cuda::stream_ref __stream, void* _Ptr, size_t __bytes)
   {
     this->__static_vtable->__async_dealloc_fn(this->_Get_object(), _Ptr, __bytes, alignof(max_align_t), __stream);
   }
 
-  void deallocate_async(void* _Ptr, size_t __bytes, size_t __alignment, ::cuda::stream_ref __stream)
+  void deallocate(::cuda::stream_ref __stream, void* _Ptr, size_t __bytes, size_t __alignment)
   {
     this->__static_vtable->__async_dealloc_fn(this->_Get_object(), _Ptr, __bytes, __alignment, __stream);
   }
@@ -453,15 +454,15 @@ _CCCL_CONCEPT _Is_resource_ref = _CUDA_VSTD::convertible_to<_Resource&, _Resourc
 
 template <_AllocType _Alloc_type, _WrapperType _Wrapper_type>
 using _Resource_base =
-  _CUDA_VSTD::_If<_Alloc_type == _AllocType::_Default,
+  _CUDA_VSTD::_If<_Alloc_type == _AllocType::_Synchronous,
                   _Alloc_base<_Alloc_vtable, _Wrapper_type>,
                   _Async_alloc_base<_Async_alloc_vtable, _Wrapper_type>>;
 
 template <_AllocType _Alloc_type>
-using _Vtable_store = _CUDA_VSTD::_If<_Alloc_type == _AllocType::_Default, _Alloc_vtable, _Async_alloc_vtable>;
+using _Vtable_store = _CUDA_VSTD::_If<_Alloc_type == _AllocType::_Synchronous, _Alloc_vtable, _Async_alloc_vtable>;
 
 template <_AllocType _Alloc_type, _WrapperType _Wrapper_type, class _Resource>
-_CCCL_INLINE_VAR constexpr _Vtable_store<_Alloc_type> __alloc_vtable =
+inline constexpr _Vtable_store<_Alloc_type> __alloc_vtable =
   _Resource_vtable_builder::template _Create<_Resource, _Alloc_type, _Wrapper_type>();
 
 struct _Resource_ref_helper
@@ -510,10 +511,22 @@ private:
   {}
 
 public:
-  //! @brief Constructs a \c basic_resource_ref from a type that satisfies the \c resource or \c async_resource concept
+  //! @brief Constructs a \c basic_resource_ref from a type that satisfies the \c synchronous_resource concept
   //! as well as all properties
   //! @param __res The resource to be wrapped within the \c basic_resource_ref
   _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type2 = _Alloc_type)
+  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Synchronous)
+                   _CCCL_AND synchronous_resource_with<_Resource, _Properties...>)
+  basic_resource_ref(_Resource& __res) noexcept
+      : _Resource_base<_Alloc_type, _WrapperType::_Reference>(
+          _CUDA_VSTD::addressof(__res), &__alloc_vtable<_Alloc_type, _WrapperType::_Reference, _Resource>)
+      , __vtable(__vtable::template _Create<_Resource>())
+  {}
+
+  //! @brief Constructs a \c synchronous_resource_ref from a type that satisfies the \c resource concept as well as all
+  //! properties. This ignores the async interface of the passed in resource
+  //! @param __res The resource to be wrapped within the \c synchronous_resource_ref
+  _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type2 = _Alloc_type)
   _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Default)
                    _CCCL_AND resource_with<_Resource, _Properties...>)
   basic_resource_ref(_Resource& __res) noexcept
@@ -522,36 +535,24 @@ public:
       , __vtable(__vtable::template _Create<_Resource>())
   {}
 
-  //! @brief Constructs a \c resource_ref from a type that satisfies the \c async_resource concept  as well as all
-  //! properties. This ignores the async interface of the passed in resource
-  //! @param __res The resource to be wrapped within the \c resource_ref
-  _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type2 = _Alloc_type)
-  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Async)
-                   _CCCL_AND async_resource_with<_Resource, _Properties...>)
-  basic_resource_ref(_Resource& __res) noexcept
-      : _Resource_base<_Alloc_type, _WrapperType::_Reference>(
-          _CUDA_VSTD::addressof(__res), &__alloc_vtable<_Alloc_type, _WrapperType::_Reference, _Resource>)
-      , __vtable(__vtable::template _Create<_Resource>())
-  {}
-
-  //! @brief Constructs a \c basic_resource_ref from a type that satisfies the \c resource or \c async_resource concept
+  //! @brief Constructs a \c basic_resource_ref from a type that satisfies the \c synchronous_resource concept
   //! as well as all properties
   //! @param __res Pointer to a resource to be wrapped within the \c basic_resource_ref
   _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type2 = _Alloc_type)
-  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Default)
-                   _CCCL_AND resource_with<_Resource, _Properties...>)
+  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Synchronous)
+                   _CCCL_AND synchronous_resource_with<_Resource, _Properties...>)
   basic_resource_ref(_Resource* __res) noexcept
       : _Resource_base<_Alloc_type, _WrapperType::_Reference>(
           __res, &__alloc_vtable<_Alloc_type, _WrapperType::_Reference, _Resource>)
       , __vtable(__vtable::template _Create<_Resource>())
   {}
 
-  //! @brief Constructs a \c resource_ref from a type that satisfies the \c async_resource concept  as well as all
+  //! @brief Constructs a \c basic_resource_ref from a type that satisfies the \c resource concept as well as all
   //! properties. This ignores the async interface of the passed in resource
-  //! @param __res Pointer to a resource to be wrapped within the \c resource_ref
+  //! @param __res Pointer to a resource to be wrapped within the \c basic_resource_ref
   _CCCL_TEMPLATE(class _Resource, _AllocType _Alloc_type2 = _Alloc_type)
-  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Async)
-                   _CCCL_AND async_resource_with<_Resource, _Properties...>)
+  _CCCL_REQUIRES((!_Is_resource_ref<_Resource>) _CCCL_AND(_Alloc_type2 == _AllocType::_Default)
+                   _CCCL_AND resource_with<_Resource, _Properties...>)
   basic_resource_ref(_Resource* __res) noexcept
       : _Resource_base<_Alloc_type, _WrapperType::_Reference>(
           __res, &__alloc_vtable<_Alloc_type, _WrapperType::_Reference, _Resource>)
@@ -567,11 +568,11 @@ public:
       , __vtable(static_cast<const _Filtered_vtable<_OtherProperties...>&>(__ref))
   {}
 
-  //! @brief Conversion from a \c async_resource_ref with the same set of properties but in a different order to a
-  //! \c resource_ref
-  //! @param __ref The other \c async_resource_ref
+  //! @brief Conversion from a \c resource_ref with the same set of properties but in a different order to a
+  //! \c synchronous_resource_ref
+  //! @param __ref The other \c resource_ref
   _CCCL_TEMPLATE(_AllocType _OtherAllocType, class... _OtherProperties)
-  _CCCL_REQUIRES((_OtherAllocType == _AllocType::_Async) _CCCL_AND(_OtherAllocType != _Alloc_type)
+  _CCCL_REQUIRES((_OtherAllocType == _AllocType::_Default) _CCCL_AND(_OtherAllocType != _Alloc_type)
                    _CCCL_AND __properties_match<_OtherProperties...>)
   basic_resource_ref(basic_resource_ref<_OtherAllocType, _OtherProperties...> __ref) noexcept
       : _Resource_base<_Alloc_type, _WrapperType::_Reference>(__ref.__object, __ref.__static_vtable)
@@ -583,7 +584,7 @@ public:
   //! @param __rhs The second \c basic_resource_ref
   //! @return Checks whether both resources have the same equality function stored in their vtable and if so returns
   //! the result of that equality comparison. Otherwise returns false.
-  _CCCL_NODISCARD_FRIEND bool operator==(const basic_resource_ref& __lhs, const basic_resource_ref& __rhs)
+  [[nodiscard]] friend bool operator==(const basic_resource_ref& __lhs, const basic_resource_ref& __rhs)
   {
     // BUGBUG: comparing function pointers like this can lead to false negatives:
     return (__lhs.__static_vtable->__equal_fn == __rhs.__static_vtable->__equal_fn)
@@ -594,7 +595,7 @@ public:
   _CCCL_TEMPLATE(class... _OtherProperties)
   _CCCL_REQUIRES((sizeof...(_Properties) == sizeof...(_OtherProperties))
                    _CCCL_AND __properties_match<_OtherProperties...>)
-  _CCCL_NODISCARD bool operator==(const basic_resource_ref<_Alloc_type, _OtherProperties...>& __rhs) const
+  [[nodiscard]] bool operator==(const basic_resource_ref<_Alloc_type, _OtherProperties...>& __rhs) const
   {
     // BUGBUG: comparing function pointers like this can lead to false negatives:
     return (this->__static_vtable->__equal_fn == __rhs.__static_vtable->__equal_fn)
@@ -606,7 +607,7 @@ public:
   //! @param __rhs The second \c basic_resource_ref
   //! @return Checks whether both resources have the same equality function stored in their vtable and if so returns
   //! the inverse result of that equality comparison. Otherwise returns true.
-  _CCCL_NODISCARD_FRIEND bool operator!=(const basic_resource_ref& __lhs, const basic_resource_ref& __rhs)
+  [[nodiscard]] friend bool operator!=(const basic_resource_ref& __lhs, const basic_resource_ref& __rhs)
   {
     return !(__lhs == __rhs);
   }
@@ -615,7 +616,7 @@ public:
   _CCCL_TEMPLATE(class... _OtherProperties)
   _CCCL_REQUIRES((sizeof...(_Properties) == sizeof...(_OtherProperties))
                    _CCCL_AND __properties_match<_OtherProperties...>)
-  _CCCL_NODISCARD bool operator!=(const basic_resource_ref<_Alloc_type, _OtherProperties...>& __rhs) const
+  [[nodiscard]] bool operator!=(const basic_resource_ref<_Alloc_type, _OtherProperties...>& __rhs) const
   {
     return !(*this == __rhs);
   }
@@ -628,26 +629,26 @@ public:
   //! @brief Forwards the stateful properties
   _CCCL_TEMPLATE(class _Property)
   _CCCL_REQUIRES(property_with_value<_Property> _CCCL_AND _CUDA_VSTD::__is_included_in_v<_Property, _Properties...>)
-  _CCCL_NODISCARD_FRIEND __property_value_t<_Property> get_property(const basic_resource_ref& __res, _Property) noexcept
+  [[nodiscard]] friend __property_value_t<_Property> get_property(const basic_resource_ref& __res, _Property) noexcept
   {
     return __res._Property_vtable<_Property>::__property_fn(__res.__object);
   }
 };
 
 //! @brief Type erased wrapper around a `resource` that satisfies \tparam _Properties
-//! @tparam _Properties The properties that any resource wrapped within the `resource_ref` needs to satisfy
+//! @tparam _Properties The properties that any resource wrapped within the `synchronous_resource_ref` needs to satisfy
+template <class... _Properties>
+using synchronous_resource_ref = basic_resource_ref<_AllocType::_Synchronous, _Properties...>;
+
+//! @brief Type erased wrapper around a `resource` that satisfies \tparam _Properties
+//! @tparam _Properties The properties that any async resource wrapped within the `resource_ref` needs to satisfy
 template <class... _Properties>
 using resource_ref = basic_resource_ref<_AllocType::_Default, _Properties...>;
 
-//! @brief Type erased wrapper around a `async_resource` that satisfies \tparam _Properties
-//! @tparam _Properties The properties that any async resource wrapped within the `async_resource_ref` needs to satisfy
-template <class... _Properties>
-using async_resource_ref = basic_resource_ref<_AllocType::_Async, _Properties...>;
-
 _LIBCUDACXX_END_NAMESPACE_CUDA_MR
 
-#  endif // _CCCL_STD_VER >= 2014
+#  include <cuda/std/__cccl/epilogue.h>
 
-#endif // !_CCCL_COMPILER(MSVC2017) && LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE
+#endif // LIBCUDACXX_ENABLE_EXPERIMENTAL_MEMORY_RESOURCE
 
 #endif //_CUDA__MEMORY_RESOURCE_RESOURCE_REF_H

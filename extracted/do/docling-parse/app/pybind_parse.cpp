@@ -8,109 +8,222 @@
 #include <pybind/utils/pybind11_json.h>
 
 #include <pybind/docling_parser.h>
-#include <pybind/docling_sanitizer.h>
 
 // Include parse headers for typed bindings
 #include <parse.h>
 
 PYBIND11_MODULE(pdf_parsers, m) {
 
+  // ============= Decode Page Config =============
+
+  pybind11::class_<pdflib::decode_page_config>(m, "DecodePageConfig",
+    R"(
+    Configuration parameters for page decoding.
+
+    Attributes:
+        page_boundary (str): The page boundary specification [choices: crop_box, media_box].
+        do_sanitization (bool): Sanitize the chars into lines [default=true].
+        keep_char_cells (bool): Keep all the individual char cells [default=true].
+        keep_shapes (bool): Keep all the graphic shapes [default=true].
+        keep_bitmaps (bool): Keep all the bitmap resources [default=true].
+        max_num_lines (int): Maximum number of lines to keep (-1 means no cap) [default=-1].
+        max_num_bitmaps (int): Maximum number of bitmaps to keep (-1 means no cap) [default=-1].
+    )")
+    .def(pybind11::init<>())
+    .def_readwrite("page_boundary", &pdflib::decode_page_config::page_boundary)
+    .def_readwrite("do_sanitization", &pdflib::decode_page_config::do_sanitization)
+    .def_readwrite("keep_char_cells", &pdflib::decode_page_config::keep_char_cells)
+    .def_readwrite("keep_shapes", &pdflib::decode_page_config::keep_shapes)
+    .def_readwrite("keep_bitmaps", &pdflib::decode_page_config::keep_bitmaps)
+    .def_readwrite("max_num_lines", &pdflib::decode_page_config::max_num_lines)
+    .def_readwrite("max_num_bitmaps", &pdflib::decode_page_config::max_num_bitmaps)
+    .def_readwrite("create_word_cells", &pdflib::decode_page_config::create_word_cells)
+    .def_readwrite("create_line_cells", &pdflib::decode_page_config::create_line_cells)
+    .def_readwrite("enforce_same_font", &pdflib::decode_page_config::enforce_same_font)
+    .def_readwrite("horizontal_cell_tolerance", &pdflib::decode_page_config::horizontal_cell_tolerance)
+    .def_readwrite("word_space_width_factor_for_merge", &pdflib::decode_page_config::word_space_width_factor_for_merge)
+    .def_readwrite("line_space_width_factor_for_merge", &pdflib::decode_page_config::line_space_width_factor_for_merge)
+    .def_readwrite("line_space_width_factor_for_merge_with_space", &pdflib::decode_page_config::line_space_width_factor_for_merge_with_space);
+
   // ============= Typed Resource Bindings (for zero-copy access) =============
 
   // PdfCell - individual text cell with bounding box and text content
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_CELL>>(m, "PdfCell")
-    .def_readonly("x0", &pdflib::pdf_resource<pdflib::PAGE_CELL>::x0)
-    .def_readonly("y0", &pdflib::pdf_resource<pdflib::PAGE_CELL>::y0)
-    .def_readonly("x1", &pdflib::pdf_resource<pdflib::PAGE_CELL>::x1)
-    .def_readonly("y1", &pdflib::pdf_resource<pdflib::PAGE_CELL>::y1)
-    .def_readonly("r_x0", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_x0)
-    .def_readonly("r_y0", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_y0)
-    .def_readonly("r_x1", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_x1)
-    .def_readonly("r_y1", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_y1)
-    .def_readonly("r_x2", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_x2)
-    .def_readonly("r_y2", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_y2)
-    .def_readonly("r_x3", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_x3)
-    .def_readonly("r_y3", &pdflib::pdf_resource<pdflib::PAGE_CELL>::r_y3)
-    .def_readonly("text", &pdflib::pdf_resource<pdflib::PAGE_CELL>::text)
-    .def_readonly("rendering_mode", &pdflib::pdf_resource<pdflib::PAGE_CELL>::rendering_mode)
-    .def_readonly("space_width", &pdflib::pdf_resource<pdflib::PAGE_CELL>::space_width)
-    .def_readonly("enc_name", &pdflib::pdf_resource<pdflib::PAGE_CELL>::enc_name)
-    .def_readonly("font_enc", &pdflib::pdf_resource<pdflib::PAGE_CELL>::font_enc)
-    .def_readonly("font_key", &pdflib::pdf_resource<pdflib::PAGE_CELL>::font_key)
-    .def_readonly("font_name", &pdflib::pdf_resource<pdflib::PAGE_CELL>::font_name)
-    .def_readonly("widget", &pdflib::pdf_resource<pdflib::PAGE_CELL>::widget)
-    .def_readonly("left_to_right", &pdflib::pdf_resource<pdflib::PAGE_CELL>::left_to_right);
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_CELL>>(m, "PdfCell")
+    .def_readonly("x0", &pdflib::page_item<pdflib::PAGE_CELL>::x0)
+    .def_readonly("y0", &pdflib::page_item<pdflib::PAGE_CELL>::y0)
+    .def_readonly("x1", &pdflib::page_item<pdflib::PAGE_CELL>::x1)
+    .def_readonly("y1", &pdflib::page_item<pdflib::PAGE_CELL>::y1)
+    .def_readonly("r_x0", &pdflib::page_item<pdflib::PAGE_CELL>::r_x0)
+    .def_readonly("r_y0", &pdflib::page_item<pdflib::PAGE_CELL>::r_y0)
+    .def_readonly("r_x1", &pdflib::page_item<pdflib::PAGE_CELL>::r_x1)
+    .def_readonly("r_y1", &pdflib::page_item<pdflib::PAGE_CELL>::r_y1)
+    .def_readonly("r_x2", &pdflib::page_item<pdflib::PAGE_CELL>::r_x2)
+    .def_readonly("r_y2", &pdflib::page_item<pdflib::PAGE_CELL>::r_y2)
+    .def_readonly("r_x3", &pdflib::page_item<pdflib::PAGE_CELL>::r_x3)
+    .def_readonly("r_y3", &pdflib::page_item<pdflib::PAGE_CELL>::r_y3)
+    .def_readonly("text", &pdflib::page_item<pdflib::PAGE_CELL>::text)
+    .def_readonly("rendering_mode", &pdflib::page_item<pdflib::PAGE_CELL>::rendering_mode)
+    .def_readonly("space_width", &pdflib::page_item<pdflib::PAGE_CELL>::space_width)
+    .def_readonly("enc_name", &pdflib::page_item<pdflib::PAGE_CELL>::enc_name)
+    .def_readonly("font_enc", &pdflib::page_item<pdflib::PAGE_CELL>::font_enc)
+    .def_readonly("font_key", &pdflib::page_item<pdflib::PAGE_CELL>::font_key)
+    .def_readonly("font_name", &pdflib::page_item<pdflib::PAGE_CELL>::font_name)
+    .def_readonly("widget", &pdflib::page_item<pdflib::PAGE_CELL>::widget)
+    .def_readonly("left_to_right", &pdflib::page_item<pdflib::PAGE_CELL>::left_to_right);
 
-  // PdfLine - graphic line with coordinates
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_LINE>>(m, "PdfLine")
-    .def("get_x", &pdflib::pdf_resource<pdflib::PAGE_LINE>::get_x,
+  // PdfShape - graphic shape with coordinates
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_SHAPE>>(m, "PdfShape")
+    .def("get_x", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_x,
 	 pybind11::return_value_policy::reference_internal,
-	 "Get x coordinates of line points")
-    .def("get_y", &pdflib::pdf_resource<pdflib::PAGE_LINE>::get_y,
+	 "Get x coordinates of shape points")
+    .def("get_y", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_y,
 	 pybind11::return_value_policy::reference_internal,
-	 "Get y coordinates of line points")
-    .def("get_i", &pdflib::pdf_resource<pdflib::PAGE_LINE>::get_i,
+	 "Get y coordinates of shape points")
+    .def("get_i", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_i,
 	 pybind11::return_value_policy::reference_internal,
 	 "Get segment indices")
-    .def("__len__", &pdflib::pdf_resource<pdflib::PAGE_LINE>::size);
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_SHAPE>::size)
+    .def("get_has_graphics_state", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_has_graphics_state,
+	 "Check if graphics state has been set")
+    .def("get_line_width", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_line_width,
+	 "Get line width")
+    .def("get_miter_limit", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_miter_limit,
+	 "Get miter limit")
+    .def("get_line_cap", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_line_cap,
+	 "Get line cap style")
+    .def("get_line_join", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_line_join,
+	 "Get line join style")
+    .def("get_dash_phase", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_dash_phase,
+	 "Get dash phase")
+    .def("get_dash_array", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_dash_array,
+	 pybind11::return_value_policy::reference_internal,
+	 "Get dash array")
+    .def("get_flatness", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_flatness,
+	 "Get flatness tolerance")
+    .def("get_rgb_stroking_ops", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_rgb_stroking_ops,
+	 pybind11::return_value_policy::reference_internal,
+	 "Get RGB stroking color")
+    .def("get_rgb_filling_ops", &pdflib::page_item<pdflib::PAGE_SHAPE>::get_rgb_filling_ops,
+	 pybind11::return_value_policy::reference_internal,
+	 "Get RGB filling color");
 
-  // PdfImage - bitmap resource with bounding box
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_IMAGE>>(m, "PdfImage")
-    .def_readonly("x0", &pdflib::pdf_resource<pdflib::PAGE_IMAGE>::x0)
-    .def_readonly("y0", &pdflib::pdf_resource<pdflib::PAGE_IMAGE>::y0)
-    .def_readonly("x1", &pdflib::pdf_resource<pdflib::PAGE_IMAGE>::x1)
-    .def_readonly("y1", &pdflib::pdf_resource<pdflib::PAGE_IMAGE>::y1);
+  // PdfImage - bitmap resource with bounding box and image data
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_IMAGE>>(m, "PdfImage")
+    .def_readonly("x0", &pdflib::page_item<pdflib::PAGE_IMAGE>::x0)
+    .def_readonly("y0", &pdflib::page_item<pdflib::PAGE_IMAGE>::y0)
+    .def_readonly("x1", &pdflib::page_item<pdflib::PAGE_IMAGE>::x1)
+    .def_readonly("y1", &pdflib::page_item<pdflib::PAGE_IMAGE>::y1)
+    .def_readonly("image_width", &pdflib::page_item<pdflib::PAGE_IMAGE>::image_width)
+    .def_readonly("image_height", &pdflib::page_item<pdflib::PAGE_IMAGE>::image_height)
+    .def("get_image_format", &pdflib::page_item<pdflib::PAGE_IMAGE>::get_image_format,
+	 "Get image format hint: 'jpeg', 'jp2', 'jbig2', or 'raw'")
+    .def("get_pil_mode", &pdflib::page_item<pdflib::PAGE_IMAGE>::get_pil_mode,
+	 "Get PIL-compatible mode string: 'L', 'RGB', 'CMYK', or '1'")
+    .def("get_image_as_bytes",
+	 [](pdflib::page_item<pdflib::PAGE_IMAGE> const& self) {
+	   auto data = self.get_image_as_bytes();
+	   return pybind11::bytes(reinterpret_cast<char const*>(data.data()),
+				  data.size());
+	 },
+	 "Get image data as bytes (corrected JPEG, raw JP2, or decoded pixels)");
 
   // PdfPageDimension - page geometry and bounding boxes
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_DIMENSION>>(m, "PdfPageDimension")
-    .def("get_angle", &pdflib::pdf_resource<pdflib::PAGE_DIMENSION>::get_angle,
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_DIMENSION>>(m, "PdfPageDimension")
+    .def("get_angle", &pdflib::page_item<pdflib::PAGE_DIMENSION>::get_angle,
 	 "Get page rotation angle in degrees")
-    .def("get_crop_bbox", &pdflib::pdf_resource<pdflib::PAGE_DIMENSION>::get_crop_bbox,
+    .def("get_crop_bbox", &pdflib::page_item<pdflib::PAGE_DIMENSION>::get_crop_bbox,
 	 "Get crop box as [x0, y0, x1, y1]")
-    .def("get_media_bbox", &pdflib::pdf_resource<pdflib::PAGE_DIMENSION>::get_media_bbox,
+    .def("get_media_bbox", &pdflib::page_item<pdflib::PAGE_DIMENSION>::get_media_bbox,
 	 "Get media box as [x0, y0, x1, y1]");
+
+  // PdfWidget - form field widget with bounding box and field info
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_WIDGET>>(m, "PdfWidget")
+    .def_readonly("x0", &pdflib::page_item<pdflib::PAGE_WIDGET>::x0)
+    .def_readonly("y0", &pdflib::page_item<pdflib::PAGE_WIDGET>::y0)
+    .def_readonly("x1", &pdflib::page_item<pdflib::PAGE_WIDGET>::x1)
+    .def_readonly("y1", &pdflib::page_item<pdflib::PAGE_WIDGET>::y1)
+    .def_readonly("text", &pdflib::page_item<pdflib::PAGE_WIDGET>::text)
+    .def_readonly("description", &pdflib::page_item<pdflib::PAGE_WIDGET>::description)
+    .def_readonly("field_name", &pdflib::page_item<pdflib::PAGE_WIDGET>::field_name)
+    .def_readonly("field_type", &pdflib::page_item<pdflib::PAGE_WIDGET>::field_type);
+
+  // PdfHyperlink - hyperlink annotation with bounding box and URI
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_HYPERLINK>>(m, "PdfHyperlink")
+    .def_readonly("x0", &pdflib::page_item<pdflib::PAGE_HYPERLINK>::x0)
+    .def_readonly("y0", &pdflib::page_item<pdflib::PAGE_HYPERLINK>::y0)
+    .def_readonly("x1", &pdflib::page_item<pdflib::PAGE_HYPERLINK>::x1)
+    .def_readonly("y1", &pdflib::page_item<pdflib::PAGE_HYPERLINK>::y1)
+    .def_readonly("uri", &pdflib::page_item<pdflib::PAGE_HYPERLINK>::uri);
 
   // ============= Container Type Bindings =============
 
   // PdfCells - iterable container of PdfCell objects
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_CELLS>>(m, "PdfCells")
-    .def("__len__", &pdflib::pdf_resource<pdflib::PAGE_CELLS>::size)
-    .def("__getitem__", [](pdflib::pdf_resource<pdflib::PAGE_CELLS>& self, size_t i)
-	 -> pdflib::pdf_resource<pdflib::PAGE_CELL>& {
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_CELLS>>(m, "PdfCells")
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_CELLS>::size)
+    .def("__getitem__", [](pdflib::page_item<pdflib::PAGE_CELLS>& self, size_t i)
+	 -> pdflib::page_item<pdflib::PAGE_CELL>& {
 	   if (i >= self.size()) {
 	     throw pybind11::index_error("index out of range");
 	   }
 	   return self[i];
 	 }, pybind11::return_value_policy::reference_internal)
-    .def("__iter__", [](pdflib::pdf_resource<pdflib::PAGE_CELLS>& self) {
+    .def("__iter__", [](pdflib::page_item<pdflib::PAGE_CELLS>& self) {
 	   return pybind11::make_iterator(self.begin(), self.end());
 	 }, pybind11::keep_alive<0, 1>());
 
-  // PdfLines - iterable container of PdfLine objects
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_LINES>>(m, "PdfLines")
-    .def("__len__", &pdflib::pdf_resource<pdflib::PAGE_LINES>::size)
-    .def("__getitem__", [](pdflib::pdf_resource<pdflib::PAGE_LINES>& self, size_t i)
-	 -> pdflib::pdf_resource<pdflib::PAGE_LINE>& {
+  // PdfShapes - iterable container of PdfShape objects
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_SHAPES>>(m, "PdfShapes")
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_SHAPES>::size)
+    .def("__getitem__", [](pdflib::page_item<pdflib::PAGE_SHAPES>& self, size_t i)
+	 -> pdflib::page_item<pdflib::PAGE_SHAPE>& {
 	   if (i >= self.size()) {
 	     throw pybind11::index_error("index out of range");
 	   }
 	   return self[i];
 	 }, pybind11::return_value_policy::reference_internal)
-    .def("__iter__", [](pdflib::pdf_resource<pdflib::PAGE_LINES>& self) {
+    .def("__iter__", [](pdflib::page_item<pdflib::PAGE_SHAPES>& self) {
 	   return pybind11::make_iterator(self.begin(), self.end());
 	 }, pybind11::keep_alive<0, 1>());
 
   // PdfImages - iterable container of PdfImage objects
-  pybind11::class_<pdflib::pdf_resource<pdflib::PAGE_IMAGES>>(m, "PdfImages")
-    .def("__len__", &pdflib::pdf_resource<pdflib::PAGE_IMAGES>::size)
-    .def("__getitem__", [](pdflib::pdf_resource<pdflib::PAGE_IMAGES>& self, size_t i)
-	 -> pdflib::pdf_resource<pdflib::PAGE_IMAGE>& {
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_IMAGES>>(m, "PdfImages")
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_IMAGES>::size)
+    .def("__getitem__", [](pdflib::page_item<pdflib::PAGE_IMAGES>& self, size_t i)
+	 -> pdflib::page_item<pdflib::PAGE_IMAGE>& {
 	   if (i >= self.size()) {
 	     throw pybind11::index_error("index out of range");
 	   }
 	   return self[i];
 	 }, pybind11::return_value_policy::reference_internal)
-    .def("__iter__", [](pdflib::pdf_resource<pdflib::PAGE_IMAGES>& self) {
+    .def("__iter__", [](pdflib::page_item<pdflib::PAGE_IMAGES>& self) {
+	   return pybind11::make_iterator(self.begin(), self.end());
+	 }, pybind11::keep_alive<0, 1>());
+
+  // PdfWidgets - iterable container of PdfWidget objects
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_WIDGETS>>(m, "PdfWidgets")
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_WIDGETS>::size)
+    .def("__getitem__", [](pdflib::page_item<pdflib::PAGE_WIDGETS>& self, size_t i)
+	 -> pdflib::page_item<pdflib::PAGE_WIDGET>& {
+	   if (i >= self.size()) {
+	     throw pybind11::index_error("index out of range");
+	   }
+	   return self[i];
+	 }, pybind11::return_value_policy::reference_internal)
+    .def("__iter__", [](pdflib::page_item<pdflib::PAGE_WIDGETS>& self) {
+	   return pybind11::make_iterator(self.begin(), self.end());
+	 }, pybind11::keep_alive<0, 1>());
+
+  // PdfHyperlinks - iterable container of PdfHyperlink objects
+  pybind11::class_<pdflib::page_item<pdflib::PAGE_HYPERLINKS>>(m, "PdfHyperlinks")
+    .def("__len__", &pdflib::page_item<pdflib::PAGE_HYPERLINKS>::size)
+    .def("__getitem__", [](pdflib::page_item<pdflib::PAGE_HYPERLINKS>& self, size_t i)
+	 -> pdflib::page_item<pdflib::PAGE_HYPERLINK>& {
+	   if (i >= self.size()) {
+	     throw pybind11::index_error("index out of range");
+	   }
+	   return self[i];
+	 }, pybind11::return_value_policy::reference_internal)
+    .def("__iter__", [](pdflib::page_item<pdflib::PAGE_HYPERLINKS>& self) {
 	   return pybind11::make_iterator(self.begin(), self.end());
 	 }, pybind11::keep_alive<0, 1>());
 
@@ -133,12 +246,18 @@ PYBIND11_MODULE(pdf_parsers, m) {
     .def("get_line_cells", &pdflib::pdf_decoder<pdflib::PAGE>::get_line_cells,
 	 pybind11::return_value_policy::reference_internal,
 	 "Get line cells (aggregated from char cells)")
-    .def("get_page_lines", &pdflib::pdf_decoder<pdflib::PAGE>::get_page_lines,
+    .def("get_page_shapes", &pdflib::pdf_decoder<pdflib::PAGE>::get_page_shapes,
 	 pybind11::return_value_policy::reference_internal,
-	 "Get graphic lines on the page")
+	 "Get graphic shapes on the page")
     .def("get_page_images", &pdflib::pdf_decoder<pdflib::PAGE>::get_page_images,
 	 pybind11::return_value_policy::reference_internal,
 	 "Get bitmap/image resources on the page")
+    .def("get_page_widgets", &pdflib::pdf_decoder<pdflib::PAGE>::get_page_widgets,
+	 pybind11::return_value_policy::reference_internal,
+	 "Get form field widgets on the page")
+    .def("get_page_hyperlinks", &pdflib::pdf_decoder<pdflib::PAGE>::get_page_hyperlinks,
+	 pybind11::return_value_policy::reference_internal,
+	 "Get hyperlink annotations on the page")
     .def("has_word_cells", &pdflib::pdf_decoder<pdflib::PAGE>::has_word_cells,
 	 "Check if word cells have been created")
     .def("has_line_cells", &pdflib::pdf_decoder<pdflib::PAGE>::has_line_cells,
@@ -160,7 +279,13 @@ PYBIND11_MODULE(pdf_parsers, m) {
     .def("get_dynamic_timings", [](pdflib::pdf_decoder<pdflib::PAGE>& self) {
 	   return self.get_timings().get_dynamic_timings();
 	 },
-	 "Get only dynamic timing keys as Dict[str, float]");
+	 "Get only dynamic timing keys as Dict[str, float]")
+    .def("create_word_cells", &pdflib::pdf_decoder<pdflib::PAGE>::create_word_cells,
+	 pybind11::arg("config"),
+	 "Recompute word cells from char cells with the given config")
+    .def("create_line_cells", &pdflib::pdf_decoder<pdflib::PAGE>::create_line_cells,
+	 pybind11::arg("config"),
+	 "Recompute line cells from char cells with the given config");
 
   // ============= Timing Keys Constants =============
 
@@ -176,6 +301,8 @@ PYBIND11_MODULE(pdf_parsers, m) {
   m.attr("TIMING_KEY_CREATE_WORD_CELLS") = pdflib::pdf_timings::KEY_CREATE_WORD_CELLS;
   m.attr("TIMING_KEY_CREATE_LINE_CELLS") = pdflib::pdf_timings::KEY_CREATE_LINE_CELLS;
   m.attr("TIMING_KEY_DECODE_FONTS_TOTAL") = pdflib::pdf_timings::KEY_DECODE_FONTS_TOTAL;
+  m.attr("TIMING_KEY_DECODE_XOBJECTS_TOTAL") = pdflib::pdf_timings::KEY_DECODE_XOBJECTS_TOTAL;
+  m.attr("TIMING_KEY_DECODE_GRPHS_TOTAL") = pdflib::pdf_timings::KEY_DECODE_GRPHS_TOTAL;
 
   // Additional decode_page step keys
   m.attr("TIMING_KEY_TO_JSON_PAGE") = pdflib::pdf_timings::KEY_TO_JSON_PAGE;
@@ -189,6 +316,8 @@ PYBIND11_MODULE(pdf_parsers, m) {
   m.attr("TIMING_KEY_DECODE_DOCUMENT") = pdflib::pdf_timings::KEY_DECODE_DOCUMENT;
 
   m.attr("TIMING_PREFIX_DECODE_FONT") = pdflib::pdf_timings::PREFIX_DECODE_FONT;
+  m.attr("TIMING_PREFIX_DECODE_XOBJECT") = pdflib::pdf_timings::PREFIX_DECODE_XOBJECT;
+  m.attr("TIMING_PREFIX_DECODE_GRPH") = pdflib::pdf_timings::PREFIX_DECODE_GRPH;
   m.attr("TIMING_PREFIX_DECODING_PAGE") = pdflib::pdf_timings::PREFIX_DECODING_PAGE;
   m.attr("TIMING_PREFIX_DECODE_PAGE") = pdflib::pdf_timings::PREFIX_DECODE_PAGE;
 
@@ -214,18 +343,6 @@ PYBIND11_MODULE(pdf_parsers, m) {
     Parameters:
         level (str): Logging level as a string.
                      One of ['fatal', 'error', 'warning', 'info'])")
-    
-    .def("set_loglevel",
-	 [](docling::docling_parser &self, int level) -> void {
-	   self.set_loglevel(level);
-	 },
-	 pybind11::arg("level"),
-	 R"(
-    Set the log level using an integer.
-
-    Parameters:
-        level (int): Logging level as an integer.
-                     One of [`fatal`=0, `error`=1, `warning`=2, `info`=3])")
     
     .def("set_loglevel_with_label",
 	 [](docling::docling_parser &self, const std::string &level) -> void {
@@ -316,20 +433,6 @@ PYBIND11_MODULE(pdf_parsers, m) {
     Returns:
         bool: True if the document was successfully unloaded, False otherwise.)")
 
-    .def("unload_document_pages",
-	 [](docling::docling_parser &self, const std::string &key) -> bool {
-	   return self.unload_document_pages(key);
-	 },
-	 pybind11::arg("key"),
-	 R"(
-    Unload the only the cached pages of the document by its unique key.
-
-    Parameters:
-        key (str): The unique key of the document to unload.
-
-    Returns:
-        bool: True if the document was successfully unloaded, False otherwise.)")
-
     .def("unload_document_page",
 	 [](docling::docling_parser &self, const std::string &key, int page) -> bool {
 	   return self.unload_document_page(key, page);
@@ -402,302 +505,24 @@ PYBIND11_MODULE(pdf_parsers, m) {
     Returns:
         dict: A None or string of the metadata in xml of the document.)")
     
-    .def("parse_pdf_from_key",
-	 [](docling::docling_parser &self,
-	    const std::string &key,
-	    const std::string &page_boundary,
-	    bool do_sanitization
-	    ) -> nlohmann::json {
-	   return self.parse_pdf_from_key(key, page_boundary, do_sanitization);
-	 },
-	 pybind11::arg("key"),
-	 pybind11::arg("page_boundary") = "crop_box", // media_box
-	 pybind11::arg("do_sanitization") = true, // media_box
-	 R"(
-    Parse the PDF document identified by its unique key and return a JSON representation.
-
-    Parameters:
-        key (str): The unique key of the document.
-        page_boundary (str): The page boundary specification for parsing. One of [`crop_box`, `media_box`].
-        do_sanitization: Sanitize the chars into lines [default=true].
-
-    Returns:
-        dict: A JSON representation of the parsed PDF document.)")
-
-    .def("parse_pdf_from_key_on_page",
-	 [](docling::docling_parser &self,
-	    const std::string &key,
-	    int page,
-	    const std::string &page_boundary,
-	    bool do_sanitization,
-	    bool keep_char_cells,
-	    bool keep_lines,
-	    bool keep_bitmaps,
-	    bool create_word_cells,
-	    bool create_line_cells) -> nlohmann::json {
-    return self.parse_pdf_from_key_on_page(key,
-					   page,
-					   page_boundary,
-					   do_sanitization,
-					   keep_char_cells,
-					   keep_lines,
-					   keep_bitmaps,
-					   create_word_cells,
-					   create_line_cells);
-	 },
-    pybind11::arg("key"),
-    pybind11::arg("page"),
-    pybind11::arg("page_boundary") = "crop_box", // media_box
-    pybind11::arg("do_sanitization") = true,
-    pybind11::arg("keep_char_cells") = true,
-    pybind11::arg("keep_lines") = true,
-    pybind11::arg("keep_bitmaps") = true,
-    pybind11::arg("create_word_cells") = true,
-    pybind11::arg("create_line_cells") = true,
-	 R"(
-    Parse a specific page of the PDF document identified by its unique key and return a JSON representation.
-
-    Parameters:
-        key (str): The unique key of the document.
-        page (int): The page number to parse.
-        page_boundary (str): The page boundary specification for parsing [choices: crop_box, media_box].
-        do_sanitization: Sanitize the chars into lines [default=true].
-        keep_char_cells: keep all the individual char's
-        keep_lines: keep all the lines
-        keep_bitmaps: keep all the bitmap resources
-        create_word_cells: create words from the char-cells
-        create_line_cells: create lines from the char-cells
-
-    Returns:
-        dict: A JSON representation of the parsed page.)")
-
     .def("get_page_decoder",
 	 [](docling::docling_parser &self,
 	    const std::string &key,
 	    int page,
-	    const std::string &page_boundary,
-	    bool do_sanitization,
-	    bool create_word_cells,
-	    bool create_line_cells) -> std::shared_ptr<pdflib::pdf_decoder<pdflib::PAGE>> {
-	   return self.get_page_decoder(key,
-					page,
-					page_boundary,
-					do_sanitization,
-					create_word_cells,
-					create_line_cells);
+	    const pdflib::decode_page_config &config) -> std::shared_ptr<pdflib::pdf_decoder<pdflib::PAGE>> {
+	   return self.get_page_decoder(key, page, config);
 	 },
 	 pybind11::arg("key"),
 	 pybind11::arg("page"),
-	 pybind11::arg("page_boundary") = "crop_box",
-	 pybind11::arg("do_sanitization") = true,
-	 pybind11::arg("create_word_cells") = true,
-	 pybind11::arg("create_line_cells") = true,
+	 pybind11::arg("config"),
 	 R"(
-    Get a typed page decoder for direct access to page data without JSON serialization.
-
-    This method provides efficient access to parsed page data through typed Python objects
-    instead of dictionaries. Use this for better performance when processing large documents.
+    Get a typed page decoder using a DecodePageConfig object.
 
     Parameters:
         key (str): The unique key of the document.
         page (int): The page number to parse (0-indexed).
-        page_boundary (str): The page boundary specification [choices: crop_box, media_box].
-        do_sanitization (bool): Sanitize the chars into lines [default=true].
-        create_word_cells (bool): Create word cells from char cells [default=true].
-        create_line_cells (bool): Create line cells from char cells [default=true].
+        config (DecodePageConfig): Configuration object for page decoding.
 
     Returns:
-        PdfPageDecoder: A typed page decoder object with direct access to:
-            - get_char_cells(): Individual character cells
-            - get_word_cells(): Word cells (aggregated)
-            - get_line_cells(): Line cells (aggregated)
-            - get_page_lines(): Graphic lines
-            - get_page_images(): Bitmap resources
-            - get_page_dimension(): Page geometry)")
-
-    .def("sanitize_cells",
-	 [](docling::docling_parser &self,
-	    nlohmann::json &original_cells,
-	    nlohmann::json &page_dim,
-	    nlohmann::json &page_lines,
-	    double horizontal_cell_tolerance,
-	    bool enforce_same_font,
-	    double space_width_factor_for_merge,
-	    double space_width_factor_for_merge_with_space) -> nlohmann::json {
-	   return self.sanitize_cells(original_cells,
-				      page_dim,
-				      page_lines,
-				      horizontal_cell_tolerance,
-				      enforce_same_font,
-				      space_width_factor_for_merge,
-				      space_width_factor_for_merge_with_space
-				      );
-	 },	 
-	 pybind11::arg("original_cells"),
-	 pybind11::arg("page_dimension"),
-	 pybind11::arg("page_lines"),
-	 pybind11::arg("horizontal_cell_tolerance")=1.0,
-	 pybind11::arg("enforce_same_font")=true,
-	 pybind11::arg("space_width_factor_for_merge")=1.5,
-	 pybind11::arg("space_width_factor_for_merge_with_space")=0.33,
-	 R"(
-Sanitize table cells with specified parameters and return the processed JSON.
-
-    Parameters:
-        original_cells (dict): The original table cells as a JSON object.
-        page_dim (dict): Page dimensions as a JSON object.
-        page_lines (dict): Page lines as a JSON object.
-        horizontal_cell_tolerance (float): Vertical adjustment parameter to judge if two cells need to be merged (yes if abs(cell_i.r_y1-cell_i.r_y0)<horizontal_cell_tolerance), default = 1.0.
-        enforce_same_font (bool): Whether to enforce the same font across cells. Default = True.
-        space_width_factor_for_merge (float): Factor for merging cells based on space width. Default = 1.5.
-        space_width_factor_for_merge_with_space (float): Factor for merging cells with space width. Default = 0.33.
-
-    Returns:
-        dict: A JSON object representing the sanitized table cells.)")
-
-    .def("sanitize_cells_in_bbox",
-	 [](docling::docling_parser &self,
-	    nlohmann::json &page,
-	    const std::array<double, 4> &bbox,
-	    double cell_overlap,
-	    double horizontal_cell_tolerance,
-	    bool enforce_same_font,
-	    double space_width_factor_for_merge = 1.5,
-	    double space_width_factor_for_merge_with_space = 0.33) -> nlohmann::json {
-	   return self.sanitize_cells_in_bbox(page,
-					      bbox,
-					      cell_overlap,
-					      horizontal_cell_tolerance,
-					      enforce_same_font,
-					      space_width_factor_for_merge,
-					      space_width_factor_for_merge_with_space
-					      );
-	 },
-	 pybind11::arg("page"),
-	 pybind11::arg("bbox"),
-	 pybind11::arg("cell_overlap")=0.99,
-	 pybind11::arg("horizontal_cell_tolerance")=1.0,
-	 pybind11::arg("enforce_same_font")=true,
-	 pybind11::arg("space_width_factor_for_merge")=1.5,
-	 pybind11::arg("space_width_factor_for_merge_with_space")=0.33,
-	 R"(
-    Sanitize table cells in a given bounding box with specified parameters and return the processed JSON.
-
-    Parameters:
-        page (dict): The JSON object representing the page.
-        bbox (Tuple[float, float, float, float]): Bounding box specified as [x_min, y_min, x_max, y_max].
-        cell_overlap (float: 0.0-1.0): Overlap of cell (%) with bounding-box.
-        horizontal_cell_tolerance (float): Vertical adjustment parameter to judge if two cells need to be merged (yes if abs(cell_i.r_y1-cell_i.r_y0)<horizontal_cell_tolerance), default = 1.0.
-        enforce_same_font (bool): Whether to enforce the same font across cells. Default is True
-        space_width_factor_for_merge (float): Factor for merging cells based on space width. Default is 1.5.
-        space_width_factor_for_merge_with_space (float): Factor for merging cells with space width. Default is 0.33.
-
-    Returns:
-        dict: A JSON object representing the sanitized table cells in the bounding box.)");  
-
-
-  // purely for backward compatibility 
-  pybind11::class_<docling::docling_sanitizer>(m, "pdf_sanitizer")
-    .def(pybind11::init())
-
-    .def(pybind11::init<const std::string&>(),
-	 pybind11::arg("level"),
-	 R"(
-    Construct docling_sanitizer with logging level.
-
-    Parameters:
-        level (str): Logging level as a string.
-                     One of ['fatal', 'error', 'warning', 'info'])")
-    
-    .def("set_loglevel",
-	 [](docling::docling_sanitizer &self, int level) -> void {
-	   self.set_loglevel(level);
-	 },
-	 pybind11::arg("level"),
-	 R"(
-    Set the log level using an integer.
-
-    Parameters:
-        level (int): Logging level as an integer.
-                     One of [`fatal`=0, `error`=1, `warning`=2, `info`=3])")
-    
-    .def("set_loglevel_with_label",
-	 [](docling::docling_sanitizer &self, const std::string &level) -> void {
-            self.set_loglevel_with_label(level);
-	 },
-	 pybind11::arg("level"),
-	 R"(
-    Set the log level using a string label.
-
-    Parameters:
-        level (str): Logging level as a string.
-                     One of ['fatal', 'error', 'warning', 'info']
-           )")
-
-    .def("set_char_cells",
-	 [](docling::docling_sanitizer &self,
-	    nlohmann::json& data) -> nlohmann::json {
-	   return self.set_char_cells(data);
-	 },
-	 pybind11::arg("data"),
-	 R"(
-    Set char cells
-
-    Parameters:
-        data: A JSON object (for with data and header) or a list or records
-
-    Returns:
-        dict: A JSON object representing the sanitized word cells in the bounding box.)")
-    
-    .def("create_word_cells",
-	 [](docling::docling_sanitizer &self,
-	    double horizontal_cell_tolerance,
-	    bool enforce_same_font,
-	    double space_width_factor_for_merge/* = 1.0*/) -> nlohmann::json {
-	   return self.create_word_cells(horizontal_cell_tolerance,
-					 enforce_same_font,
-					 space_width_factor_for_merge);
-	 },
-	 pybind11::arg("horizontal_cell_tolerance"), // =1.0,
-	 pybind11::arg("enforce_same_font"), //=true,
-	 pybind11::arg("space_width_factor_for_merge"), //=0.33,
-	 R"(
-    Create word cells
-
-    Parameters:
-        horizontal_cell_tolerance (float): Vertical adjustment parameter to judge if two cells need to be merged (yes if abs(cell_i.r_y1-cell_i.r_y0)<horizontal_cell_tolerance), default = 1.0.
-        enforce_same_font (bool): Whether to enforce the same font across cells. Default is True
-        space_width_factor_for_merge (float): Factor for merging cells based on space width. Default is 0.33.
-
-    Returns:
-        dict: A JSON object representing the sanitized word cells in the bounding box.)")
-    
-    .def("create_line_cells",
-	 [](docling::docling_sanitizer &self,
-	    double horizontal_cell_tolerance,
-	    bool enforce_same_font,
-	    double space_width_factor_for_merge /*= 1.0*/,
-	    double space_width_factor_for_merge_with_space /*= 0.33*/) -> nlohmann::json {
-	   return self.create_line_cells(horizontal_cell_tolerance,
-					 enforce_same_font,
-					 space_width_factor_for_merge,
-					 space_width_factor_for_merge_with_space);
-	 },
-	 pybind11::arg("horizontal_cell_tolerance"), //=1.0,
-	 pybind11::arg("enforce_same_font"), //=true,
-	 pybind11::arg("space_width_factor_for_merge"), //=1.0,
-	 pybind11::arg("space_width_factor_for_merge_with_space"), //=0.33,
-	 R"(
-    Create line cells
-
-    Parameters:
-        horizontal_cell_tolerance (float): Vertical adjustment parameter to judge if two cells need to be merged (yes if abs(cell_i.r_y1-cell_i.r_y0)<horizontal_cell_tolerance), default = 1.0.
-        enforce_same_font (bool): Whether to enforce the same font across cells. Default is True
-        space_width_factor_for_merge (float): Factor for merging cells based on space width. Default is 1.0.
-        space_width_factor_for_merge_with_space (float): Factor for merging cells with space width. Default is 0.33.
-
-    Returns:
-        dict: A JSON object representing the sanitized line cells in the bounding box.)");  
-    
-    
+        PdfPageDecoder: A typed page decoder object.)");
 }

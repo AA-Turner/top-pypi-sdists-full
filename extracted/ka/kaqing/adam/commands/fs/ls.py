@@ -2,7 +2,7 @@ import copy
 
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class Ls(Command):
     COMMAND = 'ls'

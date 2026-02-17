@@ -1,9 +1,13 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 from ast import parse
 
 import pytest
 
-from tatsu.exceptions import FailedParse
-from tatsu.ngcodegen import codegen
+from tatsu.exceptions import FailedKeywordSemantics
+from tatsu.ngcodegen import pythongen
 from tatsu.tool import compile
 
 
@@ -53,12 +57,12 @@ def test_define_keywords():
         start = ('a' 'b').{'x'}+ ;
     """
     model = compile(grammar, 'test')
-    c = codegen(model)
+    c = pythongen(model)
     parse(c)
 
     grammar2 = str(model)
     model2 = compile(grammar2, 'test')
-    c2 = codegen(model2)
+    c2 = pythongen(model2)
     parse(c2)
 
     assert grammar2 == str(model2)
@@ -74,20 +78,15 @@ def test_check_keywords():
         id = /\w+/ ;
     """
     model = compile(grammar, 'test')
-    c = codegen(model)
-    print(c)
+    c = pythongen(model)
+    # print(c)
     parse(c)
 
     ast = model.parse('hello world')
     assert ast == ['hello', 'world']
 
-    try:
+    with pytest.raises(FailedKeywordSemantics, match=r'"A" is a reserved word'):
         ast = model.parse('hello A world')
-        assert ast == ['hello', 'A', 'world']
-        pytest.fail('accepted keyword as name')
-    except FailedParse as e:
-        print(str(e))
-        assert '"A" is a reserved word' in str(e)
 
 
 def test_check_unicode_name():
@@ -117,19 +116,16 @@ def test_sparse_keywords():
         id = /\w+/ ;
     """
     model = compile(grammar, 'test', trace=False, colorize=True)
-    c = codegen(model)
+    c = pythongen(model)
     parse(c)
 
     ast = model.parse('hello world')
     assert ast == ['hello', 'world']
 
     for k in ('A', 'B'):
-        try:
+        with pytest.raises(FailedKeywordSemantics, match=rf'"{k}" is a reserved word'):
             ast = model.parse(f'hello {k} world')
             assert ['hello', k, 'world'] == ast
-            pytest.fail(f'accepted keyword "{k}" as name')
-        except FailedParse as e:
-            assert f'"{k}" is a reserved word' in str(e)
 
 
 def test_ignorecase_keywords():
@@ -152,10 +148,10 @@ def test_ignorecase_keywords():
 
     model.parse('nonIF if 1', trace=False)
 
-    with pytest.raises(FailedParse):
-        model.parse('i rf if 1', trace=False)
+    with pytest.raises(FailedKeywordSemantics, match=r'"IF" is a reserved word'):
+        model.parse('if if 1', trace=False)
 
-    with pytest.raises(FailedParse):
+    with pytest.raises(FailedKeywordSemantics, match=r'"IF" is a reserved word'):
         model.parse('IF if 1', trace=False)
 
 

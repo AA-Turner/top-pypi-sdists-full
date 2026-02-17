@@ -7,11 +7,11 @@ import sys
 from typing import Union
 
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
 from adam.sql.lark_completer import LarkCompleter
 from adam.utils_job.job import Job
 from adam.utils_log import log2
 from adam.utils_context import Context
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 repl_cmds: list['Command'] = []
 
@@ -210,6 +210,8 @@ class Command:
 
         cmds = cl[0]
         cmd = cmds
+        # if class method exists, inject to member method
+        # use self.run_command() instead of Retry.run_command() for example
         if hasattr(cmd, 'run_command'):
             cmd.run_command = run_command
         for successor in cl[1:]:

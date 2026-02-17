@@ -1,4 +1,5 @@
 import threading
+import warnings
 
 from cupy_backends.cuda.api cimport runtime
 from cupy_backends.cuda cimport stream as backends_stream
@@ -234,6 +235,22 @@ class _BaseStream:
     def __hash__(self):
         return self.ptr
 
+    def __cuda_stream__(self):
+        """Return the version and stream pointer for CUDA stream protocol.
+
+        This method implements the CUDA stream protocol, which allows
+        interoperability with other libraries that support this protocol.
+
+        Returns:
+            tuple: A 2-tuple of (version, stream_ptr) where version is 0
+                and stream_ptr is the address of cudaStream_t (both as int).
+
+        .. seealso:: `CUDA Stream Protocol
+            <https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol>`_
+
+        """
+        return (0, self.ptr)
+
     def use(self):
         """Makes this stream current.
 
@@ -373,8 +390,6 @@ class _BaseStream:
             https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__STREAM.html#group__CUDART__STREAM_1g793d7d4e474388ddfda531603dc34aa3
 
         """
-        if runtime._is_hip_environment:
-            raise RuntimeError('This function is not supported on HIP')
         if self.ptr == 0 or self.ptr == 1:
             raise RuntimeError('cannot capture on the default (legacy) stream')
         if mode is None:
@@ -404,8 +419,6 @@ class _BaseStream:
             https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__STREAM.html#group__CUDART__STREAM_1gf5a0efebc818054ceecd1e3e5e76d93e
 
         """
-        if runtime._is_hip_environment:
-            raise RuntimeError('This function is not supported on HIP')
         host_funcargs = self._graph_host_funcargs
         self._graph_host_funcargs = None
         cdef intptr_t g = runtime.streamEndCapture(self.ptr)
@@ -422,13 +435,25 @@ class _BaseStream:
                 Programming Guide for detail.
 
         """
-        # TODO(leofang): is it better to be a property?
-        if runtime._is_hip_environment:
-            raise RuntimeError('This function is not supported on HIP')
         try:
             return runtime.streamIsCapturing(self.ptr)
         except RuntimeError:  # can be RuntimeError or CUDARuntimeError
             raise
+
+    @property
+    def is_non_blocking(self):
+        """True if the stream is non_blocking.
+        False indicates the default stream creation flag."""
+        cdef unsigned int flags
+        flags = runtime.streamGetFlags(self.ptr)
+        return (flags & runtime.streamNonBlocking) != 0
+
+    @property
+    def priority(self):
+        """Query the priority of a stream."""
+        cdef int priority
+        priority = runtime.streamGetPriority(self.ptr)
+        return priority
 
 
 class Stream(_BaseStream):
@@ -452,6 +477,8 @@ class Stream(_BaseStream):
             per-thread default stream object.
         non_blocking (bool): If ``True`` and both ``null`` and ``ptds`` are
             ``False``, the stream does not synchronize with the NULL stream.
+        priority (int): Priority of the stream. Lower numbers represent higher
+            priorities.
 
     Attributes:
         ~Stream.ptr (intptr_t): Raw stream handle.
@@ -464,7 +491,8 @@ class Stream(_BaseStream):
     null = None
     ptds = None
 
-    def __init__(self, null=False, non_blocking=False, ptds=False):
+    def __init__(self, null=False, non_blocking=False, ptds=False,
+                 priority=None):
         if null:
             # TODO(pentschev): move to streamLegacy. This wasn't possible
             # because of a NCCL bug that should be fixed in the version
@@ -472,31 +500,111 @@ class Stream(_BaseStream):
             ptr = 0
             device_id = -1
         elif ptds:
-            if runtime._is_hip_environment:
-                raise ValueError('HIP does not support per-thread '
-                                 'default stream (ptds)')
             ptr = runtime.streamPerThread
             device_id = -1
-        elif non_blocking:
-            ptr = runtime.streamCreateWithFlags(runtime.streamNonBlocking)
-            device_id = runtime.getDevice()
         else:
-            ptr = runtime.streamCreate()
+            if priority is None:
+                priority = 0  # default
+            if non_blocking:
+                flag = runtime.streamNonBlocking
+            else:
+                flag = runtime.streamDefault
+            ptr = runtime.streamCreateWithPriority(flag, priority)
             device_id = runtime.getDevice()
         super().__init__(ptr, device_id)
+        self._foreign_stream_ref = None
 
     def __del__(self, is_shutting_down=_util.is_shutting_down):
         if is_shutting_down():
+            return
+        if self._foreign_stream_ref is not None:
+            self._foreign_stream_ref = None
             return
         if self.ptr not in (0, runtime.streamLegacy, runtime.streamPerThread):
             runtime.streamDestroy(self.ptr)
         # Note that we can not release memory pool of the stream held in CPU
         # because the memory would still be used in kernels executed in GPU.
 
+    @classmethod
+    def from_external(cls, obj):
+        """Create a Stream from an external stream object via the CUDA
+        stream protocol.
+
+        This method creates a CuPy Stream from a foreign stream object that
+        implements the CUDA stream protocol (i.e., has a ``__cuda_stream__``
+        method). The created Stream holds a reference to the foreign stream
+        object to ensure it remains alive.
+
+        Args:
+            obj: A stream-like object that implements the ``__cuda_stream__``
+                method.
+
+        Returns:
+            Stream: A CuPy Stream wrapping the external stream.
+
+        Raises:
+            TypeError: If the object does not implement
+                ``__cuda_stream__`` or if ``__cuda_stream__`` does not return a
+                valid 2-tuple.
+
+        .. note::
+            This classmethod supersedes :class:`~cupy.cuda.ExternalStream`.
+            Users are encouraged to use this method for interoperability
+            with other libraries that support the CUDA stream protocol.
+
+        .. seealso:: `CUDA Stream Protocol
+            <https://nvidia.github.io/cuda-python/cuda-core/latest/interoperability.html#cuda-stream-protocol>`_
+
+        Examples:
+            >>> # Assuming torch_stream is a PyTorch CUDA stream
+            >>> cupy_stream = cupy.cuda.Stream.from_external(torch_stream)
+
+        """
+        try:
+            version, stream_ptr = obj.__cuda_stream__()
+        except AttributeError as e:
+            raise TypeError(
+                f"Object of type {type(obj).__name__} does not implement "
+                "the CUDA stream protocol (__cuda_stream__ method)") from e
+        except (TypeError, ValueError) as e:
+            raise TypeError(
+                "__cuda_stream__() must return a 2-tuple of "
+                "(version, stream_ptr)") from e
+
+        if not isinstance(version, int) or not isinstance(stream_ptr, int):
+            raise TypeError(
+                f"__cuda_stream__() must return (int, int), got "
+                f"({type(version).__name__}, {type(stream_ptr).__name__})")
+
+        if version != 0:
+            raise TypeError(
+                f"__cuda_stream__() returned unsupported version "
+                f"{version}, only version 0 is supported")
+
+        # It is in theory unsafe to just call runtime.getDevice() here, as the
+        # stream pointer could come from a different device (although
+        # unlikely). While we could use driver API combos cuStreamGetCtx ->
+        # cuCtxSetCurrent -> cuCtxGetDevice -> ... to retrieve the device ID
+        # associated with the stream, it is way too complicated and does not
+        # work with HIP. Let us keep this as thin as possible.
+        device_id = -1
+
+        # Create a new Stream instance that wraps the external stream
+        stream = cls.__new__(cls)
+        _BaseStream.__init__(stream, stream_ptr, device_id)
+        # Hold a reference to the foreign stream to keep it alive
+        stream._foreign_stream_ref = obj
+        return stream
+
 
 class ExternalStream(_BaseStream):
 
     """CUDA stream not managed by CuPy.
+
+    .. deprecated:: 14.0
+        :class:`~cupy.cuda.ExternalStream` is deprecated. Use
+        :meth:`cupy.cuda.Stream.from_external` instead to interoperate with
+        external streams that implement the CUDA stream protocol.
 
     This class allows to use external streams in CuPy by providing the
     stream pointer obtained from the CUDA runtime call.
@@ -520,6 +628,13 @@ class ExternalStream(_BaseStream):
     """
 
     def __init__(self, ptr, device_id=-1):
+        warnings.warn(
+            'ExternalStream is deprecated. Use Stream.from_external() instead '
+            'to interoperate with external streams that implement the CUDA '
+            'stream protocol.',
+            DeprecationWarning,
+            stacklevel=2
+        )
         # It is in theory unsafe to just call runtime.getDevice() here, as the
         # stream pointer could come from a different device (although
         # unlikely). While we could use driver API combos cuStreamGetCtx ->
@@ -530,5 +645,4 @@ class ExternalStream(_BaseStream):
 
 
 Stream.null = Stream(null=True)
-if not runtime._is_hip_environment:
-    Stream.ptds = Stream(ptds=True)
+Stream.ptds = Stream(ptds=True)

@@ -6,7 +6,7 @@ import re
 
 import requests
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import convert_seconds, epoch
 from adam.utils_color import Color
 from adam.utils_tabulize import tabulize

@@ -50,19 +50,9 @@ namespace adjacent_difference
 template <typename InputIteratorT, bool MayAlias>
 struct policy_hub
 {
-  using ValueT = typename std::iterator_traits<InputIteratorT>::value_type;
+  using ValueT = it_value_t<InputIteratorT>;
 
-  struct Policy300 : ChainedPolicy<300, Policy300, Policy300>
-  {
-    using AdjacentDifferencePolicy =
-      AgentAdjacentDifferencePolicy<128,
-                                    Nominal8BItemsToItems<ValueT>(7),
-                                    BLOCK_LOAD_WARP_TRANSPOSE,
-                                    LOAD_DEFAULT,
-                                    BLOCK_STORE_WARP_TRANSPOSE>;
-  };
-
-  struct Policy350 : ChainedPolicy<350, Policy350, Policy300>
+  struct Policy500 : ChainedPolicy<500, Policy500, Policy500>
   {
     using AdjacentDifferencePolicy =
       AgentAdjacentDifferencePolicy<128,
@@ -72,14 +62,9 @@ struct policy_hub
                                     BLOCK_STORE_WARP_TRANSPOSE>;
   };
 
-  using MaxPolicy = Policy350;
+  using MaxPolicy = Policy500;
 };
 } // namespace adjacent_difference
 } // namespace detail
-
-template <typename InputIteratorT, bool MayAlias = true>
-using DeviceAdjacentDifferencePolicy CCCL_DEPRECATED_BECAUSE(
-  "This class is considered an implementation detail and it "
-  "will be removed.") = detail::adjacent_difference::policy_hub<InputIteratorT, MayAlias>;
 
 CUB_NAMESPACE_END

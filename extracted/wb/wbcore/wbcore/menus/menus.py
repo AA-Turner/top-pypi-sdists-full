@@ -16,11 +16,12 @@ class ItemPermission:
         if self.include_superuser and request.user.is_superuser:
             return True
 
-        has_permission = False
+        # We want permissions+ method to act as cumualtive (i.e. if any of this return False, then user does not have permission to access this menu item)
+        # We default to True because in case a ItemPermission is defined without a method nor permissions, we assume, it acts as Allow Any
+        has_permission = True
         for permission in self.permissions:
-            if request.user.has_perm(permission):
-                has_permission = True
-                break
+            if not request.user.has_perm(permission):
+                has_permission &= False
 
         if self.method:
             has_permission &= self.method(request=request)

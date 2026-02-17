@@ -22,22 +22,22 @@ from . import types as types
 def load(filepath: bytes | str) -> imbuf.types.ImBuf:
     """Load an image from a file.
 
-    :param filepath: the filepath of the image.
-    :return: the newly loaded image.
+    :param filepath: The filepath of the image.
+    :return: The newly loaded image.
     """
 
 def load_from_buffer(buffer) -> imbuf.types.ImBuf:
     """Load an image from a buffer.
 
     :param buffer: A buffer containing the image data.
-    :return: the newly loaded image.
+    :return: The newly loaded image.
     """
 
 def new(size: tuple[int, int]) -> imbuf.types.ImBuf:
     """Create a new image.
 
     :param size: The size of the image in pixels.
-    :return: the newly created image.
+    :return: The newly created image.
     """
 
 def write(
@@ -45,6 +45,6 @@ def write(
 ) -> None:
     """Write an image.
 
-    :param image: the image to write.
+    :param image: The image to write.
     :param filepath: Optional filepath of the image (fallback to the images file path).
     """

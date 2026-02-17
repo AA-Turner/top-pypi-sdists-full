@@ -31,6 +31,7 @@ from .literals import (
     CustomerActionStatusType,
     EnhancedMonitoringType,
     KafkaVersionStatusType,
+    NetworkTypeType,
     RebalancingStatusType,
     ReplicationStartingPositionTypeType,
     ReplicationTopicNameConfigurationTypeType,
@@ -227,6 +228,7 @@ __all__ = (
     "SaslTypeDef",
     "ScramTypeDef",
     "ServerlessClientAuthenticationTypeDef",
+    "ServerlessConnectivityInfoTypeDef",
     "ServerlessRequestTypeDef",
     "ServerlessSaslTypeDef",
     "ServerlessTypeDef",
@@ -384,6 +386,10 @@ class ErrorInfoTypeDef(TypedDict):
 
 class ClusterOperationStepInfoTypeDef(TypedDict):
     StepStatus: NotRequired[str]
+
+
+class ServerlessConnectivityInfoTypeDef(TypedDict):
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class ClusterOperationV2SummaryTypeDef(TypedDict):
@@ -950,6 +956,10 @@ class GetBootstrapBrokersResponseTypeDef(TypedDict):
     BootstrapBrokerStringVpcConnectivityTls: str
     BootstrapBrokerStringVpcConnectivitySaslScram: str
     BootstrapBrokerStringVpcConnectivitySaslIam: str
+    BootstrapBrokerStringIpv6: str
+    BootstrapBrokerStringTlsIpv6: str
+    BootstrapBrokerStringSaslScramIpv6: str
+    BootstrapBrokerStringSaslIamIpv6: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -1467,6 +1477,8 @@ class ClientAuthenticationTypeDef(TypedDict):
 
 
 class ClusterOperationV2ServerlessTypeDef(TypedDict):
+    SourceClusterInfo: NotRequired[ServerlessConnectivityInfoTypeDef]
+    TargetClusterInfo: NotRequired[ServerlessConnectivityInfoTypeDef]
     VpcConnectionInfo: NotRequired[VpcConnectionInfoServerlessTypeDef]
 
 
@@ -1495,6 +1507,7 @@ class ServerlessRequestTypeDef(TypedDict):
 class ServerlessTypeDef(TypedDict):
     VpcConfigs: list[VpcConfigOutputTypeDef]
     ClientAuthentication: NotRequired[ServerlessClientAuthenticationTypeDef]
+    ConnectivityInfo: NotRequired[ServerlessConnectivityInfoTypeDef]
 
 
 class UpdateMonitoringRequestTypeDef(TypedDict):
@@ -1558,6 +1571,7 @@ class UpdateSecurityRequestTypeDef(TypedDict):
 class ConnectivityInfoTypeDef(TypedDict):
     PublicAccess: NotRequired[PublicAccessTypeDef]
     VpcConnectivity: NotRequired[VpcConnectivityTypeDef]
+    NetworkType: NotRequired[NetworkTypeType]
 
 
 class BrokerNodeGroupInfoOutputTypeDef(TypedDict):

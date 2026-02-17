@@ -1,6 +1,6 @@
 from adam.commands.utils_table_render import show_table
 from adam.utils_context import NULL
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_k8s.statefulsets import StatefulSets
 
 class TableRenderer:

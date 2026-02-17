@@ -37,11 +37,11 @@ def create_session(client_specified_retry=None):
         retry = client_specified_retry
     else:
         retry = Retry(
-            5,
-            backoff_factor=0.3,
-            status_forcelist=(502, 503, 504),
+            total=10,
+            backoff_factor=1,
+            status_forcelist=(429, 502, 503, 504),
             # CAUTION: adding 'POST' to this list which is not technically idempotent
-            method_whitelist=(
+            allowed_methods=(
                 "POST",
                 "HEAD",
                 "TRACE",
@@ -97,14 +97,13 @@ class NotionClient(object):
     def start_monitoring(self):
         self._monitor.poll_async()
     
-    def _fetch_guest_space_data(self, records):
+    def _fetch_space_data(self, records, space_id):
         """
         guest users have an empty `space` dict, so get the space_id from the `space_view` dict instead,
         and fetch the space data from the getPublicSpaceData endpoint.
 
         Note: This mutates the records dict
         """
-        space_id = list(records["space_view"].values())[0]["value"]["space_id"]
 
         space_data = self.post(
             "getPublicSpaceData", {"type": "space-ids", "spaceIds": [space_id]}
@@ -124,8 +123,9 @@ class NotionClient(object):
 
     def _update_user_info(self):
         records = self.post("loadUserContent", {}).json()["recordMap"]
-        if not records["space"]:
-            self._fetch_guest_space_data(records)
+        user_id = list(records["notion_user"].keys())[0]
+        space_id = records["user_root"][user_id]["value"]["space_view_pointers"][0]["spaceId"] if user_id in records.get("user_root", {}) else None
+        self._fetch_space_data(records, space_id)
 
         self._store.store_recordmap(records)
         self.current_user = self.get_user(list(records["notion_user"].keys())[0])
@@ -158,15 +158,15 @@ class NotionClient(object):
         records = self._update_user_info()
         return [self.get_block(bid) for bid in records["block"].keys()]
 
-    def get_record_data(self, table, id, force_refresh=False):
-        return self._store.get(table, id, force_refresh=force_refresh)
+    def get_record_data(self, table, id, force_refresh=False, limit=100):
+        return self._store.get(table, id, force_refresh=force_refresh, limit=limit)
 
-    def get_block(self, url_or_id, force_refresh=False):
+    def get_block(self, url_or_id, force_refresh=False, limit=100):
         """
         Retrieve an instance of a subclass of Block that maps to the block/page identified by the URL or ID passed in.
         """
         block_id = extract_id(url_or_id)
-        block = self.get_record_data("block", block_id, force_refresh=force_refresh)
+        block = self.get_record_data("block", block_id, force_refresh=force_refresh, limit=limit)
         if not block:
             return None
         if block.get("parent_table") == "collection":
@@ -306,11 +306,11 @@ class NotionClient(object):
         """
         return hasattr(self, "_transaction_operations")
 
-    def search_pages_with_parent(self, parent_id, search=""):
+    def search_pages_with_parent(self, parent_id, search="", limit=100):
         data = {
             "query": search,
             "parentId": parent_id,
-            "limit": 10000,
+            "limit": limit,
             "spaceId": self.current_space.id,
         }
         response = self.post("searchPagesWithParent", data).json()
@@ -325,7 +325,7 @@ class NotionClient(object):
         query="",
         search_type="BlocksInSpace",
         limit=100,
-        sort="Relevance",
+        sort="relevance",
         source="quick_find",
         isDeletedOnly=False,
         excludeTemplates=False,
@@ -353,7 +353,7 @@ class NotionClient(object):
                 "lastEditedTime": lastEditedTime,
                 "createdTime": createdTime,
             },
-            "sort": sort,
+            "sort": {"field": sort} if isinstance(sort, str) else sort,
             "source": source,
         }
         response = self.post("search", data).json()
@@ -376,6 +376,7 @@ class NotionClient(object):
             "created_time": now(),
             "parent_id": parent.id,
             "parent_table": parent._table,
+            "space_id": self.current_space.id,
         }
 
         args.update(kwargs)

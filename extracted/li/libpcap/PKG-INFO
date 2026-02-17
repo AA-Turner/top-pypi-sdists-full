@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: libpcap
-Version: 1.11.0b28
+Version: 1.11.0b29
 Summary: Python binding for the libpcap C library.
 Author-email: Adam Karpierz <adam@karpierz.net>
 Maintainer-email: Adam Karpierz <adam@karpierz.net>
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -34,8 +35,8 @@ Requires-Python: <4.0.0,>=3.10.0
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 Requires-Dist: typing-extensions>=4.15.0
-Requires-Dist: pkg-about>=2.1.0
-Requires-Dist: py-utlx>=2.1.0
+Requires-Dist: pkg-about>=2.2.0
+Requires-Dist: py-utlx>=2.2.0
 Dynamic: license-file
 
 libpcap
@@ -165,7 +166,7 @@ Requirements
 
 - | It is a fully independent package.
   | All necessary things are installed during the normal installation process.
-- ATTENTION: currently works and tested only for Windows.
+- ATTENTION: currently fully tested only for Windows.
 
 Installation
 ============

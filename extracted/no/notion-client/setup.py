@@ -8,7 +8,7 @@ def get_description():
 
 setup(
     name="notion-client",
-    version="2.7.0",
+    version="3.0.0",
     url="https://github.com/ramnes/notion-sdk-py",
     author="Guillaume Gelin",
     author_email="contact@ramnes.eu",
@@ -27,6 +27,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Development Status :: 5 - Production/Stable",
         "License :: OSI Approved :: MIT License",
     ],

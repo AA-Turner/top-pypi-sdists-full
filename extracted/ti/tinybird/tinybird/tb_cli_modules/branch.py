@@ -1014,9 +1014,7 @@ async def datasource_copy_from_main(datasource_name: str, sql: str, sql_from_mai
 
     client = config.get_client()
 
-    response = await client.datasource_query_copy(
-        datasource_name, sql if sql else f"SELECT * FROM main.{datasource_name}"
-    )
+    response = await client.datasource_query_copy(datasource_name, sql or f"SELECT * FROM main.{datasource_name}")
     if "job" not in response:
         raise CLIBranchException(response)
     job_id = response["job"]["job_id"]

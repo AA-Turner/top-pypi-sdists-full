@@ -1,6 +1,6 @@
 from adam.commands.command import Command
-from adam.commands.deploy.code_utils import stop_user_codes
-from adam.repl_state import ReplState, RequiredState
+from adam.commands.deploy.utils_code import stop_user_codes
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class CodeStop(Command):
     COMMAND = 'code stop'

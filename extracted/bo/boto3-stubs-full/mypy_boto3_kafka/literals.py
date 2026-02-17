@@ -46,6 +46,7 @@ __all__ = (
     "ListScramSecretsPaginatorName",
     "ListTopicsPaginatorName",
     "ListVpcConnectionsPaginatorName",
+    "NetworkTypeType",
     "NodeTypeType",
     "PaginatorName",
     "RebalancingStatusType",
@@ -96,6 +97,7 @@ ListReplicatorsPaginatorName = Literal["list_replicators"]
 ListScramSecretsPaginatorName = Literal["list_scram_secrets"]
 ListTopicsPaginatorName = Literal["list_topics"]
 ListVpcConnectionsPaginatorName = Literal["list_vpc_connections"]
+NetworkTypeType = Literal["DUAL", "IPV4"]
 NodeTypeType = Literal["BROKER"]
 RebalancingStatusType = Literal["ACTIVE", "PAUSED"]
 ReplicationStartingPositionTypeType = Literal["EARLIEST", "LATEST"]

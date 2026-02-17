@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nidaqmx
-Version: 1.4.0
+Version: 1.4.1
 Summary: NI-DAQmx Python API
 License: MIT
 Keywords: nidaqmx,nidaq,daqmx,daq

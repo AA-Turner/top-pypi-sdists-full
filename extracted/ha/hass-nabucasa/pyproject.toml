@@ -18,7 +18,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
-    "acme==5.2.2",
+    "acme==5.3.1",
     "aiohttp>=3.6.1",
     "async_timeout>=4",
     "atomicwrites-homeassistant==1.4.1",
@@ -42,7 +42,7 @@ license = "GPL-3.0-only"
 name = "hass-nabucasa"
 readme = "README.md"
 requires-python = ">=3.13"
-version = "1.14.0"
+version = "1.15.0"
 
 [project.optional-dependencies]
 test = [
@@ -56,7 +56,7 @@ test = [
     "pytest-socket==0.7.0",
     "pytest-timeout==2.4.0",
     "pytest==9.0.2",
-    "ruff==0.14.14",
+    "ruff==0.15.0",
     "types_atomicwrites==1.4.5.1",
     "types_pyOpenSSL==24.1.0.20240722",
     "types-requests==2.32.4.20260107",

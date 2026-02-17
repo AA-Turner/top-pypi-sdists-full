@@ -26,8 +26,8 @@ from adam.commands.repair.repair import Repair, RepairCommandHelper
 from adam.commands.show import Show, ShowCommandHelper
 from adam.utils_k8s.kube_context import KubeContext
 from adam.repl import enter_repl
-from adam.repl_state import ReplState
 from adam.cli_group import cli
+from adam.utils_repl.repl_state import ReplState
 
 @cli.command(context_settings=dict(ignore_unknown_options=True, allow_extra_args=True), cls=AuditCommandHelper, help='Run audit functions.')
 @click.option('--kubeconfig', '-k', required=False, metavar='path', help='path to kubeconfig file')

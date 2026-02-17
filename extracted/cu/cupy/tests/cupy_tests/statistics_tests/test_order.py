@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import warnings
 
 import numpy
@@ -22,8 +24,26 @@ _all_methods = (
     'lower',
     'higher',
     'midpoint',
-    # 'nearest',                    # TODO(hvy): Not implemented
+    'nearest',
 )
+
+
+@pytest.fixture
+def _fix_gamma(monkeypatch):
+    if numpy.__version__ == "2.4.1":
+        # NumPy 2.4.0 had a surprisingly large change, but I (seberg)
+        # incorrectly undid the change, making things maybe worse...
+        # this fixes that...
+        # See also https://github.com/numpy/numpy/pull/30710
+        def _get_gamma(virtual_indexes, previous_indexes, method):
+            gamma = numpy.asanyarray(virtual_indexes - previous_indexes)
+            gamma = method["fix_gamma"](gamma, virtual_indexes)
+            return numpy.asanyarray(gamma, dtype=virtual_indexes.dtype)
+
+        monkeypatch.setattr(
+            numpy.lib._function_base_impl, "_get_gamma", _get_gamma)
+
+    yield
 
 
 def for_all_methods(name='method'):
@@ -80,7 +100,8 @@ class TestQuantile:
                 xp.quantile(a, q, axis=-1, method='deadbeef')
 
 
-@testing.with_requires('numpy<2.0')
+@pytest.mark.usefixtures("_fix_gamma")
+@testing.with_requires('numpy>=2.0')
 @for_all_methods()
 class TestQuantileMethods:
 

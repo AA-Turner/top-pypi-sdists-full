@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.utils_k8s.custom_resources import CustomResources
-from adam.repl_state import ReplState, RequiredState
 from adam.utils_log import log
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class ShowAppId(Command):
     COMMAND = 'show app id'

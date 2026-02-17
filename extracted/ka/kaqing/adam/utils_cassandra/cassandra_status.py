@@ -7,7 +7,7 @@ from adam.config import Config
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import NULL
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_k8s.pods import Pods, strip_pod_name
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_k8s.statefulsets import StatefulSets

@@ -1,5 +1,6 @@
 import csv
 import io
+import json
 from dataclasses import dataclass
 from multiprocessing.context import SpawnContext
 from typing import (
@@ -258,6 +259,7 @@ class ClickHouseAdapter(SQLAdapter):
             raise DbtRuntimeError(
                 schema_change_fail_error.format(
                     materialization,
+                    'on_schema_change' if materialization != 'table' else 'mv_on_schema_change',
                     format_column_names(source_not_in_target),
                     format_column_names(target_not_in_source),
                     format_column_names(changed_data_types),
@@ -282,6 +284,7 @@ class ClickHouseAdapter(SQLAdapter):
     ) -> str:
         s3config = self.config.vars.vars.get(config_name, {})
         s3config.update(s3_model_config)
+
         structure = structure or s3config.get('structure', '')
         struct = ''
         if structure:
@@ -292,7 +295,9 @@ class ClickHouseAdapter(SQLAdapter):
                 struct = f", '{','.join(structure)}'"
             else:
                 struct = f",'{structure}'"
+
         fmt = fmt or s3config.get('fmt')
+
         bucket = bucket or s3config.get('bucket', '')
         path = path or s3config.get('path', '')
         url = bucket.replace('https://', '')
@@ -301,6 +306,8 @@ class ClickHouseAdapter(SQLAdapter):
                 path = f'/{path}'
             url = f'{url}{path}'.replace('//', '/')
         url = f'https://{url}'
+        aws_access_key_id = aws_access_key_id or s3config.get('aws_access_key_id', '')
+        aws_secret_access_key = aws_secret_access_key or s3config.get('aws_secret_access_key', '')
         access = ''
         if aws_access_key_id and not aws_secret_access_key:
             raise DbtRuntimeError('S3 aws_access_key_id specified without aws_secret_access_key')
@@ -308,12 +315,16 @@ class ClickHouseAdapter(SQLAdapter):
             raise DbtRuntimeError('S3 aws_secret_access_key specified without aws_access_key_id')
         if aws_access_key_id:
             access = f", '{aws_access_key_id}', '{aws_secret_access_key}'"
+
         comp = compression or s3config.get('compression', '')
         if comp:
             comp = f"', {comp}'"
+
         extra_credentials = ''
+        role_arn = role_arn or s3config.get('role_arn')
         if role_arn:
             extra_credentials = f", extra_credentials(role_arn='{role_arn}')"
+
         return f"s3('{url}'{access}, '{fmt}'{struct}{comp}{extra_credentials})"
 
     def check_schema_exists(self, database, schema):
@@ -341,10 +352,14 @@ class ClickHouseAdapter(SQLAdapter):
         results = self.execute_macro('list_relations_without_caching', kwargs=kwargs)
         conn_supports_exchange = self.supports_atomic_exchange()
 
+        cluster_configured = bool(self.get_clickhouse_cluster_name())
+
         relations = []
         for row in results:
-            name, schema, type_info, db_engine, on_cluster = row
-            if 'view' in type_info:
+            name, schema, type_info, db_engine, mvs_pointing_to_it, on_cluster = row
+            if type_info == 'materialized_view':
+                rel_type = ClickHouseRelationType.MaterializedView
+            elif type_info == 'view':
                 rel_type = ClickHouseRelationType.View
             elif type_info == 'dictionary':
                 rel_type = ClickHouseRelationType.Dictionary
@@ -355,7 +370,7 @@ class ClickHouseAdapter(SQLAdapter):
                 and rel_type == ClickHouseRelationType.Table
                 and engine_can_atomic_exchange(db_engine)
             )
-            can_on_cluster = (on_cluster >= 1) and db_engine != 'Replicated'
+            can_on_cluster = (cluster_configured or on_cluster >= 1) and db_engine != 'Replicated'
 
             relation = self.Relation.create(
                 database='',
@@ -364,6 +379,7 @@ class ClickHouseAdapter(SQLAdapter):
                 type=rel_type,
                 can_exchange=can_exchange,
                 can_on_cluster=can_on_cluster,
+                mvs_pointing_to_it=json.loads(mvs_pointing_to_it) or [],
             )
             relations.append(relation)
 
@@ -604,7 +620,7 @@ class ClickHouseDatabase:
 
 def _expect_row_value(key: str, row: "agate.Row"):
     if key not in row.keys():
-        raise DbtInternalError(f'Got a row without \'{key}\' column, columns: {row.keys()}')
+        raise DbtInternalError(f"Got a row without '{key}' column, columns: {row.keys()}")
 
     return row[key]
 

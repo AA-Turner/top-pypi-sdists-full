@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spnl
-Version: 0.17.0
+Version: 0.18.1
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

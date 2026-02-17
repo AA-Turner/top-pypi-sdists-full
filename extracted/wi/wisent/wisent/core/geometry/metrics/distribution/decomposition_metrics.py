@@ -4,6 +4,7 @@ from typing import List, Tuple, Dict
 import torch
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 
 
@@ -36,43 +37,50 @@ def find_optimal_clustering(
         Tuple of (n_concepts, cluster_labels, best_silhouette)
     """
     diff_np = diff_vectors.cpu().numpy() if isinstance(diff_vectors, torch.Tensor) else diff_vectors
-
     n_samples, n_features = diff_np.shape
-    max_k = _adaptive_max_k(n_samples)
-    min_cluster_size = _adaptive_min_cluster_size(n_samples)
 
-    # Adjust max_k based on min_cluster_size constraint
-    max_k = min(max_k, n_samples // min_cluster_size)
+    pca_dims = min(n_samples - 1, n_features, 50)
+    if pca_dims < n_features and pca_dims >= 2:
+        _pca = PCA(n_components=pca_dims, random_state=42)
+        diff_np = _pca.fit_transform(diff_np)
 
+    # Subsample for silhouette search (O(n²)), refit on full data with best k
+    MAX_FOR_SIL = 1000
+    if n_samples > MAX_FOR_SIL:
+        _idx = np.random.RandomState(42).choice(n_samples, MAX_FOR_SIL, replace=False)
+        diff_sub = diff_np[_idx]
+        n_sub = MAX_FOR_SIL
+    else:
+        diff_sub = diff_np
+        n_sub = n_samples
+
+    max_k = _adaptive_max_k(n_sub)
+    min_cluster_size = _adaptive_min_cluster_size(n_sub)
+    max_k = min(max_k, n_sub // min_cluster_size)
     if max_k < 2:
         return 1, [0] * n_samples, 0.0
 
-    # Adaptive n_init based on sample size (more samples = fewer inits needed)
-    n_init = max(3, min(10, 1000 // n_samples + 1))
-
+    n_init = max(3, min(10, 1000 // n_sub + 1))
     best_k = 1
     best_silhouette = -1.0
-    best_labels = [0] * n_samples
 
     for k in range(2, max_k + 1):
-        kmeans = KMeans(n_clusters=k, random_state=42, n_init=n_init)
-        labels = kmeans.fit_predict(diff_np)
-
-        # Check if any cluster is too small
+        km = KMeans(n_clusters=k, random_state=42, n_init=n_init)
+        labels = km.fit_predict(diff_sub)
         cluster_sizes = np.bincount(labels)
-        if cluster_sizes.min() < min_cluster_size:
+        if len(cluster_sizes) < 2 or cluster_sizes.min() < min_cluster_size:
             continue
-
-        sil = silhouette_score(diff_np, labels)
+        sil = silhouette_score(diff_sub, labels)
         if sil > best_silhouette:
             best_silhouette = sil
             best_k = k
-            best_labels = labels.tolist()
 
-    # Only accept multiple clusters if silhouette meets threshold
     if best_silhouette < min_silhouette:
         return 1, [0] * n_samples, float(best_silhouette)
 
+    # Refit on full data with best k to get labels for all samples
+    final_km = KMeans(n_clusters=best_k, random_state=42, n_init=n_init)
+    best_labels = final_km.fit_predict(diff_np).tolist()
     return best_k, best_labels, float(best_silhouette)
 
 

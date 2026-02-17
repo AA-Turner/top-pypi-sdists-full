@@ -14,15 +14,15 @@ from aiofile import async_open as aopen
 from anyio import Path as AsyncPath
 from typing_extensions import Self, override
 
+from key_value.aio._utils.managed_entry import ManagedEntry, dump_to_json, load_from_json
+from key_value.aio._utils.sanitization import HashFragmentMode, HybridSanitizationStrategy, SanitizationStrategy
+from key_value.aio._utils.sanitize import ALPHANUMERIC_CHARACTERS
+from key_value.aio._utils.serialization import BasicSerializationAdapter, SerializationAdapter
+from key_value.aio._utils.time_to_live import now
+from key_value.aio.errors import PathSecurityError
 from key_value.aio.stores.base import (
     BaseStore,
 )
-from key_value.shared.errors import PathSecurityError
-from key_value.shared.managed_entry import ManagedEntry, dump_to_json, load_from_json
-from key_value.shared.sanitization import HashFragmentMode, HybridSanitizationStrategy, SanitizationStrategy
-from key_value.shared.sanitize import ALPHANUMERIC_CHARACTERS
-from key_value.shared.serialization import BasicSerializationAdapter, SerializationAdapter
-from key_value.shared.time_to_live import now
 
 DIRECTORY_ALLOWED_CHARACTERS = ALPHANUMERIC_CHARACTERS + "_"
 
@@ -391,11 +391,6 @@ async def read_file(file: AsyncPath) -> dict[str, Any]:
         return load_from_json(json_str=body)
 
 
-async def write_file(file: AsyncPath, text: str) -> None:
-    async with aopen(file_specifier=Path(file), mode="w", encoding="utf-8") as f:
-        await f.write(data=text)
-
-
 class FileTreeStore(BaseStore):
     """A file-tree based store using directories for collections and files for keys.
 
@@ -490,13 +485,12 @@ class FileTreeStore(BaseStore):
         self._collection_infos = {}
         self._auto_create = auto_create
 
-        self._stable_api = False
-
         super().__init__(
             serialization_adapter=serialization_adapter or BasicSerializationAdapter(),
             key_sanitization_strategy=key_sanitization_strategy,
             collection_sanitization_strategy=collection_sanitization_strategy,
             default_collection=default_collection,
+            stable_api=True,
         )
 
     async def _get_data_directories(self) -> AsyncGenerator[AsyncPath]:

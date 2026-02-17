@@ -8,9 +8,9 @@ from adam.utils_context import NULL
 from adam.commands.check_up.utils_issues import IssuesUtils
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.repl_state import ReplState
 from adam.utils import SORT, duration
 from adam.utils_log import log2
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_tabulize import tabulize
 
 def show_pods_simple(state: ReplState, pods: List[client.V1Pod], ctx = NULL):

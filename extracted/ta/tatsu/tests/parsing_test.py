@@ -1,14 +1,18 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import json
 import tempfile
 import unittest
 from pathlib import Path
 
 import tatsu
-from tatsu.parser import EBNFBuffer
+from tatsu.parser import TatSuBuffer
 from tatsu.util import asjson, eval_escapes, trim
 
 
-class MockIncludeBuffer(EBNFBuffer):
+class MockIncludeBuffer(TatSuBuffer):
     def get_include(self, source, filename):
         return f'\nINCLUDED "{filename}"\n', filename
 
@@ -37,8 +41,8 @@ class ParsingTests(unittest.TestCase):
         )
 
     def test_real_include(self):
-        _, include_a = tempfile.mkstemp(suffix='.ebnf', prefix='include_')
-        _, include_b = tempfile.mkstemp(suffix='.ebnf', prefix='include_')
+        _, include_a = tempfile.mkstemp(suffix='.tatsu', prefix='include_')
+        _, include_b = tempfile.mkstemp(suffix='.tatsu', prefix='include_')
 
         grammar = """\
             #include :: "{include_a}"
@@ -49,10 +53,10 @@ class ParsingTests(unittest.TestCase):
         Path(include_a).write_text("a = 'inclusion';")
         Path(include_b).write_text("b = 'works';")
 
-        model = tatsu.compile(
-            grammar=grammar.format(include_a=include_a, include_b=include_b),
-        )
-        self.assertIsNotNone(model)
+        grammar = grammar.format(include_a=include_a, include_b=include_b)
+        print(grammar)
+        model = tatsu.compile(grammar=grammar)
+        assert model is not None
 
     def test_escape_sequences(self):
         self.assertEqual('\n', eval_escapes(r'\n'))
@@ -83,14 +87,14 @@ class ParsingTests(unittest.TestCase):
         ast = model.parse('test', start='true')
         self.assertEqual(ast, True)
         # Backward compatibility argument name.
-        ast = model.parse('test', rule_name='true')
+        ast = model.parse('test', start='true')
         self.assertEqual(ast, True)
 
         # The default rule can be overwritten.
         ast = tatsu.parse(grammar, 'test', start='false')
         self.assertEqual(ast, False)
         # Backward compatibility argument name.
-        ast = tatsu.parse(grammar, 'test', rule_name='false')
+        ast = tatsu.parse(grammar, 'test', start='false')
         self.assertEqual(ast, False)
 
     def test_rule_capitalization(self):
@@ -160,14 +164,28 @@ class ParsingTests(unittest.TestCase):
         ast = tatsu.parse(grammar, 'abc')
         assert ast == 'something'
 
+    def test_node_parseinfo(self):
+        grammar = """
+            @@grammar :: Test
 
-def suite():
-    return unittest.TestLoader().loadTestsFromTestCase(ParsingTests)
+            start::Test = true | false ;
 
+            true = "test" @:`True` $;
+            false = "test" @:`False` $;
+        """
 
-def main():
-    unittest.TextTestRunner(verbosity=2).run(suite())
+        text = 'test'
+        node = tatsu.parse(grammar, text, asmodel=True, parseinfo=True)
+        assert type(node).__name__ == 'Test'
+        assert node.ast is True
+        assert node.parseinfo is not None
+        assert node.parseinfo.pos == 0
+        assert node.parseinfo.endpos == len(text)
 
-
-if __name__ == '__main__':
-    main()
+        node = tatsu.parse(
+            grammar,
+            text,
+            asmodel=True,
+        )
+        assert type(node).__name__ == 'Test'
+        assert node.parseinfo is None

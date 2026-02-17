@@ -6,7 +6,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.check_up.issues import Issues
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_tabulize import tabulize

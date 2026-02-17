@@ -23,11 +23,13 @@ logger = get_logger("register_models")
 Model Registry structure
 Do not set model defaults here, they should be set in the LLMConfig class
 You can set metadata configs that are not passed into the LLMConfig class here, ex:
-    available_for_everyone, deprecated, available_as_evaluator, etc.
+    available_for_everyone, deprecated, internal_only, available_as_evaluator, etc.
 """
 
 
 class Supports(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     images: bool | None = None
     videos: bool | None = None
     files: bool | None = None
@@ -37,38 +39,42 @@ class Supports(BaseModel):
 
 
 class Metadata(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     deprecated: bool = False
     available_for_everyone: bool = True
+    internal_only: bool = False
     available_as_evaluator: bool = False
     ignored_for_cost: bool = False
 
 
 class Properties(BaseModel):
-    context_window: int | None = None
-    max_tokens: int | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    context_window: int
+    max_tokens: int
     training_cutoff: str | None = None
-    reasoning_model: bool | None = None
+    reasoning_model: bool
 
 
 class CacheCost(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     read: float | None = None
     write: float | None = None
-    read_discount: float | None = None
+    read_discount: float = 1
     write_markup: float = 1
 
-    def get_costs(
-        self, core_input_cost: float, core_output_cost: float
-    ) -> tuple[float, float]:
+    def get_costs(self, core_input_cost: float) -> tuple[float, float]:
         if self.read:
             read = self.read
         else:
-            assert self.read_discount
             read = core_input_cost * self.read_discount
 
         if self.write:
             write = self.write
         else:
-            write = core_output_cost * self.write_markup
+            write = core_input_cost * self.write_markup
         return read, write
 
     @model_validator(mode="after")
@@ -79,6 +85,8 @@ class CacheCost(BaseModel):
 
 
 class ContextCost(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     threshold: float
     input: float
     output: float
@@ -96,6 +104,8 @@ class ContextCost(BaseModel):
 
 
 class BatchCost(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     input: float | None = None
     output: float | None = None
     input_discount: float | None = None
@@ -127,8 +137,10 @@ class BatchCost(BaseModel):
 
 
 class CostProperties(BaseModel):
-    input: float | None = None
-    output: float | None = None
+    model_config = ConfigDict(extra="forbid", strict=True)
+
+    input: float
+    output: float
     cache: CacheCost | None = None
     batch: BatchCost | None = None
     context: ContextCost | None = None
@@ -166,6 +178,8 @@ def get_dynamic_provider_properties_model() -> type[BaseProviderProperties]:
 
 
 class DefaultParameters(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True)
+
     temperature: float | None = None
     top_p: float | None = None
     top_k: int | None = None
@@ -182,13 +196,13 @@ class RawModelConfig(BaseModel):
     release_date: date | None = None
     open_source: bool
     documentation_url: str | None = None
-    properties: Properties = Field(default_factory=Properties)
+    properties: Properties
     supports: Supports
     metadata: Metadata = Field(default_factory=Metadata)
     provider_properties: BaseProviderProperties = Field(
         default_factory=BaseProviderProperties
     )
-    costs_per_million_token: CostProperties = Field(default_factory=CostProperties)
+    costs_per_million_token: CostProperties
     alternative_keys: list[str | dict[str, Any]] = Field(default_factory=list)
     default_parameters: DefaultParameters = Field(default_factory=DefaultParameters)
     provider_endpoint: str | None = None
@@ -265,6 +279,8 @@ def _register_models() -> ModelRegistry:
                 for model_name, model_config in model_data.items():
                     if model_name == "base-config":
                         continue
+
+                    print(model_name)
 
                     # merge the per-model overrides
                     current_model_config = deepcopy(block_config)

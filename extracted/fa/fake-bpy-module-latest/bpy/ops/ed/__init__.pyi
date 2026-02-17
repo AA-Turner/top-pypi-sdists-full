@@ -83,7 +83,7 @@ def lib_id_load_custom_preview(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -175,7 +175,7 @@ def undo_history(
     *,
     item: int | None = 0,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Redo specific action in history
+    """Undo or redo specific action in history
 
     :param item: Item, (in [0, inf], optional)
     :return: Result of the operator call.

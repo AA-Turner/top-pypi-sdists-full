@@ -1,6 +1,6 @@
+from __future__ import annotations
+
 import math
-import sys
-import warnings
 
 import numpy
 import pytest
@@ -127,14 +127,6 @@ class TestSumprod:
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol=1e-6)
     def test_sum_axes4(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         a = testing.shaped_arange((20, 30, 40, 50), xp, dtype)
         return a.sum(axis=(0, 2, 3))
 
@@ -211,14 +203,6 @@ class TestSumprod:
             pytest.skip()
         a = testing.shaped_arange((2, 3), xp, src_dtype)
         return a.prod(dtype=dst_dtype)
-
-    @testing.with_requires('numpy<2.0')
-    @testing.numpy_cupy_allclose()
-    def test_product_alias(self, xp):
-        a = testing.shaped_arange((2, 3), xp, xp.float32)
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
-            return xp.product(a)
 
 
 # This class compares CUB results against NumPy's
@@ -364,14 +348,6 @@ class TestCubReduction:
     @testing.for_dtypes('bhilBHILfdF')
     @testing.numpy_cupy_allclose(rtol=1E-4)
     def test_cub_cumprod(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         if self.backend == 'block':
             pytest.skip('does not support')
 
@@ -488,14 +464,6 @@ class TestNansumNanprodLong:
     @testing.for_all_dtypes(no_bool=True, no_float16=True)
     @testing.numpy_cupy_allclose()
     def test_nansum_all(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         if (not self._numpy_nanprod_implemented() or
                 not self._do_transposed_axis_test()):
             return xp.array(())
@@ -504,14 +472,6 @@ class TestNansumNanprodLong:
     @testing.for_all_dtypes(no_bool=True, no_float16=True)
     @testing.numpy_cupy_allclose(contiguous_check=False)
     def test_nansum_axis_transposed(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         if (not self._numpy_nanprod_implemented() or
                 not self._do_transposed_axis_test()):
             return xp.array(())
@@ -566,14 +526,6 @@ class TestNansumNanprodAxes:
     @testing.for_all_dtypes(no_bool=True, no_float16=True)
     @testing.numpy_cupy_allclose(rtol=1e-6)
     def test_nansum_axes(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         a = testing.shaped_arange(self.shape, xp, dtype)
         if not issubclass(dtype, xp.integer):
             a[:, 1] = xp.nan
@@ -751,14 +703,6 @@ class TestCumprod:
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol=1e-6)
     def test_cumprod_2dim_without_axis(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         a = testing.shaped_arange((4, 5), xp, dtype)
         return self._cumprod(xp, a)
 
@@ -824,14 +768,6 @@ class TestCumprod:
         with pytest.raises(TypeError):
             return cupy.cumprod(a_numpy)
 
-    @testing.with_requires('numpy<2.0')
-    @testing.numpy_cupy_allclose()
-    def test_cumproduct_alias(self, xp):
-        a = testing.shaped_arange((2, 3), xp, xp.float32)
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore', DeprecationWarning)
-            return xp.cumproduct(a)
-
 
 @testing.parameterize(*testing.product({
     'shape': [(20,), (7, 6), (3, 4, 5)],
@@ -865,14 +801,6 @@ class TestNanCumSumProd:
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose()
     def test_nancumsumprod(self, xp, dtype):
-        if (
-                numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0') and
-                sys.platform == 'win32' and
-                numpy.dtype(dtype).kind in 'iu'
-        ):
-            # Different behaviour for integer overflow from NumPy 2.0.
-            return xp.array(())  # Skip
-
         if self.axis is not None and self.axis >= len(self.shape):
             pytest.skip()
         a = xp.array(self._make_array(dtype))
@@ -1156,56 +1084,56 @@ class TestEdiff1d:
                           to_end=xp.array([1, 1], dtype=dtype))
 
 
-@testing.with_requires('numpy<2.0')
-class TestTrapz:
+@testing.with_requires('numpy>=2.0')
+class TestTrapezoid:
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_1dim(self, xp, dtype):
         a = testing.shaped_arange((5,), xp, dtype)
-        return xp.trapz(a)
+        return xp.trapezoid(a)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_1dim_with_x(self, xp, dtype):
         a = testing.shaped_arange((5,), xp, dtype)
         x = testing.shaped_arange((5,), xp, dtype)
-        return xp.trapz(a, x=x)
+        return xp.trapezoid(a, x=x)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_1dim_with_dx(self, xp, dtype):
         a = testing.shaped_arange((5,), xp, dtype)
-        return xp.trapz(a, dx=0.1)
+        return xp.trapezoid(a, dx=0.1)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_2dim_without_axis(self, xp, dtype):
         a = testing.shaped_arange((4, 5), xp, dtype)
-        return xp.trapz(a)
+        return xp.trapezoid(a)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_2dim_with_axis(self, xp, dtype):
         a = testing.shaped_arange((4, 5), xp, dtype)
-        return xp.trapz(a, axis=-2)
+        return xp.trapezoid(a, axis=-2)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_2dim_with_x_and_axis(self, xp, dtype):
         a = testing.shaped_arange((4, 5), xp, dtype)
         x = testing.shaped_arange((5,), xp, dtype)
-        return xp.trapz(a, x=x, axis=1)
+        return xp.trapezoid(a, x=x, axis=1)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_2dim_with_dx_and_axis(self, xp, dtype):
         a = testing.shaped_arange((4, 5), xp, dtype)
-        return xp.trapz(a, dx=0.1, axis=1)
+        return xp.trapezoid(a, dx=0.1, axis=1)
 
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(rtol={numpy.float16: 1e-1, 'default': 1e-7})
     def test_trapz_1dim_with_x_and_dx(self, xp, dtype):
         a = testing.shaped_arange((5,), xp, dtype)
         x = testing.shaped_arange((5,), xp, dtype)
-        return xp.trapz(a, x=x, dx=0.1)
+        return xp.trapezoid(a, x=x, dx=0.1)

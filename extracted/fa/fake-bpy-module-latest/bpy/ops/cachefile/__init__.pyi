@@ -42,7 +42,7 @@ def layer_add(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -85,7 +85,7 @@ def layer_move(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Move layer in the list, layers further down the list will overwrite data from the layers higher up
 
-    :param direction: Direction, Direction to move the active vertex group towards (optional)
+    :param direction: Direction, Direction to move the active layer towards (optional)
     :return: Result of the operator call.
     """
 
@@ -137,7 +137,7 @@ def open(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)

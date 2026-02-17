@@ -1,5 +1,7 @@
 """RepScan with automatic concept decomposition and naming."""
 from typing import Dict, Any, Optional, List, Tuple, Set
+from pathlib import Path
+import json
 import torch
 import numpy as np
 
@@ -7,10 +9,37 @@ from ..metrics.core.metrics_core import compute_geometry_metrics
 from ..concepts import decompose_and_name_concepts_with_labels, find_optimal_layer_per_concept
 from ..data.database_loaders import load_activations_from_database, load_pair_texts_from_database, load_available_layers_from_database
 
+
+def _save_checkpoint(results: Dict, output_path: Optional[str]) -> None:
+    """Save intermediate results to disk for crash recovery."""
+    if not output_path:
+        return
+    def _ser(obj):
+        if isinstance(obj, torch.Tensor): return obj.tolist()
+        if isinstance(obj, np.ndarray): return obj.tolist()
+        if isinstance(obj, dict): return {str(k): _ser(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)): return [_ser(v) for v in obj]
+        if hasattr(obj, 'item'): return obj.item()  # numpy scalar → Python native
+        return obj
+    p = Path(output_path)
+    p.parent.mkdir(parents=True, exist_ok=True)
+    with open(p, 'w') as f:
+        json.dump(_ser(results), f, indent=2)
+
+
+def _load_checkpoint(output_path: Optional[str]) -> Dict:
+    """Load existing partial results for resume."""
+    if not output_path:
+        return {}
+    p = Path(output_path)
+    if not p.exists() or p.stat().st_size == 0:
+        return {}
+    with open(p) as f:
+        return json.load(f)
+
 __all__ = [
     "run_repscan_with_concept_naming",
     "extract_pair_texts_from_enriched_pairs",
-    "load_activations_from_json",
     "load_activations_from_database",
     "load_pair_texts_from_database",
     "load_available_layers_from_database",
@@ -21,44 +50,50 @@ __all__ = [
 def run_repscan_with_concept_naming(
     activations_by_layer: Dict[int, Tuple[torch.Tensor, torch.Tensor]],
     pair_texts: Optional[Dict[int, Dict[str, str]]] = None,
-    generate_visualizations: bool = False,
+    generate_visualizations: bool = True,
     llm_model: str = "meta-llama/Llama-3.2-1B-Instruct",
     steps: str = "all",
+    output_path: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Run RepScan with geometry metrics, 5-step protocol, and concept naming.
-
-    Combines:
-    - Full geometry metrics (signal_strength, linear_probe, ICD, etc.)
-    - 5-step protocol (signal, geometry, decomposition, intervention, editability)
-    - Concept decomposition and LLM naming
+    Run RepScan with geometry metrics, 4-step protocol, and concept naming.
+    Saves checkpoints after each step for crash recovery.
 
     Args:
-        steps: 'all' runs everything, or comma-separated subset (e.g., 'signal,editability')
+        steps: 'all' runs everything, or comma-separated subset (e.g., 'signal')
+        output_path: If provided, saves intermediate results after each step.
     """
     from .repscan_protocol import test_signal, test_geometry, test_decomposition, select_intervention
+    import time as _time
+    import sys as _sys
+    def _log(msg): print(f"  [TRACE] {msg}", file=_sys.stderr, flush=True)
+    existing = _load_checkpoint(output_path)
+    _log(f"Checkpoint loaded: {list(existing.keys())}")
 
     # Parse steps
     if steps == "all":
-        steps_to_run = {"signal", "geometry", "decomposition", "intervention", "editability"}
+        steps_to_run = {"signal", "geometry", "decomposition", "intervention"}
     else:
         steps_to_run = {s.strip().lower() for s in steps.split(",")}
 
-    # Concatenate all layers
+    # Concatenate all layers (truncate to min pair count across layers)
     sorted_layers = sorted(activations_by_layer.keys())
     n_layers = len(sorted_layers)
-    pos_list = [activations_by_layer[l][0] for l in sorted_layers]
-    neg_list = [activations_by_layer[l][1] for l in sorted_layers]
+    min_pairs = min(len(activations_by_layer[l][0]) for l in sorted_layers)
+    pos_list = [activations_by_layer[l][0][:min_pairs] for l in sorted_layers]
+    neg_list = [activations_by_layer[l][1][:min_pairs] for l in sorted_layers]
     pos_concat = torch.cat(pos_list, dim=1)
     neg_concat = torch.cat(neg_list, dim=1)
     n_pairs = len(pos_concat)
 
-    # Compute full geometry metrics only when non-editability steps are requested
-    needs_full_metrics = steps_to_run - {"editability"}
-    if needs_full_metrics:
-        metrics = compute_geometry_metrics(pos_concat, neg_concat, generate_visualizations=generate_visualizations)
+    # Resume metrics from checkpoint if available
+    if "metrics" in existing and existing["metrics"]:
+        metrics = existing["metrics"]
+        _log("Metrics loaded from checkpoint (skipped)")
     else:
-        metrics = {}
+        _t0 = _time.time()
+        metrics = compute_geometry_metrics(pos_concat, neg_concat, generate_visualizations=generate_visualizations)
+        _log(f"Metrics computed in {_time.time()-_t0:.1f}s")
 
     results = {
         "n_pairs": n_pairs, "n_layers": n_layers, "layers_used": sorted_layers,
@@ -67,59 +102,113 @@ def run_repscan_with_concept_naming(
         "recommended_method": metrics.get("recommended_method"),
         "recommendation_confidence": metrics.get("recommendation_confidence"),
     }
+    _save_checkpoint(results, output_path)
 
     signal_result, geometry_result, decomposition_result = None, None, None
 
+    # Minimum pairs for cross-validation (MLP internal split needs ~20+ total samples)
+    min_pairs_for_probes = 20
+
     # Step 1: Signal Test (with null distribution testing)
+    _log("Entering signal step")
     if "signal" in steps_to_run:
-        metric_keys = ["knn_accuracy", "knn_pca_accuracy", "mlp_probe_accuracy"]
-        signal_result = test_signal(pos_concat, neg_concat, metric_keys)
-        results["signal_test"] = {
-            "max_z_score": signal_result.max_z_score,
-            "min_p_value": signal_result.min_p_value,
-            "passed": signal_result.passed,
-            "permutation_metrics": signal_result.permutation_metrics,
-            "nonsense_metrics": signal_result.nonsense_metrics,
-        }
+        if "signal_test" in existing:
+            results["signal_test"] = existing["signal_test"]
+            _log("Signal loaded from checkpoint (skipped)")
+        elif n_pairs < min_pairs_for_probes:
+            results["signal_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
+        else:
+            metric_keys = ["knn_accuracy", "knn_pca_accuracy", "mlp_probe_accuracy"]
+            signal_result = test_signal(pos_concat, neg_concat, metric_keys)
+            results["signal_test"] = {
+                "max_z_score": signal_result.max_z_score,
+                "min_p_value": signal_result.min_p_value,
+                "passed": signal_result.passed,
+                "permutation_metrics": signal_result.permutation_metrics,
+                "nonsense_metrics": signal_result.nonsense_metrics,
+            }
+        _save_checkpoint(results, output_path)
 
     # Step 2: Geometry Test (linear vs nonlinear)
+    _log("Entering geometry step")
     if "geometry" in steps_to_run:
-        geometry_result = test_geometry(pos_concat, neg_concat)
-        results["geometry_test"] = {
-            "linear_accuracy": geometry_result.linear_accuracy,
-            "nonlinear_accuracy": geometry_result.nonlinear_accuracy,
-            "gap": geometry_result.gap,
-            "diagnosis": geometry_result.diagnosis,
-        }
+        if "geometry_test" in existing:
+            results["geometry_test"] = existing["geometry_test"]
+            _log("Geometry loaded from checkpoint (skipped)")
+        elif n_pairs < min_pairs_for_probes:
+            results["geometry_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
+        else:
+            _t0 = _time.time()
+            from sklearn.decomposition import PCA as _PCA
+            _n_geo = min(n_pairs, 1000)
+            if n_pairs > 1000:
+                _idx = np.random.RandomState(42).choice(n_pairs, 1000, replace=False)
+                _idx.sort()
+                _pg, _ng = pos_concat[_idx], neg_concat[_idx]
+            else:
+                _pg, _ng = pos_concat, neg_concat
+            _cb = torch.cat([_pg, _ng], dim=0).cpu().numpy()
+            _pd = min(2 * _n_geo - 1, _cb.shape[1], 50)
+            if _pd < _cb.shape[1] and _pd >= 2:
+                _cb = _PCA(n_components=_pd, random_state=42).fit_transform(_cb)
+            _pg = torch.tensor(_cb[:_n_geo], dtype=pos_concat.dtype)
+            _ng = torch.tensor(_cb[_n_geo:], dtype=pos_concat.dtype)
+            _log(f"Geometry: {_n_geo} pairs, {_pg.shape[1]} dims (pre-reduced in {_time.time()-_t0:.1f}s)")
+            geometry_result = test_geometry(_pg, _ng)
+            _log(f"Geometry completed in {_time.time()-_t0:.1f}s")
+            results["geometry_test"] = {
+                "linear_accuracy": geometry_result.linear_accuracy,
+                "nonlinear_accuracy": geometry_result.nonlinear_accuracy,
+                "gap": geometry_result.gap,
+                "diagnosis": geometry_result.diagnosis,
+                "confidence": geometry_result.confidence,
+                "p_value": geometry_result.p_value,
+                "gap_ci_lower": geometry_result.gap_ci_lower,
+                "gap_ci_upper": geometry_result.gap_ci_upper,
+                "n_diagnostics_passed": geometry_result.n_diagnostics_passed,
+                "n_diagnostics_total": geometry_result.n_diagnostics_total,
+                "t_statistic": geometry_result.t_statistic,
+                "residual_silhouette": geometry_result.residual_silhouette,
+                "residuals_cluster": geometry_result.residuals_cluster,
+                "ramsey_improvement": geometry_result.ramsey_improvement,
+                "ramsey_significant": geometry_result.ramsey_significant,
+                "diagnostics": geometry_result.diagnostics,
+            }
+        _save_checkpoint(results, output_path)
 
     # Step 3: Decomposition Test + Concept Naming
+    _log("Entering decomposition step")
     if "decomposition" in steps_to_run:
-        decomposition_result = test_decomposition(pos_concat, neg_concat)
-        results["decomposition_test"] = {
-            "n_concepts": decomposition_result.n_concepts,
-            "silhouette_score": decomposition_result.silhouette_score,
-            "is_fragmented": decomposition_result.is_fragmented,
-            "per_concept_sizes": decomposition_result.per_concept_sizes,
-        }
-        # Concept naming with LLM
-        decomposition = decompose_and_name_concepts_with_labels(
-            pos_concat, neg_concat, pair_texts,
-            cluster_labels=decomposition_result.cluster_labels,
-            n_concepts=decomposition_result.n_concepts,
-            generate_visualizations=generate_visualizations, llm_model=llm_model,
-        )
-        decomposition["n_layers_used"] = n_layers
-        # Optimal layer per concept
-        if decomposition_result.n_concepts > 1:
-            labels_arr = np.array(decomposition_result.cluster_labels)
-            per_concept_layers = find_optimal_layer_per_concept(activations_by_layer, labels_arr, decomposition_result.n_concepts)
-            for concept in decomposition.get("concepts", []):
-                idx = concept["id"] - 1
-                if idx in per_concept_layers:
-                    concept["optimal_layer"] = per_concept_layers[idx]["best_layer"]
-                    concept["optimal_layer_accuracy"] = per_concept_layers[idx]["best_accuracy"]
-            decomposition["per_concept_layers"] = per_concept_layers
-        results["concept_decomposition"] = decomposition
+        if "decomposition_test" in existing:
+            results["decomposition_test"] = existing["decomposition_test"]
+        elif n_pairs < 3:
+            results["decomposition_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": 3}
+        else:
+            decomposition_result = test_decomposition(pos_concat, neg_concat)
+            results["decomposition_test"] = {
+                "n_concepts": decomposition_result.n_concepts,
+                "silhouette_score": decomposition_result.silhouette_score,
+                "is_fragmented": decomposition_result.is_fragmented,
+                "per_concept_sizes": decomposition_result.per_concept_sizes,
+            }
+            decomposition = decompose_and_name_concepts_with_labels(
+                pos_concat, neg_concat, pair_texts,
+                cluster_labels=decomposition_result.cluster_labels,
+                n_concepts=decomposition_result.n_concepts,
+                generate_visualizations=generate_visualizations, llm_model=llm_model,
+            )
+            decomposition["n_layers_used"] = n_layers
+            if decomposition_result.n_concepts > 1:
+                labels_arr = np.array(decomposition_result.cluster_labels)
+                per_concept_layers = find_optimal_layer_per_concept(activations_by_layer, labels_arr, decomposition_result.n_concepts)
+                for concept in decomposition.get("concepts", []):
+                    idx = concept["id"] - 1
+                    if idx in per_concept_layers:
+                        concept["optimal_layer"] = per_concept_layers[idx]["best_layer"]
+                        concept["optimal_layer_accuracy"] = per_concept_layers[idx]["best_accuracy"]
+                decomposition["per_concept_layers"] = per_concept_layers
+            results["concept_decomposition"] = decomposition
+        _save_checkpoint(results, output_path)
 
     # Step 4: Intervention Selection
     if "intervention" in steps_to_run and signal_result and geometry_result and decomposition_result:
@@ -132,75 +221,9 @@ def run_repscan_with_concept_naming(
         }
         results["recommended_method"] = intervention.recommended_method
         results["recommendation_confidence"] = intervention.confidence
-
-    # Step 5: Editability Analysis (per-layer, following AlphaEdit methodology)
-    if "editability" in steps_to_run:
-        from .repscan_editability import test_editability
-        # Per-layer editability profile
-        editability_by_layer = {}
-        for layer in sorted_layers:
-            pos_l, neg_l = activations_by_layer[layer]
-            res_l = test_editability(pos_l, neg_l)
-            editability_by_layer[layer] = {
-                "editability_score": res_l.editability_score,
-                "editing_capacity": res_l.editing_capacity,
-                "steering_survival_ratio": res_l.steering_survival_ratio,
-                "spectral_decay_rate": res_l.spectral_decay_rate,
-                "participation_ratio": res_l.participation_ratio,
-                "verdict": res_l.verdict, "warnings": res_l.warnings,
-            }
-        results["editability_by_layer"] = editability_by_layer
-        # Overall (concatenated) editability
-        cluster_labels = decomposition_result.cluster_labels if decomposition_result else None
-        n_concepts = decomposition_result.n_concepts if decomposition_result else 1
-        editability_result = test_editability(
-            pos_concat, neg_concat, cluster_labels=cluster_labels, n_concepts=n_concepts,
-        )
-        results["editability_analysis"] = {
-            "editing_capacity": editability_result.editing_capacity,
-            "effective_preserved_rank": editability_result.effective_preserved_rank,
-            "singular_values": editability_result.singular_values,
-            "spectral_decay_rate": editability_result.spectral_decay_rate,
-            "steering_survival_ratio": editability_result.steering_survival_ratio,
-            "verdict": editability_result.verdict,
-            "concept_interference": editability_result.concept_interference,
-            "editability_score": editability_result.editability_score,
-            "participation_ratio": editability_result.participation_ratio,
-            "warnings": editability_result.warnings,
-        }
+        _save_checkpoint(results, output_path)
 
     return results
-
-
-def load_activations_from_json(json_path: str) -> Tuple[Dict[int, Tuple[torch.Tensor, torch.Tensor]], Dict[int, Dict[str, str]]]:
-    """Load per-layer activations from get-activations JSON output.
-
-    Returns:
-        (activations_by_layer, pair_texts) where activations_by_layer maps
-        layer_int -> (pos_tensor, neg_tensor) and pair_texts maps pair_index -> texts.
-    """
-    import json
-    with open(json_path, 'r') as f:
-        data = json.load(f)
-    layer_pos: Dict[int, list] = {}
-    layer_neg: Dict[int, list] = {}
-    for pair in data.get("pairs", []):
-        pos_la = pair.get("positive_response", {}).get("layers_activations", {})
-        neg_la = pair.get("negative_response", {}).get("layers_activations", {})
-        for layer_str in pos_la:
-            if layer_str not in neg_la:
-                continue
-            layer = int(layer_str)
-            layer_pos.setdefault(layer, []).append(pos_la[layer_str])
-            layer_neg.setdefault(layer, []).append(neg_la[layer_str])
-    activations_by_layer = {}
-    for layer in layer_pos:
-        activations_by_layer[layer] = (
-            torch.tensor(layer_pos[layer], dtype=torch.float32),
-            torch.tensor(layer_neg[layer], dtype=torch.float32),
-        )
-    pair_texts = extract_pair_texts_from_enriched_pairs(data.get("pairs", []))
-    return activations_by_layer, pair_texts
 
 
 def extract_pair_texts_from_enriched_pairs(enriched_pairs: List[Dict]) -> Dict[int, Dict[str, str]]:

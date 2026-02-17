@@ -24,6 +24,7 @@ use uv_state::{StateBucket, StateStore};
 use uv_static::EnvVars;
 use uv_trampoline_builder::{Launcher, LauncherKind};
 
+use crate::discovery::VersionRequest;
 use crate::downloads::{Error as DownloadError, ManagedPythonDownload};
 use crate::implementation::{
     Error as ImplementationError, ImplementationName, LenientImplementationName,
@@ -305,15 +306,10 @@ impl ManagedPythonInstallations {
         &'a self,
         version: &'a PythonVersion,
     ) -> Result<impl DoubleEndedIterator<Item = ManagedPythonInstallation> + 'a, Error> {
+        let request = VersionRequest::from(version);
         Ok(self
             .find_matching_current_platform()?
-            .filter(move |installation| {
-                installation
-                    .path
-                    .file_name()
-                    .map(OsStr::to_string_lossy)
-                    .is_some_and(|filename| filename.starts_with(&format!("cpython-{version}")))
-            }))
+            .filter(move |installation| request.matches_installation_key(installation.key())))
     }
 
     pub fn root(&self) -> &Path {
@@ -1002,6 +998,39 @@ pub fn create_link_to_executable(link: &Path, executable: &Path) -> Result<(), E
     }
 }
 
+/// Create or replace a link to a managed Python executable.
+///
+/// If a file already exists at the link path, it will be atomically replaced.
+///
+/// See [`create_link_to_executable`] for a variant that errors if the link already exists.
+pub fn replace_link_to_executable(link: &Path, executable: &Path) -> Result<(), Error> {
+    let link_parent = link.parent().ok_or(Error::NoExecutableDirectory)?;
+    fs_err::create_dir_all(link_parent).map_err(|err| Error::ExecutableDirectory {
+        to: link_parent.to_path_buf(),
+        err,
+    })?;
+
+    if cfg!(unix) {
+        replace_symlink(executable, link).map_err(|err| Error::LinkExecutable {
+            from: executable.to_path_buf(),
+            to: link.to_path_buf(),
+            err,
+        })
+    } else if cfg!(windows) {
+        use uv_trampoline_builder::windows_python_launcher;
+
+        let launcher = windows_python_launcher(executable, false)?;
+
+        uv_fs::write_atomic_sync(link, &*launcher).map_err(|err| Error::LinkExecutable {
+            from: executable.to_path_buf(),
+            to: link.to_path_buf(),
+            err,
+        })
+    } else {
+        unimplemented!("Only Windows and Unix are supported.")
+    }
+}
+
 // TODO(zanieb): Only used in tests now.
 /// Generate a platform portion of a key from the environment.
 pub fn platform_key_from_env() -> Result<String, Error> {
@@ -1365,5 +1394,34 @@ mod tests {
         assert!(newer_patch_older_build.is_upgrade_of(&older_patch_newer_build));
         // Older patch version should not be an upgrade even with newer build
         assert!(!older_patch_newer_build.is_upgrade_of(&newer_patch_older_build));
+    }
+
+    #[test]
+    fn test_find_version_matching() {
+        use crate::PythonVersion;
+
+        let platform = Platform::from_env().unwrap();
+        let temp_dir = tempfile::tempdir().unwrap();
+
+        // Create mock installation directories
+        fs::create_dir(temp_dir.path().join(format!("cpython-3.10.0-{platform}"))).unwrap();
+
+        temp_env::with_var(
+            uv_static::EnvVars::UV_PYTHON_INSTALL_DIR,
+            Some(temp_dir.path()),
+            || {
+                let installations = ManagedPythonInstallations::from_settings(None).unwrap();
+
+                // Version 3.1 should NOT match 3.10
+                let v3_1 = PythonVersion::from_str("3.1").unwrap();
+                let matched: Vec<_> = installations.find_version(&v3_1).unwrap().collect();
+                assert_eq!(matched.len(), 0);
+
+                // Check that 3.10 matches
+                let v3_10 = PythonVersion::from_str("3.10").unwrap();
+                let matched: Vec<_> = installations.find_version(&v3_10).unwrap().collect();
+                assert_eq!(matched.len(), 1);
+            },
+        );
     }
 }

@@ -2,7 +2,7 @@ import re
 
 from adam.commands.command import Command
 from adam.commands.devices.device_cass import DeviceCass
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log_timing
 from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability

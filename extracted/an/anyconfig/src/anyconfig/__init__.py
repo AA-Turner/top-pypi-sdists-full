@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012 - 2021 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # For 'anyconfig.open':
@@ -31,32 +31,43 @@ from .api import (
     load_plugins, list_types, list_by_cid, list_by_type, list_by_extension,
     findall, find,
     try_query,
-    validate, is_valid, gen_schema
+    validate, is_valid, gen_schema,
 )
 
 
 __all__ = [
-    'dump', 'dumps',
-    'single_load', 'multi_load', 'load', 'loads',
-    'open', 'version',
+    "dump", "dumps",  # dump APIs.
+    "single_load", "multi_load", "load", "loads",  # load APIs.
+    "get", "set_",  # accessor APIs.
+    "merge", "open", "version",  # other APIs.
 
     # anyconfig.common
-    'UnknownParserTypeError', 'UnknownProcessorTypeError',
-    'UnknownFileTypeError', 'ValidationError',
+    "UnknownFileTypeError",
+    "UnknownParserTypeError",
+    "UnknownProcessorTypeError",
+    "ValidationError",
 
     # anyconfig.dicsts
-    'MS_REPLACE', 'MS_NO_REPLACE', 'MS_DICTS', 'MS_DICTS_AND_LISTS',
-    'MERGE_STRATEGIES', 'merge', 'get', 'set_',
+    "MERGE_STRATEGIES",
+    "MS_DICTS",
+    "MS_DICTS_AND_LISTS",
+    "MS_NO_REPLACE",
+    "MS_REPLACE",
 
     # anyconfig.parsers
-    'load_plugins', 'list_types', 'list_by_cid', 'list_by_type',
-    'list_by_extension', 'findall', 'find',
+    "find",
+    "findall",
+    "list_by_cid",
+    "list_by_extension",
+    "list_by_type",
+    "list_types",
+    "load_plugins",
 
     # anyconfig.query
-    'try_query',
+    "try_query",
 
     # anyconfig.validate
-    'validate', 'is_valid', 'gen_schema'
+    "validate", "is_valid", "gen_schema",  # validation APIs.
 ]
 
 # vim:sw=4:ts=4:et:

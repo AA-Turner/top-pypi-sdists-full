@@ -3,7 +3,7 @@ Type annotations for kms service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_kms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -468,8 +468,8 @@ class GenerateMacRequestTypeDef(TypedDict):
 
 
 class ReEncryptRequestTypeDef(TypedDict):
-    CiphertextBlob: BlobTypeDef
     DestinationKeyId: str
+    CiphertextBlob: NotRequired[BlobTypeDef]
     SourceEncryptionContext: NotRequired[Mapping[str, str]]
     SourceKeyId: NotRequired[str]
     DestinationEncryptionContext: NotRequired[Mapping[str, str]]
@@ -477,6 +477,7 @@ class ReEncryptRequestTypeDef(TypedDict):
     DestinationEncryptionAlgorithm: NotRequired[EncryptionAlgorithmSpecType]
     GrantTokens: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
+    DryRunModifiers: NotRequired[Sequence[Literal["IGNORE_CIPHERTEXT"]]]
 
 
 class RecipientInfoTypeDef(TypedDict):
@@ -876,13 +877,14 @@ class MultiRegionConfigurationTypeDef(TypedDict):
 
 
 class DecryptRequestTypeDef(TypedDict):
-    CiphertextBlob: BlobTypeDef
+    CiphertextBlob: NotRequired[BlobTypeDef]
     EncryptionContext: NotRequired[Mapping[str, str]]
     GrantTokens: NotRequired[Sequence[str]]
     KeyId: NotRequired[str]
     EncryptionAlgorithm: NotRequired[EncryptionAlgorithmSpecType]
     Recipient: NotRequired[RecipientInfoTypeDef]
     DryRun: NotRequired[bool]
+    DryRunModifiers: NotRequired[Sequence[Literal["IGNORE_CIPHERTEXT"]]]
 
 
 class DeriveSharedSecretRequestTypeDef(TypedDict):

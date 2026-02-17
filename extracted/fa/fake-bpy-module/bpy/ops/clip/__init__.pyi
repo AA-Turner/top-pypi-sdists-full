@@ -669,7 +669,7 @@ def open(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -892,7 +892,7 @@ def select_grouped(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Select all tracks from specified group
 
-        :param group: Action, Clear action to execute (optional)
+        :param group: Group, Select tracks by group (optional)
 
     KEYFRAMED
     Keyframed Tracks -- Select all keyframed tracks.
@@ -932,7 +932,7 @@ def select_lasso(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param mode: Mode, (optional)
 
@@ -969,10 +969,10 @@ def set_axis(
         :param axis: Axis, Axis to use to align bundle along (optional)
 
     X
-    X -- Align bundle align X axis.
+    X -- Align bundle to X axis.
 
     Y
-    Y -- Align bundle align Y axis.
+    Y -- Align bundle to Y axis.
         :return: Result of the operator call.
     """
 

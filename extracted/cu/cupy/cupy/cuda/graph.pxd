@@ -15,3 +15,4 @@ cdef class Graph:
 
     cpdef launch(self, stream=*)
     cpdef upload(self, stream=*)
+    cpdef debug_dot_str(self, flags=*)

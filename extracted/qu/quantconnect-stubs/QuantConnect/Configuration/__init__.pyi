@@ -7,12 +7,44 @@ import System
 import System.Collections.Generic
 
 
-class ReportArgumentParser(System.Object):
-    """Command Line arguments parser for Report Creator"""
+class CommandLineOption(System.Object):
+    """Auxiliary class to keep information about a specific command line option"""
+
+    @property
+    def type(self) -> typing.Any:
+        """Command line option type"""
+        ...
+
+    @property
+    def description(self) -> str:
+        """Command line option description"""
+        ...
+
+    @property
+    def name(self) -> str:
+        """Command line option name"""
+        ...
+
+    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
+        """Command line option contructor"""
+        ...
+
+
+class LeanArgumentParser(System.Object):
+    """Command Line arguments parser for Lean configuration"""
 
     @staticmethod
     def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args."""
+        """Argument parser contructor"""
+        ...
+
+
+class OptimizerArgumentParser(System.Object):
+    """Command Line arguments parser for Lean Optimizer"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args"""
         ...
 
 
@@ -27,6 +59,49 @@ class ToolboxArgumentParser(System.Object):
     @staticmethod
     def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
         """Argument parser contructor"""
+        ...
+
+
+class ApplicationParser(System.Object):
+    """Command Line application parser"""
+
+    @staticmethod
+    def get_parameter_or_default(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str, default_value: str) -> str:
+        """Gets the parameter object from the given parameter. If it does not exists, it returns a default parameter object"""
+        ...
+
+    @staticmethod
+    def get_parameter_or_exit(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str) -> str:
+        """Gets the parameter object from the given parameter (if it exists)"""
+        ...
+
+    @staticmethod
+    def parse(application_name: str, application_description: str, application_help_text: str, args: typing.List[str], options: typing.List[QuantConnect.Configuration.CommandLineOption], no_args_show_help: bool = False) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """
+        This function will parse args based on options and will show application name, version, help
+        
+        :param application_name: The application name to be shown
+        :param application_description: The application description to be shown
+        :param application_help_text: The application help text
+        :param args: The command line arguments
+        :param options: The applications command line available options
+        :param no_args_show_help: To show help when no command line arguments were provided
+        :returns: The user provided options. Key is option name.
+        """
+        ...
+
+    @staticmethod
+    def print_message_and_exit(exit_code: int = 0, message: str = ...) -> None:
+        """Prints a message advising the user to use the --help parameter for more information"""
+        ...
+
+
+class ReportArgumentParser(System.Object):
+    """Command Line arguments parser for Report Creator"""
+
+    @staticmethod
+    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
+        """Parse and construct the args."""
         ...
 
 
@@ -158,81 +233,6 @@ class Config(System.Object):
     @staticmethod
     def write(target_path: str = None) -> None:
         """Write the contents of the serialized configuration back to the disk."""
-        ...
-
-
-class OptimizerArgumentParser(System.Object):
-    """Command Line arguments parser for Lean Optimizer"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Parse and construct the args"""
-        ...
-
-
-class CommandLineOption(System.Object):
-    """Auxiliary class to keep information about a specific command line option"""
-
-    @property
-    def type(self) -> typing.Any:
-        """Command line option type"""
-        ...
-
-    @property
-    def description(self) -> str:
-        """Command line option description"""
-        ...
-
-    @property
-    def name(self) -> str:
-        """Command line option name"""
-        ...
-
-    def __init__(self, name: str, type: typing.Any, description: str = ...) -> None:
-        """Command line option contructor"""
-        ...
-
-
-class LeanArgumentParser(System.Object):
-    """Command Line arguments parser for Lean configuration"""
-
-    @staticmethod
-    def parse_arguments(args: typing.List[str]) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """Argument parser contructor"""
-        ...
-
-
-class ApplicationParser(System.Object):
-    """Command Line application parser"""
-
-    @staticmethod
-    def get_parameter_or_default(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str, default_value: str) -> str:
-        """Gets the parameter object from the given parameter. If it does not exists, it returns a default parameter object"""
-        ...
-
-    @staticmethod
-    def get_parameter_or_exit(options_object: System.Collections.Generic.IReadOnlyDictionary[str, System.Object], parameter: str) -> str:
-        """Gets the parameter object from the given parameter (if it exists)"""
-        ...
-
-    @staticmethod
-    def parse(application_name: str, application_description: str, application_help_text: str, args: typing.List[str], options: typing.List[QuantConnect.Configuration.CommandLineOption], no_args_show_help: bool = False) -> System.Collections.Generic.Dictionary[str, System.Object]:
-        """
-        This function will parse args based on options and will show application name, version, help
-        
-        :param application_name: The application name to be shown
-        :param application_description: The application description to be shown
-        :param application_help_text: The application help text
-        :param args: The command line arguments
-        :param options: The applications command line available options
-        :param no_args_show_help: To show help when no command line arguments were provided
-        :returns: The user provided options. Key is option name.
-        """
-        ...
-
-    @staticmethod
-    def print_message_and_exit(exit_code: int = 0, message: str = ...) -> None:
-        """Prints a message advising the user to use the --help parameter for more information"""
         ...
 
 

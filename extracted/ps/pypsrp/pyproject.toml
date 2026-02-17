@@ -1,6 +1,72 @@
 [build-system]
-requires = ["setuptools>=42.0.0", "wheel"]
+requires = [
+    "setuptools >= 77.0.0", # license and license-files alignment
+]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "pypsrp"
+version = "0.9.0"
+description = "PowerShell Remoting Protocol and WinRM for Python"
+readme = "README.md"
+requires-python = ">=3.10"
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [
+    { name = "Jordan Borean", email = "jborean93@gmail.com" }
+]
+keywords = ["winrm", "psrp", "winrs", "windows", "powershell"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+dependencies = [
+    "cryptography >= 3.1",  # default_backend made an optional kwarg
+    "pyspnego >= 0.7.0, < 1.0.0",
+    "requests >= 2.27.0",  # requests official support for 3.10+
+]
+
+[project.urls]
+homepage = "https://github.com/jborean93/pypsrp"
+
+[project.optional-dependencies]
+credssp = [
+    "requests-credssp >= 2.0.0",
+]
+kerberos = [
+    "pyspnego[kerberos]",
+]
+dev = [
+    "black == 25.11.0",
+    "build",
+    "isort == 6.1.0",
+    "mypy == 1.19.0",
+    "pre-commit",
+    "pyspnego[kerberos]",
+    "pytest",
+    "pytest-cov",
+    "pytest-mock",
+    "PyYAML",
+    "requests-credssp",
+    "types-requests",
+    "types-PyYAML",
+    "xmldiff",
+]
+
+[tool.setuptools]
+include-package-data = true
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+pypsrp = ["py.typed"]
+"pypsrp.pwsh_scripts" = ["*.ps1"]
 
 [tool.black]
 line-length = 120
@@ -36,41 +102,9 @@ warn_redundant_casts = true
 warn_unused_ignores = true
 
 [[tool.mypy.overrides]]
-module = "requests.packages.urllib3.*"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "requests_credssp"
-ignore_missing_imports = true
-
-[[tool.mypy.overrides]]
-module = "xmldiff"
+module = ["requests.packages.urllib3.*", "requests_credssp", "xmldiff"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]
 testpaths = "tests"
 junit_family = "xunit2"
-
-[tool.tox]
-legacy_tox_ini = """
-[tox]
-envlist = lint,py36,py37,py38,py39,py310
-skip_missing_interpreters = true
-isolated_build = True
-
-[testenv]
-deps =
-    -r{toxinidir}/requirements-dev.txt
-
-commands =
-    python -m pytest -v --cov pypsrp --cov-report term-missing
-
-passenv =
-    PSRP_*
-
-[testenv:lint]
-commands =
-    python -m black . --check
-    python -m isort . --check-only
-    python -m mypy .
-"""

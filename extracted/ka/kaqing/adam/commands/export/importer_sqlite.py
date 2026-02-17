@@ -2,12 +2,12 @@ import pandas
 
 from adam.commands.export.export_databases import export_db
 from adam.commands.export.importer import Importer
-from adam.repl_state import ReplState
+from adam.rdbms.utils_sqlite import SQLite, sqlite
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import GeneratorStream, bytes_generator_from_file
 from adam.utils_log import ing
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
-from adam.utils_sqlite import SQLite, sqlite
 
 class SqliteImporter(Importer):
     def prefix(self):

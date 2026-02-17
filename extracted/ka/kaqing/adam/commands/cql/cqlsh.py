@@ -3,7 +3,7 @@ import click
 from adam.commands.command import Command
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.commands.cql.completions_c import completions_c
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
 

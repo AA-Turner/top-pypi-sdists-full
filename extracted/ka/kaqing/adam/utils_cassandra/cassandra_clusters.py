@@ -1,4 +1,5 @@
 import sys
+from typing import Union
 
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_concurrent import parallelize
@@ -12,7 +13,7 @@ class CassandraClusters:
              namespace: str,
              command: str,
              action: str = 'action',
-             on_any = False,
+             on_any: Union[bool, int] = False,
              shell = '/bin/sh',
              samples = sys.maxsize,
              pods: list[str] = None,
@@ -29,12 +30,17 @@ class CassandraClusters:
         if on_any:
             samples = 1
 
+        batch_size = 0
+        # if on_any is an integer bigger than 0, serving as batch size
+        if isinstance(on_any, int) and int(on_any) > 0:
+            batch_size = int(on_any)
+
         with parallelize(pods,
                           msg='d`Running|Ran ' + action + ' command onto {size} pods') as exec:
             if samples == sys.maxsize:
                 rs = exec.collect(lambda pod: CassandraNodes.exec(pod, namespace, command, False, shell, ctx.copy(show_out=False)))
             else:
-                rs = exec.sample(lambda pod: CassandraNodes.exec(pod, namespace, command, False, shell, ctx.copy(show_out=False)), samples=samples)
+                rs = exec.sample(lambda pod: CassandraNodes.exec(pod, namespace, command, False, shell, ctx.copy(show_out=False)), samples=samples, batch_size=batch_size)
 
             results.extend(rs)
 

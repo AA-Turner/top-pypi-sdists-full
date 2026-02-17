@@ -22,17 +22,17 @@ class HtmlFrame(Frame):
     Callbacks:
 
     :param on_navigate_fail: The function to be called when a url cannot be loaded. The target url, error, and code will be passed as arguments. By default the TkinterWeb error page is shown.
-    :type on_navigate_fail: function
+    :type on_navigate_fail: None or function
     :param on_link_click: The function to be called when a hyperlink is clicked. The target url will be passed as an argument. By default the url is navigated to.
-    :type on_link_click: function
+    :type on_link_click: None or function
     :param on_form_submit: The function to be called when a form is submitted. The target url, data, and method ("GET" or "POST") will be passed as arguments. By default the response is loaded.
-    :type on_form_submit: function
+    :type on_form_submit: None or function
     :param on_script: The function to be called when a ``<script>`` element is encountered. This can be used to connect a script handler, such as a JavaScript engine. The script element's attributes and contents will be passed as arguments.
-    :type on_script: function
+    :type on_script: None or function
     :param on_element_script: The function to be called when a JavaScript event attribute on an element is encountered. This can be used to connect a script handler, such as a JavaScript engine, or even to run your own Python code. The element's corresponding Tkhtml3 node, relevant attribute, and attribute contents will be passed as arguments. New in version 4.1.
-    :type on_element_script: function
+    :type on_element_script: None or function
     :param on_resource_setup: The function to be called when an image, stylesheet, or script load finishes. The resource's url, type ("image", "stylesheet", or "script"), and whether setup was successful or not (True or False) will be passed as arguments.
-    :type on_resource_setup: function
+    :type on_resource_setup: None or function
 
     Widget appearance:
 
@@ -61,7 +61,7 @@ class HtmlFrame(Frame):
     :param messages_enabled: Enable/disable messages. This is enabled by default.
     :type messages_enabled: bool
     :param message_func: The function to be called when a debug message is issued. This only works if :attr:`messages_enabled` is set to True. The message will be passed as an argument. By default the message is printed.
-    :type message_func: function
+    :type message_func: None or function
 
     Features:
 
@@ -88,7 +88,7 @@ class HtmlFrame(Frame):
     :param javascript_enabled: Enable/disable JavaScript support. This is disabled by default. Experimental. New in version 4.1.
     :type javascript_enabled: bool
     :param javascript_backend: The scripting backend to use. Set to ``pythonmonkey`` (the default) to evaluate scripts as JavaScript code, or set to ``python`` to evaluate as Python code. Experimental. New in version 4.19.
-    :type javascript_enabled: bool
+    :type javascript_backend: "pythonmonkey" or "python"
     :param image_alternate_text_enabled: Enable/disable the display of alt text for broken images. This is enabled by default.
     :type image_alternate_text_enabled: bool
     :param dark_theme_enabled: Enable/disable dark mode. This feature is a work-in-progress and may cause hangs or crashes on more complex websites.
@@ -118,13 +118,13 @@ class HtmlFrame(Frame):
     :param insecure_https: If True, website certificate errors are ignored. This can be used to work around issues where :py:mod:`ssl` is unable to get a page's certificate on some older Mac systems.
     :type insecure_https: bool
     :param ssl_cafile: Path to a file containing CA certificates. This can be used to work around issues where :py:mod:`ssl` is unable to get a page's certificate on some older Mac systems. New in version 4.5.
-    :type ssl_cafile: bool or str
+    :type ssl_cafile: None or str
     :param headers: The headers used by urllib's :py:class:`~urllib.request.Request` when fetching a resource.
     :type headers: dict
     :param request_timeout: The number of seconds to wait when fetching a resource before timing out. New in version 4.6.
     :type request_timeout: int
     :param request_func: The function to be called when a resource is requested. This overrides all other download settings. The callback must accept the following arguments: the resource's url, data, method ("GET" or "POST"), and encoding. The callback must return the following: url, data, file type, and HTTP code.
-    :type request_func: function
+    :type request_func: None or function
 
     HTML rendering behaviour:
 
@@ -143,17 +143,27 @@ class HtmlFrame(Frame):
     
     :raise TypeError: If the value type is wrong and cannot be converted to the correct type."""
 
-    def __init__(self, master, *, zoom = 1.0, fontscale = 1.0, messages_enabled = True, vertical_scrollbar = "dynamic", horizontal_scrollbar = False, \
-                    on_navigate_fail = None, on_link_click = None, on_form_submit = None, on_script = None, on_element_script = None, on_resource_setup = None, \
-                    message_func = utilities.notifier, request_func = None, caret_browsing_enabled = False, selection_enabled = True, \
-                    stylesheets_enabled = True, images_enabled = True, forms_enabled = True, objects_enabled = True, caches_enabled = True, \
-                    dark_theme_enabled = False, image_inversion_enabled = False, javascript_enabled = False, javascript_backend="pythonmonkey", events_enabled = True, \
-                    threading_enabled = True, crash_prevention_enabled = True, image_alternate_text_enabled = True, ignore_invalid_images = True, \
-                    visited_links = [], find_match_highlight_color = "#f1a1f7", find_match_text_color = "#000", find_current_highlight_color = "#8bf0b3", \
-                    find_current_text_color = "#000", selected_text_highlight_color = "#9bc6fa", selected_text_color = "#000", \
-                    insecure_https = False, ssl_cafile = None, request_timeout = 15, headers = utilities.HEADERS, experimental = False, \
-                    use_prebuilt_tkhtml = True, tkhtml_version = "", parsemode = utilities.DEFAULT_PARSE_MODE, \
-                    shrink = False, textwrap="auto", mode = utilities.DEFAULT_ENGINE_MODE, defaultstyle = "", height = 0, width = 0, **kwargs):
+    def __init__(self, master, *, 
+                    zoom = utilities.UNSET, fontscale = utilities.UNSET, messages_enabled = utilities.UNSET, \
+                    vertical_scrollbar = utilities.UNSET, horizontal_scrollbar = utilities.UNSET, \
+                    on_navigate_fail = utilities.UNSET, on_link_click = utilities.UNSET, on_form_submit = utilities.UNSET, 
+                    on_script = utilities.UNSET, on_element_script = utilities.UNSET, on_resource_setup = utilities.UNSET, \
+                    message_func = utilities.UNSET, request_func = utilities.UNSET, caret_browsing_enabled = utilities.UNSET, 
+                    selection_enabled = utilities.UNSET, stylesheets_enabled = utilities.UNSET, images_enabled = utilities.UNSET, \
+                    forms_enabled = utilities.UNSET, objects_enabled = utilities.UNSET, caches_enabled = utilities.UNSET, \
+                    dark_theme_enabled = utilities.UNSET, image_inversion_enabled = utilities.UNSET, \
+                    javascript_enabled = utilities.UNSET, javascript_backend = utilities.UNSET, events_enabled = utilities.UNSET, \
+                    threading_enabled = utilities.UNSET, crash_prevention_enabled = utilities.UNSET, \
+                    image_alternate_text_enabled = utilities.UNSET, ignore_invalid_images = utilities.UNSET, \
+                    visited_links = utilities.UNSET, find_match_highlight_color = utilities.UNSET, find_match_text_color = utilities.UNSET, \
+                    find_current_highlight_color = utilities.UNSET, find_current_text_color = utilities.UNSET, \
+                    selected_text_highlight_color = utilities.UNSET, selected_text_color = utilities.UNSET, \
+                    insecure_https = utilities.UNSET, ssl_cafile = utilities.UNSET, request_timeout = utilities.UNSET, \
+                    headers = utilities.UNSET, experimental = utilities.UNSET, use_prebuilt_tkhtml = utilities.UNSET, \
+                    tkhtml_version = utilities.UNSET, parsemode = utilities.UNSET, shrink = utilities.UNSET, textwrap = utilities.UNSET, \
+                    mode = utilities.UNSET, defaultstyle = utilities.UNSET, height = utilities.UNSET, width = utilities.UNSET, **kwargs):
+        
+        init_args = locals().copy()
         
         # State and settings variables
         self._current_url = ""
@@ -166,102 +176,89 @@ class HtmlFrame(Frame):
         self._button = None
         self._style = None
 
-        # Deprecations
-        self._check_deprecations(**kwargs)
-
         ### TODO: it would be really nice to better match the parameters, function names, and events used in stock Tkinter widgets
         ### Not really reasonable at this point
 
-        # Before I had kwargs mapped directly do these dicts, but then autocomplete didn't work
-        # Probably I just need fewer options.
         self._htmlframe_options = {
-            "on_navigate_fail": self.show_error_page if on_navigate_fail is None else on_navigate_fail,
-            "vertical_scrollbar": vertical_scrollbar,
-            "horizontal_scrollbar": horizontal_scrollbar,
-            "javascript_backend": javascript_backend,
-            "unshrink": False,
-            "about_page_background": kwargs.pop("about_page_background", ""), # will be removed
-            "about_page_foreground": kwargs.pop("about_page_foreground", "") # will be removed
+            "on_navigate_fail": {"default": self.show_error_page, "type": "callable"},
+            "vertical_scrollbar": {"default": "dynamic", "type": "scrollbar"},
+            "horizontal_scrollbar": {"default": False, "type": "scrollbar"},
+            "javascript_backend": {"default": "pythonmonkey", "type": str, "changeable": False},
+            "unshrink": {"default": False},
+            "about_page_background": {"default": "", "deprecated": "ttk.Style().configure('TFrame', background=)"},
+            "about_page_foreground": {"default": "", "deprecated": "ttk.Style().configure('TFrame', foreground=)"},
         }
+
         self._tkinterweb_options = {
-            "on_link_click": self.load_url if on_link_click is None else on_link_click,
-            "on_form_submit": self.load_form_data if on_form_submit is None else on_form_submit,
-            "on_script": self._on_script if on_script is None else on_script ,
-            "on_element_script": self._on_element_script if on_element_script is None else on_element_script,
-            "on_resource_setup": utilities.placeholder if on_resource_setup is None else on_resource_setup,
-            "message_func": message_func,
-            "messages_enabled": messages_enabled,
-            "caret_browsing_enabled": caret_browsing_enabled,
-            "selection_enabled": selection_enabled,
-            "stylesheets_enabled": stylesheets_enabled,
-            "images_enabled": images_enabled,
-            "forms_enabled": forms_enabled,
-            "objects_enabled": objects_enabled,
-            "caches_enabled": caches_enabled,
-            "dark_theme_enabled": dark_theme_enabled,
-            "image_inversion_enabled": image_inversion_enabled,
-            "crash_prevention_enabled": crash_prevention_enabled,
-            "events_enabled": events_enabled,
-            "threading_enabled": threading_enabled,
-            "javascript_enabled": javascript_enabled,
-            "image_alternate_text_enabled": image_alternate_text_enabled,
-            "ignore_invalid_images": ignore_invalid_images,
-            "visited_links": visited_links,
-            "find_match_highlight_color": find_match_highlight_color,
-            "find_match_text_color": find_match_text_color,
-            "find_current_highlight_color": find_current_highlight_color,
-            "find_current_text_color": find_current_text_color,
-            "selected_text_highlight_color": selected_text_highlight_color,
-            "selected_text_color": selected_text_color,
-            "default_style": kwargs.pop("default_style", utilities.DEFAULT_STYLE), # will be removed
-            "dark_style": kwargs.pop("dark_style", utilities.DARK_STYLE), # will be removed
-            "request_func": request_func,
-            "insecure_https": insecure_https,
-            "ssl_cafile": ssl_cafile,
-            "request_timeout": request_timeout,
-            "headers": headers,
-            "experimental": experimental,
-            "use_prebuilt_tkhtml": use_prebuilt_tkhtml,
-            "tkhtml_version": tkhtml_version,
+            "on_link_click": {"default": self.load_url, "type": "callable"},
+            "on_form_submit": {"default": self.load_form_data, "type": "callable"},
+            "on_script": {"default": self._on_script, "type": "callable"},
+            "on_element_script": {"default": self._on_element_script, "type": "callable"},
+            "on_resource_setup": {"default": None, "type": "callable"},
+            "message_func": {"default": utilities.notifier, "type": "callable"},
+            "messages_enabled": {"default": True, "type": bool},
+            "caret_browsing_enabled": {"default": False, "type": bool},
+            "selection_enabled": {"default": True, "type": bool},
+            "stylesheets_enabled": {"default": True, "type": bool},
+            "images_enabled": {"default": True, "type": bool},
+            "forms_enabled": {"default": True, "type": bool},
+            "objects_enabled": {"default": True, "type": bool},
+            "caches_enabled": {"default": True, "type": bool},
+            "dark_theme_enabled": {"default": False, "type": bool},
+            "image_inversion_enabled": {"default": False, "type": bool},
+            "crash_prevention_enabled": {"default": True, "type": bool},
+            "events_enabled": {"default": True, "type": bool},
+            "threading_enabled": {"default": True, "type": bool},
+            "javascript_enabled": {"default": False, "type": bool},
+            "image_alternate_text_enabled": {"default": True, "type": bool},
+            "ignore_invalid_images": {"default": True, "type": bool},
+            "visited_links": {"default": [], "type": list},
+            "find_match_highlight_color": {"default": "#f1a1f7", "type": str},
+            "find_match_text_color": {"default": "#000", "type": str},
+            "find_current_highlight_color": {"default": "#8bf0b3", "type": str},
+            "find_current_text_color": {"default": "#000", "type": str},
+            "selected_text_highlight_color": {"default": "#9bc6fa", "type": str},
+            "selected_text_color": {"default": "#000", "type": str},
+            "default_style": {"default": utilities.DEFAULT_STYLE, "deprecated": "utilities.DEFAULT_STYLE"},
+            "dark_style": {"default": utilities.DARK_STYLE, "deprecated": "utilities.DARK_STYLE"},
+            "request_func": {"default": None, "type": "callable"},
+            "insecure_https": {"default": False, "type": bool},
+            "ssl_cafile": {"default": None, "type": "nonestr"},
+            "request_timeout": {"default": 15, "type": int},
+            "headers": {"default": utilities.HEADERS, "type": dict},
+            "experimental": {"default": False, "type": "autobool", "changeable": False},
+            "use_prebuilt_tkhtml": {"default": True, "type": bool, "changeable": False},
+            "tkhtml_version": {"default": "auto", "type": "autofloat", "changeable": False},
             # Internal
-            "overflow_scroll_frame": kwargs.pop("overflow_scroll_frame", None),
-            "embed_obj": kwargs.pop("embed_obj", HtmlFrame),
-            "manage_vsb_func": kwargs.pop("manage_vsb_func", self._manage_vsb),
-            "manage_hsb_func": kwargs.pop("manage_hsb_func", self._manage_hsb),
+            "overflow_scroll_frame": {"default": None},
+            "embed_obj": {"default": HtmlFrame},
+            "manage_vsb_func": {"default": self._manage_vsb},
+            "manage_hsb_func": {"default": self._manage_hsb},
         }
+
         self._tkhtml_options = {
-            "zoom": zoom,
-            "fontscale": fontscale,
-            "parsemode": parsemode,
-            "shrink": shrink,
-            "textwrap": textwrap,
-            "mode": mode,
-            "defaultstyle": defaultstyle,
-            "height": height,
-            "width": width,
+            "zoom": {"default": 1.0},
+            "fontscale": {"default": 1.0},
+            "parsemode": {"default": utilities.DEFAULT_PARSE_MODE},
+            # Shrink seems to cause segfaults when changed after the widget loads
+            "shrink": {"default": False, "changeable": False},
+            "textwrap": {"default": "auto", "type": "autobool"},
+            "mode": {"default": utilities.DEFAULT_ENGINE_MODE},
+            "defaultstyle": {"default": ""},
+            "height": {"default": 0},
+            "width": {"default": 0},
         }
+        
+        
+        self._check_options(self._htmlframe_options, init_args, kwargs, True)
+        _tkinterweb_options = self._check_options(self._tkinterweb_options, init_args, kwargs)
+        _tkhtml_options = self._check_options(self._tkhtml_options, init_args, kwargs)
 
-        # Some have no impact after loading
-        # Shrink seems to cause segfaults
-        self.final_options = {"use_prebuilt_tkhtml", "tkhtml_version", "experimental", "shrink", "javascript_backend"}
-                            
-        for key, value in self._htmlframe_options.items():
-            if key in kwargs:
-                value = self._check_value(self._htmlframe_options[key], kwargs.pop(key))
-                self._htmlframe_options[key] = value
-            setattr(self, key, value)
-
-        for key in list(kwargs.keys()):
-            if key in self._tkinterweb_options:
-                value = self._check_value(self._tkinterweb_options[key], kwargs.pop(key))
-                self._tkinterweb_options[key] = value
-            elif key in self._tkhtml_options:
-                self._tkhtml_options[key] = kwargs.pop(key)
 
         super().__init__(master, **kwargs)
 
         # Setup sub-widgets
-        self._html = html = bindings.TkinterWeb(self, self._tkinterweb_options, **self._tkhtml_options)
+        self._html = html = bindings.TkinterWeb(self, _tkinterweb_options, **_tkhtml_options)
         self._hsb = hsb = subwidgets.AutoScrollbar(self, orient="horizontal", command=html.xview)
         self._vsb = vsb = subwidgets.AutoScrollbar(self, orient="vertical", command=html.yview)
 
@@ -1096,24 +1093,6 @@ class HtmlFrame(Frame):
         self._html.selection_manager.select_all()
 
     # --- Internals -----------------------------------------------------------
-
-    def _check_value(self, old, new):
-        """Ensure new configuration option values are a valid type."""
-        expected_type = type(old)
-        if old == None and isinstance(new, tk.Widget):
-            return new
-        elif old == None:
-            if (not callable(new)) and (new != None):
-                raise TypeError(f"expected callable object, got \"{new}\"")
-        elif callable(old):
-            if not callable(new):
-                raise TypeError(f"expected callable object, got \"{new}\"")
-        elif not isinstance(new, expected_type) and old not in {"auto", "dynamic"} and new not in {"auto", "dynamic"}:
-            try:
-                new = expected_type(new)
-            except (TypeError, ValueError,):
-                raise TypeError(f"expected {expected_type.__name__}, got \"{new}\"")
-        return new
     
     def _handle_html_resize(self, event=None, force=False):
         """Make all elements with the 'tkinterweb-full-page' attribute the same height as the html widget.
@@ -1299,6 +1278,10 @@ class HtmlFrame(Frame):
     def _finish_loading_nothing(self):
         # NOTE: must be run in main thread
 
+        if not self._html.fragment and self.html.yview() != 0:
+            # Reset the view if needed
+            self.html.yview_moveto(0)
+        
         self._html._handle_load_finish()
         self._finish_css()
     
@@ -1312,7 +1295,8 @@ This might also happen if your Python distribution does not come installed with 
 This is a known Python bug on older MacOS systems. \
 Running something along the lines of \"/Applications/Python {'.'.join(utilities.PYTHON_VERSION[:2])}/Install Certificates.command\" (with the qoutes) to install the missing certificates may do the trick.\n\
 Otherwise, use 'HtmlFrame(master, insecure_https=True)' to ignore website certificates or 'HtmlFrame(master, ssl_cafile=[path_to_your_cafile])' to specify the path to your CA file if you know where it is.")
-        self.on_navigate_fail(url, error, code)
+        if self.on_navigate_fail is not None:
+            self.on_navigate_fail(url, error, code)
 
     def _finish_css(self):     
         ### TODO: consider handling add_html/insert_html this way too   
@@ -1368,32 +1352,83 @@ Otherwise, use 'HtmlFrame(master, insecure_https=True)' to ignore website certif
         tkw.parse(self.html.style_report)
         return tkw
 
+    def _check_options(self, options, init_args, kwargs, set_attr=False):
+        result = {}
+        for key, data in options.items():
+            value = init_args.get(key, kwargs.pop(key, utilities.UNSET))
+            default = data.get("default")
+            if value is utilities.UNSET: value = default
+            elif value != default: 
+                value = self._check_value(key, data, value)
+            if set_attr: setattr(self, key, value)
+            else: result[key] = value
+        return result
+        
+    def _check_value(self, key, settings, value):
+        """Ensure new configuration option values are a valid type and post deprecation warnings."""
+        if "deprecated" in settings:
+            utilities.deprecate_param(key, settings["deprecated"])
+        if "type" in settings:
+            expected_type = settings["type"]
+            extras = ""
+            if expected_type == "scrollbar":
+                if value in {"auto", "dynamic"}: return value
+                extras = "\"auto\", \"dynamic\", or "
+                expected_type = bool
+            elif expected_type == "autobool":
+                if value == "auto": return value
+                extras = "\"auto\" or "
+                expected_type = bool
+            elif expected_type == "autofloat":
+                if value == "auto": return value
+                extras = "\"auto\" or "
+                expected_type = float
+            elif expected_type == "nonestr":
+                if value is None: return value
+                extras = "None or "
+                expected_type = str
+            elif expected_type == "callable":
+                if value is None or callable(value): 
+                    return value
+                raise TypeError(f"expected None or callable object, got <{type(value).__name__}> for {key}")
+            
+            if not isinstance(value, expected_type):
+                if expected_type is bool and value in {0, 1} or expected_type is int and isinstance(value, float):
+                    return expected_type(value)
+                raise TypeError(f"expected {extras}<{expected_type.__name__}> object, got <{type(value).__name__}> for {key}")
+        
+        return value
+    
+    def _check_changeability(self, key, settings):
+        changeable = settings.get("changeable", True)
+        if not changeable:
+            raise RuntimeError(f"{key} should not be changed after the widget is loaded")
+
     def configure(self, **kwargs):
         """
         Change the widget's configuration options. See above for options.
         """
-        # Deprecations
-        self._check_deprecations(**kwargs)
 
-        # 
         for key in list(kwargs.keys()):
-            if key in self.final_options:
-                raise NotImplementedError(f"{key} should not be changed after the widget is loaded")
-
             if key in self._htmlframe_options:
-                value = self._check_value(self._htmlframe_options[key], kwargs.pop(key))
+                settings = self._htmlframe_options[key]
+                self._check_changeability(key, settings)
+                value = self._check_value(key, settings, kwargs.pop(key))
                 setattr(self, key, value)
                 if key == "vertical_scrollbar":
                     self._manage_vsb(value)
                 elif key == "horizontal_scrollbar":
                     self._manage_hsb(value)
             elif key in self._tkinterweb_options:
-                value = self._check_value(self._tkinterweb_options[key], kwargs.pop(key))
+                settings = self._tkinterweb_options[key]
+                self._check_changeability(key, settings)
+                value = self._check_value(key, settings, kwargs.pop(key))
                 setattr(self._html, key, value)
                 if key in {"find_match_highlight_color", "find_match_text_color", "find_current_highlight_color",
                            "find_current_text_color", "selected_text_highlight_color", "selected_text_color"}:
                     self._html.selection_manager.update_tags()
             elif key in self._tkhtml_options:
+                self._check_changeability(key, self._tkhtml_options[key])
                 self._html[key] = kwargs.pop(key)
                 if key == "zoom":
                     self._handle_html_resize(force=True)
@@ -1567,8 +1602,11 @@ class HtmlText(HtmlFrame):
             caret_browsing_enabled=False
         else:
             raise ValueError("state must be 'enabled' or 'disabled'")
+        
+        self._option_types = {"insertontime": {"type": int}, "insertofftime": {"type": int}, "insertwidth": {"type": int}}
 
         HtmlFrame.__init__(self, master, caret_browsing_enabled=caret_browsing_enabled, **kwargs)
+
         self.configure(selectbackground=selectbackground, selectforeground=selectforeground, 
                        insertontime=insertontime, insertofftime=insertofftime, 
                        insertwidth=insertwidth, insertbackground=insertbackground)
@@ -1965,45 +2003,46 @@ class HtmlText(HtmlFrame):
         if "caret_browsing_enabled" in kwargs:
             raise RuntimeError("caret browsing is always enabled in this widget")
 
-        if "background" in kwargs:
-            self._background = kwargs.pop("background")
-            self.add_css(f"BODY {{ background-color: {self._background}; }}", "agent")
-        if "foreground" in kwargs:
-            self._foreground = kwargs.pop("foreground")
-            self.add_css(f"BODY {{ color: {self._foreground}; }}", "agent")
-        if "bg" in kwargs:
-            self._background = kwargs.pop("bg")
-            self.add_css(f"BODY {{ background-color: {self._background}; }}", "agent")
-        if "fg" in kwargs:
-            self._foreground = kwargs.pop("fg")
-            self.add_css(f"BODY {{ color: {self._foreground}; }}", "agent")
-        if "selectbackground" in kwargs:
-            self._html.selected_text_highlight_color = kwargs.pop("selectbackground")
-            self._html.selection_manager.update_tags()
-        if "selectforeground" in kwargs:
-            self._html.selected_text_color = kwargs.pop("selectforeground")
-            self._html.selection_manager.update_tags()
-        if "insertontime" in kwargs:
-            value = self._check_value(self._html.caret_manager.blink_delays[0], kwargs.pop("insertontime"))
-            self._html.caret_manager.blink_delays[0] = value
-        if "insertofftime" in kwargs:
-            value = self._check_value(self._html.caret_manager.blink_delays[1], kwargs.pop("insertofftime"))
-            self._html.caret_manager.blink_delays[1] = value
-        if "insertwidth" in kwargs:
-            value = self._check_value(self._html.caret_manager.caret_width, kwargs.pop("insertwidth"))
-            self._html.caret_manager.caret_width = value
-        if "insertbackground" in kwargs:
-            self._html.caret_manager.caret_color = kwargs.pop("insertbackground")
-        if "state" in kwargs:
-            state = kwargs.pop("state")
-            if state == "enabled":
-                self._html.bind("<Key>", self._on_key)
-                self._html.caret_browsing_enabled = True
-            elif state == "disabled":
-                self._html.unbind("<Key>")
-                self._html.caret_browsing_enabled = False
-            else:
-                raise ValueError("state must be 'enabled' or 'disabled'")
+        for key in list(kwargs.keys()):
+            if key == "background":
+                self._background = kwargs.pop(key)
+                self.add_css(f"BODY {{ background-color: {self._background}; }}", "agent")
+            if key == "foreground":
+                self._foreground = kwargs.pop(key)
+                self.add_css(f"BODY {{ color: {self._foreground}; }}", "agent")
+            if key == "bg":
+                self._background = kwargs.pop(key)
+                self.add_css(f"BODY {{ background-color: {self._background}; }}", "agent")
+            if key == "fg":
+                self._foreground = kwargs.pop(key)
+                self.add_css(f"BODY {{ color: {self._foreground}; }}", "agent")
+            if key == "selectbackground":
+                self._html.selected_text_highlight_color = kwargs.pop(key)
+                self._html.selection_manager.update_tags()
+            if key == "selectforeground":
+                self._html.selected_text_color = kwargs.pop(key)
+                self._html.selection_manager.update_tags()
+            if key == "insertontime":
+                value = self._check_value(key, self._option_types[key], kwargs.pop(key))
+                self._html.caret_manager.blink_delays[0] = value
+            if key == "insertofftime":
+                value = self._check_value(key, self._option_types[key], kwargs.pop(key))
+                self._html.caret_manager.blink_delays[1] = value
+            if key == "insertwidth":
+                value = self._check_value(key, self._option_types[key], kwargs.pop(key))
+                self._html.caret_manager.caret_width = value
+            if key == "insertbackground":
+                self._html.caret_manager.caret_color = kwargs.pop(key)
+            if key == "state":
+                state = kwargs.pop(key)
+                if state == "enabled":
+                    self._html.bind("<Key>", self._on_key)
+                    self._html.caret_browsing_enabled = True
+                elif state == "disabled":
+                    self._html.unbind("<Key>")
+                    self._html.caret_browsing_enabled = False
+                else:
+                    raise ValueError("state must be 'enabled' or 'disabled'")
 
         if kwargs: super().configure(**kwargs)
 
@@ -2048,8 +2087,6 @@ class HtmlParse(HtmlFrame):
     
     def __init__(self, **kwargs): #markup=""
         self.root = root = tk.Tk()
-
-        self._is_destroying = False
 
         for flag in {"events_enabled", "images_enabled", "forms_enabled", "stylesheets_enabled"}:
             if flag not in kwargs:

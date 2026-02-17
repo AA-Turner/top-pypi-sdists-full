@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.7.4 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.7.5 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -826,7 +826,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.4) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.5) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -2504,13 +2504,17 @@ class offload:
                 param_size += torch.numel(p.data) * p.data.element_size()
 
 
-            if tied_param == None:
+            if tied_param is None:
                 blocks_params_size +=  param_size
                 self.parameters_ref[ref] = (submodule, k)
 
         for k, p in submodule.named_buffers(recurse=False):
-            blocks_params.append( (submodule, k, p, True, None) )
-            blocks_params_size += p.data.nbytes
+            ref = _get_tensor_ref(p)
+            tied_param =  self.parameters_ref.get(ref, None)
+            blocks_params.append( (submodule, k, p, True, tied_param) )
+            if tied_param is None:
+                blocks_params_size += p.data.nbytes
+                self.parameters_ref[ref] = (submodule, k)
 
         aft = blocks_params_size
 
@@ -3579,7 +3583,7 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
             else:
                 _pin_to_memory(current_model, model_id, partialPinning= partialPinning, pinnedPEFTLora = pinnedPEFTLora, perc_reserved_mem_max = perc_reserved_mem_max, verboseLevel=verboseLevel)            
 
-        current_budget = model_budgets[model_id]
+        current_budget = getattr(current_model, "_budget", model_budgets[model_id])
         cur_blocks_prefix, prev_blocks_name, cur_blocks_name,cur_blocks_seq, is_mod_seq = None, None, None, -1, False
         self.loaded_blocks[model_id] = None
         any_lora =  loras !=None and model_id in loras
@@ -3593,8 +3597,6 @@ def all(pipe_or_dict_of_modules, pinnedMemory = False, pinnedPEFTLora = False, p
             # (it is queried in many pipelines even if offloading is not properly implemented)  
             if not hasattr(submodule, "_hf_hook"):
                 setattr(submodule, "_hf_hook", HfHook())
-            if "decode" in submodule_name:
-                pass
             if current_budget > 0 and len(submodule_name) > 0:
                 if cur_blocks_prefix != None:
                     if submodule_name.startswith(cur_blocks_prefix):

@@ -31,6 +31,8 @@ qwen-models:
     label: Qwen 3 (235B)
     description: ""
     release_date: 2025-04-28
+    metadata:
+      deprecated: true
     properties:
       context_window: 128_000
       max_tokens: 32_768
@@ -244,6 +246,8 @@ minimax-models:
     label: MiniMax-M2
     description: MiniMax-M2 is a cost-efficient open-source model optimized for agentic applications and coding in particular.
     release_date: 2025-10-26
+    metadata:
+      deprecated: true
     properties:
       context_window: 204_800
       max_tokens: 131_000

@@ -6,18 +6,18 @@ import itertools
 import logging as lg
 import multiprocessing as mp
 import re
+from collections.abc import Callable
 from collections.abc import Iterable
 from collections.abc import Iterator
 from typing import TYPE_CHECKING
 from typing import Any
-from typing import Callable
 from typing import overload
-from warnings import warn
 
 import networkx as nx
 import numpy as np
 import pandas as pd
 
+from . import _validate
 from . import convert
 from . import utils
 
@@ -200,7 +200,7 @@ def route_to_gdf(
     gdf_edges
         The ordered edges in the path.
     """
-    pairs = zip(route[:-1], route[1:])
+    pairs = itertools.pairwise(route)
     uvk = ((u, v, min(G[u][v].items(), key=lambda i: i[1][weight])[0]) for u, v in pairs)
     return convert.graph_to_gdfs(G.subgraph(route), nodes=False).loc[uvk]
 
@@ -335,7 +335,7 @@ def shortest_path(
         The node IDs constituting the shortest path, or, if `orig` and `dest`
         are both iterable, then a list of such paths.
     """
-    _verify_edge_attribute(G, weight)
+    _validate._verify_numeric_edge_attribute(G, weight, strict=False)
 
     # if neither orig nor dest is iterable, just return the shortest path
     if not (isinstance(orig, Iterable) or isinstance(dest, Iterable)):
@@ -364,11 +364,11 @@ def shortest_path(
 
     # if single-threading, calculate each shortest path one at a time
     if cpus == 1:
-        paths = [_single_shortest_path(G, o, d, weight) for o, d in zip(orig, dest)]
+        paths = [_single_shortest_path(G, o, d, weight) for o, d in zip(orig, dest, strict=True)]
 
     # if multi-threading, calculate shortest paths in parallel
     else:
-        args = ((G, o, d, weight) for o, d in zip(orig, dest))
+        args = ((G, o, d, weight) for o, d in zip(orig, dest, strict=True))
         with mp.get_context().Pool(cpus) as pool:
             paths = pool.starmap_async(_single_shortest_path, args).get()
 
@@ -407,7 +407,7 @@ def k_shortest_paths(
     path
         The node IDs constituting the next-shortest path.
     """
-    _verify_edge_attribute(G, weight)
+    _validate._verify_numeric_edge_attribute(G, weight, strict=False)
     paths_gen = nx.shortest_simple_paths(
         G=convert.to_digraph(G, weight=weight),
         source=orig,
@@ -452,30 +452,6 @@ def _single_shortest_path(
         msg = f"Cannot solve path from {orig} to {dest}"
         utils.log(msg, level=lg.WARNING)
         return None
-
-
-def _verify_edge_attribute(G: nx.MultiDiGraph, attr: str) -> None:
-    """
-    Verify attribute values are numeric and non-null across graph edges.
-
-    Raises a ValueError if this attribute contains non-numeric values, and
-    issues a UserWarning if this attribute is missing or null on any edges.
-
-    Parameters
-    ----------
-    G
-        Input graph.
-    attr
-        Name of the edge attribute to verify.
-    """
-    try:
-        values_float = (np.array(tuple(G.edges(data=attr)))[:, 2]).astype(float)
-        if np.isnan(values_float).any():
-            msg = f"The attribute {attr!r} is missing or null on some edges."
-            warn(msg, category=UserWarning, stacklevel=2)
-    except ValueError as e:
-        msg = f"The edge attribute {attr!r} contains non-numeric values."
-        raise ValueError(msg) from e
 
 
 def add_edge_speeds(
@@ -588,7 +564,7 @@ def add_edge_speeds(
 
     # add speed kph attribute to graph edges
     edges["speed_kph"] = speed_kph.to_numpy()
-    nx.set_edge_attributes(G, values=edges["speed_kph"], name="speed_kph")
+    nx.set_edge_attributes(G, values=edges["speed_kph"].to_dict(), name="speed_kph")
 
     return G
 
@@ -633,7 +609,7 @@ def add_edge_travel_times(G: nx.MultiDiGraph) -> nx.MultiDiGraph:
 
     # add travel time attribute to graph edges
     edges["travel_time"] = travel_time.to_numpy()
-    nx.set_edge_attributes(G, values=edges["travel_time"], name="travel_time")
+    nx.set_edge_attributes(G, values=edges["travel_time"].to_dict(), name="travel_time")
 
     return G
 

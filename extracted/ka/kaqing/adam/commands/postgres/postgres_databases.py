@@ -3,7 +3,7 @@ import re
 import subprocess
 
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_color import Color
 from adam.utils_context import NULL, Context
 from adam.utils_k8s.kube_context import KubeContext

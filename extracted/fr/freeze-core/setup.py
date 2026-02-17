@@ -30,9 +30,8 @@ IS_CONDA = Path(sys.prefix, "conda-meta").is_dir()
 EXE_SUFFIX = get_config_var("EXE")
 
 SOABI = get_config_var("SOABI")
-if SOABI is None or IS_MINGW:
+if SOABI is None:
     # Python <= 3.12 on Windows
-    # Python 3.12 MSYS2 incorrectly returns only sys.implementation.cache_tag
     platform_nodot = PLATFORM.replace(".", "").replace("-", "_")
     SOABI = f"{sys.implementation.cache_tag}-{platform_nodot}"
 
@@ -318,6 +317,14 @@ def get_extensions() -> list[Extension]:
                 "freeze_core.bases.gui",
                 [
                     "src/freeze_core/bases/Win32GUI.c",
+                    "src/freeze_core/bases/_common.c",
+                ],
+                libraries=["user32"],
+            ),
+            Extension(
+                "freeze_core.bases.gui_dgpu",
+                [
+                    "src/freeze_core/bases/Win32GUI_dgpu.c",
                     "src/freeze_core/bases/_common.c",
                 ],
                 libraries=["user32"],

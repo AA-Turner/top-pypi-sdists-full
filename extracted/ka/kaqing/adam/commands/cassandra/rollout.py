@@ -7,7 +7,7 @@ from adam.commands.cassandra.watch import Watch
 from adam.commands.command import Command
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils import duration
 from adam.utils_log import log2
 

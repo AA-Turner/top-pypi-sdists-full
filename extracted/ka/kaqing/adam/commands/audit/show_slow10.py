@@ -1,6 +1,6 @@
 from adam.commands.audit.utils_show_top10 import run_configured_query
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class ShowSlow10(Command):
     COMMAND = 'show slow'

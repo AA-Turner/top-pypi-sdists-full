@@ -1,20 +1,26 @@
 #
-# Copyright (C) 2012 - 2021 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """A API to open files by detecting those type automatically."""
+from __future__ import annotations
+
 import typing
 import warnings
 
 from .. import ioinfo, parsers
-from .datatypes import ParserT
+
+if typing.TYPE_CHECKING:
+    from .datatypes import ParserT
 
 
 # pylint: disable=redefined-builtin
-def open(path: ioinfo.PathOrIOInfoT,
-         mode: typing.Optional[str] = None,
-         ac_parser: parsers.MaybeParserT = None,
-         **options) -> typing.IO:
+def open(
+    path: ioinfo.PathOrIOInfoT,
+    mode: str | None = None,
+    ac_parser: parsers.MaybeParserT = None,
+    **options: dict[str, typing.Any],
+) -> typing.IO:
     """Open given file ``path`` with appropriate open flag.
 
     :param path: Configuration file path
@@ -32,18 +38,17 @@ def open(path: ioinfo.PathOrIOInfoT,
     :raises: ValueError, UnknownProcessorTypeError, UnknownFileTypeError
     """
     if not path:
-        raise ValueError(f'Invalid argument, path: {path!r}')
+        msg = f"Invalid argument, path: {path!r}"
+        raise ValueError(msg)
 
     ioi = ioinfo.make(path)
     if ioinfo.is_stream(ioi):
-        warnings.warn(f'Looks already opened stream: {ioi!r}', stacklevel=2)
-        return typing.cast(typing.IO, ioi.src)
+        warnings.warn(f"Looks already opened stream: {ioi!r}", stacklevel=2)
+        return typing.cast("typing.IO", ioi.src)
 
     psr: ParserT = parsers.find(ioi, forced_type=ac_parser)
 
-    if mode is not None and mode.startswith('w'):
+    if mode is not None and mode.startswith("w"):
         return psr.wopen(ioi.path, **options)
 
     return psr.ropen(ioi.path, **options)
-
-# vim:sw=4:ts=4:et:

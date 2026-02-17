@@ -208,6 +208,7 @@ class LazyFramePlaceholder:
         *,
         name: typing.Optional[str] = None,
         schema: pyarrow.Schema | None = None,
+        mode: typing.Literal["auto", "hive", "delta"] = "auto",
     ) -> "LazyFramePlaceholder":
         """Scan files and return a DataFrame.
 
@@ -221,7 +222,11 @@ class LazyFramePlaceholder:
             Optional name to assign to the table being scanned.
         schema
             Schema of the data. Required for CSV files, optional for Parquet.
-
+        mode
+            Scan schema inference mode:
+            - ``"auto"``: infer file type from URI/path suffix (CSV/Parquet).
+            - ``"hive"``: expand Hive/glob paths without Delta inference fallback.
+            - ``"delta"``: treat the input as a Delta table root (requires exactly one URI).
         Returns
         -------
         DataFrame that reads data from the specified files.
@@ -240,9 +245,10 @@ class LazyFramePlaceholder:
         # local paths to avoid percent-encoding partition tokens like '='.
 
         if isinstance(input_uris, str):
-            raise ValueError(
-                "The LazyFramePlaceholder.scan() function must be called with a list of input_uris, not a single str URI"
-            )
+            input_uris = [input_uris]
+
+        if mode not in ("auto", "hive", "delta"):
+            raise ValueErorr(f"Mode must be one of(auto, hive, delta) got, {str(mode)}")
 
         if name is None:
             name = str(uuid.uuid4())
@@ -265,6 +271,7 @@ class LazyFramePlaceholder:
             name=name,
             input_uris=normalized_input_uris,
             schema=schema,
+            mode=mode,
         )
 
     @classmethod

@@ -2,7 +2,7 @@ from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 import tempfile
-from typing import Dict, List, Optional, Union
+from typing import Dict, Iterable, List, Optional, Union
 
 from benchling_api_client.v2.beta.api.data_frames import create_data_frame, get_data_frame, patch_data_frame
 from benchling_api_client.v2.beta.models.data_frame import DataFrame
@@ -13,12 +13,14 @@ from benchling_api_client.v2.beta.models.data_frame_create_manifest_manifest_ite
 from benchling_api_client.v2.beta.models.data_frame_update import DataFrameUpdate
 from benchling_api_client.v2.beta.models.data_frame_update_upload_status import DataFrameUpdateUploadStatus
 from benchling_api_client.v2.beta.models.file_status_upload_status import FileStatusUploadStatus
+from benchling_api_client.v2.beta.models.get_data_frame_row_data_format import GetDataFrameRowDataFormat
 from benchling_api_client.v2.types import Response
 import httpx
 
 from benchling_sdk.errors import DataFrameInProgressError, InvalidDataFrameError, raise_for_status
 from benchling_sdk.helpers.decorators import api_method
 from benchling_sdk.helpers.response_helpers import model_from_detailed
+from benchling_sdk.helpers.serialization_helpers import none_as_unset, optional_array_query_param
 from benchling_sdk.helpers.task_helpers import TaskHelper
 from benchling_sdk.services.v2.base_service import BaseService
 
@@ -35,13 +37,24 @@ class V2BetaDataFrameService(BaseService):
     """
 
     @api_method
-    def get_by_id(self, data_frame_id: str) -> DataFrame:
+    def get_by_id(
+        self,
+        data_frame_id: str,
+        returning: Optional[Iterable[str]] = None,
+        row_data_format: Optional[GetDataFrameRowDataFormat] = None,
+    ) -> DataFrame:
         """
         Get a data frame and URLs to download its data.
 
         See https://benchling.com/api/v2-beta/reference#/Data%20Frames/getDataFrame
         """
-        response = get_data_frame.sync_detailed(client=self.client, data_frame_id=data_frame_id)
+        returning_string = optional_array_query_param(returning)
+        response = get_data_frame.sync_detailed(
+            client=self.client,
+            data_frame_id=data_frame_id,
+            returning=none_as_unset(returning_string),
+            row_data_format=none_as_unset(row_data_format),
+        )
         return model_from_detailed(response)
 
     @api_method

@@ -1,46 +1,71 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-from collections.abc import Iterable, Sequence
+from ast import literal_eval
+from collections.abc import Iterable
 from typing import Any
 
 from . import grammars
+from .builder import ModelBuilderSemantics
+from .contexts import ParseContext
 from .exceptions import FailedSemantics
-from .semantics import ModelBuilderSemantics
-from .util import eval_escapes, flatten, re, warning
+from .leftrec import mark_left_recursion
+from .util import eval_escapes, re, warning
+from .util.abctools import flatten
 
 
-class EBNFGrammarSemantics(ModelBuilderSemantics):
-    def __init__(self, grammar_name: str | None):
+class TatSuGrammarSemantics(ModelBuilderSemantics):
+    def __init__(self, name: str | None = None, context: ParseContext | None = None):
         super().__init__(
-            base_type=grammars.Model,
-            types=grammars.Model.classes(),
+            basetype=grammars.Model,
+            constructors=grammars.Model.classes(),  # ty:ignore[invalid-argument-type]
         )
-        self.grammar_name = grammar_name
-        self.rules: dict[str, grammars.Rule] = {}
+        self.name = name
+        self.context = context
+        self.rulemap: dict[str, grammars.Rule] = {}
+
+    def set_context(self, context: ParseContext):
+        self.context = context
+
+    @classmethod
+    def _validate_literal(cls, ast: Any):
+        try:
+            literal_eval(repr(str(ast)))
+        except SyntaxError as e:
+            raise FailedSemantics('literal string error: ' + str(e)) from e
+
+    @classmethod
+    def _validate_pattern(cls, ast: Any):
+        cls._validate_literal(ast)
+        try:
+            re.compile(str(ast))
+        except (TypeError, re.error) as e:
+            raise FailedSemantics('pattern error: ' + str(e)) from e
+
+    def EMPTYLINE(self, ast: Any, * args) -> Any:
+        return ast
 
     def token(self, ast: str, *args: Any) -> grammars.Token:
         token = ast
         if not token:
             raise FailedSemantics('empty token')
-        return grammars.Token(token)
+        literal_eval(repr(token))
+        return grammars.Token(ast=token)
 
     def pattern(self, ast: str, *args) -> grammars.Pattern:
-        return grammars.Pattern(ast)
+        pattern = ast
+        self._validate_literal(pattern)
+        return grammars.Pattern(ast=pattern)
 
     def regexes(self, ast: Iterable[str], *args) -> Iterable[str]:
         pattern = ''.join(ast)
-        try:
-            re.compile(pattern)
-        except (TypeError, re.error) as e:
-            raise FailedSemantics('regexp error: ' + str(e)) from e
+        self._validate_pattern(pattern)
         return ast
 
     def regex(self, ast: str, *args) -> str:
         pattern = ast
-        try:
-            re.compile(pattern)
-        except (TypeError, re.error) as e:
-            raise FailedSemantics('regexp error: ' + str(e)) from e
+        self._validate_pattern(pattern)
         return pattern
 
     def string(self, ast):
@@ -69,24 +94,26 @@ class EBNFGrammarSemantics(ModelBuilderSemantics):
         return grammars.Override(ast)
 
     def sequence(self, ast, *args):
-        seq = ast.sequence
-        assert isinstance(seq, Sequence), str(seq)
+        # if isinstance(ast, list | tuple):
+        #     seq = ast
+        # else:
+        #     seq = ast.sequence
+        seq = ast
+        assert isinstance(seq, list), str(seq)
         if len(seq) == 1:
             return seq[0]
-        return grammars.Sequence(ast)
+        return grammars.Sequence(ast=ast)
 
-    def choice(self, ast, *args):
-        if len(ast) == 1:
-            return ast[0]
-        return grammars.Choice(ast)
+    def choice(self, ast):
+        return grammars.Choice(ast=ast)
 
     def new_name(self, name):
-        if name in self.rules:
+        if name in self.rulemap:
             raise FailedSemantics(f'rule "{name!s}" already defined')
         return name
 
-    def known_name(self, name):
-        if name not in self.rules:
+    def known_name(self, name) -> str:
+        if name not in self.rulemap:
             raise FailedSemantics(f'rule "{name!s}" not yet defined')
         return name
 
@@ -96,55 +123,53 @@ class EBNFGrammarSemantics(ModelBuilderSemantics):
     def rule(self, ast, *args):
         decorators = ast.decorators
         name = ast.name
-        exp = ast.exp
         base = ast.base
         params = ast.params
         kwparams = dict(ast.kwparams) if ast.kwparams else {}
 
-        if 'override' not in decorators and name in self.rules:
+        if 'override' not in decorators and name in self.rulemap:
             self.new_name(name)
         elif 'override' in decorators:
             self.known_name(name)
 
         if not base:
             rule = grammars.Rule(
-                ast, name, exp, params, kwparams, decorators=decorators,
+                ast=ast, name=name, params=params, kwparams=kwparams, decorators=decorators,
             )
         else:
             self.known_name(base)
-            base_rule = self.rules[base]
+            baserule = self.rulemap[base]
             rule = grammars.BasedRule(
-                ast,
-                name,
-                exp,
-                base_rule,
-                params,
-                kwparams,
-                decorators=decorators,
+                ast=ast, name=name, baserule=baserule, params=params, kwparams=kwparams, decorators=decorators,
             )
 
-        self.rules[name] = rule
+        self.rulemap[name] = rule
         return rule
 
     def rule_include(self, ast, *args):
         name = str(ast)
         self.known_name(name)
 
-        rule = self.rules[name]
-        return grammars.RuleInclude(rule)
+        rule = self.rulemap[name]
+        return grammars.RuleInclude(ast=ast, rule=rule)
 
     def grammar(self, ast, *args):
         directives = {d.name: d.value for d in flatten(ast.directives)}
+        for value in directives.values():
+            literal_eval(repr(value))
         keywords = list(flatten(ast.keywords)) or []
 
         if directives.get('whitespace') in {'None', 'False'}:
             # NOTE: use '' because None will _not_ override defaults in configuration
             directives['whitespace'] = ''
 
-        name = self.grammar_name or directives.get('grammar')
-        return grammars.Grammar(
+        name = self.name or directives.get('grammar')
+        grammar = grammars.Grammar(
             name,
-            list(self.rules.values()),
+            list(self.rulemap.values()),
             directives=directives,
             keywords=keywords,
         )
+        if grammar.config.left_recursion:
+            mark_left_recursion(grammar)
+        return grammar

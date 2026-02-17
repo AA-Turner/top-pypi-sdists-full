@@ -8,7 +8,6 @@ from adam.commands.devices.devices import device
 from adam.commands.nodetool.nodetool_commands import NODETOOL_COMMANDS
 from adam.commands.nodetool.utils_nodetool import abort_nodetool_tasks, find_running_nodetool_tasks
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
 from adam.utils import ts
 from adam.utils_context import Context
 from adam.utils_job.job import Job
@@ -16,6 +15,7 @@ from adam.utils_job.job_status import JobStatus, RunningJobStatus
 from adam.utils_job.utils_job_results import find_exit_codes, find_job_status
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_tabulize import tabulize
 
 class NodeTool(Command):
@@ -69,11 +69,11 @@ class NodeTool(Command):
                     if job_status.is_running():
                         ctx_for_log.log2(f'[{ts()}] Still running with no failures reported.')
                     else:
-                        ctx_for_log.log2(f'[{ts()}] All nodetool {args[0]} have been completed successfully!')
+                        ctx_for_log.log2(f'[{ts()}] All nodetool {args[0]}s have been completed successfully!')
 
                     return job_status
 
-                ctx_for_log.log2(f'[{ts()}] {job_status.failed()} nodetool {args[0]} are being retried...')
+                ctx_for_log.log2(f'[{ts()}] {job_status.failed()} nodetool {args[0]}s are being retried...')
 
                 self._run(args, state, pods=job_status.failed_pods, retry=True, ctx=ctx)
 

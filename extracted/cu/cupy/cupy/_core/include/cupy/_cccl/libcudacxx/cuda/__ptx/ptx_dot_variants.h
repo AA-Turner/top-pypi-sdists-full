@@ -59,6 +59,8 @@
  *
  */
 
+#include <cuda/std/__cccl/prologue.h>
+
 _LIBCUDACXX_BEGIN_NAMESPACE_CUDA_PTX
 
 // https://docs.nvidia.com/cuda/parallel-thread-execution/index.html#operation-types
@@ -195,7 +197,7 @@ static constexpr op_exch_t op_exch{};
 template <dot_cta_group __cta_group>
 using cta_group_t   = _CUDA_VSTD::integral_constant<dot_cta_group, __cta_group>;
 using cta_group_1_t = cta_group_t<dot_cta_group::cta_group_1>;
-using cta_group_2_t = cta_group_t<dot_cta_group::cta_group_1>;
+using cta_group_2_t = cta_group_t<dot_cta_group::cta_group_2>;
 
 static constexpr cta_group_1_t cta_group_1{};
 static constexpr cta_group_2_t cta_group_2{};
@@ -222,5 +224,7 @@ template <int n>
 using n32_t = _CUDA_VSTD::integral_constant<int, n>;
 
 _LIBCUDACXX_END_NAMESPACE_CUDA_PTX
+
+#include <cuda/std/__cccl/epilogue.h>
 
 #endif // _CUDA_PTX_DOT_VARIANTS_H_

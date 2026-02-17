@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: earthkit-meteo
-Version: 0.5.0
+Version: 0.6.0
 Summary: Meteorological computations
 Author-email: "European Centre for Medium-Range Weather Forecasts (ECMWF)" <software.support@ecmwf.int>
 License: Apache License Version 2.0
@@ -13,18 +13,20 @@ Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: earthkit-utils>=0.0.1
+Requires-Dist: earthkit-utils>=0.2
 Requires-Dist: numpy
+Provides-Extra: gpu
+Requires-Dist: cupy; extra == "gpu"
+Requires-Dist: torch; extra == "gpu"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"

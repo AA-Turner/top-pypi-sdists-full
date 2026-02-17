@@ -35,10 +35,10 @@ def entry_move(
         :param direction: Direction, (optional)
 
     UP
-    UP -- UP.
+    Up -- Move the active entry up.
 
     DOWN
-    DOWN -- DOWN.
+    Down -- Move the active entry down.
         :return: Result of the operator call.
     """
 

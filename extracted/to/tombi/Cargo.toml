@@ -1,19 +1,9 @@
 [workspace]
 resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
-default-members = [
-  "crates/*",
-  "editors/zed",
-  "extensions/*",
-  "rust/serde_tombi",
-  "rust/tombi",
-  "rust/tombi-cli",
-  "toml-test",
-  "xtask",
-]
 
 [workspace.package]
-version = "0.7.28"  # We use git tags for versioning. This is just a placeholder.
+version = "0.7.30"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"

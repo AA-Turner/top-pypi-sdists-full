@@ -14,7 +14,6 @@ TRACE = 5
 logging.addLevelName(TRACE, "TRACE")
 
 if TYPE_CHECKING:  # pragma: no cover
-    # local
     from .stream_reader import TelnetReader, TelnetReaderUnicode
 
 __all__ = (
@@ -43,7 +42,7 @@ PATIENCE_MESSAGES = [
 
 def get_version() -> str:
     """Return the current version of telnetlib3."""
-    return "2.5.0"  # keep in sync with pyproject.toml and docs/conf.py !!
+    return "2.6.0"  # keep in sync with pyproject.toml and docs/conf.py !!
 
 
 def encoding_from_lang(lang: str) -> Optional[str]:
@@ -142,6 +141,11 @@ def make_logger(
     if logfile:
         _cfg["filename"] = logfile
     logging.basicConfig(**_cfg)
+    for handler in logging.getLogger().handlers:
+        if isinstance(handler, logging.StreamHandler) and not isinstance(
+            handler, logging.FileHandler
+        ):
+            handler.terminator = "\r\n"
     logging.getLogger().setLevel(lvl)
     logging.getLogger(name).setLevel(lvl)
     return logging.getLogger(name)
@@ -157,7 +161,6 @@ def function_lookup(pymod_path: str) -> Callable[..., Any]:
     module_name, func_name = pymod_path.rsplit(".", 1)
     module = importlib.import_module(module_name)
     shell_function: Callable[..., Any] = getattr(module, func_name)
-    assert callable(shell_function), shell_function
     return shell_function
 
 

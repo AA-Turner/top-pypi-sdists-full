@@ -106,6 +106,8 @@ fn parse_atom(a: &mut Allocator, v: &str) -> NodePtr {
             "%" => a.new_atom(&[61]).unwrap(),
             "secp256k1_verify" => a.new_atom(&[0x13, 0xd6, 0x1f, 0x00]).unwrap(),
             "secp256r1_verify" => a.new_atom(&[0x1c, 0x3a, 0x8f, 0x00]).unwrap(),
+            "secp256k1_verify_64" => a.new_atom(&[64]).unwrap(),
+            "secp256r1_verify_65" => a.new_atom(&[65]).unwrap(),
             "keccak256" => a.new_atom(&[62]).unwrap(),
             "sha256tree" => a.new_atom(&[63]).unwrap(),
             _ => {
@@ -208,7 +210,7 @@ mod tests {
     use super::*;
 
     #[cfg(feature = "pre-eval")]
-    use crate::chia_dialect::{ChiaDialect, NO_UNKNOWN_OPS};
+    use crate::chia_dialect::{ChiaDialect, ClvmFlags};
 
     #[cfg(feature = "pre-eval")]
     use crate::run_program::run_program_with_pre_eval;
@@ -322,6 +324,8 @@ mod tests {
             ("bls_verify", op_bls_verify as Opf),
             ("secp256k1_verify", op_secp256k1_verify as Opf),
             ("secp256r1_verify", op_secp256r1_verify as Opf),
+            ("secp256k1_verify_64", op_secp256k1_verify as Opf),
+            ("secp256r1_verify_65", op_secp256r1_verify as Opf),
             ("modpow", op_modpow as Opf),
             ("keccak256", op_keccak256 as Opf),
             // 3.0 hard fork
@@ -481,7 +485,7 @@ mod tests {
 
         let result = run_program_with_pre_eval(
             &mut allocator,
-            &ChiaDialect::new(NO_UNKNOWN_OPS),
+            &ChiaDialect::new(ClvmFlags::NO_UNKNOWN_OPS),
             program,
             NodePtr::NIL,
             COST_LIMIT,

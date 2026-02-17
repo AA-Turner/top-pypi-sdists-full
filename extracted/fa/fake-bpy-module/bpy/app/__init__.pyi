@@ -75,15 +75,15 @@ build_cflags: bytes
 """
 
 build_commit_date: bytes
-""" The date of commit this blender instance was built
+""" The date of the commit this Blender instance was built from
 """
 
 build_commit_time: bytes
-""" The time of commit this blender instance was built
+""" The time of the commit this Blender instance was built from
 """
 
 build_commit_timestamp: int
-""" The unix timestamp of commit this blender instance was built
+""" The unix timestamp of the commit this Blender instance was built from
 """
 
 build_cxxflags: bytes
@@ -91,11 +91,11 @@ build_cxxflags: bytes
 """
 
 build_date: bytes
-""" The date this blender instance was built
+""" The date this Blender instance was built
 """
 
 build_hash: bytes
-""" The commit hash this blender instance was built with
+""" The commit hash this Blender instance was built with
 """
 
 build_linkflags: bytes
@@ -115,7 +115,7 @@ build_system: bytes
 """
 
 build_time: bytes
-""" The time this blender instance was built
+""" The time this Blender instance was built
 """
 
 build_type: bytes
@@ -179,7 +179,7 @@ debug_simdata: bool
 """
 
 debug_value: int
-""" Short, number which can be set to non-zero values for testing purposes.
+""" Integer value which can be set to non-zero values for testing purposes.
 """
 
 debug_wm: bool

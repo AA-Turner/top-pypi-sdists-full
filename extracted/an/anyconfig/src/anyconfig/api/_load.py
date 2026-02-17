@@ -1,19 +1,18 @@
 #
-# Copyright (C) 2012 - 2021 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=unused-import,import-error,invalid-name
 """Provides the API to load objects from given files."""
+from __future__ import annotations
+
 import typing
 import warnings
 
 from .. import ioinfo
-from ..common import (
-    InDataT, InDataExT
-)
 from ..dicts import (
     convert_to as dicts_convert_to,
-    merge as dicts_merge
+    merge as dicts_merge,
 )
 from ..parsers import find as parsers_find
 from ..query import try_query
@@ -21,16 +20,23 @@ from ..schema import is_valid
 from ..template import try_render
 from ..utils import is_dict_like
 from .datatypes import (
-    ParserT
+    ParserT,
 )
 from .utils import are_same_file_types
 
+if typing.TYPE_CHECKING:
+    import collections.abc
 
-MappingT = typing.Dict[str, typing.Any]
+    from ..common import (
+        InDataT, InDataExT,
+    )
+
+
+MappingT = dict[str, typing.Any]
 MaybeParserOrIdOrTypeT = typing.Optional[typing.Union[str, ParserT]]
 
 
-def try_to_load_schema(**options) -> typing.Optional[InDataT]:
+def try_to_load_schema(**options: typing.Any) -> InDataT | None:
     """Try to load a schema object for validation.
 
     :param options: Optional keyword arguments such as
@@ -42,22 +48,28 @@ def try_to_load_schema(**options) -> typing.Optional[InDataT]:
 
     :return: Mapping object or None means some errors
     """
-    ac_schema = options.get("ac_schema", None)
+    ac_schema = options.get("ac_schema")
     if ac_schema is not None:
         # Try to detect the appropriate parser to load the schema data as it
         # may be different from the original config file's format, perhaps.
         options["ac_parser"] = None
         options["ac_schema"] = None  # Avoid infinite loop.
-        return load(ac_schema, **options)
+        res = load(ac_schema, **options)
+        if not res or not is_dict_like(res):
+            return None
+
+        return res
 
     return None
 
 
-def _single_load(ioi: ioinfo.IOInfo,
-                 ac_parser: MaybeParserOrIdOrTypeT = None,
-                 ac_template: bool = False,
-                 ac_context: typing.Optional[MappingT] = None,
-                 **options) -> InDataExT:
+def _single_load(
+    ioi: ioinfo.IOInfo, *,
+    ac_parser: MaybeParserOrIdOrTypeT = None,
+    ac_template: bool = False,
+    ac_context: MappingT | None = None,
+    **options: typing.Any,
+) -> InDataExT:
     """Load data from a given ``ioi``.
 
     :param input_:
@@ -87,11 +99,14 @@ def _single_load(ioi: ioinfo.IOInfo,
     return psr.load(ioi, **options)
 
 
-def single_load(input_: ioinfo.PathOrIOInfoT,
-                ac_parser: MaybeParserOrIdOrTypeT = None,
-                ac_template: bool = False,
-                ac_context: typing.Optional[MappingT] = None,
-                **options) -> InDataExT:
+def single_load(
+    input_: ioinfo.PathOrIOInfoT,
+    ac_parser: MaybeParserOrIdOrTypeT = None,
+    *,
+    ac_template: bool = False,
+    ac_context: MappingT | None = None,
+    **options: typing.Any,
+) -> InDataExT:
     r"""Load from single input ``input\_``.
 
     .. note::
@@ -131,6 +146,9 @@ def single_load(input_: ioinfo.PathOrIOInfoT,
           - ac_schema: JSON schema file path to validate given config file
           - ac_query: JMESPath expression to query data
 
+          - ac_parse_value: Parse given string as a value in some loaders if
+            True
+
         - Common backend options:
 
           - ac_ignore_missing:
@@ -146,20 +164,25 @@ def single_load(input_: ioinfo.PathOrIOInfoT,
     cnf = _single_load(ioi, ac_parser=ac_parser, ac_template=ac_template,
                        ac_context=ac_context, **options)
     schema = try_to_load_schema(
-        ac_template=ac_template, ac_context=ac_context, **options
+        ac_template=ac_template, ac_context=ac_context, **options,
     )
     if schema and not is_valid(cnf, schema, **options):
         return None
 
-    return try_query(cnf, options.get('ac_query', False), **options)
+    return try_query(cnf, options.get("ac_query", False), **options)
 
 
-def multi_load(inputs: typing.Union[typing.Iterable[ioinfo.PathOrIOInfoT],
-                                    ioinfo.PathOrIOInfoT],
-               ac_parser: MaybeParserOrIdOrTypeT = None,
-               ac_template: bool = False,
-               ac_context: typing.Optional[MappingT] = None,
-               **options) -> InDataExT:
+def multi_load(
+    inputs: typing.Union[  # noqa: UP007
+        collections.abc.Iterable[ioinfo.PathOrIOInfoT],
+        ioinfo.PathOrIOInfoT,
+    ],
+    ac_parser: MaybeParserOrIdOrTypeT = None,
+    *,
+    ac_template: bool = False,
+    ac_context: MappingT | None = None,
+    **options: typing.Any,
+) -> InDataExT:
     r"""Load data from multiple inputs ``inputs``.
 
     .. note::
@@ -213,9 +236,9 @@ def multi_load(inputs: typing.Union[typing.Iterable[ioinfo.PathOrIOInfoT],
     :raises: ValueError, UnknownProcessorTypeError, UnknownFileTypeError
     """
     schema = try_to_load_schema(
-        ac_template=ac_template, ac_context=ac_context, **options
+        ac_template=ac_template, ac_context=ac_context, **options,
     )
-    options['ac_schema'] = None  # Avoid to load schema more than twice.
+    options["ac_schema"] = None  # Avoid to load schema more than twice.
 
     iois = ioinfo.makes(inputs)
     if are_same_file_types(iois):
@@ -229,25 +252,26 @@ def multi_load(inputs: typing.Union[typing.Iterable[ioinfo.PathOrIOInfoT],
     for ioi in iois:
         cups = _single_load(
             ioi, ac_parser=ac_parser, ac_template=ac_template,
-            ac_context=ctx, **options
+            ac_context=ctx, **options,
         )
         if cups:
             if cnf is None:
-                cnf = cups  # type: ignore
+                cnf = cups
 
             if is_dict_like(cups):
                 dicts_merge(
-                    typing.cast(MappingT, cnf),
-                    typing.cast(MappingT, cups),
-                    **options
+                    typing.cast("MappingT", cnf),
+                    typing.cast("MappingT", cups),
+                    **options,
                 )
-                dicts_merge(ctx, typing.cast(MappingT, cups), **options)
+                dicts_merge(ctx, typing.cast("MappingT", cups), **options)
             elif len(iois) > 1:
-                raise ValueError(
-                    f'Object loaded from {ioi!r} is not a mapping object and '
-                    'cannot be merged with later ones will be loaded from '
-                    'other inputs.'
+                msg = (
+                    f"Object loaded from {ioi!r} is not a mapping object and "
+                    "cannot be merged with later ones will be loaded from "
+                    "other inputs."
                 )
+                raise ValueError(msg)
 
     if cnf is None:
         return dicts_convert_to({}, **options)
@@ -255,11 +279,21 @@ def multi_load(inputs: typing.Union[typing.Iterable[ioinfo.PathOrIOInfoT],
     if schema and not is_valid(cnf, schema, **options):
         return None
 
-    return try_query(cnf, options.get('ac_query', False), **options)
+    return try_query(cnf, options.get("ac_query", False), **options)
 
 
-def load(path_specs, ac_parser=None, ac_dict=None, ac_template=False,
-         ac_context=None, **options):
+def load(
+    path_specs: typing.Union[  # noqa: UP007
+        collections.abc.Iterable[ioinfo.PathOrIOInfoT],
+        ioinfo.PathOrIOInfoT,
+    ],
+    ac_parser: str | None = None,
+    *,
+    ac_dict: collections.abc.Callable | None = None,
+    ac_template: bool = False,
+    ac_context: MappingT | None = None,
+    **options: typing.Any,
+) -> InDataExT:
     r"""Load from a file or files specified as ``path_specs``.
 
     Load single or multiple config files or multiple config files specified in
@@ -291,20 +325,32 @@ def load(path_specs, ac_parser=None, ac_dict=None, ac_template=False,
     """
     iois = ioinfo.makes(path_specs)
     if not iois:
-        raise ValueError(f'Maybe invalid input: {path_specs!r}')
+        msg = f"Maybe invalid input: {path_specs!r}"
+        raise ValueError(msg)
 
     if len(iois) == 1:
-        return single_load(iois[0], ac_parser=ac_parser, ac_dict=ac_dict,
-                           ac_template=ac_template, ac_context=ac_context,
-                           **options)
+        return single_load(
+            iois[0], ac_parser=ac_parser, ac_dict=ac_dict,
+            ac_template=ac_template, ac_context=ac_context,
+            **options,
+        )
 
-    return multi_load(iois, ac_parser=ac_parser, ac_dict=ac_dict,
-                      ac_template=ac_template, ac_context=ac_context,
-                      **options)
+    return multi_load(
+        iois, ac_parser=ac_parser, ac_dict=ac_dict,
+        ac_template=ac_template, ac_context=ac_context,
+        **options,
+    )
 
 
-def loads(content, ac_parser=None, ac_dict=None, ac_template=False,
-          ac_context=None, **options):
+def loads(
+    content: str,
+    ac_parser: MaybeParserOrIdOrTypeT = None,
+    *,
+    ac_dict: collections.abc.Callable | None = None,
+    ac_template: str | bool = False,
+    ac_context: MappingT | None = None,
+    **options: typing.Any,
+) -> InDataExT:
     """Load data from a str, ``content``.
 
     :param content: Configuration file's content (a string)
@@ -331,14 +377,16 @@ def loads(content, ac_parser=None, ac_dict=None, ac_template=False,
                       stacklevel=2)
         return None
 
-    psr = parsers_find(None, forced_type=ac_parser)
+    psr: ParserT = parsers_find(None, forced_type=ac_parser)
     schema = None
-    ac_schema = options.get('ac_schema', None)
+    ac_schema = options.get("ac_schema")
     if ac_schema is not None:
-        options['ac_schema'] = None
-        schema = loads(ac_schema, ac_parser=psr, ac_dict=ac_dict,
-                       ac_template=ac_template, ac_context=ac_context,
-                       **options)
+        options["ac_schema"] = None
+        schema = loads(
+            ac_schema, ac_parser=psr, ac_dict=ac_dict,
+            ac_template=ac_template, ac_context=ac_context,
+            **options,
+        )
 
     if ac_template:
         compiled = try_render(content=content, ctx=ac_context, **options)
@@ -349,6 +397,4 @@ def loads(content, ac_parser=None, ac_dict=None, ac_template=False,
     if not is_valid(cnf, schema, **options):
         return None
 
-    return try_query(cnf, options.get('ac_query', False), **options)
-
-# vim:sw=4:ts=4:et:
+    return try_query(cnf, options.get("ac_query", False), **options)

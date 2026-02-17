@@ -16,8 +16,11 @@ use crate::db::inferences::{
     ListInferenceMetadataParams, ListInferencesParams, MockInferenceQueries, VariantThroughput,
 };
 use crate::db::model_inferences::{MockModelInferenceQueries, ModelInferenceQueries};
+use crate::db::resolve_uuid::{ResolveUuidQueries, ResolvedObject};
 use crate::db::stored_datapoint::StoredDatapoint;
-use crate::db::{ConfigQueries, MockConfigQueries};
+use crate::db::{
+    ConfigQueries, MockConfigQueries, ModelLatencyDatapoint, ModelUsageTimePoint, TimeWindow,
+};
 use crate::error::Error;
 use crate::inference::types::StoredModelInference;
 use crate::inference::types::{ChatInferenceDatabaseInsert, JsonInferenceDatabaseInsert};
@@ -228,12 +231,17 @@ impl DatasetQueries for MockClickHouseConnectionInfo {
     }
 }
 
+#[async_trait]
 impl ConfigQueries for MockClickHouseConnectionInfo {
     async fn get_config_snapshot(
         &self,
         snapshot_hash: SnapshotHash,
     ) -> Result<ConfigSnapshot, Error> {
         self.config_queries.get_config_snapshot(snapshot_hash).await
+    }
+
+    async fn write_config_snapshot(&self, snapshot: &ConfigSnapshot) -> Result<(), Error> {
+        self.config_queries.write_config_snapshot(snapshot).await
     }
 }
 
@@ -252,5 +260,42 @@ impl ModelInferenceQueries for MockClickHouseConnectionInfo {
         self.model_inference_queries
             .insert_model_inferences(rows)
             .await
+    }
+
+    async fn count_distinct_models_used(&self) -> Result<u32, Error> {
+        self.model_inference_queries
+            .count_distinct_models_used()
+            .await
+    }
+
+    async fn get_model_usage_timeseries(
+        &self,
+        time_window: TimeWindow,
+        max_periods: u32,
+    ) -> Result<Vec<ModelUsageTimePoint>, Error> {
+        self.model_inference_queries
+            .get_model_usage_timeseries(time_window, max_periods)
+            .await
+    }
+
+    async fn get_model_latency_quantiles(
+        &self,
+        time_window: TimeWindow,
+    ) -> Result<Vec<ModelLatencyDatapoint>, Error> {
+        self.model_inference_queries
+            .get_model_latency_quantiles(time_window)
+            .await
+    }
+
+    fn get_model_latency_quantile_function_inputs(&self) -> &[f64] {
+        self.model_inference_queries
+            .get_model_latency_quantile_function_inputs()
+    }
+}
+
+#[async_trait]
+impl ResolveUuidQueries for MockClickHouseConnectionInfo {
+    async fn resolve_uuid(&self, _id: &Uuid) -> Result<Vec<ResolvedObject>, Error> {
+        Ok(vec![])
     }
 }

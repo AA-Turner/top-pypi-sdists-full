@@ -226,7 +226,7 @@ def run_test_file(tb_client: TinyB, file: str) -> List[TestResult]:
             pipe = test_case.pipe.name
             params = test_case.pipe.params
             try:
-                sql = test_case.sql if test_case.sql else None
+                sql = test_case.sql or None
                 test_response = tb_client.pipe_data(pipe, format="json", params=params, sql=sql)
                 results.append(
                     TestResult(

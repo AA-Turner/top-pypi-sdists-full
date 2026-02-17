@@ -216,12 +216,25 @@ def _has_valid_signature(to_verify: str, jwks: jwk.JWKSet, encoded_signatures: L
     return False
 
 
+def _normalize_headers(headers: HeadersMapping) -> HeadersMapping:
+    """Normalize header keys to lowercase for case-insensitive lookups."""
+    if isinstance(headers, dict):
+        return {k.lower(): v for k, v in headers.items()}
+    try:
+        return {k.lower(): v for k, v in headers.items()}  # type: ignore[attr-defined]
+    except AttributeError:
+        # If we can't iterate, assume the object handles case-insensitivity itself
+        # (e.g., Flask's Headers class)
+        return headers
+
+
 def _verify(
     app_installation_or_definition_id: str,
     data: str,
     headers: HeadersMapping,
     jwk_function: Union[GetJwksFunction, LegacyGetJwksFunction],
 ) -> None:
+    headers = _normalize_headers(headers)
     _verify_headers_present(headers)
     _verify_timestamp(headers["webhook-timestamp"])
     to_verify = f'{headers["webhook-id"]}.{headers["webhook-timestamp"]}.{data}'

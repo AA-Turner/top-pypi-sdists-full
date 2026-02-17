@@ -218,6 +218,20 @@ class TiingoDailyData(QuantConnect.Data.Custom.Tiingo.TiingoPrice):
     """
 
 
+class TiingoSymbolMapper(System.Object):
+    """Helper class to map a Lean format ticker to Tiingo format"""
+
+    @staticmethod
+    def get_lean_ticker(ticker: str) -> str:
+        """Maps a given Tiingo ticker to Lean equivalent"""
+        ...
+
+    @staticmethod
+    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """Maps a given Symbol instance to it's Tiingo equivalent"""
+        ...
+
+
 class Tiingo(System.Object):
     """Helper class for Tiingo configuration"""
 
@@ -234,20 +248,6 @@ class Tiingo(System.Object):
         
         :param auth_code: The Tiingo API token
         """
-        ...
-
-
-class TiingoSymbolMapper(System.Object):
-    """Helper class to map a Lean format ticker to Tiingo format"""
-
-    @staticmethod
-    def get_lean_ticker(ticker: str) -> str:
-        """Maps a given Tiingo ticker to Lean equivalent"""
-        ...
-
-    @staticmethod
-    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """Maps a given Symbol instance to it's Tiingo equivalent"""
         ...
 
 

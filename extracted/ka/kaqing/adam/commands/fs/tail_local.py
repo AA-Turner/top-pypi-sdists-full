@@ -2,7 +2,7 @@ import os
 
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 from adam.utils_local import find_local_files
 

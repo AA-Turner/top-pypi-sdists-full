@@ -88,6 +88,7 @@ type AttributeTypeItems = typing.Literal[
     "INT16_2D",  # 2D 16-Bit Integer Vector.16-bit signed integer vector.
     "INT32_2D",  # 2D Integer Vector.32-bit signed integer vector.
     "FLOAT2",  # 2D Vector.2D vector with floating-point values.
+    "FLOAT4",  # 4D Vector.4D vector with floating-point values.
     "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
 ]
 type AttributeTypeWithAutoItems = typing.Literal[
@@ -104,6 +105,7 @@ type AttributeTypeWithAutoItems = typing.Literal[
     "INT16_2D",  # 2D 16-Bit Integer Vector.16-bit signed integer vector.
     "INT32_2D",  # 2D Integer Vector.32-bit signed integer vector.
     "FLOAT2",  # 2D Vector.2D vector with floating-point values.
+    "FLOAT4",  # 4D Vector.4D vector with floating-point values.
     "BYTE_COLOR",  # Byte Color.RGBA color with 8-bit positive integer values.
 ]
 type AxisFlagXyzItems = typing.Literal[

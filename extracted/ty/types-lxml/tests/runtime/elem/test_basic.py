@@ -1,19 +1,30 @@
 from __future__ import annotations
 
+import ipaddress
 import sys
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+)
 from copy import deepcopy
 from random import randrange
 from types import NoneType
-from typing import Any, cast
+from typing import (
+    Any,
+    cast,
+)
 
 import pytest
 from hypothesis import (
     HealthCheck,
+    assume,
     given,
     settings,
 )
 from lxml import etree
 from lxml.etree import (
+    Element,
     QName,
     _Attrib as _Attrib,
     _Comment as _Comment,
@@ -25,12 +36,18 @@ from lxml.etree import (
 from lxml.html import Element as h_Element
 
 from .._testutils import strategy as _st
-from .._testutils.common import tag_name_types
+from .._testutils.common import (
+    can_practically_iter,
+    hashable_elem_if_is_set,
+    tag_name_types,
+)
 from .._testutils.errors import (
     raise_attr_not_writable,
+    raise_cannot_convert,
     raise_invalid_filename_type,
     raise_invalid_utf8_type,
     raise_non_integer,
+    raise_non_iterable,
 )
 
 if sys.version_info >= (3, 11):
@@ -38,12 +55,16 @@ if sys.version_info >= (3, 11):
 else:
     from typing_extensions import reveal_type
 
-# See mypy.ini in testsuite for explanation
-TC_HONORS_REVERSED = True
-
 
 class TestBasicBehavior:
-    def test_sequence_read(self, xml2_root: _Element) -> None:
+    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
+    @given(thing=_st.all_instances_except_of_type(int, slice))
+    @pytest.mark.slow
+    def test_sequence_read_bad(self, disposable_element: _Element, thing: Any) -> None:
+        with raise_non_integer:
+            _ = cast(Any, disposable_element[thing])
+
+    def test_sequence_read_ok(self, xml2_root: _Element) -> None:
         elem = deepcopy(xml2_root)
 
         reveal_type(len(elem))
@@ -58,16 +79,6 @@ class TestBasicBehavior:
         assert elem.index(item) == 0
         del itr, item
 
-        if TC_HONORS_REVERSED:
-            rev = reversed(elem)
-        else:
-            rev = elem.__reversed__()
-        reveal_type(rev)
-        item = next(rev)
-        reveal_type(item)
-        assert elem.index(item) == length - 1
-        del rev, item
-
         for sub in elem:
             reveal_type(sub)
 
@@ -81,7 +92,21 @@ class TestBasicBehavior:
 
         del elem, subelem
 
-    def test_sequence_modify(self, xml2_root: _Element) -> None:
+    # mypy and ty don't support magic method and always treat
+    # reversed(...) as `reversed` object
+    @pytest.mark.notypechecker("mypy", "ty")
+    def test_reversed_seq_read_1(self, xml2_root: _Element) -> None:
+        rev = reversed(xml2_root)
+        reveal_type(rev)
+        reveal_type(list(rev))
+
+    @pytest.mark.onlytypechecker("mypy", "ty")
+    def test_reversed_seq_read_2(self, xml2_root: _Element) -> None:
+        rev = xml2_root.__reversed__()
+        reveal_type(rev)
+        reveal_type(list(rev))
+
+    def test_sequence_modify_ok(self, xml2_root: _Element) -> None:
         elem = deepcopy(xml2_root)
 
         subelem = elem[3]
@@ -118,23 +143,69 @@ class TestBasicBehavior:
         assert len(elem) == 0
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(NoneType, _Element))
+    @given(thing=_st.all_instances_except_of_type(_Element))
     @pytest.mark.slow
-    def test_insert_bad_elem_1(self, disposable_element: _Element, thing: Any) -> None:
-        with pytest.raises(
-            TypeError, match=r"Cannot convert \w+(\.\w+)* to .+\._Element"
-        ):
-            disposable_element[0] = thing
+    def test_sequence_modify_bad_1(
+        self, disposable_element: _Element, thing: Any
+    ) -> None:
+        if thing is None:
+            with pytest.raises(ValueError, match="cannot assign None"):
+                disposable_element[0] = cast(Any, thing)  # pyright: ignore[reportUnnecessaryCast]
+        else:
+            with raise_cannot_convert:
+                disposable_element[0] = thing
+
+    # some iterables may cause indefinite hang when lxml diligently try inserting
+    # items into element tree (e.g. huge ranges)
+    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
+    @given(
+        thing=_st.all_instances_except_of_type(
+            _Element,
+            Iterator,
+            range,
+            ipaddress.IPv4Network,
+            ipaddress.IPv6Network,
+        ).filter(lambda x: x is not NotImplemented and bool(x))
+    )
+    @pytest.mark.slow
+    def test_sequence_modify_bad_2(
+        self, disposable_element: _Element, thing: Any
+    ) -> None:
+        if isinstance(thing, (Iterable)) or can_practically_iter(thing):
+            with raise_cannot_convert:
+                disposable_element[:] = cast(Any, thing)
+        else:
+            with raise_non_iterable:
+                disposable_element[:] = thing
 
     @settings(max_examples=5)
     @given(iterable_of=_st.fixed_item_iterables())
-    def test_insert_bad_elem_2(
-        self, disposable_element: _Element, iterable_of: Any
+    def test_sequence_modify_bad_3(
+        self,
+        disposable_element: _Element,
+        iterable_of: Callable[[_Element], Iterable[_Element]],
     ) -> None:
-        with pytest.raises(
-            TypeError, match=r"Cannot convert \w+(\.\w+)* to .+\._Element"
-        ):
-            disposable_element[0] = iterable_of(disposable_element)
+        el = Element("foo")
+        with raise_cannot_convert:
+            disposable_element[0] = cast(Any, iterable_of(el))
+
+    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
+    @given(
+        thing=_st.all_instances_except_of_type(_Element).filter(
+            lambda x: x is not NotImplemented and bool(x)
+        ),
+        iterable_of=_st.fixed_item_iterables(),
+    )
+    @pytest.mark.slow
+    def test_sequence_modify_bad_4(
+        self,
+        disposable_element: _Element,
+        thing: Any,
+        iterable_of: Callable[[Any], Iterable[Any]],
+    ) -> None:
+        assume(hashable_elem_if_is_set(iterable_of, thing))
+        with raise_cannot_convert:
+            disposable_element[:] = iterable_of(thing)
 
 
 class TestProperties:

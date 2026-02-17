@@ -19,7 +19,11 @@ from lxml.etree import (
 )
 
 from .._testutils import signature_tester, strategy as _st
-from .._testutils.common import is_hashable, tag_selector_types
+from .._testutils.common import (
+    can_practically_iter,
+    hashable_elem_if_is_set,
+    tag_selector_types,
+)
 from .._testutils.errors import (
     raise_non_iterable,
 )
@@ -73,16 +77,18 @@ class TestIter:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x)),
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_non_iterable:
-            xml2_root.iter(thing)
+            _ = xml2_root.iter(thing)
 
     @settings(
         suppress_health_check=[
@@ -95,18 +101,16 @@ class TestIter:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         with raise_non_iterable:
-            xml2_root.iter(iterable_of(thing))
+            _ = xml2_root.iter(iterable_of(thing))
 
 
 # iterdescendants() is iter() sans root node, so the
@@ -154,14 +158,16 @@ class TestIterDescendants:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x)),
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_non_iterable:
             xml2_root.iterdescendants(thing)
 
@@ -176,18 +182,16 @@ class TestIterDescendants:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         with raise_non_iterable:
-            xml2_root.iterdescendants(iterable_of(thing))
+            _ = xml2_root.iterdescendants(iterable_of(thing))
 
 
 class TestIterAncestors:
@@ -234,14 +238,16 @@ class TestIterAncestors:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x)),
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_non_iterable:
             xml2_root.iterancestors(thing)
 
@@ -256,16 +262,14 @@ class TestIterAncestors:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         with raise_non_iterable:
             xml2_root.iterancestors(iterable_of(thing))
 
@@ -319,14 +323,16 @@ class TestIterSiblings:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x)),
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         child = xml2_root[1]
         with raise_non_iterable:
             child.itersiblings(thing)
@@ -342,16 +348,14 @@ class TestIterSiblings:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         child = xml2_root[0]
         with raise_non_iterable:
             child.itersiblings(iterable_of(thing))
@@ -405,14 +409,16 @@ class TestIterChildren:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x))
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_non_iterable:
             xml2_root.iterchildren(thing)
 
@@ -427,16 +433,14 @@ class TestIterChildren:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         with raise_non_iterable:
             xml2_root.iterchildren(iterable_of(thing))
 
@@ -492,14 +496,16 @@ class TestIterText:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
+        thing=_st
+        .all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
         )
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not can_practically_iter(x))
     )
     @pytest.mark.slow
     def test_input_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_non_iterable:
             xml2_root.itertext(thing)
 
@@ -514,15 +520,13 @@ class TestIterText:
         thing=_st.all_instances_except_of_type(
             *tag_selector_types.allow,
             *tag_selector_types.skip,
-        ),
+        ).filter(lambda x: not can_practically_iter(x)),
         iterable_of=_st.fixed_item_iterables(),
     )
     @pytest.mark.slow
     def test_input_bad_2(
         self, xml2_root: _Element, thing: Any, iterable_of: Any
     ) -> None:
-        assume(
-            getattr(iterable_of, "type") not in {set, frozenset} or is_hashable(thing)
-        )
+        assume(hashable_elem_if_is_set(iterable_of, thing))
         with raise_non_iterable:
-            xml2_root.itertext(iterable_of(thing))
+            _ = xml2_root.itertext(iterable_of(thing))

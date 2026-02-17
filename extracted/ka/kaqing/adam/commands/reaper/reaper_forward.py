@@ -6,8 +6,8 @@ from adam.commands.command import Command
 from adam.commands.reaper.reaper_forward_session import ReaperForwardSession
 from adam.commands.reaper.utils_reaper import Reapers, port_forwarding
 from adam.config import Config
-from adam.repl_session import ReplSession
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_session import ReplSession
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 from adam.utils_tabulize import tabulize
 

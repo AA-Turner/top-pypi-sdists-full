@@ -1,6 +1,6 @@
 """Synchronous and asynchronous clients for Notion's API."""
 
-import json
+import base64
 import logging
 from abc import abstractmethod
 from dataclasses import dataclass
@@ -19,12 +19,11 @@ from notion_client.api_endpoints import (
     SearchEndpoint,
     UsersEndpoint,
     FileUploadsEndpoint,
+    OAuthEndpoint,
 )
 from notion_client.errors import (
-    APIResponseError,
-    HTTPResponseError,
     RequestTimeoutError,
-    is_api_error_code,
+    build_request_error,
 )
 from notion_client.logging import make_console_logger
 from notion_client.typing import SyncAsync
@@ -82,6 +81,7 @@ class BaseClient:
         self.search = SearchEndpoint(self)
         self.comments = CommentsEndpoint(self)
         self.file_uploads = FileUploadsEndpoint(self)
+        self.oauth = OAuthEndpoint(self)
 
     @property
     def client(self) -> Union[httpx.Client, httpx.AsyncClient]:
@@ -94,7 +94,7 @@ class BaseClient:
         client.headers = httpx.Headers(
             {
                 "Notion-Version": self.options.notion_version,
-                "User-Agent": "ramnes/notion-sdk-py@2.7.0",
+                "User-Agent": "ramnes/notion-sdk-py@3.0.0",
             }
         )
         if self.options.auth:
@@ -108,11 +108,18 @@ class BaseClient:
         query: Optional[Dict[Any, Any]] = None,
         body: Optional[Dict[Any, Any]] = None,
         form_data: Optional[Dict[Any, Any]] = None,
-        auth: Optional[str] = None,
+        auth: Optional[Union[str, Dict[str, str]]] = None,
     ) -> Request:
         headers = httpx.Headers()
         if auth:
-            headers["Authorization"] = f"Bearer {auth}"
+            if isinstance(auth, dict):
+                client_id = auth.get("client_id", "")
+                client_secret = auth.get("client_secret", "")
+                credentials = f"{client_id}:{client_secret}"
+                encoded_credentials = base64.b64encode(credentials.encode()).decode()
+                headers["Authorization"] = f"Basic {encoded_credentials}"
+            else:
+                headers["Authorization"] = f"Bearer {auth}"
         self.logger.info(f"{method} {self.client.base_url}{path}")
         self.logger.debug(f"=> {query} -- {body} -- {form_data}")
 
@@ -150,24 +157,8 @@ class BaseClient:
         try:
             response.raise_for_status()
         except httpx.HTTPStatusError as error:
-            try:
-                body = error.response.json()
-                code = body.get("code")
-                additional_data = body.get("additional_data")
-                request_id = body.get("request_id")
-            except json.JSONDecodeError:
-                code = None
-                additional_data = None
-                request_id = None
-            if code and is_api_error_code(code):
-                raise APIResponseError(
-                    response,
-                    body["message"],
-                    code,
-                    additional_data,
-                    request_id,
-                )
-            raise HTTPResponseError(error.response)
+            body_text = error.response.text
+            raise build_request_error(error.response, body_text)
 
         body = response.json()
         self.logger.debug(f"=> {body}")
@@ -182,7 +173,7 @@ class BaseClient:
         query: Optional[Dict[Any, Any]] = None,
         body: Optional[Dict[Any, Any]] = None,
         form_data: Optional[Dict[Any, Any]] = None,
-        auth: Optional[str] = None,
+        auth: Optional[Union[str, Dict[str, str]]] = None,
     ) -> SyncAsync[Any]:
         # noqa
         pass
@@ -228,7 +219,7 @@ class Client(BaseClient):
         query: Optional[Dict[Any, Any]] = None,
         body: Optional[Dict[Any, Any]] = None,
         form_data: Optional[Dict[Any, Any]] = None,
-        auth: Optional[str] = None,
+        auth: Optional[Union[str, Dict[str, str]]] = None,
     ) -> Any:
         """Send an HTTP request."""
         request = self._build_request(method, path, query, body, form_data, auth)
@@ -279,7 +270,7 @@ class AsyncClient(BaseClient):
         query: Optional[Dict[Any, Any]] = None,
         body: Optional[Dict[Any, Any]] = None,
         form_data: Optional[Dict[Any, Any]] = None,
-        auth: Optional[str] = None,
+        auth: Optional[Union[str, Dict[str, str]]] = None,
     ) -> Any:
         """Send an HTTP request asynchronously."""
         request = self._build_request(method, path, query, body, form_data, auth)

@@ -237,9 +237,9 @@ class Tasks(object):
                 payload["VideoTaskType"] = "first_frame"
                 payload["FirstFrameImageTosLocation"] = first_frame_image
 
-            if last_frame_image:
-                payload["VideoTaskType"] = "first_last_frame"
-                payload["LastFrameImageTosLocation"] = last_frame_image
+                if last_frame_image:
+                    payload["VideoTaskType"] = "first_last_frame"
+                    payload["LastFrameImageTosLocation"] = last_frame_image
 
         logger.debug(bjson(payload))
 
@@ -414,7 +414,7 @@ if __name__ == "__main__":
     # # task_id = "cgt-20260212200601-474df" # 首尾帧
     # task_id = "cgt-20260212202542-mjzbb"
     # task_id = "sora-2::cgt-20260212224451-6nrdn"
-    task_id = "ba3b657e-efdd-43ce-8d89-efc036965aea"
+    task_id = "request:oZbBDx8JYBwhGfw7rmm5US"
     arun(Tasks(api_key).get(task_id))
     # arun(Tasks(api_key).get_for_volc(task_id))
 

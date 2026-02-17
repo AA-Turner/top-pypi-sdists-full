@@ -1,7 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.export_sessions import export_session
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class CleanUpExportSessions(Command):
     COMMAND = 'clean up export sessions'

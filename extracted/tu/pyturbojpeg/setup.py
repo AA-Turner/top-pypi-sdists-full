@@ -2,13 +2,16 @@ import io
 from setuptools import setup, find_packages
 setup(
     name='PyTurboJPEG',
-    version='1.8.2',
+    version='2.0.0',
     description='A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image.',
     author='Lilo Huang',
     author_email='kuso.cc@gmail.com',
     url='https://github.com/lilohuang/PyTurboJPEG',
     license='MIT',
     install_requires=['numpy'],
+    extras_require={
+        'test': ['pytest>=7.0.0'],
+    },
     py_modules=['turbojpeg'],
     packages=find_packages(),
     long_description_content_type='text/markdown',

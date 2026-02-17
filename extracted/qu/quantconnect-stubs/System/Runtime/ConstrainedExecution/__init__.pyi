@@ -6,16 +6,11 @@ import System
 import System.Runtime.ConstrainedExecution
 
 
-class Consistency(IntEnum):
+class PrePrepareMethodAttribute(System.Attribute):
     """This class has no documentation."""
 
-    MAY_CORRUPT_PROCESS = 0
-
-    MAY_CORRUPT_APP_DOMAIN = 1
-
-    MAY_CORRUPT_INSTANCE = 2
-
-    WILL_NOT_CORRUPT_STATE = 3
+    def __init__(self) -> None:
+        ...
 
 
 class Cer(IntEnum):
@@ -26,6 +21,18 @@ class Cer(IntEnum):
     MAY_FAIL = 1
 
     SUCCESS = 2
+
+
+class Consistency(IntEnum):
+    """This class has no documentation."""
+
+    MAY_CORRUPT_PROCESS = 0
+
+    MAY_CORRUPT_APP_DOMAIN = 1
+
+    MAY_CORRUPT_INSTANCE = 2
+
+    WILL_NOT_CORRUPT_STATE = 3
 
 
 class ReliabilityContractAttribute(System.Attribute):
@@ -40,13 +47,6 @@ class ReliabilityContractAttribute(System.Attribute):
         ...
 
     def __init__(self, consistency_guarantee: System.Runtime.ConstrainedExecution.Consistency, cer: System.Runtime.ConstrainedExecution.Cer) -> None:
-        ...
-
-
-class PrePrepareMethodAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
         ...
 
 

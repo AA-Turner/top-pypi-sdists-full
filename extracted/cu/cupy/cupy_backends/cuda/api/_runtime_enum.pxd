@@ -31,6 +31,7 @@ cpdef enum:
     CUDA_C_8I = 7  # 8 bit complex as a pair of signed integers
     CUDA_R_8U = 8  # 8 bit real as a signed integer
     CUDA_C_8U = 9  # 8 bit complex as a pair of signed integers
+    CUDA_R_16BF = 14  # bfloat16 real
 
     # CUDA Limits
     cudaLimitStackSize = 0x00
@@ -101,6 +102,18 @@ cpdef enum:
     cudaMemLocationTypeHostNuma = 3         # CUDA 12.0
     cudaMemLocationTypeHostNumaCurrent = 4  # CUDA 12.0
 
+    # cudaGraphDebugDotFlags
+    cudaGraphDebugDotFlagsVerbose = 1<<0
+    cudaGraphDebugDotFlagsKernelNodeParams = 1<<2
+    cudaGraphDebugDotFlagsMemcpyNodeParams = 1<<3
+    cudaGraphDebugDotFlagsMemsetNodeParams = 1<<4
+    cudaGraphDebugDotFlagsHostNodeParams = 1<<5
+    cudaGraphDebugDotFlagsEventNodeParams = 1<<6
+    cudaGraphDebugDotFlagsExtSemasSignalNodeParams = 1<<7
+    cudaGraphDebugDotFlagsExtSemasWaitNodeParams = 1<<8
+    cudaGraphDebugDotFlagsKernelNodeAttributes = 1<<9
+    cudaGraphDebugDotFlagsHandles = 1<<10
+    cudaGraphDebugDotFlagsConditionalNodeParams = 1<<15
 
 # This was a legacy mistake: the prefix "cuda" should have been removed
 # so that we can directly assign their C counterparts here. Now because

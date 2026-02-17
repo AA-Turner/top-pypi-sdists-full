@@ -17,102 +17,6 @@ System_Reflection_Emit_OpCode = typing.Any
 System_Reflection_Emit_Label = typing.Any
 
 
-class FieldBuilder(System.Reflection.FieldInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def set_constant(self, default_value: typing.Any) -> None:
-        ...
-
-    def set_constant_core(self, default_value: typing.Any) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    def set_offset(self, i_offset: int) -> None:
-        ...
-
-    def set_offset_core(self, i_offset: int) -> None:
-        ...
-
-
-class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def underlying_field(self) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def underlying_field_core(self) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def create_type(self) -> typing.Type:
-        ...
-
-    def create_type_info(self) -> System.Reflection.TypeInfo:
-        ...
-
-    def create_type_info_core(self) -> System.Reflection.TypeInfo:
-        ...
-
-    def define_literal(self, literal_name: str, literal_value: typing.Any) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    def define_literal_core(self, literal_name: str, literal_value: typing.Any) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    @overload
-    def make_array_type(self) -> typing.Type:
-        ...
-
-    @overload
-    def make_array_type(self, rank: int) -> typing.Type:
-        ...
-
-    def make_by_ref_type(self) -> typing.Type:
-        ...
-
-    def make_pointer_type(self) -> typing.Type:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-
-class PEFileKinds(IntEnum):
-    """This class has no documentation."""
-
-    DLL = ...
-
-    CONSOLE_APPLICATION = ...
-
-    WINDOW_APPLICATION = ...
-
-
 class PackingSize(IntEnum):
     """This class has no documentation."""
 
@@ -555,6 +459,64 @@ class ILGenerator(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class ConstructorBuilder(System.Reflection.ConstructorInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def init_locals(self) -> bool:
+        ...
+
+    @init_locals.setter
+    def init_locals(self, value: bool) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def init_locals_core(self) -> bool:
+        ...
+
+    @init_locals_core.setter
+    def init_locals_core(self, value: bool) -> None:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def define_parameter(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
+        ...
+
+    def define_parameter_core(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
+        ...
+
+    @overload
+    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    @overload
+    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    def get_il_generator_core(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    def set_implementation_flags(self, attributes: System.Reflection.MethodImplAttributes) -> None:
+        ...
+
+    def set_implementation_flags_core(self, attributes: System.Reflection.MethodImplAttributes) -> None:
+        ...
+
+
 class GenericTypeParameterBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -667,106 +629,6 @@ class MethodBuilder(System.Reflection.MethodInfo, metaclass=abc.ABCMeta):
         ...
 
 
-class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def add_other_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-    def add_other_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-    def set_constant(self, default_value: typing.Any) -> None:
-        ...
-
-    def set_constant_core(self, default_value: typing.Any) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    def set_get_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-    def set_get_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-    def set_set_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-    def set_set_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
-        ...
-
-
-class ConstructorBuilder(System.Reflection.ConstructorInfo, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def init_locals(self) -> bool:
-        ...
-
-    @init_locals.setter
-    def init_locals(self, value: bool) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def init_locals_core(self) -> bool:
-        ...
-
-    @init_locals_core.setter
-    def init_locals_core(self, value: bool) -> None:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def define_parameter(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        ...
-
-    def define_parameter_core(self, i_sequence: int, attributes: System.Reflection.ParameterAttributes, str_param_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        ...
-
-    @overload
-    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    @overload
-    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    def get_il_generator_core(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-    def set_implementation_flags(self, attributes: System.Reflection.MethodImplAttributes) -> None:
-        ...
-
-    def set_implementation_flags_core(self, attributes: System.Reflection.MethodImplAttributes) -> None:
-        ...
-
-
 class EventBuilder(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -806,6 +668,78 @@ class EventBuilder(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def set_remove_on_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+
+class FieldBuilder(System.Reflection.FieldInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def set_constant(self, default_value: typing.Any) -> None:
+        ...
+
+    def set_constant_core(self, default_value: typing.Any) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    def set_offset(self, i_offset: int) -> None:
+        ...
+
+    def set_offset_core(self, i_offset: int) -> None:
+        ...
+
+
+class PropertyBuilder(System.Reflection.PropertyInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def add_other_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def add_other_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_constant(self, default_value: typing.Any) -> None:
+        ...
+
+    def set_constant_core(self, default_value: typing.Any) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+    def set_get_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_get_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_set_method(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
+        ...
+
+    def set_set_method_core(self, md_builder: System.Reflection.Emit.MethodBuilder) -> None:
         ...
 
 
@@ -1055,371 +989,12 @@ class TypeBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
         ...
 
 
-class ModuleBuilder(System.Reflection.Module, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    def create_global_functions(self) -> None:
-        ...
-
-    def create_global_functions_core(self) -> None:
-        ...
-
-    @overload
-    def define_document(self, url: str, language: System.Guid, language_vendor: System.Guid, document_type: System.Guid) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
-        ...
-
-    @overload
-    def define_document(self, url: str, language: System.Guid = ...) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
-        ...
-
-    def define_document_core(self, url: str, language: System.Guid = ...) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
-        ...
-
-    def define_enum(self, name: str, visibility: System.Reflection.TypeAttributes, underlying_type: typing.Type) -> System.Reflection.Emit.EnumBuilder:
-        ...
-
-    def define_enum_core(self, name: str, visibility: System.Reflection.TypeAttributes, underlying_type: typing.Type) -> System.Reflection.Emit.EnumBuilder:
-        ...
-
-    @overload
-    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    @overload
-    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    @overload
-    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, required_return_type_custom_modifiers: typing.List[typing.Type], optional_return_type_custom_modifiers: typing.List[typing.Type], parameter_types: typing.List[typing.Type], required_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]], optional_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]]) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    def define_global_method_core(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, required_return_type_custom_modifiers: typing.List[typing.Type], optional_return_type_custom_modifiers: typing.List[typing.Type], parameter_types: typing.List[typing.Type], required_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]], optional_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]]) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    def define_initialized_data(self, name: str, data: typing.List[int], attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    def define_initialized_data_core(self, name: str, data: typing.List[int], attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    @overload
-    def define_p_invoke_method(self, name: str, dll_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    @overload
-    def define_p_invoke_method(self, name: str, dll_name: str, entry_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    def define_p_invoke_method_core(self, name: str, dll_name: str, entry_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, interfaces: typing.List[typing.Type]) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, typesize: int) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, packsize: System.Reflection.Emit.PackingSize) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    @overload
-    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, packing_size: System.Reflection.Emit.PackingSize, typesize: int) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    def define_type_core(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, interfaces: typing.List[typing.Type], packing_size: System.Reflection.Emit.PackingSize, typesize: int) -> System.Reflection.Emit.TypeBuilder:
-        ...
-
-    def define_uninitialized_data(self, name: str, size: int, attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    def define_uninitialized_data_core(self, name: str, size: int, attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
-        ...
-
-    def get_array_method(self, array_class: typing.Type, method_name: str, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
-        ...
-
-    def get_array_method_core(self, array_class: typing.Type, method_name: str, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
-        ...
-
-    def get_field_metadata_token(self, field: System.Reflection.FieldInfo) -> int:
-        ...
-
-    @overload
-    def get_method_metadata_token(self, method: System.Reflection.MethodInfo) -> int:
-        ...
-
-    @overload
-    def get_method_metadata_token(self, constructor: System.Reflection.ConstructorInfo) -> int:
-        ...
-
-    def get_signature_metadata_token(self, signature: System.Reflection.Emit.SignatureHelper) -> int:
-        ...
-
-    def get_string_metadata_token(self, string_constant: str) -> int:
-        ...
-
-    def get_type_metadata_token(self, type: typing.Type) -> int:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-
 class AssemblyBuilderAccess(IntEnum):
     """This class has no documentation."""
 
     RUN = 1
 
     RUN_AND_COLLECT = ...
-
-
-class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @property
-    def code_base(self) -> str:
-        warnings.warn("Assembly.CodeBase and Assembly.EscapedCodeBase are only included for .NET Framework compatibility. Use Assembly.Location instead.", DeprecationWarning)
-
-    @property
-    def location(self) -> str:
-        ...
-
-    @property
-    def entry_point(self) -> System.Reflection.MethodInfo:
-        ...
-
-    @property
-    def is_dynamic(self) -> bool:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def define_dynamic_assembly(name: System.Reflection.AssemblyName, access: System.Reflection.Emit.AssemblyBuilderAccess) -> System.Reflection.Emit.AssemblyBuilder:
-        ...
-
-    @staticmethod
-    @overload
-    def define_dynamic_assembly(name: System.Reflection.AssemblyName, access: System.Reflection.Emit.AssemblyBuilderAccess, assembly_attributes: System.Collections.Generic.IEnumerable[System.Reflection.Emit.CustomAttributeBuilder]) -> System.Reflection.Emit.AssemblyBuilder:
-        ...
-
-    def define_dynamic_module(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
-        ...
-
-    def define_dynamic_module_core(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
-        ...
-
-    def get_dynamic_module(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
-        ...
-
-    def get_dynamic_module_core(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
-        ...
-
-    def get_exported_types(self) -> typing.List[typing.Type]:
-        ...
-
-    def get_file(self, name: str) -> System.IO.FileStream:
-        ...
-
-    def get_files(self, get_resource_modules: bool) -> typing.List[System.IO.FileStream]:
-        ...
-
-    def get_manifest_resource_info(self, resource_name: str) -> System.Reflection.ManifestResourceInfo:
-        ...
-
-    def get_manifest_resource_names(self) -> typing.List[str]:
-        ...
-
-    @overload
-    def get_manifest_resource_stream(self, name: str) -> System.IO.Stream:
-        ...
-
-    @overload
-    def get_manifest_resource_stream(self, type: typing.Type, name: str) -> System.IO.Stream:
-        ...
-
-    @overload
-    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
-        ...
-
-    @overload
-    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
-        ...
-
-    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
-        ...
-
-
-class DynamicMethod(System.Reflection.MethodInfo):
-    """This class has no documentation."""
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @property
-    def declaring_type(self) -> typing.Type:
-        ...
-
-    @property
-    def reflected_type(self) -> typing.Type:
-        ...
-
-    @property
-    def module(self) -> System.Reflection.Module:
-        ...
-
-    @property
-    def method_handle(self) -> System.RuntimeMethodHandle:
-        ...
-
-    @property
-    def attributes(self) -> System.Reflection.MethodAttributes:
-        ...
-
-    @property
-    def calling_convention(self) -> System.Reflection.CallingConventions:
-        ...
-
-    @property
-    def is_security_critical(self) -> bool:
-        ...
-
-    @property
-    def is_security_safe_critical(self) -> bool:
-        ...
-
-    @property
-    def is_security_transparent(self) -> bool:
-        ...
-
-    @property
-    def return_type(self) -> typing.Type:
-        ...
-
-    @property
-    def return_parameter(self) -> System.Reflection.ParameterInfo:
-        ...
-
-    @property
-    def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
-        ...
-
-    @property
-    def init_locals(self) -> bool:
-        ...
-
-    @init_locals.setter
-    def init_locals(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], restricted_skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
-        ...
-
-    @overload
-    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
-        ...
-
-    def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:
-        ...
-
-    def get_base_definition(self) -> System.Reflection.MethodInfo:
-        ...
-
-    @overload
-    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    @overload
-    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
-        ...
-
-    def get_dynamic_il_info(self) -> System.Reflection.Emit.DynamicILInfo:
-        ...
-
-    @overload
-    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    @overload
-    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
-        ...
-
-    def get_method_implementation_flags(self) -> System.Reflection.MethodImplAttributes:
-        ...
-
-    def get_parameters(self) -> typing.List[System.Reflection.ParameterInfo]:
-        ...
-
-    def invoke(self, obj: typing.Any, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, parameters: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
-        ...
-
-    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
-        ...
-
-    def to_string(self) -> str:
-        ...
 
 
 class OpCodes(System.Object):
@@ -1880,5 +1455,430 @@ class OpCodes(System.Object):
     @staticmethod
     def takes_single_byte_argument(inst: System.Reflection.Emit.OpCode) -> bool:
         ...
+
+
+class EnumBuilder(System.Reflection.TypeInfo, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def underlying_field(self) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def underlying_field_core(self) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def create_type(self) -> typing.Type:
+        ...
+
+    def create_type_info(self) -> System.Reflection.TypeInfo:
+        ...
+
+    def create_type_info_core(self) -> System.Reflection.TypeInfo:
+        ...
+
+    def define_literal(self, literal_name: str, literal_value: typing.Any) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    def define_literal_core(self, literal_name: str, literal_value: typing.Any) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    @overload
+    def make_array_type(self) -> typing.Type:
+        ...
+
+    @overload
+    def make_array_type(self, rank: int) -> typing.Type:
+        ...
+
+    def make_by_ref_type(self) -> typing.Type:
+        ...
+
+    def make_pointer_type(self) -> typing.Type:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+
+class DynamicMethod(System.Reflection.MethodInfo):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def declaring_type(self) -> typing.Type:
+        ...
+
+    @property
+    def reflected_type(self) -> typing.Type:
+        ...
+
+    @property
+    def module(self) -> System.Reflection.Module:
+        ...
+
+    @property
+    def method_handle(self) -> System.RuntimeMethodHandle:
+        ...
+
+    @property
+    def attributes(self) -> System.Reflection.MethodAttributes:
+        ...
+
+    @property
+    def calling_convention(self) -> System.Reflection.CallingConventions:
+        ...
+
+    @property
+    def is_security_critical(self) -> bool:
+        ...
+
+    @property
+    def is_security_safe_critical(self) -> bool:
+        ...
+
+    @property
+    def is_security_transparent(self) -> bool:
+        ...
+
+    @property
+    def return_type(self) -> typing.Type:
+        ...
+
+    @property
+    def return_parameter(self) -> System.Reflection.ParameterInfo:
+        ...
+
+    @property
+    def return_type_custom_attributes(self) -> System.Reflection.ICustomAttributeProvider:
+        ...
+
+    @property
+    def init_locals(self) -> bool:
+        ...
+
+    @init_locals.setter
+    def init_locals(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], restricted_skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], m: System.Reflection.Module, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], owner: typing.Type, skip_visibility: bool) -> None:
+        ...
+
+    @overload
+    def create_delegate(self, delegate_type: typing.Type, target: typing.Any) -> System.Delegate:
+        ...
+
+    @overload
+    def create_delegate(self, delegate_type: typing.Type) -> System.Delegate:
+        ...
+
+    def define_parameter(self, position: int, attributes: System.Reflection.ParameterAttributes, parameter_name: str) -> System.Reflection.Emit.ParameterBuilder:
+        ...
+
+    def get_base_definition(self) -> System.Reflection.MethodInfo:
+        ...
+
+    @overload
+    def get_custom_attributes(self, attribute_type: typing.Type, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    @overload
+    def get_custom_attributes(self, inherit: bool) -> typing.List[System.Object]:
+        ...
+
+    def get_dynamic_il_info(self) -> System.Reflection.Emit.DynamicILInfo:
+        ...
+
+    @overload
+    def get_il_generator(self) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    @overload
+    def get_il_generator(self, stream_size: int) -> System.Reflection.Emit.ILGenerator:
+        ...
+
+    def get_method_implementation_flags(self) -> System.Reflection.MethodImplAttributes:
+        ...
+
+    def get_parameters(self) -> typing.List[System.Reflection.ParameterInfo]:
+        ...
+
+    def invoke(self, obj: typing.Any, invoke_attr: System.Reflection.BindingFlags, binder: System.Reflection.Binder, parameters: typing.List[System.Object], culture: System.Globalization.CultureInfo) -> System.Object:
+        ...
+
+    def is_defined(self, attribute_type: typing.Type, inherit: bool) -> bool:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
+class ModuleBuilder(System.Reflection.Module, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    def create_global_functions(self) -> None:
+        ...
+
+    def create_global_functions_core(self) -> None:
+        ...
+
+    @overload
+    def define_document(self, url: str, language: System.Guid, language_vendor: System.Guid, document_type: System.Guid) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
+        ...
+
+    @overload
+    def define_document(self, url: str, language: System.Guid = ...) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
+        ...
+
+    def define_document_core(self, url: str, language: System.Guid = ...) -> System.Diagnostics.SymbolStore.ISymbolDocumentWriter:
+        ...
+
+    def define_enum(self, name: str, visibility: System.Reflection.TypeAttributes, underlying_type: typing.Type) -> System.Reflection.Emit.EnumBuilder:
+        ...
+
+    def define_enum_core(self, name: str, visibility: System.Reflection.TypeAttributes, underlying_type: typing.Type) -> System.Reflection.Emit.EnumBuilder:
+        ...
+
+    @overload
+    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    @overload
+    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    @overload
+    def define_global_method(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, required_return_type_custom_modifiers: typing.List[typing.Type], optional_return_type_custom_modifiers: typing.List[typing.Type], parameter_types: typing.List[typing.Type], required_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]], optional_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]]) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    def define_global_method_core(self, name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, required_return_type_custom_modifiers: typing.List[typing.Type], optional_return_type_custom_modifiers: typing.List[typing.Type], parameter_types: typing.List[typing.Type], required_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]], optional_parameter_type_custom_modifiers: typing.List[typing.List[typing.Type]]) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    def define_initialized_data(self, name: str, data: typing.List[int], attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    def define_initialized_data_core(self, name: str, data: typing.List[int], attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    @overload
+    def define_p_invoke_method(self, name: str, dll_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    @overload
+    def define_p_invoke_method(self, name: str, dll_name: str, entry_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    def define_p_invoke_method_core(self, name: str, dll_name: str, entry_name: str, attributes: System.Reflection.MethodAttributes, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type], native_call_conv: System.Runtime.InteropServices.CallingConvention, native_char_set: System.Runtime.InteropServices.CharSet) -> System.Reflection.Emit.MethodBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, interfaces: typing.List[typing.Type]) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, typesize: int) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, packsize: System.Reflection.Emit.PackingSize) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    @overload
+    def define_type(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, packing_size: System.Reflection.Emit.PackingSize, typesize: int) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    def define_type_core(self, name: str, attr: System.Reflection.TypeAttributes, parent: typing.Type, interfaces: typing.List[typing.Type], packing_size: System.Reflection.Emit.PackingSize, typesize: int) -> System.Reflection.Emit.TypeBuilder:
+        ...
+
+    def define_uninitialized_data(self, name: str, size: int, attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    def define_uninitialized_data_core(self, name: str, size: int, attributes: System.Reflection.FieldAttributes) -> System.Reflection.Emit.FieldBuilder:
+        ...
+
+    def get_array_method(self, array_class: typing.Type, method_name: str, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
+        ...
+
+    def get_array_method_core(self, array_class: typing.Type, method_name: str, calling_convention: System.Reflection.CallingConventions, return_type: typing.Type, parameter_types: typing.List[typing.Type]) -> System.Reflection.MethodInfo:
+        ...
+
+    def get_field_metadata_token(self, field: System.Reflection.FieldInfo) -> int:
+        ...
+
+    @overload
+    def get_method_metadata_token(self, method: System.Reflection.MethodInfo) -> int:
+        ...
+
+    @overload
+    def get_method_metadata_token(self, constructor: System.Reflection.ConstructorInfo) -> int:
+        ...
+
+    def get_signature_metadata_token(self, signature: System.Reflection.Emit.SignatureHelper) -> int:
+        ...
+
+    def get_string_metadata_token(self, string_constant: str) -> int:
+        ...
+
+    def get_type_metadata_token(self, type: typing.Type) -> int:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+
+class AssemblyBuilder(System.Reflection.Assembly, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    @property
+    def code_base(self) -> str:
+        warnings.warn("Assembly.CodeBase and Assembly.EscapedCodeBase are only included for .NET Framework compatibility. Use Assembly.Location instead.", DeprecationWarning)
+
+    @property
+    def location(self) -> str:
+        ...
+
+    @property
+    def entry_point(self) -> System.Reflection.MethodInfo:
+        ...
+
+    @property
+    def is_dynamic(self) -> bool:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def define_dynamic_assembly(name: System.Reflection.AssemblyName, access: System.Reflection.Emit.AssemblyBuilderAccess) -> System.Reflection.Emit.AssemblyBuilder:
+        ...
+
+    @staticmethod
+    @overload
+    def define_dynamic_assembly(name: System.Reflection.AssemblyName, access: System.Reflection.Emit.AssemblyBuilderAccess, assembly_attributes: System.Collections.Generic.IEnumerable[System.Reflection.Emit.CustomAttributeBuilder]) -> System.Reflection.Emit.AssemblyBuilder:
+        ...
+
+    def define_dynamic_module(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
+        ...
+
+    def define_dynamic_module_core(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
+        ...
+
+    def get_dynamic_module(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
+        ...
+
+    def get_dynamic_module_core(self, name: str) -> System.Reflection.Emit.ModuleBuilder:
+        ...
+
+    def get_exported_types(self) -> typing.List[typing.Type]:
+        ...
+
+    def get_file(self, name: str) -> System.IO.FileStream:
+        ...
+
+    def get_files(self, get_resource_modules: bool) -> typing.List[System.IO.FileStream]:
+        ...
+
+    def get_manifest_resource_info(self, resource_name: str) -> System.Reflection.ManifestResourceInfo:
+        ...
+
+    def get_manifest_resource_names(self) -> typing.List[str]:
+        ...
+
+    @overload
+    def get_manifest_resource_stream(self, name: str) -> System.IO.Stream:
+        ...
+
+    @overload
+    def get_manifest_resource_stream(self, type: typing.Type, name: str) -> System.IO.Stream:
+        ...
+
+    @overload
+    def set_custom_attribute(self, con: System.Reflection.ConstructorInfo, binary_attribute: typing.List[int]) -> None:
+        ...
+
+    @overload
+    def set_custom_attribute(self, custom_builder: System.Reflection.Emit.CustomAttributeBuilder) -> None:
+        ...
+
+    def set_custom_attribute_core(self, con: System.Reflection.ConstructorInfo, binary_attribute: System.ReadOnlySpan[int]) -> None:
+        ...
+
+
+class PEFileKinds(IntEnum):
+    """This class has no documentation."""
+
+    DLL = ...
+
+    CONSOLE_APPLICATION = ...
+
+    WINDOW_APPLICATION = ...
 
 

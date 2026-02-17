@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onelogin
-Version: 3.2.4
+Version: 3.2.5
 Summary: OneLogin API Python SDK
 Author-email: OneLogin <developers@onelogin.com>
 License: NoLicense
@@ -8,6 +8,7 @@ Project-URL: Repository, https://github.com/onelogin/onelogin-python-sdk
 Keywords: OneLogin,SDK,API
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
+License-File: LICENSE
 Requires-Dist: urllib3>=2.0.2
 Requires-Dist: python-dateutil>=2.5.3
 Requires-Dist: pydantic>=2.11.0
@@ -19,6 +20,7 @@ Requires-Dist: pytest-cov>=2.8.1; extra == "test"
 Requires-Dist: pytest-randomly>=3.12.0; extra == "test"
 Requires-Dist: flake8>=4.0.0; extra == "test"
 Requires-Dist: tox>=3.9.0; extra == "test"
+Dynamic: license-file
 
 # onelogin-python-sdk
 

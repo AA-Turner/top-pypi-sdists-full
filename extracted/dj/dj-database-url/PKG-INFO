@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dj-database-url
-Version: 3.1.0
+Version: 3.1.1
 Summary: Use Database URLs in your Django Application.
 Author: Jazzband community
 License-Expression: BSD-3-Clause
@@ -25,6 +25,10 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: django>=4.2
 Requires-Python: >=3.10
+Project-URL: Homepage, https://jazzband.co/projects/dj-database-url
+Project-URL: Changelog, https://github.com/jazzband/dj-database-url/blob/master/CHANGELOG.md
+Project-URL: Funding, https://psfmember.org/civicrm/contribute/transact/?reset=1&id=34
+Project-URL: Bug, https://github.com/jazzband/dj-database-url/issues
 Description-Content-Type: text/x-rst
 
 DJ-Database-URL

@@ -255,14 +255,20 @@ class SelectionManager(utilities.BaseManager):
                     "offset", self.selection_start_node, len(text)
                 )
         else:
-            start_index = self.html.text(
-                "offset", self.selection_start_node, self.selection_start_offset
-            )
-            end_index = self.html.text(
-                "offset", self.selection_end_node, self.selection_end_offset
-            )
-            if start_index > end_index:
-                start_index, end_index = end_index, start_index
+            try:
+                start_index = self.html.text(
+                    "offset", self.selection_start_node, self.selection_start_offset
+                )
+                end_index = self.html.text(
+                    "offset", self.selection_end_node, self.selection_end_offset
+                )
+                if start_index > end_index:
+                    start_index, end_index = end_index, start_index
+            except TclError:
+                # When this happens something weird happened to this node
+                # Not too sure why
+                self.reset()
+                return
                 
         whole_text = self.html.text("text")
         return whole_text[start_index:end_index]
@@ -514,7 +520,7 @@ class CaretManager(utilities.BaseManager):
         except ValueError:
             self.reset()
 
-    def update(self, event=None, auto_scroll=True, fallback=None, update=True):
+    def update(self, event=None, auto_scroll=True, fallback=None, update=True, xview=None, yview=None):
         "Refresh the caret or update its position."
         if not fallback:
             fallback = self.shift_left
@@ -523,6 +529,12 @@ class CaretManager(utilities.BaseManager):
             return
     
         self.html.update() # Particularly important when this method runs after the document is scrolled
+
+        # If this method was invoked by xivew() or yview(), check to see if the viewport actually changed
+        # No action is needed if nothing moved
+        if xview and xview == self.html.xview(): return
+        if yview and yview == self.html.yview(): return
+
         if not self.caret_frame:
             self.caret_frame = BlinkyFrame(self.html, blink_delays=self.blink_delays, width=self.caret_width)
             
@@ -724,7 +736,7 @@ class EventManager(utilities.BaseManager):
             if sequence in event:
                 return True
             
-        raise KeyError(f"the event {event} is either unsupported or invalid")
+        raise KeyError(f"the event {event} is either unsupported on elements or invalid. Consider binding to the main widget.")
 
     def bind(self, node, event, callback, add=None):
         "Add a binding."        
@@ -778,13 +790,14 @@ class EventManager(utilities.BaseManager):
                     return
                 else:
                     self.loaded_elements.append(node_handle)
+            jsattribute = attribute
             if attribute in utilities.JS_EVENT_MAP:
                 # If the event is a non-standard event (i.e. onscrollup), convert it
-                attribute = utilities.JS_EVENT_MAP[attribute]
+                jsattribute = utilities.JS_EVENT_MAP[attribute]
             if attribute:
-                mouse = self.html.get_node_attribute(node_handle, attribute)
-                if mouse:
-                    self.html.on_element_script(node_handle, attribute, mouse)
+                mouse = self.html.get_node_attribute(node_handle, jsattribute)
+                if mouse and self.html.on_element_script is not None:
+                    self.html.on_element_script(node_handle, jsattribute, mouse)
         
         # Then post the Tkinter event
         if self.html.events_enabled and (event or event_name):
@@ -843,7 +856,7 @@ class WidgetManager(utilities.BaseManager):
         
         return self.html.nametowidget(widget)
 
-    def handle_node_replacement(self, node, widgetid, deletecmd, stylecmd=None, allowscrolling=True, handledelete=True):
+    def handle_node_replacement(self, node, widgetid, deletecmd, stylecmd=None, allowscrolling=True, handledelete=True, check=True):
         """Replace a Tkhtml3 node with a Tkinter widget. 
         
         This method is used internally by :meth:`~tkinterweb.extensions.WidgetManager.set_node_widget` and offers more control.
@@ -856,15 +869,16 @@ class WidgetManager(utilities.BaseManager):
                     node, widgetid,
                     "-deletecmd", self.html.register(deletecmd),
                     "-stylecmd", self.html.register(stylecmd),
+                    check=check
                 )
             else:
                 self.html.replace_node_contents(
-                    node, widgetid, "-stylecmd", self.html.register(stylecmd)
+                    node, widgetid, "-stylecmd", self.html.register(stylecmd), check=check
                 )
         else:
             if handledelete:
                 self.html.replace_node_contents(
-                    node, widgetid, "-deletecmd", self.html.register(deletecmd)
+                    node, widgetid, "-deletecmd", self.html.register(deletecmd), check=check
                 )
             else:
                 self.html.replace_node_contents(node, widgetid)

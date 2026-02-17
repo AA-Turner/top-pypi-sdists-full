@@ -23,7 +23,7 @@ class BlocksChildrenEndpoint(Endpoint):
         return self.parent.request(
             path=f"blocks/{block_id}/children",
             method="PATCH",
-            body=pick(kwargs, "children", "after"),
+            body=pick(kwargs, "children", "after", "position"),
             auth=kwargs.get("auth"),
         )
 
@@ -274,6 +274,7 @@ class PagesEndpoint(Endpoint):
                 "content",
                 "children",
                 "template",
+                "position",
             ),
             auth=kwargs.get("auth"),
         )
@@ -309,6 +310,18 @@ class PagesEndpoint(Endpoint):
                 "archived",
                 "in_trash",
             ),
+            auth=kwargs.get("auth"),
+        )
+
+    def move(self, page_id: str, **kwargs: Any) -> SyncAsync[Any]:
+        """Use this API to move an existing Notion page to a new parent.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/move-page)*
+        """  # noqa: E501
+        return self.parent.request(
+            path=f"pages/{page_id}/move",
+            method="POST",
+            body=pick(kwargs, "parent"),
             auth=kwargs.get("auth"),
         )
 
@@ -467,4 +480,55 @@ class FileUploadsEndpoint(Endpoint):
             method="POST",
             form_data=pick(kwargs, "file", "part_number"),
             auth=kwargs.get("auth"),
+        )
+
+
+class OAuthEndpoint(Endpoint):
+    def token(
+        self, client_id: str, client_secret: str, **kwargs: Any
+    ) -> SyncAsync[Any]:
+        """Create an access token that a third-party service can use to authenticate with Notion.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/create-a-token)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="oauth/token",
+            method="POST",
+            body=pick(
+                kwargs,
+                "grant_type",
+                "code",
+                "redirect_uri",
+                "external_account",
+                "refresh_token",
+            ),
+            auth={"client_id": client_id, "client_secret": client_secret},
+        )
+
+    def introspect(
+        self, client_id: str, client_secret: str, **kwargs: Any
+    ) -> SyncAsync[Any]:
+        """Get a token's active status, scope, and issued time.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/introspect-token)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="oauth/introspect",
+            method="POST",
+            body=pick(kwargs, "token"),
+            auth={"client_id": client_id, "client_secret": client_secret},
+        )
+
+    def revoke(
+        self, client_id: str, client_secret: str, **kwargs: Any
+    ) -> SyncAsync[Any]:
+        """Revoke an access token.
+
+        *[🔗 Endpoint documentation](https://developers.notion.com/reference/revoke-token)*
+        """  # noqa: E501
+        return self.parent.request(
+            path="oauth/revoke",
+            method="POST",
+            body=pick(kwargs, "token"),
+            auth={"client_id": client_id, "client_secret": client_secret},
         )

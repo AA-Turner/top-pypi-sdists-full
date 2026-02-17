@@ -5,12 +5,16 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
-from .delivery_attempt import DeliveryAttempt
+from .health_status import HealthStatus
 
 
 class WebhookSubscription(UniversalBaseModel):
     """
     A webhook subscription (endpoint) configuration.
+
+    This is the lightweight representation returned by list, create, update,
+    and delete endpoints.  For the full detail view (delivery attempts,
+    signing secret) see ``WebhookSubscriptionDetail``.
     """
 
     id: str = pydantic.Field()
@@ -48,14 +52,9 @@ class WebhookSubscription(UniversalBaseModel):
     When this subscription was last updated (ISO 8601 format, UTC)
     """
 
-    delivery_attempts: typing.Optional[typing.List[DeliveryAttempt]] = pydantic.Field(default=None)
+    health_status: typing.Optional[HealthStatus] = pydantic.Field(default=None)
     """
-    Recent delivery attempts for this subscription. Only included when fetching a single subscription via GET /subscriptions/{id}.
-    """
-
-    secret: typing.Optional[str] = pydantic.Field(default=None)
-    """
-    The signing secret for webhook signature verification. Only included when include_secret=true is passed to the API. Keep this secret secure.
+    Health status of this subscription based on recent delivery attempts. Values: 'healthy' (all recent deliveries succeeded), 'degraded' (mix of successes and failures), 'failing' (consecutive failures beyond threshold), 'unknown' (no delivery data yet).
     """
 
     if IS_PYDANTIC_V2:

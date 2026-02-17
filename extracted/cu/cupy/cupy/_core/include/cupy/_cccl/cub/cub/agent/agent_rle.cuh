@@ -56,8 +56,6 @@
 #include <cuda/ptx>
 #include <cuda/std/type_traits>
 
-#include <iterator>
-
 CUB_NAMESPACE_BEGIN
 
 /******************************************************************************
@@ -173,7 +171,7 @@ struct AgentRle
   //---------------------------------------------------------------------
 
   /// The input value type
-  using T = cub::detail::value_t<InputIteratorT>;
+  using T = cub::detail::it_value_t<InputIteratorT>;
 
   /// The lengths output value type
   using LengthT = cub::detail::non_void_value_t<LengthsOutputIteratorT, OffsetT>;
@@ -187,7 +185,7 @@ struct AgentRle
   // Constants
   enum
   {
-    WARP_THREADS     = CUB_WARP_THREADS(0),
+    WARP_THREADS     = warp_threads,
     BLOCK_THREADS    = AgentRlePolicyT::BLOCK_THREADS,
     ITEMS_PER_THREAD = AgentRlePolicyT::ITEMS_PER_THREAD,
     WARP_ITEMS       = WARP_THREADS * ITEMS_PER_THREAD,
@@ -238,7 +236,7 @@ struct AgentRle
   // Wrap the native input pointer with CacheModifiedVLengthnputIterator
   // Directly use the supplied input iterator type
   using WrappedInputIteratorT =
-    ::cuda::std::_If<std::is_pointer<InputIteratorT>::value,
+    ::cuda::std::_If<::cuda::std::is_pointer_v<InputIteratorT>,
                      CacheModifiedInputIterator<AgentRlePolicyT::LOAD_MODIFIER, T, OffsetT>,
                      InputIteratorT>;
 
@@ -258,7 +256,7 @@ struct AgentRle
   // Callback type for obtaining tile prefix during block scan
   using DelayConstructorT = typename AgentRlePolicyT::detail::delay_constructor_t;
   using TilePrefixCallbackOpT =
-    TilePrefixCallbackOp<LengthOffsetPair, ReduceBySegmentOpT, ScanTileStateT, 0, DelayConstructorT>;
+    TilePrefixCallbackOp<LengthOffsetPair, ReduceBySegmentOpT, ScanTileStateT, DelayConstructorT>;
 
   // Warp exchange types
   using WarpExchangePairs = WarpExchange<LengthOffsetPair, ITEMS_PER_THREAD>;
@@ -439,8 +437,8 @@ struct AgentRle
         .FlagHeadsAndTails(head_flags, tile_predecessor_item, tail_flags, tile_successor_item, items, inequality_op);
     }
 
-// Zip counts and runs
-#pragma unroll
+    // Zip counts and runs
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
     {
       // input                   output
@@ -523,7 +521,7 @@ struct AgentRle
     //      number of items in the last non-trivial run in this CTA
     tile_aggregate = temp_storage.aliasable.scan_storage.warp_aggregates.Alias()[0];
 
-#pragma unroll
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int WARP = 1; WARP < WARPS; ++WARP)
     {
       if (warp_id == WARP)
@@ -553,7 +551,7 @@ struct AgentRle
     OffsetT warp_num_runs_exclusive_in_tile,
     OffsetT (&thread_num_runs_exclusive_in_warp)[ITEMS_PER_THREAD],
     LengthOffsetPair (&lengths_and_offsets)[ITEMS_PER_THREAD],
-    Int2Type<true> is_warp_time_slice)
+    ::cuda::std::true_type is_warp_time_slice)
   {
     unsigned int warp_id = ((WARPS == 1) ? 0 : threadIdx.x / WARP_THREADS);
     int lane_id          = ::cuda::ptx::get_sreg_laneid();
@@ -565,8 +563,8 @@ struct AgentRle
         .ScatterToStriped(lengths_and_offsets, thread_num_runs_exclusive_in_warp);
     }
 
-// Locally compact items within the warp (remaining warps)
-#pragma unroll
+    // Locally compact items within the warp (remaining warps)
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int SLICE = 1; SLICE < WARPS; ++SLICE)
     {
       __syncthreads();
@@ -578,8 +576,8 @@ struct AgentRle
       }
     }
 
-// Global scatter
-#pragma unroll
+    // Global scatter
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ITEM++)
     {
       // warp_num_runs_aggregate - number of non-trivial runs starts in current warp
@@ -610,7 +608,7 @@ struct AgentRle
     OffsetT warp_num_runs_exclusive_in_tile,
     OffsetT (&thread_num_runs_exclusive_in_warp)[ITEMS_PER_THREAD],
     LengthOffsetPair (&lengths_and_offsets)[ITEMS_PER_THREAD],
-    Int2Type<false> is_warp_time_slice)
+    ::cuda::std::false_type is_warp_time_slice)
   {
     unsigned int warp_id = ((WARPS == 1) ? 0 : threadIdx.x / WARP_THREADS);
     int lane_id          = ::cuda::ptx::get_sreg_laneid();
@@ -619,7 +617,7 @@ struct AgentRle
     OffsetT run_offsets[ITEMS_PER_THREAD];
     LengthT run_lengths[ITEMS_PER_THREAD];
 
-#pragma unroll
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ITEM++)
     {
       run_offsets[ITEM] = lengths_and_offsets[ITEM].key;
@@ -634,8 +632,8 @@ struct AgentRle
     WarpExchangeLengths(temp_storage.aliasable.scatter_aliasable.exchange_lengths[warp_id])
       .ScatterToStriped(run_lengths, thread_num_runs_exclusive_in_warp);
 
-// Global scatter
-#pragma unroll
+    // Global scatter
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ITEM++)
     {
       if ((ITEM * WARP_THREADS) + lane_id < warp_num_runs_aggregate)
@@ -666,7 +664,7 @@ struct AgentRle
     OffsetT (&thread_num_runs_exclusive_in_warp)[ITEMS_PER_THREAD],
     LengthOffsetPair (&lengths_and_offsets)[ITEMS_PER_THREAD])
   {
-#pragma unroll
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
     {
       if (thread_num_runs_exclusive_in_warp[ITEM] < warp_num_runs_aggregate)
@@ -720,7 +718,7 @@ struct AgentRle
         warp_num_runs_exclusive_in_tile,
         thread_num_runs_exclusive_in_warp,
         lengths_and_offsets,
-        Int2Type<STORE_WARP_TIME_SLICING>());
+        bool_constant_v<STORE_WARP_TIME_SLICING>);
     }
   }
 
@@ -805,11 +803,10 @@ struct AgentRle
       LengthOffsetPair lengths_and_num_runs2[ITEMS_PER_THREAD];
 
       // Downsweep scan through lengths_and_num_runs
-      internal::ThreadScanExclusive(lengths_and_num_runs, lengths_and_num_runs2, scan_op, thread_exclusive_in_warp);
+      detail::ThreadScanExclusive(lengths_and_num_runs, lengths_and_num_runs2, scan_op, thread_exclusive_in_warp);
 
       // Zip
-
-#pragma unroll
+      _CCCL_PRAGMA_UNROLL_FULL()
       for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ITEM++)
       {
         lengths_and_offsets[ITEM].value = lengths_and_num_runs2[ITEM].value;
@@ -913,10 +910,10 @@ struct AgentRle
       LengthOffsetPair lengths_and_offsets[ITEMS_PER_THREAD];
       OffsetT thread_num_runs_exclusive_in_warp[ITEMS_PER_THREAD];
 
-      internal::ThreadScanExclusive(lengths_and_num_runs, lengths_and_num_runs2, scan_op, thread_exclusive_in_warp);
+      detail::ThreadScanExclusive(lengths_and_num_runs, lengths_and_num_runs2, scan_op, thread_exclusive_in_warp);
 
-// Zip
-#pragma unroll
+      // Zip
+      _CCCL_PRAGMA_UNROLL_FULL()
       for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ITEM++)
       {
         lengths_and_offsets[ITEM].value = lengths_and_num_runs2[ITEM].value;
@@ -996,15 +993,5 @@ struct AgentRle
 
 } // namespace rle
 } // namespace detail
-
-template <typename AgentRlePolicyT,
-          typename InputIteratorT,
-          typename OffsetsOutputIteratorT,
-          typename LengthsOutputIteratorT,
-          typename EqualityOpT,
-          typename OffsetT>
-using AgentRle CCCL_DEPRECATED_BECAUSE("This class is considered an implementation detail and the public interface "
-                                       "will be removed.") = detail::rle::
-  AgentRle<AgentRlePolicyT, InputIteratorT, OffsetsOutputIteratorT, LengthsOutputIteratorT, EqualityOpT, OffsetT>;
 
 CUB_NAMESPACE_END

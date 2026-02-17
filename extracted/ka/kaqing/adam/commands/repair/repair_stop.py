@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.utils_k8s.jobs import Jobs
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class RepairStop(Command):
     COMMAND = 'repair stop'

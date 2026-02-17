@@ -12,7 +12,7 @@ from adam.commands.export.importer_athena import AthenaImporter
 from adam.commands.export.importer_sqlite import SqliteImporter
 from adam.commands.export.utils_export import ExportSpec, ExportTableStatus, ExportTableSpec, ImportSpec, fs_exec, state_with_pod, remote_export_table_log_dir
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.directories import Directories
 from adam.utils_log import debug, log, log2, ing, log_exc
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes

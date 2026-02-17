@@ -13,385 +13,6 @@ import System.Text
 System_Text_RunePosition = typing.Any
 
 
-class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
-        ...
-
-    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class CompositeFormat(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def format(self) -> str:
-        ...
-
-    @property
-    def minimum_argument_count(self) -> int:
-        ...
-
-    @staticmethod
-    def parse(format: str) -> System.Text.CompositeFormat:
-        ...
-
-
-class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    class ChunkEnumerator:
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.ReadOnlyMemory[str]:
-            ...
-
-        def get_enumerator(self) -> System.Text.StringBuilder.ChunkEnumerator:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-    class AppendInterpolatedStringHandler:
-        """This class has no documentation."""
-
-        @overload
-        def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder) -> None:
-            ...
-
-        @overload
-        def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder, provider: System.IFormatProvider) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str) -> None:
-            ...
-
-        @overload
-        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
-            ...
-
-        def append_literal(self, value: str) -> None:
-            ...
-
-    @property
-    def capacity(self) -> int:
-        ...
-
-    @capacity.setter
-    def capacity(self, value: int) -> None:
-        ...
-
-    @property
-    def max_capacity(self) -> int:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @length.setter
-    def length(self, value: int) -> None:
-        ...
-
-    def __getitem__(self, index: int) -> str:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: str, start_index: int, length: int, capacity: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, capacity: int, max_capacity: int) -> None:
-        ...
-
-    def __setitem__(self, index: int, value: str) -> None:
-        ...
-
-    @overload
-    def append(self, value: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: typing.Any, value_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: str, repeat_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: typing.List[str], start_index: int, char_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: str) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: str, start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: System.Text.StringBuilder) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: System.Text.StringBuilder, start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: bool) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: System.Text.Rune) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: float) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: typing.List[str]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, value: System.ReadOnlyMemory[str]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append(self, provider: System.IFormatProvider, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_format(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_join(self, separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_join(self, separator: str, *values: typing.Union[str, typing.Iterable[str]]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_line(self) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_line(self, value: str) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_line(self, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def append_line(self, provider: System.IFormatProvider, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
-        ...
-
-    def clear(self) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def copy_to(self, source_index: int, destination: typing.List[str], destination_index: int, count: int) -> None:
-        ...
-
-    @overload
-    def copy_to(self, source_index: int, destination: System.Span[str], count: int) -> None:
-        ...
-
-    def ensure_capacity(self, capacity: int) -> int:
-        ...
-
-    def enumerate_runes(self) -> System.Text.StringBuilderRuneEnumerator:
-        ...
-
-    @overload
-    def equals(self, sb: System.Text.StringBuilder) -> bool:
-        ...
-
-    @overload
-    def equals(self, span: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    def get_chunks(self) -> System.Text.StringBuilder.ChunkEnumerator:
-        ...
-
-    def get_rune_at(self, index: int) -> System.Text.Rune:
-        ...
-
-    @overload
-    def insert(self, index: int, value: typing.Any) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: str, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: str) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: bool) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: System.Text.Rune) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: typing.List[str]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: typing.List[str], start_index: int, char_count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: float) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def insert(self, index: int, value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
-        ...
-
-    def remove(self, start_index: int, length: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_value: str, new_value: str) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_value: System.ReadOnlySpan[str], new_value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_value: str, new_value: str, start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_value: System.ReadOnlySpan[str], new_value: System.ReadOnlySpan[str], start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_char: str, new_char: str) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_char: str, new_char: str, start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_rune: System.Text.Rune, new_rune: System.Text.Rune) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def replace(self, old_rune: System.Text.Rune, new_rune: System.Text.Rune, start_index: int, count: int) -> System.Text.StringBuilder:
-        ...
-
-    @overload
-    def to_string(self) -> str:
-        ...
-
-    @overload
-    def to_string(self, start_index: int, length: int) -> str:
-        ...
-
-    def try_get_rune_at(self, index: int, value: typing.Optional[System.Text.Rune]) -> typing.Tuple[bool, System.Text.Rune]:
-        ...
-
-
 class EncoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -434,6 +55,281 @@ class EncoderFallback(System.Object, metaclass=abc.ABCMeta):
         ...
 
 
+class EncoderExceptionFallback(System.Text.EncoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def fallback(self, char_unknown: str, index: int) -> bool:
+        ...
+
+    @overload
+    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+
+class EncoderFallbackException(System.ArgumentException):
+    """This class has no documentation."""
+
+    @property
+    def char_unknown(self) -> str:
+        ...
+
+    @property
+    def char_unknown_high(self) -> str:
+        ...
+
+    @property
+    def char_unknown_low(self) -> str:
+        ...
+
+    @property
+    def index(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def is_unknown_surrogate(self) -> bool:
+        ...
+
+
+class Ascii(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_valid(value: str) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
+        ...
+
+    @staticmethod
+    @overload
+    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
+        ...
+
+
+class CompositeFormat(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def format(self) -> str:
+        ...
+
+    @property
+    def minimum_argument_count(self) -> int:
+        ...
+
+    @staticmethod
+    def parse(format: str) -> System.Text.CompositeFormat:
+        ...
+
+
+class StringBuilderRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringBuilderRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+
 class DecoderFallbackBuffer(System.Object, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
@@ -468,32 +364,6 @@ class DecoderFallback(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
-        ...
-
-
-class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def get_encoding(self, name: str) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, codepage: int) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
-        ...
-
-    @overload
-    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
-        ...
-
-    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
         ...
 
 
@@ -921,15 +791,25 @@ class Encoding(System.Object, System.ICloneable):
         ...
 
 
-class UTF7Encoding(System.Text.Encoding):
+class UnicodeEncoding(System.Text.Encoding):
     """This class has no documentation."""
+
+    CHAR_SIZE: int = 2
+
+    @property
+    def preamble(self) -> System.ReadOnlySpan[int]:
+        ...
 
     @overload
     def __init__(self) -> None:
         ...
 
     @overload
-    def __init__(self, allow_optionals: bool) -> None:
+    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_bytes: bool) -> None:
         ...
 
     def equals(self, value: typing.Any) -> bool:
@@ -990,35 +870,356 @@ class UTF7Encoding(System.Text.Encoding):
     def get_max_char_count(self, byte_count: int) -> int:
         ...
 
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
     def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
         ...
 
 
-class EncodingInfo(System.Object):
+class StringBuilder(System.Object, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
-    @property
-    def code_page(self) -> int:
-        ...
+    class ChunkEnumerator:
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.ReadOnlyMemory[str]:
+            ...
+
+        def get_enumerator(self) -> System.Text.StringBuilder.ChunkEnumerator:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+    class AppendInterpolatedStringHandler:
+        """This class has no documentation."""
+
+        @overload
+        def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder) -> None:
+            ...
+
+        @overload
+        def __init__(self, literal_length: int, formatted_count: int, string_builder: System.Text.StringBuilder, provider: System.IFormatProvider) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: typing.Any, alignment: int = 0, format: str = None) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: System.ReadOnlySpan[str]) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: System.ReadOnlySpan[str], alignment: int = 0, format: str = None) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: str) -> None:
+            ...
+
+        @overload
+        def append_formatted(self, value: str, alignment: int = 0, format: str = None) -> None:
+            ...
+
+        def append_literal(self, value: str) -> None:
+            ...
 
     @property
-    def name(self) -> str:
+    def capacity(self) -> int:
+        ...
+
+    @capacity.setter
+    def capacity(self, value: int) -> None:
         ...
 
     @property
-    def display_name(self) -> str:
+    def max_capacity(self) -> int:
         ...
 
-    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
+    @property
+    def length(self) -> int:
         ...
 
-    def equals(self, value: typing.Any) -> bool:
+    @length.setter
+    def length(self, value: int) -> None:
         ...
 
-    def get_encoding(self) -> System.Text.Encoding:
+    def __getitem__(self, index: int) -> str:
         ...
 
-    def get_hash_code(self) -> int:
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: str, start_index: int, length: int, capacity: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, capacity: int, max_capacity: int) -> None:
+        ...
+
+    def __setitem__(self, index: int, value: str) -> None:
+        ...
+
+    @overload
+    def append(self, value: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: typing.Any, value_count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: str, repeat_count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: typing.List[str], start_index: int, char_count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: str) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: str, start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: System.Text.StringBuilder) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: System.Text.StringBuilder, start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: bool) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: System.Text.Rune) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: float) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: typing.List[str]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, value: System.ReadOnlyMemory[str]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append(self, provider: System.IFormatProvider, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, provider: System.IFormatProvider, format: str, arg_0: typing.Any, arg_1: typing.Any, arg_2: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, provider: System.IFormatProvider, format: str, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_format(self, provider: System.IFormatProvider, format: System.Text.CompositeFormat, *args: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_join(self, separator: str, *values: typing.Union[System.Object, typing.Iterable[System.Object]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_join(self, separator: str, *values: typing.Union[str, typing.Iterable[str]]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_line(self) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_line(self, value: str) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_line(self, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def append_line(self, provider: System.IFormatProvider, handler: System.Text.StringBuilder.AppendInterpolatedStringHandler) -> System.Text.StringBuilder:
+        ...
+
+    def clear(self) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def copy_to(self, source_index: int, destination: typing.List[str], destination_index: int, count: int) -> None:
+        ...
+
+    @overload
+    def copy_to(self, source_index: int, destination: System.Span[str], count: int) -> None:
+        ...
+
+    def ensure_capacity(self, capacity: int) -> int:
+        ...
+
+    def enumerate_runes(self) -> System.Text.StringBuilderRuneEnumerator:
+        ...
+
+    @overload
+    def equals(self, sb: System.Text.StringBuilder) -> bool:
+        ...
+
+    @overload
+    def equals(self, span: System.ReadOnlySpan[str]) -> bool:
+        ...
+
+    def get_chunks(self) -> System.Text.StringBuilder.ChunkEnumerator:
+        ...
+
+    def get_rune_at(self, index: int) -> System.Text.Rune:
+        ...
+
+    @overload
+    def insert(self, index: int, value: typing.Any) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: str, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: str) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: bool) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: System.Text.Rune) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: typing.List[str]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: typing.List[str], start_index: int, char_count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: float) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def insert(self, index: int, value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
+        ...
+
+    def remove(self, start_index: int, length: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_value: str, new_value: str) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_value: System.ReadOnlySpan[str], new_value: System.ReadOnlySpan[str]) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_value: str, new_value: str, start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_value: System.ReadOnlySpan[str], new_value: System.ReadOnlySpan[str], start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_char: str, new_char: str) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_char: str, new_char: str, start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_rune: System.Text.Rune, new_rune: System.Text.Rune) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def replace(self, old_rune: System.Text.Rune, new_rune: System.Text.Rune, start_index: int, count: int) -> System.Text.StringBuilder:
+        ...
+
+    @overload
+    def to_string(self) -> str:
+        ...
+
+    @overload
+    def to_string(self, start_index: int, length: int) -> str:
+        ...
+
+    def try_get_rune_at(self, index: int, value: typing.Optional[System.Text.Rune]) -> typing.Tuple[bool, System.Text.Rune]:
         ...
 
 
@@ -1128,537 +1329,6 @@ class UTF8Encoding(System.Text.Encoding):
         ...
 
 
-class RunePosition(System.IEquatable[System_Text_RunePosition]):
-    """This class has no documentation."""
-
-    class Utf16Enumerator(System.Collections.Generic.IEnumerator[System_Text_RunePosition]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Text.RunePosition:
-            ...
-
-        def get_enumerator(self) -> System.Text.RunePosition.Utf16Enumerator:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-        def reset(self) -> None:
-            ...
-
-    class Utf8Enumerator(System.Collections.Generic.IEnumerator[System_Text_RunePosition]):
-        """This class has no documentation."""
-
-        @property
-        def current(self) -> System.Text.RunePosition:
-            ...
-
-        def get_enumerator(self) -> System.Text.RunePosition.Utf8Enumerator:
-            ...
-
-        def move_next(self) -> bool:
-            ...
-
-        def reset(self) -> None:
-            ...
-
-    @property
-    def rune(self) -> System.Text.Rune:
-        ...
-
-    @property
-    def start_index(self) -> int:
-        ...
-
-    @property
-    def length(self) -> int:
-        ...
-
-    @property
-    def was_replaced(self) -> bool:
-        ...
-
-    def __eq__(self, right: System.Text.RunePosition) -> bool:
-        ...
-
-    def __init__(self, rune: System.Text.Rune, start_index: int, length: int, was_replaced: bool) -> None:
-        ...
-
-    def __ne__(self, right: System.Text.RunePosition) -> bool:
-        ...
-
-    @overload
-    def deconstruct(self, rune: typing.Optional[System.Text.Rune], start_index: typing.Optional[int]) -> typing.Tuple[None, System.Text.Rune, int]:
-        ...
-
-    @overload
-    def deconstruct(self, rune: typing.Optional[System.Text.Rune], start_index: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[None, System.Text.Rune, int, int]:
-        ...
-
-    @staticmethod
-    def enumerate_utf_16(span: System.ReadOnlySpan[str]) -> System.Text.RunePosition.Utf16Enumerator:
-        ...
-
-    @staticmethod
-    def enumerate_utf_8(span: System.ReadOnlySpan[int]) -> System.Text.RunePosition.Utf8Enumerator:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Text.RunePosition) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class Ascii(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[int], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def equals_ignore_case(left: System.ReadOnlySpan[str], right: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    def from_utf_16(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[int]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: System.ReadOnlySpan[str]) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_valid(value: str) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_lower_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def to_upper_in_place(value: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    def to_utf_16(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int]:
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_end(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[int]) -> System.Range:
-        ...
-
-    @staticmethod
-    @overload
-    def trim_start(value: System.ReadOnlySpan[str]) -> System.Range:
-        ...
-
-
-class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
-    """This class has no documentation."""
-
-    @property
-    def current(self) -> System.Text.Rune:
-        ...
-
-    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
-        ...
-
-    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
-        ...
-
-    def move_next(self) -> bool:
-        ...
-
-
-class EncoderExceptionFallback(System.Text.EncoderFallback):
-    """This class has no documentation."""
-
-    @property
-    def max_char_count(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    def create_fallback_buffer(self) -> System.Text.EncoderFallbackBuffer:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-
-class EncoderExceptionFallbackBuffer(System.Text.EncoderFallbackBuffer):
-    """This class has no documentation."""
-
-    @property
-    def remaining(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def fallback(self, char_unknown: str, index: int) -> bool:
-        ...
-
-    @overload
-    def fallback(self, char_unknown_high: str, char_unknown_low: str, index: int) -> bool:
-        ...
-
-    def get_next_char(self) -> str:
-        ...
-
-    def move_previous(self) -> bool:
-        ...
-
-
-class EncoderFallbackException(System.ArgumentException):
-    """This class has no documentation."""
-
-    @property
-    def char_unknown(self) -> str:
-        ...
-
-    @property
-    def char_unknown_high(self) -> str:
-        ...
-
-    @property
-    def char_unknown_low(self) -> str:
-        ...
-
-    @property
-    def index(self) -> int:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def is_unknown_surrogate(self) -> bool:
-        ...
-
-
-class UnicodeEncoding(System.Text.Encoding):
-    """This class has no documentation."""
-
-    CHAR_SIZE: int = 2
-
-    @property
-    def preamble(self) -> System.ReadOnlySpan[int]:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_bytes: bool) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, s: str) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
-        ...
-
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_preamble(self) -> typing.List[int]:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-
-class UTF32Encoding(System.Text.Encoding):
-    """This class has no documentation."""
-
-    @property
-    def preamble(self) -> System.ReadOnlySpan[int]:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_characters: bool) -> None:
-        ...
-
-    def equals(self, value: typing.Any) -> bool:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_byte_count(self, s: str) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.Any, count: int) -> int:
-        ...
-
-    @overload
-    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
-        ...
-
-    @overload
-    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
-        ...
-
-    def get_decoder(self) -> System.Text.Decoder:
-        ...
-
-    def get_encoder(self) -> System.Text.Encoder:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    def get_max_byte_count(self, char_count: int) -> int:
-        ...
-
-    def get_max_char_count(self, byte_count: int) -> int:
-        ...
-
-    def get_preamble(self) -> typing.List[int]:
-        ...
-
-    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
-        ...
-
-
 class ASCIIEncoding(System.Text.Encoding):
     """This class has no documentation."""
 
@@ -1747,55 +1417,235 @@ class ASCIIEncoding(System.Text.Encoding):
         ...
 
 
-class DecoderReplacementFallback(System.Text.DecoderFallback):
+class RunePosition(System.IEquatable[System_Text_RunePosition]):
     """This class has no documentation."""
 
+    class Utf16Enumerator(System.Collections.Generic.IEnumerator[System_Text_RunePosition]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Text.RunePosition:
+            ...
+
+        def get_enumerator(self) -> System.Text.RunePosition.Utf16Enumerator:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
+            ...
+
+    class Utf8Enumerator(System.Collections.Generic.IEnumerator[System_Text_RunePosition]):
+        """This class has no documentation."""
+
+        @property
+        def current(self) -> System.Text.RunePosition:
+            ...
+
+        def get_enumerator(self) -> System.Text.RunePosition.Utf8Enumerator:
+            ...
+
+        def move_next(self) -> bool:
+            ...
+
+        def reset(self) -> None:
+            ...
+
     @property
-    def default_string(self) -> str:
+    def rune(self) -> System.Text.Rune:
         ...
 
     @property
-    def max_char_count(self) -> int:
+    def start_index(self) -> int:
+        ...
+
+    @property
+    def length(self) -> int:
+        ...
+
+    @property
+    def was_replaced(self) -> bool:
+        ...
+
+    def __eq__(self, right: System.Text.RunePosition) -> bool:
+        ...
+
+    def __init__(self, rune: System.Text.Rune, start_index: int, length: int, was_replaced: bool) -> None:
+        ...
+
+    def __ne__(self, right: System.Text.RunePosition) -> bool:
         ...
 
     @overload
-    def __init__(self) -> None:
+    def deconstruct(self, rune: typing.Optional[System.Text.Rune], start_index: typing.Optional[int]) -> typing.Tuple[None, System.Text.Rune, int]:
         ...
 
     @overload
-    def __init__(self, replacement: str) -> None:
+    def deconstruct(self, rune: typing.Optional[System.Text.Rune], start_index: typing.Optional[int], length: typing.Optional[int]) -> typing.Tuple[None, System.Text.Rune, int, int]:
         ...
 
-    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+    @staticmethod
+    def enumerate_utf_16(span: System.ReadOnlySpan[str]) -> System.Text.RunePosition.Utf16Enumerator:
         ...
 
-    def equals(self, value: typing.Any) -> bool:
+    @staticmethod
+    def enumerate_utf_8(span: System.ReadOnlySpan[int]) -> System.Text.RunePosition.Utf8Enumerator:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Text.RunePosition) -> bool:
         ...
 
     def get_hash_code(self) -> int:
         ...
 
 
-class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
+class EncodingInfo(System.Object):
     """This class has no documentation."""
 
     @property
-    def remaining(self) -> int:
+    def code_page(self) -> int:
         ...
 
-    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
+    @property
+    def name(self) -> str:
         ...
 
-    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+    @property
+    def display_name(self) -> str:
         ...
 
-    def get_next_char(self) -> str:
+    def __init__(self, provider: System.Text.EncodingProvider, code_page: int, name: str, display_name: str) -> None:
         ...
 
-    def move_previous(self) -> bool:
+    def equals(self, value: typing.Any) -> bool:
         ...
 
-    def reset(self) -> None:
+    def get_encoding(self) -> System.Text.Encoding:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class EncodingProvider(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def get_encoding(self, name: str) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, name: str, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    @overload
+    def get_encoding(self, codepage: int, encoder_fallback: System.Text.EncoderFallback, decoder_fallback: System.Text.DecoderFallback) -> System.Text.Encoding:
+        ...
+
+    def get_encodings(self) -> System.Collections.Generic.IEnumerable[System.Text.EncodingInfo]:
+        ...
+
+
+class UTF7Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, allow_optionals: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, s: str) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
+        ...
+
+
+class StringRuneEnumerator(System.Collections.Generic.IEnumerable[System.Text.Rune], System.Collections.Generic.IEnumerator[System.Text.Rune], typing.Iterable[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def __iter__(self) -> typing.Iterator[System.Text.Rune]:
+        ...
+
+    def get_enumerator(self) -> System.Text.StringRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
         ...
 
 
@@ -1929,6 +1779,156 @@ class SpanLineEnumerator(System.Collections.Generic.IEnumerator[System.ReadOnlyS
         ...
 
     def move_next(self) -> bool:
+        ...
+
+
+class SpanRuneEnumerator(System.Collections.Generic.IEnumerator[System.Text.Rune]):
+    """This class has no documentation."""
+
+    @property
+    def current(self) -> System.Text.Rune:
+        ...
+
+    def get_enumerator(self) -> System.Text.SpanRuneEnumerator:
+        ...
+
+    def move_next(self) -> bool:
+        ...
+
+
+class DecoderReplacementFallback(System.Text.DecoderFallback):
+    """This class has no documentation."""
+
+    @property
+    def default_string(self) -> str:
+        ...
+
+    @property
+    def max_char_count(self) -> int:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, replacement: str) -> None:
+        ...
+
+    def create_fallback_buffer(self) -> System.Text.DecoderFallbackBuffer:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+
+class DecoderReplacementFallbackBuffer(System.Text.DecoderFallbackBuffer):
+    """This class has no documentation."""
+
+    @property
+    def remaining(self) -> int:
+        ...
+
+    def __init__(self, fallback: System.Text.DecoderReplacementFallback) -> None:
+        ...
+
+    def fallback(self, bytes_unknown: typing.List[int], index: int) -> bool:
+        ...
+
+    def get_next_char(self) -> str:
+        ...
+
+    def move_previous(self) -> bool:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+
+class UTF32Encoding(System.Text.Encoding):
+    """This class has no documentation."""
+
+    @property
+    def preamble(self) -> System.ReadOnlySpan[int]:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, big_endian: bool, byte_order_mark: bool, throw_on_invalid_characters: bool) -> None:
+        ...
+
+    def equals(self, value: typing.Any) -> bool:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, chars: typing.List[str], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_byte_count(self, s: str) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.Any, char_count: int, bytes: typing.Any, byte_count: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, s: str, char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_bytes(self, chars: typing.List[str], char_index: int, char_count: int, bytes: typing.List[int], byte_index: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.Any, count: int) -> int:
+        ...
+
+    @overload
+    def get_char_count(self, bytes: typing.List[int], index: int, count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.Any, byte_count: int, chars: typing.Any, char_count: int) -> int:
+        ...
+
+    @overload
+    def get_chars(self, bytes: typing.List[int], byte_index: int, byte_count: int, chars: typing.List[str], char_index: int) -> int:
+        ...
+
+    def get_decoder(self) -> System.Text.Decoder:
+        ...
+
+    def get_encoder(self) -> System.Text.Encoder:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    def get_max_byte_count(self, char_count: int) -> int:
+        ...
+
+    def get_max_char_count(self, byte_count: int) -> int:
+        ...
+
+    def get_preamble(self) -> typing.List[int]:
+        ...
+
+    def get_string(self, bytes: typing.List[int], index: int, count: int) -> str:
         ...
 
 

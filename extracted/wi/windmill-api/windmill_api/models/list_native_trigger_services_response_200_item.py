@@ -23,10 +23,12 @@ class ListNativeTriggerServicesResponse200Item:
     Attributes:
         service_name (ListNativeTriggerServicesResponse200ItemServiceName):
         oauth_data (Union[Unset, None, ListNativeTriggerServicesResponse200ItemOauthData]):
+        resource_path (Union[Unset, None, str]): Path to the resource storing the OAuth token
     """
 
     service_name: ListNativeTriggerServicesResponse200ItemServiceName
     oauth_data: Union[Unset, None, "ListNativeTriggerServicesResponse200ItemOauthData"] = UNSET
+    resource_path: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -35,6 +37,8 @@ class ListNativeTriggerServicesResponse200Item:
         oauth_data: Union[Unset, None, Dict[str, Any]] = UNSET
         if not isinstance(self.oauth_data, Unset):
             oauth_data = self.oauth_data.to_dict() if self.oauth_data else None
+
+        resource_path = self.resource_path
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -45,6 +49,8 @@ class ListNativeTriggerServicesResponse200Item:
         )
         if oauth_data is not UNSET:
             field_dict["oauth_data"] = oauth_data
+        if resource_path is not UNSET:
+            field_dict["resource_path"] = resource_path
 
         return field_dict
 
@@ -66,9 +72,12 @@ class ListNativeTriggerServicesResponse200Item:
         else:
             oauth_data = ListNativeTriggerServicesResponse200ItemOauthData.from_dict(_oauth_data)
 
+        resource_path = d.pop("resource_path", UNSET)
+
         list_native_trigger_services_response_200_item = cls(
             service_name=service_name,
             oauth_data=oauth_data,
+            resource_path=resource_path,
         )
 
         list_native_trigger_services_response_200_item.additional_properties = d

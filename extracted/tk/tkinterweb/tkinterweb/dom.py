@@ -102,6 +102,19 @@ class HTMLDocument:
             self, self.html.safe_tk_eval(f"""set root [lindex [{self.html} node] 0]"""),
         )
     
+    def write(self, *text):
+        """Write into the current document or output stream. If the document is loaded, this first deletes all existing HTML.
+
+        :param text: The text or HTML code to insert.
+        :type text: str
+
+        New in version 4.20."""
+        if self.html.parsing:
+            self.html.write("text", text)
+        else:
+            self.html.reset()
+            self.html.parse(" ".join(text))
+
     def createElement(self, tagname):  # Taken from hv3_dom_core.tcl line 214
         """Create and return a new HTML element with the given tag name.
 
@@ -562,7 +575,7 @@ class HTMLElement:
             self.html.set_node_attribute(self.node, "checked", value)
 
     def getAttribute(self, attribute):
-        """Return the value of the given attribute..
+        """Return the value of the given attribute.
         
         :param attribute: The attribute to return.
         :type attribute: str
@@ -573,7 +586,7 @@ class HTMLElement:
             raise TclError(f"the assoiciated element has been destroyed")
 
     def setAttribute(self, attribute, value):
-        """Set the value of the given attribute..
+        """Set the value of the given attribute.
         
         :param attribute: The attribute to set.
         :type attribute: str
@@ -583,6 +596,15 @@ class HTMLElement:
             self.html.set_node_attribute(self.node, attribute, value)
         except TclError:
             raise TclError(f"the assoiciated element has been destroyed")
+        
+    def removeAttribute(self, attribute):
+        """Remove the given attribute. At the moment this sets the value of the attribute to "".
+        
+        :param attribute: The attribute to remove.
+        :type attribute: str
+        
+        New in version 4.20."""
+        self.setAttribute(attribute, "")
         
     def remove(self):
         """Delete the element. Cannot be used on ``<html>`` or ``<body>`` elements.

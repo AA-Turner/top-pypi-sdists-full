@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import cupy as cp
 import pytest
 
@@ -16,7 +18,7 @@ def _get_harmonic_list(degree_max):
 
 
 @testing.with_requires("scipy")
-class TestBasic():
+class TestBasic:
 
     @pytest.mark.filterwarnings('ignore::DeprecationWarning')
     @pytest.mark.parametrize("m, n", _get_harmonic_list(degree_max=5))
@@ -27,3 +29,13 @@ class TestBasic():
         phi = xp.linspace(0, cp.pi)
         theta, phi = xp.meshgrid(theta, phi)
         return scp.special.sph_harm(m, n, theta, phi)
+
+    @testing.with_requires("scipy>=1.15.0")
+    @pytest.mark.parametrize("m, n", _get_harmonic_list(degree_max=5))
+    @testing.for_dtypes(["e", "f", "d"])
+    @numpy_cupy_allclose(scipy_name="scp", rtol=1e-7, atol=1e-10)
+    def test_sph_harm_y(self, xp, scp, dtype, m, n):
+        theta = xp.linspace(0, cp.pi)
+        phi = xp.linspace(0, 2 * cp.pi)
+        theta, phi = xp.meshgrid(theta, phi)
+        return scp.special.sph_harm_y(n, m, theta, phi)

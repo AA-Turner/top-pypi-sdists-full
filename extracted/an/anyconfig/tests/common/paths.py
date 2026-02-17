@@ -1,20 +1,17 @@
 #
-# Copyright (C) 2023 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2023, 2024 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=missing-docstring
 r"""Compute paths.
 """
+from __future__ import annotations
+
 import pathlib
 import typing
 
 from . import load
-
-
-TEST_DATA_MAJOR_VERSION: int = 1
-
-TESTDIR: pathlib.Path = pathlib.Path(__file__).parent.parent.resolve()
-RESOURCE_DIR: pathlib.Path = TESTDIR / "res" / str(TEST_DATA_MAJOR_VERSION)
+from .globals_ import RESOURCE_DIR
 
 
 def get_resource_dir(
@@ -30,9 +27,9 @@ def get_resource_dir(
 
 def get_aux_data_paths(
     ipath: pathlib.Path,
-    skip_file_exts: typing.Tuple[str, ...] = (".pyc", ),
+    skip_file_exts: tuple[str, ...] = (".pyc", ),
     **_kwargs
-) -> typing.Dict[str, pathlib.Path]:
+) -> dict[str, pathlib.Path]:
     """Get a map of subdirs and paths to auxiliary data for input, `ipath`.
 
     It expects that aux data is in `ipath.parent`/*/.
@@ -47,9 +44,7 @@ def get_aux_data_paths(
 
 def get_data(
     topdir: typing.Optional[pathlib.Path],
-) -> typing.List[
-    typing.Tuple[pathlib.Path, typing.Dict[str, pathlib.Path]]
-]:
+) -> list[tuple[pathlib.Path, dict[str, pathlib.Path]]]:
     # find the dir holding input data files.
     pattern = "*.*"
     if not any(x for x in topdir.iterdir() if x.is_file()):
@@ -63,11 +58,9 @@ def get_data(
 
 def load_data(
     topdir: typing.Optional[pathlib.Path],
-    **kwargs
-) -> typing.List[
-    typing.Tuple[pathlib.Path, typing.Dict[str, typing.Any]]
-]:
-    return [
+    load_idata: bool = False, **kwargs
+) -> list[tuple[pathlib.Path, dict[str, typing.Any]]]:
+    res = [
         (
             ipath,
             {
@@ -77,3 +70,10 @@ def load_data(
         )
         for ipath, adata in get_data(topdir)
     ]
+    if load_idata:
+        return [
+            (ipath, load.load_data(ipath), adata)
+            for ipath, adata in res
+        ]
+
+    return res

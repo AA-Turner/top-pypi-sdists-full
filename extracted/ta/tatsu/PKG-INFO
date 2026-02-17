@@ -1,63 +1,56 @@
 Metadata-Version: 2.4
 Name: TatSu
-Version: 5.16.0
+Version: 5.17.0
 Summary: TatSu takes a grammar in a variation of EBNF as input, and outputs a memoizing PEG/Packrat parser in Python.
 Project-URL: Homepage, https://github.com/neogeny/TatSu
 Project-URL: Repository, https://github.com/neogeny/TatSu
 Project-URL: Documentation, https://tatsu.readthedocs.io/en/stable/
-Project-URL: Questions, https://stackoverflow.com/questions/tagged/tatsu
 Author-email: Juancarlo Añez <apalala@gmail.com>
-License: TATSU - A PEG/Packrat parser generator for Python
+License: SPDX-License-Identifier: BSD-4-Clause
         
-        Copyright (C) 2017-2026 Juancarlo Añez
+        TATSU - A PEG/Packrat parser generator for Python
+        Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
         All rights reserved.
         
-        Redistribution and use in source and binary forms, with or without
-        modification, are permitted provided that the following conditions
-        are met:
+        Redistribution and use in source and binary forms, with or without modification,
+        are permitted provided that the following conditions are met:
         
-         1. Redistributions of source code must retain the above copyright
-            notice, this list of conditions and the following disclaimer.
+        1. Redistributions of source code must retain the above copyright notice, this
+           list of conditions and the following disclaimer.
         
-         2. Redistributions in binary form must reproduce the above copyright
-            notice, this list of conditions and the following disclaimer in
-            the documentation and/or other materials provided with the
-            distribution.
+        2. Redistributions in binary form must reproduce the above copyright notice,
+           this list of conditions and the following disclaimer in the documentation
+           and/or other materials provided with the distribution.
         
-         3. Neither the name of the copyright holder nor the names of its
-            contributors may be used to endorse or promote products derived
-            from this software without specific prior written permission.
+        3. All advertising materials mentioning features or use of this software must
+           display the following acknowledgement:
+           This product includes software developed by Juancarlo Añez (https://github.com/apalala).
         
-         4. Redistributions of any form whatsoever must retain the following
-            acknowledgment: 'This product includes software developed by
-            "Juancarlo Añez" (https://apalala.bitbucket.io).'
+        4. Neither the name of the copyright holder nor the names of its contributors
+           may be used to endorse or promote products derived from this software without
+           specific prior written permission.
         
-         THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
-         "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
-         LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
-         A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
-         HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-         SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED
-         TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-         PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-         LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-         NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-         SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDER AND CONTRIBUTORS "AS IS" AND
+        ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+        WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+        IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT,
+        INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING,
+        BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+        DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+        LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+        OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
+        ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 License-File: LICENSE
+Keywords: EBNF,PEG,grammar,packrat,parser
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
-Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3.15
-Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Compilers
-Classifier: Topic :: Software Development :: Interpreters
 Classifier: Topic :: Text Processing :: General
 Requires-Python: >=3.12
 Provides-Extra: colorization
@@ -65,6 +58,9 @@ Requires-Dist: colorama; extra == 'colorization'
 Provides-Extra: parproc
 Requires-Dist: rich; extra == 'parproc'
 Description-Content-Type: text/x-rst
+
+.. Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+.. SPDX-License-Identifier: BSD-4-Clause
 
 .. |dragon| unicode:: 0x7ADC .. unicode dragon
 .. |nbsp| unicode:: 0xA0 .. non breakable space
@@ -97,8 +93,10 @@ Description-Content-Type: text/x-rst
 |TatSu|
 =======
 
-|TatSu| is a tool that takes grammars in a variation of `EBNF`_ as input, and
-outputs `memoizing`_ (`Packrat`_) `PEG`_ parsers in `Python`_.
+|TatSu| is a tool that takes grammars in a supperset of `EBNF`_ as input, and
+outputs `memoizing`_ (`Packrat`_) `PEG`_ parsers in `Python`_. The classic
+variations of EBNF_ (Tomassetti, EasyExtend, Wirth) and `ISO EBNF`_ are also
+supported as input grammar format.
 
 Why use a PEG_ parser? Because `regular languages`_ (those parsable with Python's ``re`` package) *"cannot count"*. Any language with nested structures or with balancing of demarcations requires more than regular expressions to be parsed.
 
@@ -277,6 +275,7 @@ requires different licensing* please `email`_.
 .. _David Röthlisberger: https://bitbucket.org/drothlis/
 .. _Dennis Ritchie: http://en.wikipedia.org/wiki/Dennis_Ritchie
 .. _EBNF: http://en.wikipedia.org/wiki/Ebnf
+.. _ISO EBNF: http://en.wikipedia.org/wiki/Ebnf
 .. _English: http://en.wikipedia.org/wiki/English_grammar
 .. _Euler: http://en.wikipedia.org/wiki/Euler_programming_language
 .. _Grako: https://bitbucket.org/neogeny/grako/
@@ -347,7 +346,6 @@ requires different licensing* please `email`_.
 .. _parsewkt: https://github.com/cleder/parsewkt
 .. _pauls: https://bitbucket.org/pauls
 .. _pgebhard: https://bitbucket.org/pgebhard
-.. _pygraphviz: https://pypi.python.org/pypi/pygraphviz
 .. _r\_speer: https://bitbucket.org/r_speer
 .. _raw string literal: https://docs.python.org/3/reference/lexical_analysis.html#string-and-bytes-literals
 .. _re: https://docs.python.org/3.7/library/re.html

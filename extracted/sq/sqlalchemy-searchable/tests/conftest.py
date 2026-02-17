@@ -1,20 +1,23 @@
 import os
+from collections.abc import Generator
+from datetime import datetime
+from typing import Any
 
 import pytest
 from sqlalchemy import (
-    Column,
     create_engine,
-    DateTime,
     ForeignKey,
-    Integer,
-    String,
-    Text,
     text,
 )
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import (
     close_all_sessions,
     configure_mappers,
     declarative_base,
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    Session,
     sessionmaker,
 )
 from sqlalchemy_utils import TSVectorType
@@ -23,6 +26,7 @@ from sqlalchemy_searchable import (
     make_searchable,
     remove_listeners,
     search_manager,
+    SearchOptions,
     vectorizer,
 )
 
@@ -38,21 +42,8 @@ if __pypy__:
     compat.register()
 
 
-def pytest_configure(config):
-    config.addinivalue_line(
-        "markers",
-        "postgresql_min_version(min_version): "
-        "skip the test if PostgreSQL version is less than min_version",
-    )
-    config.addinivalue_line(
-        "markers",
-        "postgresql_max_version(max_version): "
-        "skip the test if PostgreSQL version is greater than max_version",
-    )
-
-
 @pytest.fixture
-def engine():
+def engine() -> Generator[Engine, None, None]:
     db_user = os.environ.get("SQLALCHEMY_SEARCHABLE_TEST_USER", "postgres")
     db_password = os.environ.get("SQLALCHEMY_SEARCHABLE_TEST_PASSWORD", "")
     db_name = os.environ.get(
@@ -60,7 +51,7 @@ def engine():
     )
     url = f"postgresql://{db_user}:{db_password}@localhost/{db_name}"
 
-    engine = create_engine(url, future=True)
+    engine = create_engine(url)
     with engine.begin() as conn:
         conn.execute(text("CREATE EXTENSION IF NOT EXISTS hstore"))
 
@@ -69,38 +60,9 @@ def engine():
 
 
 @pytest.fixture
-def postgresql_version(engine):
-    with engine.connect():
-        major, _ = engine.dialect.server_version_info
-        return major
-
-
-@pytest.fixture(autouse=True)
-def check_postgresql_min_version(request, postgresql_version):
-    postgresql_min_version_mark = request.node.get_closest_marker(
-        "postgresql_min_version"
-    )
-    if postgresql_min_version_mark:
-        min_version = postgresql_min_version_mark.args[0]
-        if postgresql_version < min_version:
-            pytest.skip(f"Requires PostgreSQL >= {min_version}")
-
-
-@pytest.fixture(autouse=True)
-def check_postgresql_max_version(request, postgresql_version):
-    postgresql_max_version_mark = request.node.get_closest_marker(
-        "postgresql_max_version"
-    )
-    if postgresql_max_version_mark:
-        max_version = postgresql_max_version_mark.args[0]
-        if postgresql_version > max_version:
-            pytest.skip(f"Requires PostgreSQL <= {max_version}")
-
-
-@pytest.fixture
-def session(engine):
-    Session = sessionmaker(bind=engine, future=True)
-    session = Session(future=True)
+def session(engine: Engine) -> Generator[Session, None, None]:
+    SessionFactory = sessionmaker(engine)
+    session = SessionFactory()
 
     yield session
 
@@ -109,46 +71,58 @@ def session(engine):
 
 
 @pytest.fixture
-def search_manager_regconfig():
+def search_manager_regconfig() -> None:
     return None
 
 
 @pytest.fixture
-def Base(search_manager_regconfig):
+def Base(
+    search_manager_regconfig: str | None,
+) -> Generator[type[DeclarativeBase], None, None]:
     Base = declarative_base()
-    make_searchable(Base.metadata)
     if search_manager_regconfig:
-        search_manager.options["regconfig"] = search_manager_regconfig
+        make_searchable(
+            Base.metadata,
+            options=SearchOptions(regconfig=search_manager_regconfig),
+        )
+    else:
+        make_searchable(Base.metadata)
 
     yield Base
 
-    search_manager.options["regconfig"] = "pg_catalog.english"
     search_manager.processed_columns = []
     vectorizer.clear()
     remove_listeners(Base.metadata)
 
 
 @pytest.fixture
-def search_trigger_name():
+def search_trigger_name() -> str:
     return "{table}_{column}_trigger"
 
 
 @pytest.fixture
-def search_trigger_function_name():
+def search_trigger_function_name() -> str:
     return "{table}_{column}_update"
 
 
 @pytest.fixture
-def ts_vector_options(search_trigger_name, search_trigger_function_name):
-    return {
-        "search_trigger_name": search_trigger_name,
-        "search_trigger_function_name": search_trigger_function_name,
-        "auto_index": True,
-    }
+def search_options(
+    search_trigger_name: str,
+    search_trigger_function_name: str,
+) -> SearchOptions:
+    return SearchOptions(
+        search_trigger_name=search_trigger_name,
+        search_trigger_function_name=search_trigger_function_name,
+        auto_index=True,
+    )
 
 
 @pytest.fixture(autouse=True)
-def create_tables(Base, engine, models):
+def create_tables(
+    Base: type[DeclarativeBase],
+    engine: Engine,
+    models: None,
+) -> Generator[None, None, None]:
     configure_mappers()
     Base.metadata.create_all(engine)
     yield
@@ -156,32 +130,46 @@ def create_tables(Base, engine, models):
 
 
 @pytest.fixture
-def models(TextItem, Article):
+def models(TextItem: type[Any], Article: type[Any]) -> None:
     pass
 
 
 @pytest.fixture
-def TextItem(Base, ts_vector_options):
-    class TextItem(Base):
+def TextItem(
+    Base: type[DeclarativeBase],
+    search_trigger_function_name: str,
+    search_trigger_name: str,
+) -> type[Any]:
+    ts_vector_options = {
+        "auto_index": True,
+        "search_trigger_name": search_trigger_name,
+        "search_trigger_function_name": search_trigger_function_name,
+    }
+
+    class TextItem(Base):  # type: ignore[misc, valid-type]
         __tablename__ = "textitem"
 
-        id = Column(Integer, primary_key=True, autoincrement=True)
+        id: Mapped[int] = mapped_column(primary_key=True)
 
-        name = Column(String(255))
+        name: Mapped[str]
 
-        search_vector = Column(TSVectorType("name", "content", **ts_vector_options))
-        content_search_vector = Column(TSVectorType("content", **ts_vector_options))
+        search_vector: Mapped[TSVectorType] = mapped_column(
+            TSVectorType("name", "content", **ts_vector_options)
+        )
+        content_search_vector: Mapped[TSVectorType] = mapped_column(
+            TSVectorType("content", **ts_vector_options)
+        )
 
-        content = Column(Text)
+        content: Mapped[str]
 
     return TextItem
 
 
 @pytest.fixture
-def Article(TextItem):
-    class Article(TextItem):
+def Article(TextItem: type[Any]) -> type[Any]:
+    class Article(TextItem):  # type: ignore[misc]
         __tablename__ = "article"
-        id = Column(Integer, ForeignKey(TextItem.id), primary_key=True)
-        created_at = Column(DateTime)
+        id: Mapped[int] = mapped_column(ForeignKey(TextItem.id), primary_key=True)
+        created_at: Mapped[datetime | None]
 
     return Article

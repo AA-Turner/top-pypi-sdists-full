@@ -3,7 +3,7 @@ Type annotations for kms service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -415,8 +415,8 @@ class GenerateMacRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class ReEncryptRequestTypeDef(TypedDict):
-    CiphertextBlob: BlobTypeDef
     DestinationKeyId: str
+    CiphertextBlob: NotRequired[BlobTypeDef]
     SourceEncryptionContext: NotRequired[Mapping[str, str]]
     SourceKeyId: NotRequired[str]
     DestinationEncryptionContext: NotRequired[Mapping[str, str]]
@@ -424,6 +424,7 @@ class ReEncryptRequestTypeDef(TypedDict):
     DestinationEncryptionAlgorithm: NotRequired[EncryptionAlgorithmSpecType]
     GrantTokens: NotRequired[Sequence[str]]
     DryRun: NotRequired[bool]
+    DryRunModifiers: NotRequired[Sequence[Literal["IGNORE_CIPHERTEXT"]]]
 
 class RecipientInfoTypeDef(TypedDict):
     KeyEncryptionAlgorithm: NotRequired[Literal["RSAES_OAEP_SHA_256"]]
@@ -770,13 +771,14 @@ class MultiRegionConfigurationTypeDef(TypedDict):
     ReplicaKeys: NotRequired[list[MultiRegionKeyTypeDef]]
 
 class DecryptRequestTypeDef(TypedDict):
-    CiphertextBlob: BlobTypeDef
+    CiphertextBlob: NotRequired[BlobTypeDef]
     EncryptionContext: NotRequired[Mapping[str, str]]
     GrantTokens: NotRequired[Sequence[str]]
     KeyId: NotRequired[str]
     EncryptionAlgorithm: NotRequired[EncryptionAlgorithmSpecType]
     Recipient: NotRequired[RecipientInfoTypeDef]
     DryRun: NotRequired[bool]
+    DryRunModifiers: NotRequired[Sequence[Literal["IGNORE_CIPHERTEXT"]]]
 
 class DeriveSharedSecretRequestTypeDef(TypedDict):
     KeyId: str

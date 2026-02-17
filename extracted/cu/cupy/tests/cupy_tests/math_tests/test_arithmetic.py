@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import itertools
 import warnings
 
@@ -203,6 +205,17 @@ class ArithmeticBinaryBase:
         dtype1 = np1.dtype
         dtype2 = np2.dtype
 
+        if self.name == 'true_divide' and self.use_dtype is False:
+            cond1 = (isinstance(self.arg1, numpy.ndarray) and
+                     dtype1 == numpy.uint64 and
+                     isinstance(self.arg2, int) and self.arg2 < 0)
+
+            cond2 = (isinstance(self.arg2, numpy.ndarray) and
+                     dtype2 == numpy.uint64 and
+                     isinstance(self.arg1, int) and self.arg1 < 0)
+            if cond1 or cond2:
+                pytest.xfail("uint64 / (-2)")
+
         if self.name == 'power' or self.name == 'float_power':
             # TODO(niboshi): Fix this: power(0, 1j)
             #     numpy => 1+0j
@@ -315,16 +328,6 @@ class TestArithmeticBinary(ArithmeticBinaryBase):
         'dtype': [numpy.float64],
         'use_dtype': [True, False],
     }) + testing.product({
-        'arg1': [testing.shaped_arange((2, 3), numpy, dtype=d)
-                 for d in no_complex_types
-                 ] + [0, 0.0, 2, 2.0, -2, -2.0, True, False],
-        'arg2': [testing.shaped_reverse_arange((2, 3), numpy, dtype=d)
-                 for d in no_complex_types
-                 ] + [0, 0.0, 2, 2.0, -2, -2.0, True, False],
-        'name': ['floor_divide', 'fmod', 'remainder'],
-        'dtype': [numpy.float64],
-        'use_dtype': [True, False],
-    }) + testing.product({
         'arg1': [numpy.array([-3, -2, -1, 1, 2, 3], dtype=d)
                  for d in negative_no_complex_types
                  ] + [0, 0.0, 2, 2.0, -2, -2.0, True, False],
@@ -336,11 +339,42 @@ class TestArithmeticBinary(ArithmeticBinaryBase):
         'use_dtype': [True, False],
     })
 ))
-@testing.with_requires('numpy<2.0')
 class TestArithmeticBinary2(ArithmeticBinaryBase):
 
     def test_binary(self):
         self.check_binary()
+
+
+class TestArithmeticBinary3(ArithmeticBinaryBase):
+
+    @pytest.mark.parametrize('arg1',
+                             [testing.shaped_arange((2, 3), numpy, dtype=d)
+                              for d in no_complex_types
+                              ] + [0, 0.0, 2, 2.0, -2, -2.0, True, False])
+    @pytest.mark.parametrize('arg2',
+                             [testing.shaped_reverse_arange((2, 3),
+                              numpy, dtype=d)
+                              for d in no_complex_types
+                              ] + [0, 0.0, 2, 2.0, -2, -2.0, True, False])
+    @pytest.mark.parametrize('name', ['floor_divide', 'fmod', 'remainder'])
+    @pytest.mark.parametrize('dtype', [numpy.float64])
+    @pytest.mark.parametrize('use_dtype', [True, False])
+    @testing.numpy_cupy_allclose(accept_error=OverflowError)
+    def test_both_raise(self, arg1, arg2, name, dtype, use_dtype, xp):
+        func = getattr(xp, name)
+
+        if isinstance(arg1, numpy.ndarray):
+            arg1 = xp.asarray(arg1)
+        if isinstance(arg2, numpy.ndarray):
+            arg2 = xp.asarray(arg2)
+
+        dtype_arg = {'dtype': dtype} if use_dtype else {}
+        with numpy.errstate(divide='ignore'):
+            with warnings.catch_warnings():
+                warnings.filterwarnings('ignore')
+                y = func(arg1, arg2, **dtype_arg)
+
+        return y
 
 
 class UfuncTestBase:
@@ -389,7 +423,6 @@ class UfuncTestBase:
 
 class TestUfunc(UfuncTestBase):
 
-    @testing.with_requires('numpy<2.0')
     @pytest.mark.parametrize('casting', [
         'no',
         'equiv',
@@ -402,7 +435,6 @@ class TestUfunc(UfuncTestBase):
     def test_casting_out_only(self, in_type, out_type, casting):
         self.check_casting_out(in_type, in_type, out_type, casting)
 
-    @testing.with_requires('numpy<2.0')
     @pytest.mark.parametrize('casting', [
         pytest.param('no', marks=pytest.mark.skip('flaky xfail')),
         pytest.param('equiv', marks=pytest.mark.skip('flaky xfail')),

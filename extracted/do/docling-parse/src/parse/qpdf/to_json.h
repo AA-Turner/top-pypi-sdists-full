@@ -6,15 +6,37 @@
 #include <sstream>
 #include <iostream>
 #include <iomanip>
+#include <unordered_set>
 
 #include <nlohmann/json.hpp>
 #include <qpdf/QPDF.hh>
 
 namespace pdflib
 {
+  std::pair<bool, std::string> to_string(QPDFObjectHandle obj,
+					 const std::string& key)
+  {
+    std::pair<bool, std::string> result(false, "");
+
+    if(obj.hasKey(key) and obj.getKey(key).isString())
+      {
+	result.first = true;
+	result.second = obj.getKey(key).getUTF8Value();
+      }
+    else if(obj.hasKey(key) and obj.getKey(key).isName())
+      {
+	result.first = true;
+	result.second = obj.getKey(key).getName();
+      }
+
+    return result;
+  }
+  
   // FIXME: add a begin time to cap the max time spent in this routine
-  nlohmann::json to_json(QPDFObjectHandle obj, std::set<std::string> prev_objs={},
-                         int level=0, int max_level=32)
+  nlohmann::json to_json(QPDFObjectHandle obj,
+			 std::unordered_set<std::string> prev_objs={},
+                         int level=0,
+			 int max_level=32)
   {
     nlohmann::json result;
 
@@ -42,7 +64,7 @@ namespace pdflib
 
     if(level<max_level)
       {
-        const static std::set<std::string> keys_to_be_skipped = {"/Parent", "/P", "/Annots", "/B"};
+        const static std::unordered_set<std::string> keys_to_be_skipped = {"/Parent", "/P", "/Annots", "/B"};
 
         if(obj.isDictionary())
           {

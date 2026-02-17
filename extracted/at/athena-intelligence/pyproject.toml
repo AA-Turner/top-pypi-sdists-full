@@ -3,7 +3,7 @@ name = "athena-intelligence"
 
 [tool.poetry]
 name = "athena-intelligence"
-version = "0.1.831"
+version = "0.1.834"
 description = "Athena Intelligence Python Library"
 readme = "README.md"
 authors = []

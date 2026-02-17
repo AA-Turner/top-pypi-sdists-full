@@ -7,6 +7,7 @@ from typing import Optional
 from docling_core.types.doc.page import SegmentedPdfPage, TextCellUnit
 
 from docling_parse.pdf_parser import DoclingPdfParser, PdfDocument
+from docling_parse.pdf_parsers import DecodePageConfig  # type: ignore[import]
 
 
 def parse_args():
@@ -41,8 +42,8 @@ def parse_args():
         type=str,
         # choices=["both", "original", "sanitized"],
         choices=["all", "char", "word", "line"],
-        required=True,
-        default="both",
+        required=False,
+        default="char",
         help="category [`all`, `char`, `word`, `line`]",
     )
 
@@ -160,11 +161,11 @@ def visualise_py(
     for page_no in page_nos:
         print(f"parsing {pdf_path} on page: {page_no}")
 
+        config = DecodePageConfig()
+        config.enforce_same_font = enforce_same_font
         pdf_page: SegmentedPdfPage = pdf_doc.get_page(
             page_no=page_no,
-            create_words=True,
-            create_textlines=True,
-            enforce_same_font=enforce_same_font,
+            config=config,
         )
 
         if os.path.exists(str(output_dir)):

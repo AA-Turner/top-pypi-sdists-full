@@ -14,8 +14,8 @@ use tensorzero::{
     UpdateDatapointsResponse, WriteConfigRequest, WriteConfigResponse,
 };
 use tensorzero_core::config::snapshot::{ConfigSnapshot, SnapshotHash};
-use tensorzero_core::config::write_config_snapshot;
 use tensorzero_core::db::ConfigQueries;
+use tensorzero_core::db::delegating_connection::DelegatingDatabaseConnection;
 use tensorzero_core::db::feedback::FeedbackByVariant;
 use tensorzero_core::db::feedback::FeedbackQueries;
 use tensorzero_core::endpoints::datasets::v1::types::{
@@ -70,6 +70,7 @@ impl TensorZeroClient for EmbeddedClient {
             &self.app_state.http_client,
             self.app_state.clickhouse_connection_info.clone(),
             self.app_state.postgres_connection_info.clone(),
+            self.app_state.cache_manager.clone(),
             self.app_state.deferred_tasks.clone(),
             self.app_state.rate_limiting_manager.clone(),
             internal_params,
@@ -241,11 +242,13 @@ impl TensorZeroClient for EmbeddedClient {
 
         let hash = snapshot.hash.to_string();
 
-        write_config_snapshot(&self.app_state.clickhouse_connection_info, snapshot)
-            .await
-            .map_err(|e| {
-                TensorZeroClientError::TensorZero(TensorZeroError::Other { source: e.into() })
-            })?;
+        let db = DelegatingDatabaseConnection::new(
+            self.app_state.clickhouse_connection_info.clone(),
+            self.app_state.postgres_connection_info.clone(),
+        );
+        db.write_config_snapshot(&snapshot).await.map_err(|e| {
+            TensorZeroClientError::TensorZero(TensorZeroError::Other { source: e.into() })
+        })?;
 
         Ok(WriteConfigResponse { hash })
     }

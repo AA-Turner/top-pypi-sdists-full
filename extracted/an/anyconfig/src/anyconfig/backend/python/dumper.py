@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2024 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2024 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 r"""A backend module to dump python code conntains data.
@@ -20,15 +20,21 @@ Changelog:
 
    - Added builtin data dumper from python code
 """
+from __future__ import annotations
+
+import typing
+
 from ..base import (
-    InDataExT, ToStringDumperMixin
+    InDataExT, ToStringDumperMixin,
 )
 
 
 class Dumper(ToStringDumperMixin):
     """Dumper for objects as python code."""
 
-    def dump_to_string(self, cnf: InDataExT, **kwargs) -> str:
+    def dump_to_string(
+        self, cnf: InDataExT, **_kwargs: typing.Any,
+    ) -> str:
         """Dump config 'cnf' to a string.
 
         :param cnf: Configuration data to dump

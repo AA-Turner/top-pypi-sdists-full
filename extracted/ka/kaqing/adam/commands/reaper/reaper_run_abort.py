@@ -1,7 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.reaper.utils_reaper import reaper
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 
 class ReaperRunAbort(Command):

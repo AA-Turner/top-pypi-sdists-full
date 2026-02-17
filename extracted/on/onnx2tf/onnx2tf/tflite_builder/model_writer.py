@@ -92,6 +92,13 @@ def _build_binary_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tupl
     return _enum(schema_tflite, "BuiltinOptions", options_name), options
 
 
+def _build_maximum_minimum_options(
+    schema_tflite: Dict[str, Any],
+) -> Tuple[int, object]:
+    options = schema_tflite["MaximumMinimumOptionsT"]()
+    return _enum(schema_tflite, "BuiltinOptions", "MaximumMinimumOptions"), options
+
+
 def _build_reshape_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
     options = schema_tflite["ReshapeOptionsT"]()
     options.newShape = [int(v) for v in op.options.get("newShape", [])]
@@ -136,6 +143,42 @@ def _build_gather_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tupl
     return _enum(schema_tflite, "BuiltinOptions", "GatherOptions"), options
 
 
+def _build_argmax_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["ArgMaxOptionsT"]()
+    output_type = str(op.options.get("outputType", "INT64")).upper()
+    options.outputType = _enum(schema_tflite, "TensorType", output_type)
+    return _enum(schema_tflite, "BuiltinOptions", "ArgMaxOptions"), options
+
+
+def _build_cast_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["CastOptionsT"]()
+    in_dtype = str(op.options.get("inDataType", "FLOAT32")).upper()
+    out_dtype = str(op.options.get("outDataType", "FLOAT32")).upper()
+    options.inDataType = _enum(schema_tflite, "TensorType", in_dtype)
+    options.outDataType = _enum(schema_tflite, "TensorType", out_dtype)
+    return _enum(schema_tflite, "BuiltinOptions", "CastOptions"), options
+
+
+def _build_gather_nd_options(schema_tflite: Dict[str, Any], _op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["GatherNdOptionsT"]()
+    return _enum(schema_tflite, "BuiltinOptions", "GatherNdOptions"), options
+
+
+def _build_broadcast_to_options(schema_tflite: Dict[str, Any], _op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["BroadcastToOptionsT"]()
+    return _enum(schema_tflite, "BuiltinOptions", "BroadcastToOptions"), options
+
+
+def _build_floor_mod_options(schema_tflite: Dict[str, Any], _op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["FloorModOptionsT"]()
+    return _enum(schema_tflite, "BuiltinOptions", "FloorModOptions"), options
+
+
+def _build_tile_options(schema_tflite: Dict[str, Any], _op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["TileOptionsT"]()
+    return _enum(schema_tflite, "BuiltinOptions", "TileOptions"), options
+
+
 def _build_l2_norm_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
     options = schema_tflite["L2NormOptionsT"]()
     fused = str(op.options.get("fusedActivationFunction", "NONE"))
@@ -174,6 +217,14 @@ def _build_depthwise_conv_options(schema_tflite: Dict[str, Any], op: OperatorIR)
     return _enum(schema_tflite, "BuiltinOptions", "DepthwiseConv2DOptions"), options
 
 
+def _build_transpose_conv_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["TransposeConvOptionsT"]()
+    options.padding = _enum(schema_tflite, "Padding", str(op.options["padding"]))
+    options.strideH = int(op.options["strideH"])
+    options.strideW = int(op.options["strideW"])
+    return _enum(schema_tflite, "BuiltinOptions", "TransposeConvOptions"), options
+
+
 def _build_pool2d_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
     options = schema_tflite["Pool2DOptionsT"]()
     options.padding = _enum(schema_tflite, "Padding", str(op.options["padding"]))
@@ -200,6 +251,14 @@ def _build_resize_bilinear_options(schema_tflite: Dict[str, Any], op: OperatorIR
     return _enum(schema_tflite, "BuiltinOptions", "ResizeBilinearOptions"), options
 
 
+def _build_shape_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["ShapeOptionsT"]()
+    out_type = str(op.options.get("outType", "INT32")).upper()
+    if hasattr(options, "outType"):
+        options.outType = _enum(schema_tflite, "TensorType", out_type)
+    return _enum(schema_tflite, "BuiltinOptions", "ShapeOptions"), options
+
+
 def _build_fully_connected_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
     options = schema_tflite["FullyConnectedOptionsT"]()
     fused = str(op.options.get("fusedActivationFunction", "NONE"))
@@ -217,6 +276,31 @@ def _build_fully_connected_options(schema_tflite: Dict[str, Any], op: OperatorIR
     return _enum(schema_tflite, "BuiltinOptions", "FullyConnectedOptions"), options
 
 
+def _build_batch_matmul_options(schema_tflite: Dict[str, Any], op: OperatorIR) -> Tuple[int, object]:
+    options = schema_tflite["BatchMatMulOptionsT"]()
+    options.adjX = bool(op.options.get("adjX", False))
+    options.adjY = bool(op.options.get("adjY", False))
+    options.asymmetricQuantizeInputs = bool(
+        op.options.get("asymmetricQuantizeInputs", False)
+    )
+    return _enum(schema_tflite, "BuiltinOptions", "BatchMatMulOptions"), options
+
+
+def _build_strided_slice_options(
+    schema_tflite: Dict[str, Any],
+    op: OperatorIR,
+) -> Tuple[int, object]:
+    options = schema_tflite["StridedSliceOptionsT"]()
+    options.beginMask = int(op.options.get("beginMask", 0))
+    options.endMask = int(op.options.get("endMask", 0))
+    options.ellipsisMask = int(op.options.get("ellipsisMask", 0))
+    options.newAxisMask = int(op.options.get("newAxisMask", 0))
+    options.shrinkAxisMask = int(op.options.get("shrinkAxisMask", 0))
+    if hasattr(options, "offset"):
+        options.offset = bool(op.options.get("offset", False))
+    return _enum(schema_tflite, "BuiltinOptions", "StridedSliceOptions"), options
+
+
 def _build_builtin_options(
     schema_tflite: Dict[str, Any],
     op: OperatorIR,
@@ -225,6 +309,8 @@ def _build_builtin_options(
         return _enum(schema_tflite, "BuiltinOptions", "NONE"), None
     if op.op_type in ["ADD", "SUB", "MUL", "DIV"]:
         return _build_binary_options(schema_tflite, op)
+    if op.op_type in ["MAXIMUM", "MINIMUM"]:
+        return _build_maximum_minimum_options(schema_tflite)
     if op.op_type == "RESHAPE":
         return _build_reshape_options(schema_tflite, op)
     if op.op_type == "CONCATENATION":
@@ -233,12 +319,24 @@ def _build_builtin_options(
         return _build_softmax_options(schema_tflite, op)
     if op.op_type == "TRANSPOSE":
         return _build_transpose_options(schema_tflite, op)
-    if op.op_type in ["MEAN", "SUM"]:
+    if op.op_type in ["MEAN", "SUM", "REDUCE_MAX"]:
         return _build_reducer_options(schema_tflite, op)
     if op.op_type == "SQUEEZE":
         return _build_squeeze_options(schema_tflite, op)
     if op.op_type == "GATHER":
         return _build_gather_options(schema_tflite, op)
+    if op.op_type == "ARG_MAX":
+        return _build_argmax_options(schema_tflite, op)
+    if op.op_type == "CAST":
+        return _build_cast_options(schema_tflite, op)
+    if op.op_type == "GATHER_ND":
+        return _build_gather_nd_options(schema_tflite, op)
+    if op.op_type == "BROADCAST_TO":
+        return _build_broadcast_to_options(schema_tflite, op)
+    if op.op_type == "FLOOR_MOD":
+        return _build_floor_mod_options(schema_tflite, op)
+    if op.op_type == "TILE":
+        return _build_tile_options(schema_tflite, op)
     if op.op_type == "L2_NORMALIZATION":
         return _build_l2_norm_options(schema_tflite, op)
     if op.op_type == "SPACE_TO_DEPTH":
@@ -247,14 +345,22 @@ def _build_builtin_options(
         return _build_conv_options(schema_tflite, op)
     if op.op_type == "DEPTHWISE_CONV_2D":
         return _build_depthwise_conv_options(schema_tflite, op)
+    if op.op_type == "TRANSPOSE_CONV":
+        return _build_transpose_conv_options(schema_tflite, op)
     if op.op_type in ["AVERAGE_POOL_2D", "MAX_POOL_2D"]:
         return _build_pool2d_options(schema_tflite, op)
     if op.op_type == "RESIZE_NEAREST_NEIGHBOR":
         return _build_resize_nearest_options(schema_tflite, op)
     if op.op_type == "RESIZE_BILINEAR":
         return _build_resize_bilinear_options(schema_tflite, op)
+    if op.op_type == "SHAPE":
+        return _build_shape_options(schema_tflite, op)
     if op.op_type == "FULLY_CONNECTED":
         return _build_fully_connected_options(schema_tflite, op)
+    if op.op_type == "BATCH_MATMUL":
+        return _build_batch_matmul_options(schema_tflite, op)
+    if op.op_type == "STRIDED_SLICE":
+        return _build_strided_slice_options(schema_tflite, op)
     if op.op_type in [
         "LOGISTIC",
         "RELU",

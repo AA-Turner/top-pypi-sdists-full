@@ -11,7 +11,6 @@ import spnego
 import spnego.channel_bindings
 from cryptography import x509
 from cryptography.exceptions import UnsupportedAlgorithm
-from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from requests.auth import AuthBase
 from requests.packages.urllib3.response import HTTPResponse
@@ -37,7 +36,7 @@ class HTTPNegotiateAuth(AuthBase):
         password: typing.Optional[str] = None,
         auth_provider: str = "negotiate",
         send_cbt: bool = True,
-        service: str = "WSMAN",
+        service: str = "host",
         delegate: bool = False,
         hostname_override: typing.Optional[str] = None,
         wrap_required: bool = False,
@@ -61,7 +60,7 @@ class HTTPNegotiateAuth(AuthBase):
         :param send_cbt: Try to bind the channel token (HTTPS only) to the auth
             process, default is True
         :param service: The service part of the SPN to authenticate with,
-            defaults to HTTP
+            defaults to host
         :param delegate: Whether to get an auth token that allows the token to
             be delegated to other servers, this is only used with Kerberos and
             defaults to False
@@ -257,9 +256,7 @@ class HTTPNegotiateAuth(AuthBase):
         :return: The byte string containing the hash of the server's
             certificate
         """
-        backend = default_backend()
-
-        cert = x509.load_der_x509_certificate(certificate_der, backend)
+        cert = x509.load_der_x509_certificate(certificate_der)
 
         hash_algorithm = None
         try:
@@ -273,9 +270,9 @@ class HTTPNegotiateAuth(AuthBase):
         # If the cert signature algorithm is unknown, md5, or sha1 then use sha256 otherwise use the signature
         # algorithm of the cert itself.
         if not hash_algorithm or hash_algorithm.name in ["md5", "sha1"]:
-            digest = hashes.Hash(hashes.SHA256(), backend)
+            digest = hashes.Hash(hashes.SHA256())
         else:
-            digest = hashes.Hash(hash_algorithm, backend)
+            digest = hashes.Hash(hash_algorithm)
 
         digest.update(certificate_der)
         certificate_hash = digest.finalize()

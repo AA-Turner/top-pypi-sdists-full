@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.3.0
+Version: 3.3.1
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -56,6 +56,11 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+3.3.1
+*******
+
+- `Changed` Tinybird Code (`tb` / `tb --prompt`) no longer prompts users to auto-update the CLI when starting an agent session.
 
 3.3.0
 *******

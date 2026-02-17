@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.3
 Name: bionty
-Version: 2.1.0
+Version: 2.2.0
 Summary: Basic biological entities, coupled to public ontologies [`source <https://github.com/laminlabs/bionty/blob/main/bionty/models.py>`__].
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -10,7 +10,6 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-License-File: LICENSE
 Requires-Dist: lamindb>=2.0a1
 Requires-Dist: lamindb_setup>=0.81.2
 Requires-Dist: lamin_utils>=0.16.2
@@ -30,7 +29,7 @@ Provides-Extra: dev
 [![Stars](https://img.shields.io/github/stars/laminlabs/bionty?logo=GitHub&color=yellow)](https://github.com/laminlabs/bionty)
 [![pypi](https://img.shields.io/pypi/v/bionty?color=blue&label=pypi%20package)](https://pypi.org/project/bionty)
 
-# bionty: Access & manage biological ontologies
+# bionty: Registries for biological ontologies
 
 - Access >20 public ontologies such as Gene, Protein, CellMarker, ExperimentalFactor, CellType, CellLine, Tissue, …
 - Create records from entries in public ontologies using `.from_source()`.

@@ -1,5 +1,5 @@
 from adam.commands.devices.devices import device
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_context import NULL
 
 class BashHandler:

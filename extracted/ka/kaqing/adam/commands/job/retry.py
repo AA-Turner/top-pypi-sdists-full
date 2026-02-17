@@ -1,13 +1,18 @@
+from typing import Callable, Union
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_context import Context
+from adam.utils_job.job_status import JobStatus
+from adam.utils_repl.repl_session import ReplSession
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_job.job_completer import job_completer
 
 class Retry(Command):
     COMMAND = 'retry'
 
-    run_command: callable = None
+    # if class method exists, injected to member method by repl.py
+    run_command: Callable[[str, ReplSession, list[Command], Command, callable, Job, Context], Union[ReplState, JobStatus]] = None
 
     # the singleton pattern
     def __new__(cls, *args, **kwargs):

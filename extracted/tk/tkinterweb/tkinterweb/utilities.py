@@ -31,7 +31,7 @@ __title__ = "TkinterWeb"
 __author__ = "Andrew Clarke"
 __copyright__ = "(c) 2021-2025 Andrew Clarke"
 __license__ = "MIT"
-__version__ = "4.19.2"
+__version__ = "4.20.1"
 
 
 ROOT_DIR = os.path.join(os.path.abspath(os.path.dirname(__file__)), "resources")
@@ -682,10 +682,12 @@ UNHANDLED_EVENT_WHITELIST = [
 # These JS events don't exist but are used internally. Translate them when needed.
 JS_EVENT_MAP = {
     "onscrollup": "onscroll",
-    "onscrolldown": "onscrollup",
+    "onscrolldown": "onscroll",
     "onmiddlemouse": "onmousedown",
     "onmouseb1move": None,
 }
+
+UNSET = object()
 
 class StoppableThread(threading.Thread):
     "A thread that stores a state flag that can be set and used to check if the thread is supposed to be running"
@@ -983,11 +985,6 @@ def warn(message):
 def TclOpt(options):
     "Format string into Tcl option command-line names"
     return tuple(o if o.startswith("-") else "-"+o for o in options)
-
-
-def placeholder(*args, **kwargs):
-    """Blank placeholder function. The only purpose of this is to
-    improve readability by avoiding `lambda a, b, c, d: None` statements."""
 
 
 def safe_tk_eval(html, expr):

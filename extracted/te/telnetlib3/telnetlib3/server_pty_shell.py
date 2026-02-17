@@ -105,7 +105,6 @@ class PTYSession:
         :raises PTYSpawnError: If the child process fails to exec.
         """
         # pylint: disable=import-outside-toplevel
-        # std imports
         import pty
         import fcntl
 
@@ -222,7 +221,6 @@ class PTYSession:
         """Child process setup before exec."""
         # Note: pty.fork() already calls setsid() for the child, so we don't need to
         # pylint: disable=import-outside-toplevel
-        # std imports
         import fcntl
         import termios
 
@@ -263,10 +261,8 @@ class PTYSession:
     def _setup_parent(self) -> None:
         """Parent process setup after fork."""
         # pylint: disable=import-outside-toplevel
-        # std imports
         import fcntl
 
-        assert self.master_fd is not None
         flags = fcntl.fcntl(self.master_fd, fcntl.F_GETFL)
         fcntl.fcntl(self.master_fd, fcntl.F_SETFL, flags | os.O_NONBLOCK)
         self.writer.set_ext_callback(NAWS, self._on_naws)
@@ -295,7 +291,6 @@ class PTYSession:
     def _set_window_size(self, rows: int, cols: int) -> None:
         """Set PTY window size and send SIGWINCH to child."""
         # pylint: disable=import-outside-toplevel
-        # std imports
         import fcntl
         import signal
         import termios
@@ -312,15 +307,12 @@ class PTYSession:
     async def run(self) -> None:
         """Bridge loop between telnet and PTY."""
         # pylint: disable=import-outside-toplevel
-        # std imports
         import errno
 
         loop = asyncio.get_event_loop()
         pty_read_event = asyncio.Event()
         pty_data_queue: asyncio.Queue[bytes] = asyncio.Queue()
 
-        assert self.child_pid is not None
-        assert self.master_fd is not None
         pid, _ = os.waitpid(self.child_pid, os.WNOHANG)
         if pid:
             return
@@ -532,13 +524,11 @@ class PTYSession:
         :returns: True if child was terminated, False otherwise.
         """
         # pylint: disable=import-outside-toplevel
-        # std imports
         import signal
 
         if not self._isalive():
             return True
 
-        assert self.child_pid is not None
         signals = [signal.SIGHUP, signal.SIGCONT, signal.SIGINT]
         if force:
             signals.append(signal.SIGKILL)

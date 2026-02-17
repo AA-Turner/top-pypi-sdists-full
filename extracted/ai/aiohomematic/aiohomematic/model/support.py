@@ -355,9 +355,9 @@ def get_data_point_name_data(
                 device_name=channel.device.name,
                 channel_name=c_name,
                 parameter_name=f"{p_name}{c_postfix}",
-                parameter_translation=f"{parameter_translation}{c_postfix}"
-                if parameter_translation
-                else parameter_translation,
+                parameter_translation=f"{parameter_translation}{c_postfix}".strip()
+                if parameter_translation is not None
+                else None,
             )
         else:
             data_point_name = DataPointNameData(
@@ -454,6 +454,7 @@ def get_custom_data_point_name(
     ignore_multiple_channels_for_name: bool,
     usage: DataPointUsage,
     postfix: str = "",
+    postfix_translation: str | None = None,
 ) -> DataPointNameData:
     """Get name for custom data_point."""
     if channel_name := _get_base_name_from_channel_or_device(channel=channel):
@@ -464,6 +465,7 @@ def get_custom_data_point_name(
                 device_name=channel.device.name,
                 channel_name=channel_name.split(ADDRESS_SEPARATOR)[0],
                 parameter_name=postfix,
+                parameter_translation=postfix_translation,
             )
         if _check_channel_name_with_channel_no(name=channel_name):
             c_name = channel_name.split(ADDRESS_SEPARATOR)[0]

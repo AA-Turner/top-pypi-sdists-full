@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chonkie
-Version: 1.5.5
+Version: 1.5.6
 Summary: 🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library
 Author-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
 Maintainer-email: Bhavnick Minhas <bhavnick@chonkie.ai>, Shreyash Nigam <shreyash@chonkie.ai>
@@ -190,6 +190,7 @@ Requires-Dist: pandas; extra == "dev"
 Requires-Dist: tabulate; extra == "dev"
 Requires-Dist: openpyxl; extra == "dev"
 Requires-Dist: uv>=0.9.18; extra == "dev"
+Requires-Dist: requests-cache>=1.2.1; extra == "dev"
 Dynamic: license-file
 
 <div align='center'>
@@ -209,11 +210,11 @@ Dynamic: license-file
 
 _The lightweight ingestion library for fast, efficient and robust RAG pipelines_
 
-[Installation](#installation) •
-[Usage](#usage) •
-[Chunkers](#chunkers) •
-[Integrations](#integrations) •
-[Benchmarks](#benchmarks)
+[Installation](#📦-installation) •
+[Usage](#🚀-usage) •
+[Chunkers](#✂️-chunkers) •
+[Integrations](#🔌-integrations) •
+[Benchmarks](#📊-benchmarks)
 
 </div>
 

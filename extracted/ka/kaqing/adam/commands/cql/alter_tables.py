@@ -2,7 +2,7 @@ from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra_tables as get_tables
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2, log_exc
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_context import NULL
@@ -24,6 +24,9 @@ class AlterTables(Command):
 
     def command(self):
         return AlterTables.COMMAND
+
+    def backgrounable(self):
+        return True
 
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
@@ -53,10 +56,10 @@ class AlterTables(Command):
                                             # alter table <table_name> with GC_GRACE_SECONDS = <timeout>;
                                             cql = f'alter table {k}.{t} with {arg_str}'
                                             with cassandra(state) as pods:
-                                                pods.cql(cql, on_any=True, ctx=ctx)
+                                                pods.cql(cql, on_any=1, ctx=ctx)
                                             continue
 
-                                log2(f'{len(v)} tables altered in {k}.')
+                                ctx.log2(f'{len(v)} tables altered in {k}.')
 
                         # do not continue to cql route
                         return state

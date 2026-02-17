@@ -20,8 +20,8 @@ use tensorzero_core::{
     },
     http::TensorzeroHttpClient,
     inference::types::{
-        Arguments, ContentBlockChatOutput, ContentBlockChunk, JsonInferenceOutput, ModelInput,
-        ResolvedContentBlock, ResolvedRequestMessage, StoredContentBlock, StoredInput,
+        Arguments, ContentBlockChatOutput, ContentBlockChunk, FunctionType, JsonInferenceOutput,
+        ModelInput, ResolvedContentBlock, ResolvedRequestMessage, StoredContentBlock, StoredInput,
         StoredInputMessage, StoredInputMessageContent, StoredRequestMessage, Text, Usage,
     },
     model_table::ProviderTypeDefaultCredentials,
@@ -642,6 +642,7 @@ fn create_inference_params(
         function_name: Some(function_name.to_string()),
         model_name: None,
         episode_id: Some(episode_id),
+        namespace: None,
         input,
         stream: Some(stream),
         params: Default::default(),
@@ -1200,6 +1201,11 @@ fn create_pinocchio_example(
 
     RenderedSample {
         function_name: "basic_test".to_string(),
+        function_type: if is_json_function {
+            FunctionType::Json
+        } else {
+            FunctionType::Chat
+        },
         input: ModelInput {
             system: system.as_ref().map(std::string::ToString::to_string),
             messages: vec![ResolvedRequestMessage {

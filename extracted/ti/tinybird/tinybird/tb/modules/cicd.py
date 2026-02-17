@@ -238,8 +238,8 @@ def init_cicd(
     data_project_dir: Optional[str] = None,
 ):
     for provider in Provider:
-        path = path if path else getcwd()
-        data_project_dir = data_project_dir if data_project_dir else "."
+        path = path or getcwd()
+        data_project_dir = data_project_dir or "."
         generator = CICDGeneratorBase.build_generator(provider.name)
         params = {
             "data_project_dir": data_project_dir,
@@ -251,7 +251,7 @@ def init_cicd(
 
 
 def check_cicd_exists(path: Optional[str] = None) -> Optional[Provider]:
-    path = path if path else getcwd()
+    path = path or getcwd()
     for provider in Provider:
         generator = CICDGeneratorBase.build_generator(provider.name)
         if generator.is_already_generated(path):

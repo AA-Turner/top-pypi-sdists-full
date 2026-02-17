@@ -14,13 +14,6 @@ import System.Runtime.Serialization
 import System.Text.RegularExpressions
 
 
-class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
 class Capture(System.Object):
     """This class has no documentation."""
 
@@ -690,46 +683,6 @@ class Regex(System.Object, System.Runtime.Serialization.ISerializable):
         warnings.warn("Obsoletions.RegexExtensibilityImplMessage", DeprecationWarning)
 
 
-class GeneratedRegexAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def pattern(self) -> str:
-        ...
-
-    @property
-    def options(self) -> System.Text.RegularExpressions.RegexOptions:
-        ...
-
-    @property
-    def match_timeout_milliseconds(self) -> int:
-        ...
-
-    @property
-    def culture_name(self) -> str:
-        ...
-
-    @overload
-    def __init__(self, pattern: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
-        ...
-
-    @overload
-    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
-        ...
-
-
 class RegexMatchTimeoutException(System.TimeoutException, System.Runtime.Serialization.ISerializable):
     """This class has no documentation."""
 
@@ -835,6 +788,53 @@ class RegexRunner(System.Object, metaclass=abc.ABCMeta):
         ...
 
     def uncapture(self) -> None:
+        ...
+
+
+class GeneratedRegexAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def pattern(self) -> str:
+        ...
+
+    @property
+    def options(self) -> System.Text.RegularExpressions.RegexOptions:
+        ...
+
+    @property
+    def match_timeout_milliseconds(self) -> int:
+        ...
+
+    @property
+    def culture_name(self) -> str:
+        ...
+
+    @overload
+    def __init__(self, pattern: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, culture_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int) -> None:
+        ...
+
+    @overload
+    def __init__(self, pattern: str, options: System.Text.RegularExpressions.RegexOptions, match_timeout_milliseconds: int, culture_name: str) -> None:
+        ...
+
+
+class RegexRunnerFactory(System.Object, metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
         ...
 
 

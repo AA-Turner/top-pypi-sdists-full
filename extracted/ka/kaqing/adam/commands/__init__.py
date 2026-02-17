@@ -1,7 +1,7 @@
 from collections.abc import Callable
 from adam.commands.command import ExtractAllOptionsHandler, ExtractOptionsHandler, ExtractSequenceOptionsHandler, ExtractTrailingOptionsHandler, ValidateArgCountHandler
-from adam.repl_state import ReplState
 from adam.commands.app.utils_app import AppHandler
+from adam.utils_repl.repl_state import ReplState
 
 def app(state: ReplState) -> AppHandler:
     return AppHandler(state)

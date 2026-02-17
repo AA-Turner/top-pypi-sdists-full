@@ -7,7 +7,7 @@ from adam.commands.command import Command
 from adam.commands.utils_table_render import show_pods, show_rollout
 from adam.config import Config
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 
 class Watch(Command):

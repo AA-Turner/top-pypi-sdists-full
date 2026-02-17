@@ -4,5 +4,5 @@ build-backend = "maturin"
 
 [tool.maturin]
 bindings = "pyo3"
-python-source = "python"
 manifest-path = "wheel/Cargo.toml"
+python-source = "python"

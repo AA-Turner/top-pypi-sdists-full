@@ -28,6 +28,10 @@ class IndexExchange(QuantConnect.Securities.SecurityExchange):
         ...
 
 
+class IndexCache(QuantConnect.Securities.SecurityCache):
+    """INDEX specific caching support"""
+
+
 class Index(QuantConnect.Securities.Security):
     """INDEX Security Object Implementation for INDEX Assets"""
 
@@ -92,14 +96,6 @@ class IndexHolding(QuantConnect.Securities.SecurityHolding):
         ...
 
 
-class IndexCache(QuantConnect.Securities.SecurityCache):
-    """INDEX specific caching support"""
-
-
-class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
-
-
 class IndexSymbol(System.Object):
     """Helper methods for Index Symbols"""
 
@@ -120,5 +116,9 @@ class IndexSymbol(System.Object):
         :returns: The market of the index.
         """
         ...
+
+
+class IndexDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Index packet by packet data filtering mechanism for dynamically detecting bad ticks."""
 
 

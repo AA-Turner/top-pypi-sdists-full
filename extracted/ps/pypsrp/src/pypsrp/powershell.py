@@ -1,6 +1,8 @@
 # Copyright: (c) 2018, Jordan Borean (@jborean93) <jborean93@gmail.com>
 # MIT License (see LICENSE or https://opensource.org/licenses/MIT)
 
+from __future__ import annotations
+
 import base64
 import logging
 import struct
@@ -11,10 +13,11 @@ import uuid
 import warnings
 import xml.etree.ElementTree as ET
 
-from cryptography.hazmat.backends import default_backend
+import requests.exceptions
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
+from pypsrp import _pool_manager
 from pypsrp._utils import version_equal_or_newer
 from pypsrp.complex_objects import (
     ApartmentState,
@@ -103,6 +106,9 @@ class RunspacePool(object):
         min_runspaces: int = 1,
         max_runspaces: int = 1,
         session_key_timeout_ms: int = 60000,
+        *,
+        no_profile: bool = False,
+        idle_timeout: int | None = None,
     ) -> None:
         """
         Represents a Runspace pool on a remote host. This pool can contain
@@ -129,6 +135,11 @@ class RunspacePool(object):
             hold
         :param session_key_timeout_ms: The maximum time to wait for a session
             key transfer from the server
+        :param no_profile: If True, the user profile will not be loaded and
+            will use the machine defaults.
+        :param idle_timeout: The idle timeout, in seconds, for the runspace. The
+            runspace will be closed if no operations are performed in the time
+            specified. If None the server default will be used.
         """
         log.info("Initialising RunspacePool object for configuration %s" % configuration_name)
         # The below are defined in some way at
@@ -138,7 +149,13 @@ class RunspacePool(object):
         self.connection = connection
         resource_uri = "http://schemas.microsoft.com/powershell/%s" % configuration_name
         self.shell = WinRS(
-            connection, resource_uri=resource_uri, id=self.id, input_streams="stdin pr", output_streams="stdout"
+            connection,
+            resource_uri=resource_uri,
+            id=self.id,
+            input_streams="stdin pr",
+            output_streams="stdout",
+            no_profile=no_profile,
+            idle_time_out=idle_timeout,
         )
         self.ci_table: typing.Dict = {}
         self.pipelines: typing.Dict[str, "PowerShell"] = {}
@@ -569,7 +586,6 @@ class RunspacePool(object):
         self._exchange_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048,
-            backend=default_backend(),
         )
         public_numbers = self._exchange_key.public_key().public_numbers()
         exponent = struct.pack("<I", public_numbers.e)
@@ -651,6 +667,47 @@ class RunspacePool(object):
             elements like cmdlet parameters
         """
         return self._serializer.serialize(obj, metadata=metadata)
+
+    def is_alive(
+        self,
+        *,
+        timeout: int | None = None,
+    ) -> bool:
+        """Checks whether the RunspacePool is still alive.
+
+        :param timeout: Override the connection timeout defaults for the
+            request. The WSMan operation timeout will be set to this value
+            and the HTTP connect/read timeouts will be this value + 2 seconds.
+        :return: A bool True if the pool is still alive, False otherwise.
+        """
+        is_closed = False
+
+        try:
+            # We don't want to try and open a new connection if the socket
+            # was closed, we treat it as the pool is not alive.
+            with _pool_manager.DisableNewConnectionsContext():
+                state = self.shell._get_shell(timeout=timeout)
+
+            is_closed = state.get("State", "") == "Disconnected"
+        except WSManFaultError as exc:
+            if exc.code in [
+                0x80338029,  # ERROR_WSMAN_OPERATION_TIMEDOUT
+                0x8033805B,  # ERROR_WSMAN_UNEXPECTED_SELECTORS
+            ]:
+                is_closed = True
+            else:
+                raise
+
+        except (_pool_manager.NewConnectionDisabled, TimeoutError, requests.exceptions.ConnectionError):
+            # If a timeout or connection error occurs, treat the pool as closed.
+            is_closed = True
+
+        if is_closed:
+            # Ensures that close() doesn't try and close an already closed pool
+            self.state = RunspacePoolState.CLOSED
+            return False
+
+        return True
 
     def _receive(
         self,
@@ -861,7 +918,7 @@ class RunspacePool(object):
         iv = b"\x00" * 16  # PSRP doesn't use an IV
         algorithm = algorithms.AES(decrypted_key)
         mode = modes.CBC(iv)
-        cipher = Cipher(algorithm, mode, default_backend())
+        cipher = Cipher(algorithm, mode)
 
         self._serializer.cipher = cipher
         self._key_exchanged = True
@@ -907,7 +964,16 @@ class PowerShell(object):
         # CommandID that is created and we need to reference in the WSMan msgs
         self._command_id: typing.Optional[str] = None
 
-        runspace_pool.pipelines[self.id] = self
+    def __enter__(self) -> "PowerShell":
+        return self
+
+    def __exit__(
+        self,
+        exc_type: typing.Optional[typing.Type[BaseException]],
+        value: typing.Optional[BaseException],
+        traceback: typing.Optional[types.TracebackType],
+    ) -> None:
+        self.close()
 
     def add_argument(
         self,
@@ -1042,6 +1108,33 @@ class PowerShell(object):
         self.commands = []
         return self
 
+    def clear_streams(self) -> None:
+        """
+        Clears all the data streams of the current PowerShell object.
+        """
+        self.streams = PSDataStreams()
+        self.output = []
+
+    def close(self) -> None:
+        """
+        Closes the PowerShell pipeline and cleans up server resources.
+
+        This method must be called to reuse a PowerShell object for multiple
+        invocations. It sends a TERMINATE signal to the server and removes
+        the pipeline from the runspace pool's pipeline registry.
+
+        :raises InvalidPipelineStateError: If the pipeline is not in a terminal
+            state (COMPLETED, STOPPED, or FAILED)
+        """
+        valid_states = [PSInvocationState.COMPLETED, PSInvocationState.STOPPED, PSInvocationState.FAILED]
+        if self.state == PSInvocationState.NOT_STARTED:
+            return
+        elif self.state not in valid_states:
+            raise InvalidPipelineStateError(self.state, valid_states, "close a PowerShell pipeline")
+
+        self.runspace_pool.shell.signal(SignalCode.TERMINATE, command_id=self._command_id or self.id)
+        self.runspace_pool.pipelines.pop(self.id, None)
+
     def connect(self):
         """
         Connects to a running command on a remote server, waits until the
@@ -1124,8 +1217,14 @@ class PowerShell(object):
             values. Will default to returning the invocation info on all
         """
         log.info("Beginning remote Pipeline invocation")
-        if self.state != PSInvocationState.NOT_STARTED:
-            raise InvalidPipelineStateError(self.state, PSInvocationState.NOT_STARTED, "start a PowerShell pipeline")
+        valid_states = [
+            PSInvocationState.NOT_STARTED,
+            PSInvocationState.STOPPED,
+            PSInvocationState.COMPLETED,
+            PSInvocationState.FAILED,
+        ]
+        if self.state not in valid_states:
+            raise InvalidPipelineStateError(self.state, valid_states, "start a PowerShell pipeline")
 
         if len(self.commands) == 0:
             raise InvalidPSRPOperation("Cannot invoke PowerShell without any commands being set")
@@ -1414,13 +1513,15 @@ class PowerShell(object):
         self.state = PSInvocationState.STOPPING
         self.runspace_pool.shell.signal(SignalCode.PS_CTRL_C, str(self.id).upper())
         self.state = PSInvocationState.STOPPED
-        del self.runspace_pool.pipelines[self.id]
+        self.runspace_pool.pipelines.pop(self.id, None)
 
     def _invoke(
         self,
         msg: ComplexObject,
     ) -> None:
         fragments = self.runspace_pool._fragmenter.fragment(msg, self.runspace_pool.id, self.id)
+
+        self.runspace_pool.pipelines[self.id] = self
 
         # send first fragment as Command message
         first_frag = base64.b64encode(fragments.pop(0)).decode("utf-8")

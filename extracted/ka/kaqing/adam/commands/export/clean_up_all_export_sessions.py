@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.export.export_sessions import export_session
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class CleanUpAllExportSessions(Command):
     COMMAND = 'clean up all export sessions'

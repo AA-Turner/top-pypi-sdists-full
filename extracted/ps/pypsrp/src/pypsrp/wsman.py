@@ -1,20 +1,21 @@
 # Copyright: (c) 2018, Jordan Borean (@jborean93) <jborean93@gmail.com>
 # MIT License (see LICENSE or https://opensource.org/licenses/MIT)
 
-from __future__ import division
+from __future__ import annotations
 
 import ipaddress
 import logging
 import re
+import time
 import typing
 import uuid
 import warnings
 import xml.etree.ElementTree as ET
-from xml.dom.minidom import Element
 
 import requests
 from requests.packages.urllib3.util.retry import Retry
 
+from pypsrp import _pool_manager
 from pypsrp._utils import get_hostname, to_string, to_unicode
 from pypsrp.encryption import WinRMEncryption
 from pypsrp.exceptions import (
@@ -40,7 +41,7 @@ log = logging.getLogger(__name__)
 SUPPORTED_AUTHS = ["basic", "certificate", "credssp", "kerberos", "negotiate", "ntlm"]
 
 AUTH_KWARGS: typing.Dict[str, typing.List[str]] = {
-    "certificate": ["certificate_key_pem", "certificate_pem"],
+    "certificate": ["certificate_key_pem", "certificate_pem", "certificate_key_password"],
     "credssp": ["credssp_auth_mechanism", "credssp_disable_tlsv1_2", "credssp_minimum_version"],
     "negotiate": ["negotiate_delegate", "negotiate_hostname_override", "negotiate_send_cbt", "negotiate_service"],
 }
@@ -364,7 +365,18 @@ class WSMan(object):
         selector_set: typing.Optional["SelectorSet"] = None,
         timeout: typing.Optional[int] = None,
     ) -> ET.Element:
-        res = self.invoke(WSManAction.RECEIVE, resource_uri, resource, option_set, selector_set, timeout)
+        # Receiving data can sometimes timeout if the server has bounced the
+        # network adapter. Luckily just sending the exact same request again
+        # will return the same data so we can safely retry
+        res = self.invoke(
+            WSManAction.RECEIVE,
+            resource_uri,
+            resource,
+            option_set,
+            selector_set,
+            timeout,
+            retries_on_read_timeout=5,
+        )
         return res.find("s:Body", namespaces=NAMESPACES)  # type: ignore[return-value] # WSMan always has this present
 
     def reconnect(
@@ -437,6 +449,8 @@ class WSMan(object):
         option_set: typing.Optional["OptionSet"] = None,
         selector_set: typing.Optional["SelectorSet"] = None,
         timeout: typing.Optional[int] = None,
+        *,
+        retries_on_read_timeout: int = 0,
     ) -> ET.Element:
         """
         Send a generic WSMan request to the host.
@@ -451,10 +465,20 @@ class WSMan(object):
         :param selector_set: a wsman.SelectorSet to add to the request
         :param timeout: Override the default wsman:OperationTimeout value for
             the request, this should be an int in seconds.
+        :param retries_on_read_timeout: The number of retries to attempt if the
+            request fails due to a read timeout.
         :return: The ET Element of the response XML from the server
         """
         s = NAMESPACES["s"]
         envelope = ET.Element("{%s}Envelope" % s)
+
+        http_timeout = None
+        if timeout:
+            # Failsafe if the operation timeout exceeds we don't want the
+            # request to hang indefinitely. The HTTP timeout needs to be more
+            # than the WSMan timeout as we cannot guarantee a WSMan response
+            # until the operation timeout is hit.
+            http_timeout = timeout + 2
 
         message_id, header = self._create_header(action, resource_uri, option_set, selector_set, timeout)
         message_id = f"uuid:{message_id}"
@@ -467,7 +491,11 @@ class WSMan(object):
         xml = ET.tostring(envelope, encoding="utf-8", method="xml")
 
         try:
-            response = self.transport.send(xml)
+            response = self.transport.send(
+                xml,
+                retries_on_read_timeout=retries_on_read_timeout,
+                timeout=http_timeout,
+            )
         except WinRMTransportError as err:
             try:
                 # try and parse the XML and get the WSManFault
@@ -570,9 +598,9 @@ class WSMan(object):
         ET.SubElement(header, "{%s}OperationTimeout" % wsman).text = "PT%sS" % str(timeout or self.operation_timeout)
 
         reply_to = ET.SubElement(header, "{%s}ReplyTo" % wsa)
-        ET.SubElement(
-            reply_to, "{%s}Address" % wsa, attrib={"{%s}mustUnderstand" % s: "true"}
-        ).text = "http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous"
+        ET.SubElement(reply_to, "{%s}Address" % wsa, attrib={"{%s}mustUnderstand" % s: "true"}).text = (
+            "http://schemas.xmlsoap.org/ws/2004/08/addressing/role/anonymous"
+        )
 
         ET.SubElement(header, "{%s}ResourceURI" % wsman, attrib={"{%s}mustUnderstand" % s: "true"}).text = resource_uri
 
@@ -617,7 +645,7 @@ class WSMan(object):
             if reason_info is not None:
                 reason = reason_info.text
 
-        wsman_fault = fault.find("s:Detail/wsmanfault:WSManFault", namespaces=NAMESPACES) if fault else None
+        wsman_fault = fault.find("s:Detail/wsmanfault:WSManFault", namespaces=NAMESPACES) if fault is not None else None
         if wsman_fault is not None:
             code = wsman_fault.attrib.get("Code", code)
             machine = wsman_fault.attrib.get("Machine")
@@ -772,6 +800,7 @@ class _TransportHTTP(object):
 
         self.certificate_key_pem: typing.Optional[str] = None
         self.certificate_pem: typing.Optional[str] = None
+        self.certificate_key_password: typing.Optional[str] = None
         for kwarg_list in AUTH_KWARGS.values():
             for kwarg in kwarg_list:
                 setattr(self, kwarg, kwargs.get(kwarg, None))
@@ -790,17 +819,35 @@ class _TransportHTTP(object):
         if self.session:
             self.session.close()
 
-    def send(self, message: bytes) -> bytes:
+    def send(
+        self,
+        message: bytes,
+        *,
+        retries_on_read_timeout: int = 0,
+        timeout: int | float | tuple[int | float, int | float] | None = None,
+    ) -> bytes:
         hostname = get_hostname(self.endpoint)
         if self.session is None:
             self.session = self._build_session()
 
+        attempt = 0
+        while True:
             # need to send an initial blank message to setup the security
             # context required for encryption
-            if self.wrap_required:
+            if self.wrap_required and not self.encryption:
                 request = requests.Request("POST", self.endpoint, data=None)
                 prep_request = self.session.prepare_request(request)
-                self._send_request(prep_request)
+
+                try:
+                    self._send_request(prep_request, timeout=timeout)
+                except (requests.ReadTimeout, requests.ConnectTimeout) as e:
+                    log.exception("%s during initial authentication request - attempt %d", type(e).__name__, attempt)
+                    if attempt == retries_on_read_timeout:
+                        raise
+
+                    attempt += 1
+                    time.sleep(self.reconnection_backoff * (2**attempt))
+                    continue
 
                 protocol = WinRMEncryption.SPNEGO
                 if isinstance(self.session.auth, HttpCredSSPAuth):
@@ -811,33 +858,55 @@ class _TransportHTTP(object):
 
                 self.encryption = WinRMEncryption(self.session.auth.contexts[hostname], protocol)  # type: ignore[union-attr] # This should not happen
 
-        if log.isEnabledFor(logging.DEBUG):
-            log.debug("Sending message: %s" % message.decode("utf-8"))
-        # for testing, keep commented out
-        # self._test_messages.append({"request": message.decode('utf-8'),
-        #                             "response": None})
+            if log.isEnabledFor(logging.DEBUG):
+                log.debug("Sending message on attempt %d: %s" % (attempt, message.decode("utf-8")))
+            # for testing, keep commented out
+            # self._test_messages.append({"request": message.decode('utf-8'),
+            #                             "response": None})
 
-        headers = self.session.headers
-        if self.wrap_required:
-            content_type, payload = self.encryption.wrap_message(message)  # type: ignore[union-attr] # This should not happen
-            protocol = self.encryption.protocol if self.encryption else WinRMEncryption.SPNEGO
-            type_header = '%s;protocol="%s";boundary="Encrypted Boundary"' % (content_type, protocol)
-            headers.update(
-                {
-                    "Content-Type": type_header,
-                    "Content-Length": str(len(payload)),
-                }
-            )
-        else:
-            payload = message
-            headers["Content-Type"] = "application/soap+xml;charset=UTF-8"
+            headers = self.session.headers.copy()  # type: ignore[attr-defined] # We cannot use copy.copy as it still is a ref to the original.
+            if self.wrap_required:
+                content_type, payload = self.encryption.wrap_message(message)  # type: ignore[union-attr] # This should not happen
+                protocol = self.encryption.protocol if self.encryption else WinRMEncryption.SPNEGO
+                type_header = '%s;protocol="%s";boundary="Encrypted Boundary"' % (content_type, protocol)
+                headers.update(
+                    {
+                        "Content-Type": type_header,
+                        "Content-Length": str(len(payload)),
+                    }
+                )
+            else:
+                payload = message
+                headers["Content-Type"] = "application/soap+xml;charset=UTF-8"
 
-        request = requests.Request("POST", self.endpoint, data=payload, headers=headers)
-        prep_request = self.session.prepare_request(request)
-        return self._send_request(prep_request)
+            request = requests.Request("POST", self.endpoint, data=payload, headers=headers)
+            prep_request = self.session.prepare_request(request)
+            try:
+                return self._send_request(
+                    prep_request,
+                    timeout=timeout,
+                )
+            except (requests.ReadTimeout, requests.ConnectTimeout) as e:
+                log.exception("%s during WSMan request - attempt %d", type(e).__name__, attempt)
+                if attempt == retries_on_read_timeout:
+                    raise
 
-    def _send_request(self, request: requests.PreparedRequest) -> bytes:
-        response = self.session.send(request, timeout=(self.connection_timeout, self.read_timeout))  # type: ignore[union-attr] # This should not happen
+                # On a failure the encryption state is invalidated and needs to
+                # be recreated after authentication is done.
+                self.encryption = None
+
+                attempt += 1
+                time.sleep(self.reconnection_backoff * (2**attempt - 1))
+
+    def _send_request(
+        self,
+        request: requests.PreparedRequest,
+        timeout: int | float | tuple[int | float, int | float] | None = None,
+    ) -> bytes:
+        response = self.session.send(  # type: ignore[union-attr] # This should not happen
+            request,
+            timeout=timeout if timeout is not None else (self.connection_timeout, self.read_timeout),
+        )
 
         content_type = response.headers.get("content-type", "")
         if content_type.startswith("multipart/encrypted;") or content_type.startswith("multipart/x-multi-encrypted;"):
@@ -878,7 +947,7 @@ class _TransportHTTP(object):
 
         # get the env requests settings
         session.trust_env = True
-        settings = session.merge_environment_settings(  # type: ignore[no-untyped-call] # Not in types-requests
+        settings = session.merge_environment_settings(
             url=self.endpoint, proxies={}, stream=None, verify=None, cert=None
         )
 
@@ -915,8 +984,14 @@ class _TransportHTTP(object):
             del retry_kwargs["status"]
             retries = Retry(**retry_kwargs)
 
-        session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retries))
-        session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
+        session.mount(
+            "http://",
+            _pool_manager.create_request_adapter(max_retries=retries),
+        )
+        session.mount(
+            "https://",
+            _pool_manager.create_request_adapter(max_retries=retries, key_password=self.certificate_key_password),
+        )
 
         # set cert validation config
         session.verify = self.cert_validation
@@ -954,6 +1029,9 @@ class _TransportHTTP(object):
         if self.ssl is False:
             raise ValueError("For certificate auth, SSL must be used")
 
+        # requests does not expose the password through the cert tuple. If set
+        # it'll be passed to urllib3 through the custom adapter created for the
+        # session.
         session.cert = (self.certificate_pem, self.certificate_key_pem)
         session.headers["Authorization"] = "http://schemas.dmtf.org/wbem/wsman/1/wsman/secprofile/https/mutual"
 

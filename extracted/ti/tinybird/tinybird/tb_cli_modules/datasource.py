@@ -728,9 +728,7 @@ async def datasource_copy_from_main(
         click.echo(FeedbackManager.error_exception(error="Use --sql or --sql-from-main"))
         return
 
-    response = await client.datasource_query_copy(
-        datasource_name, sql if sql else f"SELECT * FROM main.{datasource_name}"
-    )
+    response = await client.datasource_query_copy(datasource_name, sql or f"SELECT * FROM main.{datasource_name}")
     if "job" not in response:
         raise Exception(response)
     job_id = response["job"]["job_id"]

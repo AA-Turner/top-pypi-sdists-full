@@ -1,14 +1,20 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-import builtins
-from collections.abc import Callable, Iterable, Mapping, MutableMapping
 from typing import Any
 
-from .contexts import ParseContext
-from .exceptions import SemanticError
-from .objectmodel import BASE_CLASS_TOKEN, Node
-from .synth import registered_symthetics, synthesize
-from .util import simplify_list
+from .builder import (
+    ModelBuilderSemantics,
+    TypeContainer,
+)
+from .util.abctools import simplify_list
+
+__all__ = [
+    'ASTSemantics',
+    'ModelBuilderSemantics',
+    'TypeContainer',
+]
 
 
 class ASTSemantics:
@@ -25,81 +31,3 @@ class ASTSemantics:
         if len(ast) == 1:
             return simplify_list(ast[0])
         return ast
-
-
-class ModelBuilderSemantics:
-    """Intended as a semantic action for parsing, a ModelBuilderSemantics creates
-    nodes using the class name given as first parameter to a grammar
-    rule, and synthesizes the class/type if it's not known.
-    """
-
-    def __init__(
-            self,
-            context: ParseContext | None = None,
-            base_type: type[Node] = Node,
-            types: Iterable[Callable] | None = None):
-        self.ctx = context
-        self.base_type = base_type
-
-        self.constructors: MutableMapping[str, Callable] = {}
-
-        for t in types or ():
-            self._register_constructor(t)
-
-    def _register_constructor(self, constructor: Callable) -> Callable:
-        if hasattr(constructor, '__name__') and isinstance(constructor.__name__, str):
-            self.constructors[str(constructor.__name__)] = constructor
-        return constructor
-
-    def _find_existing_constructor(self, typename: str) -> Callable | None:
-        context: Mapping[Any, Any] = vars(builtins) | registered_symthetics()
-        constructor = context.get(typename)
-        if constructor is not None:
-            return constructor
-
-        for name in typename.split('.'):
-            if name not in context:
-                return None
-
-            constructor = context[name]
-            if hasattr(constructor, '__dict__'):
-                context = vars(constructor)
-            else:
-                context = {}
-
-        return constructor
-
-    def _get_constructor(self, typename, base):
-        typename = str(typename)
-
-        if typename in self.constructors:
-            return self.constructors[typename]
-
-        constructor = self._find_existing_constructor(typename)
-        if not constructor:
-            constructor = synthesize(typename, base)
-
-        return self._register_constructor(constructor)
-
-    def _default(self, ast, *args, **kwargs):
-        if not args:
-            return ast
-
-        typespec = args[0].split(BASE_CLASS_TOKEN)
-        typename = typespec[0]
-        bases = typespec[-1:0:-1]
-
-        base = self.base_type
-        for base_ in bases:
-            base = self._get_constructor(base_, base)
-
-        constructor = self._get_constructor(typename, base)
-        try:
-            if isinstance(constructor, type) and issubclass(constructor, Node):
-                return constructor(ast=ast, ctx=self.ctx, **kwargs)
-            else:
-                return constructor(ast, *args[1:], **kwargs)
-        except Exception as e:
-            raise SemanticError(
-                f'Could not call constructor for {typename}: {e!s}',
-            ) from e

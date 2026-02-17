@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import copy
 import sys
 from collections.abc import Iterable
 from dataclasses import dataclass
+from inspect import isclass
 from types import NoneType
 from typing import (
     Any,
+    cast,
     get_args,
     get_type_hints,
 )
@@ -32,12 +35,46 @@ class FuncSignatureError(Exception):
         return "{}(): {}".format(self._func, self.args[0])
 
 
-def is_hashable(obj: object) -> bool:
+def hashable_elem_if_is_set(iterable_of: object, elem: object) -> bool:
+    if getattr(iterable_of, "type") not in {set, frozenset}:
+        return True
     try:
-        hash(obj)
-    except TypeError:
+        hash(elem)
+    except Exception:
         return False
     return True
+
+# In PyPy, some objects can practically perform iter operation
+# without __iter__() by using __getitem__(), so isinstance is
+# usesless there
+def can_practically_iter(thing: object) -> bool:
+    if hasattr(thing, '__next__') and not isclass(thing):
+        return True
+    try:
+        for _ in cast(Any, thing):
+            pass
+    except Exception:
+        return False
+    else:
+        return True
+
+# Some objects can be iterated to yield nothing, like enumerate(()).
+# They become false positives because no exception is raised.
+def is_iterator_of_nothing(thing: Any) -> bool:
+    if not hasattr(thing, "__next__") or isclass(thing):
+        return False
+    try:
+        thing_copy = copy.deepcopy(thing)  # copy.copy won't do
+    except TypeError:
+        # no choice, can't test iterator without changing it
+        # assume hypothesis frequently emits empty iterator objects
+        return True
+    try:
+        _ = next(thing_copy)
+    except StopIteration:
+        return True
+    else:
+        return False
 
 
 @dataclass

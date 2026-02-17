@@ -1,47 +1,38 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-import copy
-import dataclasses
 import re
-from collections.abc import Collection, MutableMapping
+import warnings
+from collections.abc import Collection
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, override
 
 from .tokenizing import NullTokenizer, Tokenizer
+from .util.configs import Config
 from .util.misc import cached_re_compile
+from .util.undefined import Undefined
 from .util.unicode_characters import C_DERIVE
 
-MEMO_CACHE_SIZE = 1024
-
-
-class UndefinedStr(str):
-    pass
-
-
-_undefined_str = UndefinedStr('>>undefined<<')
+MEMO_CACHE_SIZE = 4 * 1024
 
 
 @dataclass
-class ParserConfig:
+class ParserConfig(Config):
     name: str | None = 'Test'
     filename: str = ''
-    encoding: str = 'utf-8'
 
-    start: str | None = None  # FIXME
-    start_rule: str | None = None  # FIXME
-    rule_name: str | None = None  # Backward compatibility
-
-    comments_re: re.Pattern | str | None = None  # WARNING: deprecated
-    eol_comments_re: re.Pattern | str | None = None  # WARNING: deprecated
+    start: str | None = None
 
     tokenizercls: type[Tokenizer] = NullTokenizer
-    semantics: type | None = None
+    semantics: Any = None
 
     comment_recovery: bool = False
 
     memoization: bool = True
     memoize_lookaheads: bool = True
     memo_cache_size: int = MEMO_CACHE_SIZE
+    prune_memos_on_cut: bool = True
 
     colorize: bool = True  # INFO: requires the colorama library
     trace: bool = False
@@ -58,31 +49,23 @@ class ParserConfig:
     keywords: Collection[str] = field(default_factory=set)
 
     ignorecase: bool = False
-    namechars: str = ''
+    namechars: str | None = None
     nameguard: bool | None = None  # implied by namechars
-    whitespace: str | None = None
-    whitespace: str | None = _undefined_str  # type: ignore
+    whitespace: str | None = Undefined  # type: ignore
     parseinfo: bool = False
+
+    # WARNING: DEPRECATED: some old projects use these
+    owner: Any = None
+    extra: Any = None
+    start_rule: str | None = None
+    rule_name: str | None = None
+    comments_re: re.Pattern | str | None = None
+    eol_comments_re: re.Pattern | str | None = None
 
     def __post_init__(self):  # pylint: disable=W0235
         if self.ignorecase:
             self.keywords = {k.upper() for k in self.keywords}
-
-        if self.comments_re or self.eol_comments_re:
-            raise AttributeError(
-                "Both `comments_re` and `eol_comments_re` "
-                "have been removed from parser configuration. "
-                "Please use `comments` and/or `eol_comments` instead`.",
-            )
-        del self.comments_re
-        del self.eol_comments_re
-
-        if self.comments:
-            cached_re_compile(self.comments)
-        if self.eol_comments:
-            cached_re_compile(self.eol_comments)
-        if self.whitespace:
-            cached_re_compile(self.whitespace)
+        super().__post_init__()
 
         if not self.memoization:
             self.left_recursion = False
@@ -90,73 +73,66 @@ class ParserConfig:
         if self.namechars:
             self.nameguard = True
 
-    @classmethod
-    def new(
-        cls,
-        config: ParserConfig | None = None,
-        **settings: Any,
-    ) -> ParserConfig:
-        result = cls()
-        if config is not None:
-            result = config.replace_config(config)
-        return result.replace(**settings)
+        if isinstance(self.semantics, type):
+            raise TypeError(
+                f'semantics must be an object instance or None, not class {self.semantics!r}',
+            )
 
-    # NOTE:
-    #    Using functools.cache directly makes objects of this class unhashable
+        self._deprecate_and_compile_comments()
 
-    def effective_rule_name(self):
-        # note: there are legacy reasons for this mess
-        return self.start_rule or self.rule_name or self.start
+    def _deprecate_and_compile_comments(self):
+        # note: handle deprecations gracefully
+        if self.comments_re:
+            warnings.warn(
+                'ParserConfig.comments_re is deprecated: use `comments`',
+                stacklevel=3,
+            )
+            if not self.comments:
+                self.comments = str(self.comments_re)
+            del self.comments_re
 
-    def _find_common(self, **settings: Any) -> MutableMapping[str, Any]:
-        return {
-            name: value
-            for name, value in settings.items()
-            if value is not None and hasattr(self, name)
-        }
+        if self.eol_comments_re:
+            warnings.warn(
+                'ParserConfig.eol_comments_re is deprecated: use `eol_comments`',
+                stacklevel=3,
+            )
+            if not self.eol_comments:
+                self.eol_comments = str(self.eol_comments_re)
+            del self.eol_comments_re
 
-    def replace_config(
-            self, other: ParserConfig | None = None,
-        ) -> ParserConfig:
-        if other is None:
-            return self
-        elif not isinstance(other, ParserConfig):
-            raise TypeError(f'Unexpected type {type(other).__name__}')
-        else:
-            return self.replace(**vars(other))
+        if self.comments and isinstance(self.comments, str):
+            cached_re_compile(self.comments)
+        if self.eol_comments and not isinstance(self.eol_comments, re.Pattern):
+            cached_re_compile(self.eol_comments)
+        if self.whitespace and not isinstance(self.whitespace, re.Pattern):
+            cached_re_compile(self.whitespace)
 
-    # non-init fields cannot be used as arguments in `replace`, however
-    # they are values returned by `vars` and `dataclass.asdict` so they
-    # must be filtered out.
-    # If the `ParserConfig` dataclass drops these fields, then this filter can be removed
-    def _filter_non_init_fields(self, settings: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
-        for dcfield in [
-            f.name for f in dataclasses.fields(self) if not f.init
-        ]:
-            if dcfield in settings:
-                del settings[dcfield]
-        return settings
+        for name in ('start_rule', 'rule_name'):
+            if (value := getattr(self, name, None)) is None:
+                continue
+            warnings.warn(
+                message=(
+                    f'\nSetting {name}={value!r} is deprecated.'
+                    f' Use start={value!r} for the name of the start rule.'
+                ),
+                category=DeprecationWarning,
+                stacklevel=2,
+            )
+            break
+        self.start = self.effective_start_rule_name()
 
-    def replace(self, **settings: Any) -> ParserConfig:
-        if settings.get('whitespace') is _undefined_str:
-            del settings['whitespace']
-        settings = dict(self._filter_non_init_fields(settings))
-        overrides = self._filter_non_init_fields(self._find_common(**settings))
-        result = dataclasses.replace(self, **overrides)
-        if 'grammar' in overrides:
+    def effective_start_rule_name(self):
+        # NOTE: there are legacy reasons for this mess
+        return (
+            self.start
+            or getattr(self, 'start_rule', None)
+            or getattr(self, 'rule_name', None)
+        )
+
+    @override
+    def override(self, **settings: Any) -> ParserConfig:
+        result = super().override(**settings)
+        if 'grammar' in settings:
             result.name = result.grammar
+        self._deprecate_and_compile_comments()
         return result
-
-    def merge(self, **settings: Any) -> ParserConfig:
-        overrides = self._find_common(**settings)
-        overrides = {
-            name: value
-            for name, value in overrides.items()
-            if getattr(self, name, None) is None
-        }
-        return self.replace(**overrides)
-
-    def asdict(self):
-        # warning: it seems dataclasses.asdict does a deepcopy
-        # result = dataclasses.asdict(self)
-        return copy.copy(vars(self))

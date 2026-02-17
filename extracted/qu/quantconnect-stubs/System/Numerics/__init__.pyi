@@ -11,269 +11,80 @@ import System.Runtime.Intrinsics
 
 System_Numerics_Vector = typing.Any
 T = typing.Any
-System_Numerics_Vector4 = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
-System_Numerics_Vector2 = typing.Any
-System_Numerics_Plane = typing.Any
-System_Numerics_BFloat16 = typing.Any
-System_Numerics_Matrix4x4 = typing.Any
-System_Numerics_Vector3 = typing.Any
 System_Numerics_Quaternion = typing.Any
 System_Numerics_TotalOrderIeee754Comparer = typing.Any
+System_Numerics_Vector2 = typing.Any
+System_Numerics_BFloat16 = typing.Any
+System_Numerics_Vector4 = typing.Any
+System_Numerics_Matrix4x4 = typing.Any
+System_Numerics_Plane = typing.Any
+System_Numerics_Vector3 = typing.Any
 
-System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
-System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
-System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
-System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
+System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
 System_Numerics_IUnaryNegationOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TSelf")
 System_Numerics_IUnaryNegationOperators_TResult = typing.TypeVar("System_Numerics_IUnaryNegationOperators_TResult")
-System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
-System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
-System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
-System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
-System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
-System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
-System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
-System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
-System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
-System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
-System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
+System_Numerics_Vector_T = typing.TypeVar("System_Numerics_Vector_T")
+System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
 System_Numerics_IBitwiseOperators_TSelf = typing.TypeVar("System_Numerics_IBitwiseOperators_TSelf")
 System_Numerics_IBitwiseOperators_TOther = typing.TypeVar("System_Numerics_IBitwiseOperators_TOther")
 System_Numerics_IBitwiseOperators_TResult = typing.TypeVar("System_Numerics_IBitwiseOperators_TResult")
-System_Numerics_ITrigonometricFunctions_TSelf = typing.TypeVar("System_Numerics_ITrigonometricFunctions_TSelf")
-System_Numerics_IIncrementOperators_TSelf = typing.TypeVar("System_Numerics_IIncrementOperators_TSelf")
-System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
-System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
-System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
+System_Numerics_IMultiplicativeIdentity_TSelf = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TSelf")
+System_Numerics_IMultiplicativeIdentity_TResult = typing.TypeVar("System_Numerics_IMultiplicativeIdentity_TResult")
 System_Numerics_ISubtractionOperators_TSelf = typing.TypeVar("System_Numerics_ISubtractionOperators_TSelf")
 System_Numerics_ISubtractionOperators_TOther = typing.TypeVar("System_Numerics_ISubtractionOperators_TOther")
 System_Numerics_ISubtractionOperators_TResult = typing.TypeVar("System_Numerics_ISubtractionOperators_TResult")
-System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
+System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
+System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
 System_Numerics_IDivisionOperators_TSelf = typing.TypeVar("System_Numerics_IDivisionOperators_TSelf")
 System_Numerics_IDivisionOperators_TOther = typing.TypeVar("System_Numerics_IDivisionOperators_TOther")
 System_Numerics_IDivisionOperators_TResult = typing.TypeVar("System_Numerics_IDivisionOperators_TResult")
-System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
-System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
-System_Numerics_ISignedNumber_TSelf = typing.TypeVar("System_Numerics_ISignedNumber_TSelf")
-System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
-System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
-System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
-System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
-System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
-System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
-System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
-System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
-System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
-System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
 System_Numerics_TotalOrderIeee754Comparer_T = typing.TypeVar("System_Numerics_TotalOrderIeee754Comparer_T")
-System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
+System_Numerics_IMultiplyOperators_TSelf = typing.TypeVar("System_Numerics_IMultiplyOperators_TSelf")
+System_Numerics_IMultiplyOperators_TOther = typing.TypeVar("System_Numerics_IMultiplyOperators_TOther")
+System_Numerics_IMultiplyOperators_TResult = typing.TypeVar("System_Numerics_IMultiplyOperators_TResult")
+System_Numerics_IMinMaxValue_TSelf = typing.TypeVar("System_Numerics_IMinMaxValue_TSelf")
 System_Numerics_IDecrementOperators_TSelf = typing.TypeVar("System_Numerics_IDecrementOperators_TSelf")
-System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
-System_Numerics_IFloatingPointConstants_TSelf = typing.TypeVar("System_Numerics_IFloatingPointConstants_TSelf")
+System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
 System_Numerics_IComparisonOperators_TSelf = typing.TypeVar("System_Numerics_IComparisonOperators_TSelf")
 System_Numerics_IComparisonOperators_TOther = typing.TypeVar("System_Numerics_IComparisonOperators_TOther")
 System_Numerics_IComparisonOperators_TResult = typing.TypeVar("System_Numerics_IComparisonOperators_TResult")
-System_Numerics_INumberBase_TSelf = typing.TypeVar("System_Numerics_INumberBase_TSelf")
+System_Numerics_IAdditiveIdentity_TSelf = typing.TypeVar("System_Numerics_IAdditiveIdentity_TSelf")
+System_Numerics_IAdditiveIdentity_TResult = typing.TypeVar("System_Numerics_IAdditiveIdentity_TResult")
+System_Numerics_IEqualityOperators_TSelf = typing.TypeVar("System_Numerics_IEqualityOperators_TSelf")
+System_Numerics_IEqualityOperators_TOther = typing.TypeVar("System_Numerics_IEqualityOperators_TOther")
+System_Numerics_IEqualityOperators_TResult = typing.TypeVar("System_Numerics_IEqualityOperators_TResult")
 System_Numerics_IBinaryNumber_TSelf = typing.TypeVar("System_Numerics_IBinaryNumber_TSelf")
+System_Numerics_IModulusOperators_TSelf = typing.TypeVar("System_Numerics_IModulusOperators_TSelf")
+System_Numerics_IModulusOperators_TOther = typing.TypeVar("System_Numerics_IModulusOperators_TOther")
+System_Numerics_IModulusOperators_TResult = typing.TypeVar("System_Numerics_IModulusOperators_TResult")
 System_Numerics_IFloatingPoint_TSelf = typing.TypeVar("System_Numerics_IFloatingPoint_TSelf")
+System_Numerics_IBinaryFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IBinaryFloatingPointIeee754_TSelf")
+System_Numerics_IShiftOperators_TSelf = typing.TypeVar("System_Numerics_IShiftOperators_TSelf")
+System_Numerics_IShiftOperators_TOther = typing.TypeVar("System_Numerics_IShiftOperators_TOther")
+System_Numerics_IShiftOperators_TResult = typing.TypeVar("System_Numerics_IShiftOperators_TResult")
+System_Numerics_IBinaryInteger_TSelf = typing.TypeVar("System_Numerics_IBinaryInteger_TSelf")
+System_Numerics_IRootFunctions_TSelf = typing.TypeVar("System_Numerics_IRootFunctions_TSelf")
+System_Numerics_IUnaryPlusOperators_TSelf = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TSelf")
+System_Numerics_IUnaryPlusOperators_TResult = typing.TypeVar("System_Numerics_IUnaryPlusOperators_TResult")
+System_Numerics_IUnsignedNumber_TSelf = typing.TypeVar("System_Numerics_IUnsignedNumber_TSelf")
+System_Numerics_ILogarithmicFunctions_TSelf = typing.TypeVar("System_Numerics_ILogarithmicFunctions_TSelf")
+System_Numerics_IExponentialFunctions_TSelf = typing.TypeVar("System_Numerics_IExponentialFunctions_TSelf")
+System_Numerics_INumber_TSelf = typing.TypeVar("System_Numerics_INumber_TSelf")
+System_Numerics_IPowerFunctions_TSelf = typing.TypeVar("System_Numerics_IPowerFunctions_TSelf")
+System_Numerics_IFloatingPointIeee754_TSelf = typing.TypeVar("System_Numerics_IFloatingPointIeee754_TSelf")
+System_Numerics_IHyperbolicFunctions_TSelf = typing.TypeVar("System_Numerics_IHyperbolicFunctions_TSelf")
+System_Numerics_IAdditionOperators_TSelf = typing.TypeVar("System_Numerics_IAdditionOperators_TSelf")
+System_Numerics_IAdditionOperators_TOther = typing.TypeVar("System_Numerics_IAdditionOperators_TOther")
+System_Numerics_IAdditionOperators_TResult = typing.TypeVar("System_Numerics_IAdditionOperators_TResult")
 
 
-class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
+class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def x(self) -> float:
-        ...
 
-    @x.setter
-    def x(self, value: float) -> None:
-        ...
-
-    @property
-    def y(self) -> float:
-        ...
-
-    @y.setter
-    def y(self, value: float) -> None:
-        ...
-
-    @property
-    def z(self) -> float:
-        ...
-
-    @z.setter
-    def z(self, value: float) -> None:
-        ...
-
-    @property
-    def w(self) -> float:
-        ...
-
-    @w.setter
-    def w(self, value: float) -> None:
-        ...
-
-    ZERO: System.Numerics.Quaternion
-
-    IDENTITY: System.Numerics.Quaternion
-
-    @property
-    def is_identity(self) -> bool:
-        ...
-
-    def __add__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    def __eq__(self, value_2: System.Numerics.Quaternion) -> bool:
-        ...
-
-    def __getitem__(self, index: int) -> float:
-        ...
-
-    def __iadd__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @overload
-    def __imul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @overload
-    def __imul__(self, value_2: float) -> System.Numerics.Quaternion:
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float, w: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, vector_part: System.Numerics.Vector3, scalar_part: float) -> None:
-        ...
-
-    def __isub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    def __itruediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @overload
-    def __mul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @overload
-    def __mul__(self, value_2: float) -> System.Numerics.Quaternion:
-        ...
-
-    def __ne__(self, value_2: System.Numerics.Quaternion) -> bool:
-        ...
-
-    def __neg__(self) -> System.Numerics.Quaternion:
-        ...
-
-    def __setitem__(self, index: int, value: float) -> None:
-        ...
-
-    def __sub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    def __truediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def add(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def concatenate(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def conjugate(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def create(x: float, y: float, z: float, w: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def create(vector_part: System.Numerics.Vector3, scalar_part: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def create_from_axis_angle(axis: System.Numerics.Vector3, angle: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def create_from_rotation_matrix(matrix: System.Numerics.Matrix4x4) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def create_from_yaw_pitch_roll(yaw: float, pitch: float, roll: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def divide(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def dot(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion) -> float:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Quaternion) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def inverse(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    def length(self) -> float:
-        ...
-
-    def length_squared(self) -> float:
-        ...
-
-    @staticmethod
-    def lerp(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion, amount: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    @overload
-    def multiply(value_1: System.Numerics.Quaternion, value_2: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def negate(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def slerp(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion, amount: float) -> System.Numerics.Quaternion:
-        ...
-
-    @staticmethod
-    def subtract(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
-        ...
-
-    def to_string(self) -> str:
-        ...
+class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
 
 class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
@@ -941,6 +752,103 @@ class Vector3(System.IEquatable[System_Numerics_Vector3], System.IFormattable):
         ...
 
 
+class Plane(System.IEquatable[System_Numerics_Plane]):
+    """This class has no documentation."""
+
+    @property
+    def normal(self) -> System.Numerics.Vector3:
+        ...
+
+    @normal.setter
+    def normal(self, value: System.Numerics.Vector3) -> None:
+        ...
+
+    @property
+    def d(self) -> float:
+        ...
+
+    @d.setter
+    def d(self, value: float) -> None:
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Plane) -> bool:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float, d: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, value: System.Numerics.Vector4) -> None:
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Plane) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def create(value: System.Numerics.Vector4) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    @overload
+    def create(normal: System.Numerics.Vector3, d: float) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    @overload
+    def create(x: float, y: float, z: float, d: float) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
+        ...
+
+    @staticmethod
+    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        ...
+
+    @staticmethod
+    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Plane) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
+        ...
+
+    @staticmethod
+    @overload
+    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
+        ...
+
+
 class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
     """This class has no documentation."""
 
@@ -1447,6 +1355,203 @@ class Matrix4x4(System.IEquatable[System_Numerics_Matrix4x4]):
         ...
 
     def with_row(self, index: int, value: System.Numerics.Vector4) -> System.Numerics.Matrix4x4:
+        ...
+
+
+class Quaternion(System.IEquatable[System_Numerics_Quaternion]):
+    """This class has no documentation."""
+
+    @property
+    def x(self) -> float:
+        ...
+
+    @x.setter
+    def x(self, value: float) -> None:
+        ...
+
+    @property
+    def y(self) -> float:
+        ...
+
+    @y.setter
+    def y(self, value: float) -> None:
+        ...
+
+    @property
+    def z(self) -> float:
+        ...
+
+    @z.setter
+    def z(self, value: float) -> None:
+        ...
+
+    @property
+    def w(self) -> float:
+        ...
+
+    @w.setter
+    def w(self, value: float) -> None:
+        ...
+
+    ZERO: System.Numerics.Quaternion
+
+    IDENTITY: System.Numerics.Quaternion
+
+    @property
+    def is_identity(self) -> bool:
+        ...
+
+    def __add__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    def __eq__(self, value_2: System.Numerics.Quaternion) -> bool:
+        ...
+
+    def __getitem__(self, index: int) -> float:
+        ...
+
+    def __iadd__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @overload
+    def __imul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @overload
+    def __imul__(self, value_2: float) -> System.Numerics.Quaternion:
+        ...
+
+    @overload
+    def __init__(self, x: float, y: float, z: float, w: float) -> None:
+        ...
+
+    @overload
+    def __init__(self, vector_part: System.Numerics.Vector3, scalar_part: float) -> None:
+        ...
+
+    def __isub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    def __itruediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @overload
+    def __mul__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @overload
+    def __mul__(self, value_2: float) -> System.Numerics.Quaternion:
+        ...
+
+    def __ne__(self, value_2: System.Numerics.Quaternion) -> bool:
+        ...
+
+    def __neg__(self) -> System.Numerics.Quaternion:
+        ...
+
+    def __setitem__(self, index: int, value: float) -> None:
+        ...
+
+    def __sub__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    def __truediv__(self, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def add(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def concatenate(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def conjugate(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    @overload
+    def create(x: float, y: float, z: float, w: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    @overload
+    def create(vector_part: System.Numerics.Vector3, scalar_part: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def create_from_axis_angle(axis: System.Numerics.Vector3, angle: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def create_from_rotation_matrix(matrix: System.Numerics.Matrix4x4) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def create_from_yaw_pitch_roll(yaw: float, pitch: float, roll: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def divide(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def dot(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion) -> float:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.Quaternion) -> bool:
+        ...
+
+    def get_hash_code(self) -> int:
+        ...
+
+    @staticmethod
+    def inverse(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    def length(self) -> float:
+        ...
+
+    def length_squared(self) -> float:
+        ...
+
+    @staticmethod
+    def lerp(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion, amount: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    @overload
+    def multiply(value_1: System.Numerics.Quaternion, value_2: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def negate(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def normalize(value: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def slerp(quaternion_1: System.Numerics.Quaternion, quaternion_2: System.Numerics.Quaternion, amount: float) -> System.Numerics.Quaternion:
+        ...
+
+    @staticmethod
+    def subtract(value_1: System.Numerics.Quaternion, value_2: System.Numerics.Quaternion) -> System.Numerics.Quaternion:
+        ...
+
+    def to_string(self) -> str:
         ...
 
 
@@ -2803,103 +2908,6 @@ class Vector4(System.IEquatable[System_Numerics_Vector4], System.IFormattable):
         ...
 
 
-class Plane(System.IEquatable[System_Numerics_Plane]):
-    """This class has no documentation."""
-
-    @property
-    def normal(self) -> System.Numerics.Vector3:
-        ...
-
-    @normal.setter
-    def normal(self, value: System.Numerics.Vector3) -> None:
-        ...
-
-    @property
-    def d(self) -> float:
-        ...
-
-    @d.setter
-    def d(self, value: float) -> None:
-        ...
-
-    def __eq__(self, value_2: System.Numerics.Plane) -> bool:
-        ...
-
-    @overload
-    def __init__(self, x: float, y: float, z: float, d: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, normal: System.Numerics.Vector3, d: float) -> None:
-        ...
-
-    @overload
-    def __init__(self, value: System.Numerics.Vector4) -> None:
-        ...
-
-    def __ne__(self, value_2: System.Numerics.Plane) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def create(value: System.Numerics.Vector4) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    @overload
-    def create(normal: System.Numerics.Vector3, d: float) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    @overload
-    def create(x: float, y: float, z: float, d: float) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    def create_from_vertices(point_1: System.Numerics.Vector3, point_2: System.Numerics.Vector3, point_3: System.Numerics.Vector3) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    def dot(plane: System.Numerics.Plane, value: System.Numerics.Vector4) -> float:
-        ...
-
-    @staticmethod
-    def dot_coordinate(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        ...
-
-    @staticmethod
-    def dot_normal(plane: System.Numerics.Plane, value: System.Numerics.Vector3) -> float:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.Plane) -> bool:
-        ...
-
-    def get_hash_code(self) -> int:
-        ...
-
-    @staticmethod
-    def normalize(value: System.Numerics.Plane) -> System.Numerics.Plane:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, matrix: System.Numerics.Matrix4x4) -> System.Numerics.Plane:
-        ...
-
-    @staticmethod
-    @overload
-    def transform(plane: System.Numerics.Plane, rotation: System.Numerics.Quaternion) -> System.Numerics.Plane:
-        ...
-
-
 class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics.ISimdVector[System_Numerics_Vector, System_Numerics_Vector_T], System.IFormattable):
     """This class has no documentation."""
 
@@ -3081,12 +3089,12 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
 
     @staticmethod
     @overload
-    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
+    def as_vector_4(value: System.Numerics.Quaternion) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
     @overload
-    def as_vector_4(value: System.Numerics.Quaternion) -> System.Numerics.Vector4:
+    def as_vector_4(value: System.Numerics.Vector3) -> System.Numerics.Vector4:
         ...
 
     @staticmethod
@@ -3292,161 +3300,7 @@ class Vector(typing.Generic[System_Numerics_Vector_T], System.Runtime.Intrinsics
         ...
 
 
-class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class BitOperations(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def crc_32c(crc: int, data: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def is_pow_2(value: int) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_pow_2(value: System.IntPtr) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def is_pow_2(value: System.UIntPtr) -> bool:
-        ...
-
-    @staticmethod
-    @overload
-    def leading_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def leading_zero_count(value: System.UIntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def log_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def log_2(value: System.UIntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def pop_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def pop_count(value: System.UIntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def rotate_left(value: int, offset: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def rotate_left(value: System.UIntPtr, offset: int) -> System.UIntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def rotate_right(value: int, offset: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def rotate_right(value: System.UIntPtr, offset: int) -> System.UIntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def round_up_to_power_of_2(value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def round_up_to_power_of_2(value: System.UIntPtr) -> System.UIntPtr:
-        ...
-
-    @staticmethod
-    @overload
-    def trailing_zero_count(value: int) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def trailing_zero_count(value: System.IntPtr) -> int:
-        ...
-
-    @staticmethod
-    @overload
-    def trailing_zero_count(value: System.UIntPtr) -> int:
-        ...
-
-
-class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IShiftOperators[System_Numerics_IBinaryInteger_TSelf, int, System_Numerics_IBinaryInteger_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_byte_count(self) -> int:
-        ...
-
-    def get_shortest_bit_length(self) -> int:
-        ...
-
-    def try_write_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    def try_write_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
-        ...
-
-    @overload
-    def write_big_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_big_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_big_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-    @overload
-    def write_little_endian(self, destination: typing.List[int]) -> int:
-        ...
-
-    @overload
-    def write_little_endian(self, destination: typing.List[int], start_index: int) -> int:
-        ...
-
-    @overload
-    def write_little_endian(self, destination: System.Span[int]) -> int:
-        ...
-
-
-class IUnaryNegationOperators(typing.Generic[System_Numerics_IUnaryNegationOperators_TSelf, System_Numerics_IUnaryNegationOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
@@ -3732,6 +3586,174 @@ class Matrix3x2(System.IEquatable[System_Numerics_Matrix3x2]):
         ...
 
     def with_row(self, index: int, value: System.Numerics.Vector2) -> System.Numerics.Matrix3x2:
+        ...
+
+
+class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IMultiplicativeIdentity(typing.Generic[System_Numerics_IMultiplicativeIdentity_TSelf, System_Numerics_IMultiplicativeIdentity_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
+    """This class has no documentation."""
+
+    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        ...
+
+    @overload
+    def equals(self, obj: typing.Any) -> bool:
+        ...
+
+    @overload
+    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
+        ...
+
+    @overload
+    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
+        ...
+
+    @overload
+    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
+        ...
+
+    @overload
+    def get_hash_code(self) -> int:
+        ...
+
+
+class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class BitOperations(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def crc_32c(crc: int, data: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def is_pow_2(value: int) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_pow_2(value: System.IntPtr) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def is_pow_2(value: System.UIntPtr) -> bool:
+        ...
+
+    @staticmethod
+    @overload
+    def leading_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def leading_zero_count(value: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def log_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def log_2(value: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def pop_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def pop_count(value: System.UIntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def rotate_left(value: int, offset: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def rotate_left(value: System.UIntPtr, offset: int) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def rotate_right(value: int, offset: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def rotate_right(value: System.UIntPtr, offset: int) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def round_up_to_power_of_2(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def round_up_to_power_of_2(value: System.UIntPtr) -> System.UIntPtr:
+        ...
+
+    @staticmethod
+    @overload
+    def trailing_zero_count(value: int) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def trailing_zero_count(value: System.IntPtr) -> int:
+        ...
+
+    @staticmethod
+    @overload
+    def trailing_zero_count(value: System.UIntPtr) -> int:
+        ...
+
+
+class IMinMaxValue(typing.Generic[System_Numerics_IMinMaxValue_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
         ...
 
 
@@ -4331,85 +4353,11 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
         ...
 
 
-class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
+class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
-class IMultiplyOperators(typing.Generic[System_Numerics_IMultiplyOperators_TSelf, System_Numerics_IMultiplyOperators_TOther, System_Numerics_IMultiplyOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IBitwiseOperators(typing.Generic[System_Numerics_IBitwiseOperators_TSelf, System_Numerics_IBitwiseOperators_TOther, System_Numerics_IBitwiseOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ITrigonometricFunctions(typing.Generic[System_Numerics_ITrigonometricFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ITrigonometricFunctions_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ISubtractionOperators(typing.Generic[System_Numerics_ISubtractionOperators_TSelf, System_Numerics_ISubtractionOperators_TOther, System_Numerics_ISubtractionOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IDivisionOperators(typing.Generic[System_Numerics_IDivisionOperators_TSelf, System_Numerics_IDivisionOperators_TOther, System_Numerics_IDivisionOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ISignedNumber(typing.Generic[System_Numerics_ISignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_ISignedNumber_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class DivisionRounding(IntEnum):
-    """This class has no documentation."""
-
-    TRUNCATE = 0
-
-    FLOOR = 1
-
-    CEILING = 2
-
-    AWAY_FROM_ZERO = 3
-
-    EUCLIDEAN = 4
-
-
-class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
+class IAdditiveIdentity(typing.Generic[System_Numerics_IAdditiveIdentity_TSelf, System_Numerics_IAdditiveIdentity_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
@@ -4417,61 +4365,11 @@ class IEqualityOperators(typing.Generic[System_Numerics_IEqualityOperators_TSelf
     """This class has no documentation."""
 
 
-class TotalOrderIeee754Comparer(typing.Generic[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.Collections.Generic.IEqualityComparer[System_Numerics_TotalOrderIeee754Comparer_T], System.IEquatable[System_Numerics_TotalOrderIeee754Comparer]):
-    """This class has no documentation."""
-
-    def compare(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        ...
-
-    @overload
-    def equals(self, obj: typing.Any) -> bool:
-        ...
-
-    @overload
-    def equals(self, x: System_Numerics_TotalOrderIeee754Comparer_T, y: System_Numerics_TotalOrderIeee754Comparer_T) -> bool:
-        ...
-
-    @overload
-    def equals(self, other: System.Numerics.TotalOrderIeee754Comparer[System_Numerics_TotalOrderIeee754Comparer_T]) -> bool:
-        ...
-
-    @overload
-    def get_hash_code(self, obj: System_Numerics_TotalOrderIeee754Comparer_T) -> int:
-        ...
-
-    @overload
-    def get_hash_code(self) -> int:
-        ...
-
-
-class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IDecrementOperators(typing.Generic[System_Numerics_IDecrementOperators_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IFloatingPointConstants(typing.Generic[System_Numerics_IFloatingPointConstants_TSelf], System.Numerics.INumberBase[System_Numerics_IFloatingPointConstants_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class IComparisonOperators(typing.Generic[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], System.Numerics.IEqualityOperators[System_Numerics_IComparisonOperators_TSelf, System_Numerics_IComparisonOperators_TOther, System_Numerics_IComparisonOperators_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-
-class INumberBase(typing.Generic[System_Numerics_INumberBase_TSelf], System.Numerics.IAdditionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IAdditiveIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IDecrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IDivisionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IEquatable[System_Numerics_INumberBase_TSelf], System.Numerics.IEqualityOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, bool], System.Numerics.IIncrementOperators[System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplicativeIdentity[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IMultiplyOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.ISpanFormattable, System.ISpanParsable[System_Numerics_INumberBase_TSelf], System.Numerics.ISubtractionOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryPlusOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.Numerics.IUnaryNegationOperators[System_Numerics_INumberBase_TSelf, System_Numerics_INumberBase_TSelf], System.IUtf8SpanFormattable, System.IUtf8SpanParsable[System_Numerics_INumberBase_TSelf], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def try_format(self, utf_8_destination: System.Span[int], bytes_written: typing.Optional[int], format: System.ReadOnlySpan[str], provider: System.IFormatProvider) -> typing.Tuple[bool, int]:
-        ...
-
-
 class IBinaryNumber(typing.Generic[System_Numerics_IBinaryNumber_TSelf], System.Numerics.IBitwiseOperators[System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf, System_Numerics_IBinaryNumber_TSelf], System.Numerics.INumber[System_Numerics_IBinaryNumber_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IModulusOperators(typing.Generic[System_Numerics_IModulusOperators_TSelf, System_Numerics_IModulusOperators_TOther, System_Numerics_IModulusOperators_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
 
@@ -4549,5 +4447,107 @@ class IFloatingPoint(typing.Generic[System_Numerics_IFloatingPoint_TSelf], Syste
     @overload
     def write_significand_little_endian(self, destination: System.Span[int]) -> int:
         ...
+
+
+class IBinaryFloatingPointIeee754(typing.Generic[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryFloatingPointIeee754_TSelf], System.Numerics.IFloatingPointIeee754[System_Numerics_IBinaryFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IShiftOperators(typing.Generic[System_Numerics_IShiftOperators_TSelf, System_Numerics_IShiftOperators_TOther, System_Numerics_IShiftOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IBinaryInteger(typing.Generic[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IBinaryNumber[System_Numerics_IBinaryInteger_TSelf], System.Numerics.IShiftOperators[System_Numerics_IBinaryInteger_TSelf, int, System_Numerics_IBinaryInteger_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_byte_count(self) -> int:
+        ...
+
+    def get_shortest_bit_length(self) -> int:
+        ...
+
+    def try_write_big_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    def try_write_little_endian(self, destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @overload
+    def write_big_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_big_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_big_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+    @overload
+    def write_little_endian(self, destination: typing.List[int]) -> int:
+        ...
+
+    @overload
+    def write_little_endian(self, destination: typing.List[int], start_index: int) -> int:
+        ...
+
+    @overload
+    def write_little_endian(self, destination: System.Span[int]) -> int:
+        ...
+
+
+class IRootFunctions(typing.Generic[System_Numerics_IRootFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IRootFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IUnaryPlusOperators(typing.Generic[System_Numerics_IUnaryPlusOperators_TSelf, System_Numerics_IUnaryPlusOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IUnsignedNumber(typing.Generic[System_Numerics_IUnsignedNumber_TSelf], System.Numerics.INumberBase[System_Numerics_IUnsignedNumber_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class ILogarithmicFunctions(typing.Generic[System_Numerics_ILogarithmicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_ILogarithmicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IExponentialFunctions(typing.Generic[System_Numerics_IExponentialFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IExponentialFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class INumber(typing.Generic[System_Numerics_INumber_TSelf], System.IComparable[System_Numerics_INumber_TSelf], System.Numerics.IComparisonOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, bool], System.Numerics.IModulusOperators[System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf, System_Numerics_INumber_TSelf], System.Numerics.INumberBase[System_Numerics_INumber_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IPowerFunctions(typing.Generic[System_Numerics_IPowerFunctions_TSelf], System.Numerics.INumberBase[System_Numerics_IPowerFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class DivisionRounding(IntEnum):
+    """This class has no documentation."""
+
+    TRUNCATE = 0
+
+    FLOOR = 1
+
+    CEILING = 2
+
+    AWAY_FROM_ZERO = 3
+
+    EUCLIDEAN = 4
+
+
+class IFloatingPointIeee754(typing.Generic[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IExponentialFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IFloatingPoint[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IHyperbolicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ILogarithmicFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IPowerFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.IRootFunctions[System_Numerics_IFloatingPointIeee754_TSelf], System.Numerics.ITrigonometricFunctions[System_Numerics_IFloatingPointIeee754_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IHyperbolicFunctions(typing.Generic[System_Numerics_IHyperbolicFunctions_TSelf], System.Numerics.IFloatingPointConstants[System_Numerics_IHyperbolicFunctions_TSelf], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+
+class IAdditionOperators(typing.Generic[System_Numerics_IAdditionOperators_TSelf, System_Numerics_IAdditionOperators_TOther, System_Numerics_IAdditionOperators_TResult], metaclass=abc.ABCMeta):
+    """This class has no documentation."""
 
 

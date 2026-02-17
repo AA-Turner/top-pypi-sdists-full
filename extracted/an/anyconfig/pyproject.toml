@@ -1,0 +1,263 @@
+# .. seealso:: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
+[project]
+name = "anyconfig"
+requires-python = ">=3.9"
+dynamic = [
+    "version",
+]
+description = "Library provides common APIs to load and dump configuration files in various formats"
+readme = "README.rst"
+authors = [
+    {"name" = "Satoru SATOH", email = "satoru.satoh@gmail.com"},
+]
+maintainers = [
+    {"name" = "Satoru SATOH", email = "satoru.satoh@gmail.com"},
+]
+license = "MIT"
+license-files = [
+     "LICENSE.MIT", "AUTHORS.txt"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Environment :: Console",
+    "Operating System :: OS Independent",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Text Processing :: Markup",
+    "Topic :: Utilities",
+]
+# .. note:: It requires nothing at minimum.
+#dependencies = [
+#]
+
+[tool.setuptools.dynamic.version]
+attr = "anyconfig.api.__version__"
+
+[project.urls]
+Homepage = "https://github.com/ssato/python-anyconfig"
+Documentation = "http://python-anyconfig.readthedocs.org"
+Repository = "https://github.com/ssato/python-anyconfig"
+Issues = "https://github.com/ssato/python-anyconfig/issues"
+Changelog = "https://github.com/ssato/python-anyconfig/blob/next/NEWS"
+Download = "https://pypi.python.org/pypi/anyconfig"
+"Download RPMs" = "https://copr.fedoraproject.org/coprs/ssato/python-anyconfig/"
+CI = "https://github.com/ssato/python-anyconfig/actions"
+
+[build-system]
+requires = [
+    "setuptools >= 61.0",
+    "wheel",
+    "tox-uv",
+]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.package-dir]
+"" = "src"
+
+[tool.setuptools.package-data]
+anyconfig = [
+    "py.typed",
+]
+
+[tool.setuptools.packages.find]
+where = [
+    "src"
+]
+
+# [tool.setuptools.data_files]
+# share/man/man1 = [
+#     "docs/anyconfig_cli.1",
+# ]
+
+[project.optional-dependencies]
+yaml = [
+    "pyyaml",
+]
+toml = [
+    "tomli; python_version < '3.11'",
+    "tomli-w",
+]
+query = [
+    "jmespath",
+]
+schema = [
+    "jsonschema",
+]
+template = [
+    "Jinja2",
+]
+
+[project.scripts]
+anyconfig_cli = "anyconfig.cli:main"
+
+# .. seealso:: https://docs.pytest.org/en/stable/reference/customize.html#pyproject-toml
+[tool.pytest.ini_options]
+testpaths = [
+    "tests",
+]
+# addopts = "--cov=src -vv -rxXs --cov-report xml"
+addopts = "--cov=src -v -ra --cov-report xml -n auto"
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = [
+    "import-error",
+    "invalid-name",
+    "locally-disabled",
+    "too-many-ancestors",
+    "too-many-return-statements",
+]
+
+# .. seealso:: https://docs.astral.sh/ruff/settings/#top-level
+[tool.ruff]
+exclude = [
+    "tests/__init__.py",
+    "tests/*/__init__.py",
+    "tests/*/*/__init__.py",
+    "tests/res/*/*/*/*.py",
+    "tests/res/*/*/*/*/*.py",
+    "tests/res/*/*/*/*/*/*.py",
+    "tests/res/*/*/*/*/*/*/*.py",
+    "tests/res/*/*/*/*/*/*/*/*.py",
+]
+src = [
+    "src",
+    "tests",
+]
+
+[tool.ruff.lint]
+select = [
+    "ALL",
+]
+# This setting is intentional, although it breaks the rules.
+ignore = [
+    "ANN401",  # https://docs.astral.sh/ruff/rules/any-type/
+    "D203",  # Because it looks conflict with D211.
+             # https://docs.astral.sh/ruff/rules/incorrect-blank-line-before-class/
+    "D213",  # Because it looks conflict with D212.
+             # https://docs.astral.sh/ruff/rules/multi-line-summary-second-line/
+    "FIX002",  # https://docs.astral.sh/ruff/rules/line-contains-todo/
+    "I001",  # https://docs.astral.sh/ruff/rules/unsorted-imports/
+    "ICN001",  # https://docs.astral.sh/ruff/rules/unconventional-import-alias/
+    "RUF022",  # https://docs.astral.sh/ruff/rules/unsorted-dunder-all/
+    "TID252",  # https://docs.astral.sh/ruff/rules/relative-imports/
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"src/anyconfig/query/default.py" = ["ARG001"]
+"src/anyconfig/schema/default.py" = ["ARG001"]
+# "src/anyconfig/template/__init__.py" = ["ARG001"]
+"src/anyconfig/template/jinja2.py" = ["BLE001"]
+
+# .. todo:: security hardening
+# https://docs.astral.sh/ruff/rules/suspicious-xml-element-tree-usage/
+"src/anyconfig/backend/xml/etree.py" = ["S314"]
+
+"docs/*.py" = [
+    "INP001",
+]
+
+# TODO:
+"src/anyconfig/backend/yaml/pyyaml.py" = [
+    "TD003",  # https://docs.astral.sh/ruff/rules/missing-todo-link/
+    "FIX002",  # https://docs.astral.sh/ruff/rules/line-contains-todo/
+]
+
+"src/anyconfig/parser.py" = [
+    # https://docs.astral.sh/ruff/rules/non-pep604-annotation-optional/
+    "UP045",
+]
+
+"src/anyconfig/schema/datatypes.py" = [
+    "UP045",
+]
+
+# Ignored:
+"tests/*.py" = [
+    # https://docs.astral.sh/ruff/rules/missing-type-function-argument/
+    "ANN001",
+    "D103",  # https://docs.astral.sh/ruff/rules/undocumented-public-function/
+    "I001",  # https://docs.astral.sh/ruff/rules/unsorted-imports/
+    # https://docs.astral.sh/ruff/rules/lowercase-imported-as-non-lowercase/
+    "N812",
+    "S101",  # https://docs.astral.sh/ruff/rules/assert/
+    "TID252",  # https://docs.astral.sh/ruff/rules/relative-imports/
+]
+"tests/*/*.py" = [
+    "ANN001",
+    "D103",
+    "I001",
+    "N812",
+    "S101",
+    "TID252",
+]
+"tests/*/*/*.py" = [
+    "ANN001",
+    "D103",
+    "I001",
+    "N812",
+    "S101",
+    "TID252",
+]
+"tests/*/*/*/*.py" = [
+    "ANN001",
+    "D103",
+    "I001",
+    "N812",
+    "S101",
+    "TID252",
+]
+
+#[tool.ruff.lint.flake8-annotations]
+#[tool.ruff.lint.flake8-bandit]
+#[tool.ruff.lint.flake8-bugbear]
+[tool.ruff.lint.flake8-builtins]
+ignorelist = [
+    "open",  # for anyconfig.api.open
+]
+
+# .. note::
+# 
+#    The following options are not supported by pyproject.toml or I don't know
+#    how to port from setup.cfg.
+#
+#
+# [meta]
+# long_description =
+#     python-anyconfig is a python library provides common APIs to load and dump
+#     configuration files in various formats with some useful features such as
+#     contents merge, templates, query, schema validation and generation support.
+# 
+#     - Home: https://github.com/ssato/python-anyconfig
+#     - Author: Satoru SATOH <satoru.satoh@gmail.com>
+#     - License: MIT
+
+#[aliases]
+# dists = clean --all sdist bdist_wheel
+
+# .. note:: It's not well supported.
+# .. seealso:: https://github.com/pypa/packaging-problems/issues/72
+#
+# Disabled because it does not work in CentOS 8.
+# [options.data_files]
+# share/man/man1 =
+#         docs/anyconfig_cli.1
+
+# .. seealso:: https://stackoverflow.com/a/64487610
+#
+# [flake8]
+# per-file-ignores =
+#     tests/res/*/*/*/*.py: W605, B018
+#     tests/res/*/*/*/*/*.py: W605, B018
+# 
+# max-complexity = 10
+# select = C,E,F,W,B
+# 
+# # .. seealso:: https://www.flake8rules.com/rules/W504.html
+# ignore = W503

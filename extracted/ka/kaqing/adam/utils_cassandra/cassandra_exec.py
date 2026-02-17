@@ -1,6 +1,6 @@
 from typing import Union
 
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import NULL
@@ -10,7 +10,7 @@ def cassandra_exec(state: ReplState,
                    pod: str,
                    command: str,
                    action='bash',
-                   on_any = False,
+                   on_any: Union[bool, int] = False,
                    throw_err = False,
                    shell = '/bin/sh',
                    ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:

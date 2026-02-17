@@ -31,6 +31,8 @@ cdef class _ndarray_base:
     cpdef tofile(self, fid, sep=*, format=*)
     cpdef dump(self, file)
     cpdef bytes dumps(self)
+    cpdef _ndarray_base _astype(
+        self, dtype, order=*, casting=*, subok=*, copy=*)
     cpdef _ndarray_base astype(
         self, dtype, order=*, casting=*, subok=*, copy=*)
     cpdef _ndarray_base copy(self, order=*)
@@ -44,8 +46,8 @@ cdef class _ndarray_base:
     cpdef put(self, indices, values, mode=*)
     cpdef repeat(self, repeats, axis=*)
     cpdef choose(self, choices, out=*, mode=*)
-    cpdef sort(self, int axis=*)
-    cpdef _ndarray_base argsort(self, axis=*)
+    cpdef sort(self, int axis=*, kind=*)
+    cpdef _ndarray_base argsort(self, axis=*, kind=*)
     cpdef partition(self, kth, int axis=*)
     cpdef _ndarray_base argpartition(self, kth, axis=*)
     cpdef tuple nonzero(self)
@@ -75,9 +77,9 @@ cdef class _ndarray_base:
     cpdef get(self, stream=*, order=*, out=*, blocking=*)
     cpdef set(self, arr, stream=*)
     cpdef _ndarray_base reduced_view(self, dtype=*)
-    cpdef _update_c_contiguity(self)
-    cpdef _update_f_contiguity(self)
-    cpdef _update_contiguity(self)
+    cdef _update_c_contiguity(self)
+    cdef _update_f_contiguity(self)
+    cdef _update_contiguity(self)
     cpdef _set_shape_and_strides(self, const shape_t& shape,
                                  const strides_t& strides,
                                  bint update_c_contiguity,
@@ -86,7 +88,7 @@ cdef class _ndarray_base:
                              const strides_t& strides,
                              bint update_c_contiguity,
                              bint update_f_contiguity, obj)
-    cpdef _set_contiguous_strides(
+    cdef _set_contiguous_strides(
         self, Py_ssize_t itemsize, bint is_c_contiguous)
     cdef CPointer get_pointer(self)
     cpdef object toDlpack(self)
@@ -106,8 +108,9 @@ cpdef Module compile_with_cache(str source, tuple options=*, arch=*,
 
 
 # TODO(niboshi): Move to _routines_creation.pyx
+
 cpdef _ndarray_base array(
-    obj, dtype=*, bint copy=*, order=*, bint subok=*, Py_ssize_t ndmin=*,
+    obj, dtype=*, copy=*, order=*, bint subok=*, Py_ssize_t ndmin=*,
     bint blocking=*)
 cpdef _ndarray_base _convert_object_with_cuda_array_interface(a)
 
@@ -115,3 +118,31 @@ cdef _ndarray_base _ndarray_init(subtype, const shape_t& shape, dtype, obj)
 
 cdef _ndarray_base _create_ndarray_from_shape_strides(
     subtype, const shape_t& shape, const strides_t& strides, dtype, obj)
+
+
+cdef inline _ndarray_base _convert_from_cupy_like(
+        obj, error):
+    """Inline function to convert cupy array-likes to cupy ndarray.
+
+    Includes a check to allow passing a cupy.ndarray itself and converts the
+    protocols `__cuda_array_interface__` and `__cupy_get_ndarray__`.
+    Used where general GPU arrays should be supported but CPU arrays are not
+    supported or handled differently.
+
+    If `error` is False no error will be raised if conversion if the type
+    is not cupy-like and `None` is returned instead.
+    """
+    if isinstance(obj, _ndarray_base):
+        return <_ndarray_base>obj
+    elif hasattr(obj, "__cuda_array_interface__"):
+        return _convert_object_with_cuda_array_interface(obj)
+    elif hasattr(obj, "__cupy_get_ndarray__"):
+        return obj.__cupy_get_ndarray__()
+
+    if error is not False:
+        raise TypeError(
+            f'{error} has incorrect type '
+            f'(expected {_ndarray_base}, got {type(obj)}).'
+        )
+
+    return None

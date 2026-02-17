@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import copy
 import sys
 from collections.abc import Iterable
 from inspect import Parameter
@@ -24,6 +23,10 @@ from lxml.etree import (
 from lxml.html import HtmlElement
 
 from ._testutils import signature_tester, strategy as _st
+from ._testutils.common import (
+    can_practically_iter,
+    is_iterator_of_nothing,
+)
 from ._testutils.errors import (
     raise_attr_not_writable,
     raise_invalid_lxml_type,
@@ -94,7 +97,10 @@ class TestCSSSelectorArgs:
     @settings(max_examples=5)
     @given(iterable_of=_st.fixed_item_iterables())
     def test_css_arg_bad_2(self, iterable_of: Any) -> None:
-        with pytest.raises(TypeError, match=r"expected string or bytes-like object"):
+        with pytest.raises(
+            TypeError,
+            match=r"(expected string or bytes-like object|use a string pattern on a bytes-like object)",
+        ):
             _ = CSSSelector(iterable_of("#id"))
 
     def test_namespaces_arg_ok(
@@ -116,29 +122,6 @@ class TestCSSSelectorArgs:
         assert len(result) > 0
         assert result == selector(svg_tree)
 
-    # regret diving into this rabbit hole
-    @staticmethod
-    def _namespace_aux_filter(obj: Any) -> bool:
-        if obj == NotImplemented:  # avoid DeprecationWarning
-            return False
-        if not bool(obj):
-            return False
-        # Some objects can be iterated to yield nothing, like enumerate(()).
-        # They become false positives because no exception is raised.
-        if not hasattr(obj, "__next__"):
-            return True
-        try:
-            obj_copy = copy.copy(obj)  # requires pickleable
-        except TypeError:
-            # no choice, can't test iterator without changing it
-            return False
-        try:
-            next(obj_copy)
-        except (StopIteration, TypeError):
-            return False
-        else:
-            return True
-
     # StringIO and BytesIO can be iterated, and resulting string
     # can be unpacked to treat as prefix/URI pair(!)
     @settings(
@@ -149,20 +132,18 @@ class TestCSSSelectorArgs:
         max_examples=300,
     )
     @given(
-        thing=_st.all_instances_except_of_type(
-            dict, NoneType, StringIO, BytesIO
-        ).filter(_namespace_aux_filter)
+        thing=_st
+        .all_instances_except_of_type(dict, NoneType, StringIO, BytesIO)
+        .filter(lambda x: x is not NotImplemented and bool(x))
+        .filter(lambda x: not is_iterator_of_nothing(x))
     )
     @pytest.mark.slow
     def test_namespaces_arg_bad(self, svg_root: _Element, thing: Any) -> None:
-        if not isinstance(thing, Iterable):
-            raise_cm = raise_non_iterable
-        else:
+        if isinstance(thing, Iterable) or can_practically_iter(thing):
             # pyrefly: ignore[no-matching-overload]
-            raise_cm = pytest.raises((
-                TypeError,
-                ValueError,
-            ))
+            raise_cm = pytest.raises((TypeError, ValueError))
+        else:
+            raise_cm = raise_non_iterable
         with raise_cm:
             _ = CSSSelector("li", namespaces=thing)  # pyright: ignore[reportUnknownArgumentType]
 

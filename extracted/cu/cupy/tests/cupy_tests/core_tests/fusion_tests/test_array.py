@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 import numpy
@@ -51,7 +53,6 @@ class FusionArrayTestBase(unittest.TestCase):
         {'left_value': 'primitive', 'right_value': 'array'},
     ]
 ))
-@testing.with_requires('numpy<2.0')
 class TestFusionArrayOperator(FusionArrayTestBase):
 
     @testing.for_all_dtypes_combination(

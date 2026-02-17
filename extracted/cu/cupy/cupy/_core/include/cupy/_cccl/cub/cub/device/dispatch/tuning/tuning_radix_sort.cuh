@@ -51,7 +51,7 @@ namespace detail
 namespace radix
 {
 // sm90 default
-template <std::size_t KeySize, std::size_t ValueSize, std::size_t OffsetSize>
+template <size_t KeySize, size_t ValueSize, size_t OffsetSize>
 struct sm90_small_key_tuning
 {
   static constexpr int threads = 384;
@@ -92,7 +92,7 @@ template <> struct sm90_small_key_tuning<2, 16, 8> { static constexpr int thread
 // clang-format on
 
 // sm100 default
-template <typename ValueT, std::size_t KeySize, std::size_t ValueSize, std::size_t OffsetSize>
+template <typename ValueT, size_t KeySize, size_t ValueSize, size_t OffsetSize>
 struct sm100_small_key_tuning : sm90_small_key_tuning<KeySize, ValueSize, OffsetSize>
 {};
 
@@ -279,6 +279,69 @@ template <typename ValueT> struct sm100_small_key_tuning<ValueT, 8,  8, 8> :  sm
 template <typename ValueT> struct sm100_small_key_tuning<ValueT, 8,  16, 8> : sm90_small_key_tuning<8, 16, 8> {};
 // clang-format on
 
+template <typename PolicyT, typename = void>
+struct RadixSortPolicyWrapper : PolicyT
+{
+  CUB_RUNTIME_FUNCTION RadixSortPolicyWrapper(PolicyT base)
+      : PolicyT(base)
+  {}
+};
+
+template <typename StaticPolicyT>
+struct RadixSortPolicyWrapper<
+  StaticPolicyT,
+  ::cuda::std::void_t<typename StaticPolicyT::SingleTilePolicy,
+                      typename StaticPolicyT::OnesweepPolicy,
+                      typename StaticPolicyT::UpsweepPolicy,
+                      typename StaticPolicyT::AltUpsweepPolicy,
+                      typename StaticPolicyT::DownsweepPolicy,
+                      typename StaticPolicyT::AltDownsweepPolicy,
+                      typename StaticPolicyT::HistogramPolicy,
+                      typename StaticPolicyT::ScanPolicy,
+                      typename StaticPolicyT::ExclusiveSumPolicy,
+                      typename StaticPolicyT::SegmentedPolicy,
+                      typename StaticPolicyT::AltSegmentedPolicy>> : StaticPolicyT
+{
+  CUB_RUNTIME_FUNCTION RadixSortPolicyWrapper(StaticPolicyT base)
+      : StaticPolicyT(base)
+  {}
+
+  CUB_RUNTIME_FUNCTION static constexpr bool IsOnesweep()
+  {
+    return StaticPolicyT::ONESWEEP;
+  }
+
+  template <typename PolicyT>
+  CUB_RUNTIME_FUNCTION static constexpr int RadixBits(PolicyT /*policy*/)
+  {
+    return PolicyT::RADIX_BITS;
+  }
+
+  template <typename PolicyT>
+  CUB_RUNTIME_FUNCTION static constexpr int BlockThreads(PolicyT /*policy*/)
+  {
+    return PolicyT::BLOCK_THREADS;
+  }
+
+  CUB_DEFINE_SUB_POLICY_GETTER(SingleTile);
+  CUB_DEFINE_SUB_POLICY_GETTER(Onesweep);
+  CUB_DEFINE_SUB_POLICY_GETTER(Upsweep);
+  CUB_DEFINE_SUB_POLICY_GETTER(AltUpsweep);
+  CUB_DEFINE_SUB_POLICY_GETTER(Downsweep);
+  CUB_DEFINE_SUB_POLICY_GETTER(AltDownsweep);
+  CUB_DEFINE_SUB_POLICY_GETTER(Histogram);
+  CUB_DEFINE_SUB_POLICY_GETTER(Scan);
+  CUB_DEFINE_SUB_POLICY_GETTER(ExclusiveSum);
+  CUB_DEFINE_SUB_POLICY_GETTER(Segmented);
+  CUB_DEFINE_SUB_POLICY_GETTER(AltSegmented);
+};
+
+template <typename PolicyT>
+CUB_RUNTIME_FUNCTION RadixSortPolicyWrapper<PolicyT> MakeRadixSortPolicyWrapper(PolicyT policy)
+{
+  return RadixSortPolicyWrapper<PolicyT>{policy};
+}
+
 /**
  * @brief Tuning policy for kernel specialization
  *
@@ -299,7 +362,7 @@ struct policy_hub
   //------------------------------------------------------------------------------
 
   // Whether this is a keys-only (or key-value) sort
-  static constexpr bool KEYS_ONLY = std::is_same<ValueT, NullType>::value;
+  static constexpr bool KEYS_ONLY = ::cuda::std::is_same_v<ValueT, NullType>;
 
   // Dominant-sized key/value type
   using DominantT = ::cuda::std::_If<(sizeof(ValueT) > sizeof(KeyT)), ValueT, KeyT>;
@@ -308,89 +371,8 @@ struct policy_hub
   // Architecture-specific tuning policies
   //------------------------------------------------------------------------------
 
-  /// SM35
-  struct Policy350 : ChainedPolicy<350, Policy350, Policy350>
-  {
-    enum
-    {
-      PRIMARY_RADIX_BITS = (sizeof(KeyT) > 1) ? 6 : 5, // 1.72B 32b keys/s, 1.17B 32b pairs/s, 1.55B 32b segmented
-                                                       // keys/s (K40m)
-      ONESWEEP            = false,
-      ONESWEEP_RADIX_BITS = 8,
-    };
-
-    // Histogram policy
-    using HistogramPolicy = AgentRadixSortHistogramPolicy<256, 8, 1, KeyT, ONESWEEP_RADIX_BITS>;
-
-    // Exclusive sum policy
-    using ExclusiveSumPolicy = AgentRadixSortExclusiveSumPolicy<256, ONESWEEP_RADIX_BITS>;
-
-    // Onesweep policy
-    using OnesweepPolicy = AgentRadixSortOnesweepPolicy<
-      256,
-      21,
-      DominantT,
-      1,
-      RADIX_RANK_MATCH_EARLY_COUNTS_ANY,
-      BLOCK_SCAN_WARP_SCANS,
-      RADIX_SORT_STORE_DIRECT,
-      ONESWEEP_RADIX_BITS>;
-
-    // Scan policy
-    using ScanPolicy =
-      AgentScanPolicy<1024, 4, OffsetT, BLOCK_LOAD_VECTORIZE, LOAD_DEFAULT, BLOCK_STORE_VECTORIZE, BLOCK_SCAN_WARP_SCANS>;
-
-    // Keys-only downsweep policies
-    using DownsweepPolicyKeys = AgentRadixSortDownsweepPolicy<
-      128,
-      9,
-      DominantT,
-      BLOCK_LOAD_WARP_TRANSPOSE,
-      LOAD_LDG,
-      RADIX_RANK_MATCH,
-      BLOCK_SCAN_WARP_SCANS,
-      PRIMARY_RADIX_BITS>;
-    using AltDownsweepPolicyKeys = AgentRadixSortDownsweepPolicy<
-      64,
-      18,
-      DominantT,
-      BLOCK_LOAD_DIRECT,
-      LOAD_LDG,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      PRIMARY_RADIX_BITS - 1>;
-
-    // Key-value pairs downsweep policies
-    using DownsweepPolicyPairs    = DownsweepPolicyKeys;
-    using AltDownsweepPolicyPairs = AgentRadixSortDownsweepPolicy<
-      128,
-      15,
-      DominantT,
-      BLOCK_LOAD_DIRECT,
-      LOAD_LDG,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      PRIMARY_RADIX_BITS - 1>;
-
-    // Downsweep policies
-    using DownsweepPolicy = ::cuda::std::_If<KEYS_ONLY, DownsweepPolicyKeys, DownsweepPolicyPairs>;
-
-    using AltDownsweepPolicy = ::cuda::std::_If<KEYS_ONLY, AltDownsweepPolicyKeys, AltDownsweepPolicyPairs>;
-
-    // Upsweep policies
-    using UpsweepPolicy    = DownsweepPolicy;
-    using AltUpsweepPolicy = AltDownsweepPolicy;
-
-    // Single-tile policy
-    using SingleTilePolicy = DownsweepPolicy;
-
-    // Segmented policies
-    using SegmentedPolicy    = DownsweepPolicy;
-    using AltSegmentedPolicy = AltDownsweepPolicy;
-  };
-
   /// SM50
-  struct Policy500 : ChainedPolicy<500, Policy500, Policy350>
+  struct Policy500 : ChainedPolicy<500, Policy500, Policy500>
   {
     enum
     {
@@ -946,8 +928,8 @@ struct policy_hub
       SEGMENTED_RADIX_BITS - 1>;
   };
 
-  /// SM90
-  struct Policy900 : ChainedPolicy<900, Policy900, Policy800>
+  template <typename OnesweepSmallKeyPolicySizes>
+  struct OnesweepSmallKeyTunedPolicy
   {
     static constexpr bool ONESWEEP           = true;
     static constexpr int ONESWEEP_RADIX_BITS = 8;
@@ -960,7 +942,7 @@ struct policy_hub
     static constexpr int SINGLE_TILE_RADIX_BITS = (sizeof(KeyT) > 1) ? 6 : 5;
     static constexpr int SEGMENTED_RADIX_BITS   = (sizeof(KeyT) > 1) ? 6 : 5;
     static constexpr int OFFSET_64BIT           = sizeof(OffsetT) == 8 ? 1 : 0;
-    static constexpr int FLOAT_KEYS             = ::cuda::std::is_same<KeyT, float>::value ? 1 : 0;
+    static constexpr int FLOAT_KEYS             = ::cuda::std::is_same_v<KeyT, float> ? 1 : 0;
 
     using OnesweepPolicyKey32 = AgentRadixSortOnesweepPolicy<
       384,
@@ -984,9 +966,6 @@ struct policy_hub
       ONESWEEP_RADIX_BITS>;
 
     using OnesweepLargeKeyPolicy = ::cuda::std::_If<sizeof(KeyT) == 4, OnesweepPolicyKey32, OnesweepPolicyKey64>;
-
-    using OnesweepSmallKeyPolicySizes =
-      sm90_small_key_tuning<sizeof(KeyT), KEYS_ONLY ? 0 : sizeof(ValueT), sizeof(OffsetT)>;
 
     using OnesweepSmallKeyPolicy = AgentRadixSortOnesweepPolicy<
       OnesweepSmallKeyPolicySizes::threads,
@@ -1069,149 +1048,21 @@ struct policy_hub
       SEGMENTED_RADIX_BITS - 1>;
   };
 
-  // todo(@gonidelis): refactor this as to not duplicate SM90.
-  struct Policy1000 : ChainedPolicy<1000, Policy1000, Policy900>
-  {
-    static constexpr bool ONESWEEP           = true;
-    static constexpr int ONESWEEP_RADIX_BITS = 8;
+  struct Policy900
+      : ChainedPolicy<900, Policy900, Policy800>
+      , OnesweepSmallKeyTunedPolicy<sm90_small_key_tuning<sizeof(KeyT), KEYS_ONLY ? 0 : sizeof(ValueT), sizeof(OffsetT)>>
+  {};
 
-    using HistogramPolicy    = AgentRadixSortHistogramPolicy<128, 16, 1, KeyT, ONESWEEP_RADIX_BITS>;
-    using ExclusiveSumPolicy = AgentRadixSortExclusiveSumPolicy<256, ONESWEEP_RADIX_BITS>;
-
-  private:
-    static constexpr int PRIMARY_RADIX_BITS     = (sizeof(KeyT) > 1) ? 7 : 5;
-    static constexpr int SINGLE_TILE_RADIX_BITS = (sizeof(KeyT) > 1) ? 6 : 5;
-    static constexpr int SEGMENTED_RADIX_BITS   = (sizeof(KeyT) > 1) ? 6 : 5;
-    static constexpr int OFFSET_64BIT           = sizeof(OffsetT) == 8 ? 1 : 0;
-    static constexpr int FLOAT_KEYS             = ::cuda::std::is_same<KeyT, float>::value ? 1 : 0;
-
-    using OnesweepPolicyKey32 = AgentRadixSortOnesweepPolicy<
-      384,
-      KEYS_ONLY ? 20 - OFFSET_64BIT - FLOAT_KEYS
-                : (sizeof(ValueT) < 8 ? (OFFSET_64BIT ? 17 : 23) : (OFFSET_64BIT ? 29 : 30)),
-      DominantT,
-      1,
-      RADIX_RANK_MATCH_EARLY_COUNTS_ANY,
-      BLOCK_SCAN_RAKING_MEMOIZE,
-      RADIX_SORT_STORE_DIRECT,
-      ONESWEEP_RADIX_BITS>;
-
-    using OnesweepPolicyKey64 = AgentRadixSortOnesweepPolicy<
-      384,
-      sizeof(ValueT) < 8 ? 30 : 24,
-      DominantT,
-      1,
-      RADIX_RANK_MATCH_EARLY_COUNTS_ANY,
-      BLOCK_SCAN_RAKING_MEMOIZE,
-      RADIX_SORT_STORE_DIRECT,
-      ONESWEEP_RADIX_BITS>;
-
-    using OnesweepLargeKeyPolicy = ::cuda::std::_If<sizeof(KeyT) == 4, OnesweepPolicyKey32, OnesweepPolicyKey64>;
-
-    using OnesweepSmallKeyPolicySizes =
-      sm100_small_key_tuning<ValueT, sizeof(KeyT), KEYS_ONLY ? 0 : sizeof(ValueT), sizeof(OffsetT)>;
-
-    using OnesweepSmallKeyPolicy = AgentRadixSortOnesweepPolicy<
-      OnesweepSmallKeyPolicySizes::threads,
-      OnesweepSmallKeyPolicySizes::items,
-      DominantT,
-      1,
-      RADIX_RANK_MATCH_EARLY_COUNTS_ANY,
-      BLOCK_SCAN_RAKING_MEMOIZE,
-      RADIX_SORT_STORE_DIRECT,
-      8>;
-
-  public:
-    using OnesweepPolicy = ::cuda::std::_If<sizeof(KeyT) < 4, OnesweepSmallKeyPolicy, OnesweepLargeKeyPolicy>;
-
-    // The Scan, Downsweep and Upsweep policies are never run on SM90, but we have to include them to prevent a
-    // compilation error: When we compile e.g. for SM70 **and** SM90, the host compiler will reach calls to those
-    // kernels, and instantiate them for MaxPolicy (which is Policy900) on the host, which will reach into the policies
-    // below to set the launch bounds. The device compiler pass will also compile all kernels for SM70 **and** SM90,
-    // even though only the Onesweep kernel is used on SM90.
-    using ScanPolicy =
-      AgentScanPolicy<512,
-                      23,
-                      OffsetT,
-                      BLOCK_LOAD_WARP_TRANSPOSE,
-                      LOAD_DEFAULT,
-                      BLOCK_STORE_WARP_TRANSPOSE,
-                      BLOCK_SCAN_RAKING_MEMOIZE>;
-
-    using DownsweepPolicy = AgentRadixSortDownsweepPolicy<
-      512,
-      23,
-      DominantT,
-      BLOCK_LOAD_TRANSPOSE,
-      LOAD_DEFAULT,
-      RADIX_RANK_MATCH,
-      BLOCK_SCAN_WARP_SCANS,
-      PRIMARY_RADIX_BITS>;
-
-    using AltDownsweepPolicy = AgentRadixSortDownsweepPolicy<
-      (sizeof(KeyT) > 1) ? 256 : 128,
-      47,
-      DominantT,
-      BLOCK_LOAD_TRANSPOSE,
-      LOAD_DEFAULT,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      PRIMARY_RADIX_BITS - 1>;
-
-    using UpsweepPolicy    = AgentRadixSortUpsweepPolicy<256, 23, DominantT, LOAD_DEFAULT, PRIMARY_RADIX_BITS>;
-    using AltUpsweepPolicy = AgentRadixSortUpsweepPolicy<256, 47, DominantT, LOAD_DEFAULT, PRIMARY_RADIX_BITS - 1>;
-
-    using SingleTilePolicy = AgentRadixSortDownsweepPolicy<
-      256,
-      19,
-      DominantT,
-      BLOCK_LOAD_DIRECT,
-      LOAD_LDG,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      SINGLE_TILE_RADIX_BITS>;
-
-    using SegmentedPolicy = AgentRadixSortDownsweepPolicy<
-      192,
-      39,
-      DominantT,
-      BLOCK_LOAD_TRANSPOSE,
-      LOAD_DEFAULT,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      SEGMENTED_RADIX_BITS>;
-
-    using AltSegmentedPolicy = AgentRadixSortDownsweepPolicy<
-      384,
-      11,
-      DominantT,
-      BLOCK_LOAD_TRANSPOSE,
-      LOAD_DEFAULT,
-      RADIX_RANK_MEMOIZE,
-      BLOCK_SCAN_WARP_SCANS,
-      SEGMENTED_RADIX_BITS - 1>;
-  };
+  struct Policy1000
+      : ChainedPolicy<1000, Policy1000, Policy900>
+      , OnesweepSmallKeyTunedPolicy<
+          sm100_small_key_tuning<ValueT, sizeof(KeyT), KEYS_ONLY ? 0 : sizeof(ValueT), sizeof(OffsetT)>>
+  {};
 
   using MaxPolicy = Policy1000;
 };
 
 } // namespace radix
 } // namespace detail
-
-/**
- * @brief Tuning policy for kernel specialization
- *
- * @tparam KeyT
- *   Key type
- *
- * @tparam ValueT
- *   Value type
- *
- * @tparam OffsetT
- *   Signed integer type for global offsets
- */
-template <typename KeyT, typename ValueT, typename OffsetT>
-using DeviceRadixSortPolicy CCCL_DEPRECATED_BECAUSE("This class is considered an implementation detail and it will be "
-                                                    "removed.") = detail::radix::policy_hub<KeyT, ValueT, OffsetT>;
 
 CUB_NAMESPACE_END

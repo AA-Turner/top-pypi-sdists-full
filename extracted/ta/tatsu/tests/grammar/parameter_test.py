@@ -1,11 +1,15 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import contextlib
 import pathlib
 import sys
 import tempfile
 import unittest
 
-from tatsu.ngcodegen import codegen
-from tatsu.parser import GrammarGenerator
+from tatsu.ngcodegen import pythongen
+from tatsu.parser import TatSuParserGenerator
 from tatsu.tool import compile
 from tatsu.util import trim
 
@@ -18,9 +22,9 @@ class ParameterTests(unittest.TestCase):
                 {'a'} $
                 ;
         """
-        g = GrammarGenerator('Keywords')
+        g = TatSuParserGenerator('Keywords')
         model = g.parse(grammar)
-        code = codegen(model)
+        code = pythongen(model)
         self.assertEqual('#!/usr/bin/env python3', code.splitlines()[0])
 
     def test_35_only_keyword_params(self):
@@ -45,7 +49,7 @@ class ParameterTests(unittest.TestCase):
 
     def test_36_param_combinations(self):
         def assert_equal(target, value):
-            self.assertEqual(target, value)
+            assert target == value
 
         class TC36Semantics:
 
@@ -127,7 +131,7 @@ class ParameterTests(unittest.TestCase):
         semantics = TC36Semantics()
         ast = model.parse('a b c', semantics=semantics)
         self.assertEqual(['a', 'b', 'c'], ast)
-        codegen(model)
+        pythongen(model)
 
     def test_36_unichars(self):
         grammar = """
@@ -177,7 +181,7 @@ class ParameterTests(unittest.TestCase):
         ast = m.parse('a b c', semantics=semantics)
         self.assertEqual(['a', 'b', 'c'], ast)
 
-        code = codegen(m)
+        code = pythongen(m)
         module_name = 'tc36unicharstest'
         temp_dir = pathlib.Path(tempfile.mkdtemp()) / module_name
         temp_dir.mkdir(exist_ok=True)
@@ -186,7 +190,7 @@ class ParameterTests(unittest.TestCase):
         pathlib.Path(py_file_path).write_text(code)
         try:
             sys.path.append(str(temp_dir))
-            import tc36unicharstest  # type: ignore
+            import tc36unicharstest  # pyright: ignore[reportMissingImports]
 
             assert tc36unicharstest
             _trydelete(temp_dir, module_name)

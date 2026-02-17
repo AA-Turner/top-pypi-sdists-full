@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023, 2024 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2023 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=missing-docstring
@@ -15,13 +15,17 @@ r"""Load data from .py.
    - load_data_from_py has vulnerabilities because it execute the code. You
      must avoid to load .py data from unknown sources with this.
 """
+from __future__ import annotations
+
 import ast
 import importlib
 import importlib.util
 import importlib.abc
-import pathlib
 import typing
 import warnings
+
+if typing.TYPE_CHECKING:
+    import pathlib
 
 
 DATA_VAR_NAME: str = "DATA"
@@ -41,9 +45,9 @@ def load_literal_data_from_path(path: pathlib.Path) -> typing.Any:
 
 
 def load_data_from_py(
-    path: pathlib.Path,
-    data_name: typing.Optional[str] = None,
-    fallback: bool = False
+    path: pathlib.Path, *,
+    data_name: str | None = None,
+    fallback: bool = False,
 ) -> typing.Any:
     """Load test data from .py files by evaluating it.
 
@@ -52,28 +56,30 @@ def load_data_from_py(
     if data_name is None:
         data_name = DATA_VAR_NAME
 
-    spec = importlib.util.spec_from_file_location('testmod', str(path))
+    spec = importlib.util.spec_from_file_location("testmod", str(path))
     if spec and isinstance(spec.loader, importlib.abc.Loader):
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         try:
             return getattr(mod, data_name)
         except (TypeError, ValueError, AttributeError):
-            warnings.warn(  # noqa
-                f'No valid data "{data_name}" was found in {mod!r}.'
+            warnings.warn(
+                f"No valid data '{data_name}' was found in {mod!r}.",
+                stacklevel=2,
             )
 
     if fallback:
         return None
 
-    raise ValueError(f"Faied to load data from: {path!r}")
+    msg = f"Faied to load data from: {path!r}"
+    raise ValueError(msg)
 
 
 def load_from_path(
-    path: pathlib.Path,
+    path: pathlib.Path, *,
     allow_exec: bool = False,
-    data_name: typing.Optional[str] = None,
-    fallback: bool = False
+    data_name: str | None = None,
+    fallback: bool = False,
 ) -> typing.Any:
     """Load data from given path `path`.
 
@@ -84,7 +90,7 @@ def load_from_path(
     """
     if allow_exec and (data_name or DATA_VAR_NAME) in path.read_text():
         return load_data_from_py(
-            path, data_name=data_name, fallback=fallback
+            path, data_name=data_name, fallback=fallback,
         )
 
     return load_literal_data_from_path(path)

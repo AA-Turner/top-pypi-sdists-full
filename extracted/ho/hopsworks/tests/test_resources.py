@@ -15,11 +15,11 @@
 #
 
 import copy
+from unittest.mock import call
 
 import pytest
 from hsml import resources
 from hsml.constants import RESOURCES
-from mock import call
 
 
 SERVING_RESOURCE_LIMITS = {"cores": 2, "memory": 1024, "gpus": 0}

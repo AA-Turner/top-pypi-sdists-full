@@ -192,7 +192,7 @@ def delete(
     Only Strokes -- Delete only strokes and not fills.
 
     FILLS
-    Only Fills -- Delte only fills and not strokes.
+    Only Fills -- Delete only fills and not strokes.
         :return: Result of the operator call.
     """
 
@@ -307,7 +307,7 @@ def erase_lasso(
 
     :param path: Path, (optional)
     :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
     :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
     :return: Result of the operator call.
     """
@@ -970,7 +970,7 @@ def pen(
     :param extrude_handle: Extrude Handle Type, Type of the extruded handle (optional)
     :param delete_point: Delete Point, Delete an existing point (optional)
     :param insert_point: Insert Point, Insert Point into a curve segment (optional)
-    :param move_segment: Move Segment, Delete an existing point (optional)
+    :param move_segment: Move Segment, Move an existing curve segment (optional)
     :param select_point: Select Point, Select a point or its handles (optional)
     :param move_point: Move Point, Move a point or its handles (optional)
     :param cycle_handle_type: Cycle Handle Type, Cycle between all four handle types (optional)
@@ -1747,7 +1747,7 @@ def stroke_trim(
 
     :param path: Path, (optional)
     :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
     :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
     :return: Result of the operator call.
     """
@@ -1941,7 +1941,7 @@ def vertex_color_set(
     mode: typing.Literal["STROKE", "FILL", "BOTH"] | None = "BOTH",
     factor: float | None = 1.0,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Set active color to all selected vertex
+    """Set active color to all selected vertices
 
     :param mode: Mode, (optional)
     :param factor: Factor, Mix Factor (in [0, 1], optional)

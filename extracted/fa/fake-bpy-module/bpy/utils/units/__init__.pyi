@@ -23,7 +23,7 @@ def to_string(
         :param unit_category: The category of data we are converting (length, area, rotation, etc.),
     from `bpy.utils.units.categories`.
         :param value: The value to convert to a string.
-        :param precision: Number of digits after the comma.
+        :param precision: Number of digits after the decimal point.
         :param split_unit: Whether to use several units if needed (1m1cm), or always only one (1.01m).
         :param compatible_unit: Whether to use keyboard-friendly units (1m2) or nicer UTF8 ones (1m).
         :return: The converted string.

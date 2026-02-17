@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2016 - 2024 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2016 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """A simple backend module to load and dump files contain shell variables.
@@ -18,37 +18,47 @@ Changelog:
    - Added an experimental parser for simple shelll vars' definitions w/o shell
      variable expansions nor complex shell statements like conditionals.
 """
+from __future__ import annotations
+
 import itertools
 import re
+import typing
 import warnings
 
 from .. import base
+from ... import utils
 
 
-def _parseline(line):
+def _parseline(
+    line: str,
+) -> tuple[str | None, str | None]:
     """Parse a line contains shell variable definition.
 
     :param line: A string to parse, must not start with '#' (comment)
     :return: A tuple of (key, value), both key and value may be None
     """
     match = re.match(
-        r'^\s*(export)?\s*(\S+)=(?:(?:'
+        r"^\s*(export)?\s*(\S+)=(?:(?:"
         r"(?:\"(.*[^\\])\")|(?:'(.*[^\\])')|"
         r"(?:([^\"'#\s]+)))?)\s*#*",
-        line
+        line,
     )
     if not match:
         warnings.warn(
-            f'Invalid line found: {line}', category=SyntaxWarning, stacklevel=2
+            f"Invalid line found: {line}", category=SyntaxWarning,
+            stacklevel=2,
         )
         return (None, None)
 
     tpl = match.groups()
     vals = list(itertools.dropwhile(lambda x: x is None, tpl[2:]))
-    return (tpl[1], vals[0] if vals else '')
+    return (tpl[1], vals[0] if vals else "")
 
 
-def load(stream, container=dict):
+def load(
+    stream: typing.IO, container: base.GenContainerT = dict,
+    **_kwargs: typing.Any,
+) -> base.InDataT:
     """Load shell variable definitions data from ``stream``.
 
     :param stream: A file or file like object
@@ -58,16 +68,16 @@ def load(stream, container=dict):
     """
     ret = container()
 
-    for line in stream:
-        line = line.rstrip()
+    for line_ in stream:
+        line = line_.rstrip()
         if line is None or not line:
             continue
 
         (key, val) = _parseline(line)
         if key is None:
             warnings.warn(
-                f'Empty val in the line: {line}',
-                category=SyntaxWarning, stacklevel=2
+                f"Empty val in the line: {line}",
+                category=SyntaxWarning, stacklevel=2,
             )
             continue
 
@@ -79,13 +89,16 @@ def load(stream, container=dict):
 class Parser(base.StreamParser):
     """Parser for Shell variable definition files."""
 
-    _cid = 'sh.variables'
-    _type = 'shellvars'
-    _extensions = ['sh']
-    _ordered = True
-    _dict_opts = ['ac_dict']
+    _cid: typing.ClassVar[str] = "sh.variables"
+    _type: typing.ClassVar[str] = "shellvars"
+    _extensions: tuple[str, ...] = ("sh", )
+    _ordered: typing.ClassVar[bool] = True
+    _dict_opts: tuple[str, ...] = ("ac_dict", )
 
-    def load_from_stream(self, stream, container, **kwargs):
+    def load_from_stream(
+        self, stream: typing.IO, container: base.GenContainerT,
+        **kwargs: typing.Any,
+    ) -> base.InDataT:
         """Load config from given file like object ``stream``.
 
         :param stream:
@@ -95,16 +108,20 @@ class Parser(base.StreamParser):
 
         :return: Dict-like object holding config parameters
         """
-        return load(stream, container=container)
+        return load(stream, container=container, **kwargs)
 
-    def dump_to_stream(self, cnf, stream, **kwargs):
+    def dump_to_stream(
+        self, cnf: base.InDataExT, stream: typing.IO,
+        **_kwargs: typing.Any,
+    ) -> None:
         """Dump config dat ``cnf`` to a file or file-like object ``stream``.
 
         :param cnf: Shell variables data to dump
         :param stream: Shell script file or file like object
         :param kwargs: backend-specific optional keyword parameters :: dict
         """
-        for key, val in cnf.items():
-            stream.write(f"{key}='{val}'\n")
-
-# vim:sw=4:ts=4:et:
+        if utils.is_dict_like(cnf):
+            stream.writelines(
+                f"{key}='{val}'\n"
+                for key, val in cnf.items()
+            )

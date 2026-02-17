@@ -50,18 +50,6 @@ class FileHandler(System.Object):
         ...
 
 
-class StorageLimitExceededException(System.Exception):
-    """Exception thrown when the object store storage limit has been exceeded"""
-
-    def __init__(self, message: str) -> None:
-        """
-        Creates a new instance of the storage limit exceeded exception
-        
-        :param message: The associated message
-        """
-        ...
-
-
 class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typing.Iterable[System.Collections.Generic.KeyValuePair[str, typing.List[int]]]):
     """A local disk implementation of IObjectStore."""
 
@@ -281,6 +269,18 @@ class LocalObjectStore(System.Object, QuantConnect.Interfaces.IObjectStore, typi
         
         
         This codeEntityType is protected.
+        """
+        ...
+
+
+class StorageLimitExceededException(System.Exception):
+    """Exception thrown when the object store storage limit has been exceeded"""
+
+    def __init__(self, message: str) -> None:
+        """
+        Creates a new instance of the storage limit exceeded exception
+        
+        :param message: The associated message
         """
         ...
 

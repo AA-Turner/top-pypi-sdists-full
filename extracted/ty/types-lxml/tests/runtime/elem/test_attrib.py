@@ -24,11 +24,14 @@ from hypothesis import (
 from lxml.etree import Element, HTMLParser, QName, _Attrib, _Element, parse
 
 from .._testutils import (
-    empty_signature_tester,
     signature_tester,
     strategy as _st,
 )
-from .._testutils.common import attr_name_types, attr_value_types
+from .._testutils.common import (
+    attr_name_types,
+    attr_value_types,
+    hashable_elem_if_is_set,
+)
 from .._testutils.errors import raise_invalid_utf8_type
 
 if sys.version_info >= (3, 11):
@@ -66,11 +69,7 @@ class TestAttrib:
     def test_key_type_bad_2(
         self, disposable_attrib: _Attrib, iterable_of: Any, k: _AttrName
     ) -> None:
-        # unhashable types not addable to set
-        assume(not (
-            getattr(iterable_of, "type") in {set, frozenset}
-            and isinstance(k, bytearray)
-        ))  # fmt: skip
+        assume(hashable_elem_if_is_set(iterable_of, k))
         with raise_invalid_utf8_type:
             _ = disposable_attrib[iterable_of(k)]
 
@@ -95,11 +94,7 @@ class TestAttrib:
     def test_value_type_bad_2(
         self, disposable_attrib: _Attrib, iterable_of: Any, v: _AttrVal
     ) -> None:
-        # unhashable types not addable to set
-        assume(not (
-            getattr(iterable_of, "type") in {set, frozenset}
-            and isinstance(v, bytearray)
-        ))  # fmt: skip
+        assume(hashable_elem_if_is_set(iterable_of, v))
         with raise_invalid_utf8_type:
             disposable_attrib["foo"] = iterable_of(v)
 
@@ -108,19 +103,10 @@ class TestAttrib:
         disposable_attrib["foo"] = v
         reveal_type(disposable_attrib["foo"])
 
-    @empty_signature_tester(_Attrib.clear)
     def test_method_clear(self, disposable_attrib: _Attrib) -> None:
         assert disposable_attrib.clear() is None
         assert len(disposable_attrib) == 0
 
-    @empty_signature_tester(
-        _Attrib.keys,
-        _Attrib.values,
-        _Attrib.items,
-        _Attrib.iterkeys,
-        _Attrib.itervalues,
-        _Attrib.iteritems,
-    )
     def test_method_keyval(self, xml2_root: _Element) -> None:
         attrib = xml2_root.attrib
 
@@ -401,10 +387,7 @@ class TestUpdateMethod:
         iterable_of: Any,
     ) -> None:
         # unhashable types not addable to set
-        assume(not (
-            getattr(iterable_of, "type") in {set, frozenset}
-            and isinstance(v, bytearray)
-        ))  # fmt: skip
+        assume(hashable_elem_if_is_set(iterable_of, v))
         self._verify_key_val_present(disposable_attrib, iterable_of((k, v)))
 
     @given(atts=st.iterables(
@@ -425,11 +408,6 @@ class TestUpdateMethod:
 
 
 class TestElementKeyValMethods:
-    @empty_signature_tester(
-        _Element.keys,
-        _Element.values,
-        _Element.items,
-    )
     @pytest.mark.slow
     def test_basic(self, bightml_bin_fp: BinaryIO) -> None:
         parser = HTMLParser()

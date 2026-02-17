@@ -1034,6 +1034,22 @@ class EnhancedPlottableHistogram(NumPyPlottableHistogram):
         self.yerr_lo = np.nan_to_num(self.yerr_lo, 0)
         self.yerr_hi = np.nan_to_num(self.yerr_hi, 0)
 
+    def apply_blind(self, mask):
+        """Apply a boolean mask to hide (blind) bins. True = visible, False = blinded."""
+        self.errors()  # force error computation before NaN-ing
+        self._values = self._values.astype(float)
+        self._values[~mask] = np.nan
+        if self._variances is not None:
+            self._variances = self._variances.astype(float)
+            self._variances[~mask] = np.nan
+        self.yerr_lo = self.yerr_lo.astype(float)
+        self.yerr_hi = self.yerr_hi.astype(float)
+        self.yerr_lo[~mask] = np.nan
+        self.yerr_hi[~mask] = np.nan
+        if isinstance(self.baseline, np.ndarray):
+            self.baseline = self.baseline.astype(float)
+            self.baseline[~mask] = np.nan
+
     def fixed_errors(self, yerr_lo, yerr_hi):
         """Manually assign fixed lower and upper y-errors."""
         self.yerr_lo = yerr_lo
@@ -1416,6 +1432,22 @@ def _calculate_optimal_scaling(ax, bboxes, exclude_texts=None):
     bboxes_data = [b for b in bboxes_data if b.y1 > b.y0]
     if not bboxes_data:
         return 1.0
+
+    # Determine which bboxes actually have overlapping vertices
+    # Only these should be used for computing the required scaling
+    if len(vertices) > 0:
+        overlapping_bboxes_data = []
+        for bbox_data in bboxes_data:
+            in_x = (vertices[:, 0] >= bbox_data.x0) & (vertices[:, 0] <= bbox_data.x1)
+            in_y = (vertices[:, 1] >= bbox_data.y0) & (vertices[:, 1] <= bbox_data.y1)
+            contained = (in_x & in_y).any()
+            above = (in_x & (vertices[:, 1] > bbox_data.y1)).any()
+            if contained or above:
+                overlapping_bboxes_data.append(bbox_data)
+        # Fall back to all bboxes if no vertex-based overlap found
+        # (overlap may come from bbox-bbox overlap)
+        if overlapping_bboxes_data:
+            bboxes_data = overlapping_bboxes_data
 
     # Get annotation properties
     tallest_bbox = max(bboxes_data, key=lambda b: b.y1)

@@ -13,8 +13,6 @@ from ...types import Response
 def _get_kwargs(
     workspace: str,
     service_name: NativeTriggerServiceCallbackServiceName,
-    code: str,
-    state: str,
     *,
     json_body: NativeTriggerServiceCallbackJsonBody,
 ) -> Dict[str, Any]:
@@ -24,11 +22,9 @@ def _get_kwargs(
 
     return {
         "method": "post",
-        "url": "/w/{workspace}/native_triggers/integrations/{service_name}/callback/{code}/{state}".format(
+        "url": "/w/{workspace}/native_triggers/integrations/{service_name}/callback".format(
             workspace=workspace,
             service_name=service_name,
-            code=code,
-            state=state,
         ),
         "json": json_json_body,
     }
@@ -53,8 +49,6 @@ def _build_response(*, client: Union[AuthenticatedClient, Client], response: htt
 def sync_detailed(
     workspace: str,
     service_name: NativeTriggerServiceCallbackServiceName,
-    code: str,
-    state: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: NativeTriggerServiceCallbackJsonBody,
@@ -64,8 +58,6 @@ def sync_detailed(
     Args:
         workspace (str):
         service_name (NativeTriggerServiceCallbackServiceName):
-        code (str):
-        state (str):
         json_body (NativeTriggerServiceCallbackJsonBody):
 
     Raises:
@@ -79,8 +71,6 @@ def sync_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         service_name=service_name,
-        code=code,
-        state=state,
         json_body=json_body,
     )
 
@@ -94,8 +84,6 @@ def sync_detailed(
 async def asyncio_detailed(
     workspace: str,
     service_name: NativeTriggerServiceCallbackServiceName,
-    code: str,
-    state: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: NativeTriggerServiceCallbackJsonBody,
@@ -105,8 +93,6 @@ async def asyncio_detailed(
     Args:
         workspace (str):
         service_name (NativeTriggerServiceCallbackServiceName):
-        code (str):
-        state (str):
         json_body (NativeTriggerServiceCallbackJsonBody):
 
     Raises:
@@ -120,8 +106,6 @@ async def asyncio_detailed(
     kwargs = _get_kwargs(
         workspace=workspace,
         service_name=service_name,
-        code=code,
-        state=state,
         json_body=json_body,
     )
 

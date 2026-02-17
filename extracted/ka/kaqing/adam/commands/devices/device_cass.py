@@ -4,7 +4,7 @@ from adam.commands.utils_table_render import show_pods, show_pods_simple, show_r
 from adam.commands.cql.utils_cql import cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import log2, log_timing, wait_log
 from adam.utils_cassandra.cassandra_status import CassandraStatus

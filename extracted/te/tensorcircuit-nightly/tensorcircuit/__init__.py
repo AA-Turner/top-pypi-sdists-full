@@ -1,4 +1,4 @@
-__version__ = "1.5.0.dev20260215"
+__version__ = "1.5.0.dev20260216"
 __author__ = "TensorCircuit Authors"
 __creator__ = "refraction-ray"
 

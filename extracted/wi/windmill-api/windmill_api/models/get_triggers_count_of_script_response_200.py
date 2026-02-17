@@ -32,6 +32,7 @@ class GetTriggersCountOfScriptResponse200:
         gcp_count (Union[Unset, float]):
         sqs_count (Union[Unset, float]):
         nextcloud_count (Union[Unset, float]):
+        google_count (Union[Unset, float]):
     """
 
     primary_schedule: Union[Unset, "GetTriggersCountOfScriptResponse200PrimarySchedule"] = UNSET
@@ -48,6 +49,7 @@ class GetTriggersCountOfScriptResponse200:
     gcp_count: Union[Unset, float] = UNSET
     sqs_count: Union[Unset, float] = UNSET
     nextcloud_count: Union[Unset, float] = UNSET
+    google_count: Union[Unset, float] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -68,6 +70,7 @@ class GetTriggersCountOfScriptResponse200:
         gcp_count = self.gcp_count
         sqs_count = self.sqs_count
         nextcloud_count = self.nextcloud_count
+        google_count = self.google_count
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -100,6 +103,8 @@ class GetTriggersCountOfScriptResponse200:
             field_dict["sqs_count"] = sqs_count
         if nextcloud_count is not UNSET:
             field_dict["nextcloud_count"] = nextcloud_count
+        if google_count is not UNSET:
+            field_dict["google_count"] = google_count
 
         return field_dict
 
@@ -143,6 +148,8 @@ class GetTriggersCountOfScriptResponse200:
 
         nextcloud_count = d.pop("nextcloud_count", UNSET)
 
+        google_count = d.pop("google_count", UNSET)
+
         get_triggers_count_of_script_response_200 = cls(
             primary_schedule=primary_schedule,
             schedule_count=schedule_count,
@@ -158,6 +165,7 @@ class GetTriggersCountOfScriptResponse200:
             gcp_count=gcp_count,
             sqs_count=sqs_count,
             nextcloud_count=nextcloud_count,
+            google_count=google_count,
         )
 
         get_triggers_count_of_script_response_200.additional_properties = d

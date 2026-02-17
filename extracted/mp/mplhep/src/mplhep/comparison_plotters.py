@@ -17,6 +17,7 @@ from ._utils import (
 from ._utils import (
     _make_plottable_histogram as make_plottable_histogram,
 )
+from .blind import _resolve_blind_mask
 from .comparison_functions import (
     _check_binning_consistency,
     get_comparison,
@@ -63,6 +64,7 @@ def hists(
     ax_main=None,
     ax_comparison=None,
     flow="hint",
+    blind=None,
     **comparison_kwargs,
 ):
     """
@@ -120,11 +122,25 @@ def hists(
         msg = "Need to provide fig, ax_main and ax_comparison (or none of them)."
         raise ValueError(msg)
 
-    xlim = (h1_plottable.edges_1d()[0], h1_plottable.edges_1d()[-1])
-
-    histplot(h1_plottable, ax=ax_main, label=h1_label, histtype="step", flow=flow)
-    histplot(h2_plottable, ax=ax_main, label=h2_label, histtype="step", flow=flow)
-    ax_main.set_xlim(xlim)
+    histplot(
+        h1_plottable,
+        ax=ax_main,
+        label=h1_label,
+        histtype="step",
+        flow=flow,
+        blind=blind,
+    )
+    histplot(
+        h2_plottable,
+        ax=ax_main,
+        label=h2_label,
+        histtype="step",
+        flow=flow,
+        blind=blind,
+    )
+    if flow != "show":
+        xlim = (h1_plottable.edges_1d()[0], h1_plottable.edges_1d()[-1])
+        ax_main.set_xlim(xlim)
     ax_main.set_ylabel(ylabel)
     ax_main.legend()
     _ = ax_main.xaxis.set_ticklabels([])
@@ -137,6 +153,7 @@ def hists(
         h1_label=h1_label,
         h2_label=h2_label,
         flow=flow,
+        blind=blind,
         **comparison_kwargs,
     )
 
@@ -157,6 +174,7 @@ def comparison(
     comparison_ylim=None,
     h1_w2method="sqrt",
     flow="hint",
+    blind=None,
     **histplot_kwargs,
 ):
     """
@@ -201,6 +219,14 @@ def comparison(
     hists : Compare two histograms and plot the comparison.
 
     """
+    # Pop w2method from histplot_kwargs to prevent it from overriding the
+    # comparison uncertainties already computed by get_comparison().
+    # The comparison() function handles uncertainty computation via h1_w2method;
+    # allowing w2method to leak through would cause histplot to recompute
+    # errors on the comparison values (e.g., Poisson on ratio values), which
+    # is statistically incorrect.
+    histplot_kwargs.pop("w2method", None)
+
     h1_plottable = make_plottable_histogram(h1)
     h2_plottable = make_plottable_histogram(h2)
 
@@ -210,6 +236,29 @@ def comparison(
     _check_binning_consistency([h1_plottable, h2_plottable])
     _check_counting_histogram(h1_plottable)
     _check_counting_histogram(h2_plottable)
+
+    # When flow="sum", incorporate flow bins into the values before computing
+    # the comparison. This ensures correct results (e.g. sum-then-ratio rather
+    # than ratio-then-sum).
+    if flow == "sum":
+        for hp in (h1_plottable, h2_plottable):
+            vals = np.copy(hp.values())
+            var = np.copy(hp.variances()) if hp.variances() is not None else None
+            if hp._underflow is not None and hp._underflow > 0:
+                vals[0] += hp._underflow
+                if var is not None and hp._underflow_var is not None:
+                    var[0] += hp._underflow_var
+            if hp._overflow is not None and hp._overflow > 0:
+                vals[-1] += hp._overflow
+                if var is not None and hp._overflow_var is not None:
+                    var[-1] += hp._overflow_var
+            hp._values = vals
+            if var is not None:
+                hp._variances = var
+            hp._underflow = None
+            hp._overflow = None
+            hp._underflow_var = None
+            hp._overflow_var = None
 
     comparison_values, lower_uncertainties, upper_uncertainties = get_comparison(
         h1_plottable, h2_plottable, comparison, h1_w2method
@@ -280,7 +329,8 @@ def comparison(
             underflow=underflow_comp,
             overflow=overflow_comp,
         )
-        histplot_kwargs.setdefault("w2method", "sqrt")
+        # Force sqrt so histplot doesn't recompute errors with a different method
+        histplot_kwargs["w2method"] = "sqrt"
     else:
         comparison_plottable = EnhancedPlottableHistogram(
             comparison_values,
@@ -291,20 +341,29 @@ def comparison(
             underflow=underflow_comp,
             overflow=overflow_comp,
         )
-        histplot_kwargs.setdefault(
-            "yerr", [comparison_plottable.yerr_lo, comparison_plottable.yerr_hi]
-        )
+        # Build yerr arrays that will be extended for flow bins so that
+        # histplot(..., flow="show") doesn't hit a shape mismatch.
+        yerr_lo = np.copy(comparison_plottable.yerr_lo)
+        yerr_hi = np.copy(comparison_plottable.yerr_hi)
+        if flow == "show":
+            if underflow_comp is not None:
+                yerr_lo = np.r_[0.0, yerr_lo]
+                yerr_hi = np.r_[0.0, yerr_hi]
+            if overflow_comp is not None:
+                yerr_lo = np.r_[yerr_lo, 0.0]
+                yerr_hi = np.r_[yerr_hi, 0.0]
+        histplot_kwargs.setdefault("yerr", [yerr_lo, yerr_hi])
 
     comparison_plottable.errors()
 
     if comparison == "pull":
         histplot_kwargs.setdefault("histtype", "fill")
         histplot_kwargs.setdefault("color", "darkgrey")
-        histplot(comparison_plottable, ax=ax, flow=flow, **histplot_kwargs)
+        histplot(comparison_plottable, ax=ax, flow=flow, blind=blind, **histplot_kwargs)
     else:
         histplot_kwargs.setdefault("color", "black")
         histplot_kwargs.setdefault("histtype", "errorbar")
-        histplot(comparison_plottable, ax=ax, flow=flow, **histplot_kwargs)
+        histplot(comparison_plottable, ax=ax, flow=flow, blind=blind, **histplot_kwargs)
 
     if comparison in ["ratio", "split_ratio", "relative_difference"]:
         if comparison_ylim is None:
@@ -334,15 +393,30 @@ def comparison(
                     np.sqrt(h2_plottable.variances()) / h2_plottable.values(),
                     np.nan,
                 )
+
+            # Apply blinding to the hatched uncertainty band
+            if blind is not None:
+                blind_mask = _resolve_blind_mask(blind, h2_plottable.edges_1d())
+                h2_scaled_uncertainties = h2_scaled_uncertainties.copy()
+                h2_scaled_uncertainties[~blind_mask] = np.nan
+
+            bar_bottom = np.nan_to_num(
+                bottom_shift - h2_scaled_uncertainties, nan=comparison_ylim[0]
+            )
+            bar_height = np.nan_to_num(
+                2 * h2_scaled_uncertainties,
+                nan=comparison_ylim[-1] - comparison_ylim[0],
+            )
+
+            # Zero out blinded bins so no hatched bar is drawn there
+            if blind is not None:
+                bar_bottom[~blind_mask] = 0
+                bar_height[~blind_mask] = 0
+
             ax.bar(
                 x=h2_plottable.centers,
-                bottom=np.nan_to_num(
-                    bottom_shift - h2_scaled_uncertainties, nan=comparison_ylim[0]
-                ),
-                height=np.nan_to_num(
-                    2 * h2_scaled_uncertainties,
-                    nan=comparison_ylim[-1] - comparison_ylim[0],
-                ),
+                bottom=bar_bottom,
+                height=bar_height,
                 width=np.diff(h2_plottable.edges_1d()),
                 edgecolor="dimgrey",
                 hatch="////",
@@ -373,8 +447,9 @@ def comparison(
         ax.axhline(0, ls="--", lw=1.0, color="black")
         ax.set_ylabel(rf"$\frac{{{h1_label} - {h2_label}}}{{{h1_label} + {h2_label}}}$")
 
-    xlim = (h1_plottable.edges_1d()[0], h1_plottable.edges_1d()[-1])
-    ax.set_xlim(xlim)
+    if flow != "show":
+        xlim = (h1_plottable.edges_1d()[0], h1_plottable.edges_1d()[-1])
+        ax.set_xlim(xlim)
     ax.set_xlabel(xlabel)
     if comparison_ylim is not None:
         ax.set_ylim(comparison_ylim)
@@ -442,6 +517,7 @@ def data_model(
     ax_comparison=None,
     plot_only=None,
     flow="hint",
+    blind=None,
     **comparison_kwargs,
 ):
     """
@@ -595,6 +671,7 @@ def data_model(
         fig=fig,
         ax=ax_main,
         flow=flow,
+        blind=blind,
     )
 
     histplot(
@@ -605,6 +682,7 @@ def data_model(
         label=data_label,
         histtype="errorbar",
         flow=flow,
+        blind=blind,
     )
 
     if plot_only == "ax_main":
@@ -639,8 +717,9 @@ def data_model(
         model_hist,
         ax=ax_comparison,
         xlabel=xlabel,
-        w2method=data_w2method,
+        h1_w2method=data_w2method,
         flow=flow,
+        blind=blind,
         **comparison_kwargs,
     )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gs_quant
-Version: 1.4.84
+Version: 1.5.1
 Summary: Goldman Sachs Quant
 Author-email: Goldman Sachs <developer@gs.com>
 License: Apache-2.0
@@ -33,7 +33,7 @@ Requires-Dist: nest-asyncio
 Requires-Dist: numpy<2.4.0,>1.17.0
 Requires-Dist: opentelemetry-api
 Requires-Dist: opentelemetry-sdk
-Requires-Dist: pandas<3.0.0,>=2.2
+Requires-Dist: pandas>=1.4
 Requires-Dist: pydash<7.0.0
 Requires-Dist: python-dateutil>=2.7.0
 Requires-Dist: requests

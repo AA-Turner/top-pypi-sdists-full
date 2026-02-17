@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2017 - 2024 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2017 - 2024 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 r"""A backend module to load and dump pickle files.
@@ -27,29 +27,32 @@ Changelog:
 
 .. versionadded:: 0.8.3
 """
+from __future__ import annotations
+
 import pickle
+import typing
 
 from .. import base
 
 
-LOAD_OPTS = ['fix_imports', 'encoding', 'errors']
-DUMP_OPTS = ['protocol', 'fix_imports']
+LOAD_OPTS: tuple[str, ...] = ("fix_imports", "encoding", "errors")
+DUMP_OPTS: tuple[str, ...] = ("protocol", "fix_imports")
 
 
-class Parser(base.StringStreamFnParser,
-             base.BinaryLoaderMixin, base.BinaryDumperMixin):
+class Parser(base.StringStreamFnParser):
     """Parser for Pickle files."""
 
-    _cid = 'pickle.stdlib'
-    _type = 'pickle'
-    _extensions = ['pkl', 'pickle']
+    _cid: typing.ClassVar[str] = "pickle.stdlib"
+    _type: typing.ClassVar[str] = "pickle"
+    _extensions: tuple[str, ...] = ("pkl", "pickle")
+    _open_read_mode: typing.ClassVar[str] = "rb"
+    _open_write_mode: typing.ClassVar[str] = "wb"
+
     _load_opts = LOAD_OPTS
     _dump_opts = DUMP_OPTS
-    _allow_primitives = True
+    _allow_primitives: typing.ClassVar[bool] = True
 
     _load_from_string_fn = base.to_method(pickle.loads)
     _load_from_stream_fn = base.to_method(pickle.load)
     _dump_to_string_fn = base.to_method(pickle.dumps)
     _dump_to_stream_fn = base.to_method(pickle.dump)
-
-# vim:sw=4:ts=4:et:

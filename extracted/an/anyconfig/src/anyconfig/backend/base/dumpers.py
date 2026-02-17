@@ -1,19 +1,24 @@
 #
-# Copyright (C) 2012 - 2021 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=consider-using-with, unspecified-encoding
 """Abstract and basic dumpes."""
+from __future__ import annotations
+
 import io
+import pathlib
 import typing
 
 from ... import ioinfo, utils
-from .datatypes import (
-    InDataExT, IoiT
-)
 from .utils import (
-    ensure_outdir_exists, not_implemented
+    ensure_outdir_exists, not_implemented,
 )
+
+if typing.TYPE_CHECKING:
+    from .datatypes import (
+        InDataExT, IoiT, PathOrStrT,
+    )
 
 
 _ENCODING = ioinfo.get_encoding()
@@ -34,62 +39,75 @@ class DumperMixin:
     - _open_write_mode: Backend option to specify write mode passed to open()
     """
 
-    _dump_opts: typing.List[str] = []
-    _open_write_mode = 'w'
+    _dump_opts: tuple[str, ...] = ()
+    _open_write_mode: typing.ClassVar[str] = "w"
 
-    def wopen(self, filepath: str, **kwargs):
+    def wopen(
+        self, filepath: PathOrStrT, **options: typing.Any,
+    ) -> typing.IO:
         """Open file ``filepath`` with the write mode ``_open_write_mode``."""
-        if 'encoding' not in kwargs and self._open_write_mode == 'w':
-            kwargs["encoding"] = _ENCODING
+        if "encoding" not in options and self._open_write_mode == "w":
+            options["encoding"] = _ENCODING
 
-        return open(
-            filepath, self._open_write_mode, **kwargs
+        return pathlib.Path(filepath).open(
+            self._open_write_mode, **options,
         )
 
-    def dump_to_string(self, cnf: InDataExT, **kwargs) -> str:
+    def dump_to_string(
+        self, cnf: InDataExT, **options: typing.Any,
+    ) -> str:
         """Dump config 'cnf' to a string.
 
         :param cnf: Configuration data to dump
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
 
         :return: string represents the configuration
         """
-        not_implemented(self, cnf, **kwargs)
-        return ''
+        not_implemented(self, cnf, **options)
+        return ""
 
-    def dump_to_path(self, cnf: InDataExT, filepath: str, **kwargs) -> None:
+    def dump_to_path(
+        self, cnf: InDataExT, filepath: PathOrStrT,
+        **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to a file 'filepath'.
 
         :param cnf: Configuration data to dump
         :param filepath: Config file path
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
-        not_implemented(self, cnf, filepath, **kwargs)
+        not_implemented(self, cnf, filepath, **options)
 
-    def dump_to_stream(self, cnf: InDataExT, stream: typing.IO, **kwargs
-                       ) -> None:
+    def dump_to_stream(
+        self, cnf: InDataExT, stream: typing.IO,
+        **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to a file-like object 'stream'.
 
         TODO: How to process socket objects same as file objects ?
 
         :param cnf: Configuration data to dump
         :param stream:  Config file or file like object
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
-        not_implemented(self, cnf, stream, **kwargs)
+        not_implemented(self, cnf, stream, **options)
 
-    def dumps(self, cnf: InDataExT, **kwargs) -> str:
+    def dumps(
+        self, cnf: InDataExT, **options: typing.Any,
+    ) -> str:
         """Dump config 'cnf' to a string.
 
         :param cnf: Configuration data to dump
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
 
         :return: string represents the configuration
         """
-        kwargs = utils.filter_options(self._dump_opts, kwargs)
-        return self.dump_to_string(cnf, **kwargs)
+        options = utils.filter_options(self._dump_opts, options)
+        return self.dump_to_string(cnf, **options)
 
-    def dump(self, cnf: InDataExT, ioi: IoiT, **kwargs):
+    def dump(
+        self, cnf: InDataExT, ioi: IoiT, **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to output object of which 'ioi' referring.
 
         :param cnf: Configuration data to dump
@@ -97,22 +115,24 @@ class DumperMixin:
             an 'anyconfig.cmmon.IOInfo' namedtuple object provides various
             info of input object to load data from
 
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         :raises IOError, OSError, AttributeError: When dump failed.
         """
-        kwargs = utils.filter_options(self._dump_opts, kwargs)
+        options = utils.filter_options(self._dump_opts, options)
 
         if ioinfo.is_stream(ioi):
-            self.dump_to_stream(cnf, typing.cast(typing.IO, ioi.src), **kwargs)
+            self.dump_to_stream(
+                cnf, typing.cast("typing.IO", ioi.src), **options,
+            )
         else:
             ensure_outdir_exists(ioi.path)
-            self.dump_to_path(cnf, ioi.path, **kwargs)
+            self.dump_to_path(cnf, ioi.path, **options)
 
 
 class BinaryDumperMixin(DumperMixin):
     """Mixin class to dump binary (byte string) configuration data."""
 
-    _open_write_mode: str = 'wb'
+    _open_write_mode: typing.ClassVar[str] = "wb"
 
 
 class ToStringDumperMixin(DumperMixin):
@@ -126,27 +146,32 @@ class ToStringDumperMixin(DumperMixin):
     :meth:`dump_to_string` at least.
     """
 
-    def dump_to_path(self, cnf: InDataExT, filepath: str, **kwargs) -> None:
+    def dump_to_path(
+        self, cnf: InDataExT, filepath: PathOrStrT,
+        **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to a file 'filepath'.
 
         :param cnf: Configuration data to dump
         :param filepath: Config file path
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
         with self.wopen(filepath) as out:
-            out.write(self.dump_to_string(cnf, **kwargs))
+            out.write(self.dump_to_string(cnf, **options))
 
-    def dump_to_stream(self, cnf: InDataExT, stream: typing.IO, **kwargs
-                       ) -> None:
+    def dump_to_stream(
+        self, cnf: InDataExT, stream: typing.IO,
+        **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to a file-like object 'stream'.
 
         TODO: How to process socket objects same as file objects ?
 
         :param cnf: Configuration data to dump
         :param stream:  Config file or file like object
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
-        stream.write(self.dump_to_string(cnf, **kwargs))
+        stream.write(self.dump_to_string(cnf, **options))
 
 
 class ToStreamDumperMixin(DumperMixin):
@@ -159,26 +184,29 @@ class ToStreamDumperMixin(DumperMixin):
     :meth:`dump_to_stream` at least.
     """
 
-    def dump_to_string(self, cnf: InDataExT, **kwargs) -> str:
+    def dump_to_string(
+        self, cnf: InDataExT, **options: typing.Any,
+    ) -> str:
         """Dump config 'cnf' to a string.
 
         :param cnf: Configuration data to dump
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
 
         :return: Dict-like object holding config parameters
         """
         stream = io.StringIO()
-        self.dump_to_stream(cnf, stream, **kwargs)
+        self.dump_to_stream(cnf, stream, **options)
         return stream.getvalue()
 
-    def dump_to_path(self, cnf: InDataExT, filepath: str, **kwargs) -> None:
+    def dump_to_path(
+        self, cnf: InDataExT, filepath: PathOrStrT,
+        **options: typing.Any,
+    ) -> None:
         """Dump config 'cnf' to a file 'filepath`.
 
         :param cnf: Configuration data to dump
         :param filepath: Config file path
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
         with self.wopen(filepath) as out:
-            self.dump_to_stream(cnf, out, **kwargs)
-
-# vim:sw=4:ts=4:et:
+            self.dump_to_stream(cnf, out, **options)

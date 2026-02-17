@@ -14,9 +14,8 @@ from pydantic_ai import Agent, RunContext, Tool
 from pydantic_ai.messages import ModelMessage, ModelRequest, UserPromptPart
 from requests import Response
 
-from tinybird.tb.check_pypi import CheckPypi
 from tinybird.tb.client import TinyB
-from tinybird.tb.config import CURRENT_VERSION, get_clickhouse_host, get_display_cloud_host
+from tinybird.tb.config import get_clickhouse_host, get_display_cloud_host
 from tinybird.tb.modules.agent.animations import ThinkingAnimation
 from tinybird.tb.modules.agent.banner import display_banner
 from tinybird.tb.modules.agent.command_agent import CommandAgent
@@ -72,7 +71,6 @@ from tinybird.tb.modules.common import (
     get_region_from_host,
     get_regions,
     sys_exit,
-    update_cli,
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.deployment_common import create_deployment
@@ -522,20 +520,6 @@ def run_agent(
     prompt: Optional[str] = None,
     feature: Optional[str] = None,
 ):
-    if not prompt:
-        latest_version = CheckPypi().get_latest_version()
-        if latest_version and "x.y.z" not in CURRENT_VERSION and latest_version != CURRENT_VERSION:
-            yes = click.confirm(
-                FeedbackManager.warning(
-                    message=f"New version available. {CURRENT_VERSION} -> {latest_version}. Do you want to update now? [Y/n]"
-                ),
-                show_default=False,
-                default=True,
-                prompt_suffix="",
-            )
-            if yes:
-                update_cli()
-
     if not prompt:
         click.echo(FeedbackManager.highlight(message="» Initializing Tinybird Code..."))
 

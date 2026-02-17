@@ -1,7 +1,11 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import unittest
 
 from tatsu.exceptions import FailedParse
-from tatsu.ngcodegen import codegen
+from tatsu.ngcodegen import pythongen
 from tatsu.tool import compile
 from tatsu.util import trim
 
@@ -110,10 +114,12 @@ class PatternTests(unittest.TestCase):
             / $ ;
         """
         model = compile(grammar=trim(grammar))
-        print(codegen(model.rules[0].exp.sequence[0]))
+        from tatsu import grammars
+        assert isinstance(model.rules[0].exp, grammars.Sequence)
+        print(pythongen(model.rules[0].exp.sequence[0]))
         self.assertEqual(
-            codegen(model.rules[0].exp.sequence[0]).strip(),
-            repr("self._pattern('(?x)\nfoo\nbar\n')").strip('"\''),
+            pythongen(model.rules[0].exp.sequence[0]).strip(),
+            "self._pattern(r'(?x)\\nfoo\\nbar\\n')",
         )
 
         grammar = r"""
@@ -122,8 +128,9 @@ class PatternTests(unittest.TestCase):
             blort/ $ ;
         """
         model = compile(grammar=trim(grammar))
-        print(codegen(model.rules[0].exp.sequence[0]))
+        assert isinstance(model.rules[0].exp, grammars.Sequence)
+        print(pythongen(model.rules[0].exp.sequence[0]))
         self.assertEqual(
-            trim(codegen(model.rules[0].exp.sequence[0])),
-            repr("self._pattern('(?x)foo\\nbar\nblort')").strip(r'"\.'),
+            trim(pythongen(model.rules[0].exp.sequence[0])),
+            "self._pattern(r'(?x)foo\\nbar\\nblort')",
         )

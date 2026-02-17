@@ -1,7 +1,7 @@
 from abc import abstractmethod
 
 from adam.commands.export.utils_export import fs_exec, remote_export_table_log_dir
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.directories import Directories
 from adam.utils_log import ing
 from adam.utils_context import NULL

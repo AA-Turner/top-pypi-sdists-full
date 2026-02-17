@@ -52,6 +52,7 @@ def merge_completions(dict1, dict2):
 
     return target
 
+# need the word completer pattern to support dots in words, for example, set debugs.timings on
 class ReplCompleter(NestedCompleter):
     def get_completions(
         self, document: Document, complete_event: CompleteEvent

@@ -49,6 +49,8 @@
 #include <cub/util_ptx.cuh>
 #include <cub/warp/warp_reduce.cuh>
 
+#include <cuda/std/span>
+
 CUB_NAMESPACE_BEGIN
 namespace detail
 {
@@ -68,11 +70,8 @@ namespace detail
  *
  * @tparam BLOCK_DIM_Z
  *   The thread block length in threads along the Z dimension
- *
- * @tparam LEGACY_PTX_ARCH
- *   The PTX compute capability for which to to specialize this collective
  */
-template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y, int BLOCK_DIM_Z, int LEGACY_PTX_ARCH = 0>
+template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y, int BLOCK_DIM_Z>
 struct BlockReduceRakingCommutativeOnly
 {
   /// Constants
@@ -90,7 +89,7 @@ struct BlockReduceRakingCommutativeOnly
   enum
   {
     /// Number of warp threads
-    WARP_THREADS = CUB_WARP_THREADS(0),
+    WARP_THREADS = warp_threads,
 
     /// Whether or not to use fall-back
     USE_FALLBACK = ((BLOCK_THREADS % WARP_THREADS != 0) || (BLOCK_THREADS <= WARP_THREADS)),
@@ -99,7 +98,7 @@ struct BlockReduceRakingCommutativeOnly
     RAKING_THREADS = WARP_THREADS,
 
     /// Number of threads actually sharing items with the raking threads
-    SHARING_THREADS = CUB_MAX(1, BLOCK_THREADS - RAKING_THREADS),
+    SHARING_THREADS = _CUDA_VSTD::max(1, BLOCK_THREADS - RAKING_THREADS),
 
     /// Number of raking elements per warp synchronous raking thread
     SEGMENT_LENGTH = SHARING_THREADS / WARP_THREADS,
@@ -175,7 +174,8 @@ struct BlockReduceRakingCommutativeOnly
       {
         // Raking reduction in grid
         T* raking_segment = BlockRakingLayout::RakingPtr(temp_storage.default_storage.raking_grid, linear_tid);
-        partial           = cub::internal::ThreadReduce<SEGMENT_LENGTH>(raking_segment, ::cuda::std::plus<>{}, partial);
+        auto span         = ::cuda::std::span<T, SEGMENT_LENGTH>(raking_segment, SEGMENT_LENGTH);
+        partial           = cub::ThreadReduce(span, ::cuda::std::plus<>{}, partial);
 
         // Warp reduction
         partial = WarpReduce(temp_storage.default_storage.warp_storage).Sum(partial);
@@ -222,7 +222,8 @@ struct BlockReduceRakingCommutativeOnly
       {
         // Raking reduction in grid
         T* raking_segment = BlockRakingLayout::RakingPtr(temp_storage.default_storage.raking_grid, linear_tid);
-        partial           = cub::internal::ThreadReduce<SEGMENT_LENGTH>(raking_segment, reduction_op, partial);
+        auto span         = ::cuda::std::span<T, SEGMENT_LENGTH>(raking_segment, SEGMENT_LENGTH);
+        partial           = cub::ThreadReduce(span, reduction_op, partial);
 
         // Warp reduction
         partial = WarpReduce(temp_storage.default_storage.warp_storage).Reduce(partial, reduction_op);
@@ -233,10 +234,5 @@ struct BlockReduceRakingCommutativeOnly
   }
 };
 } // namespace detail
-
-template <typename T, int BLOCK_DIM_X, int BLOCK_DIM_Y, int BLOCK_DIM_Z, int LEGACY_PTX_ARCH = 0>
-using BlockReduceRakingCommutativeOnly CCCL_DEPRECATED_BECAUSE(
-  "This class is considered an implementation detail and the public interface will be "
-  "removed.") = detail::BlockReduceRakingCommutativeOnly<T, BLOCK_DIM_X, BLOCK_DIM_Y, BLOCK_DIM_Z, LEGACY_PTX_ARCH>;
 
 CUB_NAMESPACE_END

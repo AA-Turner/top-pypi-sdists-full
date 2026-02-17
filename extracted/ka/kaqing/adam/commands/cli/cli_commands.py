@@ -7,7 +7,7 @@ from adam.utils_log import log_timing
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_k8s.secrets import Secrets
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class CliCommands:
     def values(state: ReplState, collapse = False):

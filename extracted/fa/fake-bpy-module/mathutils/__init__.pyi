@@ -379,8 +379,8 @@ class Euler:
         angle: float,
         /,
     ) -> None:
-        """Rotates the euler a certain amount and returning a unique euler rotation
-        (no 720 degree pitches).
+        """Rotates the euler a certain amount, wrapping the result to produce
+        a unique euler rotation (no 720 degree pitches).
 
                 :param axis: An axis string.
                 :param angle: angle in radians.
@@ -469,7 +469,7 @@ class Matrix:
     """
 
     col: MatrixAccess
-    """ Access the matrix by columns, 3x3 and 4x4 only, (read-only)."""
+    """ Access the matrix by columns (read-only)."""
 
     is_frozen: bool
     """ True when this object has been frozen (read-only)."""
@@ -643,11 +643,11 @@ class Matrix:
     def copy(self) -> typing_extensions.Self:
         """Returns a copy of this matrix.
 
-        :return: an instance of itself
+        :return: A copy of the matrix.
         """
 
     def decompose(self) -> tuple[Vector, Quaternion, Vector]:
-        """Return the translation, rotation, and scale components of this matrix.
+        """Return the translation, rotation, and scale components of this 4x4 matrix.
 
         :return: Tuple of translation, rotation, and scale.
         """
@@ -723,10 +723,10 @@ class Matrix:
         """
 
     def normalize(self) -> None:
-        """Normalize each of the matrix columns."""
+        """Normalize each of the matrix columns (3x3 and 4x4 only)."""
 
     def normalized(self) -> typing_extensions.Self:
-        """Return a column normalized matrix
+        """Return a column normalized matrix (3x3 and 4x4 only).
 
         :return: a column normalized matrix
         """
@@ -795,7 +795,7 @@ class Matrix:
         """
 
     def to_translation(self) -> Vector:
-        """Return the translation part of a 4 row matrix.
+        """Return the translation part of a 4x4 matrix.
 
         :return: Return the translation of a matrix.
         """
@@ -1078,7 +1078,7 @@ class Quaternion:
         """Make this quaternion compatible with another,
         so interpolating between them works as intended.
 
-                :param other: The other quaternion to make compatible with.
+                :param other: The reference quaternion to make this one compatible with.
         """
 
     def negate(self) -> None:

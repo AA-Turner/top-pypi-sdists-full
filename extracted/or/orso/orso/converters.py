@@ -13,11 +13,18 @@
 import itertools
 import typing
 
+from orso.compute.compiled import extract_columns_to_lists
 from orso.compute.compiled import process_table
 from orso.exceptions import MissingDependencyError
 from orso.row import Row
 from orso.schema import FlatColumn
 from orso.schema import RelationSchema
+from orso.schema import convert_orso_schema_to_arrow_schema
+from orso.types import OrsoTypes
+
+# Cache for optional dependencies
+_pyarrow = None
+_polars = None
 
 
 class _RowsIterator:
@@ -73,20 +80,47 @@ class _RowsIterator:
 
 
 def to_arrow(dataset, size=None):
-    try:
-        import pyarrow
-    except ImportError as import_error:
-        raise MissingDependencyError(import_error.name) from import_error
+    global _pyarrow
+    if _pyarrow is None:
+        try:
+            import pyarrow
 
-    if size is not None and size >= 0:
-        dataset = dataset.head(size)
+            _pyarrow = pyarrow
+        except ImportError as import_error:
+            raise MissingDependencyError(import_error.name) from import_error
 
-    if dataset.rowcount == 0:
-        arrays = [list() for _ in range(dataset.columncount)]
+    dataset.materialize()
+    rows = dataset._rows
+    total_rows = len(rows)
+
+    limit = min(size, total_rows) if size is not None and size >= 0 else total_rows
+
+    column_names = dataset.column_names
+
+    if limit == 0:
+        arrays = [list() for _ in column_names]
     else:
-        arrays = list(zip(*dataset._rows))
+        # Use Cython for faster column extraction and respect the requested limit
+        arrays = extract_columns_to_lists(rows, limit if limit >= 0 else -1)
 
-    return pyarrow.Table.from_arrays(arrays, dataset.column_names)
+    arrow_schema = None
+    dataset_schema = getattr(dataset, "schema", None)
+    if isinstance(dataset_schema, RelationSchema):
+        try:
+            arrow_schema = convert_orso_schema_to_arrow_schema(dataset_schema)
+        except MissingDependencyError:
+            # Fall back to letting PyArrow infer types if optional dependency missing
+            arrow_schema = None
+
+        if arrow_schema is not None and any(
+            col.type == OrsoTypes.STRUCT and not getattr(col, "fields", None)
+            for col in dataset_schema.columns
+        ):
+            arrow_schema = None
+
+    if arrow_schema is not None:
+        return _pyarrow.Table.from_arrays(arrays, schema=arrow_schema)
+    return _pyarrow.Table.from_arrays(arrays, column_names)
 
 
 def from_arrow(tables, size=None):
@@ -139,11 +173,15 @@ def from_pandas(pandas):
 
 
 def to_polars(dataset, size=None):
-    try:
-        import polars
-    except ImportError as import_error:
-        raise MissingDependencyError(import_error.name) from import_error
-    return polars.DataFrame(r.as_dict for r in dataset.slice(0, size))
+    global _polars
+    if _polars is None:
+        try:
+            import polars
+
+            _polars = polars
+        except ImportError as import_error:
+            raise MissingDependencyError(import_error.name) from import_error
+    return _polars.DataFrame(r.as_dict for r in dataset.slice(0, size))
 
 
 def from_polars(polars):

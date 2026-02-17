@@ -18,11 +18,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 import humps
 from hopsworks_common import client, util
-from hopsworks_common.constants import PREDICTOR, SCALING_CONFIG, Default
+from hopsworks_common.constants import PREDICTOR, SCALING_CONFIG
+
+
+if TYPE_CHECKING:
+    from hopsworks_common.constants import Default
 
 
 class ScaleMetric(Enum):
@@ -45,26 +49,26 @@ class ComponentScalingConfig(ABC):
     def __init__(
         self,
         min_instances: int,
-        max_instances: Optional[int] = None,
-        scale_metric: Optional[Union[ScaleMetric, str, Default]] = None,
-        target: Optional[int] = None,
-        panic_window_percentage: Optional[float] = None,
-        panic_threshold_percentage: Optional[float] = None,
-        stable_window_seconds: Optional[int] = None,
-        scale_to_zero_retention_seconds: Optional[int] = None,
+        max_instances: int | None = None,
+        scale_metric: ScaleMetric | str | Default | None = None,
+        target: int | None = None,
+        panic_window_percentage: float | None = None,
+        panic_threshold_percentage: float | None = None,
+        stable_window_seconds: int | None = None,
+        scale_to_zero_retention_seconds: int | None = None,
         **kwargs,
     ):
         """Initialize a ComponentScalingConfig instance.
 
         Args:
             min_instances (int): Minimum number of instances to scale to.
-            max_instances (Optional[int], optional): Maximum number of instances to scale to.
-            scale_metric (Optional[Union[ScaleMetric, str, Default]], optional): Metric to use for scaling.
-            target (Optional[int], optional): Target value for the selected scaling metric.
-            panic_window_percentage (Optional[float], optional): Percentage of the stable window to use as the panic window.
-            panic_threshold_percentage (Optional[float], optional): Percentage of the scale metric threshold to trigger scaling.
-            stable_window_seconds (Optional[int], optional): Interval in seconds for calculating the average metric.
-            scale_to_zero_retention_seconds (Optional[int], optional): Time in seconds to retain the last instance before scaling to zero.
+            max_instances (int | None, optional): Maximum number of instances to scale to.
+            scale_metric (ScaleMetric | str | Default | None, optional): Metric to use for scaling.
+            target (int | None, optional): Target value for the selected scaling metric.
+            panic_window_percentage (float | None, optional): Percentage of the stable window to use as the panic window.
+            panic_threshold_percentage (float | None, optional): Percentage of the scale metric threshold to trigger scaling.
+            stable_window_seconds (int | None, optional): Interval in seconds for calculating the average metric.
+            scale_to_zero_retention_seconds (int | None, optional): Time in seconds to retain the last instance before scaling to zero.
             **kwargs: Backwards-compatible aliases for the parameters above.
         """
         scale_metric = scale_metric or kwargs.get("scale_metric")
@@ -121,9 +125,7 @@ class ComponentScalingConfig(ABC):
 
     @staticmethod
     def get_default_scaling_configuration(
-        serving_tool: str,
-        min_instances: Optional[int],
-        component_type: str = "predictor",
+        serving_tool: str, min_instances: int | None, component_type: str = "predictor"
     ) -> ComponentScalingConfig:
         """Get the default scaling configuration based on the serving tool and number of instances."""
         if min_instances is None:
@@ -252,7 +254,7 @@ class ComponentScalingConfig(ABC):
         return self._scale_metric
 
     @scale_metric.setter
-    def scale_metric(self, scale_metric: Union[ScaleMetric, str]):
+    def scale_metric(self, scale_metric: ScaleMetric | str):
         if isinstance(scale_metric, str):
             if not ScaleMetric.has_value(scale_metric.upper()):
                 raise ValueError(
@@ -344,13 +346,13 @@ class PredictorScalingConfig(ComponentScalingConfig):
         Args:
             **kwargs: Keyword arguments for the predictor scaling configuration.
                 - min_instances (int): Minimum number of instances to scale to (required).
-                - max_instances (Optional[int], optional): Maximum number of instances to scale to.
-                - scale_metric (Optional[Union[ScaleMetric, str, Default]], optional): Metric to use for scaling.
-                - target (Optional[int], optional): Target value for the selected scaling metric.
-                - panic_window_percentage (Optional[float], optional): Percentage of the stable window to use as the panic window.
-                - panic_threshold_percentage (Optional[float], optional): Percentage of the scale metric threshold to trigger scaling.
-                - stable_window_seconds (Optional[int], optional): Interval in seconds for calculating the average metric.
-                - scale_to_zero_retention_seconds (Optional[int], optional): Time in seconds to retain the last instance before scaling to zero.
+                - max_instances (int | None, optional): Maximum number of instances to scale to.
+                - scale_metric (ScaleMetric | str | Default | None, optional): Metric to use for scaling.
+                - target (int | None, optional): Target value for the selected scaling metric.
+                - panic_window_percentage (float | None, optional): Percentage of the stable window to use as the panic window.
+                - panic_threshold_percentage (float | None, optional): Percentage of the scale metric threshold to trigger scaling.
+                - stable_window_seconds (int | None, optional): Interval in seconds for calculating the average metric.
+                - scale_to_zero_retention_seconds (int | None, optional): Time in seconds to retain the last instance before scaling to zero.
 
         Raises:
             ValueError: If `min_instances` is not provided.
@@ -385,13 +387,13 @@ class TransformerScalingConfig(ComponentScalingConfig):
         Args:
             **kwargs: Keyword arguments for the transformer scaling configuration.
                 - min_instances (int): Minimum number of instances to scale to (required).
-                - max_instances (Optional[int], optional): Maximum number of instances to scale to.
-                - scale_metric (Optional[Union[ScaleMetric, str, Default]], optional): Metric to use for scaling.
-                - target (Optional[int], optional): Target value for the selected scaling metric.
-                - panic_window_percentage (Optional[float], optional): Percentage of the stable window to use as the panic window.
-                - panic_threshold_percentage (Optional[float], optional): Percentage of the scale metric threshold to trigger scaling.
-                - stable_window_seconds (Optional[int], optional): Interval in seconds for calculating the average metric.
-                - scale_to_zero_retention_seconds (Optional[int], optional): Time in seconds to retain the last instance before scaling to zero.
+                - max_instances (int | None, optional): Maximum number of instances to scale to.
+                - scale_metric (ScaleMetric | str | Default | None, optional): Metric to use for scaling.
+                - target (int | None, optional): Target value for the selected scaling metric.
+                - panic_window_percentage (float | None, optional): Percentage of the stable window to use as the panic window.
+                - panic_threshold_percentage (float | None, optional): Percentage of the scale metric threshold to trigger scaling.
+                - stable_window_seconds (int | None, optional): Interval in seconds for calculating the average metric.
+                - scale_to_zero_retention_seconds (int | None, optional): Time in seconds to retain the last instance before scaling to zero.
 
         Raises:
             ValueError: If `min_instances` is not provided.

@@ -3,11 +3,11 @@ import time
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.rdbms.utils_athena import Athena
 from adam.utils_context import NULL
-from adam.utils_log import log, log2
-from adam.utils_athena import Athena
-from adam.utils_audits import AuditMeta, Audits, audit
+from adam.utils_log import log2
+from adam.commands.audit.utils_audits import AuditMeta, Audits, audit
+from adam.utils_repl.repl_state import ReplState
 
 class AuditRepairTables(Command):
     COMMAND = 'audit repair'

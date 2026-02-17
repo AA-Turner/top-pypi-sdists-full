@@ -1155,6 +1155,7 @@ class StreamResolver(_message.Message):
         "message_producer",
         "skip_online",
         "skip_offline",
+        "update_aggregates",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1187,6 +1188,7 @@ class StreamResolver(_message.Message):
     MESSAGE_PRODUCER_FIELD_NUMBER: _ClassVar[int]
     SKIP_ONLINE_FIELD_NUMBER: _ClassVar[int]
     SKIP_OFFLINE_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_AGGREGATES_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1208,6 +1210,7 @@ class StreamResolver(_message.Message):
     message_producer: StreamResolverMessageProducerParsed
     skip_online: bool
     skip_offline: bool
+    update_aggregates: bool
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1231,6 +1234,7 @@ class StreamResolver(_message.Message):
         message_producer: _Optional[_Union[StreamResolverMessageProducerParsed, _Mapping]] = ...,
         skip_online: bool = ...,
         skip_offline: bool = ...,
+        update_aggregates: bool = ...,
     ) -> None: ...
 
 class StreamResolverMessageProducerParsed(_message.Message):

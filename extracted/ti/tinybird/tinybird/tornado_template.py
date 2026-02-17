@@ -283,7 +283,7 @@ class Template:
         .. versionchanged:: 4.3
            Added ``whitespace`` parameter; deprecated ``compress_whitespace``.
         """
-        name = name if name else "<string>"
+        name = name or "<string>"
         self.name = escape.native_str(name)
 
         if compress_whitespace is not _UNSET:

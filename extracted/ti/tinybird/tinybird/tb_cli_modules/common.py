@@ -1601,7 +1601,7 @@ async def wait_job(
             if "progress_percentage" in res:
                 progress_bar.update(int(round(res["progress_percentage"])) - progress_bar.pos)
             elif res["status"] != "working":
-                progress_bar.update(progress_bar.length if progress_bar.length else 0)
+                progress_bar.update(progress_bar.length or 0)
 
         try:
             # TODO: Simplify this as it's not needed to use two functions for

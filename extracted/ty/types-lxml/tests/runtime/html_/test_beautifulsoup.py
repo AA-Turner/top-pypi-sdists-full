@@ -10,7 +10,11 @@ from urllib.request import urlopen
 
 import pytest
 from bs4 import BeautifulSoup
-from hypothesis import HealthCheck, assume, given, settings
+from hypothesis import (
+    HealthCheck,
+    given,
+    settings,
+)
 from lxml.etree import (
     Element,
     _Element as _Element,
@@ -24,6 +28,7 @@ from lxml.html import (
 
 from .._testutils import signature_tester, strategy as _st
 from .._testutils.errors import (
+    raise_non_callable,
     raise_unexpected_kwarg,
 )
 
@@ -92,12 +97,15 @@ class TestFromstring:
         del result2
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(NoneType))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType).filter(
+            lambda x: x is not NoneType
+        )
+    )
     @pytest.mark.slow
     def test_beautifulsoup_arg_bad_1(self, html2_str: str, thing: Any) -> None:
-        assume(thing is not NoneType)
         if not callable(thing):
-            with pytest.raises(TypeError, match=r"object is not callable"):
+            with raise_non_callable:
                 _ = _soup.fromstring(html2_str, thing)
         else:
             with pytest.raises(Exception):  # Very diversified
@@ -106,7 +114,7 @@ class TestFromstring:
     @settings(max_examples=5)
     @given(iterable_of=_st.fixed_item_iterables())
     def test_beautifulsoup_arg_bad_2(self, html2_str: str, iterable_of: Any) -> None:
-        with pytest.raises(TypeError, match=r"object is not callable"):
+        with raise_non_callable:
             _ = _soup.fromstring(html2_str, iterable_of(BeautifulSoup))
 
     def test_makeelement_arg_ok(self, html2_str: str) -> None:
@@ -188,7 +196,7 @@ class TestParse:
     @pytest.mark.slow
     def test_beautifulsoup_arg_bad_1(self, html2_filepath: Path, thing: Any) -> None:
         if not callable(thing):
-            with pytest.raises(TypeError, match=r"object is not callable"):
+            with raise_non_callable:
                 _ = _soup.parse(html2_filepath, thing)
         else:
             with pytest.raises(Exception):  # Very diversified
@@ -199,7 +207,7 @@ class TestParse:
     def test_beautifulsoup_arg_bad_2(
         self, html2_filepath: Path, iterable_of: Any
     ) -> None:
-        with pytest.raises(TypeError, match=r"object is not callable"):
+        with raise_non_callable:
             _ = _soup.parse(html2_filepath, beautifulsoup=iterable_of(BeautifulSoup))
 
     def test_makeelement_arg_ok(self, html2_filepath: Path) -> None:
@@ -292,13 +300,16 @@ class TestConvertTree:
         del result2
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(NoneType))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType).filter(
+            lambda x: x is not NoneType
+        )
+    )
     @pytest.mark.slow
     def test_makeelement_arg_bad_1(self, html2_str: str, thing: Any) -> None:
         soup = BeautifulSoup(html2_str, features="html.parser")
-        assume(thing is not NoneType)
         if not callable(thing):
-            with pytest.raises(TypeError, match=r"object is not callable"):
+            with raise_non_callable:
                 _ = _soup.convert_tree(soup, makeelement=thing)
         elif thing is dict:
             # ValueError: dictionary update sequence element #0 has length 1; 2 is required
@@ -312,5 +323,5 @@ class TestConvertTree:
     @given(iterable_of=_st.fixed_item_iterables())
     def test_makeelement_arg_bad_2(self, html2_str: str, iterable_of: Any) -> None:
         soup = BeautifulSoup(html2_str, features="html.parser")
-        with pytest.raises(TypeError, match=r"object is not callable"):
+        with raise_non_callable:
             _ = _soup.convert_tree(soup, makeelement=iterable_of(Element))

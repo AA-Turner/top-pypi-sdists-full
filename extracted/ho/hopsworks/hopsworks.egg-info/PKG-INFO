@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hopsworks
-Version: 4.6.4
+Version: 4.7.2
 Summary: Hopsworks Python SDK to interact with Hopsworks Platform, Feature Store, Model Registry and Model Serving
 Author-email: Hopsworks AB <robin@hopsworks.ai>
 License: Apache-2.0
@@ -48,7 +48,7 @@ Requires-Dist: fastavro<=1.12.0,>=1.4.11; extra == "python"
 Requires-Dist: tqdm; extra == "python"
 Requires-Dist: hops-deltalake==1.1.2.post2; (python_version >= "3.9" and (sys_platform == "linux" or (sys_platform == "darwin" and platform_machine == "arm64"))) and extra == "python"
 Provides-Extra: sqlalchemy-1
-Requires-Dist: pandas<2.2.0; extra == "sqlalchemy-1"
+Requires-Dist: pandas<2.2.0; python_version < "3.13" and extra == "sqlalchemy-1"
 Requires-Dist: sqlalchemy<2.0.0; extra == "sqlalchemy-1"
 Provides-Extra: great-expectations
 Requires-Dist: great_expectations==0.18.12; extra == "great-expectations"
@@ -56,31 +56,35 @@ Provides-Extra: dev-no-opt
 Requires-Dist: hopsworks[python]; extra == "dev-no-opt"
 Requires-Dist: pytest==7.4.4; extra == "dev-no-opt"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-no-opt"
-Requires-Dist: ruff; extra == "dev-no-opt"
+Requires-Dist: ruff==0.14.8; extra == "dev-no-opt"
 Requires-Dist: gitignorefile; extra == "dev-no-opt"
 Requires-Dist: pyspark==3.5.5; extra == "dev-no-opt"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-no-opt"
+Requires-Dist: pandas>=2.2.0; extra == "dev-no-opt"
 Requires-Dist: typeguard==4.2.1; extra == "dev-no-opt"
 Requires-Dist: delta-spark==3.3.1; extra == "dev-no-opt"
 Provides-Extra: dev-pandas1
 Requires-Dist: hopsworks[python]; extra == "dev-pandas1"
 Requires-Dist: pytest==7.4.4; extra == "dev-pandas1"
 Requires-Dist: pytest-mock==3.12.0; extra == "dev-pandas1"
-Requires-Dist: ruff; extra == "dev-pandas1"
+Requires-Dist: ruff==0.14.8; extra == "dev-pandas1"
 Requires-Dist: pyspark==3.5.5; extra == "dev-pandas1"
 Requires-Dist: moto[s3]==5.0.0; extra == "dev-pandas1"
-Requires-Dist: pandas<=1.5.3; extra == "dev-pandas1"
-Requires-Dist: numpy<2.0.0; extra == "dev-pandas1"
+Requires-Dist: pandas<=1.5.3; python_version < "3.12" and extra == "dev-pandas1"
 Requires-Dist: sqlalchemy<=1.4.48; extra == "dev-pandas1"
 Requires-Dist: delta-spark==3.3.1; extra == "dev-pandas1"
 Provides-Extra: dev
-Requires-Dist: hopsworks[dev-no-opt,great-expectations,polars]; extra == "dev"
+Requires-Dist: hopsworks[dev-no-opt,great-expectations,mcp,polars,python]; extra == "dev"
 Provides-Extra: polars
 Requires-Dist: polars<=0.21.0,>=0.20.18; extra == "polars"
 Requires-Dist: pyarrow>=17.0; extra == "polars"
 Provides-Extra: mcp
-Requires-Dist: fastmcp>=2.10.5; extra == "mcp"
+Requires-Dist: fastmcp<=2.13.3,>=2.10.5; python_version >= "3.10" and extra == "mcp"
+Requires-Dist: filelock; extra == "mcp"
 Requires-Dist: httpx; extra == "mcp"
+Requires-Dist: httptools; extra == "mcp"
+Requires-Dist: uvicorn; extra == "mcp"
+Requires-Dist: uvloop; sys_platform != "win32" and extra == "mcp"
 Requires-Dist: pydantic>=2.11.7; extra == "mcp"
 Dynamic: license-file
 
@@ -255,6 +259,7 @@ predictions = deployment.predict(data)
 Usage data is collected for improving quality of the library.
 It is turned on by default if the backend is [Hopsworks Serverless](https://c.app.hopsworks.ai).
 To turn it off, use one of the following ways:
+
 ```python
 # use environment variable
 import os

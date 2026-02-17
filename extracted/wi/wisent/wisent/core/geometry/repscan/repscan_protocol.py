@@ -1,11 +1,10 @@
 """
-RepScan protocol: 5-step representation discovery and characterization.
+RepScan protocol: 4-step representation discovery and characterization.
 
 1. Signal Test - does a learnable signal exist?
 2. Geometry Test - is the representation linear or nonlinear?
 3. Decomposition Test - is the concept fragmented into sub-concepts?
 4. Intervention Selection - which steering method to use?
-5. Editability Analysis - how safely can the concept be edited?
 """
 
 from dataclasses import dataclass
@@ -32,14 +31,19 @@ class GeometryTestResult:
     linear_accuracy: float
     nonlinear_accuracy: float
     gap: float
-    diagnosis: str  # "LINEAR" or "NONLINEAR"
-    rigorous: bool = False
-    confidence: Optional[float] = None
-    p_value: Optional[float] = None
-    gap_ci_lower: Optional[float] = None
-    gap_ci_upper: Optional[float] = None
-    n_diagnostics_passed: Optional[int] = None
-    n_diagnostics_total: Optional[int] = None
+    diagnosis: str  # "LINEAR" or "NONLINEAR" (with confidence suffix)
+    confidence: float = 0.0
+    p_value: float = 1.0
+    gap_ci_lower: float = 0.0
+    gap_ci_upper: float = 0.0
+    n_diagnostics_passed: int = 0
+    n_diagnostics_total: int = 0
+    t_statistic: float = 0.0
+    residual_silhouette: float = 0.0
+    residuals_cluster: bool = False
+    ramsey_improvement: float = 0.0
+    ramsey_significant: bool = False
+    diagnostics: Optional[Dict[str, Any]] = None
 
 
 @dataclass
@@ -79,7 +83,7 @@ def test_signal(
     Signal passes if permutation p_value < p_threshold AND (if nonsense available)
     nonsense z_score > 2.0 for any metric.
     """
-    from .signal_null_tests import compute_signal_vs_null, compute_signal_vs_nonsense, compute_aggregate_signal
+    from ..validation.null_tests.signal_null_tests import compute_signal_vs_null, compute_signal_vs_nonsense, compute_aggregate_signal
 
     # Always run permutation test
     perm_metrics = compute_signal_vs_null(pos, neg, metric_keys)
@@ -107,49 +111,47 @@ def test_signal(
 
 
 def test_geometry(
-    pos: torch.Tensor, neg: torch.Tensor, gap_threshold: float = 0.05, rigorous: bool = False,
+    pos: torch.Tensor, neg: torch.Tensor,
 ) -> GeometryTestResult:
     """Step 2: Test if geometry is linear or nonlinear.
 
-    Args:
-        pos: Positive activations
-        neg: Negative activations
-        gap_threshold: Minimum gap for simple test (ignored if rigorous=True)
-        rigorous: If True, use full econometric-style validation with 5 diagnostics
+    Runs full econometric-style validation with 5 diagnostics:
+    1. Gap statistical test (paired t-test)
+    2. Residual analysis (clustering of errors)
+    3. Ramsey polynomial test (specification test)
+    4. Bootstrap confidence intervals
+    5. Cross-context transfer test
 
     Returns:
-        GeometryTestResult with diagnosis and optional rigorous metrics.
+        GeometryTestResult with diagnosis and full diagnostic metrics.
     """
-    if rigorous:
-        from .is_linear import test_linearity
-        result = test_linearity(pos, neg)
-        diagnosis = "LINEAR" if result.is_linear else "NONLINEAR"
-        return GeometryTestResult(
-            linear_accuracy=result.linear_accuracy,
-            nonlinear_accuracy=result.nonlinear_accuracy,
-            gap=result.gap,
-            diagnosis=diagnosis,
-            rigorous=True,
-            confidence=result.confidence,
-            p_value=result.p_value,
-            gap_ci_lower=result.gap_ci_lower,
-            gap_ci_upper=result.gap_ci_upper,
-            n_diagnostics_passed=result.n_diagnostics_passed,
-            n_diagnostics_total=result.n_diagnostics_total,
-        )
-
-    from .geometry_metrics import compute_linear_nonlinear_gap
-    linear, nonlinear = compute_linear_nonlinear_gap(pos, neg)
-    gap = nonlinear - linear
-    diagnosis = "NONLINEAR" if gap > gap_threshold else "LINEAR"
-    return GeometryTestResult(linear, nonlinear, gap, diagnosis)
+    from ..analysis.is_linear import test_linearity
+    result = test_linearity(pos, neg)
+    return GeometryTestResult(
+        linear_accuracy=result.linear_accuracy,
+        nonlinear_accuracy=result.nonlinear_accuracy,
+        gap=result.gap,
+        diagnosis=result.diagnosis,
+        confidence=result.confidence,
+        p_value=result.p_value,
+        gap_ci_lower=result.gap_ci_lower,
+        gap_ci_upper=result.gap_ci_upper,
+        n_diagnostics_passed=result.n_diagnostics_passed,
+        n_diagnostics_total=result.n_diagnostics_total,
+        t_statistic=result.t_statistic,
+        residual_silhouette=result.residual_silhouette,
+        residuals_cluster=result.residuals_cluster,
+        ramsey_improvement=result.ramsey_improvement,
+        ramsey_significant=result.ramsey_significant,
+        diagnostics=result.diagnostics,
+    )
 
 
 def test_decomposition(
     pos: torch.Tensor, neg: torch.Tensor, min_silhouette: float = 0.1,
 ) -> DecompositionTestResult:
     """Step 3: Test if concept is fragmented into sub-concepts."""
-    from .decomposition_metrics import find_optimal_clustering
+    from ..metrics.distribution.decomposition_metrics import find_optimal_clustering
     diff = pos - neg
     n_concepts, labels, sil = find_optimal_clustering(diff)
     labels_np = np.array(labels)
@@ -170,7 +172,7 @@ def select_intervention(
     if not signal.passed:
         return InterventionResult("NONE", 0.0, ["No signal (p > 0.05)"], scores)
 
-    is_linear = geometry.diagnosis == "LINEAR"
+    is_linear = geometry.diagnosis.startswith("LINEAR")
     is_frag = decomposition.is_fragmented
     n = decomposition.n_concepts
 
@@ -205,21 +207,17 @@ def run_full_protocol(
     p_threshold: float = 0.05,
     gap_threshold: Optional[float] = None,
     min_silhouette: Optional[float] = None,
-    rigorous_geometry: bool = False,
     include_dimensionality_diagnostics: bool = True,
-    include_editability: bool = True,
 ) -> Dict[str, Any]:
-    """Run complete 5-step RepScan protocol.
+    """Run complete 4-step RepScan protocol.
 
     Signal test runs both permutation null and nonsense baseline (if model/tokenizer provided).
-    Geometry and decomposition thresholds are adaptive by default.
+    Geometry uses full econometric-style validation (5 diagnostics) by default.
+    Decomposition thresholds are adaptive by default.
 
     Args:
-        rigorous_geometry: If True, use econometric-style linearity validation with
-            5 diagnostics instead of simple threshold comparison.
         include_dimensionality_diagnostics: If True, run curse of dimensionality
             diagnostics including power analysis, sample adequacy, and shrinkage.
-        include_editability: If True, run SVD-based editability analysis (Step 5).
     """
     if signal_keys is None:
         signal_keys = ["knn_accuracy", "knn_pca_accuracy", "mlp_probe_accuracy"]
@@ -237,46 +235,58 @@ def run_full_protocol(
         dim_diag = run_dimensionality_diagnostics(pos, neg)
 
     sig = test_signal(pos, neg, signal_keys, model, tokenizer, layer, device, p_threshold)
-    geo = test_geometry(pos, neg, gap_threshold, rigorous=rigorous_geometry)
+    geo = test_geometry(pos, neg)
     dec = test_decomposition(pos, neg, min_silhouette)
     inter = select_intervention(sig, geo, dec)
 
-    geo_dict = {
-        "linear_accuracy": geo.linear_accuracy, "nonlinear_accuracy": geo.nonlinear_accuracy,
-        "gap": geo.gap, "gap_threshold": gap_threshold, "diagnosis": geo.diagnosis, "rigorous": geo.rigorous,
+    geometry_result = {
+        "linear_accuracy": geo.linear_accuracy,
+        "nonlinear_accuracy": geo.nonlinear_accuracy,
+        "gap": geo.gap,
+        "diagnosis": geo.diagnosis,
+        "confidence": geo.confidence,
+        "p_value": geo.p_value,
+        "gap_ci_lower": geo.gap_ci_lower,
+        "gap_ci_upper": geo.gap_ci_upper,
+        "n_diagnostics_passed": geo.n_diagnostics_passed,
+        "n_diagnostics_total": geo.n_diagnostics_total,
+        "t_statistic": geo.t_statistic,
+        "residual_silhouette": geo.residual_silhouette,
+        "residuals_cluster": geo.residuals_cluster,
+        "ramsey_improvement": geo.ramsey_improvement,
+        "ramsey_significant": geo.ramsey_significant,
+        "diagnostics": geo.diagnostics,
     }
-    if geo.rigorous:
-        geo_dict.update({"confidence": geo.confidence, "p_value": geo.p_value,
-            "gap_ci_lower": geo.gap_ci_lower, "gap_ci_upper": geo.gap_ci_upper,
-            "n_diagnostics_passed": geo.n_diagnostics_passed, "n_diagnostics_total": geo.n_diagnostics_total})
-
-    edit = None
-    if include_editability:
-        from .repscan_editability import test_editability
-        edit = test_editability(pos, neg, cluster_labels=dec.cluster_labels, n_concepts=dec.n_concepts)
 
     result = {
-        "protocol_config": {"n_samples": n_samples, "p_threshold": p_threshold,
-            "gap_threshold": gap_threshold, "min_silhouette": min_silhouette, "rigorous_geometry": rigorous_geometry},
-        "signal_test": {"max_z_score": sig.max_z_score, "min_p_value": sig.min_p_value,
-            "passed": sig.passed, "permutation_metrics": sig.permutation_metrics, "nonsense_metrics": sig.nonsense_metrics},
-        "geometry_test": geo_dict,
-        "decomposition_test": {"n_concepts": dec.n_concepts, "silhouette_score": dec.silhouette_score,
+        "protocol_config": {
+            "n_samples": n_samples,
+            "p_threshold": p_threshold,
+            "gap_threshold": gap_threshold,
+            "min_silhouette": min_silhouette,
+        },
+        "signal_test": {
+            "max_z_score": sig.max_z_score,
+            "min_p_value": sig.min_p_value,
+            "passed": sig.passed,
+            "permutation_metrics": sig.permutation_metrics,
+            "nonsense_metrics": sig.nonsense_metrics,
+        },
+        "geometry_test": geometry_result,
+        "decomposition_test": {
+            "n_concepts": dec.n_concepts, "silhouette_score": dec.silhouette_score,
             "min_silhouette": min_silhouette, "is_fragmented": dec.is_fragmented,
-            "per_concept_sizes": dec.per_concept_sizes, "cluster_labels": dec.cluster_labels},
-        "intervention": {"recommended_method": inter.recommended_method, "confidence": inter.confidence,
-            "reasoning": inter.reasoning, "method_scores": inter.method_scores},
+            "per_concept_sizes": dec.per_concept_sizes,
+            "cluster_labels": dec.cluster_labels,
+        },
+        "intervention": {
+            "recommended_method": inter.recommended_method,
+            "confidence": inter.confidence,
+            "reasoning": inter.reasoning,
+            "method_scores": inter.method_scores,
+        },
     }
 
-    if edit is not None:
-        result["editability_analysis"] = {
-            "editing_capacity": edit.editing_capacity, "effective_preserved_rank": edit.effective_preserved_rank,
-            "singular_values": edit.singular_values, "spectral_decay_rate": edit.spectral_decay_rate,
-            "steering_survival_ratio": edit.steering_survival_ratio, "verdict": edit.verdict,
-            "concept_interference": edit.concept_interference,
-            "editability_score": edit.editability_score, "participation_ratio": edit.participation_ratio,
-            "warnings": edit.warnings,
-        }
     if dim_diag is not None:
         from dataclasses import asdict
         result["dimensionality_diagnostics"] = asdict(dim_diag)

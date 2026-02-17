@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import hashlib
 import math
@@ -8,7 +10,6 @@ import shutil
 import subprocess
 import sys
 import tempfile
-from typing import Optional
 import warnings
 
 from cupy.cuda import device
@@ -70,14 +71,14 @@ def _run_cc(cmd, cwd, backend, log_stream=None):
             log_stream.write(log)
         return log
     except subprocess.CalledProcessError as e:
-        msg = ('`{0}` command returns non-zero exit status. \n'
-               'command: {1}\n'
-               'return-code: {2}\n'
+        msg = ('`{}` command returns non-zero exit status. \n'
+               'command: {}\n'
+               'return-code: {}\n'
                'stdout/stderr: \n'
-               '{3}'.format(backend,
-                            e.cmd,
-                            e.returncode,
-                            e.output))
+               '{}'.format(backend,
+                           e.cmd,
+                           e.returncode,
+                           e.output))
         if backend == 'nvcc':
             raise NVCCException(msg)
         elif backend == 'hipcc':
@@ -109,7 +110,7 @@ def _get_extra_path_for_msvc():
     return None
 
 
-def _get_cl_exe_dir() -> Optional[str]:
+def _get_cl_exe_dir() -> str | None:
     try:
         try:
             # setuptools.msvc is missing in setuptools v74.0.0.
@@ -129,7 +130,7 @@ def _get_cl_exe_dir() -> Optional[str]:
     return None
 
 
-def _get_cl_exe_dir_fallback() -> Optional[str]:
+def _get_cl_exe_dir_fallback() -> str | None:
     # Discover cl.exe without relying on undocumented setuptools.msvc API.
     # As of now this code path exists only for setuptools 74.0.0 (see #8583).
     # N.B. This takes few seconds as this incurs cmd.exe (vcvarsall.bat)
@@ -168,22 +169,15 @@ _tegra_archs = ('32', '53', '62', '72', '87')
 @_util.memoize()
 def _get_max_compute_capability():
     major, minor = _get_nvrtc_version()
-    if major < 11:
-        # CUDA 10.2
-        nvrtc_max_compute_capability = '75'
-    elif major == 11 and minor == 0:
-        # CUDA 11.0
-        nvrtc_max_compute_capability = '80'
-    elif major == 11 and minor < 8:
-        # CUDA 11.1 - 11.7
-        # Note: 87 is for Jetson Orin
-        nvrtc_max_compute_capability = '86'
-    elif (major == 11 and minor == 8) or (major == 12 and minor < 8):
-        # CUDA 11.8, 12.0 - 12.7
+    if (major == 12 and minor < 8):
+        # 12.0 - 12.7
         nvrtc_max_compute_capability = '90'
-    else:
-        # CUDA 12.8+
+    elif (major == 12 and minor == 8):
+        # CUDA 12.8
         nvrtc_max_compute_capability = '120'
+    else:
+        # CUDA 12.9, CUDA 13.0+
+        nvrtc_max_compute_capability = '121'
 
     return nvrtc_max_compute_capability
 
@@ -325,13 +319,38 @@ def _hash_hexdigest(value):
 _hash_length = len(_hash_hexdigest(b''))  # 40 for SHA1
 
 
-def compile_using_nvrtc(source, options=(), arch=None, filename='kern.cu',
-                        name_expressions=None, log_stream=None,
-                        cache_in_memory=False, jitify=False):
-    def _compile(
-            source, options, cu_path, name_expressions, log_stream, jitify):
+def _jitify_deprecation_warning(jitify):
+    if jitify:
+        warnings.warn(
+            'jitify=True is deprecated and its support is staged for '
+            'removal in CuPy v15.0.\n'
+            'Please try compiling without jitify using the CCCL headers '
+            'as needed.\n'
+            'Also see https://nvidia.github.io/cccl/python/ for e.g. '
+            'Thrust/CUB algorithm exposure to Python.',
+            DeprecationWarning, stacklevel=3)
+    else:
+        warnings.warn(
+            'The jitify argument is deprecated and staged for '
+            'removal in CuPy v15.0. '
+            'Avoid passing `jitify=False` to silence this warning.',
+            DeprecationWarning, stacklevel=3)
 
-        if not runtime.is_hip:
+
+def _compile_using_nvrtc_no_warning(
+    source, options=(), arch=None, filename='kern.cu',
+    name_expressions=None, log_stream=None,
+    cache_in_memory=False, jitify=None, method=None
+):
+
+    def _compile(
+            source, options, cu_path, name_expressions, log_stream, jitify,
+            method):
+
+        if method is not None:
+            assert method == "lto"
+            options += (f'-arch=compute_{arch}',)
+        elif not runtime.is_hip:
             arch_opt, method = _get_arch_for_options_for_nvrtc(arch)
             options += (arch_opt,)
         else:
@@ -366,13 +385,24 @@ def compile_using_nvrtc(source, options=(), arch=None, filename='kern.cu',
 
             with open(cu_path, 'w') as cu_file:
                 cu_file.write(source)
-
-            return _compile(source, options, cu_path,
-                            name_expressions, log_stream, jitify)
     else:
         cu_path = '' if not jitify else filename
-        return _compile(source, options, cu_path, name_expressions,
-                        log_stream, jitify)
+
+    return _compile(source, options, cu_path, name_expressions,
+                    log_stream, jitify, method)
+
+
+def compile_using_nvrtc(
+    source, options=(), arch=None, filename='kern.cu',
+    name_expressions=None, log_stream=None,
+    cache_in_memory=False, jitify=None, method=None
+):
+    if jitify is not None:
+        _jitify_deprecation_warning(jitify)
+
+    return _compile_using_nvrtc_no_warning(
+        source, options, arch, filename, name_expressions, log_stream,
+        cache_in_memory, jitify, method)
 
 
 def compile_using_nvcc(source, options=(), arch=None,
@@ -511,7 +541,7 @@ _empty_file_preprocess_cache: dict = {}
 def _compile_module_with_cache(
         source, options=(), arch=None, cache_dir=None, extra_source=None,
         backend='nvrtc', *, enable_cooperative_groups=False,
-        name_expressions=None, log_stream=None, jitify=False):
+        name_expressions=None, log_stream=None, jitify=False, to_ltoir=False):
 
     if enable_cooperative_groups:
         if runtime.is_hip:
@@ -536,13 +566,13 @@ def _compile_module_with_cache(
         return _compile_with_cache_cuda(
             source, options, arch, cache_dir, extra_source, backend,
             enable_cooperative_groups, name_expressions, log_stream,
-            cache_in_memory, jitify)
+            cache_in_memory, jitify, to_ltoir)
 
 
 def _compile_with_cache_cuda(
         source, options, arch, cache_dir, extra_source=None, backend='nvrtc',
         enable_cooperative_groups=False, name_expressions=None,
-        log_stream=None, cache_in_memory=False, jitify=False):
+        log_stream=None, cache_in_memory=False, jitify=False, to_ltoir=False):
     # NVRTC does not use extra_source. extra_source is used for cache key.
     global _empty_file_preprocess_cache
     if cache_dir is None:
@@ -550,12 +580,18 @@ def _compile_with_cache_cuda(
     if arch is None:
         arch = _get_arch()
 
+    # TODO(leofang): consider move --device-as-default-execution-space
+    # (-default-device) to here to avoid double definition error
     options += ('-ftz=true',)
+
+    if to_ltoir:
+        options += ('-dlto',)
 
     if enable_cooperative_groups:
         # `cooperative_groups` requires relocatable device code.
         options += ('--device-c',)
 
+    # TODO(leofang): check if this works for LTO IR
     if _get_bool_env_variable('CUPY_CUDA_COMPILE_WITH_DEBUG', False):
         options += ('--device-debug', '--generate-line-info')
 
@@ -572,6 +608,8 @@ def _compile_with_cache_cuda(
         raise ValueError('jitify only works with NVRTC')
 
     options += _get_extra_include_dir_opts()
+    # TODO(leofang): technically we shouldn't use _get_nvrtc_version here if
+    # the backend is not nvrtc
     env = ((arch, options, _get_nvrtc_version(), backend)
            + _get_arch_for_options_for_nvrtc(arch))
     base = _empty_file_preprocess_cache.get(env, None)
@@ -583,9 +621,12 @@ def _compile_with_cache_cuda(
     key_src = '%s %s %s %s %s' % (
         env, base, source, extra_source, _get_cupy_cache_key())
     key_src = key_src.encode('utf-8')
-    name = _hash_hexdigest(key_src) + '.cubin'
+    # In the case of generating LTO IRs, we pass them around as chunks of
+    # bytes, so the filename extension is arbitrary
+    name = _hash_hexdigest(key_src) + ('.ltoir' if to_ltoir else '.cubin')
 
-    mod = function.Module()
+    if not to_ltoir:
+        mod = function.Module()
 
     if not cache_in_memory:
         # Read from disk cache
@@ -604,8 +645,11 @@ def _compile_with_cache_cuda(
                 cubin = data[_hash_length:]
                 cubin_hash = _hash_hexdigest(cubin).encode('ascii')
                 if hash == cubin_hash:
-                    mod.load(cubin)
-                    return mod
+                    if to_ltoir:
+                        return cubin
+                    else:
+                        mod.load(cubin)
+                        return mod
     else:
         # Enforce compiling -- the resulting kernel will be cached elsewhere,
         # so we do nothing
@@ -613,10 +657,10 @@ def _compile_with_cache_cuda(
 
     if backend == 'nvrtc':
         cu_name = '' if cache_in_memory else name + '.cu'
-        ptx, mapping = compile_using_nvrtc(
+        ptx, mapping = _compile_using_nvrtc_no_warning(
             source, options, arch, cu_name, name_expressions,
-            log_stream, cache_in_memory, jitify)
-        if _is_cudadevrt_needed(options):
+            log_stream, cache_in_memory, jitify, 'lto' if to_ltoir else None)
+        if _is_cudadevrt_needed(options) and not to_ltoir:
             # for separate compilation
             ls = function.LinkState()
             ls.add_ptr_data(ptx, 'cupy.ptx')
@@ -625,8 +669,12 @@ def _compile_with_cache_cuda(
             cubin = ls.complete()
         else:
             cubin = ptx
-        mod._set_mapping(mapping)
+        if not to_ltoir:
+            mod._set_mapping(mapping)
     elif backend == 'nvcc':
+        if to_ltoir:
+            # TODO(leofang): It's also possible to get LTO IR from nvcc
+            raise NotImplementedError
         rdc = _is_cudadevrt_needed(options)
         cubin = compile_using_nvcc(source, options, arch,
                                    name + '.cu', code_type='cubin',
@@ -639,15 +687,19 @@ def _compile_with_cache_cuda(
         # Write to disk cache
         cubin_hash = _hash_hexdigest(cubin).encode('ascii')
 
-        # shutil.move is not atomic operation, so it could result in a
-        # corrupted file. We detect it by appending a hash at the beginning
-        # of each cache file. If the file is corrupted, it will be ignored
-        # next time it is read.
+        # Replacing the file should be atomic. But we add a hash for safety
+        # to detect possible corruption.
         with tempfile.NamedTemporaryFile(dir=cache_dir, delete=False) as tf:
             tf.write(cubin_hash)
             tf.write(cubin)
             temp_path = tf.name
-        shutil.move(temp_path, path)
+
+        try:
+            os.replace(temp_path, path)
+        except PermissionError:
+            # Windows may refuse to replace the file, assume this is a race
+            # and the existing file is OK (but keep using our copy)
+            pass
 
         # Save .cu source file along with .cubin
         if _get_bool_env_variable('CUPY_CACHE_SAVE_CUDA_SOURCE', False):
@@ -657,8 +709,11 @@ def _compile_with_cache_cuda(
         # we don't do any disk I/O
         pass
 
-    mod.load(cubin)
-    return mod
+    if to_ltoir:
+        return cubin
+    else:
+        mod.load(cubin)
+        return mod
 
 
 class CompileException(Exception):
@@ -669,7 +724,7 @@ class CompileException(Exception):
         self.name = name
         self.options = options
         self.backend = backend
-        super(CompileException, self).__init__()
+        super().__init__()
 
     def __reduce__(self):
         return (type(self), (self._msg, self.source, self.name,
@@ -700,7 +755,7 @@ class CompileException(Exception):
         f.flush()
 
 
-class _NVRTCProgram(object):
+class _NVRTCProgram:
 
     def __init__(self, src, name='default_program', headers=(),
                  include_names=(), name_expressions=None, method='ptx'):
@@ -741,8 +796,8 @@ class _NVRTCProgram(object):
                 return nvrtc.getCUBIN(self.ptr), mapping
             elif self.method == 'ptx':
                 return nvrtc.getPTX(self.ptr), mapping
-            # TODO(leofang): support JIT LTO using nvrtc.getNVVM()?
-            # need -dlto and -arch=compute_XX
+            elif self.method == 'lto':
+                return nvrtc.getLTOIR(self.ptr), mapping
             else:
                 raise RuntimeError('Unknown NVRTC compile method')
         except nvrtc.NVRTCError:
@@ -786,9 +841,9 @@ def compile_using_hipcc(source, options, arch, log_stream=None):
         if not os.path.isfile(out_path):
             raise HIPCCException(
                 '`hipcc` command does not generate output file. \n'
-                'command: {0}\n'
+                'command: {}\n'
                 'stdout/stderr: \n'
-                '{1}'.format(cmd, output))
+                '{}'.format(cmd, output))
         with open(out_path, 'rb') as f:
             return f.read()
 
@@ -963,15 +1018,19 @@ def _compile_with_cache_hip(source, options, arch, cache_dir, extra_source,
         # Write to disk cache
         binary_hash = _hash_hexdigest(binary).encode('ascii')
 
-        # shutil.move is not atomic operation, so it could result in a
-        # corrupted file. We detect it by appending a hash at the beginning
-        # of each cache file. If the file is corrupted, it will be ignored
-        # next time it is read.
+        # Replacing the file should be atomic. But we add a hash for safety
+        # to detect possible corruption.
         with tempfile.NamedTemporaryFile(dir=cache_dir, delete=False) as tf:
             tf.write(binary_hash)
             tf.write(binary)
             temp_path = tf.name
-        shutil.move(temp_path, path)
+
+        try:
+            os.replace(temp_path, path)
+        except PermissionError:
+            # Windows may refuse to replace the file, assume this is a race
+            # and the existing file is OK (but keep using our copy)
+            pass
 
         # Save .cu source file along with .hsaco
         if _get_bool_env_variable('CUPY_CACHE_SAVE_CUDA_SOURCE', False):

@@ -78,7 +78,7 @@ def rigorous_select_intervention(
         scores["TITAN"] += 0.5
 
     # Use geometry diagnosis
-    is_linear = geometry_diagnosis == "LINEAR"
+    is_linear = geometry_diagnosis.startswith("LINEAR")
     if is_linear:
         reasoning.append(f"Linear geometry (conf={geometry_confidence:.2f})")
         scores["CAA"] += 2.0

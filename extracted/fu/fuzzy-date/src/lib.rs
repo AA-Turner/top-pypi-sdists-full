@@ -132,18 +132,12 @@ mod fuzzydate {
         #[classattr]
         const PREV_WDAY: &'static str = fuzzy_date_rs::pattern::PATTERN_PREV_WDAY;
         #[classattr]
-        #[deprecated]
-        const LAST_WDAY: &'static str = fuzzy_date_rs::pattern::PATTERN_LAST_WDAY;
-        #[classattr]
         const NEXT_WDAY: &'static str = fuzzy_date_rs::pattern::PATTERN_NEXT_WDAY;
 
         #[classattr]
         const THIS_MONTH: &'static str = fuzzy_date_rs::pattern::PATTERN_THIS_MONTH;
         #[classattr]
         const PREV_MONTH: &'static str = fuzzy_date_rs::pattern::PATTERN_PREV_MONTH;
-        #[classattr]
-        #[deprecated]
-        const LAST_MONTH: &'static str = fuzzy_date_rs::pattern::PATTERN_LAST_MONTH;
         #[classattr]
         const NEXT_MONTH: &'static str = fuzzy_date_rs::pattern::PATTERN_NEXT_MONTH;
 
@@ -153,9 +147,6 @@ mod fuzzydate {
         const PAST_LONG_UNIT: &'static str = fuzzy_date_rs::pattern::PATTERN_PAST_LONG_UNIT;
         #[classattr]
         const PREV_LONG_UNIT: &'static str = fuzzy_date_rs::pattern::PATTERN_PREV_LONG_UNIT;
-        #[classattr]
-        #[deprecated]
-        const LAST_LONG_UNIT: &'static str = fuzzy_date_rs::pattern::PATTERN_LAST_LONG_UNIT;
         #[classattr]
         const NEXT_LONG_UNIT: &'static str = fuzzy_date_rs::pattern::PATTERN_NEXT_LONG_UNIT;
 
@@ -207,14 +198,6 @@ mod fuzzydate {
         const LAST_LONG_UNIT_OF_PREV_LONG_UNIT: &'static str =
             fuzzy_date_rs::pattern::PATTERN_LAST_LONG_UNIT_OF_PREV_LONG_UNIT;
         #[classattr]
-        #[deprecated]
-        const FIRST_LONG_UNIT_OF_LAST_LONG_UNIT: &'static str =
-            fuzzy_date_rs::pattern::PATTERN_FIRST_LONG_UNIT_OF_LAST_LONG_UNIT;
-        #[classattr]
-        #[deprecated]
-        const LAST_LONG_UNIT_OF_LAST_LONG_UNIT: &'static str =
-            fuzzy_date_rs::pattern::PATTERN_LAST_LONG_UNIT_OF_LAST_LONG_UNIT;
-        #[classattr]
         const FIRST_LONG_UNIT_OF_NEXT_LONG_UNIT: &'static str =
             fuzzy_date_rs::pattern::PATTERN_FIRST_LONG_UNIT_OF_NEXT_LONG_UNIT;
         #[classattr]
@@ -263,9 +246,6 @@ mod fuzzydate {
         #[classattr]
         const DATE_NTH_MONTH_YEAR: &'static str = fuzzy_date_rs::pattern::PATTERN_DATE_NTH_MONTH_YEAR;
 
-        #[classattr]
-        #[deprecated]
-        const DATETIME_YMD_HM: &'static str = "[year]-[int]-[int] [int]:[int]";
         #[classattr]
         const DATETIME_YMD_HMS: &'static str = fuzzy_date_rs::pattern::PATTERN_DATETIME_YMD_HMS;
         #[classattr]
@@ -424,7 +404,7 @@ mod fuzzydate {
         let config_patterns = read_config(module)?.patterns;
         let config_tokens = read_tokens(module)?;
 
-        py.allow_threads(move || {
+        py.detach(move || {
             let week_start_day = match weekday_start_mon {
                 true => WeekStartDay::Monday,
                 false => WeekStartDay::Sunday,
@@ -476,7 +456,7 @@ mod fuzzydate {
         let config_patterns = read_config(module)?.patterns;
         let config_tokens = read_tokens(module)?;
 
-        py.allow_threads(move || {
+        py.detach(move || {
             let week_start_day = match weekday_start_mon {
                 true => WeekStartDay::Monday,
                 false => WeekStartDay::Sunday,
@@ -543,7 +523,7 @@ mod fuzzydate {
             _ => read_config(module)?.units,
         };
 
-        py.allow_threads(move || {
+        py.detach(move || {
             let result = FuzzyDuration::new()
                 .set_default_units(UnitGroup::from_str(unit_group))
                 .set_custom_units(custom_units)
@@ -576,7 +556,7 @@ mod fuzzydate {
         let config_patterns = read_config(module)?.patterns;
         let config_tokens = read_tokens(module)?;
 
-        py.allow_threads(move || {
+        py.detach(move || {
             let result = FuzzySeconds::new()
                 .set_custom_patterns(config_patterns)
                 .set_custom_tokens(config_tokens)
@@ -607,7 +587,7 @@ mod fuzzydate {
 
     /// Read config registered to Python module
     fn read_config(module: &Bound<'_, PyModule>) -> Result<Config, PyErr> {
-        let config = &module.as_borrowed().getattr(ATTR_CONFIG)?.downcast_into::<Config>()?.borrow();
+        let config = &module.as_borrowed().getattr(ATTR_CONFIG)?.cast::<Config>()?.borrow();
 
         Ok(Config {
             patterns: config.patterns.clone(),

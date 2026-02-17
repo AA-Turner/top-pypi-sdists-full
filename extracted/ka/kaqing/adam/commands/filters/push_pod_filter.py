@@ -1,6 +1,6 @@
 from typing import Callable
 from adam.commands.command_filter import CommandFilter
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class PushPodFilter(CommandFilter):
     def command(self) -> str:

@@ -36,7 +36,7 @@ class BVHTree:
     ) -> typing_extensions.Self:
         """BVH tree based on `Object` data.
 
-        :param object: Object data.
+        :param object: Mesh object.
         :param depsgraph: Depsgraph to use for evaluating the mesh.
         :param deform: Use mesh with deformations.
         :param cage: Use modifiers cage.
@@ -55,7 +55,7 @@ class BVHTree:
     ) -> typing_extensions.Self:
         """BVH tree constructed from geometry passed in as arguments.
 
-        :param vertices: float triplets each representing (x, y, z)
+        :param vertices: float triplets each representing (x, y, z) coordinates.
         :param polygons: Sequence of polygons, each containing indices to the vertices argument.
         :param all_triangles: Use when all polygons are triangles for more efficient conversion.
         :param epsilon: Increase the threshold for detecting overlap and raycast hits.
@@ -111,10 +111,10 @@ class BVHTree:
     ) -> tuple[
         mathutils.Vector | None, mathutils.Vector | None, int | None, float | None
     ]:
-        """Cast a ray onto the mesh.
+        """Cast a ray onto the geometry.
 
-                :param origin: Start location of the ray in object space.
-                :param direction: Direction of the ray in object space.
+                :param origin: Start location of the ray.
+                :param direction: Direction of the ray (normalized internally).
                 :param distance: Maximum distance threshold.
                 :return: Returns a tuple: (position, normal, index, distance),
         Values will all be None if no hit is found.

@@ -1,8 +1,8 @@
-from adam.app_session import AppSession
-from adam.apps import Apps
 from adam.commands.command import Command
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_apps.app_session import AppSession
+from adam.utils_apps.apps import Apps
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_tabulize import tabulize
 
 class ShowAppActions(Command):

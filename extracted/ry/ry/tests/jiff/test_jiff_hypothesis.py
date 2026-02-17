@@ -38,7 +38,10 @@ def test_date_fields(date_tuple: tuple[int, int, int]) -> None:
 
         assert date.to_pydate() == pydate
     except ValueError:
-        with pytest.raises(ValueError, match=" is not in the required range of "):
+        with pytest.raises(
+            ValueError,
+            match="is invalid, must be in range",
+        ):
             ry.date(date_tuple[0], date_tuple[1], date_tuple[2])
 
 
@@ -63,7 +66,7 @@ def test_datetime_add_subtract_signed_duration(
         assert dt == dt_minus
     except OverflowError as _oe:
         with pytest.raises(OverflowError):
-            _ = dt + duration
+            _ = (dt + duration) - duration
 
 
 @given(datetime_strategy, datetime_strategy)

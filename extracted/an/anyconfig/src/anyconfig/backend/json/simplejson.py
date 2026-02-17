@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011 - 2024 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2011 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=import-error
@@ -22,25 +22,32 @@ Changelog:
 
    - Exported from ..json.py
 """
+from __future__ import annotations
+
+import typing
+
 import simplejson as json
 
 from .. import base
 from .common import (
-    JSON_LOAD_OPTS, JSON_DUMP_OPTS, Parser as BaseParser
+    JSON_LOAD_OPTS, JSON_DUMP_OPTS, Parser as BaseParser,
 )
 
 
-JSON_LOAD_OPTS.append('use_decimal')
-JSON_DUMP_OPTS.extend(['use_decimal', 'namedtuple_as_object', 'tuple_as_array',
-                       'bigint_as_string', 'item_sort_key', 'for_json',
-                       'ignore_nan', 'int_as_string_bitcount',
-                       'iterable_as_array'])
+JSON_LOAD_OPTS = (*JSON_LOAD_OPTS, "use_decimal")
+JSON_DUMP_OPTS = (
+    *JSON_DUMP_OPTS,
+    "use_decimal", "namedtuple_as_object", "tuple_as_array",
+    "bigint_as_string", "item_sort_key", "for_json",
+    "ignore_nan", "int_as_string_bitcount",
+    "iterable_as_array",
+)
 
 
 class Parser(BaseParser):
     """Parser for JSON files using simplejson."""
 
-    _cid = 'json.simplejson'
+    _cid: typing.ClassVar[str] = "json.simplejson"
     _load_opts = JSON_LOAD_OPTS
     _dump_opts = JSON_DUMP_OPTS
 
@@ -48,5 +55,3 @@ class Parser(BaseParser):
     _load_from_stream_fn = base.to_method(json.load)
     _dump_to_string_fn = base.to_method(json.dumps)
     _dump_to_stream_fn = base.to_method(json.dump)
-
-# vim:sw=4:ts=4:et:

@@ -18,7 +18,7 @@ from cupy._core cimport _optimize_config
 from cupy._core cimport _routines_manipulation as _manipulation
 from cupy._core cimport _scalar
 from cupy._core._scalar import get_typename as _get_typename
-from cupy._core.core cimport _convert_object_with_cuda_array_interface
+from cupy._core.core cimport _convert_from_cupy_like
 from cupy._core.core cimport _create_ndarray_from_shape_strides
 from cupy._core.core cimport compile_with_cache
 from cupy._core.core cimport _ndarray_base
@@ -45,6 +45,16 @@ cpdef str _create_reduction_function_code(
         name, block_size, reduce_type, params, arginfos, identity,
         pre_map_expr, reduce_expr, post_map_expr,
         _kernel._TypeMap type_map, input_expr, output_expr, preamble, options):
+
+    type_headers = set()
+    params = _kernel._get_kernel_params(params, arginfos, type_headers)
+    type_preamble = type_map.get_typedef_code(type_headers)
+
+    if not type_headers:
+        type_headers = ''
+    else:
+        type_headers = '\n'.join(sorted(type_headers)) + "\n\n"
+
     # A (incomplete) list of internal variables:
     # _J            : the index of an element in the array
     # _block_size   : the number of threads in a block; should be power of 2
@@ -52,7 +62,7 @@ cpdef str _create_reduction_function_code(
     #                 be power of 2 and <= _block_size
 
     module_code = string.Template('''
-${type_preamble}
+${type_headers}${type_preamble}
 ${preamble}
 #define REDUCE(a, b) (${reduce_expr})
 #define POST_MAP(a) (${post_map_expr})
@@ -108,12 +118,13 @@ extern "C" __global__ void ${name}(${params}) {
         name=name,
         block_size=block_size,
         reduce_type=reduce_type,
-        params=_kernel._get_kernel_params(params, arginfos),
+        params=params,
+        type_headers=type_headers,
         identity=identity,
         reduce_expr=reduce_expr,
         pre_map_expr=pre_map_expr,
         post_map_expr=post_map_expr,
-        type_preamble=type_map.get_typedef_code(),
+        type_preamble=type_preamble,
         input_expr=input_expr,
         output_expr=output_expr,
         preamble=preamble)
@@ -352,9 +363,10 @@ cdef class _AbstractReductionKernel:
             index_type = ('IndexT', 'int32')
         type_map = _kernel._TypeMap(type_map._pairs + (index_type,))
 
-        in_args = [x if isinstance(x, _ndarray_base) else
-                   _scalar.CScalar.from_numpy_scalar_with_dtype(x, t)
-                   for x, t in zip(in_args, in_types)]
+        for x, t in zip(in_args, in_types):
+            # If necessary, cast scalars here (deals with Python ints also)
+            if type(x) is _scalar.CScalar:
+                (<_scalar.CScalar>x).apply_dtype(t)
 
         optimize_context = _optimize_config.get_current_context()
         key = ()
@@ -518,20 +530,20 @@ cdef class _AbstractReductionKernel:
     def cached_codes(self):
         """Returns a dict that has input types as keys and codes values.
 
-        This proprety method is for debugging purpose.
+        This property method is for debugging purpose.
         The return value is not guaranteed to keep backward compatibility.
         """
         if len(self._cached_codes) == 0:
             warnings.warn(
                 'No codes are cached because compilation is deferred until '
                 'the first function call or CUB is enabled.')
-        return dict([(k, v) for k, v in self._cached_codes.items()])
+        return dict(self._cached_codes.items())
 
     @property
     def cached_code(self):
         """Returns `next(iter(self.cached_codes.values()))`.
 
-        This proprety method is for debugging purpose.
+        This property method is for debugging purpose.
         The return value is not guaranteed to keep backward compatibility.
         """
         codes = self._cached_codes
@@ -591,18 +603,9 @@ cdef class _SimpleReductionKernel(_AbstractReductionKernel):
             return a.__cupy_override_reduction_kernel__(
                 self, axis, dtype, out, keepdims)
 
-        cdef _ndarray_base arr
+        cdef _ndarray_base arr = _convert_from_cupy_like(
+            a, error="Argument 'a'")
 
-        if isinstance(a, _ndarray_base):
-            arr = a
-        elif hasattr(a, '__cuda_array_interface__'):
-            arr = _convert_object_with_cuda_array_interface(a)
-        elif hasattr(a, '__cupy_get_ndarray__'):
-            arr = a.__cupy_get_ndarray__()
-        else:
-            raise TypeError(
-                'Argument \'a\' has incorrect type (expected %s, got %s)' %
-                (cupy.ndarray, type(a)))
         in_args = [arr]
 
         dev_id = device.get_device_id()
@@ -820,9 +823,11 @@ cdef class ReductionKernel(_AbstractReductionKernel):
                                  "a positional and keyword argument")
             out_args = [out]
 
+        # _preprocess args allows weak NEP 50 scalars, this isn't needed for
+        # reductions (but also does not matter).
         dev_id = device.get_device_id()
-        in_args = _preprocess_args(dev_id, args[:self.nin], False)
-        out_args = _preprocess_args(dev_id, out_args, False)
+        in_args = _preprocess_args(dev_id, args[:self.nin])
+        out_args = _preprocess_args(dev_id, out_args)
         in_args = _broadcast(in_args, self.in_params, False, broad_shape)
 
         return self._call(

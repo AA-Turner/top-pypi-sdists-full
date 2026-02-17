@@ -298,7 +298,7 @@ class EngineOption:
         self.required = required
         self.default_value = default_value
         self.is_valid = is_valid
-        self.tb_param = tb_param if tb_param else "_".join(["engine", name])
+        self.tb_param = tb_param or "_".join(["engine", name])
 
 
 class EngineParam:
@@ -314,7 +314,7 @@ class EngineParam:
         self.required = required
         self.default_value = default_value
         self.is_valid = is_valid
-        self.tb_param = tb_param if tb_param else self.build_engine_param_name(name)
+        self.tb_param = tb_param or self.build_engine_param_name(name)
 
     @staticmethod
     def build_engine_param_name(name: str):

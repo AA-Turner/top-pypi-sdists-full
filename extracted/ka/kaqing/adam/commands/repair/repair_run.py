@@ -2,7 +2,7 @@ from adam.commands.command import Command
 from adam.commands.reaper.utils_reaper import Reapers
 from adam.utils_k8s.jobs import Jobs
 from adam.utils_k8s.volumes import Volumes
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.config import Config
 from adam.commands.reaper.reaper_runs_abort import ReaperRunsAbort
 from adam.commands.reaper.reaper_schedule_stop import ReaperScheduleStop

@@ -14,6 +14,7 @@ after an idle period.
 from __future__ import annotations
 
 # std imports
+import ssl as ssl_module
 import sys
 import codecs
 import signal
@@ -32,7 +33,6 @@ from .stream_writer import TelnetWriter, TelnetWriterUnicode
 
 # Check if PTY support is available (Unix-only modules: pty, termios, fcntl)
 try:
-    # std imports
     import pty  # noqa: F401 pylint:disable=unused-import
     import fcntl  # noqa: F401 pylint:disable=unused-import
     import termios  # noqa: F401 pylint:disable=unused-import
@@ -134,7 +134,6 @@ class TelnetServer(server_base.BaseServer):
 
     def connection_made(self, transport: asyncio.BaseTransport) -> None:
         """Handle new connection and wire up telnet option callbacks."""
-        # local
         from .telopt import (  # pylint: disable=import-outside-toplevel
             NAWS,
             TTYPE,
@@ -145,7 +144,6 @@ class TelnetServer(server_base.BaseServer):
         )
 
         super().connection_made(transport)
-        assert self.writer is not None
 
         # begin timeout timer
         self.set_timeout()
@@ -177,11 +175,9 @@ class TelnetServer(server_base.BaseServer):
 
     def begin_negotiation(self) -> None:
         """Begin telnet negotiation by requesting terminal type."""
-        # local
         from .telopt import DO, TTYPE  # pylint: disable=import-outside-toplevel
 
         super().begin_negotiation()
-        assert self.writer is not None
         self.writer.iac(DO, TTYPE)
 
     def begin_advanced_negotiation(self) -> None:
@@ -196,7 +192,6 @@ class TelnetServer(server_base.BaseServer):
         MUD clients (Mudlet, TinTin++, etc.) interpret ``WILL ECHO`` as
         "password mode" and mask input.  See ``_negotiate_echo()``.
         """
-        # local
         from .telopt import (  # pylint: disable=import-outside-toplevel
             DO,
             SGA,
@@ -207,7 +202,6 @@ class TelnetServer(server_base.BaseServer):
         )
 
         super().begin_advanced_negotiation()
-        assert self.writer is not None
         self.writer.iac(WILL, SGA)
         # WILL ECHO is deferred -- see _negotiate_echo()
         self.writer.iac(WILL, BINARY)
@@ -218,7 +212,6 @@ class TelnetServer(server_base.BaseServer):
 
     def check_negotiation(self, final: bool = False) -> bool:
         """Check if negotiation is complete including encoding."""
-        # local
         from .telopt import (  # pylint: disable=import-outside-toplevel
             DO,
             SB,
@@ -227,7 +220,6 @@ class TelnetServer(server_base.BaseServer):
             NEW_ENVIRON,
         )
 
-        assert self.writer is not None
         # If TTYPE cycle stalled or client refused TTYPE, trigger
         # deferred ECHO and NEW_ENVIRON negotiation now.  Only when
         # advanced negotiation is active -- a raw TCP client that
@@ -333,7 +325,6 @@ class TelnetServer(server_base.BaseServer):
             )
 
         # may we encode in the direction indicated?
-        assert self.writer is not None
         _outgoing_only = outgoing and not incoming
         _incoming_only = not outgoing and incoming
         _bidirectional = outgoing and incoming
@@ -395,7 +386,6 @@ class TelnetServer(server_base.BaseServer):
         ``duration`` value of ``0``.
         """
         logger.debug("Timeout after %1.2fs", self.idle)
-        assert self.writer is not None
         if isinstance(self.writer, TelnetWriterUnicode):
             self.writer.write("\r\nTimeout.\r\n")
         else:
@@ -431,7 +421,6 @@ class TelnetServer(server_base.BaseServer):
         :data:`~.fingerprinting.ENVIRON_EXTENDED` for a larger set used
         during client fingerprinting.
         """
-        # local
         from .telopt import VAR, USERVAR  # pylint: disable=import-outside-toplevel
 
         return [
@@ -515,7 +504,6 @@ class TelnetServer(server_base.BaseServer):
 
     def on_ttype(self, ttype: str) -> None:
         """Callback for TTYPE response, :rfc:`930`."""
-        assert self.writer is not None
         # TTYPE may be requested multiple times, we honor this system and
         # attempt to cause the client to cycle, as their first response may
         # not be their most significant. All responses held as 'ttype{n}',
@@ -589,7 +577,6 @@ class TelnetServer(server_base.BaseServer):
             return
         self._environ_requested = True
 
-        # local
         from .telopt import DO, NEW_ENVIRON  # pylint: disable=import-outside-toplevel
 
         ttype1 = self.get_extra_info("ttype1") or ""
@@ -601,7 +588,6 @@ class TelnetServer(server_base.BaseServer):
             )
             return
 
-        assert self.writer is not None
         self.writer.iac(DO, NEW_ENVIRON)
 
     def _negotiate_echo(self) -> None:
@@ -619,11 +605,9 @@ class TelnetServer(server_base.BaseServer):
             return
         self._echo_negotiated = True
 
-        # local
         from .telopt import ECHO, WILL  # pylint: disable=import-outside-toplevel
         from .fingerprinting import _is_maybe_mud  # pylint: disable=import-outside-toplevel
 
-        assert self.writer is not None
         if _is_maybe_mud(self.writer):
             logger.info("skipping WILL ECHO for MUD client")
             return
@@ -631,10 +615,8 @@ class TelnetServer(server_base.BaseServer):
 
     def _check_encoding(self) -> bool:
         # Periodically check for completion of ``waiter_encoding``.
-        # local
         from .telopt import DO, SB, BINARY, CHARSET  # pylint: disable=import-outside-toplevel
 
-        assert self.writer is not None
         # Check if we need to request client to use BINARY mode for client-to-server communication
         if (
             self.writer.outbinary
@@ -659,6 +641,96 @@ class TelnetServer(server_base.BaseServer):
         return (self.writer.outbinary and self.writer.inbinary) or self.force_binary
 
 
+class _TLSAutoDetectProtocol(asyncio.Protocol):
+    """
+    Protocol wrapper that auto-detects TLS vs plain telnet connections.
+
+    Peeks at the first byte of incoming data using ``MSG_PEEK`` on the raw
+    socket.  A TLS ClientHello always begins with record-type byte ``0x16``
+    (22), while telnet IAC is ``0xFF`` and printable ASCII is ``0x20..0x7E``.
+
+    When TLS is detected, the transport is upgraded via
+    :meth:`loop.start_tls` before handing off to the real telnet protocol.
+    Plain connections are handed off directly.
+    """
+
+    def __init__(
+        self, ssl_context: ssl_module.SSLContext, real_factory: Callable[[], asyncio.Protocol]
+    ) -> None:
+        self._ssl_context = ssl_context
+        self._real_factory = real_factory
+        self._transport: Optional[asyncio.Transport] = None
+
+    def connection_made(self, transport: asyncio.BaseTransport) -> None:
+        """Pause reading and schedule a peek to detect TLS."""
+        self._transport = transport
+        transport.pause_reading()
+        asyncio.get_event_loop().call_soon(self._detect_tls)
+
+    def _detect_tls(self) -> None:
+        """Peek at the first byte without consuming it."""
+        tsock = self._transport.get_extra_info("socket")
+        if tsock is None:
+            self._handoff_plain()
+            return
+        # asyncio's TransportSocket doesn't expose recv(); dup the fd to peek.
+        peek_sock = socket.fromfd(tsock.fileno(), socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            data = peek_sock.recv(1, socket.MSG_PEEK)
+        except OSError:
+            asyncio.get_event_loop().call_soon(self._detect_tls)
+            return
+        finally:
+            peek_sock.close()
+        if not data:
+            self._transport.close()
+            return
+        if data[0] == 0x16:
+            asyncio.ensure_future(self._upgrade_to_tls())
+        else:
+            self._handoff_plain()
+
+    async def _upgrade_to_tls(self) -> None:
+        """
+        Upgrade the plain transport to TLS, then hand off.
+
+        .. note::
+
+            On Python < 3.11, ``loop.start_tls(server_side=True)`` may hang
+            due to a bug in the ``_SSLPipe``-based ``SSLProtocol``
+            (rewritten in 3.11).  See
+            https://github.com/python/cpython/issues/79156
+        """
+        loop = asyncio.get_event_loop()
+        protocol = self._real_factory()
+        try:
+            # start_tls uses call_connection_made=False, so we must call
+            # connection_made ourselves with the returned SSL transport.
+            ssl_transport = await loop.start_tls(
+                self._transport, protocol, self._ssl_context, server_side=True
+            )
+        except (ssl_module.SSLError, OSError) as exc:
+            logger.debug("TLS handshake failed: %s", exc)
+            if not self._transport.is_closing():
+                self._transport.close()
+            return
+        protocol.connection_made(ssl_transport)
+
+    def _handoff_plain(self) -> None:
+        """Hand off to the real protocol as a plain telnet connection."""
+        protocol = self._real_factory()
+        self._transport.set_protocol(protocol)
+        protocol.connection_made(self._transport)
+        self._transport.resume_reading()
+
+    def data_received(self, data: bytes) -> None:  # pragma: no cover
+        """Not expected — reading is paused during detection."""
+
+    def connection_lost(self, exc: Optional[Exception]) -> None:
+        """Connection dropped before detection completed."""
+        _ = exc
+
+
 class Server:
     """
     Telnet server that tracks connected clients.
@@ -675,7 +747,6 @@ class Server:
 
     def close(self) -> None:
         """Close the server, stop accepting new connections, and close all clients."""
-        assert self._server is not None
         self._server.close()
         # Close all connected client transports
         for protocol in list(self._protocols):
@@ -685,7 +756,6 @@ class Server:
 
     async def wait_closed(self) -> None:
         """Wait until the server and all client connections are closed."""
-        assert self._server is not None
         await self._server.wait_closed()
         # Yield to event loop for pending close callbacks
         await asyncio.sleep(0)
@@ -695,12 +765,10 @@ class Server:
     @property
     def sockets(self) -> Optional[Tuple["socket.socket", ...]]:
         """Return list of socket objects the server is listening on."""
-        assert self._server is not None
         return self._server.sockets
 
     def is_serving(self) -> bool:
         """Return True if the server is accepting new connections."""
-        assert self._server is not None
         return self._server.is_serving()
 
     @property
@@ -824,6 +892,8 @@ async def create_server(  # pylint: disable=too-many-positional-arguments
     cols: int = 80,
     rows: int = 25,
     timeout: int = 300,
+    ssl: Optional[ssl_module.SSLContext] = None,
+    tls_auto: bool = False,
 ) -> Server:
     """
     Create a TCP Telnet server.
@@ -881,17 +951,28 @@ async def create_server(  # pylint: disable=too-many-positional-arguments
         greater of this value has elapsed.  A client that is not answering
         option negotiation will delay the start of the shell by this amount.
     :param limit: The buffer limit for the reader stream.
+    :param ssl: An :class:`ssl.SSLContext` for TLS-encrypted connections
+        (TELNETS, :rfc:`855` over TLS).  When provided, the server performs a
+        TLS handshake before any telnet data is exchanged.  ``None`` (default)
+        creates a plain TCP server.
+    :param tls_auto: When ``True`` and *ssl* is provided, the server accepts
+        both TLS and plain telnet clients on the same port.  The first byte of
+        each connection is inspected: a TLS ClientHello (``0x16``) triggers a
+        TLS handshake, anything else is treated as plain telnet.  Requires
+        *ssl* to be an :class:`ssl.SSLContext`.
 
     :return: A :class:`Server` instance that wraps the asyncio.Server
         and provides access to connected client protocols via
         :meth:`Server.wait_for_client` and :attr:`Server.clients`.
     """
+    if tls_auto and ssl is None:
+        raise ValueError("tls_auto=True requires an ssl SSLContext")
+
     protocol_factory = protocol_factory or TelnetServer
-    loop = asyncio.get_event_loop()
 
     telnet_server = Server(None)
 
-    def factory() -> asyncio.Protocol:
+    def _make_telnet_protocol() -> asyncio.Protocol:
         protocol: asyncio.Protocol
         if issubclass(protocol_factory, TelnetServer):
             protocol = protocol_factory(
@@ -922,8 +1003,22 @@ async def create_server(  # pylint: disable=too-many-positional-arguments
         telnet_server._register_protocol(protocol)  # pylint: disable=protected-access
         return protocol
 
-    server = await loop.create_server(factory, host, port)
-    telnet_server._server = server  # pylint: disable=protected-access
+    if tls_auto:
+
+        def factory() -> asyncio.Protocol:
+            return _TLSAutoDetectProtocol(ssl, _make_telnet_protocol)
+
+        # pylint: disable=protected-access
+        telnet_server._server = await asyncio.get_event_loop().create_server(factory, host, port)
+    else:
+
+        def factory() -> asyncio.Protocol:
+            return _make_telnet_protocol()
+
+        # pylint: disable=protected-access
+        telnet_server._server = await asyncio.get_event_loop().create_server(
+            factory, host, port, ssl=ssl
+        )
 
     return telnet_server
 
@@ -999,12 +1094,7 @@ def parse_server_args() -> Dict[str, Any]:
         )
         # Hidden backwards-compat: --pty-raw was the default since 2.5,
         # keep it as a silent no-op so existing scripts don't break.
-        parser.add_argument(
-            "--pty-raw",
-            action="store_true",
-            default=False,
-            help=argparse.SUPPRESS,
-        )
+        parser.add_argument("--pty-raw", action="store_true", default=False, help=argparse.SUPPRESS)
     parser.add_argument(
         "--robot-check",
         action="store_true",
@@ -1029,6 +1119,21 @@ def parse_server_args() -> Dict[str, Any]:
         "not negotiated, which is correct for MUD clients but may "
         "confuse some other clients.",
     )
+    parser.add_argument(
+        "--ssl-certfile",
+        default=None,
+        metavar="PATH",
+        help="path to PEM certificate file for TLS (enables TELNETS)",
+    )
+    parser.add_argument(
+        "--ssl-keyfile", default=None, metavar="PATH", help="path to PEM private key file for TLS"
+    )
+    parser.add_argument(
+        "--tls-auto",
+        action="store_true",
+        default=False,
+        help="accept both TLS and plain telnet on the same port (requires --ssl-certfile)",
+    )
     result = vars(parser.parse_args(argv))
     result["pty_args"] = pty_args if PTY_SUPPORT else None
     # --pty-raw is a hidden no-op (raw is now the default);
@@ -1041,11 +1146,22 @@ def parse_server_args() -> Dict[str, Any]:
         result["pty_raw"] = False
 
     # Auto-enable force_binary for retro BBS encodings that use high-bit bytes.
-    # local
     from .encodings import FORCE_BINARY_ENCODINGS  # pylint: disable=import-outside-toplevel
 
-    if result["encoding"].lower().replace('-', '_') in FORCE_BINARY_ENCODINGS:
+    if result["encoding"].lower().replace("-", "_") in FORCE_BINARY_ENCODINGS:
         result["force_binary"] = True
+
+    # Build SSLContext from --ssl-certfile / --ssl-keyfile
+    ssl_certfile = result.pop("ssl_certfile", None)
+    ssl_keyfile = result.pop("ssl_keyfile", None)
+    tls_auto = result.pop("tls_auto", False)
+    if ssl_certfile:
+        ctx = ssl_module.SSLContext(ssl_module.PROTOCOL_TLS_SERVER)
+        ctx.load_cert_chain(ssl_certfile, keyfile=ssl_keyfile)
+        result["ssl"] = ctx
+    else:
+        result["ssl"] = None
+    result["tls_auto"] = tls_auto
 
     return result
 
@@ -1069,6 +1185,8 @@ async def run_server(  # pylint: disable=too-many-positional-arguments,too-many-
     status_interval: int = _config.status_interval,
     never_send_ga: bool = _config.never_send_ga,
     protocol_factory: Optional[Type[asyncio.Protocol]] = None,
+    ssl: Optional[ssl_module.SSLContext] = None,
+    tls_auto: bool = False,
 ) -> None:
     """
     Program entry point for server daemon.
@@ -1083,14 +1201,12 @@ async def run_server(  # pylint: disable=too-many-positional-arguments,too-many-
     if pty_exec:
         if not PTY_SUPPORT:
             raise NotImplementedError("PTY support is not available on this platform (Windows?)")
-        # local
         from .server_pty_shell import make_pty_shell  # pylint: disable=import-outside-toplevel
 
         shell = make_pty_shell(pty_exec, pty_args, raw_mode=pty_raw)
 
     # Wrap shell with guards if enabled
     if robot_check or pty_fork_limit:
-        # local
         # pylint: disable=import-outside-toplevel
         from .guard_shells import robot_shell  # pylint: disable=import-outside-toplevel
         from .guard_shells import ConnectionCounter, busy_shell
@@ -1154,6 +1270,8 @@ async def run_server(  # pylint: disable=too-many-positional-arguments,too-many-
         never_send_ga=never_send_ga,
         timeout=timeout,
         connect_maxwait=connect_maxwait,
+        ssl=ssl,
+        tls_auto=tls_auto,
     )
 
     # SIGTERM cases server to gracefully stop

@@ -210,7 +210,7 @@ def view_cancel(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Cancel show render view
+    """Cancel showing the render view
 
     :return: Result of the operator call.
     """

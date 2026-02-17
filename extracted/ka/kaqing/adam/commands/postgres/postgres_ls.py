@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.fs.ls import Ls
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class PostgresLs(Command):
     COMMAND = 'pg ls'

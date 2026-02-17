@@ -27,6 +27,32 @@ class ContractFailureKind(IntEnum):
     ASSUME = 5
 
 
+class ContractException(System.Exception):
+    """This class has no documentation."""
+
+    @property
+    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
+        ...
+
+    @property
+    def failure(self) -> str:
+        ...
+
+    @property
+    def user_message(self) -> str:
+        ...
+
+    @property
+    def condition(self) -> str:
+        ...
+
+    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
+        ...
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
 class ContractFailedEventArgs(System.EventArgs):
     """This class has no documentation."""
 
@@ -62,32 +88,6 @@ class ContractFailedEventArgs(System.EventArgs):
 
     def set_unwind(self) -> None:
         ...
-
-
-class ContractException(System.Exception):
-    """This class has no documentation."""
-
-    @property
-    def kind(self) -> System.Diagnostics.Contracts.ContractFailureKind:
-        ...
-
-    @property
-    def failure(self) -> str:
-        ...
-
-    @property
-    def user_message(self) -> str:
-        ...
-
-    @property
-    def condition(self) -> str:
-        ...
-
-    def __init__(self, kind: System.Diagnostics.Contracts.ContractFailureKind, failure: str, user_message: str, condition: str, inner_exception: System.Exception) -> None:
-        ...
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
 
 
 class PureAttribute(System.Attribute):

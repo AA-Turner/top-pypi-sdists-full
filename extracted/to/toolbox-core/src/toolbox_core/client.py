@@ -14,6 +14,7 @@
 
 
 import logging
+import warnings
 from types import MappingProxyType
 from typing import Any, Awaitable, Callable, Mapping, Optional, Union
 
@@ -30,7 +31,7 @@ from .mcp_transport import (
 from .protocol import Protocol, ToolSchema
 from .tool import ToolboxTool
 from .toolbox_transport import ToolboxTransport
-from .utils import identify_auth_requirements, resolve_value
+from .utils import identify_auth_requirements, resolve_value, warn_if_http_and_headers
 
 
 class ToolboxClient:
@@ -52,6 +53,8 @@ class ToolboxClient:
             Mapping[str, Union[Callable[[], str], Callable[[], Awaitable[str]], str]]
         ] = None,
         protocol: Protocol = Protocol.MCP,
+        client_name: Optional[str] = None,
+        client_version: Optional[str] = None,
     ):
         """
         Initializes the ToolboxClient.
@@ -78,19 +81,34 @@ class ToolboxClient:
 
         match protocol:
             case Protocol.TOOLBOX:
+                warnings.warn(
+                    "The native Toolbox protocol is deprecated and will be removed on March 4, 2026. "
+                    "Please use Protocol.MCP or specific MCP versions.",
+                    DeprecationWarning,
+                    stacklevel=2,
+                )
                 self.__transport = ToolboxTransport(url, session)
             case Protocol.MCP_v20251125:
-                self.__transport = McpHttpTransportV20251125(url, session, protocol)
+                self.__transport = McpHttpTransportV20251125(
+                    url, session, protocol, client_name, client_version
+                )
             case Protocol.MCP_v20250618:
-                self.__transport = McpHttpTransportV20250618(url, session, protocol)
+                self.__transport = McpHttpTransportV20250618(
+                    url, session, protocol, client_name, client_version
+                )
             case Protocol.MCP_v20250326:
-                self.__transport = McpHttpTransportV20250326(url, session, protocol)
+                self.__transport = McpHttpTransportV20250326(
+                    url, session, protocol, client_name, client_version
+                )
             case Protocol.MCP_v20241105:
-                self.__transport = McpHttpTransportV20241105(url, session, protocol)
+                self.__transport = McpHttpTransportV20241105(
+                    url, session, protocol, client_name, client_version
+                )
             case _:
                 raise ValueError(f"Unsupported MCP protocol version: {protocol}")
 
         self.__client_headers = client_headers if client_headers is not None else {}
+        warn_if_http_and_headers(url, self.__client_headers)
 
     def __parse_tool(
         self,
@@ -214,6 +232,8 @@ class ToolboxClient:
             for name, val in self.__client_headers.items()
         }
 
+        warn_if_http_and_headers(self.__transport.base_url, auth_token_getters)
+
         manifest = await self.__transport.tool_get(name, resolved_headers)
 
         # parse the provided definition to a tool
@@ -288,6 +308,8 @@ class ToolboxClient:
             header_name: await resolve_value(original_headers[header_name])
             for header_name in original_headers
         }
+
+        warn_if_http_and_headers(self.__transport.base_url, auth_token_getters)
 
         manifest = await self.__transport.tools_list(name, resolved_headers)
 

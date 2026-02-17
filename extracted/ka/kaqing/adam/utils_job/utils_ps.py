@@ -3,7 +3,7 @@ import itertools
 import re
 
 from adam.commands.devices.devices import device
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_color import Color
 from adam.utils_concurrent import parallelize
 from adam.utils_tabulize import tabulize

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2018 - 2021 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2018 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """Abstract processor module.
@@ -8,14 +8,21 @@
 
    - Add to abstract processors such like Parsers (loaders and dumpers).
 """
+from __future__ import annotations
+
 import typing
+
+if typing.TYPE_CHECKING:
+    import builtins
 
 
 class Processor:
     """Abstract processor class to provide basic implementation.
 
     - _type: type indicates data types it can process
-    - _priority: Priority to select it if there are others of same type
+    - _priority:
+        Priority to select it if there are others of same type from 0 (lowest)
+        to 99 (highest)
     - _extensions: File extensions of data type it can process
 
     .. note::
@@ -23,10 +30,10 @@ class Processor:
        in most cases, I think.
     """
 
-    _cid: str = ''
-    _type: str = ''
-    _priority: int = 0   # 0 (lowest priority) .. 99  (highest priority)
-    _extensions: typing.List[str] = []
+    _cid: typing.ClassVar[str] = ""
+    _type: typing.ClassVar[str] = ""
+    _priority: typing.ClassVar[int] = 0
+    _extensions: tuple[str, ...] = ()
 
     @classmethod
     def cid(cls) -> str:
@@ -44,20 +51,25 @@ class Processor:
         return cls._priority
 
     @classmethod
-    def extensions(cls) -> typing.List[str]:
+    def extensions(cls) -> tuple[str, ...]:
         """Get the list of file extensions of files it can process."""
         return cls._extensions
 
     @classmethod
-    def __eq__(cls, other) -> bool:
+    def __eq__(
+        cls, other: builtins.type[Processor],  # type: ignore[override]
+    ) -> bool:
         """Test equality."""
         return cls.cid() == other.cid()
+
+    @classmethod
+    def __hash__(cls) -> int:
+        """Test equality."""
+        return hash(cls.cid())
 
     def __str__(self) -> str:
         """Provide a string representation."""
         return (
-            f'<Processor cid={self.cid()}, type={self.type()}, '
-            f'prio={self.priority()}, extensions={self.extensions()!r}'
+            f"<Processor cid={self.cid()}, type={self.type()}, "
+            f"prio={self.priority()}, extensions={self.extensions()!r}"
         )
-
-# vim:sw=4:ts=4:et:

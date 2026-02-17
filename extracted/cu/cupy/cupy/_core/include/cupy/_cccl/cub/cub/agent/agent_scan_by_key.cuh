@@ -52,8 +52,6 @@
 
 #include <cuda/std/type_traits>
 
-#include <iterator>
-
 CUB_NAMESPACE_BEGIN
 
 /******************************************************************************
@@ -145,8 +143,8 @@ struct AgentScanByKey
   // Types and constants
   //---------------------------------------------------------------------
 
-  using KeyT               = value_t<KeysInputIteratorT>;
-  using InputT             = value_t<ValuesInputIteratorT>;
+  using KeyT               = it_value_t<KeysInputIteratorT>;
+  using InputT             = it_value_t<ValuesInputIteratorT>;
   using FlagValuePairT     = KeyValuePair<int, AccumT>;
   using ReduceBySegmentOpT = ScanBySegmentOp<ScanOpT>;
 
@@ -154,18 +152,18 @@ struct AgentScanByKey
 
   // Constants
   // Inclusive scan if no init_value type is provided
-  static constexpr int IS_INCLUSIVE     = std::is_same<InitValueT, NullType>::value;
+  static constexpr int IS_INCLUSIVE     = ::cuda::std::is_same_v<InitValueT, NullType>;
   static constexpr int BLOCK_THREADS    = AgentScanByKeyPolicyT::BLOCK_THREADS;
   static constexpr int ITEMS_PER_THREAD = AgentScanByKeyPolicyT::ITEMS_PER_THREAD;
   static constexpr int ITEMS_PER_TILE   = BLOCK_THREADS * ITEMS_PER_THREAD;
 
   using WrappedKeysInputIteratorT =
-    ::cuda::std::_If<std::is_pointer<KeysInputIteratorT>::value,
+    ::cuda::std::_If<::cuda::std::is_pointer_v<KeysInputIteratorT>,
                      CacheModifiedInputIterator<AgentScanByKeyPolicyT::LOAD_MODIFIER, KeyT, OffsetT>,
                      KeysInputIteratorT>;
 
   using WrappedValuesInputIteratorT =
-    ::cuda::std::_If<std::is_pointer<ValuesInputIteratorT>::value,
+    ::cuda::std::_If<::cuda::std::is_pointer_v<ValuesInputIteratorT>,
                      CacheModifiedInputIterator<AgentScanByKeyPolicyT::LOAD_MODIFIER, InputT, OffsetT>,
                      ValuesInputIteratorT>;
 
@@ -179,7 +177,7 @@ struct AgentScanByKey
 
   using DelayConstructorT = typename AgentScanByKeyPolicyT::detail::delay_constructor_t;
   using TilePrefixCallbackT =
-    TilePrefixCallbackOp<FlagValuePairT, ReduceBySegmentOpT, ScanTileStateT, 0, DelayConstructorT>;
+    TilePrefixCallbackOp<FlagValuePairT, ReduceBySegmentOpT, ScanTileStateT, DelayConstructorT>;
 
   using BlockScanT = BlockScan<FlagValuePairT, BLOCK_THREADS, AgentScanByKeyPolicyT::SCAN_ALGORITHM, 1, 1>;
 
@@ -219,15 +217,19 @@ struct AgentScanByKey
   //---------------------------------------------------------------------
 
   // Exclusive scan specialization
-  _CCCL_DEVICE _CCCL_FORCEINLINE void ScanTile(
-    FlagValuePairT (&scan_items)[ITEMS_PER_THREAD], FlagValuePairT& tile_aggregate, Int2Type<false> /* is_inclusive */)
+  _CCCL_DEVICE _CCCL_FORCEINLINE void
+  ScanTile(FlagValuePairT (&scan_items)[ITEMS_PER_THREAD],
+           FlagValuePairT& tile_aggregate,
+           ::cuda::std::false_type /* is_inclusive */)
   {
     BlockScanT(storage.scan_storage.scan).ExclusiveScan(scan_items, scan_items, pair_scan_op, tile_aggregate);
   }
 
   // Inclusive scan specialization
-  _CCCL_DEVICE _CCCL_FORCEINLINE void ScanTile(
-    FlagValuePairT (&scan_items)[ITEMS_PER_THREAD], FlagValuePairT& tile_aggregate, Int2Type<true> /* is_inclusive */)
+  _CCCL_DEVICE _CCCL_FORCEINLINE void
+  ScanTile(FlagValuePairT (&scan_items)[ITEMS_PER_THREAD],
+           FlagValuePairT& tile_aggregate,
+           ::cuda::std::true_type /* is_inclusive */)
   {
     BlockScanT(storage.scan_storage.scan).InclusiveScan(scan_items, scan_items, pair_scan_op, tile_aggregate);
   }
@@ -241,7 +243,7 @@ struct AgentScanByKey
     FlagValuePairT (&scan_items)[ITEMS_PER_THREAD],
     FlagValuePairT& tile_aggregate,
     TilePrefixCallbackT& prefix_op,
-    Int2Type<false> /* is_inclusive */)
+    ::cuda::std::false_type /* is_inclusive */)
   {
     BlockScanT(storage.scan_storage.scan).ExclusiveScan(scan_items, scan_items, pair_scan_op, prefix_op);
     tile_aggregate = prefix_op.GetBlockAggregate();
@@ -252,7 +254,7 @@ struct AgentScanByKey
     FlagValuePairT (&scan_items)[ITEMS_PER_THREAD],
     FlagValuePairT& tile_aggregate,
     TilePrefixCallbackT& prefix_op,
-    Int2Type<true> /* is_inclusive */)
+    ::cuda::std::true_type /* is_inclusive */)
   {
     BlockScanT(storage.scan_storage.scan).InclusiveScan(scan_items, scan_items, pair_scan_op, prefix_op);
     tile_aggregate = prefix_op.GetBlockAggregate();
@@ -269,8 +271,8 @@ struct AgentScanByKey
     OffsetT (&segment_flags)[ITEMS_PER_THREAD],
     FlagValuePairT (&scan_items)[ITEMS_PER_THREAD])
   {
-// Zip values and segment_flags
-#pragma unroll
+    // Zip values and segment_flags
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
     {
       // Set segment_flags for first out-of-bounds item, zero for others
@@ -287,26 +289,26 @@ struct AgentScanByKey
   _CCCL_DEVICE _CCCL_FORCEINLINE void
   UnzipValues(AccumT (&values)[ITEMS_PER_THREAD], FlagValuePairT (&scan_items)[ITEMS_PER_THREAD])
   {
-// Unzip values and segment_flags
-#pragma unroll
+    // Unzip values and segment_flags
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
     {
       values[ITEM] = scan_items[ITEM].value;
     }
   }
 
-  template <bool IsNull = std::is_same<InitValueT, NullType>::value, typename std::enable_if<!IsNull, int>::type = 0>
+  template <bool IsNull = ::cuda::std::is_same_v<InitValueT, NullType>, ::cuda::std::enable_if_t<!IsNull, int> = 0>
   _CCCL_DEVICE _CCCL_FORCEINLINE void
   AddInitToScan(AccumT (&items)[ITEMS_PER_THREAD], OffsetT (&flags)[ITEMS_PER_THREAD])
   {
-#pragma unroll
+    _CCCL_PRAGMA_UNROLL_FULL()
     for (int ITEM = 0; ITEM < ITEMS_PER_THREAD; ++ITEM)
     {
       items[ITEM] = flags[ITEM] ? init_value : scan_op(init_value, items[ITEM]);
     }
   }
 
-  template <bool IsNull = std::is_same<InitValueT, NullType>::value, typename std::enable_if<IsNull, int>::type = 0>
+  template <bool IsNull = ::cuda::std::is_same_v<InitValueT, NullType>, ::cuda::std::enable_if_t<IsNull, int> = 0>
   _CCCL_DEVICE _CCCL_FORCEINLINE void
   AddInitToScan(AccumT (& /*items*/)[ITEMS_PER_THREAD], OffsetT (& /*flags*/)[ITEMS_PER_THREAD])
   {}
@@ -364,7 +366,7 @@ struct AgentScanByKey
 
       // Exclusive scan of values and segment_flags
       FlagValuePairT tile_aggregate;
-      ScanTile(scan_items, tile_aggregate, Int2Type<IS_INCLUSIVE>());
+      ScanTile(scan_items, tile_aggregate, bool_constant_v<IS_INCLUSIVE>);
 
       if (threadIdx.x == 0)
       {
@@ -388,7 +390,7 @@ struct AgentScanByKey
 
       FlagValuePairT tile_aggregate;
       TilePrefixCallbackT prefix_op(tile_state, storage.scan_storage.prefix, pair_scan_op, tile_idx);
-      ScanTile(scan_items, tile_aggregate, prefix_op, Int2Type<IS_INCLUSIVE>());
+      ScanTile(scan_items, tile_aggregate, prefix_op, bool_constant_v<IS_INCLUSIVE>);
     }
 
     __syncthreads();
@@ -467,27 +469,5 @@ struct AgentScanByKey
 
 } // namespace scan_by_key
 } // namespace detail
-
-template <typename AgentScanByKeyPolicyT,
-          typename KeysInputIteratorT,
-          typename ValuesInputIteratorT,
-          typename ValuesOutputIteratorT,
-          typename EqualityOp,
-          typename ScanOpT,
-          typename InitValueT,
-          typename OffsetT,
-          typename AccumT>
-using AgentScanByKey CCCL_DEPRECATED_BECAUSE("This class is considered an implementation detail and the public "
-                                             "interface will be removed.") =
-  detail::scan_by_key::AgentScanByKey<
-    AgentScanByKeyPolicyT,
-    KeysInputIteratorT,
-    ValuesInputIteratorT,
-    ValuesOutputIteratorT,
-    EqualityOp,
-    ScanOpT,
-    InitValueT,
-    OffsetT,
-    AccumT>;
 
 CUB_NAMESPACE_END

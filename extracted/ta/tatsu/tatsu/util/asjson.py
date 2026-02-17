@@ -1,67 +1,96 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
 import enum
+import inspect
 import json
 import weakref
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, Protocol, runtime_checkable
 
-from tatsu.util import debug, is_namedtuple, isiter
+from .abctools import as_namedtuple, isiter, rowselect
+
+__all__ = [
+    'AsJSONMixin',
+    'JSONSerializable',
+    'asjson',
+    'asjsons',
+    'plainjson',
+]
+
+
+@runtime_checkable
+class JSONSerializable(Protocol):
+    def __json__(self, seen: set[int] | None = None) -> Any: ...
 
 
 class AsJSONMixin:
+    __slots__ = ()
+
     def __json__(self, seen: set[int] | None = None) -> Any:
+        pub = self.__pub__()
         return {
             '__class__': type(self).__name__,
-            **asjson(self._pubdict(), seen=seen),
+            **asjson(pub, seen=seen),
         }
 
-    def _pubdict(self) -> dict[str, Any]:
-        return {
-            name: value
-            for name, value in vars(self).items()
-            if not name.startswith('_')
-        }
+    def __pub__(self) -> dict[str, Any]:
+        # Gemini (2026-01-26)
+        def is_public(name: str, value: Any) -> bool:
+            return not (name.startswith('_') or inspect.isroutine(value))
+
+        return rowselect(dir(self), vars(self), where=is_public)
 
 
-def asjson(obj, seen: set[int] | None = None) -> Any:  # noqa: PLR0911, PLR0912
-    if obj is None or isinstance(obj, int | float | str | bool):
-        return obj
+def asjson(obj: Any, seen: set[int] | None = None) -> Any:
+    """
+    Produce a JSON-serializable version of the input structure.
+    """
+    # Gemini (2026-01-26)
 
-    if seen is None:
-        seen = set()
-    elif id(obj) in seen:
-        return f'{type(obj).__name__}@{id(obj)}'
+    memo: dict[int, Any] = {}
+    seen = seen if seen is not None else set()
 
-    if isinstance(obj, Mapping | AsJSONMixin) or isiter(obj):
-        seen.add(id(obj))
+    def dfs(node: Any) -> Any:
+        if node is None or isinstance(node, int | float | str | bool):
+            return node
 
-    try:
-        if isinstance(obj, weakref.ReferenceType | weakref.ProxyType):
-            return f'{obj.__class__.__name__}@0x{hex(id(obj)).upper()[2:]}'
-        elif hasattr(obj, '__json__'):
-            return obj.__json__(seen=seen)
-        elif is_namedtuple(obj):
-            return asjson(obj._asdict(), seen=seen)
-        elif isinstance(obj, Mapping):
-            result = {}
-            for k, v in obj.items():
-                try:
-                    result[k] = asjson(v, seen=seen)
-                except TypeError:
-                    debug('Unhashable key?', type(k), str(k))
-                    raise
+        node_id = id(node)
+        if node_id in seen:
+            return f"{type(node).__name__}@0x{hex(node_id).upper()[2:]}"
+        if node_id in memo:
+            return memo[node_id]
+
+        seen.add(node_id)
+        try:
+            match node:
+                case JSONSerializable() as serializable:
+                    if not isinstance(serializable, type):
+                        result = serializable.__json__(seen=seen)
+                    else:
+                        result = serializable
+                case enum.Enum() as en:
+                    result = dfs(en.value)
+                case _ if isinstance(node, (weakref.ReferenceType, *weakref.ProxyTypes)):
+                    result = f"{type(node).__name__}@0x{hex(node_id).upper()[2:]}"
+                case _ if (nt := as_namedtuple(node)):
+                    result = dfs(nt._asdict())
+                case Mapping() as mapping:
+                    result = {str(k): dfs(v) for k, v in mapping.items()}
+                case list() | tuple() | set() as seq:
+                    result = [dfs(e) for e in seq]
+                case _ if isiter(node):
+                    result = [dfs(e) for e in node]
+                case _:
+                    result = repr(node)
+
+            memo[node_id] = result
             return result
-        elif isiter(obj):
-            return [asjson(e, seen=seen) for e in obj]
-        elif isinstance(obj, enum.Enum):
-            return asjson(obj.value)
-        else:
-            return repr(obj)
-    finally:
-        # NOTE: id()s may be reused
-        #   https://docs.python.org/3/library/functions.html#id
-        seen -= {id(obj)}
+        finally:
+            seen.discard(node_id)
+
+    return dfs(obj)
 
 
 def plainjson(obj: Any) -> Any:

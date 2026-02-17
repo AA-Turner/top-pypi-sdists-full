@@ -1,15 +1,18 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+
 import re
 from typing import Any
 
-from .bootstrap import EBNFBootstrapParser
+from .bootstrap import TatSuBootstrapParser
 from .buffering import Buffer
 from .grammars import PRAGMA_RE
 from .infos import ParserConfig
-from .parser_semantics import EBNFGrammarSemantics
+from .parser_semantics import TatSuGrammarSemantics
 from .semantics import ASTSemantics
 
 
-class EBNFBuffer(Buffer):
+class TatSuBuffer(Buffer):
     def __init__(
         self,
         text: str,
@@ -46,7 +49,7 @@ class EBNFBuffer(Buffer):
             return i + 1  # will be treated as a directive by the parser
 
 
-class EBNFParser(EBNFBootstrapParser):
+class TatSuParser(TatSuBootstrapParser):
     def __init__(
         self,
         name: str | None = None,
@@ -60,27 +63,29 @@ class EBNFParser(EBNFBootstrapParser):
             config=config,
             name=name,
             semantics=semantics,
-            tokenizercls=EBNFBuffer,
+            tokenizercls=TatSuBuffer,
             **settings,
         )
         super().__init__(config)
 
 
-class GrammarGenerator(EBNFBootstrapParser):
+class TatSuParserGenerator(TatSuBootstrapParser):
     def __init__(
         self,
         name: str | None = None,
-        config: ParserConfig | None = None,
         semantics=None,
         **settings: Any,
     ):
-        if semantics is None:
-            semantics = EBNFGrammarSemantics(name)
+        if isinstance(semantics, type):
+            raise TypeError(
+                f'semantics must be an object instance or None, not class {semantics!r}',
+            )
+        if not semantics:
+            semantics = TatSuGrammarSemantics(name=name, context=self)
         config = ParserConfig.new(
-            config=config,
             name=name,
             semantics=semantics,
-            tokenizercls=EBNFBuffer,
+            tokenizercls=TatSuBuffer,
             **settings,
         )
         super().__init__(config)

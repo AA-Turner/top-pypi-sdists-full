@@ -167,14 +167,14 @@ If you benefited from using this package, please consider supporting its develop
             "queue_after": None,
 
             "embed_obj": None,
-            "manage_vsb_func": utilities.placeholder,
-            "manage_hsb_func": utilities.placeholder,
-            "on_link_click": utilities.placeholder,
-            "on_form_submit": utilities.placeholder,
-            "message_func": utilities.placeholder,
-            "on_script": utilities.placeholder,
-            "on_element_script": utilities.placeholder,
-            "on_resource_setup": utilities.placeholder,
+            "manage_vsb_func": None,
+            "manage_hsb_func": None,
+            "on_link_click": None,
+            "on_form_submit": None,
+            "message_func": None,
+            "on_script": None,
+            "on_element_script": None,
+            "on_resource_setup": None,
 
             "request_func": None,
             "insecure_https": False,
@@ -212,6 +212,7 @@ If you benefited from using this package, please consider supporting its develop
         self.icon = ""
 
         self.fragment = ""
+        self.parsing = False
         self.active_threads = []
         self.pending_threads = []
         self.current_active_node = None
@@ -619,7 +620,8 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         "Post a message."
         if self.overflow_scroll_frame:
             message = "[EMBEDDED DOCUMENT] " + message
-        self.message_func(message)
+        if self.message_func is not None:
+            self.message_func(message)
 
     # --- HTML/CSS parsing ----------------------------------------------------
 
@@ -730,8 +732,10 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         # NOTE: this must run in the main thread
         
         # Reset the scrollbars to the default setting
-        self.manage_vsb_func()
-        self.manage_hsb_func()
+        if self.manage_vsb_func is not None:
+            self.manage_vsb_func()
+        if self.manage_hsb_func is not None:
+            self.manage_hsb_func()
 
         # Note to self: these need to be here
         # Or very strange errors will magically appear,
@@ -805,7 +809,9 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         # NOTE: this must run in the main thread
 
         self.post_message(message)
-        self.on_resource_setup(url, resource, success)
+
+        if self.on_resource_setup is not None:
+            self.on_resource_setup(url, resource, success)
 
     # --- Bindings ------------------------------------------------------------
 
@@ -837,7 +843,7 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         #return tuple(coords)
         xview = self.tk.call(self._w, "xview", *args)
         if args:
-            self.caret_manager.update(auto_scroll=auto_scroll)
+            self.caret_manager.update(auto_scroll=auto_scroll, xview=xview)
         return xview
 
     def xview_scroll(self, number, what, auto_scroll=False):
@@ -853,7 +859,7 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         """Control vertical scrolling."""
         yview = self.tk.call(self._w, "yview", *args)
         if args:
-            self.caret_manager.update(auto_scroll=auto_scroll)
+            self.caret_manager.update(auto_scroll=auto_scroll, yview=yview)
         return yview
 
     def yview_scroll(self, number, what, auto_scroll=False):
@@ -964,11 +970,11 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
         "Experimental, place the specified nodes is before another node."
         return self.tk.call(node_handle, "insert", "-before", before, child_nodes)
     
-    def replace_node_contents(self, node_handle, contents, *args):
+    def replace_node_contents(self, node_handle, contents, *args, check=True):
         """Fill a node with either a Tk widget or with Tkhtml nodes.
         
         New in version 4.2."""
-        if (node_handle != contents) and not self.get_node_parent(node_handle):
+        if check and (node_handle != contents) and not self.get_node_parent(node_handle):
             raise RuntimeError(f"root elements cannot be replaced")
 
         if not contents:
@@ -1220,7 +1226,7 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
 
         Since version 4.9 all callbacks are evaluated on the main thread. Except for niche cases this command should not need to be used.
 
-        This command may be moved or removed at any time.
+        This command may be removed at any time.
         
         New in version 4.4."""
         return utilities.safe_tk_eval(self, expr)
@@ -1321,100 +1327,55 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
 
     # --- Widget-user interaction ---------------------------------------------
 
-    def _scroll_x11(self, event, widget=None):
-        "Manage scrolling on Linux."
-        if not widget:
-            widget = event.widget
+    def _finish_scrolling(self, event, widget, x11, vsb):
+        if not widget: widget = event.widget
 
         # If the user scrolls on the page while its resources are loading, stop scrolling to the fragment
         if isinstance(widget.fragment, tuple):
             widget.fragment = None
-            
-        yview = widget.yview()
 
-        if event.num == 4:
+        if x11:
+            scroll_up = (event.num == 4)
+        else:
+            scroll_up = event.delta > 0
+
+        if vsb:
+            yview = widget.yview()
+            at_edge = yview[0] == 0 if scroll_up else yview[1] == 1
+            vsb_locked = widget.manage_vsb_func is not None and widget.manage_vsb_func(check=True) == 0
+
             for node_handle in widget.hovered_nodes:
-                widget.event_manager.post_element_event(node_handle, "onscrollup", event)
-            if widget.overflow_scroll_frame and (yview[0] == 0 or widget.manage_vsb_func(check=True) == 0):
-                widget.overflow_scroll_frame._scroll_x11(event, widget.overflow_scroll_frame)
-            else:
-                if widget.manage_vsb_func(check=True) == 0:
-                    return
-                widget.yview_scroll(-4, "units")
+                if x11: stype = "onscrollup" if scroll_up else "onscrolldown"
+                else: stype = "onscroll"
+                widget.event_manager.post_element_event(node_handle, stype, event)
+
         else:
-            for node_handle in widget.hovered_nodes:
-                widget.event_manager.post_element_event(node_handle, "onscrolldown", event)
-            if widget.overflow_scroll_frame and (yview[1] == 1 or widget.manage_vsb_func(check=True) == 0):
-                widget.overflow_scroll_frame._scroll_x11(event, widget.overflow_scroll_frame)
+            xview = widget.xview()
+            at_edge = xview[0] == 0 if scroll_up else xview[1] == 1
+            vsb_locked = widget.manage_hsb_func is not None and widget.manage_hsb_func(check=True) == 0
+
+        if widget.overflow_scroll_frame and (at_edge or vsb_locked):
+            if vsb:
+                widget.overflow_scroll_frame._finish_scrolling(event, widget.overflow_scroll_frame, x11, vsb)
             else:
-                if widget.manage_vsb_func(check=True) == 0:
-                    return
-                widget.yview_scroll(4, "units")
-
-    def _xscroll_x11(self, event, widget=None):
-        "Manage scrolling on Linux."
-        if not widget:
-            widget = event.widget
-
-        xview = widget.xview()
-
-        if event.num == 4:
-            if widget.overflow_scroll_frame and (xview[0] == 0 or widget.manage_hsb_func(check=True) == 0):
-                widget.overflow_scroll_frame._xscroll_x11(event, widget.overflow_scroll_frame)
+                widget.overflow_scroll_frame._finish_scrolling(event, widget.overflow_scroll_frame, x11, vsb)
+        elif not vsb_locked:
+            if x11:
+                units = -4 if scroll_up else 4
             else:
-                if widget.manage_hsb_func(check=True) == 0:
-                    return
-                widget.xview_scroll(-4, "units")
-        else:
-            if widget.overflow_scroll_frame and (xview[1] == 1 or widget.manage_hsb_func(check=True) == 0):
-                widget.overflow_scroll_frame._xscroll_x11(event, widget.overflow_scroll_frame)
+                if utilities.PLATFORM.system == "Darwin":
+                    units = int(-1*event.delta)
+                else:
+                    units = int(-1*event.delta/30)
+            if vsb:
+                widget.yview_scroll(units, "units")
             else:
-                if widget.manage_hsb_func(check=True) == 0:
-                    return
-                widget.xview_scroll(4, "units")
+                widget.xview_scroll(units, "units")
 
-    def _scroll(self, event):
-        "Manage scrolling on Windows/MacOS."
-
-        # If the user scrolls on the page while it is loading, stop scrolling to the fragment
-        if isinstance(self.fragment, tuple):
-            self.fragment = None
-
-        yview = self.yview() 
-
-        for node_handle in self.hovered_nodes:
-            self.event_manager.post_element_event(node_handle, "onscroll", event)     
-
-        if self.overflow_scroll_frame and event.delta > 0 and (yview[0] == 0 or self.manage_vsb_func(check=True)  == 0):
-            self.overflow_scroll_frame._scroll(event)
-        elif self.overflow_scroll_frame and event.delta < 0 and (yview[1] == 1 or self.manage_vsb_func(check=True) == 0):
-            self.overflow_scroll_frame._scroll(event)
-        elif utilities.PLATFORM.system == "Darwin":
-            if self.manage_vsb_func(check=True) == 0:
-                return
-            self.yview_scroll(int(-1*event.delta), "units")
-        else:
-            if self.manage_vsb_func(check=True) == 0:
-                return
-            self.yview_scroll(int(-1*event.delta/30), "units")      
-          
-    def _xscroll(self, event):
-        "Manage scrolling on Windows/MacOS."
-
-        xview = self.xview() 
-
-        if self.overflow_scroll_frame and event.delta > 0 and (xview[0] == 0 or self.manage_hsb_func(check=True) == 0):
-            self.overflow_scroll_frame._xscroll(event)
-        elif self.overflow_scroll_frame and event.delta < 0 and (xview[1] == 1 or self.manage_hsb_func(check=True) == 0):
-            self.overflow_scroll_frame._xscroll(event)
-        elif utilities.PLATFORM.system == "Darwin":
-            if self.manage_hsb_func(check=True) == 0:
-                return
-            self.xview_scroll(int(-1*event.delta), "units")
-        else:
-            if self.manage_hsb_func(check=True) == 0:
-                return
-            self.xview_scroll(int(-1*event.delta/30), "units")      
+    def _scroll_x11(self, event, widget=None): self._finish_scrolling(event, widget, True, True)
+    def _xscroll_x11(self, event, widget=None): self._finish_scrolling(event, widget, True, False)
+    def _scroll(self, event): self._finish_scrolling(event, self, False, True)
+    def _xscroll(self, event): self._finish_scrolling(event, self, False, False)
 
     def _on_right_click(self, event):
         for node_handle in self.hovered_nodes:
@@ -1427,7 +1388,11 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
 
     def _on_focusout(self, event):
         if self.caret_browsing_enabled:
-            if (self.winfo_toplevel().focus_displayof() not in {None, self}):
+            try:
+                if (self.winfo_toplevel().focus_displayof() not in {None, self}):
+                    self.caret_manager.hide()
+            except KeyError:
+                # Clicked on the combobox. Not too sure why.
                 self.caret_manager.hide()
 
     def _on_focusin(self, event):
@@ -1587,15 +1552,6 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
             # Sometimes errors are thrown if the mouse is moving while the page is loading
             pass
 
-    def _handle_link_click(self, node_handle):
-        "Handle link clicks."
-        href = self.get_node_attribute(node_handle, "href")
-        url = self.resolve_url(href)
-        self.post_message(f"A link to '{utilities.shorten(url)}' was clicked")
-        if url not in self.visited_links:
-            self.visited_links.append(url)
-        self.on_link_click(url)
-
     def _on_click_release(self, event):
         "Handle click releases on hyperlinks and form elements."
         if self.selection_manager.get_selection():
@@ -1629,16 +1585,15 @@ It is likely that not all dependencies are installed. Make sure Cairo is install
                 return
             
             if node_tag == "input" and node_type == "reset":
-                self._handle_form_reset(node_handle)
+                self.form_manager._handle_form_reset(node_handle)
             elif node_tag == "input" and node_type in {"submit", "image"}:
-                self._handle_form_submission(node_handle)
+                self.form_manager._handle_form_submission(node_handle)
             else:
                 for node in self.hovered_nodes:
                     if node != node_handle:
                         node_tag = self.get_node_tag(node).lower()
                     if node_tag == "a":
-                        self.set_node_flags(node, "visited")
-                        self._handle_link_click(node)
+                        self.node_manager._handle_link_click(node)
                         break
                     elif node_tag == "button":
                         if node != node_handle:

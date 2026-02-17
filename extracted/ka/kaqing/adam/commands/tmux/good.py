@@ -1,6 +1,5 @@
 import click
 
-from adam.commands.tmux.good_morning import GoodMorning
 from adam.commands.tmux.good_night import GoodNight
 from adam.commands.intermediate_command import IntermediateCommand
 
@@ -17,7 +16,7 @@ class Good(IntermediateCommand):
         return Good.COMMAND
 
     def cmd_list(self):
-        return [GoodMorning(), GoodNight()]
+        return [GoodNight()]
 
 class GoodCommandHelper(click.Command):
     def get_help(self, ctx: click.Context):

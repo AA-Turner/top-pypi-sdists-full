@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import sys
-from typing import Any, Dict, List
+from typing import Any
 
 import cupy_builder.install_build as build
 import cupy_builder.install_utils as utils
@@ -18,17 +20,17 @@ class Feature:
         self.required = False
 
         # List of Cython modules.
-        self.modules: List[str] = []
+        self.modules: list[str] = []
 
         # C/C++ headers required for the feature.
         # This is used only for testing availability of the feature.
-        self.includes: List[str] = []
+        self.includes: list[str] = []
 
         # Libraries (shared/static) on the search path to be linked.
-        self.libraries: List[str] = []
+        self.libraries: list[str] = []
 
         # Static libraries (manually searched) to be linked.
-        self.static_libraries: List[str] = []
+        self.static_libraries: list[str] = []
 
         # Version of the feature.
         self._version: Any = self._UNDETERMINED
@@ -61,7 +63,7 @@ class Feature:
         return getattr(self, key)
 
 
-def _from_dict(d: Dict[str, Any], ctx: Context) -> Feature:
+def _from_dict(d: dict[str, Any], ctx: Context) -> Feature:
     # Define a feature from dict.
     # TODO(kmaehashi): Remove this transient function.
     f = Feature(ctx)
@@ -144,15 +146,16 @@ _cuda_files = [
     'cupy.fft._callback',
     'cupy.lib._polynomial',
     'cupy._util',
+    'cupyx.scipy.ndimage._bbox_slices',
 ]
 
 # Libraries required for cudart_static
 _cudart_static_libs = (
-    (['pthread', 'rt', 'dl'] if sys.platform == 'linux' else [])
+    ['pthread', 'rt', 'dl'] if sys.platform == 'linux' else []
 )
 
 
-def get_features(ctx: Context) -> Dict[str, Feature]:
+def get_features(ctx: Context) -> dict[str, Feature]:
     # We handle nvtx (and likely any other future support) here, because
     # the HIP stubs (hip/cupy_*.h) would cause many symbols
     # to leak into all these modules even if unused. It's easier for all of
@@ -205,21 +208,7 @@ def get_features(ctx: Context) -> Dict[str, Feature]:
             'cusolver',
         ],
     }
-    CUDA_cudnn = {
-        'name': 'cudnn',
-        'file': [
-            'cupy_backends.cuda.libs.cudnn',
-            'cupyx.cudnn',
-        ],
-        'include': [
-            'cudnn.h',
-        ],
-        'libraries': [
-            'cudnn',
-        ],
-        'check_method': build.check_cudnn_version,
-        'version_method': build.get_cudnn_version,
-    }
+
     CUDA_nccl = {
         'name': 'nccl',
         'file': [
@@ -257,6 +246,7 @@ def get_features(ctx: Context) -> Dict[str, Feature]:
         ],
         'libraries': [
             'cutensor',
+            'cutensorMg',
             'cublas',
         ],
         'check_method': build.check_cutensor_version,
@@ -427,7 +417,6 @@ def get_features(ctx: Context) -> Dict[str, Feature]:
         features = [
             CUDA_cuda(ctx),
             _from_dict(CUDA_cusolver, ctx),
-            _from_dict(CUDA_cudnn, ctx),
             _from_dict(CUDA_nccl, ctx),
             _from_dict(CUDA_nvtx, ctx),
             _from_dict(CUDA_cutensor, ctx),
@@ -442,7 +431,8 @@ def get_features(ctx: Context) -> Dict[str, Feature]:
 
 
 class CUDA_cuda(Feature):
-    minimum_cuda_version = 11020
+    _minimum_cuda_version = 12000
+    _minimum_cuda_version_str = "12.0"
 
     def __init__(self, ctx: Context):
         super().__init__(ctx)
@@ -477,16 +467,17 @@ class CUDA_cuda(Feature):
               printf("%d", CUDA_VERSION);
               return 0;
             }
-            ''', include_dirs=settings['include_dirs'])  # type: ignore[no-untyped-call] # NOQA
+            ''', include_dirs=settings['include_dirs'],
+            extra_compile_args=settings['extra_compile_args'])  # type: ignore[no-untyped-call] # NOQA
         except Exception as e:
             utils.print_warning('Cannot check CUDA version', str(e))
             return False
 
         self._version = int(out)
 
-        if self._version < self.minimum_cuda_version:
+        if self._version < self._minimum_cuda_version:
             utils.print_warning(
-                'CUDA version is too old: %d' % self._version,
-                'CUDA 11.2 or newer is required')
+                f'CUDA version is too old: {self._version}',
+                f'CUDA {self._minimum_cuda_version_str} or newer is required')
             return False
         return True

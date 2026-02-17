@@ -1,65 +1,67 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
-from collections.abc import Callable, Collection, Mapping
+from collections import deque
+from collections.abc import Callable, Iterable
 from contextlib import contextmanager
-from typing import Any, ClassVar, Concatenate, cast
+from typing import Any, ClassVar, Concatenate
 
-from .objectmodel import Node
-from .util import is_list, pythonize_name
+from .util.deprecate import deprecated
+from .util.string import pythonize_name
 
 type WalkerMethod = Callable[Concatenate[NodeWalker, Any, ...], Any]
 
 
-class NodeWalkerMeta(type):
-    def __new__(mcs, name, bases, dct):  # type: ignore
-        cls = super().__new__(mcs, name, bases, dct)
-        # note: a different cache for each subclass
-        cls._walker_cache: dict[str, WalkerMethod | None] = {}  # type: ignore
-        return cls
-
-
-class NodeWalker(metaclass=NodeWalkerMeta):
+class NodeWalker:
     # note: this is shared among all instances of the same sublass of NodeWalker
-    _walker_cache: ClassVar[dict[str, WalkerMethod | None]] = {}
+    _walker_cache: ClassVar[dict[str, WalkerMethod | None]] = {}  # pyright: ignore[reportRedeclaration]
+
+    def __init_subclass__(cls, **kwargs):
+        super().__init_subclass__(**kwargs)
+        # note: a different cache for each subclass
+        cls._walker_cache: dict[str, WalkerMethod | None] = {}
 
     @property
     def walker_cache(self):
         return self._walker_cache
 
-    def walk(self, node: Node | Collection[Node], *args, **kwargs) -> Any:
-        if isinstance(node, list | tuple):
-            actual1 = cast(tuple[Node] | list[Node], node)
-            return [self.walk(n, *args, **kwargs) for n in actual1]
-
-        if isinstance(node, Mapping):
-            actual2 = cast(Mapping[str, Any], node)
-            return {
+    # CAVEAT:
+    #  in general: do not override this mehod
+    #  instead: define walk_xyz() methods
+    def walk(self, node: Any, *args, **kwargs) -> Any:
+        if isinstance(node, dict):
+            return type(node)({
                 name: self.walk(value, *args, **kwargs)
-                for name, value in actual2.items()
-            }
-
-        if isinstance(node, Node):
-            walker = self._find_walker(node)
-            if callable(walker):
-                return walker(self, node, *args, **kwargs)
-            else:
-                return node
+                for name, value in node.items()
+                if value != node
+            })
+        elif isinstance(node, list | tuple | set):
+            return type(node)(
+                self.walk(n, *args, **kwargs)
+                for n in node
+                if n != node
+            )
+        elif (walker := self._find_walker(node)) and callable(walker):
+            return walker(self, node, *args, **kwargs)  # walkers are unbound, define self
         else:
             return node
 
-    def walk_children(self, node: Node, *args, **kwargs) -> list[Any]:
-        if not isinstance(node, Node):
-            return []
+    def children_of(self, node: Any) -> Iterable[Any]:
+        if not hasattr(node, 'children') or not callable(node.children):
+            return ()
+        return node.children()  # pyright: ignore[reportReturnType]
 
-        return [
+    def walk_children(self, node: Any, *args, **kwargs) -> tuple[Any, ...]:
+        return tuple(
             self.walk(child, *args, **kwargs)
-            for child in node.children()
-        ]
+            for child in self.children_of(node)
+        )
 
     # note: backwards compatibility
     _walk_children = walk_children
 
-    def _find_walker(self, node: Node, prefix: str = 'walk_') -> WalkerMethod | None:
+    def _find_walker(self, node: Any, prefix: str = 'walk_') -> WalkerMethod | None:
 
         def get_callable(acls: type, aname: str) -> WalkerMethod | None:
             result = getattr(acls, aname, None)
@@ -93,12 +95,14 @@ class NodeWalker(metaclass=NodeWalkerMeta):
                 bases: list[type] = [
                     b for b in node_cls.__bases__ if b not in class_stack
                 ]
-                class_stack = bases + class_stack
+                # breadth first
+                class_stack = [*bases, *class_stack]
 
         walker = (
             walker or
             get_callable(cls, '_walk__default') or
             get_callable(cls, '_walk_default') or
+            get_callable(cls, 'walk__default') or
             get_callable(cls, 'walk_default')
         )
 
@@ -106,25 +110,79 @@ class NodeWalker(metaclass=NodeWalkerMeta):
         return walker
 
 
-class PreOrderWalker(NodeWalker):
-    def walk(self, node, *args, **kwargs):
-        result = super().walk(node, *args, **kwargs)
-        if result is not None:
-            self.walk_children(node, *args, **kwargs)
-        return result
+class BreadthFirstWalker(NodeWalker):
+    """
+    A generator-based Breadth-First Search traversal.
+    """
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.queue: deque[Any] | None = None
+
+    # CAVEAT:
+    #  in general: do not override this mehod
+    #  instead: define walk_xyz() methods
+    def walk(self, node: Any, *args, **kwargs) -> tuple[Any, ...]:
+        """Flattens the bfs_walk generator into a tuple of results."""
+        return tuple(self.iter_breadthfirst(node, *args, **kwargs))
+
+    def iter_breadthfirst(self, node: Any, *args, **kwargs) -> Iterable[Any]:
+        if self.queue is not None:
+            raise RuntimeError(
+                f'{type(self).__name__}.walk_breadthfirst() called recursively',
+            )
+
+        self.queue = deque([node])
+        try:
+            while self.queue:
+                nd = self.queue.popleft()
+                yield super().walk(nd, *args, **kwargs)
+                self.queue.extend(self.children_of(nd))
+        finally:
+            self.queue = None
+
+    def walk_children(self, node: Any, *args, **kwargs) -> Any:
+        """
+        An error during a BFS walk
+        """
+        raise RuntimeError(
+            f'{type(self).__name__}.walk_children() is not allowed in BFS mode',
+        )
+
+
+# note: for backwars compatibility
+@deprecated(replacement=BreadthFirstWalker)
+class PreOrderWalker(BreadthFirstWalker):
+    pass
 
 
 class DepthFirstWalker(NodeWalker):
-    def walk(self, node, *args, **kwargs):
-        if isinstance(node, Node):
-            children = [self.walk(c, *args, **kwargs) for c in node.children()]
-            return super().walk(node, children, *args, **kwargs)
-        elif isinstance(node, Mapping):
-            return {n: self.walk(e, *args, **kwargs) for n, e in node.items()}
-        elif is_list(node):
-            return [self.walk(e, *args, **kwargs) for e in iter(node)]
-        else:
-            return super().walk(node, [], *args, **kwargs)
+    # CAVEAT:
+    #  In general, do not override this method...
+    #  Define walk_xyz() methods instead.
+    def walk(self, node, *args, **kwargs) -> tuple[Any, ...]:
+        return tuple(self.iter_depthfirst(node, *args, **kwargs))
+
+    def iter_depthfirst(self, node, *args, **kwargs) -> Iterable[Any]:
+        yield super().walk(node, *args, **kwargs)
+        for child in self.children_of(node):
+            yield from self.iter_depthfirst(child)
+
+
+class PostOrderDepthFirstWalker(NodeWalker):
+    # CAVEAT:
+    #  In general, do not override this method...
+    #  Define walk_xyz() methods instead.
+    def walk(self, node, *args, **kwargs) -> tuple[Any, ...]:
+        return tuple(self.iter_postdepthfirst(node, *args, **kwargs))
+
+    def iter_postdepthfirst(self, node, *args, **kwargs) -> Iterable[Any]:
+        def iter_children() -> Iterable[Any]:
+            for child in self.children_of(node):
+                yield from self.iter_postdepthfirst(child)
+
+        children = tuple(iter_children())
+        yield super().walk(node, *args, children=children, **kwargs)
 
 
 class ContextWalker(NodeWalker):
@@ -135,7 +193,7 @@ class ContextWalker(NodeWalker):
 
     # abstract
     def get_node_context(self, node, *args, **kwargs):
-        return node
+        pass
 
     # abstract
     def enter_context(self, ctx):

@@ -5,17 +5,24 @@ from benchling_api_client.v2.beta.api.worklists import (
     create_worklist_item,
     delete_worklist,
     get_worklist,
+    list_worklist_items,
     list_worklists,
     update_worklist,
 )
+from benchling_api_client.v2.beta.models.batch import Batch
+from benchling_api_client.v2.beta.models.container import Container
+from benchling_api_client.v2.beta.models.generic_entity import GenericEntity
 from benchling_api_client.v2.beta.models.list_worklists_sort import ListWorklistsSort
+from benchling_api_client.v2.beta.models.plate import Plate
 from benchling_api_client.v2.beta.models.worklist import Worklist
 from benchling_api_client.v2.beta.models.worklist_create import WorklistCreate
 from benchling_api_client.v2.beta.models.worklist_item import WorklistItem
 from benchling_api_client.v2.beta.models.worklist_item_create import WorklistItemCreate
+from benchling_api_client.v2.beta.models.worklist_items_paginated_list import WorklistItemsPaginatedList
 from benchling_api_client.v2.beta.models.worklist_type import WorklistType
 from benchling_api_client.v2.beta.models.worklist_update import WorklistUpdate
 from benchling_api_client.v2.beta.models.worklists_paginated_list import WorklistsPaginatedList
+from benchling_api_client.v2.extensions import UnknownType
 from benchling_api_client.v2.types import Response
 
 from benchling_sdk.errors import raise_for_status
@@ -41,21 +48,23 @@ class V2BetaWorklistService(BaseService):
     def _worklists_page(
         self,
         *,
+        page_size: Optional[int] = 50,
+        next_token: Optional[str] = None,
         sort: Optional[ListWorklistsSort] = None,
         modified_at: Optional[str] = None,
         ids: Optional[Iterable[str]] = None,
         worklist_type: Optional[WorklistType] = None,
-        next_token: Optional[str] = None,
-        page_size: Optional[int] = 50,
+        returning: Optional[Iterable[str]] = None,
     ) -> Response[WorklistsPaginatedList]:
         return list_worklists.sync_detailed(  # type: ignore
             client=self.client,
+            page_size=none_as_unset(page_size),
+            next_token=none_as_unset(next_token),
             sort=none_as_unset(sort),
             modified_at=none_as_unset(modified_at),
             ids=none_as_unset(optional_array_query_param(ids)),
             worklist_type=none_as_unset(worklist_type),
-            next_token=none_as_unset(next_token),
-            page_size=none_as_unset(page_size),
+            returning=none_as_unset(optional_array_query_param(returning)),
         )
 
     def list(
@@ -66,6 +75,7 @@ class V2BetaWorklistService(BaseService):
         ids: Optional[Iterable[str]] = None,
         worklist_type: Optional[WorklistType] = None,
         page_size: Optional[int] = 50,
+        returning: Optional[Iterable[str]] = None,
     ) -> PageIterator[Worklist]:
         """
         List worklists.
@@ -83,6 +93,7 @@ class V2BetaWorklistService(BaseService):
                 worklist_type=worklist_type,
                 next_token=next_token,
                 page_size=page_size,
+                returning=returning,
             )
 
         def results_extractor(body: WorklistsPaginatedList) -> Optional[List[Worklist]]:
@@ -111,13 +122,17 @@ class V2BetaWorklistService(BaseService):
         raise_for_status(response)
 
     @api_method
-    def get_by_id(self, worklist_id: str) -> Worklist:
+    def get_by_id(self, worklist_id: str, returning: Optional[Iterable[str]] = None) -> Worklist:
         """
         Get a worklist by ID.
 
         See https://benchling.com/api/v2-beta/reference#/Worklists/getWorklist
         """
-        response = get_worklist.sync_detailed(client=self.client, worklist_id=worklist_id)
+        response = get_worklist.sync_detailed(
+            client=self.client,
+            worklist_id=worklist_id,
+            returning=none_as_unset(optional_array_query_param(returning)),
+        )
         return model_from_detailed(response)
 
     @api_method
@@ -143,3 +158,55 @@ class V2BetaWorklistService(BaseService):
             client=self.client, worklist_id=worklist_id, json_body=worklist_item_create
         )
         return model_from_detailed(response)
+
+    @api_method
+    def _worklist_items_page(
+        self,
+        *,
+        worklist_id: str,
+        next_token: Optional[str] = None,
+        page_size: Optional[int] = None,
+    ) -> Response[WorklistItemsPaginatedList]:
+        return list_worklist_items.sync_detailed(
+            client=self.client,
+            worklist_id=worklist_id,
+            page_size=none_as_unset(page_size),
+            next_token=none_as_unset(next_token),
+        )  # type: ignore
+
+    def list_worklist_items(
+        self,
+        *,
+        worklist_id: str,
+        page_size: Optional[int] = None,
+    ) -> Union[
+        PageIterator[Container],
+        PageIterator[GenericEntity],
+        PageIterator[Plate],
+        PageIterator[Batch],
+    ]:
+        """
+        List items in a worklist.
+        
+        Items are ordered by their position within the worklist.
+
+        See https://benchling.com/api/v2-beta/reference#/Worklists/listWorklistItems
+        """
+
+        def api_call(next_token: NextToken) -> Response[WorklistItemsPaginatedList]:
+            return self._worklist_items_page(
+                worklist_id=worklist_id,
+                next_token=next_token,
+                page_size=page_size,
+            )
+
+        def results_extractor(
+            body: WorklistItemsPaginatedList,
+        ) -> Optional[
+            Union[list[Container], list[GenericEntity], list[Plate], list[Batch]]
+        ]:
+            if isinstance(body, UnknownType):
+                return None
+            return body.worklist_items
+
+        return PageIterator(api_call, results_extractor)

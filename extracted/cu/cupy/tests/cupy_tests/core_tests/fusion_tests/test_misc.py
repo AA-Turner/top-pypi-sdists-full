@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import threading
 import unittest
 from unittest import mock
@@ -152,7 +154,6 @@ class TestFusionNoneParams(unittest.TestCase):
         return f(x, None, z) + f(x, y, z)
 
 
-@testing.with_requires('numpy<2.0')
 class TestSpecialValues(FusionTestBase):
 
     @testing.for_float_dtypes()
@@ -226,6 +227,7 @@ class TestFusionDecorator(unittest.TestCase):
         assert func_w_paren.__doc__ == 'Fuse with parentheses'
 
 
+@pytest.mark.thread_unsafe(reason="Uses mock.patch on global state")
 class TestFusionKernelName(unittest.TestCase):
 
     def check(self, xp, func, expected_name, is_elementwise):
@@ -451,7 +453,7 @@ class TestFusionMultiDevice(unittest.TestCase):
         return out1, out2
 
 
-class TestFusionInvalid():
+class TestFusionInvalid:
 
     def test_branch(self):
         @cupy.fuse()

@@ -1,3 +1,5 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 """
 The Renderer class provides the infrastructure for generating template-based
 code. It's used by the .grammars module for parser generation.
@@ -7,7 +9,8 @@ from __future__ import annotations
 import itertools
 import string
 
-from tatsu.util import indent, isiter, trim
+from ..util import indent, trim
+from ..util.abctools import isiter
 
 
 def render(item, join='', **fields):

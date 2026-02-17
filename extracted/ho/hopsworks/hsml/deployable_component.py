@@ -12,17 +12,21 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+from __future__ import annotations
 
 import json
 from abc import ABC, abstractmethod
-from typing import Optional, Union
+from typing import TYPE_CHECKING
 
 import humps
 from hopsworks_common import util
-from hopsworks_common.constants import Default
 from hsml.inference_batcher import InferenceBatcher
-from hsml.resources import Resources
-from hsml.scaling_config import ComponentScalingConfig
+
+
+if TYPE_CHECKING:
+    from hopsworks_common.constants import Default
+    from hsml.resources import Resources
+    from hsml.scaling_config import ComponentScalingConfig
 
 
 class DeployableComponent(ABC):
@@ -30,12 +34,10 @@ class DeployableComponent(ABC):
 
     def __init__(
         self,
-        script_file: Optional[str] = None,
-        resources: Optional[Resources] = None,
-        inference_batcher: Optional[Union[InferenceBatcher, dict, Default]] = None,
-        scaling_configuration: Optional[
-            Union[ComponentScalingConfig, dict, Default]
-        ] = None,
+        script_file: str | None = None,
+        resources: Resources | None = None,
+        inference_batcher: InferenceBatcher | dict | Default | None = None,
+        scaling_configuration: ComponentScalingConfig | dict | Default | None = None,
         **kwargs,
     ):
         self._script_file = script_file
@@ -49,8 +51,7 @@ class DeployableComponent(ABC):
     @classmethod
     @abstractmethod
     def from_json(cls, json_decamelized):
-        "To be implemented by the component type"
-        pass
+        """To be implemented by the component type."""
 
     @classmethod
     def from_response_json(cls, json_dict):
@@ -62,13 +63,11 @@ class DeployableComponent(ABC):
 
     @abstractmethod
     def update_from_response_json(self, json_dict):
-        "To be implemented by the component type"
-        pass
+        """To be implemented by the component type."""
 
     @abstractmethod
     def to_dict(self):
-        "To be implemented by the component type"
-        pass
+        """To be implemented by the component type."""
 
     @property
     def script_file(self):

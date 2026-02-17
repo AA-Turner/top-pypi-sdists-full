@@ -1163,7 +1163,7 @@ def empty_image_add(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -2329,7 +2329,7 @@ def metaball_add(
     ),
     scale: collections.abc.Sequence[float] | mathutils.Vector | None = (0.0, 0.0, 0.0),
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Add an metaball object to the scene
+    """Add a metaball object to the scene
 
         :param type: Primitive, (optional)
         :param radius: Radius, (in [0, inf], optional)
@@ -2678,7 +2678,7 @@ def multires_external_save(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)
@@ -3651,7 +3651,7 @@ def shape_key_apply_to_basis(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Appply deformations of selected shape keys to the basis key, removing them
+    """Apply deformations of selected shape keys to the basis key, removing them
 
     :return: Result of the operator call.
     """
@@ -4644,7 +4644,7 @@ def volume_import(
         :param hide_props_region: Hide Operator Properties, Collapse the region displaying the operator settings (optional)
         :param check_existing: Check Existing, Check and warn on overwriting existing files (optional)
         :param filter_blender: Filter .blend files, (optional)
-        :param filter_backup: Filter .blend files, (optional)
+        :param filter_backup: Filter backup .blend files, (optional)
         :param filter_image: Filter image files, (optional)
         :param filter_movie: Filter movie files, (optional)
         :param filter_python: Filter Python files, (optional)

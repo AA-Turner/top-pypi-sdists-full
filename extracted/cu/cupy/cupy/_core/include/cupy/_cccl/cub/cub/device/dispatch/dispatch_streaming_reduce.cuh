@@ -15,8 +15,8 @@
 
 #include <cub/device/dispatch/dispatch_reduce.cuh>
 #include <cub/iterator/arg_index_input_iterator.cuh>
-#include <cub/iterator/constant_input_iterator.cuh>
 
+#include <thrust/iterator/constant_iterator.h>
 #include <thrust/iterator/iterator_adaptor.h>
 #include <thrust/iterator/tabulate_output_iterator.h>
 
@@ -25,13 +25,9 @@
 
 #ifndef _CCCL_DOXYGEN_INVOKED // Do not document
 
-// suppress deprecation warnings for ConstantInputIterator
-_CCCL_SUPPRESS_DEPRECATED_PUSH
 CUB_NAMESPACE_BEGIN
 
-namespace detail
-{
-namespace reduce
+namespace detail::reduce
 {
 
 template <typename GlobalAccumT, typename PromoteToGlobalOpT, typename GlobalReductionOpT, typename FinalResultOutIteratorT>
@@ -117,39 +113,6 @@ struct local_to_global_op
   }
 };
 
-/**
- * Offsets a given input iterator by a fixed offset, such that when an item at index `i` is accessed, the item
- * `it[*offset_it + i]` is accessed.
- */
-template <typename Iterator, typename OffsetItT>
-class offset_iterator : public THRUST_NS_QUALIFIER::iterator_adaptor<offset_iterator<Iterator, OffsetItT>, Iterator>
-{
-public:
-  using super_t = THRUST_NS_QUALIFIER::iterator_adaptor<offset_iterator, Iterator>;
-
-  _CCCL_HOST_DEVICE _CCCL_FORCEINLINE offset_iterator(const Iterator& it, OffsetItT offset_it)
-      : super_t(it)
-      , offset_it(offset_it)
-  {}
-
-  // befriend thrust::iterator_core_access to allow it access to the private interface below
-  friend class THRUST_NS_QUALIFIER::iterator_core_access;
-
-private:
-  OffsetItT offset_it;
-
-  _CCCL_HOST_DEVICE _CCCL_FORCEINLINE typename super_t::reference dereference() const
-  {
-    return *(this->base() + (*offset_it));
-  }
-};
-
-template <typename Iterator, typename OffsetItT>
-_CCCL_HOST_DEVICE offset_iterator<Iterator, OffsetItT> make_offset_iterator(Iterator it, OffsetItT offset_it)
-{
-  return offset_iterator<Iterator, OffsetItT>{it, offset_it};
-}
-
 /******************************************************************************
  * Single-problem streaming reduction dispatch
  *****************************************************************************/
@@ -191,12 +154,6 @@ template <typename InputIteratorT,
             detail::reduce::policy_hub<KeyValuePair<PerPartitionOffsetT, InitT>, PerPartitionOffsetT, ReductionOpT>>
 struct dispatch_streaming_arg_reduce_t
 {
-#  if _CCCL_COMPILER(NVHPC)
-  // NVHPC fails to suppress a deprecation when the alias is inside the function below, so we put it here and span a
-  // deprecation suppression region across the entire file as well
-  using constant_offset_it_t = ConstantInputIterator<GlobalOffsetT>;
-#  endif // _CCCL_COMPILER(NVHPC)
-
   // Internal dispatch routine for computing a device-wide argument extremum, like `ArgMin` and `ArgMax`
   //
   // @param[in] d_temp_storage
@@ -236,16 +193,11 @@ struct dispatch_streaming_arg_reduce_t
     cudaStream_t stream)
   {
     // Constant iterator to provide the offset of the current partition for the user-provided input iterator
-#  if !_CCCL_COMPILER(NVHPC)
-    _CCCL_SUPPRESS_DEPRECATED_PUSH
-    using constant_offset_it_t = ConstantInputIterator<GlobalOffsetT>;
-    _CCCL_SUPPRESS_DEPRECATED_POP
-#  endif
+    using constant_offset_it_t = THRUST_NS_QUALIFIER::constant_iterator<GlobalOffsetT>;
 
     // Wrapped input iterator to produce index-value tuples, i.e., <PerPartitionOffsetT, InputT>-tuples
     // We make sure to offset the user-provided input iterator by the current partition's offset
-    using arg_index_input_iterator_t =
-      ArgIndexInputIterator<offset_iterator<InputIteratorT, constant_offset_it_t>, PerPartitionOffsetT, InitT>;
+    using arg_index_input_iterator_t = ArgIndexInputIterator<InputIteratorT, PerPartitionOffsetT, InitT>;
 
     // The type used for the aggregate that the user wants to find the extremum for
     using output_aggregate_t = InitT;
@@ -278,12 +230,13 @@ struct dispatch_streaming_arg_reduce_t
                      ReductionOpT,
                      empty_problem_init_t,
                      per_partition_accum_t,
+                     ::cuda::std::identity,
                      PolicyChainT>;
 
     // The current partition's input iterator is an ArgIndex iterator that generates indices relative to the beginning
     // of the current partition, i.e., [0, partition_size) along with an OffsetIterator that offsets the user-provided
     // input iterator by the current partition's offset
-    arg_index_input_iterator_t d_indexed_offset_in(make_offset_iterator(d_in, constant_offset_it_t{GlobalOffsetT{0}}));
+    arg_index_input_iterator_t d_indexed_offset_in(d_in);
 
     // Transforms the per-partition result to a global result by adding the current partition's offset to the arg result
     // of a partition
@@ -324,7 +277,7 @@ struct dispatch_streaming_arg_reduce_t
 
     // Alias the temporary allocations from the single storage blob (or compute the necessary size
     // of the blob)
-    cudaError_t error = AliasTemporaries(d_temp_storage, temp_storage_bytes, allocations, allocation_sizes);
+    cudaError_t error = detail::AliasTemporaries(d_temp_storage, temp_storage_bytes, allocations, allocation_sizes);
     if (error != cudaSuccess)
     {
       return error;
@@ -355,8 +308,7 @@ struct dispatch_streaming_arg_reduce_t
       const GlobalOffsetT current_num_items =
         (remaining_items < max_partition_size) ? remaining_items : max_partition_size;
 
-      d_indexed_offset_in = arg_index_input_iterator_t(
-        detail::reduce::make_offset_iterator(d_in, constant_offset_it_t{current_partition_offset}));
+      d_indexed_offset_in = arg_index_input_iterator_t(d_in + current_partition_offset);
 
       error = dispatch_reduce_t::Dispatch(
         d_temp_storage,
@@ -383,9 +335,7 @@ struct dispatch_streaming_arg_reduce_t
   }
 };
 
-} // namespace reduce
-} // namespace detail
-_CCCL_SUPPRESS_DEPRECATED_POP
+} // namespace detail::reduce
 CUB_NAMESPACE_END
 
 #endif // !_CCCL_DOXYGEN_INVOKED

@@ -1,15 +1,15 @@
 import os
 import signal
 
-from adam.app_session import AppSession
-from adam.apps import Apps
 from adam.commands import extract_options
 from adam.config import Config
 from adam.sso.idp import Idp
 from adam.sso.idp_login import IdpLogin
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_apps.app_session import AppSession
+from adam.utils_apps.apps import Apps
 from adam.utils_log import log, log2, log_exc
+from adam.utils_repl.repl_state import ReplState
 
 class Login(Command):
     COMMAND = 'login'

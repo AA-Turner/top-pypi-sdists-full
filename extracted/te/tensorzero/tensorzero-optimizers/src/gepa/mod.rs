@@ -88,6 +88,7 @@ impl Optimizer for GEPAConfig {
             clickhouse_connection_info: clickhouse_connection_info.clone(),
             postgres_connection_info: PostgresConnectionInfo::Disabled,
             valkey_connection_info: ValkeyConnectionInfo::Disabled,
+            valkey_cache_connection_info: ValkeyConnectionInfo::Disabled,
             http_client: client.clone(),
             timeout: Some(Duration::from_secs(self.timeout)),
         })
@@ -363,12 +364,12 @@ impl Optimizer for GEPAConfig {
             tracing::info!(
                 "GEPA iteration {}: analyzing {} parent inferences",
                 iteration,
-                parent_evaluation_results.evaluation_infos.len()
+                parent_evaluation_results.evaluation_infos().len()
             );
 
             let parent_analyses = match analyze_inferences(
                 &gateway_client,
-                &parent_evaluation_results.evaluation_infos,
+                parent_evaluation_results.evaluation_infos(),
                 &function_context,
                 &parent.config,
                 self,
@@ -517,7 +518,7 @@ impl Optimizer for GEPAConfig {
                             "GEPA iteration {}: child variant '{}' validation scores collected ({} datapoints)",
                             iteration,
                             child.name,
-                            val_mutation_evaluation_results.evaluation_infos.len()
+                            val_mutation_evaluation_results.evaluation_infos().len()
                         );
                         match pareto_frontier.update(candidate) {
                             Ok(()) => {

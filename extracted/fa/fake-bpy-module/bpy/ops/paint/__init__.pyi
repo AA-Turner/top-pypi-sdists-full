@@ -273,7 +273,7 @@ def hide_show_lasso_gesture(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param action: Visibility Action, Whether to hide or show vertices (optional)
 
@@ -513,7 +513,7 @@ def mask_lasso_gesture(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
         :param mode: Mode, (optional)

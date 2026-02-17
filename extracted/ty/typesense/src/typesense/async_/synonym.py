@@ -1,0 +1,104 @@
+"""
+This module provides async functionality for managing individual synonyms in Typesense.
+
+Classes:
+    - AsyncSynonym: Handles async operations related to a specific synonym within a collection.
+
+Methods:
+    - __init__: Initializes the AsyncSynonym object.
+    - _endpoint_path: Constructs the API endpoint path for this specific synonym.
+    - retrieve: Retrieves the details of this specific synonym.
+    - delete: Deletes this specific synonym.
+
+The AsyncSynonym class interacts with the Typesense API to manage operations on a
+specific synonym within a collection. It provides methods to retrieve and delete
+individual synonyms.
+
+For more information regarding Synonyms, refer to the Synonyms [documentation]
+(https://typesense.org/docs/27.0/api/synonyms.html#synonyms).
+
+This module uses type hinting and is compatible with Python 3.11+ as well as earlier
+versions through the use of the typing_extensions library.
+"""
+
+from .api_call import AsyncApiCall
+from typesense.logger import warn_deprecation
+from typesense.types.synonym import SynonymDeleteSchema, SynonymSchema
+
+
+class AsyncSynonym:
+    """
+    Class for managing individual synonyms in a Typesense collection (async).
+
+    This class provides methods to interact with a specific synonym,
+    including retrieving and deleting it.
+
+    Attributes:
+        api_call (AsyncApiCall): The API call object for making requests.
+        collection_name (str): The name of the collection.
+        synonym_id (str): The ID of the synonym.
+    """
+
+    def __init__(
+        self,
+        api_call: AsyncApiCall,
+        collection_name: str,
+        synonym_id: str,
+    ) -> None:
+        """
+        Initialize the AsyncSynonym object.
+
+        Args:
+            api_call (AsyncApiCall): The API call object for making requests.
+            collection_name (str): The name of the collection.
+            synonym_id (str): The ID of the synonym.
+        """
+        self.api_call = api_call
+        self.collection_name = collection_name
+        self.synonym_id = synonym_id
+
+    async def retrieve(self) -> SynonymSchema:
+        """
+        Retrieve this specific synonym.
+
+        Returns:
+            SynonymSchema: The schema containing the synonym details.
+        """
+        return await self.api_call.get(self._endpoint_path, entity_type=SynonymSchema)
+
+    async def delete(self) -> SynonymDeleteSchema:
+        """
+        Delete this specific synonym.
+
+        Returns:
+            SynonymDeleteSchema: The schema containing the deletion response.
+        """
+        return await self.api_call.delete(
+            self._endpoint_path,
+            entity_type=SynonymDeleteSchema,
+        )
+
+    @property
+    @warn_deprecation(  # type: ignore[untyped-decorator]
+        "The synonym API (collections/{collection}/synonyms/{synonym_id}) is deprecated is removed on v30+. "
+        "Use synonym sets (synonym_sets) instead.",
+        flag_name="synonyms_deprecation",
+    )
+    def _endpoint_path(self) -> str:
+        """
+        Construct the API endpoint path for this specific synonym.
+
+        Returns:
+            str: The constructed endpoint path.
+        """
+        from .collections import AsyncCollections
+        from .synonyms import AsyncSynonyms
+
+        return "/".join(
+            [
+                AsyncCollections.resource_path,
+                self.collection_name,
+                AsyncSynonyms.resource_path,
+                self.synonym_id,
+            ],
+        )

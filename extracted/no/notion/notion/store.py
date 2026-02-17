@@ -174,14 +174,14 @@ class RecordStore(object):
         self.get(table, id, force_refresh=force_refresh)
         return self._role[table].get(id, None)
 
-    def get(self, table, id, force_refresh=False):
+    def get(self, table, id, force_refresh=False, limit=100):
         id = extract_id(id)
         # look up the record in the current local dataset
         result = self._get(table, id)
         # if it's not found, try refreshing the record from the server
         if result is Missing or force_refresh:
             if table == "block":
-                self.call_load_page_chunk(id)
+                self.call_load_page_chunk(id,limit=limit)
             else:
                 self.call_get_record_values(**{table: id})
             result = self._get(table, id)
@@ -221,7 +221,7 @@ class RecordStore(object):
 
     def call_get_record_values(self, **kwargs):
         """
-        Call the server's getRecordValues endpoint to update the local record store. The keyword arguments map
+        Call the server's syncRecordValues endpoint to update the local record store. The keyword arguments map
         table names into lists of (or singular) record IDs to load for that table. Use True to refresh all known
         records for that table.
         """
@@ -243,24 +243,21 @@ class RecordStore(object):
                 )
                 continue
 
-            requestlist += [{"table": table, "id": extract_id(id)} for id in ids]
+            requestlist += [
+                {"pointer": {"table": table, "id": extract_id(id)}, "version": -1}
+                for id in ids
+            ]
 
         if requestlist:
             logger.debug(
-                "Calling 'getRecordValues' endpoint for requests: {}".format(
+                "Calling 'syncRecordValues' endpoint for requests: {}".format(
                     requestlist
                 )
             )
-            results = self._client.post(
-                "getRecordValues", {"requests": requestlist}
-            ).json()["results"]
-            for request, result in zip(requestlist, results):
-                self._update_record(
-                    request["table"],
-                    request["id"],
-                    value=result.get("value"),
-                    role=result.get("role"),
-                )
+            recordmap = self._client.post(
+                "syncRecordValues", {"requests": requestlist}
+            ).json().get("recordMap", {})
+            self.store_recordmap(recordmap)
 
     def get_current_version(self, table, id):
         values = self._get(table, id)
@@ -269,7 +266,7 @@ class RecordStore(object):
         else:
             return -1
 
-    def call_load_page_chunk(self, page_id):
+    def call_load_page_chunk(self, page_id, limit=100):
 
         if self._client.in_transaction():
             self._pages_to_refresh.append(page_id)
@@ -277,7 +274,7 @@ class RecordStore(object):
 
         data = {
             "pageId": page_id,
-            "limit": 100000,
+            "limit": limit,
             "cursor": {"stack": []},
             "chunkNumber": 0,
             "verticalColumns": False,
@@ -294,14 +291,20 @@ class RecordStore(object):
             for id, record in records.items():
                 if not isinstance(record, dict):
                     continue
-                self._update_record(
-                    table, id, value=record.get("value"), role=record.get("role")
-                )
+                # handle both old format {"value": {...}, "role": "..."}
+                # and new format {"spaceId": "...", "value": {"value": {...}, "role": "..."}}
+                value = record.get("value")
+                role = record.get("role")
+                if isinstance(value, dict) and "value" in value and "role" in value:
+                    role = value.get("role")
+                    value = value.get("value")
+                self._update_record(table, id, value=value, role=role)
 
     def call_query_collection(
         self,
         collection_id,
         collection_view_id,
+        space_id,
         search="",
         type="table",
         aggregate=[],
@@ -310,6 +313,7 @@ class RecordStore(object):
         sort=[],
         calendar_by="",
         group_by="",
+        limit=50
     ):
 
         assert not (
@@ -322,24 +326,48 @@ class RecordStore(object):
         if isinstance(sort, dict):
             sort = [sort]
 
-        data = {
-            "collectionId": collection_id,
-            "collectionViewId": collection_view_id,
-            "loader": {
-                "limit": 10000,
-                "loadContentCover": True,
-                "searchQuery": search,
-                "userLocale": "en",
-                "userTimeZone": str(get_localzone()),
-                "type": type,
-            },
-            "query": {
-                "aggregate": aggregate,
-                "aggregations": aggregations,
-                "filter": filter,
-                "sort": sort,
+        if not space_id:
+            space_id = self._client.current_space.id
+
+        reducers = {
+            "collection_group_results": {
+                "type": "results",
+                "limit": limit,
             },
         }
+
+        # add aggregations as reducers (new API format)
+        for agg in (aggregate or aggregations):
+            agg_id = agg.get("id", agg.get("property"))
+            reducers[agg_id] = {
+                "type": "aggregation",
+                "aggregation": {
+                    "property": agg["property"],
+                    "aggregator": agg["aggregator"],
+                },
+            }
+
+        data = {
+            "collectionView": {
+                "id": collection_view_id,
+                "spaceId": space_id
+            },
+            "loader": {
+                "reducers": reducers,
+                "sort": sort,
+                "searchQuery": search,
+                "userId": self._client.current_user.id,
+                "userTimeZone": str(get_localzone()),
+            },
+            "source": {
+                "id": collection_id,
+                "spaceId": space_id,
+                "type": "collection"
+            }
+        }
+
+        if filter:
+            data["loader"]["filter"] = filter
 
         response = self._client.post("queryCollection", data).json()
 

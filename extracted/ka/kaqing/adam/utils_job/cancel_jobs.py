@@ -1,6 +1,6 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils import datetime_sec_precision
 from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_job.job_schedules import JobSchedules

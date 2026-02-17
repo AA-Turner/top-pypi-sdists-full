@@ -41,18 +41,15 @@ class OpenAIVideos(object):
         self.base_url = base_url or ""
         logger.debug(f"base_url: {self.base_url}")  # 来源
 
-    @cached_property
-    def biz(self):
-        parts = self.base_url.split(".")
-        return (parts[1] if len(parts) >= 2 else self.base_url)[::-1]
-
     async def create(self, request: SoraVideoRequest):
         response = {}
 
         if "delay" in self.base_url:
             # 保存请求体
-            response = await delay_videos.Tasks().create(request)
-            await redis_aclient.set(f"request:{response.id}", request.model_dump_json(exclude_none=True), ex=24 * 3600) # 取 执行 存
+            response = await delay_videos.Tasks().create(request) # delay::
+            await redis_aclient.set(f"request:{response.id}",
+                                    request.model_dump_json(exclude_none=True),
+                                    ex=24 * 3600)
 
         elif "seedance" in self.base_url:
             response = await seedance_videos.Tasks(api_key=self.api_key).create(request)
@@ -123,7 +120,7 @@ class OpenAIVideos(object):
             return response
 
     async def get(self, task_id):
-        if task_id.startswith("request:"):
+        if task_id.startswith("delay::"):  # delay::  request:delay:: response::delay::
             if _ := await redis_aclient.get(f"response:{task_id}"):
                 return json.loads(_)  # 监听 redis结果
             else:
@@ -244,7 +241,7 @@ if __name__ == '__main__':
     task_id = "cgt-20260214094312-28ghq"
     task_id = "cgt-20260214170244-m2xzg"
     task_id = "cgt-20260214200101-l64lw"
-    task_id = "cgt-20260215012304-pv8z2"
+    task_id = "request:oZbBDx8JYBwhGfw7rmm5US"
     videos = OpenAIVideos(api_key=api_key, base_url=base_url)
     arun(videos.get(task_id))
 

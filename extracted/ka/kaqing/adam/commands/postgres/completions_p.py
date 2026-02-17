@@ -1,6 +1,6 @@
 from adam.commands.postgres.postgres_databases import PostgresDatabases
 from adam.commands.postgres.utils_postgres import pg_table_names
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.sql.lark_completer import LarkCompleter
 
 def completions_p(state: ReplState):

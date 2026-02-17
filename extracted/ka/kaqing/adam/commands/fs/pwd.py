@@ -1,7 +1,7 @@
-from adam.app_session import AppSession
+from adam.utils_apps.app_session import AppSession
 from adam.commands.command import Command
 from adam.commands.devices.devices import all_devices
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log, log_exc
 from adam.utils_tabulize import tabulize
 

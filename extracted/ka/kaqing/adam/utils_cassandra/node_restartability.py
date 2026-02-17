@@ -1,6 +1,6 @@
 from adam.commands.nodetool.utils_nodetools import NodeTools
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import Holder
 from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra

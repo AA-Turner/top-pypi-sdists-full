@@ -1,17 +1,17 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: certificates
-Version: 2.1.0
+Version: 2.2.0
 Summary: Generate event certificates easily.
 License: Apache-2.0
+License-File: LICENSE
 Author: cassiobotaro
 Author-email: cassiobotaro@gmail.com
-Requires-Python: >=3.10,<4.0
+Requires-Python: >=3.12,<4.0
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Homepage, https://github.com/cassiobotaro/certificates
 Description-Content-Type: text/markdown
 

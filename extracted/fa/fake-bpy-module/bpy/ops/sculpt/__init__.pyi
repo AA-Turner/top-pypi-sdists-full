@@ -332,10 +332,10 @@ def face_set_edit(
     Delete Geometry -- Deletes the faces that are assigned to the face set.
 
     FAIR_POSITIONS
-    Fair Positions -- Creates a smooth as possible geometry patch from the face set minimizing changes in vertex positions.
+    Fair Positions -- Creates the smoothest possible geometry patch from the face set minimizing changes in vertex positions.
 
     FAIR_TANGENCY
-    Fair Tangency -- Creates a smooth as possible geometry patch from the face set minimizing changes in vertex tangents.
+    Fair Tangency -- Creates the smoothest possible geometry patch from the face set minimizing changes in vertex tangents.
         :param strength: Strength, (in [0, 1], optional)
         :param modify_hidden: Modify Hidden, Apply the edit operation to hidden geometry (optional)
         :return: Result of the operator call.
@@ -375,7 +375,7 @@ def face_set_lasso_gesture(
 
     :param path: Path, (optional)
     :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+    :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
     :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
     :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
     :return: Result of the operator call.
@@ -441,10 +441,10 @@ def face_sets_create(
     Face Set from Visible -- Create a new face set from the visible vertices.
 
     ALL
-    Face Set Full Mesh -- Create an unique face set with all faces in the sculpt.
+    Face Set Full Mesh -- Create a unique face set with all faces in the sculpt.
 
     SELECTION
-    Face Set from Edit Mode Selection -- Create an face set corresponding to the Edit Mode face selection.
+    Face Set from Edit Mode Selection -- Create a face set corresponding to the Edit Mode face selection.
         :return: Result of the operator call.
     """
 
@@ -985,7 +985,7 @@ def trim_lasso_gesture(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param use_front_faces_only: Front Faces Only, Affect only faces facing towards the view (optional)
         :param location: Location, Mouse location (array of 2 items, in [-inf, inf], optional)

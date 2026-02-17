@@ -52,7 +52,9 @@ struct execution_policy;
 // specialize execution_policy for tag
 template <>
 struct execution_policy<tag> : thrust::system::detail::sequential::execution_policy<tag>
-{};
+{
+  using tag_type = tag;
+};
 
 // tag's definition comes before the
 // generic definition of execution_policy
@@ -64,7 +66,7 @@ template <typename Derived>
 struct execution_policy : thrust::system::detail::sequential::execution_policy<Derived>
 {
   using tag_type = tag;
-  operator tag() const
+  _CCCL_HOST_DEVICE operator tag() const
   {
     return tag();
   }

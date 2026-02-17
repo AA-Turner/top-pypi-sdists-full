@@ -33,6 +33,9 @@ class DataFrame:
 
     __slots__ = ("_schema", "_rows", "_cursor", "_row_factory", "arraysize", "_nbytes")
 
+    _LIST_ITERATOR_TYPE = type(iter([]))
+    _TUPLE_ITERATOR_TYPE = type(iter(()))
+
     def __init__(
         self,
         dictionaries: Optional[Iterable[dict]] = None,
@@ -133,11 +136,29 @@ class DataFrame:
         return self._nbytes
 
     def append(self, entry):
+        # If we have an explicit RelationSchema, normalize JSONB values to bytes
         if isinstance(self._schema, RelationSchema):
-            self._schema.validate(entry)
-        new_row = self._row_factory(entry)
+            # Avoid mutating caller's object
+            record = dict(entry)
+
+            # Lazy import to avoid top-level dependency
+            import json
+
+            from orso.types import OrsoTypes
+
+            for col in self._schema.columns:
+                if col.type == OrsoTypes.JSONB:
+                    v = record.get(col.name)
+                    if isinstance(v, (dict, list, tuple, set)):
+                        record[col.name] = json.dumps(v)
+
+            self._schema.validate(record)
+            new_row = self._row_factory(record)
+        else:
+            new_row = self._row_factory(entry)
         self._rows.append(new_row)
-        self._nbytes += new_row.nbytes()
+        # Invalidate nbytes cache instead of calculating on every append
+        self._nbytes = None
         self._cursor = None
 
     def head(self, size: int = 5) -> "DataFrame":
@@ -183,6 +204,7 @@ class DataFrame:
         """
         Convert a Lazy DataFrame to an Eager DataFrame
         """
+        # Only convert to list if not already a list
         if not isinstance(self._rows, list):
             self._rows = list(self._rows or [])
 
@@ -293,7 +315,39 @@ class DataFrame:
     def fetchall(self) -> List[Row]:
         if self._cursor is None:
             raise Exception("Cannot use fetchall and append on the same DataFrame")
-        return list(self._cursor)
+        cursor = self._cursor
+        rows = self._rows
+
+        # Fast-path for materialized rows by slicing instead of iterating element-by-element.
+        if isinstance(rows, list) and isinstance(cursor, self._LIST_ITERATOR_TYPE):
+            remaining = cursor.__length_hint__()
+            total = len(rows)
+            consumed = total - remaining
+            if consumed <= 0:
+                result = rows.copy()
+            elif consumed >= total:
+                result = []
+            else:
+                result = rows[consumed:].copy()
+            self._cursor = iter(())
+            return result
+
+        if isinstance(rows, tuple) and isinstance(cursor, self._TUPLE_ITERATOR_TYPE):
+            remaining = cursor.__length_hint__()
+            total = len(rows)
+            consumed = total - remaining
+            if consumed <= 0:
+                result = list(rows)
+            elif consumed >= total:
+                result = []
+            else:
+                result = list(rows[consumed:])
+            self._cursor = iter(())
+            return result
+
+        result = list(cursor)
+        self._cursor = iter(())
+        return result
 
     def display(
         self,
@@ -305,14 +359,16 @@ class DataFrame:
     ) -> str:
         from .display import ascii_table
 
-        return ascii_table(
+        table_output, displayed_row_count = ascii_table(
             self,
             limit=limit,
             display_width=display_width,
             max_column_width=max_column_width,
             colorize=colorize,
             show_types=show_types,
+            return_row_count=True,
         )
+        return table_output + f"\n[ {displayed_row_count} rows x {self.columncount} columns ]"
 
     def markdown(self, limit: int = 5, max_column_width: int = 30) -> str:
         from .display import markdown
@@ -424,7 +480,10 @@ class DataFrame:
         return _hash
 
     def __iter__(self):
-        return iter(self._rows)
+        rows = self._rows
+        if isinstance(rows, list):
+            return rows.__iter__()
+        return iter(rows)
 
     def __len__(self) -> int:
         self.materialize()
@@ -464,10 +523,10 @@ class DataFrame:
         else:
             from .display import ascii_table
 
-            return (
-                ascii_table(self, limit=size, top_and_tail=True)
-                + f"\n[ {self.rowcount} rows x {self.columncount} columns ]"
+            table_output, displayed_row_count = ascii_table(
+                self, limit=size, top_and_tail=True, return_row_count=True
             )
+            return table_output + f"\n[ {displayed_row_count} rows x {self.columncount} columns ]"
 
     def __add__(self, the_other):
         if self._schema != the_other._schema:

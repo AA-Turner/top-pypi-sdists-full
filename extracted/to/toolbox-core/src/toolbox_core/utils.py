@@ -14,6 +14,7 @@
 
 
 import asyncio
+import warnings
 from typing import (
     Any,
     Awaitable,
@@ -41,6 +42,14 @@ def create_func_docstring(description: str, params: Sequence[ParameterSchema]) -
         annotation = p.to_param().annotation
         docstring += f"\n    {p.name} ({getattr(annotation, '__name__', str(annotation))}): {p.description}"
     return docstring
+
+
+def warn_if_http_and_headers(url: str, headers: Mapping[str, Any] | None) -> None:
+    """Logs a warning if the url uses HTTP and sensitive headers are present."""
+    if url.lower().startswith("http://") and headers:
+        warnings.warn(
+            "This connection is using HTTP. To prevent credential exposure, please ensure all communication is sent over HTTPS."
+        )
 
 
 def identify_auth_requirements(
@@ -111,10 +120,12 @@ def params_to_pydantic_model(
     field_definitions = {}
     for field in params:
 
-        # Determine the default value based on the 'required' flag.
+        # Determine the default value based on the 'required' flag and the 'default' field.
         # '...' (Ellipsis) signifies a required field in Pydantic.
-        # 'None' makes the field optional with a default value of None.
+        # If a default value is provided in the schema, it should be used.
         default_value = ... if field.required else None
+        if field.has_default:
+            default_value = field.default
 
         field_definitions[field.name] = cast(
             Any,

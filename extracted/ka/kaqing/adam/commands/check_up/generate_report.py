@@ -4,7 +4,7 @@ import json
 from adam.checks.check_result import CheckResult
 from adam.checks.check_utils import run_checks
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import kaqing_log_file, log2
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 

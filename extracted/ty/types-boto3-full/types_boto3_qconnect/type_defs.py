@@ -46,6 +46,7 @@ from .literals import (
     MessageTemplateAttributeTypeType,
     MessageTemplateFilterOperatorType,
     MessageTemplateQueryOperatorType,
+    MessageTypeType,
     OrderType,
     OriginType,
     ParticipantType,
@@ -3483,7 +3484,7 @@ class OrchestrationAIAgentConfigurationTypeDef(TypedDict):
 GetNextMessageResponseTypeDef = TypedDict(
     "GetNextMessageResponseTypeDef",
     {
-        "type": Literal["TEXT"],
+        "type": MessageTypeType,
         "response": MessageOutputTypeDef,
         "requestMessageId": str,
         "conversationState": ConversationStateTypeDef,
@@ -3801,7 +3802,7 @@ SendMessageRequestTypeDef = TypedDict(
     {
         "assistantId": str,
         "sessionId": str,
-        "type": Literal["TEXT"],
+        "type": MessageTypeType,
         "message": MessageInputTypeDef,
         "aiAgentId": NotRequired[str],
         "conversationContext": NotRequired[ConversationContextTypeDef],

@@ -8,7 +8,7 @@ from adam.utils_cassandra.cassandra_clusters import CassandraClusters
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log2
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_k8s.statefulsets import StatefulSets
@@ -26,7 +26,13 @@ class CassandraPodService:
              ctx = NULL) -> Union[PodExecResult, list[PodExecResult]]:
         return cassandra_exec.cassandra_exec(self.handler.state, self.handler.pod, command, action, on_any, throw_err, shell, ctx)
 
-    def cql(self, args: list[str], opts: list = [], use_single_quotes = False, on_any = False, no_color = False, ctx = NULL):
+    def cql(self,
+            args: list[str],
+            opts: list = [],
+            use_single_quotes = False,
+            on_any: Union[bool, int] = False,
+            no_color = False,
+            ctx = NULL):
         state = self.handler.state
         query: str = args
 

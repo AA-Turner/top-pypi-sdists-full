@@ -26,7 +26,7 @@ cdef class MemPoolProps:
 ###############################################################################
 
 IF CUPY_USE_CUDA_PYTHON:
-    from cuda.ccudart cimport *
+    from cuda.bindings.cyruntime cimport *
     # Aliases for compatibillity with existing CuPy codebase.
     # Keep in sync with names defined in `_runtime_typedef.pxi`.
     # TODO(kmaehashi): Remove these aliases.
@@ -266,6 +266,10 @@ cpdef memPoolSetAttribute(intptr_t, int, object)
 
 cpdef intptr_t streamCreate() except? 0
 cpdef intptr_t streamCreateWithFlags(unsigned int flags) except? 0
+cpdef intptr_t streamCreateWithPriority(unsigned int flags,
+                                        int priority) except? 0
+cpdef unsigned int streamGetFlags(intptr_t stream) except? 0
+cpdef int streamGetPriority(intptr_t stream) except? 0
 cpdef streamDestroy(intptr_t stream)
 cpdef streamSynchronize(intptr_t stream)
 cpdef streamAddCallback(intptr_t stream, callback, intptr_t arg,
@@ -322,6 +326,7 @@ cpdef graphExecDestroy(intptr_t graphExec)
 cpdef intptr_t graphInstantiate(intptr_t graph) except? 0
 cpdef graphLaunch(intptr_t graphExec, intptr_t stream)
 cpdef graphUpload(intptr_t graphExec, intptr_t stream)
+cpdef graphDebugDotPrint(intptr_t graph, str path, unsigned int flags)
 
 
 ##############################################################################

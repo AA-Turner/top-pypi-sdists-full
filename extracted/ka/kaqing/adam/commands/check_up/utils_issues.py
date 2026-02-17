@@ -1,6 +1,6 @@
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
-from adam.repl_session import ReplSession
+from adam.utils_repl.repl_session import ReplSession
 from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
 

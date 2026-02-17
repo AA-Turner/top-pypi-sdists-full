@@ -34,7 +34,3 @@ heck = "0.5.0"
 
 [lints]
 workspace = true
-
-[[bench]]
-name = "benches"
-harness = false

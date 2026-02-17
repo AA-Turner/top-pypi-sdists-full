@@ -126,7 +126,7 @@ def arrange_islands(
     Min -- Align the islands to the min of the island.
 
     MAX
-    Max -- Align the islands to the left side of the island.
+    Max -- Align the islands to the max side of the island.
 
     CENTER
     Center -- Align the islands to the center of the largest island.
@@ -385,10 +385,10 @@ def lightmap_pack(
         :param PREF_CONTEXT: Selection, (optional)
 
     SEL_FACES
-    Selected Faces -- Space all UVs evenly.
+    Selected Faces -- Pack only selected faces.
 
     ALL_FACES
-    All Faces -- Average space UVs edge length of each loop.
+    All Faces -- Pack all faces in the mesh.
         :param PREF_PACK_IN_ONE: Share Texture Space, Objects share texture space, map all objects into a single UV map (optional)
         :param PREF_NEW_UVLAYER: New UV Map, Create a new UV map for every mesh packed (optional)
         :param PREF_BOX_DIV: Pack Quality, Quality of the packing. Higher values will be slower but waste less space (in [1, 48], optional)
@@ -857,7 +857,7 @@ def select_lasso(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param mode: Mode, (optional)
 
@@ -1020,7 +1020,7 @@ def select_similar(
     Polygon Sides.
 
     WINDING
-    Winding -- Face direction defined by (clockwise or anti-clockwise winding (facing up or facing down).
+    Winding -- Face direction defined by clockwise or anti-clockwise winding (facing up or facing down).
 
     FACE
     Amount of Faces in Island.
@@ -1093,7 +1093,7 @@ def shortest_path_select(
     nth: int | None = 1,
     offset: int | None = 0,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Selected shortest path between two vertices/edges/faces
+    """Select shortest path between two vertices/edges/faces
 
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
     :param use_topology_distance: Topology Distance, Find the minimum number of steps, ignoring spatial distance (optional)

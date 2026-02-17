@@ -59,8 +59,8 @@ def get_active_api_key(context: Any) -> Optional[str]:
     2. @require_payment_for_tool decorator (copied to context.state)
     
     Priority:
-    1. context.state.api_key_to_use (set by decorator)
-    2. request.state.api_key_to_use (set by middleware)
+    1. request.state.api_key_to_use (set by middleware from standard headers)
+    2. Custom header via MCP_API_KEY_HEADER env var (for APIs like CoinGecko, CoinMarketCap)
     
     Args:
         context: MCP context object
@@ -90,6 +90,16 @@ def get_active_api_key(context: Any) -> Optional[str]:
                     logger.debug(f"  api_key_to_use: {api_key[:10] if api_key else None}")
                     if api_key:
                         return api_key
+                
+                # Fallback: check custom header defined by MCP_API_KEY_HEADER env var.
+                # Some APIs (CoinGecko, CoinMarketCap) use non-standard headers.
+                custom_header = os.environ.get("MCP_API_KEY_HEADER")
+                if custom_header:
+                    # Starlette headers are case-insensitive with lowercase keys
+                    token = request.headers.get(custom_header.lower())
+                    if token:
+                        logger.info(f"get_active_api_key: Found key via custom header '{custom_header}'")
+                        return token
         
         logger.warning(f"get_active_api_key: Could not find api_key_to_use in request.state")
             

@@ -374,10 +374,7 @@ def test_py_info_to_system_raises(session_app_data, mocker, caplog):
 
 
 def _stringify_schemes_dict(schemes_dict):
-    """
-    Since this file has from __future__ import unicode_literals, we manually cast all values of mocked install_schemes
-    to str() as the original schemes are not unicode on Python 2.
-    """
+    """Since this file has from __future__ import unicode_literals, we manually cast all values of mocked install_schemes to str() as the original schemes are not unicode on Python 2."""
     return {str(n): {str(k): str(v) for k, v in s.items()} for n, s in schemes_dict.items()}
 
 
@@ -529,3 +526,8 @@ def test_uses_posix_prefix_on_debian_3_10_without_venv(mocker):
     pyver = f"{pyinfo.version_info.major}.{pyinfo.version_info.minor}"
     assert pyinfo.install_path("scripts") == "bin"
     assert pyinfo.install_path("purelib").replace(os.sep, "/") == f"lib/python{pyver}/site-packages"
+
+
+def test_sysconfig_vars_include_shared_lib_keys() -> None:
+    for key in ("Py_ENABLE_SHARED", "INSTSONAME", "LIBDIR"):
+        assert key in CURRENT.sysconfig_vars

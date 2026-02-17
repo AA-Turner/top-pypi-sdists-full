@@ -5,9 +5,9 @@ from adam.config import Config
 from adam.utils_context import NULL
 from adam.utils_job.job import Job
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.repl_state import BashSession, ReplState
 from adam.utils_log import log2
 from adam.utils_k8s.pods import Pods
+from adam.utils_repl.repl_state import BashSession, ReplState
 
 class Device:
     def pods(self, state: ReplState, me: str = None) -> tuple[list[str], str]:

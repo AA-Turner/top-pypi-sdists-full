@@ -2,8 +2,8 @@ from datetime import datetime, timedelta
 
 from adam.config import Config
 from adam.utils_log import log_exc
-from adam.utils_athena import Athena
-from adam.utils_audits import Audits
+from adam.rdbms.utils_athena import Athena
+from adam.commands.audit.utils_audits import Audits
 from adam.utils_context import NULL
 
 def run_configured_query(config_key: str, args: list[str], ctx = NULL):

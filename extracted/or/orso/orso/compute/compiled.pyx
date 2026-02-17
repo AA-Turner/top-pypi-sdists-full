@@ -174,7 +174,98 @@ cpdef int calculate_data_width(cnp.ndarray column_values):
     return max_width
 
 
-from cpython.list cimport PyList_New, PyList_SET_ITEM
+cpdef list calculate_column_widths(list rows):
+    """
+    Calculate display widths for all columns at once.
+    More efficient than calling calculate_data_width for each column separately.
+    
+    Parameters:
+        rows: list of tuples
+            Row data
+    
+    Returns:
+        list of int: Maximum display width for each column
+    """
+    cdef Py_ssize_t i, j
+    cdef Py_ssize_t num_rows = len(rows)
+    
+    if num_rows == 0:
+        return []
+    
+    cdef tuple first_row = <tuple>rows[0]
+    cdef Py_ssize_t num_cols = len(first_row)
+    
+    # Initialize widths to minimum of 4
+    cdef list widths = [4] * num_cols
+    cdef int width
+    cdef tuple row
+    cdef object value, string_value
+    
+    for i in range(num_rows):
+        row = <tuple>rows[i]
+        for j in range(num_cols):
+            value = row[j]
+            if value is not None:
+                string_value = PyObject_Str(value)
+                width = PyUnicode_GET_LENGTH(string_value)
+                if width > widths[j]:
+                    widths[j] = width
+    
+    return widths
+
+
+cpdef list extract_columns_to_lists(list rows, int limit=-1):
+    """
+    Fast column extraction for Arrow table conversion.
+    Converts row-oriented data to column-oriented lists.
+    
+    Parameters:
+        rows: list of tuples
+            Row-oriented data
+        limit: int
+            Maximum number of rows to materialize (-1 means all rows)
+    
+    Returns:
+        list of lists: Column-oriented data
+    """
+    cdef Py_ssize_t i, j
+    cdef Py_ssize_t num_rows = len(rows)
+    cdef Py_ssize_t empty_cols
+
+    if limit >= 0 and limit < num_rows:
+        num_rows = limit
+
+    if num_rows == 0:
+        if len(rows) == 0:
+            return []
+        empty_cols = len(<tuple>rows[0])
+        return [[] for _ in range(empty_cols)]
+    
+    cdef tuple first_row = <tuple>rows[0]
+    cdef Py_ssize_t num_cols = len(first_row)
+    
+    # Pre-allocate result list and column lists with the right size
+    cdef list columns = []
+    cdef list col_data
+    cdef tuple row
+    cdef object value
+    
+    # Create pre-allocated lists for each column
+    for j in range(num_cols):
+        col_data = [None] * num_rows
+        columns.append(col_data)
+    
+    # Fill the column lists - direct indexing is faster than append
+    for i in range(num_rows):
+        row = <tuple>rows[i]
+        for j in range(num_cols):
+            (<list>columns[j])[i] = row[j]
+    
+    return columns
+
+
+
+
 
 def process_table(table, row_factory, int max_chunksize) -> list:
     """
@@ -192,11 +283,35 @@ def process_table(table, row_factory, int max_chunksize) -> list:
         A list of transformed rows.
     """
     cdef list rows = [None] * table.num_rows
-    cdef int64_t i = 0
+    cdef int64_t i = 0, k
+    cdef list columns
+    cdef int num_cols
+    cdef int batch_size
+    cdef object column_method
+    cdef object row_iter
+    cdef object row_values
+    cdef object factory = row_factory
 
     for batch in table.to_batches(max_chunksize):
-        df = batch.to_pandas().replace({np.nan: None})
-        for row in df.itertuples(index=False, name=None):
-            rows[i] = row_factory(row)
+        # Convert batch columns to Python lists (column-oriented)
+        # This is faster than converting to dicts first
+        num_cols = batch.num_columns
+        batch_size = batch.num_rows
+
+        if batch_size == 0:
+            continue
+
+        if num_cols == 0:
+            for k in range(batch_size):
+                rows[i] = factory(())
+                i += 1
+            continue
+
+        column_method = batch.column
+        columns = [column_method(col_idx).to_pylist() for col_idx in range(num_cols)]
+        row_iter = zip(*columns)
+
+        for row_values in row_iter:
+            rows[i] = factory(row_values)
             i += 1
     return rows

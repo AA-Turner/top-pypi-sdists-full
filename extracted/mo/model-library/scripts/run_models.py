@@ -107,29 +107,31 @@ def create_dashboard(total: int, completed_count: int) -> Table:
 
 
 async def process_model(model_str: str, provider_name: str):
-    model = get_registry_model(
-        model_str, override_config=LLMConfig(supports_batch=False)
-    )
-
-    # Use longer timeout for deep research models
-    timeout = DEEP_RESEARCH_TIMEOUT if "deep-research" in model_str else DEFAULT_TIMEOUT
-
-    start_time = time.time()
-
-    # custom retry logico
-    # capture retry attempts
-    retrier = ExponentialBackoffRetrier(
-        logger=model.logger,
-        max_tries=MAX_RETRIES,
-        max_time=timeout,
-        retry_callback=lambda tries, exception, elapsed, wait: (
-            running_models[provider_name].update({model_str: (start_time, tries)})
-        ),
-    )
-
-    model.custom_retrier = retry_decorator(retrier)
-
     try:
+        model = get_registry_model(
+            model_str, override_config=LLMConfig(supports_batch=False)
+        )
+
+        # Use longer timeout for deep research models
+        timeout = (
+            DEEP_RESEARCH_TIMEOUT if "deep-research" in model_str else DEFAULT_TIMEOUT
+        )
+
+        start_time = time.time()
+
+        # custom retry logico
+        # capture retry attempts
+        retrier = ExponentialBackoffRetrier(
+            logger=model.logger,
+            max_tries=MAX_RETRIES,
+            max_time=timeout,
+            retry_callback=lambda tries, exception, elapsed, wait: (
+                running_models[provider_name].update({model_str: (start_time, tries)})
+            ),
+        )
+
+        model.custom_retrier = retry_decorator(retrier)
+
         async with semaphores[provider_name]:
             running_models[provider_name][model_str] = (start_time, 0)
 
@@ -146,7 +148,7 @@ async def process_model(model_str: str, provider_name: str):
                     else model.query("What is the capital of France?")
                 )
 
-            output = await query()
+            output = await asyncio.wait_for(query(), timeout=timeout)
 
             if not output.metadata.total_input_tokens:
                 raise Exception("No in tokens")
@@ -162,7 +164,7 @@ async def process_model(model_str: str, provider_name: str):
         running_models[provider_name].pop(model_str, None)
 
 
-MODEL_OVERRIDES = ["dumbmar", "bedrock", "ai21labs"]
+MODEL_OVERRIDES = ["dumbmar", "bedrock", "ai21labs", "o1", "o3-mini"]
 IGNORED_MODELS = ["inception/mercury"]  # known to be broken
 ERROR_OVERRIDES = [
     "overloaded",

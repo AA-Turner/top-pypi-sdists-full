@@ -3,7 +3,7 @@ from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_names, postgres
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize

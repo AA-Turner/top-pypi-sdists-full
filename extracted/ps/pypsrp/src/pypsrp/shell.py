@@ -1,6 +1,8 @@
 # Copyright: (c) 2018, Jordan Borean (@jborean93) <jborean93@gmail.com>
 # MIT License (see LICENSE or https://opensource.org/licenses/MIT)
 
+from __future__ import annotations
+
 import base64
 import logging
 import types
@@ -67,7 +69,7 @@ class WinRS(object):
         :param lifetime: The total lifetime of the shell
         :param name: The name (description) of the shell
         :param no_profile: Whether to create the shell with the user profile
-            active or not
+            active or not. This may not work on newer hosts like Server 2012+.
         :param working_directory: The default working directory of the created
             shell
         """
@@ -197,8 +199,8 @@ class WinRS(object):
         # inherit the base options if it was passed in, otherwise use an empty
         # option set
         options = OptionSet() if base_options is None else base_options
-        if self.no_profile is not None:
-            options.add_option("WINRS_NOPROFILE", str(self.no_profile))
+        if self.no_profile:
+            options.add_option("WINRS_NOPROFILE", "TRUE", {"MustComply": "true"})
         if self.codepage is not None:
             options.add_option("WINRS_CODEPAGE", str(self.codepage))
 
@@ -314,6 +316,42 @@ class WinRS(object):
         signal = ET.Element("{%s}Signal" % rsp, attrib={"CommandId": command_id})
         ET.SubElement(signal, "{%s}Code" % rsp).text = code
         return self.wsman.signal(self.resource_uri, signal, selector_set=self._selector_set)
+
+    def _get_shell(
+        self,
+        *,
+        timeout: int | None = None,
+    ) -> dict[str, str | None]:
+        """Queries the WSMan host for the current shell state.
+
+        Returns the WSMan GetResponse fields as a dictionary.
+
+        The timeout parameter can be used to override the default WSMan timeout
+        for this operation. If set the HTTP connect and read timeout will be
+        set to this value + 2 seconds to ensure the request does not block for
+        a longer time.
+
+        :param timeout: Sets the WSMan operational timeout to this value in
+            seconds. Overrides the default timeout set on the WSMan instance.
+        :return: A dictionary containing the shell state fields from the raw XML
+        response.
+        """
+        rsp = NAMESPACES["rsp"]
+
+        resp = self.wsman.get(
+            "http://schemas.microsoft.com/wbem/wsman/1/windows/shell",
+            selector_set=self._selector_set,
+            timeout=timeout,
+        )
+
+        state = {}
+        shell_items = resp.find("rsp:Shell", namespaces=NAMESPACES)
+        if shell_items is not None:
+            for child in shell_items:
+                field_name = child.tag.replace(f"{{{rsp}}}", "")
+                state[field_name] = child.text
+
+        return state
 
     def _parse_shell_create(
         self,

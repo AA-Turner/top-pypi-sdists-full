@@ -12,7 +12,6 @@ from typing import Any
 import pytest
 from hypothesis import (
     HealthCheck,
-    assume,
     given,
     settings,
     strategies as st,
@@ -28,7 +27,9 @@ from lxml.etree import (
 )
 
 from .._testutils import signature_tester, strategy as _st
+from .._testutils.common import can_practically_iter
 from .._testutils.errors import (
+    raise_cannot_convert,
     raise_non_integer,
     raise_non_iterable,
     raise_wrong_arg_type,
@@ -74,10 +75,13 @@ class TestIndexMethod:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         max_examples=300,
     )
-    @given(thing=_st.all_instances_except_of_type(NoneType, int, Decimal))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType, int, Decimal).filter(
+            lambda x: x is not NotImplemented and bool(x)
+        )
+    )
     @pytest.mark.slow
     def test_start_arg_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_lxml_non_integer:
             _ = xml2_root.index(xml2_root[0], start=thing)
 
@@ -94,10 +98,13 @@ class TestIndexMethod:
         suppress_health_check=[HealthCheck.function_scoped_fixture],
         max_examples=300,
     )
-    @given(thing=_st.all_instances_except_of_type(NoneType, int, Decimal))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType, int, Decimal).filter(
+            lambda x: x is not NotImplemented and bool(x)
+        )
+    )
     @pytest.mark.slow
     def test_stop_arg_bad_1(self, xml2_root: _Element, thing: Any) -> None:
-        assume(thing is not NotImplemented and bool(thing))
         with raise_lxml_non_integer:
             _ = xml2_root.index(xml2_root[0], stop=thing)
 
@@ -284,12 +291,16 @@ class TestExtendMethod:
         # broken behavior (but no exception though)
         xml2_root.extend(xml2_root[0])
 
-    @given(value=_st.all_instances_except_of_type(Iterable, _Element, NoneType))
-    def test_bad_element_1(
-        self, disposable_element: _Element, value: Iterable[Any]
-    ) -> None:
+    @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
+    @given(
+        thing=_st.all_instances_except_of_type(Iterable, _Element, NoneType).filter(
+            lambda x: not can_practically_iter(x)
+        )
+    )
+    @pytest.mark.slow
+    def test_bad_element_1(self, disposable_element: _Element, thing: Any) -> None:
         with raise_non_iterable:
-            disposable_element.extend(value)
+            disposable_element.extend(thing)
 
     @given(value=st.iterables(
         _st.all_instances_except_of_type(Iterable, _Element, NoneType),
@@ -299,9 +310,7 @@ class TestExtendMethod:
     def test_bad_element_2(
         self, disposable_element: _Element, value: Iterable[Any]
     ) -> None:
-        with pytest.raises(
-            TypeError, match=r"Cannot convert \w+(\.\w+)* to .+\._Element"
-        ):
+        with raise_cannot_convert:
             disposable_element.extend(value)
 
 

@@ -5,6 +5,7 @@ class ListJobsTriggerKind(str, Enum):
     DEFAULT_EMAIL = "default_email"
     EMAIL = "email"
     GCP = "gcp"
+    GOOGLE = "google"
     HTTP = "http"
     KAFKA = "kafka"
     MQTT = "mqtt"

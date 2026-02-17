@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: osmnx
-Version: 2.0.7
+Version: 2.1.0
 Summary: Download, model, analyze, and visualize street networks and other geospatial features from OpenStreetMap
 Keywords: GIS,Networks,OpenStreetMap,Routing
 Author: Geoff Boeing
@@ -10,38 +10,37 @@ License-File: LICENSE.txt
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Scientific/Engineering :: Visualization
+Classifier: Typing :: Typed
 Requires-Dist: geopandas>=1.0.1
 Requires-Dist: networkx>=2.5
-Requires-Dist: numpy>=1.22
-Requires-Dist: pandas>=1.4
-Requires-Dist: requests>=2.27
+Requires-Dist: numpy>=1.24
+Requires-Dist: pandas>=1.5
+Requires-Dist: requests>=2.30
 Requires-Dist: shapely>=2.0
 Requires-Dist: osmnx[entropy,neighbors,raster,visualization] ; extra == 'all'
-Requires-Dist: scipy>=1.8 ; extra == 'entropy'
-Requires-Dist: scikit-learn>=1.1 ; extra == 'neighbors'
-Requires-Dist: scipy>=1.8 ; extra == 'neighbors'
-Requires-Dist: rasterio>=1.3.5 ; extra == 'raster'
+Requires-Dist: scipy>=1.10 ; extra == 'entropy'
+Requires-Dist: scikit-learn>=1.2 ; extra == 'neighbors'
+Requires-Dist: scipy>=1.10 ; extra == 'neighbors'
+Requires-Dist: rasterio>=1.4 ; extra == 'raster'
 Requires-Dist: rio-vrt>=0.3 ; extra == 'raster'
-Requires-Dist: matplotlib>=3.5 ; extra == 'visualization'
+Requires-Dist: matplotlib>=3.6 ; extra == 'visualization'
 Maintainer: OSMnx contributors
-Requires-Python: >=3.9
-Project-URL: Code Repository, https://github.com/gboeing/osmnx
+Requires-Python: >=3.11
 Project-URL: Documentation, https://osmnx.readthedocs.io
+Project-URL: Code Repository, https://github.com/gboeing/osmnx
 Project-URL: Examples Gallery, https://github.com/gboeing/osmnx-examples
 Provides-Extra: all
 Provides-Extra: entropy
@@ -59,8 +58,6 @@ Description-Content-Type: text/markdown
 [![Coverage Status](https://codecov.io/gh/gboeing/osmnx/branch/main/graph/badge.svg)](https://codecov.io/gh/gboeing/osmnx)
 
 **OSMnx** is a Python package to easily download, model, analyze, and visualize street networks and other geospatial features from OpenStreetMap. You can download and model walking, driving, or biking networks with a single line of code then analyze and visualize them. You can just as easily work with urban amenities/points of interest, building footprints, transit stops, elevation data, street orientations, speed/travel time, and routing.
-
-OSMnx 2.0 is released: read the [migration guide](https://github.com/gboeing/osmnx/issues/1123).
 
 ## Citation
 

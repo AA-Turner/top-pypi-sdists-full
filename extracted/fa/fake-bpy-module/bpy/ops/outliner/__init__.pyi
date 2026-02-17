@@ -568,7 +568,7 @@ def item_openclose(
     *,
     all: bool | None = False,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Toggle whether item under cursor is enabled or closed
+    """Toggle whether item under cursor is open or closed
 
     :param all: All, Close or open all items (optional)
     :return: Result of the operator call.

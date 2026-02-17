@@ -29,6 +29,7 @@ import itertools
 import json
 import os
 import re
+import string
 import subprocess
 import sys
 from dataclasses import dataclass, field as dataclass_field
@@ -41,7 +42,7 @@ from pathlib import Path
 from typing import Callable, cast, Generator, Iterable, Iterator
 
 __pkgname__ = "pip-licenses-lib"
-__version__ = "1.0.0"
+__version__ = "1.1.0"
 __author__ = "raimon, stefan6419846"
 __license__ = "MIT"
 __summary__ = (
@@ -54,30 +55,45 @@ def extract_homepage(metadata: Message) -> str | None:
     """
     Extracts the homepage attribute from the package metadata.
 
-    Not all Python packages have defined a home-page attribute.
-    As a fallback, the `Project-URL` metadata can be used.
-    The python core metadata supports multiple (free text) values for
-    the `Project-URL` field that are comma separated.
+    Some packages might use the legacy direct `home-page` key, while
+    most use the project URLs field. With its free-text behavior,
+    multiple candidates are available to choose from.
 
     :param metadata: The package metadata to extract the homepage from.
-    :return: The home page if applicable, None otherwise.
+    :return: The homepage if applicable, None otherwise.
     """
-    homepage: str | None = metadata.get("home-page", None)
-    if homepage is not None:
-        return homepage
-
     candidates: dict[str, str] = {}
+    value: str | None
 
     for entry in metadata.get_all("Project-URL", []):
+        # https://packaging.python.org/en/latest/specifications/well-known-project-urls/#label-normalization
+        chars_to_remove = string.punctuation + string.whitespace
+        removal_map = str.maketrans("", "", chars_to_remove)
         key, value = entry.split(",", 1)
-        candidates[key.strip().lower()] = value.strip()
+        label = key.translate(removal_map).lower()
+        candidates[label] = value.strip()
 
+    if value := candidates.get("homepage"):
+        # Primary value.
+        return value
+    if value := metadata.get("home-page"):
+        # Legacy value.
+        return value
+
+    # https://packaging.python.org/en/latest/specifications/well-known-project-urls/#well-known-labels
     for priority_key in [
-            "homepage",
             "source",
+            "sourcecode",
             "repository",
+            "github",
+            "documentation",
+            "docs",
+            "bugtracker",
+            "issues",
             "changelog",
-            "bug tracker",
+            "changes",
+            "whatsnew",
+            "releasenotes",
     ]:
         if priority_key in candidates:
             return candidates[priority_key]
@@ -206,6 +222,27 @@ def _get_other_files(package: Distribution, existing_files: Iterable[tuple[str, 
         yield other_file_str, read_file(other_file_resolved)
 
 
+def _get_sboms(package: Distribution) -> Generator[tuple[str, str]]:
+    """
+    Get PEP 770 compliant files.
+
+    References:
+        * https://peps.python.org/pep-0770/
+        * https://packaging.python.org/en/latest/specifications/binary-distribution-format/#the-dist-info-sboms-directory
+
+    :param package: The package to work on.
+    :return: A list/generator of tuples holding the file path and corresponding file content.
+    """
+    if not isinstance(package, PathDistribution):
+        return
+    path = Path(str(package._path), "sboms")
+    if not path.is_dir():
+        # No SBOMs
+        return
+    for inner_path in sorted(path.iterdir()):
+        yield str(inner_path), read_file(inner_path)
+
+
 @dataclass
 class PackageInfo:
     """
@@ -277,6 +314,11 @@ class PackageInfo:
     List of other licensing-related files and their contents.
     """
 
+    sboms: list[tuple[str, str]] = dataclass_field(default_factory=list)
+    """
+    List of SBOM files and their contents.
+    """
+
     requirements: set[str] = dataclass_field(default_factory=set)
     """
     Collection of all declared (direct) requirements.
@@ -337,6 +379,22 @@ class PackageInfo:
         for entry in self.others:
             yield entry[1]
 
+    @property
+    def sbom_files(self) -> Iterator[str]:
+        """
+        List of SBOM file paths.
+        """
+        for entry in self.sboms:
+            yield entry[0]
+
+    @property
+    def sbom_texts(self) -> Iterator[str]:
+        """
+        List of SBOM contents.
+        """
+        for entry in self.sboms:
+            yield entry[1]
+
 
 def get_package_info(
         package: Distribution, include_files: bool = True, normalize_name: bool = True,
@@ -355,10 +413,12 @@ def get_package_info(
         ))
         notice_files = list(get_package_included_files(package, "NOTICE.*"))
         other_files = list(_get_other_files(package, itertools.chain(license_files, notice_files)))
+        sboms = list(_get_sboms(package))
     else:
         license_files = []
         notice_files = []
         other_files = []
+        sboms = []
 
     name = package.metadata["name"]
     if normalize_name:
@@ -369,6 +429,7 @@ def get_package_info(
         licenses=license_files,
         notices=notice_files,
         others=other_files,
+        sboms=sboms,
         requirements=set(package.requires or []),
         distribution=package,
     )

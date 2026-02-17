@@ -2,6 +2,7 @@ from enum import Enum
 
 
 class NativeTriggerServiceName(str, Enum):
+    GOOGLE = "google"
     NEXTCLOUD = "nextcloud"
 
     def __str__(self) -> str:

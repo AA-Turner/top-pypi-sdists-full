@@ -1,3 +1,9 @@
+using namespace System.IO
+using namespace System.Management.Automation
+using namespace System.Runtime.InteropServices
+using namespace System.Security.Cryptography
+using namespace System.Security.Cryptography.X509Certificates
+
 [CmdletBinding()]
 param(
     [Parameter(Mandatory)]
@@ -16,83 +22,6 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Information -MessageData "Configuring WinRM for pypsrp tests for $UserName"
-
-Function New-LegacySelfSignedCert {
-    [CmdletBinding()]
-    param (
-        [Parameter(Mandatory)]
-        [String]
-        $Subject,
-
-        [Parameter(Mandatory)]
-        [Int32]
-        $ValidDays
-    )
-
-    Write-Information -MessageData "Creating self-signed certificate of CN=$Subject for $ValidDays days"
-    $subject_name = New-Object -ComObject X509Enrollment.CX500DistinguishedName
-    $subject_name.Encode("CN=$Subject", 0)
-
-    $private_key = New-Object -ComObject X509Enrollment.CX509PrivateKey
-    $private_key.ProviderName = "Microsoft Enhanced RSA and AES Cryptographic Provider"
-    $private_key.KeySpec = 1
-    $private_key.Length = 4096
-    $private_key.SecurityDescriptor = "D:PAI(A;;0xd01f01ff;;;SY)(A;;0xd01f01ff;;;BA)(A;;0x80120089;;;NS)"
-    $private_key.MachineContext = 1
-    $private_key.Create()
-
-    $server_auth_oid = New-Object -ComObject X509Enrollment.CObjectId
-    $server_auth_oid.InitializeFromValue("1.3.6.1.5.5.7.3.1")
-
-    $ekuoids = New-Object -ComObject X509Enrollment.CObjectIds
-    $ekuoids.Add($server_auth_oid)
-
-    $eku_extension = New-Object -ComObject X509Enrollment.CX509ExtensionEnhancedKeyUsage
-    $eku_extension.InitializeEncode($ekuoids)
-
-    $name = @($env:COMPUTERNAME, ([System.Net.Dns]::GetHostByName($env:COMPUTERNAME).Hostname))
-    $alt_names = New-Object -ComObject X509Enrollment.CAlternativeNames
-    foreach ($name in $name) {
-        $alt_name = New-Object -ComObject X509Enrollment.CAlternativeName
-        $alt_name.InitializeFromString(0x3, $name)
-        $alt_names.Add($alt_name)
-    }
-    $alt_names_extension = New-Object -ComObject X509Enrollment.CX509ExtensionAlternativeNames
-    $alt_names_extension.InitializeEncode($alt_names)
-
-    $digital_signature = [Security.Cryptography.X509Certificates.X509KeyUsageFlags]::DigitalSignature
-    $key_encipherment = [Security.Cryptography.X509Certificates.X509KeyUsageFlags]::KeyEncipherment
-    $key_usage = [int]($digital_signature -bor $key_encipherment)
-    $key_usage_extension = New-Object -ComObject X509Enrollment.CX509ExtensionKeyUsage
-    $key_usage_extension.InitializeEncode($key_usage)
-    $key_usage_extension.Critical = $true
-
-    $signature_oid = New-Object -ComObject X509Enrollment.CObjectId
-    $sha256_oid = New-Object -TypeName Security.Cryptography.Oid -ArgumentList "SHA256"
-    $signature_oid.InitializeFromValue($sha256_oid.Value)
-
-    $certificate = New-Object -ComObject X509Enrollment.CX509CertificateRequestCertificate
-    $certificate.InitializeFromPrivateKey(2, $private_key, "")
-    $certificate.Subject = $subject_name
-    $certificate.Issuer = $certificate.Subject
-    $certificate.NotBefore = (Get-Date).AddDays(-1)
-    $certificate.NotAfter = $certificate.NotBefore.AddDays($ValidDays)
-    $certificate.X509Extensions.Add($key_usage_extension)
-    $certificate.X509Extensions.Add($alt_names_extension)
-    $certificate.X509Extensions.Add($eku_extension)
-    $certificate.SignatureInformation.HashAlgorithm = $signature_oid
-    $certificate.Encode()
-
-    $enrollment = New-Object -ComObject X509Enrollment.CX509Enrollment
-    $enrollment.InitializeFromRequest($certificate)
-    $certificate_data = $enrollment.CreateRequest(0)
-    $enrollment.InstallResponse(2, $certificate_data, 0, "")
-
-    $parsed_certificate = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Certificate2
-    $parsed_certificate.Import([System.Text.Encoding]::UTF8.GetBytes($certificate_data))
-
-    return $parsed_certificate
-}
 
 function New-WinRMFirewallRule {
     [CmdletBinding()]
@@ -120,13 +49,13 @@ function New-WinRMFirewallRule {
 
     foreach ($rule in $rules) {
         $rule_details = @{
-            LocalPorts      = $Port
-            RemotePorts     = "*"
-            LocalAddresses  = "*"
-            Enabled         = $true
-            Direction       = 1
-            Action          = 1
-            Grouping        = "Windows Remote Management"
+            LocalPorts = $Port
+            RemotePorts = "*"
+            LocalAddresses = "*"
+            Enabled = $true
+            Direction = 1
+            Action = 1
+            Grouping = "Windows Remote Management"
             ApplicationName = "System"
         }
         $rule.Protocol = 6
@@ -148,7 +77,7 @@ function New-WinRMFirewallRule {
             try {
                 $fw.Rules.Add($rule)
             }
-            catch [System.Runtime.InteropServices.COMException] {
+            catch [COMException] {
                 # E_UNEXPECTED 0x80000FFFF means the rule already exists
                 if ($_.Exception.ErrorCode -eq 0x8000FFFF) {
                     Write-Information -MessageData "WinRM $Protocol firewall rule already exists, deleting before recreating"
@@ -166,38 +95,49 @@ function New-WinRMFirewallRule {
 
 function Reset-WinRMConfig {
     [CmdletBinding()]
-    Param()
+    Param(
+        [Parameter(Mandatory)]
+        [X509Certificate2]
+        $CACertificate,
+
+        [Parameter(Mandatory)]
+        [String]
+        $CtlStore
+    )
 
     Write-Verbose "Removing all existing WinRM listeners"
     Get-ChildItem -LiteralPath WSMan:\localhost\Listener | Remove-Item -Force -Recurse
 
-    if (-not $CertificateThumbprint) {
-        Write-Verbose "Removing all existing certificate in the personal store"
-        Remove-Item -Path Cert:\LocalMachine\My\* -Force -Recurse
-    }
-
     Write-Information -MessageData "Creating HTTP listener"
-    $selector_set = @{
+    $selectorSet = @{
         Transport = "HTTP"
-        Address   = "*"
+        Address = "*"
     }
-    $value_set = @{
+    $valueSet = @{
         Enabled = $true
     }
-    New-WSManInstance -ResourceURI winrm/config/listener -SelectorSet $selector_set -ValueSet $value_set > $null
+    New-WSManInstance -ResourceURI winrm/config/listener -SelectorSet $selectorSet -ValueSet $valueSet > $null
 
-    $certificate = New-LegacySelfSignedCert -Subject $env:COMPUTERNAME -ValidDays 1095
-    $selector_set = @{
-        Transport = "HTTPS"
-        Address   = "*"
+    $certParams = @{
+        CertStoreLocation = 'Cert:\LocalMachine\My'
+        DnsName = $env:COMPUTERNAME, 'localhost'
+        NotAfter = (Get-Date).AddYears(1)
+        Provider = 'Microsoft Software Key Storage Provider'
+        Signer = $CACertificate
+        Subject = "CN=$env:COMPUTERNAME"
     }
-    $value_set = @{
+    $certificate = New-SelfSignedCertificate @certParams
+    $selectorSet = @{
+        Transport = "HTTPS"
+        Address = "*"
+    }
+    $valueSet = @{
         CertificateThumbprint = $certificate.Thumbprint
-        Enabled               = $true
+        Enabled = $true
     }
 
     Write-Information -MessageData "Creating HTTPS listener"
-    New-WSManInstance -ResourceURI "winrm/config/Listener" -SelectorSet $selector_set -ValueSet $value_set > $null
+    New-WSManInstance -ResourceURI "winrm/config/Listener" -SelectorSet $selectorSet -ValueSet $valueSet > $null
 
     Write-Verbose "Enabling PowerShell Remoting"
     Enable-PSRemoting -Force > $null
@@ -211,8 +151,8 @@ function Reset-WinRMConfig {
     Write-Information -MessageData "Enabling CredSSP authentication"
     Enable-WSManCredSSP -Role Server -Force > $null
 
-    Write-Information -MessageData "Setting AllowUnencrypted to False"
-    Set-Item -Path WSMan:\localhost\Service\AllowUnencrypted -Value $false
+    Write-Information -MessageData "Setting AllowUnencrypted to True"
+    Set-Item -Path WSMan:\localhost\Service\AllowUnencrypted -Value $true
 
     Write-Information -MessageData "Configuring WinRM HTTPS firewall rule"
     New-WinRMFirewallRule -Port 5986 -Protocol HTTPS
@@ -222,66 +162,120 @@ function Reset-WinRMConfig {
 
     Write-Information -MessageData "Allow local admins over network auth"
     $regInfo = @{
-        Path         = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
-        Name         = "LocalAccountTokenFilterPolicy"
-        Value        = 1
+        Path = "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System"
+        Name = "LocalAccountTokenFilterPolicy"
+        Value = 1
         PropertyType = "DWord"
-        Force        = $true
+        Force = $true
     }
-    New-ItemProperty @regInfo
+    New-ItemProperty @regInfo > $null
+
+    Write-Information -MessageData "Configuring WinRM HTTPS binding to use CTL trust store '$CtlStore'"
+    $existingBinding = netsh.exe http show sslcert ipport=0.0.0.0:5986 json=enable
+    if ($LASTEXITCODE) {
+        throw "Failed to get existing WinRM HTTPS binding:`n$existingBinding"
+    }
+    $binding = $existingBinding | ConvertFrom-Json | Select-Object -ExpandProperty SslCertificateBindings
+
+    $out = netsh.exe @(
+        "http"
+        "update"
+        "sslcert"
+        "ipport=0.0.0.0:5986"
+        "appid=$($binding.GuidString)"
+        "certhash=$($certificate.Thumbprint)"
+        "sslctlstorename=$CtlStore"
+    ) 2>&1
+    if ($LASTEXITCODE) {
+        throw "Failed to set sslctlstorename for WinRM binding:`n$out"
+    }
 
     Write-Information -MessageData "WinRM and PS Remoting have been set up successfully"
 }
 
 Function New-CertificateAuthBinding {
+    [OutputType([string])]
     [CmdletBinding()]
     Param (
         [String]
         $Name,
 
         [String]
-        $CertPath
+        $CertPath,
+
+        [X509Certificate2]
+        $CACertificate,
+
+        [PSCredential]
+        $Credential
     )
 
     Write-Information -MessageData "Generating self signed certificate for authentication of user $Name"
     $certInfo = @{
-        Type          = "Custom"
-        Subject       = "CN=$Name"
+        CertStoreLocation = "Cert:\CurrentUser\My"
+        Provider = 'Microsoft Software Key Storage Provider'
+        Signer = $CACertificate
+        Subject = "CN=$Name"
         TextExtension = @("2.5.29.37={text}1.3.6.1.5.5.7.3.2", "2.5.29.17={text}upn=$Name@localhost")
-        KeyUsage      = "DigitalSignature", "KeyEncipherment"
-        KeyAlgorithm  = "RSA"
-        KeyLength     = 2048
+        Type = "Custom"
     }
     $cert = New-SelfSignedCertificate @certInfo
 
-    Write-Information -MessageData "Exporting public key of cert"
-    $pem_output = @()
-    $pem_output += "-----BEGIN CERTIFICATE-----"
-    $pem_output += [System.Convert]::ToBase64String($cert.RawData) -replace ".{64}", "$&`n"
-    $pem_output += "-----END CERTIFICATE-----"
-    [System.IO.File]::WriteAllLines("$CertPath\cert.pem", $pem_output)
-
     Write-Information -MessageData "Exporting private key in a PFX file"
-    [System.IO.File]::WriteAllBytes("$CertPath\cert.pfx", $cert.Export("Pfx"))
+    [File]::WriteAllBytes("$CertPath\cert.pfx", $cert.Export("Pfx"))
 
     Write-Information -MessageData "Converting private key to PEM format with openssl"
-    &"C:\Program Files\OpenSSL\bin\openssl.exe" @("pkcs12", "-in", "$CertPath\cert.pfx", "-nocerts", "-nodes", "-out", "$CertPath\cert_key.pem", "-passin", "pass:", "-passout", "pass:")
+    $certPassword = $Credential.GetNetworkCredential().Password
+    $out = openssl.exe @(
+        "pkcs12",
+        "-in", "$CertPath\cert.pfx",
+        "-nocerts",
+        "-nodes",
+        "-out", "$CertPath\cert_key.pem",
+        "-passin", "pass:",
+        "-passout", "pass:"
+    ) 2>&1
+    if ($LASTEXITCODE) {
+        throw "Failed to extract key from PEM:`n$out"
+    }
+    $out = openssl.exe @(
+        "pkcs12",
+        "-in", "$CertPath\cert.pfx",
+        "-nocerts",
+        "-out", "$CertPath\cert_enc_key.pem",
+        "-passin", "pass:",
+        "-passout", "pass:$certPassword"
+    ) 2>&1
+    if ($LASTEXITCODE) {
+        throw "Failed to extract encrypted key from PEM:`n$out"
+    }
+    Remove-Item -Path "$CertPath\cert.pfx" -Force
 
-    Write-Information -MessageData "Importing cert into LocalMachine\Root"
-    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::Root
-    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
-    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
-    $store.Open("MaxAllowed")
-    $store.Add($cert)
-    $store.Close()
+    # WinRM seems to be very picky about the type of cert in the trusted people store, make sure this is set
+    # to the cert and not cert + key.
+    $certNoKey = [X509Certificate2]::new($cert.RawData)
+
+    Write-Information -MessageData "Exporting user certificate PEM"
+    [File]::WriteAllLines("$CertPath\cert.pem", @(
+            "-----BEGIN CERTIFICATE-----"
+            [Convert]::ToBase64String($certNoKey.RawData) -replace ".{64}", "$&`n"
+            "-----END CERTIFICATE-----"
+        ))
 
     Write-Information -MessageData "Importing cert into LocalMachine\TrustedPeople"
-    $store_name = [System.Security.Cryptography.X509Certificates.StoreName]::TrustedPeople
-    $store_location = [System.Security.Cryptography.X509Certificates.StoreLocation]::LocalMachine
-    $store = New-Object -TypeName System.Security.Cryptography.X509Certificates.X509Store -ArgumentList $store_name, $store_location
-    $store.Open("MaxAllowed")
-    $store.Add($cert)
-    $store.Close()
+    $store = Get-Item -Path Cert:\LocalMachine\TrustedPeople
+    $store.Open([OpenFlags]::ReadWrite)
+    $store.Add($certNoKey)
+    $store.Dispose()
+
+    $credBinding = @{
+        Credential = $Credential
+        Force = $true
+        Issuer = $CACertificate.Thumbprint
+        Path = "WSMan:\localhost\ClientCertificate"
+        Subject = "$Name@localhost"
+    }
+    New-Item @credBinding > $null
 
     $cert.Thumbprint
 }
@@ -296,31 +290,31 @@ Function New-JEAConfiguration {
         $JEAConfigPath
     )
 
-    $module_path = Join-Path -Path $env:ProgramFiles -ChildPath "WindowsPowerShell\Modules\$Name"
-    Write-Information -MessageData "Setting up JEA PowerShell module path at '$module_path'"
-    if (-not (Test-Path -Path $module_path)) {
-        New-Item -Path $module_path -ItemType Directory
+    $modulePath = Join-Path -Path $env:ProgramFiles -ChildPath "WindowsPowerShell\Modules\$Name"
+    Write-Information -MessageData "Setting up JEA PowerShell module path at '$modulePath'"
+    if (-not (Test-Path -Path $modulePath)) {
+        New-Item -Path $modulePath -ItemType Directory | Out-Null
     }
 
-    $functions_path = Join-Path -Path $module_path -ChildPath "$($Name)Functions.psm1"
-    if (-not (Test-Path -Path $functions_path)) {
-        New-Item -Path $functions_path -ItemType File
+    $functionsPath = Join-Path -Path $modulePath -ChildPath "$($Name)Functions.psm1"
+    if (-not (Test-Path -Path $functionsPath)) {
+        New-Item -Path $functionsPath -ItemType File | Out-Null
     }
 
-    $manifest_path = Join-Path -Path $module_path -ChildPath "$($Name).psd1"
-    if (-not (Test-Path -Path $manifest_path)) {
-        New-ModuleManifest -Path $manifest_path -RootModule "$($Name)Functions.psm1"
+    $manifestPath = Join-Path -Path $modulePath -ChildPath "$($Name).psd1"
+    if (-not (Test-Path -Path $manifestPath)) {
+        New-ModuleManifest -Path $manifestPath -RootModule "$($Name)Functions.psm1"
     }
 
-    $role_path = Join-Path -Path $module_path -ChildPath "RoleCapabilities"
-    if (-not (Test-Path -Path $role_path)) {
-        New-Item -Path $role_path -ItemType Directory
+    $rolePath = Join-Path -Path $modulePath -ChildPath "RoleCapabilities"
+    if (-not (Test-Path -Path $rolePath)) {
+        New-Item -Path $rolePath -ItemType Directory | Out-Null
     }
 
-    $jea_role_src = Join-Path -Path $JEAConfigPath -ChildPath "$($Name).psrc"
+    $jeaRoleSrc = Join-Path -Path $JEAConfigPath -ChildPath "$($Name).psrc"
 
-    Write-Information -MessageData "Copying across JEA role configuration from '$jea_role_src'"
-    Copy-Item -Path $jea_role_src -Destination $role_path
+    Write-Information -MessageData "Copying across JEA role configuration from '$jeaRoleSrc'"
+    Copy-Item -Path $jeaRoleSrc -Destination $rolePath
 
     if (Get-PSSessionConfiguration | Where-Object { $_.Name -eq $name }) {
         Write-Information -MessageData "JEA role $Name already registered, removing to ensure we start fresh"
@@ -328,32 +322,111 @@ Function New-JEAConfiguration {
     }
 }
 
-$secPassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
-$userCredential = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $env:COMPUTERNAME\$UserName, $secPassword
+$caParams = @{
+    Extension = @(
+        [X509BasicConstraintsExtension]::new($true, $false, 0, $true)
+        [X509KeyUsageExtension]::new('KeyCertSign', $true)
+    )
+    CertStoreLocation = 'Cert:\CurrentUser\My'
+    NotAfter = (Get-Date).AddYears(1)
+    Provider = 'Microsoft Software Key Storage Provider'
+    Subject = 'CN=PyPSRP CA'
+    Type = 'Custom'
+}
+Write-Information -MessageData "Creating CA certificate"
+$ca = New-SelfSignedCertificate @caParams
 
-Enable-PSRemoting -Force
-Start-Service -Name WinRM
-Reset-WinRMConfig
+$root = Get-Item -LiteralPath Cert:\LocalMachine\Root
+$root.Open([OpenFlags]::ReadWrite)
+$root.Add($ca)
+$root.Dispose()
+
+# Setup a specific store for the WinRM CTL as GHA's root store is too large
+# and causes issues with WinRM cert selection during authentication
+$ctlStoreName = 'WinRMTrustedIssuers'
+$ctlStore = [X509Store]::new(
+    $ctlStoreName,
+    [StoreLocation]::LocalMachine)
+$ctlStore.Open([OpenFlags]::ReadWrite)
+$ctlStore.Add([X509Certificate2]::new($ca.RawData))  # Strip key affinity
+$ctlStore.Dispose()
+
+$secPassword = ConvertTo-SecureString -String $Password -AsPlainText -Force
+$userCredential = [PSCredential]::new("$env:COMPUTERNAME\$UserName", $secPassword)
 
 $localUser = New-LocalUser -Name $UserName -Password $secPassword -AccountNeverExpires -PasswordNeverExpires
 Add-LocalGroupMember -Group Administrators -Member $localUser
 
-# Cert auth is disabled in these tests due to some unknown failure
-# $thumbprint = New-CertificateAuthBinding -Name $UserName -CertPath $CertPath
-# $credBinding = @{
-#     Path       = "WSMan:\localhost\ClientCertificate"
-#     Subject    = "$UserName@localhost"
-#     URI        = "*"
-#     Issuer     = $thumbprint
-#     Credential = $userCredential
-#     Force      = $true
-# }
-# New-Item @credBinding
-
+Enable-PSRemoting -Force
+Start-Service -Name WinRM
+Reset-WinRMConfig -CACertificate $ca -CtlStore $ctlStoreName
+Write-Information -MessageData "Setting up JEA configuration"
 New-JEAConfiguration -Name JEARole -JEAConfigPath $PSScriptRoot
-Register-PSSessionConfiguration -Path "$PSScriptRoot\JEARoleSettings.pssc" -Name JEARole -Force
-
+Register-PSSessionConfiguration -Path "$PSScriptRoot\JEARoleSettings.pssc" -Name JEARole -Force > $null
 Restart-Service -Name winrm
 
-Write-Information -MessageData "Testing WinRM connection"
-Invoke-Command -ComputerName localhost -ScriptBlock { whoami.exe /all } -Credential $userCredential
+# It is important we setup the certificate auth binding after the JEA session is
+# registered. JEA will change the WinRM service account from NetworkService to
+# SYSTEM and cert auth bindings are encrypted based on the service account.
+$clientCertParams = @{
+    Name = $UserName
+    CertPath = $CertPath
+    CACertificate = $ca
+    Credential = $userCredential
+}
+$clientCertificate = New-CertificateAuthBinding @clientCertParams
+
+# Only remove the CA/Key from CurrentUser\My after all other certs have been generated.
+Remove-Item -LiteralPath "Cert:\CurrentUser\My\$($ca.Thumbprint)" -Force
+
+# Do one last restart, I've found that sometimes the service gets into a funky
+# state after all the changes above.
+Restart-Service -Name winrm
+
+Write-Information -MessageData "Testing WinRM connection over HTTP"
+$invokeParams = @{
+    ComputerName = 'localhost'
+    ScriptBlock = { [Environment]::UserName }
+}
+$user = Invoke-Command @invokeParams -Credential $userCredential
+if ($user -ne $UserName) {
+    throw "WinRM authentication did not return expected user. Expected: $UserName, Actual: $user"
+}
+
+# Seems like the HTTPS service can get into a bit of a funk based on our setup
+# We retry a few times to get a successful connection rather than fail immediately.
+Write-Information -MessageData "Testing WinRM connection over HTTPS"
+$attempt = 0
+while ($true) {
+    try {
+        $user = Invoke-Command @invokeParams -UseSSL -Credential $userCredential
+        break
+    }
+    catch {
+        if ($attempt -gt 4) {
+            throw
+        }
+
+        Write-Information -MessageData "WinRM over HTTPS connection failed - $_`nRetrying in 5 seconds..."
+        $attempt++
+
+        Start-Sleep -Seconds 5
+    }
+}
+if ($user -ne $UserName) {
+    throw "WinRM authentication over HTTPS did not return expected user. Expected: $UserName, Actual: $user"
+}
+
+Write-Information -MessageData "Testing WinRM connection over HTTPS with certificate authentication"
+$user = Invoke-Command @invokeParams -UseSSL -CertificateThumbprint $clientCertificate
+if ($user -ne $UserName) {
+    throw "Certificate authentication did not return expected user. Expected: $UserName, Actual: $user"
+}
+
+Write-Information -MessageData "Testing WinRM connection with JEA"
+$value = Invoke-Command -ComputerName localhost -ScriptBlock {
+    Get-Item -Path WSMan:\localhost\Service\AllowUnencrypted
+} -ConfigurationName JEARole -Credential $userCredential
+if (-not $value.Value) {
+    throw "JEA WinRM session did not return expected AllowUnencrypted value of True. Actual: $($value.Value)"
+}

@@ -22,12 +22,13 @@ class KDTree:
         co: collections.abc.Sequence[float],
         *,
         filter: None | collections.abc.Callable[int, bool] | None = None,
-    ) -> tuple[mathutils.Vector, int, float]:
+    ) -> tuple[None, None, None] | tuple[mathutils.Vector, int, float]:
         """Find nearest point to co.
 
-        :param co: 3D coordinate.
-        :param filter: function which takes an index and returns True for indices to include in the search.
-        :return: Returns (position, index, distance).
+                :param co: 3D coordinate.
+                :param filter: function which takes an index and returns True for indices to include in the search.
+                :return: Returns (position, index, distance),
+        or (None, None, None) when no match is found.
         """
 
     def find_n(
@@ -35,7 +36,7 @@ class KDTree:
     ) -> list[tuple[mathutils.Vector, int, float]]:
         """Find nearest n points to co.
 
-        :param co: 3D coordinates.
+        :param co: 3D coordinate.
         :param n: Number of points to find.
         :return: Returns a list of tuples (position, index, distance).
         """
@@ -45,8 +46,8 @@ class KDTree:
     ) -> list[tuple[mathutils.Vector, int, float]]:
         """Find all points within radius of co.
 
-        :param co: 3D coordinates.
-        :param radius: Distance to search for points.
+        :param co: 3D coordinate.
+        :param radius: Maximum distance to search for points.
         :return: Returns a list of tuples (position, index, distance).
         """
 
@@ -54,7 +55,7 @@ class KDTree:
         """Insert a point into the KDTree.
 
         :param co: Point 3d position.
-        :param index: The index of the point.
+        :param index: The index of the point (must be non-negative).
         """
 
     def __init__(self, size) -> None:

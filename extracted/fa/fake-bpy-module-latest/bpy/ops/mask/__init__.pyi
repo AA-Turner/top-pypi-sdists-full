@@ -268,8 +268,8 @@ def primitive_circle_add(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new circle-shaped spline
 
-    :param size: Size, Size of new circle (in [-inf, inf], optional)
-    :param location: Location, Location of new circle (array of 2 items, in [-inf, inf], optional)
+    :param size: Size, Size of new primitive (in [-inf, inf], optional)
+    :param location: Location, Location of new primitive (array of 2 items, in [-inf, inf], optional)
     :return: Result of the operator call.
     """
 
@@ -283,8 +283,8 @@ def primitive_square_add(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Add new square-shaped spline
 
-    :param size: Size, Size of new circle (in [-inf, inf], optional)
-    :param location: Location, Location of new circle (array of 2 items, in [-inf, inf], optional)
+    :param size: Size, Size of new primitive (in [-inf, inf], optional)
+    :param location: Location, Location of new primitive (array of 2 items, in [-inf, inf], optional)
     :return: Result of the operator call.
     """
 
@@ -413,7 +413,7 @@ def select_lasso(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param mode: Mode, (optional)
 

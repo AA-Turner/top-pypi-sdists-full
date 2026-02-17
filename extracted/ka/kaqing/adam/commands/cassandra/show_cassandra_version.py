@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_cassandra.pod_service import cassandra
 
 class ShowCassandraVersion(Command):

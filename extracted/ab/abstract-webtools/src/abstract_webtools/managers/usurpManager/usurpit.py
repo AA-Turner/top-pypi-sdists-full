@@ -135,6 +135,7 @@ def save_asset(asset_url,
                output_dir,
                downloaded_assets=None,
                session=None):
+   
     asset_full_path = get_asset_path(asset_url=asset_url,
                                      base_url=base_url,
                                      output_dir=output_dir,
@@ -145,9 +146,8 @@ def save_asset(asset_url,
 
         try:
             response = session.get(asset_url, stream=True)
-            response.raise_for_status()
-            with open(asset_full_path, 'wb') as f:
-                shutil.copyfileobj(response.raw, f)
+   
+            write_to_file(contents=response.text,file_path=asset_full_path)
             print(f"Saved asset: {asset_full_path}")
         except Exception as e:
             print(f"Failed to save asset {asset_url}: {e}")
@@ -196,7 +196,7 @@ class usurpManager():
         # Now you can use all_attributes as needed
 
         # Update asset links to local paths
-        for tag in soup.find_all(['img', 'script', 'link']):
+        for tag in soup.find_all():
             attr = 'src' if tag.name != 'link' else 'href'
             asset_url = tag.get(attr)
             if asset_url:
@@ -210,7 +210,7 @@ class usurpManager():
                                                         self.downloaded_assets,
                                                         self.session)
                     # Update tag to point to the local asset
-                    local_asset_path = '/' + parsed_asset_url.path.lstrip('/')
+                    local_asset_path = parsed_asset_url.path.lstrip('/')
                     tag[attr] = local_asset_path
 
         # Save the modified page
@@ -323,6 +323,7 @@ def usurpit( url,
                             website_bot=website_bot,
                             )
     site_mgr.main()
+
 
 
 

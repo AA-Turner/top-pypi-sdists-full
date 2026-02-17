@@ -2,7 +2,7 @@ from adam.commands import extract_options, validate_args
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
 from adam.utils_job.utils_ps import ProcessInfo, find_pids_for_cluster
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
 
 class FindProcesses(Command):

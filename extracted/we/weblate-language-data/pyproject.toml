@@ -40,18 +40,18 @@ license = "MIT"
 license-files = ["LICENSE"]
 name = "weblate-language-data"
 requires-python = ">=3.9"
-version = "2026.2"
+version = "2026.3"
 
 [project.optional-dependencies]
 dev = [
-  "translate-toolkit==3.18.1",
+  "translate-toolkit==3.19.0",
   "weblate-language-data[lint,test,types]"
 ]
 django = [
   "Django"
 ]
 lint = [
-  "prek==0.3.2"
+  "prek==0.3.3"
 ]
 test = [
 ]

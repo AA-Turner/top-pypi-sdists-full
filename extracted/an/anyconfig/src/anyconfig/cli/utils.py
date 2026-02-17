@@ -1,8 +1,10 @@
 #
-# Copyright (C) 2011 - 2021 Satoru SATOH <satoru.satoh gmail.com>
+# Copyright (C) 2011 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """Utilities for anyconfig.cli.*."""
+from __future__ import annotations
+
 import functools
 import os
 import sys
@@ -10,9 +12,12 @@ import typing
 
 from .. import api
 
+if typing.TYPE_CHECKING:
+    import argparse
+
 
 @functools.lru_cache(None)
-def list_parser_types() -> typing.List[str]:
+def list_parser_types() -> list[str]:
     """Provide an wrapper of api.list_types() to memoize its result."""
     return api.list_types()
 
@@ -20,25 +25,25 @@ def list_parser_types() -> typing.List[str]:
 def make_parsers_txt() -> str:
     """Make up a text shows list and info of parsers available."""
     sep = os.linesep
-    indent = '  '
+    indent = "  "
 
-    parser_types = ', '.join(list_parser_types())
+    parser_types = ", ".join(list_parser_types())
     file_ext_vs_parsers = sep.join(
-        f'{indent}{x}: ' + ', '.join(p.cid() for p in ps)
+        f"{indent}{x}: " + ", ".join(p.cid() for p in ps)
         for x, ps in api.list_by_extension()
     )
 
     return sep.join(
         [
-            'Supported file types:',
-            f'{indent}{parser_types}',
-            'Supported file extensions [extension: parsers]:',
-            f'{file_ext_vs_parsers}',
-        ]
+            "Supported file types:",
+            f"{indent}{parser_types}",
+            "Supported file extensions [extension: parsers]:",
+            f"{file_ext_vs_parsers}",
+        ],
     )
 
 
-def exit_with_output(content, exit_code=0):
+def exit_with_output(content: str, exit_code: int = 0) -> None:
     """Exit the program with printing out messages.
 
     :param content: content to print out
@@ -48,7 +53,7 @@ def exit_with_output(content, exit_code=0):
     sys.exit(exit_code)
 
 
-def exit_if_load_failure(cnf, msg):
+def exit_if_load_failure(cnf: api.InDataExT, msg: str) -> None:
     """Exit the program with errors if loading data was failed.
 
     :param cnf: Loaded configuration object or None indicates load failure
@@ -58,7 +63,9 @@ def exit_if_load_failure(cnf, msg):
         exit_with_output(msg, 1)
 
 
-def load_diff(args, extra_opts):
+def load_diff(
+    args: argparse.Namespace, extra_opts: dict[str, typing.Any],
+) -> api.InDataExT:
     """Load update data.
 
     :param args: :class:`argparse.Namespace` object
@@ -75,14 +82,14 @@ def load_diff(args, extra_opts):
         exit_with_output(f"Wrong input type '{args.itype}'", 1)
     except api.UnknownFileTypeError:
         exit_with_output(
-            'No appropriate backend was found for given file '
-            f"type='{args.itype}', inputs={', '.join(args.inputs)}",
-            1
+            "No appropriate backend was found for given file "
+            f"type=n{args.itype}', inputs={', '.join(args.inputs)}",
+            1,
         )
-    exit_if_load_failure(
-        diff, f'Failed to load: args={", ".join(args.inputs)}'
-    )
+
+    if diff is None:
+        exit_with_output(
+            f"Failed to load: args={', '.join(args.inputs)}", 1,
+        )
 
     return diff
-
-# vim:sw=4:ts=4:et:

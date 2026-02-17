@@ -3,7 +3,7 @@ Type annotations for kms service literal definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_kms/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -30,6 +30,7 @@ __all__ = (
     "DataKeyPairSpecType",
     "DataKeySpecType",
     "DescribeCustomKeyStoresPaginatorName",
+    "DryRunModifierTypeType",
     "EncryptionAlgorithmSpecType",
     "ExpirationModelTypeType",
     "GrantOperationType",
@@ -125,6 +126,7 @@ DataKeyPairSpecType = Literal[
 ]
 DataKeySpecType = Literal["AES_128", "AES_256"]
 DescribeCustomKeyStoresPaginatorName = Literal["describe_custom_key_stores"]
+DryRunModifierTypeType = Literal["IGNORE_CIPHERTEXT"]
 EncryptionAlgorithmSpecType = Literal[
     "RSAES_OAEP_SHA_1", "RSAES_OAEP_SHA_256", "SM2PKE", "SYMMETRIC_DEFAULT"
 ]
@@ -358,7 +360,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -623,6 +624,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

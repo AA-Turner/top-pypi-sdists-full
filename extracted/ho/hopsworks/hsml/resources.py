@@ -12,11 +12,11 @@
 #   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #   See the License for the specific language governing permissions and
 #   limitations under the License.
+from __future__ import annotations
 
 import json
 import warnings
 from abc import ABC, abstractmethod
-from typing import Optional, Union
 
 import humps
 from hopsworks_common import util
@@ -26,11 +26,12 @@ from hopsworks_common.constants import RESOURCES, Default
 class Resources:
     """Resource configuration for a predictor or transformer.
 
-    # Arguments
+    Parameters:
         cores: Number of CPUs.
         memory: Memory (MB) resources.
         gpus: Number of GPUs.
-    # Returns
+
+    Returns:
         `Resources`. Resource configuration for a predictor or transformer.
     """
 
@@ -74,7 +75,7 @@ class Resources:
 
     @property
     def cores(self):
-        """Number of CPUs to be allocated per instance"""
+        """Number of CPUs to be allocated per instance."""
         return self._cores
 
     @cores.setter
@@ -83,7 +84,7 @@ class Resources:
 
     @property
     def memory(self):
-        """Memory resources to be allocated per instance"""
+        """Memory resources to be allocated per instance."""
         return self._memory
 
     @memory.setter
@@ -92,7 +93,7 @@ class Resources:
 
     @property
     def gpus(self):
-        """Number of GPUs to be allocated per instance"""
+        """Number of GPUs to be allocated per instance."""
         return self._gpus
 
     @gpus.setter
@@ -110,15 +111,15 @@ class ComponentResources(ABC):
         num_instances: Deprecated. Use scaling configuration instead.
         requests: Minimum resources to allocate for a deployment
         limits: Maximum resources to allocate for a deployment
-    # Returns
+    Returns:
         `ComponentResource`. Resource configuration for a predictor or transformer.
     """
 
     def __init__(
         self,
-        num_instances: Optional[int] = None,
-        requests: Optional[Union[Resources, dict, Default]] = None,
-        limits: Optional[Union[Resources, dict, Default]] = None,
+        num_instances: int | None = None,
+        requests: Resources | dict | Default | None = None,
+        limits: Resources | dict | Default | None = None,
     ):
         self._num_instances = num_instances
         self._requests = util.get_obj_from_json(requests, Resources) or Resources(
@@ -223,7 +224,7 @@ class ComponentResources(ABC):
 
     @property
     def requests(self):
-        """Minimum resources to allocate"""
+        """Minimum resources to allocate."""
         return self._requests
 
     @requests.setter
@@ -232,7 +233,7 @@ class ComponentResources(ABC):
 
     @property
     def limits(self):
-        """Maximum resources to allocate"""
+        """Maximum resources to allocate."""
         return self._limits
 
     @limits.setter
@@ -249,9 +250,9 @@ class PredictorResources(ComponentResources):
 
     def __init__(
         self,
-        num_instances: Optional[int] = None,
-        requests: Optional[Union[Resources, dict]] = None,
-        limits: Optional[Union[Resources, dict]] = None,
+        num_instances: int | None = None,
+        requests: Resources | dict | None = None,
+        limits: Resources | dict | None = None,
     ):
         super().__init__(num_instances, requests, limits)
 
@@ -277,9 +278,9 @@ class TransformerResources(ComponentResources):
 
     def __init__(
         self,
-        num_instances: Optional[int] = None,
-        requests: Optional[Union[Resources, dict]] = None,
-        limits: Optional[Union[Resources, dict]] = None,
+        num_instances: int | None = None,
+        requests: Resources | dict | None = None,
+        limits: Resources | dict | None = None,
     ):
         super().__init__(num_instances, requests, limits)
 

@@ -10,6 +10,60 @@ import System.Collections.Generic
 QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T = typing.TypeVar("QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T")
 
 
+class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[str], metaclass=abc.ABCMeta):
+    """Enumerates all possible values for specific optimization parameter"""
+
+    @property
+    def optimization_parameter(self) -> QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T:
+        """
+        The target optimization parameter to enumerate
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @property
+    def index(self) -> int:
+        """
+        The current enumeration state
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @index.setter
+    def index(self, value: int) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def current(self) -> str:
+        """Gets the element in the collection at the current position of the enumerator."""
+        ...
+
+    def __init__(self, optimization_parameter: QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T) -> None:
+        """This codeEntityType is protected."""
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def move_next(self) -> bool:
+        """
+        Advances the enumerator to the next element of the collection.
+        
+        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+        ...
+
+
 class OptimizationParameter(System.Object, metaclass=abc.ABCMeta):
     """Defines the optimization parameter meta information"""
 
@@ -150,57 +204,30 @@ class OptimizationStepParameterEnumerator(QuantConnect.Optimizer.Parameters.Opti
         ...
 
 
-class OptimizationParameterEnumerator(typing.Generic[QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T], System.Object, System.Collections.Generic.IEnumerator[str], metaclass=abc.ABCMeta):
-    """Enumerates all possible values for specific optimization parameter"""
+class ParameterSet(System.Object):
+    """Represents a single combination of optimization parameters"""
 
     @property
-    def optimization_parameter(self) -> QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T:
-        """
-        The target optimization parameter to enumerate
-        
-        
-        This codeEntityType is protected.
-        """
+    def id(self) -> int:
+        """The unique identifier within scope (current optimization job)"""
         ...
 
     @property
-    def index(self) -> int:
+    def value(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
+        """Represent a combination as key value of parameters, i.e. order doesn't matter"""
+        ...
+
+    def __init__(self, id: int, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
         """
-        The current enumeration state
+        Creates an instance of ParameterSet based on new combination of optimization parameters
         
-        
-        This codeEntityType is protected.
+        :param id: Unique identifier
+        :param value: Combination of optimization parameters
         """
         ...
 
-    @index.setter
-    def index(self, value: int) -> None:
-        ...
-
-    @property
-    @abc.abstractmethod
-    def current(self) -> str:
-        """Gets the element in the collection at the current position of the enumerator."""
-        ...
-
-    def __init__(self, optimization_parameter: QuantConnect_Optimizer_Parameters_OptimizationParameterEnumerator_T) -> None:
-        """This codeEntityType is protected."""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def move_next(self) -> bool:
-        """
-        Advances the enumerator to the next element of the collection.
-        
-        :returns: true if the enumerator was successfully advanced to the next element; false if the enumerator has passed the end of the collection.
-        """
-        ...
-
-    def reset(self) -> None:
-        """Sets the enumerator to its initial position, which is before the first element in the collection."""
+    def to_string(self) -> str:
+        """String representation of this parameter set"""
         ...
 
 
@@ -238,33 +265,6 @@ class StaticOptimizationParameter(QuantConnect.Optimizer.Parameters.Optimization
         :param name: The name of the parameter
         :param value: The fixed value of this parameter
         """
-        ...
-
-
-class ParameterSet(System.Object):
-    """Represents a single combination of optimization parameters"""
-
-    @property
-    def id(self) -> int:
-        """The unique identifier within scope (current optimization job)"""
-        ...
-
-    @property
-    def value(self) -> System.Collections.Generic.IReadOnlyDictionary[str, str]:
-        """Represent a combination as key value of parameters, i.e. order doesn't matter"""
-        ...
-
-    def __init__(self, id: int, value: System.Collections.Generic.IReadOnlyDictionary[str, str]) -> None:
-        """
-        Creates an instance of ParameterSet based on new combination of optimization parameters
-        
-        :param id: Unique identifier
-        :param value: Combination of optimization parameters
-        """
-        ...
-
-    def to_string(self) -> str:
-        """String representation of this parameter set"""
         ...
 
 

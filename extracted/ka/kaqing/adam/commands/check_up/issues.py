@@ -1,7 +1,7 @@
 from adam.checks.check_result import CheckResult
 from adam.checks.check_utils import run_checks
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.commands.check_up.utils_issues import IssuesUtils
 

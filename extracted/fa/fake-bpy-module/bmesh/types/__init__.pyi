@@ -46,7 +46,7 @@ class BMDeformVert:
         """Returns the deform weight matching the key or default
         when not found (matches Pythons dictionary function of the same name).
 
-                :param key: The key associated with deform weight.
+                :param key: The vertex group index.
                 :param default: Optional argument for the value to return if
         key is not found.
                 :return: The deform weight or the default when not found.
@@ -63,7 +63,7 @@ class BMDeformVert:
         """Return the group indices used by this vertex
         (matching Pythons dict.keys() functionality).
 
-                :return: the deform group this vertex uses
+                :return: The deform group indices this vertex uses.
         """
 
     def values(self) -> list[float]:
@@ -95,7 +95,7 @@ class BMEdge:
     """ True when this edge is manifold (read-only)."""
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed)."""
+    """ True when this element is valid (hasn't been freed or removed)."""
 
     is_wire: bool
     """ True when this edge is not connected to any faces (read-only)."""
@@ -122,7 +122,7 @@ class BMEdge:
     """ Verts this edge uses (always 2), (read-only)."""
 
     def calc_face_angle(self, fallback: typing.Any | None = None) -> float:
-        """
+        """Return the angle between this edges two connected faces.
 
                 :param fallback: return this when the edge doesnt have 2 faces
         (instead of raising a `ValueError`).
@@ -130,7 +130,7 @@ class BMEdge:
         """
 
     def calc_face_angle_signed(self, fallback: typing.Any | None = None) -> float:
-        """
+        """Return the signed angle between this edges two connected faces.
 
                 :param fallback: return this when the edge doesnt have 2 faces
         (instead of raising a `ValueError`).
@@ -138,7 +138,7 @@ class BMEdge:
         """
 
     def calc_length(self) -> float:
-        """
+        """Return the length of the edge.
 
         :return: The length between both verts.
         """
@@ -154,7 +154,7 @@ class BMEdge:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other: Another element of matching type to copy from.
+        :param other: Another element of the same type to copy from.
         """
 
     def hide_set(self, hide: bool) -> None:
@@ -210,7 +210,7 @@ class BMEdgeSeq:
     """ custom-data layers (read-only)."""
 
     def ensure_lookup_table(self) -> None:
-        """Ensure internal data needed for int subscription is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
+        """Ensure internal data needed for int subscript access is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
 
     def get(
         self,
@@ -219,9 +219,9 @@ class BMEdgeSeq:
     ) -> BMEdge | None:
         """Return an edge which uses the verts passed.
 
-        :param verts: Sequence of verts.
+        :param verts: Pair of verts (exactly 2).
         :param fallback: Return this value if nothing is found.
-        :return: The edge found or None
+        :return: The edge found or the fallback value.
         """
 
     def index_update(self) -> None:
@@ -304,7 +304,7 @@ class BMEditSelSeq:
         """Empties the selection history."""
 
     def discard(self, element: BMEdge | BMFace | BMVert) -> None:
-        """Discard an element from the selection history.Like remove but doesnt raise an error when the elements not in the selection list.
+        """Discard an element from the selection history.Like remove but doesnt raise an error when the element is not in the selection list.
 
         :param element: The element to discard.
         """
@@ -368,7 +368,7 @@ class BMFace:
     """ Index of this element."""
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed)."""
+    """ True when this element is valid (hasn't been freed or removed)."""
 
     loops: typing.Any
     """ Loops of this face, (read-only)."""
@@ -397,7 +397,7 @@ class BMFace:
     def calc_area(self) -> float:
         """Return the area of the face.
 
-        :return: Return the area of the face.
+        :return: The area of the face.
         """
 
     def calc_center_bounds(self) -> mathutils.Vector:
@@ -421,7 +421,7 @@ class BMFace:
     def calc_perimeter(self) -> float:
         """Return the perimeter of the face.
 
-        :return: Return the perimeter of the face.
+        :return: The perimeter of the face.
         """
 
     def calc_tangent_edge(self) -> mathutils.Vector:
@@ -459,7 +459,7 @@ class BMFace:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other: Another element of matching type to copy from.
+        :param other: Another element of the same type to copy from.
         """
 
     def copy_from_face_interp(
@@ -495,7 +495,7 @@ class BMFace:
         """
 
     def uv_select_set(self, select: bool) -> None:
-        """Select the face.
+        """Set the UV face selection state.
 
         :param select: Select or de-select.
         """
@@ -532,7 +532,7 @@ class BMFaceSeq:
     """ custom-data layers (read-only)."""
 
     def ensure_lookup_table(self) -> None:
-        """Ensure internal data needed for int subscription is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
+        """Ensure internal data needed for int subscript access is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
 
     def get(
         self,
@@ -543,7 +543,7 @@ class BMFaceSeq:
 
         :param verts: Sequence of verts.
         :param fallback: Return this value if nothing is found.
-        :return: The face found or None
+        :return: The face found or the fallback value.
         """
 
     def index_update(self) -> None:
@@ -740,7 +740,7 @@ class BMLayerCollection[_GenericType1]:
 
     active: BMLayerItem[_GenericType1]
     is_singleton: bool
-    """ True if there can exists only one layer of this type (read-only)."""
+    """ True if there can exist only one layer of this type (read-only)."""
 
     def get[_GenericType2](
         self, key: str, default: _GenericType2 = None
@@ -755,7 +755,7 @@ class BMLayerCollection[_GenericType1]:
         """
 
     def items(self) -> list[str, BMLayerItem[_GenericType1]]:
-        """Return the identifiers of collection members
+        """Return the (key, value) pairs of collection members
         (matching Pythons dict.items() functionality).
 
                 :return: (key, value) pairs for each member of this collection.
@@ -791,14 +791,14 @@ class BMLayerCollection[_GenericType1]:
     def verify(self) -> BMLayerItem[_GenericType1]:
         """Create a new layer or return an existing active layer
 
-        :return: The newly verified layer.
+        :return: The newly created layer, or the existing active layer.
         """
 
 class BMLayerItem[_GenericType1]:
-    """Exposes a single custom data layer, their main purpose is for use as item accessors to custom-data when used with vert/edge/face/loop data."""
+    """Exposes a single custom data layer, its main purpose is for use as an item accessor to custom-data when used with vert/edge/face/loop data."""
 
     name: str
-    """ The layers unique name (read-only)."""
+    """ The layer's unique name (read-only)."""
 
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy data from another layer.
@@ -813,7 +813,7 @@ class BMLoop:
     """ The loop's edge (between this loop and the next), (read-only)."""
 
     face: BMFace
-    """ The face this loop makes (read-only)."""
+    """ The face this loop belongs to (read-only)."""
 
     index: int
     """ Index of this element."""
@@ -822,7 +822,7 @@ class BMLoop:
     """ True when this loop is at the convex corner of a face, depends on a valid face normal (read-only)."""
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed)."""
+    """ True when this element is valid (hasn't been freed or removed)."""
 
     link_loop_next: typing_extensions.Self
     """ The next face corner (read-only)."""
@@ -843,10 +843,10 @@ class BMLoop:
     """ Generic attribute scripts can use for own logic"""
 
     uv_select_edge: bool
-    """ UV selected state of this element."""
+    """ UV edge selected state of this loop."""
 
     uv_select_vert: bool
-    """ UV selected state of this element."""
+    """ UV vertex selected state of this loop."""
 
     vert: BMVert
     """ The loop's vertex (read-only)."""
@@ -875,7 +875,7 @@ class BMLoop:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other: Another element of matching type to copy from.
+        :param other: Another element of the same type to copy from.
         """
 
     def copy_from_face_interp(
@@ -895,7 +895,7 @@ class BMLoop:
         """
 
     def uv_select_vert_set(self, select: bool) -> None:
-        """Select the UV vertex.
+        """Set the UV vertex selection state.
 
         :param select: Select or de-select.
         """
@@ -961,7 +961,7 @@ class BMLoopUV:
     """ UV pin state."""
 
     uv: mathutils.Vector
-    """ Loops UV (as a 2D Vector)."""
+    """ Loop UV (as a 2D Vector)."""
 
 class BMVert:
     """The BMesh vertex type"""
@@ -982,7 +982,7 @@ class BMVert:
     """ True when this vertex is manifold (read-only)."""
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed)."""
+    """ True when this element is valid (hasn't been freed or removed)."""
 
     is_wire: bool
     """ True when this vertex is not connected to any faces (read-only)."""
@@ -1024,7 +1024,7 @@ class BMVert:
     def copy_from(self, other: typing_extensions.Self) -> None:
         """Copy values from another element of matching type.
 
-        :param other: Another element of matching type to copy from.
+        :param other: Another element of the same type to copy from.
         """
 
     def copy_from_face_interp(self, face: BMFace) -> None:
@@ -1091,7 +1091,7 @@ class BMVertSeq:
     """ custom-data layers (read-only)."""
 
     def ensure_lookup_table(self) -> None:
-        """Ensure internal data needed for int subscription is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
+        """Ensure internal data needed for int subscript access is initialized with verts/edges/faces, eg bm.verts[index].This needs to be called again after adding/removing data in this sequence."""
 
     def index_update(self) -> None:
         """Initialize the index values of this sequence.This is the equivalent of looping over all elements and assigning the index values."""
@@ -1171,7 +1171,7 @@ class BMesh:
     """ This mesh's face sequence (read-only)."""
 
     is_valid: bool
-    """ True when this element is valid (hasn't been removed)."""
+    """ True when this element is valid (hasn't been freed or removed)."""
 
     is_wrapped: bool
     """ True when this mesh is owned by blender (typically the editmode BMesh)."""
@@ -1295,7 +1295,7 @@ class BMesh:
         """
 
     def uv_select_flush_mode(self, *, flush_down: bool = False) -> None:
-        """Flush selection based on the current mode `bmesh.types.BMesh.select_mode`.
+        """Flush UV selection based on the current mode `bmesh.types.BMesh.select_mode`.
 
         :param flush_down: Flush selection down from faces to edges & verts or from edges to verts. This option is ignored when vertex selection mode is enabled.
         """

@@ -2,31 +2,34 @@
 
 import hashlib
 import logging
-from enum import Enum
 from io import BytesIO
 from pathlib import Path
 from typing import Any, Dict, Iterator, List, Optional, Tuple, Union
 
-from docling_core.types.doc.base import BoundingBox, CoordOrigin
+from docling_core.types.doc.base import BoundingBox, CoordOrigin, ImageRefMode
+from docling_core.types.doc.document import ImageRef
 from docling_core.types.doc.page import (
     BitmapResource,
     BoundingRectangle,
+    ColorRGBA,
     Coord2D,
-    ParsedPdfDocument,
-    PdfLine,
+    PdfHyperlink,
     PdfMetaData,
     PdfPageBoundaryType,
     PdfPageGeometry,
+    PdfShape,
     PdfTableOfContents,
     PdfTextCell,
+    PdfWidget,
     SegmentedPdfPage,
     TextCell,
     TextDirection,
 )
+from PIL import Image as PILImage
 from pydantic import BaseModel, ConfigDict
 
+from docling_parse.pdf_parsers import DecodePageConfig  # type: ignore[import]
 from docling_parse.pdf_parsers import pdf_parser  # type: ignore[import]
-from docling_parse.pdf_parsers import pdf_sanitizer  # type: ignore[import]
 from docling_parse.pdf_parsers import (  # type: ignore[import]
     TIMING_KEY_CREATE_LINE_CELLS,
     TIMING_KEY_CREATE_WORD_CELLS,
@@ -37,9 +40,11 @@ from docling_parse.pdf_parsers import (  # type: ignore[import]
     TIMING_KEY_DECODE_FONTS,
     TIMING_KEY_DECODE_FONTS_TOTAL,
     TIMING_KEY_DECODE_GRPHS,
+    TIMING_KEY_DECODE_GRPHS_TOTAL,
     TIMING_KEY_DECODE_PAGE,
     TIMING_KEY_DECODE_RESOURCES,
     TIMING_KEY_DECODE_XOBJECTS,
+    TIMING_KEY_DECODE_XOBJECTS_TOTAL,
     TIMING_KEY_EXTRACT_ANNOTS_JSON,
     TIMING_KEY_PROCESS_DOCUMENT_FROM_BYTESIO,
     TIMING_KEY_PROCESS_DOCUMENT_FROM_FILE,
@@ -49,7 +54,9 @@ from docling_parse.pdf_parsers import (  # type: ignore[import]
     TIMING_KEY_SANITIZE_ORIENTATION,
     TIMING_KEY_TO_JSON_PAGE,
     TIMING_PREFIX_DECODE_FONT,
+    TIMING_PREFIX_DECODE_GRPH,
     TIMING_PREFIX_DECODE_PAGE,
+    TIMING_PREFIX_DECODE_XOBJECT,
     TIMING_PREFIX_DECODING_PAGE,
     get_decode_page_timing_keys,
     get_static_timing_keys,
@@ -58,11 +65,6 @@ from docling_parse.pdf_parsers import (  # type: ignore[import]
 
 # Configure logging
 _log = logging.getLogger(__name__)
-
-
-class CONVERSION_MODE(Enum):
-    JSON = "JSON"
-    TYPED = "TYPED"
 
 
 class PdfTocEntry(BaseModel):
@@ -167,31 +169,13 @@ class Timings(BaseModel):
         """Get all static timing key names."""
         return get_static_timing_keys()
 
+    @staticmethod
+    def decode_page_keys() -> List[str]:
+        """Get timing keys used in decode_page method (in order, excluding global timer)."""
+        return get_decode_page_timing_keys()
+
 
 class PdfDocument:
-
-    def iterate_pages(
-        self,
-        *,
-        mode: CONVERSION_MODE = CONVERSION_MODE.TYPED,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-    ) -> Iterator[Tuple[int, SegmentedPdfPage]]:
-        for page_no in range(self.number_of_pages()):
-            yield page_no + 1, self.get_page(
-                page_no + 1,
-                mode=mode,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-            )
 
     def __init__(
         self,
@@ -206,6 +190,12 @@ class PdfDocument:
         self._toc: Optional[PdfTableOfContents] = None
         self._meta: Optional[PdfMetaData] = None
         self._annotations: Optional[PdfAnnotations] = None
+
+    def _default_config(self) -> DecodePageConfig:
+        config = DecodePageConfig()
+        config.page_boundary = self._boundary_type.value
+        config.do_sanitization = False
+        return config
 
     def is_loaded(self) -> bool:
         return self._parser.is_loaded(key=self._key)
@@ -269,6 +259,19 @@ class PdfDocument:
         else:
             raise RuntimeError("This document is not loaded.")
 
+    def iterate_pages(
+        self,
+        *,
+        config: Optional[DecodePageConfig] = None,
+    ) -> Iterator[Tuple[int, SegmentedPdfPage]]:
+        if config is None:
+            config = self._default_config()
+        for page_no in range(self.number_of_pages()):
+            yield page_no + 1, self.get_page(
+                page_no + 1,
+                config=config,
+            )
+
     def _to_table_of_contents(self, toc: dict) -> List[PdfTableOfContents]:
 
         result = []
@@ -331,51 +334,18 @@ class PdfDocument:
         self,
         page_no: int,
         *,
-        mode: CONVERSION_MODE = CONVERSION_MODE.TYPED,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
+        config: Optional[DecodePageConfig] = None,
     ) -> SegmentedPdfPage:
-        """Unified page getter. Dispatches to JSON or TYPED pipeline based on mode."""
-        if mode == CONVERSION_MODE.JSON:
-            return self._get_page_json(
-                page_no,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-                do_sanitization=do_sanitization,
-            )
-        else:
-            return self._get_page_typed(
-                page_no,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-                do_sanitization=do_sanitization,
-            )
+        """Get page using typed API (zero-copy from C++)."""
+        if config is None:
+            config = self._default_config()
+        return self._get_page_typed(page_no, config=config)
 
     def get_page_with_timings(
         self,
         page_no: int,
         *,
-        mode: CONVERSION_MODE = CONVERSION_MODE.TYPED,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
+        config: Optional[DecodePageConfig] = None,
     ) -> Tuple[SegmentedPdfPage, Timings]:
         """Get page along with timing information.
 
@@ -386,67 +356,33 @@ class PdfDocument:
 
         Args:
             page_no: Page number (1-indexed).
-            mode: Conversion mode (JSON or TYPED).
-            keep_chars: Keep individual character cells.
-            keep_lines: Keep graphic lines.
-            keep_bitmaps: Keep bitmap resources.
-            create_words: Create word cells from char cells.
-            create_textlines: Create textline cells from char cells.
-            enforce_same_font: Enforce same font when creating words/lines.
-            do_sanitization: Apply sanitization.
+            config: Page decoding configuration. If None, uses default config.
 
         Returns:
             Tuple of (SegmentedPdfPage, Timings) with the parsed page data and timing info.
         """
+        if config is None:
+            config = self._default_config()
+
         if not (1 <= page_no <= self.number_of_pages()):
             raise ValueError(
                 f"incorrect page_no: {page_no} for key={self._key} "
                 f"(min:1, max:{self.number_of_pages()})"
             )
 
-        if mode == CONVERSION_MODE.TYPED:
-            return self._get_page_with_timings_typed(
-                page_no,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-                do_sanitization=do_sanitization,
-            )
-        else:
-            return self._get_page_with_timings_json(
-                page_no,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-                do_sanitization=do_sanitization,
-            )
+        return self._get_page_with_timings_typed(page_no, config=config)
 
     def _get_page_with_timings_typed(
         self,
         page_no: int,
         *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
+        config: DecodePageConfig,
     ) -> Tuple[SegmentedPdfPage, Timings]:
         """Get page with timings using typed API."""
         page_decoder = self._parser.get_page_decoder(
             key=self._key,
             page=page_no - 1,
-            page_boundary=self._boundary_type,
-            do_sanitization=do_sanitization,
-            create_word_cells=create_words,
-            create_line_cells=create_textlines,
+            config=config,
         )
 
         if page_decoder is None:
@@ -454,12 +390,7 @@ class PdfDocument:
 
         segmented_page = self._to_segmented_page_from_decoder(
             page_decoder=page_decoder,
-            keep_chars=keep_chars,
-            keep_lines=keep_lines,
-            keep_bitmaps=keep_bitmaps,
-            create_words=create_words,
-            create_textlines=create_textlines,
-            enforce_same_font=enforce_same_font,
+            config=config,
         )
 
         # Get timings from the page decoder
@@ -469,383 +400,11 @@ class PdfDocument:
 
         return segmented_page, timings
 
-    def _get_page_with_timings_json(
-        self,
-        page_no: int,
-        *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
-    ) -> Tuple[SegmentedPdfPage, Timings]:
-        """Get page with timings using JSON API."""
-        doc_dict = self._parser.parse_pdf_from_key_on_page(
-            key=self._key,
-            page=page_no - 1,
-            page_boundary=self._boundary_type,
-            do_sanitization=do_sanitization,
-            keep_char_cells=keep_chars,
-            keep_lines=keep_lines,
-            keep_bitmaps=keep_bitmaps,
-            create_word_cells=create_words,
-            create_line_cells=create_textlines,
-        )
-
-        # Extract page and timings from doc_dict
-        timings_data: Dict[str, float] = {}
-
-        # Get document-level timings
-        if "timings" in doc_dict:
-            timings_data.update(doc_dict["timings"])
-
-        for page in doc_dict["pages"]:
-            # Get page-level timings
-            if "timings" in page:
-                timings_data.update(page["timings"])
-
-            segmented_page = self._to_segmented_page(
-                page=page["original"],
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
-            )
-
-            # Note: JSON mode only provides summed timings, not raw timing vectors
-            return segmented_page, Timings(data=timings_data)
-
-        raise ValueError(f"No pages found in document for page {page_no}")
-
-    def _get_page_json(
-        self,
-        page_no: int,
-        *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
-    ) -> SegmentedPdfPage:
-        if page_no in self._pages.keys():
-            return self._pages[page_no]
-        else:
-            if 1 <= page_no <= self.number_of_pages():
-
-                doc_dict = self._parser.parse_pdf_from_key_on_page(
-                    key=self._key,
-                    page=page_no - 1,
-                    page_boundary=self._boundary_type,
-                    do_sanitization=do_sanitization,
-                    keep_char_cells=keep_chars,
-                    keep_lines=keep_lines,
-                    keep_bitmaps=keep_bitmaps,
-                    create_word_cells=create_words,
-                    create_line_cells=create_textlines,
-                )
-                for pi, page in enumerate(
-                    doc_dict["pages"]
-                ):  # only one page is expected
-                    print(page.keys())
-
-                    self._pages[page_no] = self._to_segmented_page(
-                        page=page["original"],
-                        keep_chars=keep_chars,
-                        keep_lines=keep_lines,
-                        keep_bitmaps=keep_bitmaps,
-                        create_words=create_words,
-                        create_textlines=create_textlines,
-                        enforce_same_font=enforce_same_font,
-                    )  # put on cache
-                    return self._pages[page_no]
-
-        raise ValueError(
-            f"incorrect page_no: {page_no} for key={self._key} (min:1, max:{self.number_of_pages()})"
-        )
-
-        return SegmentedPdfPage()
-
-    def load_all_pages(self, create_words: bool = True, create_lines: bool = True):
-        doc_dict = self._parser.parse_pdf_from_key(
-            key=self._key, page_boundary=self._boundary_type, do_sanitization=False
-        )
-        for pi, page in enumerate(doc_dict["pages"]):
-            assert "original" in page, "'original' in page"
-
-            # will need to be changed once we remove the original/sanitized from C++
-            self._pages[pi + 1] = self._to_segmented_page(
-                page["original"],
-                create_words=create_words,
-                create_textlines=create_lines,
-            )  # put on cache
-
-    def _to_page_geometry(self, dimension: dict) -> PdfPageGeometry:
-
-        boundary_type: PdfPageBoundaryType = PdfPageBoundaryType(
-            dimension["page_boundary"]
-        )
-
-        art_bbox = BoundingBox(
-            l=dimension["rectangles"]["art-bbox"][0],
-            b=dimension["rectangles"]["art-bbox"][1],
-            r=dimension["rectangles"]["art-bbox"][2],
-            t=dimension["rectangles"]["art-bbox"][3],
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        media_bbox = BoundingBox(
-            l=dimension["rectangles"]["media-bbox"][0],
-            b=dimension["rectangles"]["media-bbox"][1],
-            r=dimension["rectangles"]["media-bbox"][2],
-            t=dimension["rectangles"]["media-bbox"][3],
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        bleed_bbox = BoundingBox(
-            l=dimension["rectangles"]["bleed-bbox"][0],
-            b=dimension["rectangles"]["bleed-bbox"][1],
-            r=dimension["rectangles"]["bleed-bbox"][2],
-            t=dimension["rectangles"]["bleed-bbox"][3],
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        trim_bbox = BoundingBox(
-            l=dimension["rectangles"]["trim-bbox"][0],
-            b=dimension["rectangles"]["trim-bbox"][1],
-            r=dimension["rectangles"]["trim-bbox"][2],
-            t=dimension["rectangles"]["trim-bbox"][3],
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        crop_bbox = BoundingBox(
-            l=dimension["rectangles"]["crop-bbox"][0],
-            b=dimension["rectangles"]["crop-bbox"][1],
-            r=dimension["rectangles"]["crop-bbox"][2],
-            t=dimension["rectangles"]["crop-bbox"][3],
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        # Fixme: The boundary type to which this rect refers should accept a user argument
-        # TODO: Why is this a BoundingRectangle not a BoundingBox?
-        rect = BoundingRectangle(
-            r_x0=crop_bbox.l,
-            r_y0=crop_bbox.b,
-            r_x1=crop_bbox.r,
-            r_y1=crop_bbox.b,
-            r_x2=crop_bbox.r,
-            r_y2=crop_bbox.t,
-            r_x3=crop_bbox.l,
-            r_y3=crop_bbox.t,
-            coord_origin=CoordOrigin.BOTTOMLEFT,
-        )
-
-        return PdfPageGeometry(
-            angle=dimension["angle"],
-            boundary_type=boundary_type,
-            rect=rect,
-            art_bbox=art_bbox,
-            media_bbox=media_bbox,
-            trim_bbox=trim_bbox,
-            crop_bbox=crop_bbox,
-            bleed_bbox=bleed_bbox,
-        )
-
-    def _to_cells(self, cells: dict) -> List[Union[PdfTextCell, TextCell]]:
-        assert "data" in cells, '"data" in cells'
-        assert "header" in cells, '"header" in cells'
-
-        data = cells["data"]
-        header = cells["header"]
-
-        # Pre-compute header indices as local variables
-        r_x0_idx = header.index("r_x0")
-        r_y0_idx = header.index("r_y0")
-        r_x1_idx = header.index("r_x1")
-        r_y1_idx = header.index("r_y1")
-        r_x2_idx = header.index("r_x2")
-        r_y2_idx = header.index("r_y2")
-        r_x3_idx = header.index("r_x3")
-        r_y3_idx = header.index("r_y3")
-        text_idx = header.index("text")
-        font_key_idx = header.index("font-key")
-        font_name_idx = header.index("font-name")
-        widget_idx = header.index("widget")
-        left_to_right_idx = header.index("left_to_right")
-        rendering_mode_idx = header.index("rendering-mode")
-
-        # Pre-allocate list with exact size
-        data_len = len(data)
-        result: List[Union[PdfTextCell, TextCell]] = [None] * data_len  # type: ignore
-
-        for ind, row in enumerate(data):
-            rect = BoundingRectangle(
-                r_x0=row[r_x0_idx],
-                r_y0=row[r_y0_idx],
-                r_x1=row[r_x1_idx],
-                r_y1=row[r_y1_idx],
-                r_x2=row[r_x2_idx],
-                r_y2=row[r_y2_idx],
-                r_x3=row[r_x3_idx],
-                r_y3=row[r_y3_idx],
-            )
-
-            result[ind] = PdfTextCell(
-                rect=rect,
-                text=row[text_idx],
-                orig=row[text_idx],
-                font_key=row[font_key_idx],
-                font_name=row[font_name_idx],
-                widget=row[widget_idx],
-                text_direction=(
-                    TextDirection.LEFT_TO_RIGHT
-                    if row[left_to_right_idx]
-                    else TextDirection.RIGHT_TO_LEFT
-                ),
-                index=ind,
-                rendering_mode=row[rendering_mode_idx],
-            )
-
-        return result
-
-    def _to_bitmap_resources(self, images: dict) -> List[BitmapResource]:
-
-        assert "data" in images, '"data" in images'
-        assert "header" in images, '"header" in images'
-
-        data = images["data"]
-        header = images["header"]
-
-        result: List[BitmapResource] = []
-        for ind, row in enumerate(data):
-            rect = BoundingRectangle(
-                r_x0=row[header.index(f"x0")],
-                r_y0=row[header.index(f"y0")],
-                r_x1=row[header.index(f"x1")],
-                r_y1=row[header.index(f"y0")],
-                r_x2=row[header.index(f"x1")],
-                r_y2=row[header.index(f"y1")],
-                r_x3=row[header.index(f"x0")],
-                r_y3=row[header.index(f"y1")],
-            )
-            image = BitmapResource(index=ind, rect=rect, uri=None)
-            result.append(image)
-
-        return result
-
-    def _to_lines(self, data: dict) -> List[PdfLine]:
-
-        result: List[PdfLine] = []
-        for ind, item in enumerate(data):
-
-            for l in range(0, len(item["i"]), 2):
-                i0: int = item["i"][l + 0]
-                i1: int = item["i"][l + 1]
-
-                points: List[Coord2D] = []
-                for k in range(i0, i1):
-                    points.append(Coord2D(item["x"][k], item["y"][k]))
-
-                line = PdfLine(
-                    index=ind,
-                    parent_id=l,
-                    points=points,
-                )
-                result.append(line)
-
-        return result
-
-    def _to_segmented_page(
-        self,
-        page: dict,
-        *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool,
-        create_textlines: bool,
-        enforce_same_font: bool = True,
-    ) -> SegmentedPdfPage:
-
-        # FIXME: this might be inefficient ...
-        """
-        char_cells = self._to_cells(page["cells"])
-        segmented_page = SegmentedPdfPage(
-            dimension=self._to_page_geometry(page["dimension"]),
-            char_cells=char_cells,
-            word_cells=[],
-            textline_cells=[],
-            has_chars=len(char_cells) > 0,
-            bitmap_resources=self._to_bitmap_resources(page["images"]),
-            lines=self._to_lines(page["lines"]),
-        )
-
-        if create_words:
-            self._create_word_cells(segmented_page, enforce_same_font=enforce_same_font)
-
-        if create_textlines:
-            self._create_textline_cells(
-                segmented_page, enforce_same_font=enforce_same_font
-            )
-        """
-
-        char_cells = []
-        if keep_chars:
-            assert "cells" in page
-            char_cells = self._to_cells(page["cells"])
-
-        lines = []
-        if keep_lines:
-            assert "lines" in page
-            lines = self._to_lines(page["lines"])
-
-        bitmap_resources = []
-        if keep_bitmaps:
-            assert "images" in page
-            bitmap_resources = self._to_bitmap_resources(page["images"])
-
-        segmented_page = SegmentedPdfPage(
-            dimension=self._to_page_geometry(page["dimension"]),
-            char_cells=char_cells,
-            word_cells=[],
-            textline_cells=[],
-            has_chars=len(char_cells) > 0,
-            bitmap_resources=bitmap_resources,  # self._to_bitmap_resources(page["images"]),
-            lines=lines,  # self._to_lines(page["lines"]),
-        )
-
-        if create_words and ("word_cells" in page):
-            segmented_page.word_cells = self._to_cells(page["word_cells"])
-            segmented_page.has_words = len(segmented_page.word_cells) > 0
-        elif keep_chars:
-            _log.warning(
-                "`words` will be created for segmented_page in an inefficient way!"
-            )
-            self._create_word_cells(segmented_page, enforce_same_font=enforce_same_font)
-        # else:
-        #    _log.warning("No `words` will be created for segmented_page")
-
-        if create_textlines and ("line_cells" in page):
-            segmented_page.textline_cells = self._to_cells(page["line_cells"])
-            segmented_page.has_lines = len(segmented_page.textline_cells) > 0
-        elif keep_chars:
-            _log.warning(
-                "`text_lines` will be created for segmented_page in an inefficient way!"
-            )
-            self._create_textline_cells(
-                segmented_page, enforce_same_font=enforce_same_font
-            )
-        # else:
-        #    _log.warning("No `text_lines` will be created for segmented_page")
-
-        return segmented_page
-
-    # ============= Typed API Methods (zero-copy from C++) =============
+    def load_all_pages(self, config: Optional[DecodePageConfig] = None):
+        if config is None:
+            config = self._default_config()
+        for page_no in range(1, self.number_of_pages() + 1):
+            self.get_page(page_no, config=config)
 
     def _to_page_geometry_from_decoder(self, page_dim) -> PdfPageGeometry:
         """Convert typed PdfPageDimension to PdfPageGeometry."""
@@ -868,13 +427,25 @@ class PdfDocument:
             coord_origin=CoordOrigin.BOTTOMLEFT,
         )
         art_bbox_obj = BoundingBox(
-            l=crop_bbox[0], b=crop_bbox[1], r=crop_bbox[2], t=crop_bbox[3]
+            l=crop_bbox[0],
+            b=crop_bbox[1],
+            r=crop_bbox[2],
+            t=crop_bbox[3],
+            coord_origin=CoordOrigin.BOTTOMLEFT,
         )
         media_bbox_obj = BoundingBox(
-            l=media_bbox[0], b=media_bbox[1], r=media_bbox[2], t=media_bbox[3]
+            l=media_bbox[0],
+            b=media_bbox[1],
+            r=media_bbox[2],
+            t=media_bbox[3],
+            coord_origin=CoordOrigin.BOTTOMLEFT,
         )
         crop_bbox_obj = BoundingBox(
-            l=crop_bbox[0], b=crop_bbox[1], r=crop_bbox[2], t=crop_bbox[3]
+            l=crop_bbox[0],
+            b=crop_bbox[1],
+            r=crop_bbox[2],
+            t=crop_bbox[3],
+            coord_origin=CoordOrigin.BOTTOMLEFT,
         )
 
         return PdfPageGeometry(
@@ -926,14 +497,23 @@ class PdfDocument:
 
         return result
 
-    def _to_lines_from_decoder(self, lines_container) -> List[PdfLine]:
-        """Convert typed PdfLines container to list of PdfLine objects."""
-        result: List[PdfLine] = []
+    def _to_shapes_from_decoder(self, shapes_container) -> List[PdfShape]:
+        """Convert typed PdfShapes container to list of PdfShape objects."""
+        result: List[PdfShape] = []
 
-        for ind, line in enumerate(lines_container):
-            x_coords = line.get_x()
-            y_coords = line.get_y()
-            indices = line.get_i()
+        for ind, shape in enumerate(shapes_container):
+            x_coords = shape.get_x()
+            y_coords = shape.get_y()
+            indices = shape.get_i()
+
+            """
+            print(f"{ind}\tlen(indices): {len(indices)} -> {len(x_coords)} -> {shape.get_rgb_filling_ops()}")
+            if len(indices)>2:
+                print(indices)
+
+            if ind>8:
+                break
+            """
 
             for l in range(0, len(indices), 2):
                 i0: int = indices[l + 0]
@@ -943,12 +523,78 @@ class PdfDocument:
                 for k in range(i0, i1):
                     points.append(Coord2D(x_coords[k], y_coords[k]))
 
-                pdf_line = PdfLine(
+                rgb_s = shape.get_rgb_stroking_ops()
+                rgb_f = shape.get_rgb_filling_ops()
+
+                pdf_shape = PdfShape(
                     index=ind,
                     parent_id=l,
                     points=points,
+                    has_graphics_state=shape.get_has_graphics_state(),
+                    line_width=shape.get_line_width(),
+                    miter_limit=shape.get_miter_limit(),
+                    line_cap=shape.get_line_cap(),
+                    line_join=shape.get_line_join(),
+                    dash_phase=shape.get_dash_phase(),
+                    dash_array=list(shape.get_dash_array()),
+                    flatness=shape.get_flatness(),
+                    rgb_stroking=ColorRGBA(r=rgb_s[0], g=rgb_s[1], b=rgb_s[2]),
+                    rgb_filling=ColorRGBA(r=rgb_f[0], g=rgb_f[1], b=rgb_f[2]),
                 )
-                result.append(pdf_line)
+                result.append(pdf_shape)
+
+        return result
+
+    def _to_widgets_from_decoder(self, widgets_container) -> List[PdfWidget]:
+        """Convert typed PdfWidgets container to list of PdfWidget objects."""
+        result: List[PdfWidget] = []
+
+        for ind, widget in enumerate(widgets_container):
+            rect = BoundingRectangle(
+                r_x0=widget.x0,
+                r_y0=widget.y0,
+                r_x1=widget.x1,
+                r_y1=widget.y0,
+                r_x2=widget.x1,
+                r_y2=widget.y1,
+                r_x3=widget.x0,
+                r_y3=widget.y1,
+            )
+            result.append(
+                PdfWidget(
+                    index=ind,
+                    rect=rect,
+                    widget_text=widget.text or None,
+                    widget_description=widget.description or None,
+                    widget_field_name=widget.field_name or None,
+                    widget_field_type=widget.field_type or None,
+                )
+            )
+
+        return result
+
+    def _to_hyperlinks_from_decoder(self, hyperlinks_container) -> List[PdfHyperlink]:
+        """Convert typed PdfHyperlinks container to list of PdfHyperlink objects."""
+        result: List[PdfHyperlink] = []
+
+        for ind, hyperlink in enumerate(hyperlinks_container):
+            rect = BoundingRectangle(
+                r_x0=hyperlink.x0,
+                r_y0=hyperlink.y0,
+                r_x1=hyperlink.x1,
+                r_y1=hyperlink.y0,
+                r_x2=hyperlink.x1,
+                r_y2=hyperlink.y1,
+                r_x3=hyperlink.x0,
+                r_y3=hyperlink.y1,
+            )
+            result.append(
+                PdfHyperlink(
+                    index=ind,
+                    rect=rect,
+                    uri=hyperlink.uri or None,
+                )
+            )
 
         return result
 
@@ -969,7 +615,54 @@ class PdfDocument:
                 r_x3=image.x0,
                 r_y3=image.y1,
             )
-            bitmap = BitmapResource(index=ind, rect=rect, uri=None)
+
+            image_ref = None
+            mode = ImageRefMode.PLACEHOLDER
+
+            try:
+                image_bytes = image.get_image_as_bytes()
+
+                if image_bytes and len(image_bytes) > 0:
+                    fmt = image.get_image_format()
+                    pil_image: PILImage.Image | None = None
+
+                    if fmt in ("jpeg", "jp2"):
+                        pil_image = PILImage.open(BytesIO(image_bytes))
+                    elif fmt in ("raw", "jbig2"):
+                        pil_mode = image.get_pil_mode()
+                        w = image.image_width
+                        h = image.image_height
+                        if w > 0 and h > 0:
+                            pil_image = PILImage.frombytes(
+                                pil_mode, (w, h), image_bytes
+                            )
+
+                    if pil_image is not None:
+                        # Normalize to RGBA for consistent downstream handling
+                        if pil_image.mode != "RGBA":
+                            pil_image = pil_image.convert("RGBA")
+
+                        # Compute DPI from pixel dimensions and PDF bbox
+                        bbox_width = abs(image.x1 - image.x0)
+                        if bbox_width > 0 and image.image_width > 0:
+                            dpi = int(round(image.image_width * 72.0 / bbox_width))
+                        else:
+                            dpi = 72
+
+                        image_ref = ImageRef.from_pil(pil_image, dpi=dpi)
+                        mode = ImageRefMode.EMBEDDED
+
+            except Exception:
+                _log.debug(
+                    "Failed to extract image data for bitmap %d, "
+                    "falling back to placeholder",
+                    ind,
+                    exc_info=True,
+                )
+
+            bitmap = BitmapResource(
+                index=ind, rect=rect, uri=None, image=image_ref, mode=mode
+            )
             result.append(bitmap)
 
         return result
@@ -978,28 +671,19 @@ class PdfDocument:
         self,
         page_decoder,
         *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
+        config: DecodePageConfig,
     ) -> SegmentedPdfPage:
         """Convert typed PdfPageDecoder to SegmentedPdfPage (zero-copy path)."""
 
-        char_cells = []
-        if keep_chars:
-            char_cells = self._to_cells_from_decoder(page_decoder.get_char_cells())
-
-        lines = []
-        if keep_lines:
-            lines = self._to_lines_from_decoder(page_decoder.get_page_lines())
-
-        bitmap_resources = []
-        if keep_bitmaps:
-            bitmap_resources = self._to_bitmap_resources_from_decoder(
-                page_decoder.get_page_images()
-            )
+        char_cells = self._to_cells_from_decoder(page_decoder.get_char_cells())
+        shapes = self._to_shapes_from_decoder(page_decoder.get_page_shapes())
+        widgets = self._to_widgets_from_decoder(page_decoder.get_page_widgets())
+        hyperlinks = self._to_hyperlinks_from_decoder(
+            page_decoder.get_page_hyperlinks()
+        )
+        bitmap_resources = self._to_bitmap_resources_from_decoder(
+            page_decoder.get_page_images()
+        )
 
         segmented_page = SegmentedPdfPage(
             dimension=self._to_page_geometry_from_decoder(
@@ -1010,32 +694,22 @@ class PdfDocument:
             textline_cells=[],
             has_chars=len(char_cells) > 0,
             bitmap_resources=bitmap_resources,
-            lines=lines,
+            shapes=shapes,
+            widgets=widgets,
+            hyperlinks=hyperlinks,
         )
 
-        if create_words and page_decoder.has_word_cells():
+        if page_decoder.has_word_cells():
             segmented_page.word_cells = self._to_cells_from_decoder(
                 page_decoder.get_word_cells()
             )
             segmented_page.has_words = len(segmented_page.word_cells) > 0
-        elif keep_chars:
-            _log.warning(
-                "`words` will be created for segmented_page in an inefficient way!"
-            )
-            self._create_word_cells(segmented_page, enforce_same_font=enforce_same_font)
 
-        if create_textlines and page_decoder.has_line_cells():
+        if page_decoder.has_line_cells():
             segmented_page.textline_cells = self._to_cells_from_decoder(
                 page_decoder.get_line_cells()
             )
             segmented_page.has_lines = len(segmented_page.textline_cells) > 0
-        elif keep_chars:
-            _log.warning(
-                "`text_lines` will be created for segmented_page in an inefficient way!"
-            )
-            self._create_textline_cells(
-                segmented_page, enforce_same_font=enforce_same_font
-            )
 
         return segmented_page
 
@@ -1043,13 +717,7 @@ class PdfDocument:
         self,
         page_no: int,
         *,
-        keep_chars: bool = True,
-        keep_lines: bool = True,
-        keep_bitmaps: bool = True,
-        create_words: bool = True,
-        create_textlines: bool = True,
-        enforce_same_font: bool = True,
-        do_sanitization: bool = False,
+        config: DecodePageConfig,
     ) -> SegmentedPdfPage:
         """Get page using typed API (zero-copy from C++, faster than get_page).
 
@@ -1058,13 +726,7 @@ class PdfDocument:
 
         Args:
             page_no: Page number (1-indexed).
-            keep_chars: Keep individual character cells.
-            keep_lines: Keep graphic lines.
-            keep_bitmaps: Keep bitmap resources.
-            create_words: Create word cells from char cells.
-            create_textlines: Create textline cells from char cells.
-            enforce_same_font: Enforce same font when creating words/lines.
-            do_sanitization: Apply sanitization.
+            config: Page decoding configuration.
 
         Returns:
             SegmentedPdfPage with the parsed page data.
@@ -1076,10 +738,7 @@ class PdfDocument:
             page_decoder = self._parser.get_page_decoder(
                 key=self._key,
                 page=page_no - 1,
-                page_boundary=self._boundary_type,
-                do_sanitization=do_sanitization,
-                create_word_cells=create_words,
-                create_line_cells=create_textlines,
+                config=config,
             )
 
             if page_decoder is None:
@@ -1087,119 +746,13 @@ class PdfDocument:
 
             self._pages[page_no] = self._to_segmented_page_from_decoder(
                 page_decoder=page_decoder,
-                keep_chars=keep_chars,
-                keep_lines=keep_lines,
-                keep_bitmaps=keep_bitmaps,
-                create_words=create_words,
-                create_textlines=create_textlines,
-                enforce_same_font=enforce_same_font,
+                config=config,
             )
             return self._pages[page_no]
 
         raise ValueError(
             f"incorrect page_no: {page_no} for key={self._key} (min:1, max:{self.number_of_pages()})"
         )
-
-    def _create_word_cells(
-        self,
-        segmented_page: SegmentedPdfPage,
-        *,
-        horizontal_cell_tolerance: float = 1.0,
-        space_width_factor_for_merge: float = 0.33,
-        enforce_same_font: bool = True,
-        _loglevel: str = "fatal",
-    ):
-        if len(segmented_page.word_cells) > 0:
-            return
-
-        sanitizer = pdf_sanitizer(level=_loglevel)
-
-        char_data = []
-        for item in segmented_page.char_cells:
-            item_dict = item.model_dump(mode="json", by_alias=True, exclude_none=True)
-            item_dict["left_to_right"] = (
-                item.text_direction == TextDirection.LEFT_TO_RIGHT
-            )
-            char_data.append(item_dict)
-
-        sanitizer.set_char_cells(data=char_data)
-
-        # data = sanitizer.create_word_cells(space_width_factor_for_merge=0.33)
-        data = sanitizer.create_word_cells(
-            horizontal_cell_tolerance=horizontal_cell_tolerance,
-            space_width_factor_for_merge=space_width_factor_for_merge,
-            enforce_same_font=enforce_same_font,
-        )
-
-        segmented_page.word_cells = []
-        for item in data:
-            cell = PdfTextCell.model_validate(item)
-            segmented_page.word_cells.append(cell)
-
-        segmented_page.has_words = len(segmented_page.word_cells) > 0
-
-    def _create_textline_cells(
-        self,
-        segmented_page: SegmentedPdfPage,
-        *,
-        horizontal_cell_tolerance: float = 1.0,
-        space_width_factor_for_merge: float = 1.0,
-        space_width_factor_for_merge_with_space: float = 0.33,
-        enforce_same_font: bool = True,
-        _loglevel: str = "fatal",
-    ):
-        if len(segmented_page.textline_cells) > 0:
-            return
-
-        sanitizer = pdf_sanitizer(level=_loglevel)
-
-        char_data = []
-        for item in segmented_page.char_cells:
-            item_dict = item.model_dump(mode="json", by_alias=True, exclude_none=True)
-
-            # TODO changing representation for the C++ parser, need to update on C++ code.
-            item_dict["left_to_right"] = (
-                item.text_direction == TextDirection.LEFT_TO_RIGHT
-            )
-            item_dict["id"] = item.index
-
-            char_data.append(item_dict)
-
-        sanitizer.set_char_cells(data=char_data)
-
-        # data = sanitizer.create_line_cells()
-        data = sanitizer.create_line_cells(
-            horizontal_cell_tolerance=horizontal_cell_tolerance,
-            space_width_factor_for_merge=space_width_factor_for_merge,
-            space_width_factor_for_merge_with_space=space_width_factor_for_merge_with_space,
-            enforce_same_font=enforce_same_font,
-        )
-
-        segmented_page.textline_cells = []
-        for item in data:
-            cell = PdfTextCell.model_validate(item)
-            segmented_page.textline_cells.append(cell)
-
-        segmented_page.has_lines = len(segmented_page.textline_cells) > 0
-
-    def _to_parsed_document(
-        self,
-        doc_dict: dict,
-        page_no: int = 1,
-        create_words: bool = False,
-        create_lines: bool = True,
-    ) -> ParsedPdfDocument:
-
-        parsed_doc = ParsedPdfDocument()
-
-        for pi, page in enumerate(doc_dict["pages"]):
-            parsed_doc.pages[page_no + pi] = self._to_segmented_page(
-                page["original"],
-                create_words=create_words,
-                create_textlines=create_lines,
-            )
-
-        return parsed_doc
 
 
 class DoclingPdfParser:

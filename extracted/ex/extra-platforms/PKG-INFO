@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 9.1.0
-Summary: 🔎 Detect architectures, platforms, shells and CI systems, grouped by family
-Keywords: Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Command Prompt,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,FreeBSD,Gentoo Linux,GitHub Actions runner,GitLab CI,GNU/Hurd,Guix System,Haiku,Heroku CI,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),Kali Linux,Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,tcsh,TeamCity,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,WebAssembly (32-bit),WebAssembly (64-bit),Windows,Windows Subsystem for Linux,x86-64 (AMD64),XenServer,Xonsh,Zsh
+Version: 9.2.0
+Summary: 🔎 Detect architectures, platforms, shells, terminals and CI systems, grouped by family
+Keywords: Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Buildkite,Buildroot,C shell,CachyOS,CentOS,Circle CI,Cirrus CI,CloudLinux OS,CodeBuild,Command Prompt,Contour,Cygwin,Dash,Debian,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix System,Haiku,Heroku CI,Hyper,IBM AIX,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,Tabby,tcsh,TeamCity,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-File: license
@@ -80,7 +80,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v9.1.0
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v9.2.0
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -100,9 +100,9 @@ Description-Content-Type: text/markdown
 
 ## What is Extra Platforms?
 
-Extra Platforms detects the runtime architecture, operating system (including Linux distribution), shell & CI environment, and exposes rich, cacheable metadata (version, codename, icon, canonical URL). It also groups them into reusable families.
+Extra Platforms detects the runtime architecture, operating system (including Linux distribution), shell, terminal & CI environment, and exposes rich, cacheable metadata (version, codename, icon, canonical URL). It also groups them into reusable families.
 
-- Accurate detection of architecture, OS/distribution, shell, and CI systems using lightweight, cacheable heuristics.
+- Accurate detection of architecture, OS/distribution, shell, terminal, and CI systems using lightweight, cacheable heuristics.
 - Rich metadata for platforms: version, codename, icon, canonical URL, and "like" relationships.
 - Grouping and API primitives: predefined families, `is_*()` predicates, `current_*()` accessors, and `Group` membership helpers.
 - Testing helpers: Pytest decorators and markers such as `@skip_<id>` and `@unless_<id>` for concise platform-aware tests.
@@ -127,6 +127,10 @@ extra-platforms 9.0.1
 
 ── Shell ── ℤ Zsh ──[ZSH]───────────────────────────────────
             id: zsh
+          (...)
+
+── Terminal ── 🍏 Apple Terminal ──[APPLE_TERMINAL]──────────
+            id: apple_terminal
           (...)
 
 ── CI ── ❓ Unknown CI ──[UNKNOWN_CI]────────────────────────
@@ -470,6 +474,46 @@ mindmap
 ```
 
 <!-- shell-mindmap-end -->
+
+## Terminals
+
+All recognized terminals:
+
+<!-- terminal-mindmap-start -->
+
+```mermaid
+---
+config: {"mindmap": {"padding": 5}}
+---
+mindmap
+    ((💻 ALL_TERMINALS))
+        )⬢ WEB_TERMINALS(
+            (⬡ HYPER)
+            (🐈 TABBY)
+            (🔵 VSCODE_TERMINAL)
+        )▦ NATIVE_TERMINALS(
+            (🍏 APPLE_TERMINAL)
+            (𝐆 GNOME_TERMINAL)
+            (⬛ ITERM2)
+            (💎 KONSOLE)
+            (🔀 TILIX)
+            (⊡ WINDOWS_TERMINAL)
+            (𝐗 XTERM)
+        )⧉ MULTIPLEXERS(
+            (📺 GNU_SCREEN)
+            (📟 TMUX)
+            (🪵 ZELLIJ)
+        )🎮 GPU_TERMINALS(
+            (🔳 ALACRITTY)
+            (◰ CONTOUR)
+            (🦶 FOOT)
+            (👻 GHOSTTY)
+            (🐱 KITTY)
+            (🏞️ RIO)
+            (🔡 WEZTERM)
+```
+
+<!-- terminal-mindmap-end -->
 
 ## CI systems
 

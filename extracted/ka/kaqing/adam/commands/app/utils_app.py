@@ -1,14 +1,14 @@
 import json
 from typing import Union
 
-from adam.app_session import AppSession
-from adam.apps import Apps
+from adam.utils_apps.app_clusters import AppClusters
+from adam.utils_apps.app_pods import AppPods
+from adam.utils_apps.app_session import AppSession
+from adam.utils_apps.apps import Apps
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
-from adam.repl_state import ReplState
 from adam.utils_log import log2
-from adam.utils_k8s.app_clusters import AppClusters
-from adam.utils_k8s.app_pods import AppPods
+from adam.utils_repl.repl_state import ReplState
 
 def app_cd_dirs(state: ReplState):
     if state.app_app:

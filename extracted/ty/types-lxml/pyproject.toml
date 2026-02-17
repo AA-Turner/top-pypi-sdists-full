@@ -43,7 +43,7 @@ classifiers = [
     "Typing :: Stubs Only",
     "Operating System :: OS Independent",
 ]
-version = "2026.1.1"
+version = "2026.2.16"
 
 [project.urls]
 homepage = "https://github.com/abelcheung/types-lxml"
@@ -58,44 +58,41 @@ dev = [
     "pook >= 2.0",
     "urllib3 >= 2.0",
     "pytest >= 7.0, < 9",
-    "pytest-mypy-plugins >= 3.2.0",
-    "pytest-revealtype-injector >= 0.7.1",
+    "pytest-revealtype-injector >= 0.9.0",
     "lxml >= 5.0",
     "rnc2rng",
     "hypothesis >= 6.127.7",
     "tzdata",
-    "ruff ~= 0.6",
     "mypy >= 1.18.1",
     "pyright >= 1.1.406",
     "basedpyright >= 1.31.6; platform_machine != \"i686\"",
     "ty >= 0.0.7",
     "pyrefly >= 0.46.3",
+    "pre-commit",
 ]
 
 [dependency-groups]
 basic = [
     "types-html5lib == 1.1.11.20251117",
     "typing_extensions == 4.15.0",
-    "cssselect == 1.3.0",
+    "cssselect == 1.3.0; python_version <  '3.10'",
+    "cssselect == 1.4.0; python_version >= '3.10'",
     "beautifulsoup4 == 4.14.3",
 ]
 mypy = [
     "mypy == 1.19.1",
 ]
 pyright = [
-    "pyright == 1.1.407",
+    "pyright == 1.1.408",
 ]
 basedpyright = [
-    "basedpyright == 1.36.2; platform_machine != 'i686'",
+    "basedpyright == 1.38.0; platform_machine != 'i686'",
 ]
 ty = [
-    "ty == 0.0.8",
+    "ty == 0.0.16",
 ]
 pyrefly = [
-    "pyrefly == 0.46.3",
-]
-format = [
-    "ruff ~= 0.6",
+    "pyrefly == 0.52.0",
 ]
 stub-test = [
     "pytest >= 7.0, < 9",
@@ -105,17 +102,22 @@ stub-test = [
 rt-test = [
     "html5lib == 1.1",
     "pook == 2.1.4",
-    "urllib3 == 2.6.2",
-    "hypothesis == 6.148.8",
+    "urllib3 == 2.6.3",
+    "hypothesis == 6.151.6",
     "tzdata",
     "pytest >= 7.0, < 9",
-    "pytest-revealtype-injector == 0.7.1",
+    "pytest-revealtype-injector == 0.9.0",
     "rnc2rng == 2.7.0",
     { include-group = "mypy" },
     { include-group = "pyright" },
     { include-group = "basedpyright" },
     { include-group = "ty" },
     { include-group = "pyrefly" },
+]
+mypy-stubtest = [
+    { include-group = "basic" },
+    { include-group = "mypy" },
+    "html5lib == 1.1",
 ]
 lxml50 = [
     "lxml == 5.0.2",
@@ -186,6 +188,17 @@ plugins = [
 
 [tool.ty.environment]
 python-version = "3.9"
+
+[tool.ty.analysis]
+respect-type-ignore-comments = false
+
+[[tool.ty.overrides]]
+include = [
+    "*",
+]
+
+[tool.ty.overrides.rules]
+unused-ignore-comment = "ignore"
 
 [[tool.ty.overrides]]
 include = [
@@ -284,6 +297,16 @@ of = [
     "tool",
     "tox",
     "labels",
+    "mypystubtest",
+]
+extend = true
+
+[[tool.tox.env_list]]
+replace = "ref"
+of = [
+    "tool",
+    "tox",
+    "labels",
     "static",
 ]
 extend = true
@@ -336,10 +359,19 @@ runtime = [
     "py313-rt-lxml54",
     "py313-rt-lxml60",
     "py314-rt-lxml60",
+    "pypy311-rt-lxml60",
+]
+mypystubtest = [
+    "py312-myst-lxml50",
+    "py312-myst-lxml51",
+    "py312-myst-lxml52",
+    "py312-myst-lxml53",
+    "py312-myst-lxml54",
+    "py312-myst-lxml60",
 ]
 
 [tool.tox.gh-actions]
-python = "    3.9: py39\n    3.10: py310\n    3.11: py311\n    3.12: py312\n    3.13: py313\n    3.14: py314\n    "
+python = "    3.9: py39\n    3.10: py310\n    3.11: py311\n    3.12: py312\n    3.13: py313\n    3.14: py314\n    pypy-3.11: pypy311\n    "
 
 [tool.tox.env_run_base.set_env]
 PYTHONUTF8 = "1"
@@ -587,6 +619,66 @@ base = [
     "_env_lxml60",
 ]
 
+[tool.tox.env.pypy311-rt-lxml60]
+base = [
+    "_env_rt_pypy",
+    "_env_lxml60",
+]
+
+[tool.tox.env.py312-myst-lxml50]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml50",
+]
+
+[tool.tox.env.py312-myst-lxml51]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml51",
+]
+
+[tool.tox.env.py312-myst-lxml52]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml52",
+]
+
+[tool.tox.env.py312-myst-lxml53]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml53",
+]
+
+[tool.tox.env.py312-myst-lxml54]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml54",
+]
+
+[tool.tox.env.py312-myst-lxml60]
+base = [
+    "_env_myst",
+]
+dependency_groups = [
+    "mypy-stubtest",
+    "lxml60",
+]
+
 [tool.tox.env.build-normal]
 pass_env = [
     "PDM_BUILD_SCM_VERSION",
@@ -657,15 +749,6 @@ package = "wheel"
 wheel_build_env = "{package_env}"
 commands = [
     [
-        "python",
-        "-m",
-        "mypy.stubtest",
-        "lxml",
-        "--ignore-unused-allowlist",
-        "--allowlist",
-        "tests/runtime/allowlist.txt",
-    ],
-    [
         "pytest",
         "--revealtype-disable-adapter=ty",
         "--revealtype-pyrefly-config=tests/runtime/pyrefly.toml",
@@ -673,6 +756,44 @@ commands = [
         { replace = "posargs", default = [
     "tests/runtime",
 ], extend = true },
+    ],
+]
+
+[tool.tox._env_rt_pypy]
+pass_env = [
+    "CI",
+    "TF_BUILD",
+]
+package = "wheel"
+wheel_build_env = "{package_env}"
+commands = [
+    [
+        "pytest",
+        "--revealtype-disable-adapter=ty",
+        "--revealtype-disable-adapter=mypy",
+        "--revealtype-pyrefly-config=tests/runtime/pyrefly.toml",
+        { replace = "posargs", default = [
+    "tests/runtime",
+], extend = true },
+    ],
+]
+
+[tool.tox._env_myst]
+pass_env = [
+    "CI",
+    "TF_BUILD",
+]
+package = "wheel"
+wheel_build_env = "{package_env}"
+commands = [
+    [
+        "python",
+        "-m",
+        "mypy.stubtest",
+        "lxml",
+        "--ignore-unused-allowlist",
+        "--allowlist",
+        "tests/runtime/allowlist.txt",
     ],
 ]
 

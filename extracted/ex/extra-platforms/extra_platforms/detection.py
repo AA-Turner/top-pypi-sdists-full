@@ -84,18 +84,21 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from typing import Iterable
 
-    from .trait import CI, Architecture, Platform, Shell, Trait
+    from .trait import CI, Architecture, Platform, Shell, Terminal, Trait
 
 
-@cache
-def _unrecognized_message() -> str:
-    """Generate a consistent message for unrecognized environments.
+def _unrecognized_message(report: bool = True) -> str:
+    """Generate a message for unrecognized environments.
 
     .. important::
         This message must contain all the primitives used in the ``detection`` module so
         maintainers can debug heuristics from user reports.
+
+    :param report: If ``True``, append a request to report the issue on GitHub.
+        Set to ``False`` for environments where the trait is legitimately absent
+        (e.g., no terminal in CI, no CI locally).
     """
-    return (
+    msg = (
         "Environment:\n"
         f"  sys.platform:          {sys.platform!r}\n"
         "  platform.platform:     "
@@ -104,10 +107,39 @@ def _unrecognized_message() -> str:
         f"  platform.uname:        {platform.uname()!r}\n"
         f"  platform.machine:      {platform.machine()!r}\n"
         f"  platform.architecture: {platform.architecture()!r}\n"
-        f"  distro.id:             {distro.id()!r}\n"
-        "\nPlease report this at https://github.com/kdeldycke/extra-platforms/issues to "
-        "improve detection heuristics."
+        f"  distro.id:             {distro.id()!r}"
     )
+    if report:
+        msg += (
+            "\n\nPlease report this at "
+            "https://github.com/kdeldycke/extra-platforms/issues "
+            "to improve detection heuristics."
+        )
+    return msg
+
+
+def _report_unrecognized(
+    trait_name: str,
+    *,
+    strict: bool,
+    expected: bool = True,
+) -> None:
+    """Log or raise on unrecognized trait detection.
+
+    :param trait_name: Human-readable name of the trait type (e.g., ``"architecture"``).
+    :param strict: If ``True``, raise :exc:`SystemError` instead of logging.
+    :param expected: If ``True``, the trait is always expected to be detected
+        (architecture, platform, shell), so an unrecognized result logs a ``WARNING``
+        and asks users to report the issue. If ``False`` (terminal, CI), the trait may
+        legitimately be absent, so only ``INFO`` is logged without a report request.
+    """
+    msg = f"Unrecognized {trait_name}: {_unrecognized_message(report=expected)}"
+    if strict:
+        raise SystemError(msg)
+    if expected:
+        logging.warning(msg)
+    else:
+        logging.info(msg)
 
 
 # =============================================================================
@@ -344,7 +376,7 @@ def is_android() -> bool:
 
     .. seealso::
         Source:
-        <https://github.com/kivy/kivy/blob/3c4b1dc84cdd930d352aab9be32c38e1c98bd5c6/kivy/utils.py#L435-L436>
+        <https://github.com/kivy/kivy/blob/master/kivy/utils.py>
     """
     return "ANDROID_ROOT" in environ or "P4A_BOOTSTRAP" in environ
 
@@ -971,6 +1003,147 @@ def is_unknown_shell() -> bool:
 
 
 # =============================================================================
+# Terminal detection heuristics
+# =============================================================================
+
+
+@cache
+def is_alacritty() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.ALACRITTY`."""
+    return "ALACRITTY_SOCKET" in environ or "ALACRITTY_WINDOW_ID" in environ
+
+
+@cache
+def is_apple_terminal() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.APPLE_TERMINAL`."""
+    return environ.get("TERM_PROGRAM") == "Apple_Terminal"
+
+
+@cache
+def is_contour() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.CONTOUR`."""
+    return environ.get("TERMINAL_NAME") == "contour"
+
+
+@cache
+def is_foot() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.FOOT`."""
+    return environ.get("TERM", "").startswith("foot")
+
+
+@cache
+def is_ghostty() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.GHOSTTY`."""
+    return "GHOSTTY_RESOURCES_DIR" in environ
+
+
+@cache
+def is_gnome_terminal() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.GNOME_TERMINAL`."""
+    return "GNOME_TERMINAL_SCREEN" in environ
+
+
+@cache
+def is_gnu_screen() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.GNU_SCREEN`."""
+    return "STY" in environ
+
+
+@cache
+def is_hyper() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.HYPER`."""
+    return environ.get("TERM_PROGRAM") == "Hyper"
+
+
+@cache
+def is_iterm2() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.ITERM2`."""
+    return "ITERM_SESSION_ID" in environ or environ.get("TERM_PROGRAM") == "iTerm.app"
+
+
+@cache
+def is_kitty() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.KITTY`."""
+    return "KITTY_WINDOW_ID" in environ
+
+
+@cache
+def is_konsole() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.KONSOLE`."""
+    return "KONSOLE_VERSION" in environ
+
+
+@cache
+def is_rio() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.RIO`."""
+    return "RIO_WINDOW_ID" in environ
+
+
+@cache
+def is_tabby() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.TABBY`."""
+    return "TABBY" in environ or environ.get("TERM_PROGRAM") == "Tabby"
+
+
+@cache
+def is_tilix() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.TILIX`."""
+    return "TILIX_ID" in environ
+
+
+@cache
+def is_tmux() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.TMUX`."""
+    return "TMUX" in environ
+
+
+@cache
+def is_unknown_terminal() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.UNKNOWN_TERMINAL`."""
+    # Lazy import to avoid circular dependencies.
+    from .terminal_data import UNKNOWN_TERMINAL
+
+    return current_terminal() is UNKNOWN_TERMINAL
+
+
+@cache
+def is_vscode_terminal() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.VSCODE_TERMINAL`."""
+    return environ.get("TERM_PROGRAM") == "vscode"
+
+
+@cache
+def is_wezterm() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.WEZTERM`."""
+    return "WEZTERM_EXECUTABLE" in environ
+
+
+@cache
+def is_windows_terminal() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.WINDOWS_TERMINAL`."""
+    return "WT_SESSION" in environ
+
+
+@cache
+def is_xterm() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.XTERM`.
+
+    .. note::
+        We check for ``XTERM_VERSION`` rather than ``TERM=xterm`` because many
+        headless environments (e.g., GitHub Actions ``ubuntu-slim`` runners) set
+        ``TERM=xterm`` for termcap/terminfo compatibility without actually running
+        xterm.
+    """
+    return "XTERM_VERSION" in environ
+
+
+@cache
+def is_zellij() -> bool:
+    """Return :data:`True` if current terminal is :data:`~extra_platforms.ZELLIJ`."""
+    return "ZELLIJ" in environ
+
+
+# =============================================================================
 # CI/CD detection heuristics
 # =============================================================================
 
@@ -1047,7 +1220,7 @@ def is_github_ci() -> bool:
 
     .. seealso::
         Environment variables reference:
-        <https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables#default-environment-variables>.
+        <https://docs.github.com/en/actions/writing-workflows/choosing-what-your-workflow-does/store-information-in-variables>.
     """
     return "GITHUB_ACTIONS" in environ or "GITHUB_RUN_ID" in environ
 
@@ -1080,7 +1253,7 @@ def is_teamcity() -> bool:
 
     .. seealso::
         Environment variables reference:
-        <https://www.jetbrains.com/help/teamcity/predefined-build-parameters.html#PredefinedBuildParameters-ServerBuildProperties>.
+        <https://www.jetbrains.com/help/teamcity/predefined-build-parameters.html#Predefined+Server+Build+Parameters>.
     """
     return "TEAMCITY_VERSION" in environ
 
@@ -1119,6 +1292,11 @@ def current_architecture(strict: bool = False) -> Architecture:
 
     .. important::
         Always raises an error if multiple architectures match.
+
+    .. warning::
+        An architecture is always expected to be detected. An unrecognized result
+        logs a ``WARNING`` and likely indicates a missing detection heuristic that
+        should be `reported <https://github.com/kdeldycke/extra-platforms/issues>`_.
     """
     # Lazy imports to avoid circular dependencies.
     from .architecture_data import UNKNOWN_ARCHITECTURE
@@ -1140,11 +1318,7 @@ def current_architecture(strict: bool = False) -> Architecture:
             f"Multiple architectures matches: {matching!r}. {_unrecognized_message()}"
         )
 
-    # No matching architecture found.
-    msg = f"Unrecognized architecture: {_unrecognized_message()}"
-    if strict:
-        raise SystemError(msg)
-    logging.warning(msg)
+    _report_unrecognized("architecture", strict=strict)
     return UNKNOWN_ARCHITECTURE
 
 
@@ -1159,6 +1333,11 @@ def current_platform(strict: bool = False) -> Platform:
         If multiple platforms match the current environment, this function will try to
         select the best, informative one. Raises an error if we can't decide on a single,
         appropriate platform.
+
+    .. warning::
+        A platform is always expected to be detected. An unrecognized result logs a
+        ``WARNING`` and likely indicates a missing detection heuristic that should be
+        `reported <https://github.com/kdeldycke/extra-platforms/issues>`_.
     """
     # Lazy imports to avoid circular dependencies.
     from .group_data import ALL_PLATFORMS
@@ -1191,11 +1370,7 @@ def current_platform(strict: bool = False) -> Platform:
             f"Multiple platforms matches: {matching!r}. {_unrecognized_message()}"
         )
 
-    # No matching platform found.
-    msg = f"Unrecognized platform: {_unrecognized_message()}"
-    if strict:
-        raise SystemError(msg)
-    logging.warning(msg)
+    _report_unrecognized("platform", strict=strict)
     return UNKNOWN_PLATFORM
 
 
@@ -1217,6 +1392,11 @@ def current_shell(strict: bool = False) -> Shell:
         ``PSModulePath`` `leaks into child processes
         <https://github.com/PowerShell/PowerShell/issues/9957>`_), the other
         shell is preferred.
+
+    .. warning::
+        A shell is always expected to be detected. An unrecognized result logs a
+        ``WARNING`` and likely indicates a missing detection heuristic that should be
+        `reported <https://github.com/kdeldycke/extra-platforms/issues>`_.
 
     .. seealso::
         Inspired by `UV's cross-platform shell detection
@@ -1248,12 +1428,55 @@ def current_shell(strict: bool = False) -> Shell:
             f"Multiple shells matches: {matching!r}. {_unrecognized_message()}"
         )
 
-    # No matching shell found.
-    msg = f"Unrecognized shell: {_unrecognized_message()}"
-    if strict:
-        raise SystemError(msg)
-    logging.warning(msg)
+    _report_unrecognized("shell", strict=strict)
     return UNKNOWN_SHELL
+
+
+@cache
+def current_terminal(strict: bool = False) -> Terminal:
+    """Returns the :class:`~extra_platforms.Terminal` matching the current environment.
+
+    Returns :data:`~extra_platforms.UNKNOWN_TERMINAL` if not running inside a
+    recognized terminal. To raise an error instead, set ``strict`` to ``True``.
+
+    .. important::
+        If multiple terminals match (e.g., :data:`~extra_platforms.TMUX` inside
+        :data:`~extra_platforms.KITTY`), multiplexers are filtered out first to
+        identify the innermost terminal. If multiple non-multiplexer terminals still
+        match, a :class:`RuntimeError` is raised.
+
+    .. note::
+        Unlike architectures, platforms, and shells, a terminal is not always present.
+        Headless environments (CI runners, cron jobs, Docker containers, SSH
+        non-interactive commands) have no terminal emulator attached. An unrecognized
+        result only logs at ``INFO`` level.
+    """
+    # Lazy imports to avoid circular dependencies.
+    from .group_data import ALL_TERMINALS, MULTIPLEXERS
+    from .terminal_data import UNKNOWN_TERMINAL
+
+    # Collect all matching terminals.
+    matching: set[Terminal] = {
+        term  # type: ignore[misc]
+        for term in ALL_TERMINALS
+        if term.current
+    }
+
+    # Return the only matching terminal.
+    if len(matching) == 1:
+        return matching.pop()
+
+    # If multiple terminals match, filter out multiplexers to find the innermost.
+    if len(matching) > 1:
+        non_mux = {t for t in matching if t not in MULTIPLEXERS}
+        if len(non_mux) == 1:
+            return non_mux.pop()
+        raise RuntimeError(
+            f"Multiple terminals matches: {matching!r}. {_unrecognized_message()}"
+        )
+
+    _report_unrecognized("terminal", strict=strict, expected=False)
+    return UNKNOWN_TERMINAL
 
 
 @cache
@@ -1265,6 +1488,11 @@ def current_ci(strict: bool = False) -> CI:
 
     .. important::
         Always raises an error if multiple CI systems match.
+
+    .. note::
+        Unlike architectures, platforms, and shells, a CI system is not always present.
+        Local development environments have no CI system running. An unrecognized
+        result only logs at ``INFO`` level.
     """
     # Lazy imports to avoid circular dependencies.
     from .ci_data import UNKNOWN_CI
@@ -1282,11 +1510,7 @@ def current_ci(strict: bool = False) -> CI:
             f"Multiple CI matches: {matching!r}. {_unrecognized_message()}"
         )
 
-    # No matching CI system found.
-    msg = f"Unrecognized CI: {_unrecognized_message()}"
-    if strict:
-        raise SystemError(msg)
-    logging.warning(msg)
+    _report_unrecognized("CI", strict=strict, expected=False)
     return UNKNOWN_CI
 
 
@@ -1294,8 +1518,9 @@ def current_ci(strict: bool = False) -> CI:
 def current_traits() -> set[Trait]:
     """Returns all traits matching the current environment.
 
-    This includes :class:`~extra_platforms.Platform`, :class:`~extra_platforms.Architecture`,
-    and :class:`~extra_platforms.CI` systems.
+    This includes :class:`~extra_platforms.Architecture`,
+    :class:`~extra_platforms.Platform`, :class:`~extra_platforms.Shell`,
+    :class:`~extra_platforms.Terminal`, and :class:`~extra_platforms.CI` systems.
 
     .. caution::
         Never returns :data:`~extra_platforms.UNKNOWN` traits.

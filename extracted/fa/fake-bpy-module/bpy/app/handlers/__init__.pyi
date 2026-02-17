@@ -122,7 +122,7 @@ frame_change_pre: list[
     collections.abc.Callable[[bpy.types.Scene, bpy.types.Depsgraph], None]
     | collections.abc.Callable[[bpy.types.Scene], None]
 ] | list[collections.abc.Callable[[bpy.types.Scene], None]]
-""" Called after frame change for playback and rendering, before any data is evaluated for the new frame. This makes it possible to change data and relations (for example swap an object to another mesh) for the new frame. Note that this handler is not to be used as before the frame changes event. The dependency graph is not available in this handler, as data and relations may have been altered and the dependency graph has not yet been updated for that. Accepts one or two arguments: The scene data-block, and optionally the dependency graph being updated
+""" Called when a frame change is triggered for playback and rendering, before any data is evaluated for the new frame. This makes it possible to change data and relations (for example swap an object to another mesh) for the new frame. Note that this handler is not to be used as before the frame changes event. The dependency graph is not available in this handler, as data and relations may have been altered and the dependency graph has not yet been updated for that. Accepts one or two arguments: The scene data-block, and optionally the dependency graph being updated
 """
 
 load_factory_preferences_post: list[collections.abc.Callable[None]] | list[

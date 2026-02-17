@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy
 import pytest
 
@@ -386,7 +388,6 @@ class TestPoly1dPolynomialArithmetic(Poly1dTestBase):
     'type_l': ['poly1d', 'ndarray', 'python_scalar', 'numpy_scalar'],
     'type_r': ['poly1d', 'ndarray', 'python_scalar', 'numpy_scalar'],
 }))
-@testing.with_requires('numpy<2.0')
 class TestPoly1dMathArithmetic(Poly1dTestBase):
 
     @testing.for_all_dtypes(no_bool=True)
@@ -694,7 +695,6 @@ class TestPolyfitDiffTypes:
     'type_l': ['poly1d', 'ndarray'],
     'type_r': ['poly1d', 'ndarray', 'numpy_scalar', 'python_scalar'],
 }))
-@testing.with_requires('numpy<2.0')
 class TestPolyval(Poly1dTestBase):
 
     @testing.for_all_dtypes()
@@ -757,6 +757,7 @@ class TestPolyvalDtypesCombination:
         b = testing.shaped_arange((3,), xp, dtype2)
         return xp.polyval(a, b)
 
+    @testing.with_requires('numpy>=1.25')
     @testing.for_all_dtypes_combination(names=['dtype1', 'dtype2'], full=True)
     @testing.numpy_cupy_allclose(rtol=1e-6)
     def test_polyval_diff_types_array_scalar(self, xp, dtype1, dtype2):

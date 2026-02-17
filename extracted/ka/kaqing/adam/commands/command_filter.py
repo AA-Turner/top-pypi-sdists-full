@@ -1,8 +1,9 @@
 from abc import abstractmethod
 from typing import Callable
 
+from adam.commands.command import Command
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class CommandFilter:
     @abstractmethod
@@ -12,6 +13,9 @@ class CommandFilter:
     @abstractmethod
     def process(self, state: ReplState, cmd: str) -> tuple[Callable[[], None], ReplState, str]:
         pass
+
+    def applicable_commands(self, commands: list[Command]) -> list[Command]:
+        return commands
 
     def process_config(self, state: ReplState, cmd: str, word: str, config_key: str, value = True, default = False) -> tuple[Callable[[], None], ReplState, str]:
         if (pre := f'{word} ') and cmd.startswith(pre):

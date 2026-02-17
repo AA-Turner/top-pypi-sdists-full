@@ -10,67 +10,6 @@ import System.Collections
 import System.Runtime.Serialization
 
 
-class OnDeserializingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class IFormatterConverter(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    @overload
-    def convert(self, value: typing.Any, type: typing.Type) -> System.Object:
-        ...
-
-    @overload
-    def convert(self, value: typing.Any, type_code: System.TypeCode) -> System.Object:
-        ...
-
-    def to_boolean(self, value: typing.Any) -> bool:
-        ...
-
-    def to_byte(self, value: typing.Any) -> int:
-        ...
-
-    def to_char(self, value: typing.Any) -> str:
-        ...
-
-    def to_date_time(self, value: typing.Any) -> datetime.datetime:
-        ...
-
-    def to_decimal(self, value: typing.Any) -> float:
-        ...
-
-    def to_double(self, value: typing.Any) -> float:
-        ...
-
-    def to_int_16(self, value: typing.Any) -> int:
-        ...
-
-    def to_int_32(self, value: typing.Any) -> int:
-        ...
-
-    def to_int_64(self, value: typing.Any) -> int:
-        ...
-
-    def to_s_byte(self, value: typing.Any) -> int:
-        ...
-
-    def to_single(self, value: typing.Any) -> float:
-        ...
-
-    def to_string(self, value: typing.Any) -> str:
-        ...
-
-    def to_u_int_16(self, value: typing.Any) -> int:
-        ...
-
-    def to_u_int_32(self, value: typing.Any) -> int:
-        ...
-
-    def to_u_int_64(self, value: typing.Any) -> int:
-        ...
-
-
 class StreamingContextStates(IntEnum):
     """This class has no documentation."""
 
@@ -137,8 +76,11 @@ class SafeSerializationEventArgs(System.EventArgs):
         ...
 
 
-class OnSerializedAttribute(System.Attribute):
+class IDeserializationCallback(metaclass=abc.ABCMeta):
     """This class has no documentation."""
+
+    def on_deserialization(self, sender: typing.Any) -> None:
+        ...
 
 
 class DeserializationToken(System.IDisposable):
@@ -148,15 +90,60 @@ class DeserializationToken(System.IDisposable):
         ...
 
 
-class OptionalFieldAttribute(System.Attribute):
+class IFormatterConverter(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    def version_added(self) -> int:
+    @overload
+    def convert(self, value: typing.Any, type: typing.Type) -> System.Object:
         ...
 
-    @version_added.setter
-    def version_added(self, value: int) -> None:
+    @overload
+    def convert(self, value: typing.Any, type_code: System.TypeCode) -> System.Object:
+        ...
+
+    def to_boolean(self, value: typing.Any) -> bool:
+        ...
+
+    def to_byte(self, value: typing.Any) -> int:
+        ...
+
+    def to_char(self, value: typing.Any) -> str:
+        ...
+
+    def to_date_time(self, value: typing.Any) -> datetime.datetime:
+        ...
+
+    def to_decimal(self, value: typing.Any) -> float:
+        ...
+
+    def to_double(self, value: typing.Any) -> float:
+        ...
+
+    def to_int_16(self, value: typing.Any) -> int:
+        ...
+
+    def to_int_32(self, value: typing.Any) -> int:
+        ...
+
+    def to_int_64(self, value: typing.Any) -> int:
+        ...
+
+    def to_s_byte(self, value: typing.Any) -> int:
+        ...
+
+    def to_single(self, value: typing.Any) -> float:
+        ...
+
+    def to_string(self, value: typing.Any) -> str:
+        ...
+
+    def to_u_int_16(self, value: typing.Any) -> int:
+        ...
+
+    def to_u_int_32(self, value: typing.Any) -> int:
+        ...
+
+    def to_u_int_64(self, value: typing.Any) -> int:
         ...
 
 
@@ -332,35 +319,6 @@ class SerializationInfo(System.Object):
         ...
 
 
-class OnSerializingAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class OnDeserializedAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class IDeserializationCallback(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def on_deserialization(self, sender: typing.Any) -> None:
-        ...
-
-
-class ISerializable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
-
-
-class IObjectReference(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_real_object(self, context: System.Runtime.Serialization.StreamingContext) -> System.Object:
-        ...
-
-
 class SerializationException(System.SystemException):
     """This class has no documentation."""
 
@@ -378,6 +336,48 @@ class SerializationException(System.SystemException):
 
     @overload
     def __init__(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        ...
+
+
+class OnDeserializedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class OnSerializedAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class IObjectReference(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_real_object(self, context: System.Runtime.Serialization.StreamingContext) -> System.Object:
+        ...
+
+
+class OnDeserializingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class ISerializable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterMessage", DeprecationWarning)
+
+
+class OnSerializingAttribute(System.Attribute):
+    """This class has no documentation."""
+
+
+class OptionalFieldAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def version_added(self) -> int:
+        ...
+
+    @version_added.setter
+    def version_added(self, value: int) -> None:
         ...
 
 

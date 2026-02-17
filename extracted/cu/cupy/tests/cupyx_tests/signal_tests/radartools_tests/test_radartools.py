@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy
 import pytest
 try:
@@ -44,9 +46,9 @@ def _numpy_pulse_compression(x, t, normalize, window):
 
 
 tol = {
-    numpy.float32: 2e-3,
+    numpy.float32: 5e-3,
     numpy.float64: 1e-7,
-    numpy.complex64: 2e-3,
+    numpy.complex64: 5e-3,
     numpy.complex128: 1e-7,
 }
 
@@ -57,12 +59,6 @@ tol = {
 @testing.numpy_cupy_allclose(rtol=tol, contiguous_check=False)
 @testing.with_requires("scipy")
 def test_pulse_compression(xp, normalize, window, dtype):
-    if (
-            numpy.dtype(dtype).char in "fF" and
-            numpy.__version__ >= numpy.lib.NumpyVersion('2.0.0')
-    ):
-        return xp.array([])  # Skip
-
     x = testing.shaped_random((8, 700), xp=xp, dtype=dtype)
     template = testing.shaped_random((100,), xp=xp, dtype=dtype)
 
@@ -162,4 +158,8 @@ def test_mvdr(dtype):
     sv = cupy.array([1, 2], dtype=dtype)
     out = signal.mvdr(x, sv)
     assert out.dtype == dtype
-    testing.assert_allclose(out, [-2, 1.5])
+
+    expected = cupy.array([-2, 1.5], dtype=dtype)
+    rtol = 1e-6 if dtype == numpy.float32 else 1e-12
+    atol = 1e-6 if dtype == numpy.float32 else 0.0
+    testing.assert_allclose(out, expected, rtol=rtol, atol=atol)

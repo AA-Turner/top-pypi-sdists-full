@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 import setuptools
 
-with open("README.md", "r") as fh:
+with open("README.md", "r", encoding='utf-8') as fh:
     long_description = fh.read()
 
 
@@ -19,7 +20,7 @@ install_requires = get_requirements("requirements.txt")
 
 setuptools.setup(
     name="notion",
-    version="0.0.28",
+    version="0.1.0",
     author="Jamie Alexandre",
     author_email="jamalex+python@gmail.com",
     description="Unofficial Python API client for Notion.so",

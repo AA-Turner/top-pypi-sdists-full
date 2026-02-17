@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mplhep
-Version: 1.0.0
+Version: 1.1.0
 Summary: Matplotlib styles for HEP
 Project-URL: Homepage, https://github.com/scikit-hep/mplhep
 Author-email: andrzejnovak <novak5andrzej@gmail.com>
@@ -28,9 +28,12 @@ Requires-Dist: uhi>=0.2.0
 Provides-Extra: all
 Requires-Dist: boost-histogram; extra == 'all'
 Requires-Dist: bumpversion; extra == 'all'
+Requires-Dist: docstring-inheritance; extra == 'all'
 Requires-Dist: griffe-inherited-docstrings; extra == 'all'
 Requires-Dist: hist; extra == 'all'
 Requires-Dist: jupyter; extra == 'all'
+Requires-Dist: markdown-exec; extra == 'all'
+Requires-Dist: mike; extra == 'all'
 Requires-Dist: mkdocs-git-committers-plugin-2; extra == 'all'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == 'all'
 Requires-Dist: mkdocs-material[imaging]>=9.0; extra == 'all'
@@ -57,7 +60,10 @@ Requires-Dist: prek; extra == 'dev'
 Requires-Dist: questionary; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Provides-Extra: docs
+Requires-Dist: docstring-inheritance; extra == 'docs'
 Requires-Dist: griffe-inherited-docstrings; extra == 'docs'
+Requires-Dist: markdown-exec; extra == 'docs'
+Requires-Dist: mike; extra == 'docs'
 Requires-Dist: mkdocs-git-committers-plugin-2; extra == 'docs'
 Requires-Dist: mkdocs-git-revision-date-localized-plugin; extra == 'docs'
 Requires-Dist: mkdocs-material[imaging]>=9.0; extra == 'docs'
@@ -79,9 +85,10 @@ Requires-Dist: seaborn; extra == 'test'
 Requires-Dist: uproot>=5.0; extra == 'test'
 Description-Content-Type: text/markdown
 
-<p float="left">
-  <img src="https://raw.githubusercontent.com/scikit-hep/mplhep/master/docs/source/_static/mplhep.png" width="300"/>
-</p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="new_docs/docs/mplhep_inverted.png">
+  <img src="new_docs/docs/mplhep.png" width=300 />
+</picture>
 
 [![DOI](https://zenodo.org/badge/184555939.svg)](https://zenodo.org/badge/latestdoi/184555939)
 [![Scikit-HEP][sk-badge]](https://scikit-hep.org/)

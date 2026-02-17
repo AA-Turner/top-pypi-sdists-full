@@ -3,7 +3,7 @@ from adam.commands.command import Command
 from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_context import NULL
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils import duration
 from adam.utils_repl.set_completer import SetCompleter
 from adam.utils_tabulize import tabulize

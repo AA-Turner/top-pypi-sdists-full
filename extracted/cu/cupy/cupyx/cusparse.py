@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import functools as _functools
 
 import numpy as _numpy
@@ -14,7 +16,7 @@ from cupy import _util
 import cupyx.scipy.sparse
 
 
-class MatDescriptor(object):
+class MatDescriptor:
 
     def __init__(self, descriptor):
         self.descriptor = descriptor
@@ -768,7 +770,7 @@ def csr2dense(x, out=None):
 
     Args:
         x (cupyx.scipy.sparse.csr_matrix): A sparse matrix to convert.
-        out (cupy.ndarray or None): A dense metrix to store the result.
+        out (cupy.ndarray or None): A dense matrix to store the result.
             It must be F-contiguous.
 
     Returns:
@@ -800,7 +802,7 @@ def csc2dense(x, out=None):
 
     Args:
         x (cupyx.scipy.sparse.csc_matrix): A sparse matrix to convert.
-        out (cupy.ndarray or None): A dense metrix to store the result.
+        out (cupy.ndarray or None): A dense matrix to store the result.
             It must be F-contiguous.
 
     Returns:
@@ -1268,7 +1270,7 @@ def _dtype_to_IndexType(dtype):
         raise TypeError
 
 
-class BaseDescriptor(object):
+class BaseDescriptor:
 
     def __init__(self, descriptor, get=None, destroyer=None):
         self.desc = descriptor
@@ -1805,7 +1807,7 @@ def sparseToDense(x, out=None):
 
     Args:
         x (cupyx.scipy.sparse.spmatrix): A sparse matrix to convert.
-        out (cupy.ndarray or None): A dense metrix to store the result.
+        out (cupy.ndarray or None): A dense matrix to store the result.
             It must be F-contiguous.
 
     Returns:
@@ -2049,14 +2051,31 @@ def spgemm(a, b, alpha=1):
     algo = _cusparse.CUSPARSE_SPGEMM_DEFAULT
     null_ptr = 0
 
-    # Analyze the matrices A and B to understand the memory requirement
-    buff1_size = _cusparse.spGEMM_workEstimation(
-        handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
-        mat_c.desc, cuda_dtype, algo, spgemm_descr, 0, null_ptr)
-    buff1 = _cupy.empty(buff1_size, _cupy.int8)
-    _cusparse.spGEMM_workEstimation(
-        handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
-        mat_c.desc, cuda_dtype, algo, spgemm_descr, buff1_size, buff1.data.ptr)
+    try:
+        # Analyze the matrices A and B to understand the memory requirement
+        buff1_size = _cusparse.spGEMM_workEstimation(
+            handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
+            mat_c.desc, cuda_dtype, algo, spgemm_descr, 0, null_ptr)
+        buff1 = _cupy.empty(buff1_size, _cupy.int8)
+        _cusparse.spGEMM_workEstimation(
+            handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
+            mat_c.desc, cuda_dtype, algo, spgemm_descr, buff1_size,
+            buff1.data.ptr)
+
+    except _cusparse.CuSparseError as cse:
+        # If the memory required is too high and cuSPARSE >= 12.0, fall back
+        # to ALG2
+        if getVersion() < 12000:
+            raise cse
+        algo = _cusparse.CUSPARSE_SPGEMM_ALG2
+        buff1_size = _cusparse.spGEMM_workEstimation(
+            handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
+            mat_c.desc, cuda_dtype, algo, spgemm_descr, 0, null_ptr)
+        buff1 = _cupy.empty(buff1_size, _cupy.int8)
+        _cusparse.spGEMM_workEstimation(
+            handle, op_a, op_b, alpha.data, mat_a.desc, mat_b.desc, beta.data,
+            mat_c.desc, cuda_dtype, algo, spgemm_descr, buff1_size,
+            buff1.data.ptr)
 
     # Compute the intermediate product of A and B
     buff2_size = _cusparse.spGEMM_compute(

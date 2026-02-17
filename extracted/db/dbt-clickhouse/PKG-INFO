@@ -1,41 +1,28 @@
 Metadata-Version: 2.4
 Name: dbt-clickhouse
-Version: 1.9.8
+Version: 1.10.0
 Summary: The Clickhouse plugin for dbt (data build tool)
-Home-page: https://github.com/ClickHouse/dbt-clickhouse
-Author: ClickHouse Inc.
-Author-email: guy@clickhouse.com
-License: MIT
-Platform: any
+Author-email: "ClickHouse Inc." <guy@clickhouse.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/ClickHouse/dbt-clickhouse
+Project-URL: Repository, https://github.com/ClickHouse/dbt-clickhouse
+Project-URL: Issues, https://github.com/ClickHouse/dbt-clickhouse/issues
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: >=3.9
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: dbt-core>=1.9
-Requires-Dist: dbt-adapters<1.17,>=1.16.7
+Requires-Dist: dbt-adapters<1.22.6,>=1.22.0
 Requires-Dist: clickhouse-connect>=0.10.0
 Requires-Dist: clickhouse-driver>=0.2.10
-Requires-Dist: setuptools>=0.69
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/ClickHouse/dbt-clickhouse/master/etc/chdbt.png" alt="clickhouse dbt logo" width="300"/>

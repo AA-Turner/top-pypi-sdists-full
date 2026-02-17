@@ -22,6 +22,17 @@ class ElapsedEventArgs(System.EventArgs):
         ...
 
 
+class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
+    """This class has no documentation."""
+
+    @property
+    def description(self) -> str:
+        ...
+
+    def __init__(self, description: str) -> None:
+        ...
+
+
 class Timer(System.ComponentModel.Component, System.ComponentModel.ISupportInitialize):
     """This class has no documentation."""
 
@@ -101,17 +112,6 @@ class Timer(System.ComponentModel.Component, System.ComponentModel.ISupportIniti
         ...
 
     def stop(self) -> None:
-        ...
-
-
-class TimersDescriptionAttribute(System.ComponentModel.DescriptionAttribute):
-    """This class has no documentation."""
-
-    @property
-    def description(self) -> str:
-        ...
-
-    def __init__(self, description: str) -> None:
         ...
 
 

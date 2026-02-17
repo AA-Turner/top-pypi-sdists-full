@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: weblate-language-data
-Version: 2026.2
+Version: 2026.3
 Summary: Language definitions for Weblate
 Author-email: Michal Čihař <michal@weblate.org>
 License-Expression: MIT
@@ -32,12 +32,12 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Provides-Extra: dev
-Requires-Dist: translate-toolkit==3.18.1; extra == "dev"
+Requires-Dist: translate-toolkit==3.19.0; extra == "dev"
 Requires-Dist: weblate-language-data[lint,test,types]; extra == "dev"
 Provides-Extra: django
 Requires-Dist: Django; extra == "django"
 Provides-Extra: lint
-Requires-Dist: prek==0.3.2; extra == "lint"
+Requires-Dist: prek==0.3.3; extra == "lint"
 Provides-Extra: test
 Provides-Extra: types
 Requires-Dist: django-stubs==5.2.9; extra == "types"

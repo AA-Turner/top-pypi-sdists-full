@@ -99,15 +99,20 @@ def is_full_page(response: Dict[Any, Any]) -> bool:
     return response.get("object") == "page" and "url" in response
 
 
+def is_full_data_source(response: Dict[Any, Any]) -> bool:
+    """* Return `true` if `response` is a full data source."""
+    return response.get("object") == "data_source"
+
+
 def is_full_database(response: Dict[Any, Any]) -> bool:
     """Return `True` if response is a full database."""
     return response.get("object") == "database" and "title" in response
 
 
-def is_full_page_or_database(response: Dict[Any, Any]) -> bool:
-    """Return `True` if `response` is a full database or a full page."""
-    if response.get("object") == "database":
-        return is_full_database(response)
+def is_full_page_or_data_source(response: Dict[Any, Any]) -> bool:
+    """Return `True` if `response` is a full data_source or a full page."""
+    if response.get("object") == "data_source":
+        return is_full_data_source(response)
     return is_full_page(response)
 
 
@@ -270,7 +275,7 @@ def iterate_data_source_templates(
     while True:
         response = function(**kwargs, start_cursor=next_cursor)
         for template in response.get("templates", []):
-            yield template
+            yield template  # pragma: no cover
 
         next_cursor = response.get("next_cursor")
         if not response.get("has_more") or not next_cursor:
@@ -315,7 +320,7 @@ async def async_iterate_data_source_templates(
     while True:
         response = await function(**kwargs, start_cursor=next_cursor)
         for template in response.get("templates", []):
-            yield template
+            yield template  # pragma: no cover
 
         next_cursor = response.get("next_cursor")
         if not response.get("has_more") or not next_cursor:

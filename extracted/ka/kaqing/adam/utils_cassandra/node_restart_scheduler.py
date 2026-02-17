@@ -4,7 +4,7 @@ import time
 import traceback
 
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_context import NULL, Context

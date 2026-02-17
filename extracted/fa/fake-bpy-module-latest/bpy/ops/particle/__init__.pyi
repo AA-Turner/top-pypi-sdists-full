@@ -254,7 +254,7 @@ def remove_doubles(
     *,
     threshold: float | None = 0.0002,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Remove selected particles close enough of others
+    """Remove selected particles close enough to others
 
     :param threshold: Merge Distance, Threshold distance within which particles are removed (in [0, inf], optional)
     :return: Result of the operator call.

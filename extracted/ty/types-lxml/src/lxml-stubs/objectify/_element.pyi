@@ -16,35 +16,27 @@ from typing import (
 )
 from typing_extensions import SupportsIndex
 
+from .._types import (
+    _CSSTransArg,
+    _TagName,
+    _TextArg,
+)
+from ..etree import CDATA, ElementBase
+
 if sys.version_info >= (3, 11):
     from typing import LiteralString, Self
 else:
     from typing_extensions import LiteralString, Self
 
-from .._types import _TagName, _TextArg
-from ..cssselect import _CSSTransArg
-from ..etree import CDATA, ElementBase
-
 class ObjectifiedElement(ElementBase):
-    """Main XML Element class
+    """Element class that provides object-like access to XML elements.
 
-    Original Docstring
-    ------------------
     Element children are accessed as object attributes.  Multiple children
     with the same name are available through a list index.
 
-    Note that you cannot (and must not) instantiate this class or its
-    subclasses.
-
-    Example
-    -------
-
-    ```python-console
-    >>> root = XML("<root><c1><c2>0</c2><c2>1</c2></c1></root>")
-    >>> second_c2 = root.c1.c2[1]
-    >>> print(second_c2.text)
-    1
-    ```
+    See Also
+    --------
+    - [API Documentation](https://lxml.de/apidoc/lxml.objectify.html#lxml.objectify.ObjectifiedElement)
     """
 
     # Readonly, unlike _Element counterpart
@@ -95,12 +87,14 @@ class ObjectifiedElement(ElementBase):
     ) -> list[ObjectifiedElement]: ...
 
 class ObjectifiedDataElement(ObjectifiedElement):
-    """The base class for all data type Elements
+    """The base class for all data type Elements.
 
-    Original Docstring
-    ------------------
     Subclasses should override the `.pyval` property and possibly
     the `__str__` method.
+
+    See Also
+    --------
+    - [API Documentation](https://lxml.de/apidoc/lxml.objectify.html#lxml.objectify.ObjectifiedDataElement)
     """
 
     # In source code, .pyval return value is stated as str. However,
@@ -113,10 +107,11 @@ class ObjectifiedDataElement(ObjectifiedElement):
     def _setText(self, s: _TextArg | CDATA | None) -> None:
         """Modify text content of objectified element directly.
 
-        Original Docstring
-        ------------------
-        For use in subclasses only. Don't use unless you know what you are
-        doing.
+        For use in subclasses only. Don't use unless you know what you are doing.
+
+        See Also
+        --------
+        - [API Documentation](https://lxml.de/apidoc/lxml.objectify.html#lxml.objectify.ObjectifiedDataElement._setText)
         """
 
 # NOT marking as disjoint_base
@@ -140,11 +135,11 @@ class NumberElement(ObjectifiedDataElement, metaclass=abc.ABCMeta):
 #
 # Not doing the same for StringElement and BoolElement though,
 # each for different reason.
-class IntElement(NumberElement, int):  # type: ignore[misc]
+class IntElement(NumberElement, int):  # type: ignore[misc]  # ty: ignore[instance-layout-conflict]
     @property
     def pyval(self) -> int: ...
 
-class FloatElement(NumberElement, float):  # type: ignore[misc]
+class FloatElement(NumberElement, float):  # type: ignore[misc]  # ty: ignore[instance-layout-conflict]
     @property
     def pyval(self) -> float: ...
 

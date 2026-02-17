@@ -3,7 +3,7 @@ import os
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.cql.utils_cql import cassandra_table_names
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log2
 from adam.utils_k8s.statefulsets import StatefulSets
 

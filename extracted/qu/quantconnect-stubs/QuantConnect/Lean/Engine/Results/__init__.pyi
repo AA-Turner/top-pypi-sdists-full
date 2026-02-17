@@ -1487,6 +1487,38 @@ class RegressionResultHandler(QuantConnect.Lean.Engine.Results.BacktestingResult
         ...
 
 
+class BacktestProgressMonitor(System.Object):
+    """Monitors and reports the progress of a backtest"""
+
+    @property
+    def total_days(self) -> int:
+        """Gets the total days the algorithm will run"""
+        ...
+
+    @property
+    def processed_days(self) -> int:
+        """Gets the current days the algorithm has been running for"""
+        ...
+
+    @property
+    def progress(self) -> float:
+        """Gets the current progress of the backtest"""
+        ...
+
+    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Creates a new instance
+        
+        :param time_keeper: The time keeper to use
+        :param end_utc_time: The end UTC time
+        """
+        ...
+
+    def invalidate_processed_days(self) -> None:
+        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
+        ...
+
+
 class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandler, QuantConnect.Lean.Engine.Results.IResultHandler):
     """Live trading result handler implementation passes the messages to the QC live trading interface."""
 
@@ -1733,38 +1765,6 @@ class LiveTradingResultHandler(QuantConnect.Lean.Engine.Results.BaseResultsHandl
 
     def update_portfolio_values(self, time: typing.Union[datetime.datetime, datetime.date], force: bool = False) -> None:
         """This codeEntityType is protected."""
-        ...
-
-
-class BacktestProgressMonitor(System.Object):
-    """Monitors and reports the progress of a backtest"""
-
-    @property
-    def total_days(self) -> int:
-        """Gets the total days the algorithm will run"""
-        ...
-
-    @property
-    def processed_days(self) -> int:
-        """Gets the current days the algorithm has been running for"""
-        ...
-
-    @property
-    def progress(self) -> float:
-        """Gets the current progress of the backtest"""
-        ...
-
-    def __init__(self, time_keeper: QuantConnect.Interfaces.ITimeKeeper, end_utc_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Creates a new instance
-        
-        :param time_keeper: The time keeper to use
-        :param end_utc_time: The end UTC time
-        """
-        ...
-
-    def invalidate_processed_days(self) -> None:
-        """Invalidates the processed days count value so it gets recalculated next time it is needed"""
         ...
 
 

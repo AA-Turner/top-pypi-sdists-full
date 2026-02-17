@@ -5,7 +5,7 @@ from kubernetes.stream import stream
 from kubernetes.stream.ws_client import ERROR_CHANNEL
 
 from adam.directories import local_downloads_dir
-from adam.repl_session import ReplSession
+from adam.utils_repl.repl_session import ReplSession
 from adam.utils_context import NULL
 from adam.utils_k8s.pods import Pods
 from adam.utils import GeneratorStream

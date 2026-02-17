@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: telnetlib3
-Version: 2.5.0
+Version: 2.6.0
 Summary:  Python Telnet server and client CLI and Protocol library
 Project-URL: Homepage, https://github.com/jquast/telnetlib3
 Project-URL: Documentation, https://telnetlib3.readthedocs.io

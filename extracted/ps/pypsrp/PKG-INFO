@@ -1,25 +1,44 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pypsrp
-Version: 0.8.1
+Version: 0.9.0
 Summary: PowerShell Remoting Protocol and WinRM for Python
-Home-page: https://github.com/jborean93/pypsrp
-Author: Jordan Borean
-Author-email: jborean93@gmail.com
-License: MIT
+Author-email: Jordan Borean <jborean93@gmail.com>
+License-Expression: MIT
+Project-URL: homepage, https://github.com/jborean93/pypsrp
 Keywords: winrm,psrp,winrs,windows,powershell
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Provides-Extra: credssp
-Provides-Extra: kerberos
 License-File: LICENSE
+Requires-Dist: cryptography>=3.1
+Requires-Dist: pyspnego<1.0.0,>=0.7.0
+Requires-Dist: requests>=2.27.0
+Provides-Extra: credssp
+Requires-Dist: requests-credssp>=2.0.0; extra == "credssp"
+Provides-Extra: kerberos
+Requires-Dist: pyspnego[kerberos]; extra == "kerberos"
+Provides-Extra: dev
+Requires-Dist: black==25.11.0; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: isort==6.1.0; extra == "dev"
+Requires-Dist: mypy==1.19.0; extra == "dev"
+Requires-Dist: pre-commit; extra == "dev"
+Requires-Dist: pyspnego[kerberos]; extra == "dev"
+Requires-Dist: pytest; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: pytest-mock; extra == "dev"
+Requires-Dist: PyYAML; extra == "dev"
+Requires-Dist: requests-credssp; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: xmldiff; extra == "dev"
+Dynamic: license-file
 
 # pypsrp - Python PowerShell Remoting Protocol Client library
 
@@ -64,7 +83,7 @@ libraries to be installed.
 
 See `How to Install` for more details
 
-* CPython 3.6+
+* CPython 3.10+
 * [cryptography](https://github.com/pyca/cryptography)
 * [pyspnego](https://github.com/jborean93/pyspnego)
 * [requests](https://github.com/requests/requests)
@@ -150,7 +169,19 @@ pip install pypsrp[credssp]
 ```
 
 If that fails you may need to update pip and setuptools to a newer version
-`pip install -U pip setuptools`.
+`pip install -U pip setuptools`, otherwise the following system package may be
+required;
+
+```bash
+# For Debian/Ubuntu
+apt-get install gcc python-dev
+
+# For RHEL/Centos
+yum install gcc python-devel
+
+# For Fedora
+dnf install gcc python-devel
+```
 
 
 ## How to Use
@@ -193,7 +224,8 @@ These are the options that can be used to setup `WSMan`;
 * `data_locale`: The `wsmv:DataLocale` value to set on each WSMan request. This specifies the format in which numerical data is presented in the response text, default is the value of `locale`
 * `reconnection_retries`: Number of retries on a connection problem, default is `0`
 * `reconnection_backoff`: Number of seconds to backoff in between reconnection attempts (first sleeps X, then sleeps 2*X, 4*X, 8*X, ...), default is `2.0`
-* `certificate_key_pem`: The path to the certificate key used in `certificate` authentication
+* `certificate_key_pem`: The path to the certificate key used in `certificate` authentication. The key can be in either a `PKCS#1` or `PKCS#8` format
+* `certificate_key_password`: The password for `certificate_key_pem` if it is encrypted
 * `certificate_pem`: The path to the certificate used in `certificate` authentication
 * `credssp_auth_mechanism`: The sub-auth mechanism used in CredSSP, default is `auto`, choices are `auto`, `ntlm`, or `kerberos`
 * `credssp_disable_tlsv1_2`: Whether to used CredSSP auth over the insecure TLSv1.0, default is `False`
@@ -230,7 +262,7 @@ configure a `WinRS` shell;
 * `idle_time_out`: THe idle timeout in seconds of the shell
 * `lifetime`: The total lifetime of the shell
 * `name`: The name (description only) of the shell
-* `no_profile`: Whether to create the shell with the user profile loaded or not
+* `no_profile`: Whether to create the shell with the user profile loaded or not. This no longer works on Server 2012/Windows 8 or newer
 * `working_directory`: The default working directory of the created shell
 
 `RunspacePool` is a shell used by the PSRP protocol, it is designed to be a
@@ -247,6 +279,7 @@ Here are the options that can be used to configure a `RunspacePool` shell;
 * `min_runspaces`: The minimuum number of runspaces that a pool can hold, default is 1
 * `max_runspaces`: The maximum number of runspaces that a pool can hold. Each PowerShell pipeline is run in a single Runspace, default is 1
 * `session_key_timeout_ms`: The maximum time to wait for a session key transfer from the server
+* `no_profile`: Do not load the user profile on the remote Runspace Pool
 
 ### Process
 
@@ -352,9 +385,8 @@ from pypsrp.wsman import WSMan
 # creates a https connection with explicit kerberos auth and implicit credentials
 wsman = WSMan("server", auth="kerberos", cert_validation=False))
 
-with wsman, RunspacePool(wsman) as pool:
+with wsman, RunspacePool(wsman) as pool, PowerShell(pool) as ps:
     # execute 'Get-Process | Select-Object Name'
-    ps = PowerShell(pool)
     ps.add_cmdlet("Get-Process").add_cmdlet("Select-Object").add_argument("Name")
     output = ps.invoke()
 
@@ -385,6 +417,19 @@ with wsman, RunspacePool(wsman) as pool:
     ps.invoke(["string", 1])
     print(ps.output)
     print(ps.streams.debug)
+
+    # It is possible to run the PowerShell pipeline again with invoke() but it
+    # needs to be explicitly closed first and the commands/streams optionally
+    # cleared if desired.
+    ps.close()
+
+    # Clears out ps.output and ps.streams to a blank value. Not required but
+    # nice if the output should be separate from a previous run
+    ps.clear_streams()
+
+    # Removes all existing commands. Not required but needed if re-using the
+    # same pipeline with a different set of commands
+    ps.clear_commands()
 ```
 
 
@@ -438,17 +483,18 @@ information and should only be used for debugging purposes._
 ## Testing
 
 Any changes are more than welcome in pull request form, you can run the current
-test suite with tox like so;
+test suite with:
 
 ```bash
-# make sure tox is installed
-pip install tox
+pip install -e .[dev]
 
-# run the tox suite
-tox
-
-# or run the test manually for the current Python environment
-py.test -v --pep8 --cov pypsrp --cov-report term-missing
+python -m pytest \
+    tests/tests_pypsrp \
+    --verbose \
+    --junitxml junit/test-results.xml \
+    --cov pypsrp \
+    --cov-report xml \
+    --cov-report term-missing
 ```
 
 A lot of the tests either simulate a remote Windows host but you can also run a
@@ -518,5 +564,3 @@ tests.
 * Add Ansible playbook for better integration tests
 * Improved serialization between Python and .NET objects
 * Live interactive console for PSRP
-
-

@@ -25,8 +25,7 @@ def average_vert_facedata(
     bm: bmesh.types.BMesh, verts: list[bmesh.types.BMVert] = []
 ) -> None:
     """Average Vertices Face-vert Data.Merge uv/vcols associated with the input vertices at
-    the bounding box center. (I know, its not averaging but
-    the vert_snap_to_bb_center is just too long).
+    the bounding box center.
 
         :param bm: The bmesh to operate on.
         :param verts: Input vertices.
@@ -151,7 +150,7 @@ def bisect_plane(
         :param geom: Input geometry.
         :param dist: Minimum distance when testing if a vert is exactly on the plane.
         :param plane_co: Point on the plane.
-        :param plane_no: Direction of the plane.
+        :param plane_no: Normal of the plane.
         :param use_snap_center: Snap axis aligned verts to the center.
         :param clear_outer: When enabled, remove all geometry on the positive side of the plane.
         :param clear_inner: When enabled, remove all geometry on the negative side of the plane.
@@ -172,8 +171,8 @@ def bmesh_to_mesh(
     """BMesh to Mesh.Converts a bmesh to a Mesh. This is reserved for exiting edit-mode.
 
     :param bm: The bmesh to operate on.
-    :param mesh: Pointer to a mesh structure to fill in.
-    :param object: Pointer to an object structure.
+    :param mesh: The mesh to write into.
+    :param object: The object.
     """
 
 def bridge_loops(
@@ -228,7 +227,7 @@ def connect_vert_pair(
     verts_exclude: list[bmesh.types.BMVert] = [],
     faces_exclude: list[bmesh.types.BMFace] = [],
 ) -> dict[str, typing.Any]:
-    """Connect Verts.Split faces by adding edges that connect verts.
+    """Connect Vert Pair.Connect a pair of vertices by splitting faces along the shortest path between them.
 
         :param bm: The bmesh to operate on.
         :param verts: Input vertices.
@@ -259,7 +258,7 @@ def connect_verts(
 def connect_verts_concave(
     bm: bmesh.types.BMesh, faces: list[bmesh.types.BMFace] = []
 ) -> dict[str, typing.Any]:
-    """Connect Verts to form Convex Faces.Ensures all faces are convex faces.
+    """Connect Verts to form Convex Faces.Splits concave faces into convex faces.
 
         :param bm: The bmesh to operate on.
         :param faces: Input faces.
@@ -278,7 +277,7 @@ def connect_verts_nonplanar(
     """Connect Verts Across non Planar Faces.Split faces by connecting edges along non planar faces.
 
         :param bm: The bmesh to operate on.
-        :param angle_limit: Total rotation angle (radians).
+        :param angle_limit: Maximum angle of non-planarity before splitting (radians).
         :param faces: Input faces.
         :return: edges:
 
@@ -303,7 +302,7 @@ def contextual_create(
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
         :param mat_nr: Material to use.
-        :param use_smooth: Smooth to use.
+        :param use_smooth: Set smooth shading on newly created faces.
         :return: faces:
     Newly-made face(s).
 
@@ -323,9 +322,9 @@ def convex_hull(
     """Convex HullBuilds a convex hull from the vertices in input.If use_existing_faces is true, the hull will not output triangles
     that are covered by a pre-existing face.All hull vertices, faces, and edges are added to geom.out. Any
     input elements that end up inside the hull (i.e. are not used by an
-    output face) are added to the interior_geom slot. The
-    unused_geom slot will contain all interior geometry that is
-    completely unused. Lastly, holes_geom contains edges and faces
+    output face) are added to the geom_interior.out slot. The
+    geom_unused.out slot will contain all interior geometry that is
+    completely unused. Lastly, geom_holes.out contains edges and faces
     that were in the input and are part of the hull.
 
         :param bm: The bmesh to operate on.
@@ -361,8 +360,8 @@ def create_circle(
     """Creates a Circle.
 
         :param bm: The bmesh to operate on.
-        :param cap_ends: Whether or not to fill in the ends with faces.
-        :param cap_tris: Fill ends with triangles instead of ngons.
+        :param cap_ends: Whether or not to fill in the circle with a face.
+        :param cap_tris: Fill the circle with triangles instead of an n-gon.
         :param segments: Number of vertices in the circle.
         :param radius: Radius of the circle.
         :param matrix: Matrix to multiply the new geometry with.
@@ -385,7 +384,7 @@ def create_cone(
     | mathutils.Matrix = mathutils.Matrix.Identity(4),
     calc_uvs: bool = False,
 ) -> dict[str, typing.Any]:
-    """Create Cone.Creates a cone with variable depth at both ends
+    """Create Cone.Creates a cone with variable radius at both ends
 
         :param bm: The bmesh to operate on.
         :param cap_ends: Whether or not to fill in the ends with faces.
@@ -593,7 +592,7 @@ def dissolve_limit(
     """Limited Dissolve.Dissolve planar faces and co-linear edges.
 
         :param bm: The bmesh to operate on.
-        :param angle_limit: Total rotation angle (radians).
+        :param angle_limit: Maximum angle (radians) between face normals for dissolving.
         :param use_dissolve_boundaries: Dissolve all vertices in between face boundaries.
         :param verts: Input vertices.
         :param edges: Input edges.
@@ -630,8 +629,8 @@ def duplicate(
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
         :param dest: Destination bmesh, if None will use current one.
-        :param use_select_history: Undocumented.
-        :param use_edge_flip_from_face: Undocumented.
+        :param use_select_history: Preserve the selection history in the duplicated geometry.
+        :param use_edge_flip_from_face: Copy edge flip state from connected faces.
         :return: geom_orig:
 
     type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
@@ -694,7 +693,7 @@ def edgenet_fill(
         :param edges: Input edges.
         :param mat_nr: Material to use.
         :param use_smooth: Smooth state to use.
-        :param sides: Number of sides.
+        :param sides: Maximum number of sides for created faces.
         :return: faces:
     New faces.
 
@@ -726,7 +725,7 @@ def extrude_discrete_faces(
         :param bm: The bmesh to operate on.
         :param faces: Input faces.
         :param use_normal_flip: Create faces with reversed direction.
-        :param use_select_history: Pass to duplicate.
+        :param use_select_history: Preserve the selection history in the extruded geometry.
         :return: faces:
     Output faces.
 
@@ -745,7 +744,7 @@ def extrude_edge_only(
         :param bm: The bmesh to operate on.
         :param edges: Input edges.
         :param use_normal_flip: Create faces with reversed direction.
-        :param use_select_history: Pass to duplicate.
+        :param use_select_history: Preserve the selection history in the extruded geometry.
         :return: geom:
     Output geometry.
 
@@ -774,7 +773,7 @@ def extrude_face_region(
         :param use_normal_flip: Create faces with reversed direction.
         :param use_normal_from_adjacent: Use winding from surrounding faces instead of this region.
         :param use_dissolve_ortho_edges: Dissolve edges whose faces form a flat surface.
-        :param use_select_history: Pass to duplicate.
+        :param use_select_history: Preserve the selection history in the extruded geometry.
         :param skip_input_flip: Skip flipping of input faces to preserve original orientation.
         :return: geom:
 
@@ -786,11 +785,11 @@ def extrude_vert_indiv(
     verts: list[bmesh.types.BMVert] = [],
     use_select_history: bool = False,
 ) -> dict[str, typing.Any]:
-    """Individual Vertex Extrude.Extrudes wire edges from vertices.
+    """Individual Vertex Extrude.Extrudes individual vertices, creating new vertices connected by wire edges.
 
         :param bm: The bmesh to operate on.
         :param verts: Input vertices.
-        :param use_select_history: Pass to duplicate.
+        :param use_select_history: Preserve the selection history in the extruded geometry.
         :return: edges:
     Output wire edges.
 
@@ -877,7 +876,7 @@ def holes_fill(
 
         :param bm: The bmesh to operate on.
         :param edges: Input edges.
-        :param sides: Number of face sides to fill.
+        :param sides: Maximum number of sides for holes to fill (holes with more edges are skipped).
         :return: faces:
     New faces.
 
@@ -897,8 +896,8 @@ def inset_individual(
 
         :param bm: The bmesh to operate on.
         :param faces: Input faces.
-        :param thickness: Thickness.
-        :param depth: Depth.
+        :param thickness: Inset distance from the boundary.
+        :param depth: Distance to raise or lower the inset face along its normal.
         :param use_even_offset: Scale the offset to give more even thickness.
         :param use_interpolate: Blend face data across the inset.
         :param use_relative_offset: Scale the offset by surrounding geometry.
@@ -931,8 +930,8 @@ def inset_region(
         :param use_interpolate: Blend face data across the inset.
         :param use_relative_offset: Scale the offset by surrounding geometry.
         :param use_edge_rail: Inset the region along existing edges.
-        :param thickness: Thickness.
-        :param depth: Depth.
+        :param thickness: Inset distance from the boundary.
+        :param depth: Distance to raise or lower the inset face along its normal.
         :param use_outset: Outset rather than inset.
         :return: faces:
     Output faces.
@@ -987,8 +986,8 @@ def mesh_to_bmesh(
     reserved exclusively for entering edit-mode.
 
         :param bm: The bmesh to operate on.
-        :param mesh: Pointer to a Mesh structure.
-        :param object: Pointer to an Object structure.
+        :param mesh: The mesh to read from.
+        :param object: The object.
         :param use_shapekey: Load active shapekey coordinates into verts.
     """
 
@@ -1030,8 +1029,8 @@ def object_load_bmesh(
     BMOP.
 
         :param bm: The bmesh to operate on.
-        :param scene: Pointer to a scene structure.
-        :param object: Pointer to an object structure.
+        :param scene: The scene.
+        :param object: The object.
     """
 
 def offset_edgeloops(
@@ -1133,9 +1132,8 @@ def region_extend(
     use_faces: bool = False,
     use_face_step: bool = False,
 ) -> dict[str, typing.Any]:
-    """Region Extend.used to implement the select more/less tools.
-    this puts some geometry surrounding regions of
-    geometry in geom into geom.out.if use_faces is 0 then geom.out spits out verts and edges,
+    """Region Extend.Used to implement the select more/less tools.
+    Puts geometry surrounding regions of geometry in geom into geom.out.If use_faces is 0 then geom.out spits out verts and edges,
     otherwise it spits out faces.
 
         :param bm: The bmesh to operate on.
@@ -1328,8 +1326,9 @@ def solidify(
 
         :param bm: The bmesh to operate on.
         :param geom: Input geometry.
-        :param thickness: Thickness.
+        :param thickness: Thickness of the solidified shell.
         :return: geom:
+    Output geometry (new shell faces, edges, and vertices).
 
     type list[`bmesh.types.BMVert` | `bmesh.types.BMEdge` | `bmesh.types.BMFace`]
     """
@@ -1412,7 +1411,7 @@ def split_edges(
         :param verts: Optional tag verts, use to have greater control of splits.
         :param use_verts: Use verts for splitting, else just find verts to split from edges.
         :return: edges:
-    Old output disconnected edges.
+    The original edges that were disconnected.
 
     type list[`bmesh.types.BMEdge`]
     """
@@ -1475,16 +1474,16 @@ def subdivide_edges(
         :param smooth: Smoothness factor.
         :param smooth_falloff: Smooth falloff type.
         :param fractal: Fractal randomness factor.
-        :param along_normal: Apply fractal displacement along normal only.
+        :param along_normal: Factor (0 to 1) controlling how much fractal displacement is restricted to the normal.
         :param cuts: Number of cuts.
         :param seed: Seed for the random number generator.
-        :param custom_patterns: Uses custom pointers.
-        :param edge_percents: Undocumented.
+        :param custom_patterns: Internal use only, not accessible from Python.
+        :param edge_percents: Mapping of edges to a float (0 to 1) controlling the cut position along each edge.
         :param quad_corner_type: Quad corner type.
         :param use_grid_fill: Fill in fully-selected faces with a grid.
         :param use_single_edge: Tessellate the case of one edge selected in a quad or triangle.
         :param use_only_quads: Only subdivide quads (for loop-cut).
-        :param use_sphere: For making new primitives only.
+        :param use_sphere: Project new vertices onto a sphere (used for spherical primitives).
         :param use_smooth_even: Maintain even offset when smoothing.
         :return: geom_inner:
 
@@ -1507,10 +1506,10 @@ def symmetrize(
     dist: float = 0,
     use_shapekey: bool = False,
 ) -> dict[str, typing.Any]:
-    """Symmetrize.Makes the mesh elements in the "input" slot symmetrical. Unlike
+    """Symmetrize.Makes the mesh elements in the input slot symmetrical. Unlike
     normal mirroring, it only copies in one direction, as specified by
-    the "direction" slot. The edges and faces that cross the plane of
-    symmetry are split as needed to enforce symmetry.All new vertices, edges, and faces are added to the "geom.out" slot.
+    the direction slot. The edges and faces that cross the plane of
+    symmetry are split as needed to enforce symmetry.All new vertices, edges, and faces are added to the geom.out slot.
 
         :param bm: The bmesh to operate on.
         :param input: Input geometry.
@@ -1586,7 +1585,7 @@ def triangulate(
     ] = "BEAUTY",
     ngon_method: typing.Literal["BEAUTY", "EAR_CLIP"] = "BEAUTY",
 ) -> dict[str, typing.Any]:
-    """Triangulate.
+    """Triangulate.Triangulate faces, splitting quads and n-gons into triangles.
 
         :param bm: The bmesh to operate on.
         :param faces: Input faces.
@@ -1634,8 +1633,8 @@ def weld_verts(
 
         :param bm: The bmesh to operate on.
         :param targetmap: Maps welded vertices to verts they should weld to.
-        :param use_centroid: Merged vertices to their centroid position,
-    otherwise the position of the target vertex is used.
+        :param use_centroid: Merge vertices to their centroid position,
+    otherwise use the position of the target vertex.
     """
 
 def wireframe(
@@ -1655,7 +1654,7 @@ def wireframe(
 
         :param bm: The bmesh to operate on.
         :param faces: Input faces.
-        :param thickness: Thickness.
+        :param thickness: Wire thickness.
         :param offset: Offset the thickness from the center.
         :param use_replace: Remove original geometry.
         :param use_boundary: Inset face boundaries.

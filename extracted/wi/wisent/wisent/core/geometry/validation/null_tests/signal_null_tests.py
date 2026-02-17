@@ -4,7 +4,7 @@ from typing import Dict, List, Tuple
 import torch
 import numpy as np
 
-from .signal_metrics import (
+from ...metrics.probe.signal_metrics import (
     _adaptive_k, _adaptive_cv, _adaptive_pca_components,
     _adaptive_mlp_hidden, _adaptive_n_permutations,
     _knn_accuracy, _knn_pca_accuracy, _mlp_accuracy,
@@ -27,6 +27,9 @@ def _compute_null_distribution(
     return np.array(null_scores)
 
 
+MAX_PAIRS_FOR_NULL_TEST = 1000
+
+
 def compute_signal_vs_null(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
@@ -47,10 +50,24 @@ def compute_signal_vs_null(
     pos_np = pos_activations.cpu().numpy() if isinstance(pos_activations, torch.Tensor) else pos_activations
     neg_np = neg_activations.cpu().numpy() if isinstance(neg_activations, torch.Tensor) else neg_activations
 
+    # Subsample pairs for permutation testing when dataset is large
+    n_pairs = len(pos_np)
+    if n_pairs > MAX_PAIRS_FOR_NULL_TEST:
+        idx = np.random.RandomState(42).choice(n_pairs, MAX_PAIRS_FOR_NULL_TEST, replace=False)
+        idx.sort()
+        pos_np = pos_np[idx]
+        neg_np = neg_np[idx]
+
     X = np.vstack([pos_np, neg_np])
     y = np.array([1] * len(pos_np) + [0] * len(neg_np))
 
     n_samples, n_features = X.shape
+    # PCA reduce for high-dimensional concatenated data
+    pca_max = min(n_samples - 1, n_features, 50)
+    if pca_max < n_features and pca_max >= 2:
+        from sklearn.decomposition import PCA
+        X = PCA(n_components=pca_max, random_state=42).fit_transform(X)
+        n_features = pca_max
     k = _adaptive_k(n_samples)
     cv = _adaptive_cv(n_samples)
     pca_components = _adaptive_pca_components(n_samples, n_features)
@@ -110,7 +127,7 @@ def compute_signal_vs_nonsense(
     This tests: "Is this signal different from random noise?"
     Generates activations from random tokens and compares metrics.
     """
-    from .nonsense_baseline import generate_nonsense_activations
+    from ...data.nonsense.nonsense_baseline import generate_nonsense_activations
 
     pos_np = pos_activations.cpu().numpy() if isinstance(pos_activations, torch.Tensor) else pos_activations
     neg_np = neg_activations.cpu().numpy() if isinstance(neg_activations, torch.Tensor) else neg_activations

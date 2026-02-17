@@ -1,11 +1,14 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
 import re
 from itertools import chain
 from typing import Any
 
-from tatsu import grammars as model
-from tatsu.ast import AST
+from .. import grammars as model
+from ..ast import AST
+from ..grammars import Model
 
 
 def camel2py(name: Any) -> str:
@@ -40,19 +43,19 @@ class ANTLRSemantics:
             name = name.upper()
             if isinstance(exp, model.Token):
                 if name in self.token_rules:
-                    self.token_rules[name].exp = exp  # it is a model._Decorator
+                    self.token_rules[name].exp = exp  # it is a model.Decorator?
                 else:
                     self.token_rules[name] = exp
                 return None
-            elif not ast.fragment and not isinstance(exp, model.Sequence):
-                ref = model.RuleRef(name.lower())
+            elif not ast.fragment and not isinstance(exp, model.Model):
+                ref = model.Call(name.lower())
                 if name in self.token_rules:
                     self.token_rules[name].exp = ref
                 else:
                     self.token_rules[name] = ref
                 name = name.lower()
 
-        return model.Rule(ast, name, exp, ast.params, ast.kwparams)
+        return model.Rule(ast=ast, name=name, params=ast.params, kwparams=ast.kwparams)
 
     def alternatives(self, ast: AST) -> model.Model:
         options = [o for o in ast.options if o is not None]
@@ -69,7 +72,7 @@ class ANTLRSemantics:
         elif len(elements) == 1:
             return elements[0]
         else:
-            return model.Sequence(AST(sequence=elements))
+            return model.Sequence(elements)
 
     def predicate_or_action(self, ast: Any) -> None:
         return None
@@ -83,33 +86,33 @@ class ANTLRSemantics:
     def syntactic_predicate(self, ast: Any) -> None:
         return None
 
-    def optional(self, ast: AST) -> model.Optional:
-        if isinstance(ast, model.Group | model.Optional | model.Closure):
+    def optional(self, ast: Model) -> model.Optional:
+        if isinstance(ast, model.Group | model.Optional):
             ast = ast.exp
         return model.Optional(ast)
 
-    def closure(self, ast: AST) -> model.Closure:
+    def closure(self, ast: Model) -> model.Closure:
         if isinstance(ast, model.Group | model.Optional):
             ast = ast.exp
         return model.Closure(ast)
 
-    def positive_closure(self, ast: AST) -> model.Closure:
+    def positive_closure(self, ast: Model) -> model.Closure:
         if isinstance(ast, model.Group):
             ast = ast.exp
         return model.PositiveClosure(ast)
 
-    def negative(self, ast: AST) -> model.Sequence:
+    def negative(self, ast: Model) -> model.Sequence:
         neg = model.NegativeLookahead(ast)
         any = model.Pattern('.')
-        return model.Sequence(AST(sequence=[neg, any]))
+        return model.Sequence([neg, any])
 
-    def subexp(self, ast: AST) -> model.Group:
+    def subexp(self, ast: Model) -> model.Group:
         return model.Group(ast)
 
     def regexp(self, ast: AST) -> model.Pattern:
         pattern = ''.join(ast)
-        re.compile(pattern)
-        return model.Pattern(pattern)
+        regex = re.compile(pattern)
+        return model.Pattern(regex.pattern)
 
     def charset_optional(self, ast: AST) -> str:
         return f'{ast}?'
@@ -141,8 +144,8 @@ class ANTLRSemantics:
 
     def newranges(self, ast: AST) -> model.Pattern:
         pattern = ''.join(ast)
-        re.compile(pattern)
-        return model.Pattern(pattern)
+        regex = re.compile(pattern)
+        return model.Pattern(regex.pattern)
 
     def newrange(self, ast: AST) -> str:
         pattern = '[{}]{}'.format(ast.range, ast.repeat or '')
@@ -154,15 +157,15 @@ class ANTLRSemantics:
         re.compile(pattern)
         return pattern
 
-    def rule_ref(self, ast: str) -> model.RuleRef:
+    def call(self, ast: str) -> model.Call:
         assert ast[0].islower()
-        return model.RuleRef(camel2py(ast))
+        return model.Call(camel2py(ast))
 
     def any(self, ast: AST) -> model.Pattern:
         return model.Pattern(r'\w+|\S+')
 
     def string(self, ast: AST) -> model.Token:
-        text = ast
+        text = str(ast)
         if isinstance(text, list):
             text = ''.join(text)
         return model.Token(text)
@@ -170,15 +173,14 @@ class ANTLRSemantics:
     def eof(self, ast: AST) -> model.EOF:
         return model.EOF()
 
-    def token(self, ast: AST) -> model.Token | model.Fail:
+    def token(self, ast: AST) -> model.Token | model.Void:
         name = ast.name
-        exp: model.Model | None = None
-        if ast.value:
+        if ast.exp:
             exp = model.Token(ast.value)
             self.tokens[name] = exp
         else:
-            exp = model.Fail()
-            rule = model.Rule(ast, name, exp, [], {})
+            exp = model.Void()
+            rule = model.Rule(ast=exp, name=name)
             self.synthetic_rules.append(rule)
         return exp
 
@@ -192,6 +194,6 @@ class ANTLRSemantics:
         if name in self.token_rules:
             exp = self.token_rules[name]
         else:
-            exp = model.Decorator(model.RuleRef(name))
+            exp = model.Decorator(model.Call(name))
             self.token_rules[name] = exp
         return exp

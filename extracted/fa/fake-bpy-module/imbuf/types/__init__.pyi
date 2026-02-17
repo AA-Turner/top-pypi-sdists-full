@@ -17,36 +17,36 @@ class ImBuf:
     """ Number of color channels."""
 
     filepath: str
-    """ filepath associated with this image."""
+    """ Filepath associated with this image."""
 
     planes: int
     """ Number of bits per pixel."""
 
     ppm: tuple[float, float]
-    """ pixels per meter."""
+    """ Pixels per meter."""
 
     size: tuple[int, int]
-    """ size of the image in pixels."""
+    """ Size of the image in pixels."""
 
     def copy(self) -> typing_extensions.Self:
-        """
+        """Return a copy of the image.
 
         :return: A copy of the image.
         """
 
     def crop(self, min: tuple[int, int], max: tuple[int, int]) -> None:
-        """Crop the image.
+        """Crop the image in-place.
 
-        :param min: X, Y minimum.
-        :param max: X, Y maximum.
+        :param min: Minimum pixel coordinates (X, Y), inclusive.
+        :param max: Maximum pixel coordinates (X, Y), inclusive.
         """
 
     def free(self) -> None:
         """Clear image data immediately (causing an error on re-use)."""
 
     def resize(self, size: tuple[int, int], *, method: str = "FAST") -> None:
-        """Resize the image.
+        """Resize the image in-place.
 
         :param size: New size.
-        :param method: Method of resizing (FAST, BILINEAR)
+        :param method: Method of resizing (FAST, BILINEAR).
         """

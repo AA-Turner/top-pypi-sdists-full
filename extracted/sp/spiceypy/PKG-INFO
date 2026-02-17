@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spiceypy
-Version: 8.0.1
+Version: 8.0.2
 Summary: A Python Wrapper for the NAIF CSPICE Toolkit
 Keywords: spiceypy,spice,cspice,naif,jpl,space,geometry,ephemeris
 Author-Email: "Andrew M. annex" <ama6fy@virginia.edu>

@@ -12,6 +12,12 @@ def attribute_set(
     value_float: float | None = 0.0,
     value_float_vector_2d: collections.abc.Sequence[float] | None = (0.0, 0.0),
     value_float_vector_3d: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0),
+    value_float_vector_4d: collections.abc.Sequence[float] | None = (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ),
     value_int: int | None = 0,
     value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
     value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
@@ -22,6 +28,7 @@ def attribute_set(
     :param value_float: Value, (in [-inf, inf], optional)
     :param value_float_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_float_vector_3d: Value, (array of 3 items, in [-inf, inf], optional)
+    :param value_float_vector_4d: Value, (array of 4 items, in [-inf, inf], optional)
     :param value_int: Value, (in [-inf, inf], optional)
     :param value_int_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_color: Value, (array of 4 items, in [-inf, inf], optional)
@@ -71,7 +78,7 @@ def select_all(
     *,
     action: typing.Literal["TOGGLE", "SELECT", "DESELECT", "INVERT"] | None = "TOGGLE",
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """(De)select all point cloud
+    """(De)select all points
 
         :param action: Action, Selection action to execute (optional)
 
@@ -97,7 +104,7 @@ def select_random(
     seed: int | None = 0,
     probability: float | None = 0.5,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Randomizes existing selection or create new random selection
+    """Randomize existing selection or create new random selection
 
     :param seed: Seed, Source of randomness (in [-inf, inf], optional)
     :param probability: Probability, Chance of every point being included in the selection (in [0, 1], optional)

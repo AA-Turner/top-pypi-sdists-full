@@ -1,7 +1,7 @@
 from adam.commands import extract_sequence
 from adam.commands.command import Command
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_cassandra.table_renderer import renderer
 
 class ShowProcesses(Command):

@@ -5,7 +5,7 @@ import re
 from adam.commands.export.importer import Importer
 from adam.commands.export.utils_export import ExportTableStatus, fs_exec, remote_export_table_log_dir
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.directories import Directories, local_downloads_dir
 from adam.utils_log import log2, log
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes

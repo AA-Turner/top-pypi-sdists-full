@@ -14,6 +14,7 @@
 
 
 import asyncio
+import warnings
 from typing import Type
 from unittest.mock import Mock
 
@@ -26,6 +27,7 @@ from toolbox_core.utils import (
     identify_auth_requirements,
     params_to_pydantic_model,
     resolve_value,
+    warn_if_http_and_headers,
 )
 
 
@@ -35,6 +37,8 @@ def create_param_mock(name: str, description: str, annotation: Type) -> Mock:
     param_mock.name = name
     param_mock.description = description
     param_mock.required = True
+    param_mock.default = None
+    param_mock.has_default = False
 
     mock_param_info = Mock()
     mock_param_info.annotation = annotation
@@ -422,6 +426,24 @@ def test_params_to_pydantic_model_with_params():
         Model(name="Bob", age="thirty", is_active=True)
 
 
+def test_params_to_pydantic_model_uses_explicit_default_none():
+    """Test that explicit default=None is honored for required schema fields."""
+    tool_name = "MyToolWithExplicitNoneDefault"
+    params = [
+        ParameterSchema(
+            name="message",
+            type="string",
+            description="Message value",
+            required=True,
+            default=None,
+        )
+    ]
+    Model = params_to_pydantic_model(tool_name, params)
+
+    assert "message" in Model.model_fields
+    assert Model.model_fields["message"].default is None
+
+
 @pytest.mark.asyncio
 async def test_resolve_value_plain_value():
     """Test resolving a plain, non-callable value."""
@@ -458,3 +480,31 @@ async def test_resolve_value_async_callable():
         return {"key": "value"}
 
     assert await resolve_value(another_async_func) == {"key": "value"}
+
+
+def test_warn_if_http_and_headers_triggers():
+    """Test that a warning is emitted for HTTP URLs with headers."""
+    url = "http://example.com"
+    headers = {"Authorization": "Bearer token"}
+    with pytest.warns(UserWarning, match="This connection is using HTTP"):
+        warn_if_http_and_headers(url, headers)
+
+
+def test_warn_if_http_and_headers_no_headers():
+    """Test that no warning is emitted for HTTP URLs without headers."""
+    url = "http://example.com"
+    headers = {}
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        warn_if_http_and_headers(url, headers)
+        assert len(w) == 0
+
+
+def test_warn_if_http_and_headers_https():
+    """Test that no warning is emitted for HTTPS URLs."""
+    url = "https://example.com"
+    headers = {"Authorization": "Bearer token"}
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter("always")
+        warn_if_http_and_headers(url, headers)
+        assert len(w) == 0

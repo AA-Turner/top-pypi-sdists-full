@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maturin
-Version: 1.12.0
+Version: 1.12.2
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython

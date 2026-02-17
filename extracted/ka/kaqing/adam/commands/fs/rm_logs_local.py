@@ -2,7 +2,7 @@ import os
 
 from adam.commands.command import Command
 from adam.directories import Directories
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log2
 
 class RmLogsLocal(Command):

@@ -1,9 +1,9 @@
 [build-system]
-requires = ["maturin == 1.11.5"]
+requires = ["maturin == 1.12.2"]
 build-backend = "maturin"
 
 [tool.maturin]
-python-source = "python"
+python-source = "py-src"
 module-name = "toml_rs._toml_rs"
 
 [project]
@@ -37,14 +37,14 @@ classifiers = [
 ]
 
 [dependency-groups]
-typos = ["typos == 1.43.3"]
+typos = ["typos == 1.43.5"]
 zizmor = ["zizmor == 1.22.0"]
 ci = [
-    "ty == 0.0.15",
-    "ruff == 0.15.0",
-    "maturin == 1.11.5",
+    "ty == 0.0.17",
+    "ruff == 0.15.1",
+    "maturin == 1.12.2",
     "pytest == 9.0.2",
-    "rumdl == 0.1.14",
+    "rumdl == 0.1.22",
     # last `tomli` version which support TOML 1.0
     # need to check compatibility
     "tomli == 2.3.0 ; python_version<'3.11'",
@@ -63,7 +63,7 @@ bench = [
     "rtoml",
     "tomli ; python_version<'3.11'",
     "tomli-w",
-    "polars == 1.37.1",
+    "polars == 1.38.1",
     "altair == 6.0.0",
     "vl-convert-python == 1.9.0",
     "py-cpuinfo == 9.0.0",

@@ -1,9 +1,9 @@
 #
-# Copyright (C) 2011 - 2021 Satoru SATOH <satoru.satoh gmail.com>
+# Copyright (C) 2011 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 """Provides constants for anyconfig.cli."""
-STD_IN_OR_OUT = '-'
+STD_IN_OR_OUT = "-"
 
 USAGE = """\
 %(prog)s [Options...] CONF_PATH_OR_PATTERN_0 [CONF_PATH_OR_PATTERN_1 ..]
@@ -51,5 +51,3 @@ GET_HELP = ("Specify key path to get part of config, for example, "
 SET_HELP = ("Specify key path to set (update) part of config, for "
             "example, '--set a.b.c=1' to a config {'a': {'b': {'c': 0, "
             "'d': 1}}} gives {'a': {'b': {'c': 1, 'd': 1}}}.")
-
-# vim:sw=4:ts=4:et:

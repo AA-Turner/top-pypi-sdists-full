@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import unittest
 
 import numpy
@@ -16,15 +18,15 @@ def _boundary_inputs(boundary, rtol, atol):
 @testing.with_requires('scipy')
 class _TestBase:
 
-    @testing.with_requires('scipy<1.16.0')
+    @testing.with_requires('scipy>=1.16.0')
     def test_erf(self):
         self.check_unary('erf')
 
-    @testing.with_requires('scipy<1.16.0')
+    @testing.with_requires('scipy>=1.16.0')
     def test_erfc(self):
         self.check_unary('erfc')
 
-    @testing.with_requires('scipy<1.16.0')
+    @testing.with_requires('scipy>=1.16.0')
     def test_erfcx(self):
         self.check_unary('erfcx')
 

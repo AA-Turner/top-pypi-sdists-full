@@ -206,7 +206,7 @@ def edit_mesh_extrude_move_normal(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Extrude region together along the average normal
 
-    :param dissolve_and_intersect: dissolve_and_intersect, Dissolves adjacent faces and intersects new geometry (optional)
+    :param dissolve_and_intersect: Dissolve and Intersect, Dissolves adjacent faces and intersects new geometry (optional)
     :return: Result of the operator call.
     """
 
@@ -567,7 +567,7 @@ def select_lasso(
 
         :param path: Path, (optional)
         :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
-        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values gives a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
         :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
         :param mode: Mode, (optional)
 

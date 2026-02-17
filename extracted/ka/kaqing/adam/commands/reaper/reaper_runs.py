@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.reaper.utils_reaper import reaper, Reapers
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class ReaperRuns(Command):
     COMMAND = 'reaper show runs'

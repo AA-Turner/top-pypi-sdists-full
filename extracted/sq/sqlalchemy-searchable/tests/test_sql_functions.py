@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 
 class TestParse:
@@ -32,26 +33,8 @@ class TestParse:
             ('"star or or wars"', "star:* <-> or:* <-> or:* <-> wars:*"),
             ("star or   or    or    wars", "'star':* | 'or':* | 'wars':*"),
             ("star oror wars", "'star':* & 'oror':* & 'wars':*"),
-            pytest.param(
-                "star-wars",
-                "'star-wars':* & 'star':* & 'wars':*",
-                marks=pytest.mark.postgresql_max_version(13),
-            ),
-            pytest.param(
-                "star-wars",
-                "'star-wars':* <-> 'star':* <-> 'wars':*",
-                marks=pytest.mark.postgresql_min_version(14),
-            ),
-            pytest.param(
-                "star----wars",
-                "'star':* & 'wars':*",
-                marks=pytest.mark.postgresql_max_version(13),
-            ),
-            pytest.param(
-                "star----wars",
-                "'star':* <-> 'wars':*",
-                marks=pytest.mark.postgresql_min_version(14),
-            ),
+            ("star-wars", "'star-wars':* <-> 'star':* <-> 'wars':*"),
+            ("star----wars", "'star':* <-> 'wars':*"),
             ("star   wars    luke", "'star':* & 'wars':* & 'luke':*"),
             ("örrimöykky", "'örrimöykky':*"),
             ("-star", "!'star':*"),
@@ -90,39 +73,18 @@ class TestParse:
                 "'star':* <-> 'wars':* & 'death':* <-> 'star':*",
             ),
             ("star or wars luke or solo", "'star':* | 'wars':* & 'luke':* | 'solo':*"),
-            pytest.param(
-                "-star#wars",
-                "!( 'star':* & 'wars':* )",
-                marks=pytest.mark.postgresql_max_version(13),
-            ),
-            pytest.param(
-                "-star#wars",
-                "!( 'star':* <-> 'wars':* )",
-                marks=pytest.mark.postgresql_min_version(14),
-            ),
-            pytest.param(
-                "-star#wars or -star#wars",
-                "!( 'star':* & 'wars':* ) | !( 'star':* & 'wars':* )",
-                marks=pytest.mark.postgresql_max_version(13),
-            ),
-            pytest.param(
+            ("-star#wars", "!( 'star':* <-> 'wars':* )"),
+            (
                 "-star#wars or -star#wars",
                 "!( 'star':* <-> 'wars':* ) | !( 'star':* <-> 'wars':* )",
-                marks=pytest.mark.postgresql_min_version(14),
             ),
-            pytest.param(
-                '"star#wars star_wars"',
-                "( 'star':* & 'wars':* ) <-> ( 'star':* & 'wars':* )",
-                marks=pytest.mark.postgresql_max_version(13),
-            ),
-            pytest.param(
+            (
                 '"star#wars star_wars"',
                 "'star':* <-> 'wars':* <-> 'star':* <-> 'wars':*",
-                marks=pytest.mark.postgresql_min_version(14),
             ),
         ),
     )
-    def test_parse(self, session, input, output):
+    def test_parse(self, session: Session, input: str, output: str) -> None:
         assert (
             session.execute(
                 text("SELECT parse_websearch('pg_catalog.simple', :input)"),

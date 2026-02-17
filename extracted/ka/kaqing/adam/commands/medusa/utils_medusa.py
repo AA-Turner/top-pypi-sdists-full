@@ -1,5 +1,5 @@
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.statefulsets import StatefulSets
 

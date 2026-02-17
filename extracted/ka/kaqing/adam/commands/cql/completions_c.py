@@ -2,7 +2,7 @@ from adam.commands.cql.utils_cql import cassandra_keyspaces, cassandra_table_nam
 from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.export_databases import ExportDatabases
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.sql.lark_completer import LarkCompleter
 from adam.utils_log import log_timing
 from adam.utils_k8s.statefulsets import StatefulSets

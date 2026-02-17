@@ -34,6 +34,7 @@ class ListWorkersResponse200Item:
         memory_usage (Union[Unset, float]):
         wm_memory_usage (Union[Unset, float]):
         job_isolation (Union[Unset, str]):
+        native_mode (Union[Unset, bool]):
     """
 
     worker: str
@@ -56,6 +57,7 @@ class ListWorkersResponse200Item:
     memory_usage: Union[Unset, float] = UNSET
     wm_memory_usage: Union[Unset, float] = UNSET
     job_isolation: Union[Unset, str] = UNSET
+    native_mode: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -83,6 +85,7 @@ class ListWorkersResponse200Item:
         memory_usage = self.memory_usage
         wm_memory_usage = self.wm_memory_usage
         job_isolation = self.job_isolation
+        native_mode = self.native_mode
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -123,6 +126,8 @@ class ListWorkersResponse200Item:
             field_dict["wm_memory_usage"] = wm_memory_usage
         if job_isolation is not UNSET:
             field_dict["job_isolation"] = job_isolation
+        if native_mode is not UNSET:
+            field_dict["native_mode"] = native_mode
 
         return field_dict
 
@@ -169,6 +174,8 @@ class ListWorkersResponse200Item:
 
         job_isolation = d.pop("job_isolation", UNSET)
 
+        native_mode = d.pop("native_mode", UNSET)
+
         list_workers_response_200_item = cls(
             worker=worker,
             worker_instance=worker_instance,
@@ -190,6 +197,7 @@ class ListWorkersResponse200Item:
             memory_usage=memory_usage,
             wm_memory_usage=wm_memory_usage,
             job_isolation=job_isolation,
+            native_mode=native_mode,
         )
 
         list_workers_response_200_item.additional_properties = d

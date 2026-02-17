@@ -3,13 +3,13 @@ import traceback
 from typing import Callable, TypeVar, Union
 
 from adam.config_holder import ConfigHolder
-from adam.repl_session import ReplSession
 from adam.utils_color import Color
 from adam.utils_concurrent import offload
 from adam.directories import Directories
 from adam.utils_global import thread_local
 from adam.utils_job.job import Job
 from adam.utils_log import _log, log2
+from adam.utils_repl.repl_session import ReplSession
 
 T = TypeVar('T')
 

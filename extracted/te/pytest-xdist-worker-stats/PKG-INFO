@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-xdist-worker-stats
-Version: 0.3.1
+Version: 0.4.0
 Summary: A pytest plugin to list worker statistics after a xdist run.
 License: MIT
 License-File: LICENSE
@@ -123,6 +123,15 @@ $ pre-commit install
 Many thanks to [Denys Korytkin](https://github.com/DKorytkin) for the article [How to get data from pytest-xdist nodes](https://korytkin.medium.com/how-to-get-data-from-pytest-xdist-nodes-2fbf2f0fe957).
 
 ## Changelog
+
+### 0.4.0  (November 10, 2025)
+
+* Support Pytest 9
+* Use `time.monotonic()` instead of `time.time()`
+
+### 0.3.1  (November 10, 2025)
+
+* Support Python 3.14
 
 ### 0.3.0  (March 15, 2025)
 

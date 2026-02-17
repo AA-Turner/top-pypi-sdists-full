@@ -15,8 +15,16 @@ classifiers = [
     "License :: OSI Approved :: Apache Software License",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
 ]
-dependencies = ["requests", "typing-extensions"]
+dependencies = [
+    "httpx>=0.28.1",
+    "typing-extensions",
+]
 dynamic = ["version"]
 
 [project.urls]
@@ -30,16 +38,18 @@ build-backend = "setuptools.build_meta"
 
 [dependency-groups]
 dev = [
-    "mypy",
+    "mypy>=1.19.0",
     "pytest",
+    "pytest-asyncio",
     "coverage",
     "pytest-mock",
-    "requests-mock",
     "python-dotenv",
-    "types-requests",
     "faker",
     "ruff>=0.11.11",
     "isort>=6.0.1",
+    "respx>=0.22.0",
+    "requests",
+    "unasync>=0.6.0",
 ]
 
 [tool.uv]

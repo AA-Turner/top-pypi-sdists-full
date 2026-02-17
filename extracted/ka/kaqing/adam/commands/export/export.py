@@ -1,7 +1,7 @@
 from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.commands.export.exporter import export
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class ExportTables(Command):
     COMMAND = 'export'

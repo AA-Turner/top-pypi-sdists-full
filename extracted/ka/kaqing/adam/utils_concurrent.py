@@ -106,7 +106,7 @@ class ParallelService:
         with log_timing(f'parallel.{f_name}(size={len(collection)}, pool={self.name})'):
             return list(pool.executor().map(functools.partial(pool.metrics, fn), collection))
 
-    def sample(self, fn: Callable[..., T], samples = 3) -> list[T]:
+    def sample(self, fn: Callable[..., T], samples = 3, batch_size = 0) -> list[T]:
         collection = self.collection
         if not collection:
             return []
@@ -128,7 +128,8 @@ class ParallelService:
         # 2. If at least 3 samples are acquired, the method returns with the first 3 samples.
         # 3. If not all 3 samples are acquired, the next 9 pods are examined concurrently, and so on.
         # 4. After all 96 nodes are examined, if the number of samples is less than 3, the samples are returned.
-        batch_size = min(len(collection), samples * 3)
+        if not batch_size:
+            batch_size = min(len(collection), samples * 3)
 
         # emulate pod failure with more than one batch
         # collection = ['cs-a7b13e29bd-cs-a7b13e29bd-default-sts-9', 'cs-a7b13e29bd-cs-a7b13e29bd-default-sts-0', 'cs-a7b13e29bd-cs-a7b13e29bd-default-sts-1', 'cs-a7b13e29bd-cs-a7b13e29bd-default-sts-2']

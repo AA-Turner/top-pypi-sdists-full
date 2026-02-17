@@ -176,8 +176,22 @@ class D402PaymentMiddleware(BaseHTTPMiddleware):
                 request.state.authenticated = True
                 logger.debug(f"D402: X-API-Key stored: {token[:10]}...")
             else:
-                request.state.api_key = None
-                request.state.authenticated = False
+                # Fallback: check custom header defined by MCP_API_KEY_HEADER env var.
+                # Some APIs (CoinGecko, CoinMarketCap) use non-standard headers
+                # like "x-cg-pro-api-key" or "X-CMC_PRO_API_KEY".
+                custom_header = os.environ.get("MCP_API_KEY_HEADER")
+                if custom_header:
+                    custom_token = request.headers.get(custom_header.lower())
+                    if custom_token:
+                        request.state.api_key = custom_token
+                        request.state.authenticated = True
+                        logger.debug(f"D402: Custom header '{custom_header}' stored: {custom_token[:10]}...")
+                    else:
+                        request.state.api_key = None
+                        request.state.authenticated = False
+                else:
+                    request.state.api_key = None
+                    request.state.authenticated = False
         
         # Step 2: Check payment for tool calls
         # Only intercept POST to /mcp

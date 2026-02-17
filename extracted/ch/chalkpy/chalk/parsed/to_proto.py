@@ -1403,6 +1403,9 @@ class ToProtoConverter:
             ),
             feature_expressions=feature_expressions,
             message_producer=message_producer,
+            skip_online=r.skip_online,
+            skip_offline=r.skip_offline,
+            update_aggregates=r.updates_materialized_aggregations,
         )
 
     @staticmethod

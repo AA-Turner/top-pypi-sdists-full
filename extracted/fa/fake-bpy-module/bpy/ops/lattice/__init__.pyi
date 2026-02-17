@@ -82,7 +82,7 @@ def select_more(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Select vertex directly linked to already selected ones
+    """Select vertices directly linked to already selected ones
 
     :return: Result of the operator call.
     """

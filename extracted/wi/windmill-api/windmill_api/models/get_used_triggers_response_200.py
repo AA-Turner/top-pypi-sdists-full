@@ -20,6 +20,7 @@ class GetUsedTriggersResponse200:
         sqs_used (bool):
         email_used (bool):
         nextcloud_used (bool):
+        google_used (bool):
     """
 
     http_routes_used: bool
@@ -32,6 +33,7 @@ class GetUsedTriggersResponse200:
     sqs_used: bool
     email_used: bool
     nextcloud_used: bool
+    google_used: bool
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -45,6 +47,7 @@ class GetUsedTriggersResponse200:
         sqs_used = self.sqs_used
         email_used = self.email_used
         nextcloud_used = self.nextcloud_used
+        google_used = self.google_used
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -60,6 +63,7 @@ class GetUsedTriggersResponse200:
                 "sqs_used": sqs_used,
                 "email_used": email_used,
                 "nextcloud_used": nextcloud_used,
+                "google_used": google_used,
             }
         )
 
@@ -88,6 +92,8 @@ class GetUsedTriggersResponse200:
 
         nextcloud_used = d.pop("nextcloud_used")
 
+        google_used = d.pop("google_used")
+
         get_used_triggers_response_200 = cls(
             http_routes_used=http_routes_used,
             websocket_used=websocket_used,
@@ -99,6 +105,7 @@ class GetUsedTriggersResponse200:
             sqs_used=sqs_used,
             email_used=email_used,
             nextcloud_used=nextcloud_used,
+            google_used=google_used,
         )
 
         get_used_triggers_response_200.additional_properties = d

@@ -12,6 +12,7 @@ base-config:
     ignored_for_cost: false
   properties:
     training_cutoff: December 2024
+    reasoning_model: false
 
 xiaomi-models:
   base-config:
@@ -19,7 +20,6 @@ xiaomi-models:
       context_window: 256000
     supports:
       temperature: true
-      top_p: true
     default_parameters:
       temperature: 0.3
       top_p: 0.95

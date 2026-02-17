@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_job.utils_job_results import show_last_results_for_node_schedules, show_last_results_with_local_log
 
@@ -36,4 +36,4 @@ class ShowNodeRestartSchedules(Command):
         return super().completion(state)
 
     def help(self, state: ReplState):
-        return super().help(state, 'show status of background jobs')
+        return super().help(state, 'show node restart schedule status')

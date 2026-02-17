@@ -1,7 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.export_databases import export_db
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class DropExportDatabase(Command):
     COMMAND = 'drop export database'

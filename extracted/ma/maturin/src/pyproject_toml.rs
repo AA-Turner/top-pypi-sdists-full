@@ -73,6 +73,37 @@ pub enum GlobPattern {
         /// One or more [Format] values
         format: Formats,
     },
+    /// A glob `path` relative to a crate's OUT_DIR
+    WithOutDir {
+        /// A glob pattern relative to OUT_DIR
+        path: String,
+        /// Source: must be "out-dir"
+        from: IncludeFrom,
+        /// Target path in wheel (e.g. "my_package/")
+        to: String,
+        /// Optional crate name (defaults to the root crate)
+        #[serde(default)]
+        crate_name: Option<String>,
+    },
+}
+
+/// Supported values for the `from` field in include patterns.
+#[derive(Clone, Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+#[cfg_attr(feature = "schemars", derive(schemars::JsonSchema))]
+pub enum IncludeFrom {
+    /// Include files from the crate's OUT_DIR
+    OutDir,
+}
+
+/// Information about an out-dir include pattern.
+pub struct OutDirInclude<'a> {
+    /// Glob pattern relative to OUT_DIR
+    pub path: &'a str,
+    /// Target path prefix in wheel
+    pub to: &'a str,
+    /// Optional crate name (defaults to root crate)
+    pub crate_name: Option<&'a str>,
 }
 
 impl GlobPattern {
@@ -85,6 +116,25 @@ impl GlobPattern {
                 path,
                 format: formats,
             } if formats.targets(format) => Some(path),
+            // WithOutDir is handled separately, never matched here
+            Self::WithOutDir { .. } => None,
+            _ => None,
+        }
+    }
+
+    /// Returns the out-dir include info if this is a `WithOutDir` pattern.
+    pub fn as_out_dir_include(&self) -> Option<OutDirInclude<'_>> {
+        match self {
+            Self::WithOutDir {
+                path,
+                to,
+                crate_name,
+                ..
+            } => Some(OutDirInclude {
+                path,
+                to,
+                crate_name: crate_name.as_deref(),
+            }),
             _ => None,
         }
     }
@@ -189,9 +239,13 @@ pub struct ToolMaturin {
     // maturin specific options
     /// Module name, accepts setuptools style import name like `foo.bar`
     pub module_name: Option<String>,
-    /// Include files matching the given glob pattern(s)
+    /// Include files matching the given glob pattern(s).
+    /// Patterns are resolved relative to the directory containing `pyproject.toml`.
+    /// When `python-source` is configured, patterns are also tried relative to
+    /// that directory if no matches are found.
     pub include: Option<Vec<GlobPattern>>,
-    /// Exclude files matching the given glob pattern(s)
+    /// Exclude files matching the given glob pattern(s).
+    /// Patterns are resolved relative to the directory containing `pyproject.toml`.
     pub exclude: Option<Vec<GlobPattern>>,
     /// Bindings type
     pub bindings: Option<String>,

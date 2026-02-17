@@ -15,7 +15,7 @@
 from __future__ import annotations
 
 import warnings
-from typing import Any, Dict, List, Union
+from typing import Any
 
 from hsfs import engine, feature, util
 from hsfs import feature_group as fg
@@ -33,51 +33,50 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
         self._online_conn = None
 
     def _update_feature_group_schema_on_demand_transformations(
-        self, feature_group: fg.FeatureGroup, features: List[feature.Feature]
+        self, feature_group: fg.FeatureGroup, features: list[feature.Feature]
     ):
-        """
-        Function to update feature group schema based on the on demand transformation available in the feature group.
+        """Function to update feature group schema based on the on demand transformation available in the feature group.
 
-        # Arguments:
-            feature_group: fg.FeatureGroup. The feature group for which the schema has to be updated.
-            features: List[feature.Feature]. List of features currently in the feature group
-        # Returns:
+        Parameters:
+            feature_group: The feature group for which the schema has to be updated.
+            features: List of features currently in the feature group.
+
+        Returns:
             Updated list of features. That has on-demand features and removes dropped features.
         """
         if not feature_group.transformation_functions:
             return features
-        else:
-            transformed_features = []
-            dropped_features = []
-            feature_names = [f.name for f in features]
-            for tf in feature_group.transformation_functions:
-                transformed_features.extend(
-                    [
-                        feature.Feature(
-                            output_column_name,
-                            return_type,
-                            on_demand=True,
-                        )
-                        for output_column_name, return_type in zip(
-                            tf.hopsworks_udf.output_column_names,
-                            tf.hopsworks_udf.return_types,
-                        )
-                        if output_column_name
-                        not in feature_names  # Don't add features that are already in the feature group. Feature names can already be in the feature group if the user explicitly added them in the feature group creation or if the feature group drop
-                    ]
-                )
-                if tf.hopsworks_udf.dropped_features:
-                    dropped_features.extend(tf.hopsworks_udf.dropped_features)
-            updated_schema = []
+        transformed_features = []
+        dropped_features = []
+        feature_names = [f.name for f in features]
+        for tf in feature_group.transformation_functions:
+            transformed_features.extend(
+                [
+                    feature.Feature(
+                        output_column_name,
+                        return_type,
+                        on_demand=True,
+                    )
+                    for output_column_name, return_type in zip(
+                        tf.hopsworks_udf.output_column_names,
+                        tf.hopsworks_udf.return_types,
+                    )
+                    if output_column_name
+                    not in feature_names  # Don't add features that are already in the feature group. Feature names can already be in the feature group if the user explicitly added them in the feature group creation or if the feature group drop
+                ]
+            )
+            if tf.hopsworks_udf.dropped_features:
+                dropped_features.extend(tf.hopsworks_udf.dropped_features)
+        updated_schema = []
 
-            for feat in features:
-                if feat.name not in dropped_features:
-                    updated_schema.append(feat)
-            return updated_schema + transformed_features
+        for feat in features:
+            if feat.name not in dropped_features:
+                updated_schema.append(feat)
+        return updated_schema + transformed_features
 
     def save(
         self,
-        feature_group: Union[fg.FeatureGroup, fg.ExternalFeatureGroup],
+        feature_group: fg.FeatureGroup | fg.ExternalFeatureGroup,
         feature_dataframe,
         write_options,
         validation_options: dict = None,
@@ -155,14 +154,14 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
 
     def insert(
         self,
-        feature_group: Union[fg.FeatureGroup, fg.ExternalFeatureGroup],
+        feature_group: fg.FeatureGroup | fg.ExternalFeatureGroup,
         feature_dataframe,
         overwrite,
         operation,
         storage,
         write_options,
         validation_options: dict = None,
-        transformation_context: Dict[str, Any] = None,
+        transformation_context: dict[str, Any] = None,
         transform: bool = True,
     ):
         dataframe_features = engine.get_instance().parse_schema_feature_group(
@@ -231,8 +230,8 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
             )
             raise exceptions.DataValidationException(
                 "Data validation failed while validation ingestion policy set to strict, "
-                + f"insertion to {feature_group.name} was aborted.\n"
-                + f"You can check a summary or download your report at {feature_group_url}."
+                f"insertion to {feature_group.name} was aborted.\n"
+                f"You can check a summary or download your report at {feature_group_url}."
             )
 
         offline_write_options = write_options
@@ -295,8 +294,7 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
                 engine.get_instance()._spark_session,
                 engine.get_instance()._spark_context,
             )
-        else:
-            return None, None
+        return None, None
 
     @staticmethod
     def commit_delete(feature_group, delete_df, write_options):
@@ -312,15 +310,14 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
                 spark_context,
             )
             return delta_engine_instance.delete_record(delete_df)
-        else:
-            hudi_engine_instance = hudi_engine.HudiEngine(
-                feature_group.feature_store_id,
-                feature_group.feature_store_name,
-                feature_group,
-                spark_context,
-                spark_session,
-            )
-            return hudi_engine_instance.delete_record(delete_df, write_options)
+        hudi_engine_instance = hudi_engine.HudiEngine(
+            feature_group.feature_store_id,
+            feature_group.feature_store_name,
+            feature_group,
+            spark_context,
+            spark_session,
+        )
+        return hudi_engine_instance.delete_record(delete_df, write_options)
 
     @staticmethod
     def delta_vacuum(feature_group, retention_hours):
@@ -337,8 +334,7 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
                 spark_context,
             )
             return delta_engine_instance.vacuum(retention_hours)
-        else:
-            return None
+        return None
 
     def sql(self, query, feature_store_name, dataframe_type, online, read_options):
         if online and self._online_conn is None:
@@ -403,7 +399,7 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
 
     def insert_stream(
         self,
-        feature_group: Union[fg.FeatureGroup, fg.ExternalFeatureGroup],
+        feature_group: fg.FeatureGroup | fg.ExternalFeatureGroup,
         dataframe,
         query_name,
         output_mode,
@@ -411,7 +407,7 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
         timeout,
         checkpoint_dir,
         write_options,
-        transformation_context: Dict[str, Any] = None,
+        transformation_context: dict[str, Any] = None,
         transform: bool = True,
     ):
         if not feature_group.online_enabled and not feature_group.stream:
@@ -474,7 +470,7 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
                 stacklevel=1,
             )
 
-        streaming_query = engine.get_instance().save_stream_dataframe(
+        return engine.get_instance().save_stream_dataframe(
             feature_group,
             dataframe,
             query_name,
@@ -484,8 +480,6 @@ class FeatureGroupEngine(feature_group_base_engine.FeatureGroupBaseEngine):
             checkpoint_dir,
             write_options,
         )
-
-        return streaming_query
 
     def save_feature_group_metadata(
         self, feature_group, dataframe_features, write_options

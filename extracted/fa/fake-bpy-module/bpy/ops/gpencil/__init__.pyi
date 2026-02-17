@@ -73,7 +73,7 @@ def annotate(
     DIAMOND
     Square -- Use square style.
         :param use_stabilizer: Stabilize Stroke, Helper to draw smooth and clean lines. Press Shift for an invert effect (even if this option is not active) (optional)
-        :param stabilizer_factor: Stabilizer Stroke Factor, Higher values gives a smoother stroke (in [0, 1], optional)
+        :param stabilizer_factor: Stabilizer Stroke Factor, Higher values give a smoother stroke (in [0, 1], optional)
         :param stabilizer_radius: Stabilizer Stroke Radius, Minimum distance from last point before stroke continues (in [0, 200], optional)
         :param stroke: Stroke, (optional)
         :param wait_for_input: Wait for Input, Wait for first click instead of painting immediately (optional)

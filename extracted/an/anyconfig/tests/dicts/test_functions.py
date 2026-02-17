@@ -1,10 +1,11 @@
 #
-# Copyright (C) 2021 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2021 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # pylint: disable=missing-docstring,protected-access
-"""Test cases for some functions in anyconfig.parser.
-"""
+"""Test cases for some functions in anyconfig.parser."""
+from __future__ import annotations
+
 import collections
 
 import pytest
@@ -13,9 +14,9 @@ import anyconfig.dicts as TT
 
 
 @pytest.mark.parametrize(
-    'inp,exp',
-    (('/a~1b', '/a/b'),
-     ('~1aaa~1~0bbb', '/aaa/~bbb'),
+    ("inp", "exp"),
+    (("/a~1b", "/a/b"),
+     ("~1aaa~1~0bbb", "/aaa/~bbb"),
      ),
 )
 def test_jsnp_unescape(inp, exp):
@@ -23,17 +24,17 @@ def test_jsnp_unescape(inp, exp):
 
 
 @pytest.mark.parametrize(
-    'args,exp',
-    ((('', ), []),
-     (('/', ), ['']),
-     (('/a', ), ['a']),
-     (('.a', ), ['a']),
-     (('a', ), ['a']),
-     (('a.', ), ['a']),
-     (('/a/b/c', ), ['a', 'b', 'c']),
-     (('a.b.c', ), ['a', 'b', 'c']),
-     (('abc', ), ['abc']),
-     (('/a/b/c', ), ['a', 'b', 'c']),
+    ("args", "exp"),
+    ((("", ), []),
+     (("/", ), [""]),
+     (("/a", ), ["a"]),
+     ((".a", ), ["a"]),
+     (("a", ), ["a"]),
+     (("a.", ), ["a"]),
+     (("/a/b/c", ), ["a", "b", "c"]),
+     (("a.b.c", ), ["a", "b", "c"]),
+     (("abc", ), ["abc"]),
+     (("/a/b/c", ), ["a", "b", "c"]),
      ),
 )
 def test_split_path(args, exp):
@@ -42,9 +43,9 @@ def test_split_path(args, exp):
 
 # FIXME: Add some more test cases
 @pytest.mark.parametrize(
-    'args,exp',
-    (((dict(a=1, b=dict(c=2, )), 'a.b.d', 3),
-      dict(a=dict(b=dict(d=3)), b=dict(c=2))),
+    ("args", "exp"),
+    ((({"a": 1, "b": {"c": 2}}, "a.b.d", 3),
+      {"a": {"b": {"d": 3}}, "b": {"c": 2}}),
      ),
 )
 def test_set_(args, exp):
@@ -57,21 +58,24 @@ OD = collections.OrderedDict
 
 # FIXME: Likewise.
 @pytest.mark.parametrize(
-    'args,exp',
-    (((OD((('a', 1), )), False, dict), dict(a=1)),
-     ((OD((('a', OD((('b', OD((('c', 1), ))), ))), )), False, dict),
-      dict(a=dict(b=dict(c=1)))),
+    ("obj", "opts", "exp"),
+    ((OD((("a", 1), )),
+      {"ac_ordered": False, "ac_dict": dict},
+      {"a": 1}),
+     (OD((("a", OD((("b", OD((("c", 1), ))), ))), )),
+      {"ac_ordered": False, "ac_dict": dict},
+      {"a": {"b": {"c": 1}}}),
      ),
 )
-def test_convert_to(args, exp):
-    assert TT.convert_to(*args) == exp
+def test_convert_to(obj, opts, exp):
+    assert TT.convert_to(obj, **opts) == exp
 
 
 @pytest.mark.parametrize(
-    'objs,exp',
-    ((([], (), [x for x in range(10)], (x for x in range(4))), True),
+    ("objs", "exp"),
+    ((([], (), list(range(10)), list(range(4))), True),
      (([], {}), False),
-     (([], 'aaa'), False),
+     (([], "aaa"), False),
      ),
 )
 def test_are_list_like(objs, exp):

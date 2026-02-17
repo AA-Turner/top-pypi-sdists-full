@@ -228,7 +228,9 @@ __all__ = [
     "AutomationTransformStatusSucceededEventV2EventEventType",
     "BackTranslate",
     "BackTranslateGcContent",
+    "BackTranslateGcContentRange",
     "BackTranslateHairpinParameters",
+    "BackTranslateMethod",
     "BadRequestError",
     "BadRequestErrorBulk",
     "BadRequestErrorBulkError",
@@ -799,6 +801,8 @@ __all__ = [
     "MoleculeStructureStructureFormat",
     "MoleculeUpdate",
     "MoleculeUpsertRequest",
+    "MoleculeWithEntityType",
+    "MoleculeWithEntityTypeEntityType",
     "MoleculesArchivalChange",
     "MoleculesArchive",
     "MoleculesArchiveReason",
@@ -863,7 +867,9 @@ __all__ = [
     "OligosUnarchive",
     "OptimizeCodons",
     "OptimizeCodonsGcContent",
+    "OptimizeCodonsGcContentRange",
     "OptimizeCodonsHairpinParameters",
+    "OptimizeCodonsMethod",
     "Organization",
     "OrganizationSummary",
     "OrganizationsPaginatedList",
@@ -957,6 +963,10 @@ __all__ = [
     "RequestsPaginatedList",
     "ResultsTableNotePart",
     "ResultsTableNotePartType",
+    "ReviewChange",
+    "ReviewChangeAction",
+    "ReviewSnapshot",
+    "ReviewSnapshotStatus",
     "RnaAnnotation",
     "RnaOligo",
     "RnaOligoBulkUpdate",
@@ -980,6 +990,8 @@ __all__ = [
     "RnaSequencePart",
     "RnaSequenceRequestRegistryFields",
     "RnaSequenceUpdate",
+    "RnaSequenceWithEntityType",
+    "RnaSequenceWithEntityTypeEntityType",
     "RnaSequencesArchivalChange",
     "RnaSequencesArchive",
     "RnaSequencesBulkCreateRequest",
@@ -1208,6 +1220,11 @@ __all__ = [
     "WorkflowTasksBulkUpdateRequest",
     "WorkflowTasksPaginatedList",
     "WorkflowTasksUnarchive",
+    "WorksheetReviewChanges",
+    "WorksheetReviewChangesReviewRecord",
+    "WorksheetReviewChangesReviewRecordStatus",
+    "WorksheetUpdatedReviewSnapshotBetaEvent",
+    "WorksheetUpdatedReviewSnapshotBetaEventEventType",
 ]
 
 if TYPE_CHECKING:
@@ -1430,7 +1447,9 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event_event_type
     import benchling_api_client.v2.stable.models.back_translate
     import benchling_api_client.v2.stable.models.back_translate_gc_content
+    import benchling_api_client.v2.stable.models.back_translate_gc_content_range
     import benchling_api_client.v2.stable.models.back_translate_hairpin_parameters
+    import benchling_api_client.v2.stable.models.back_translate_method
     import benchling_api_client.v2.stable.models.bad_request_error
     import benchling_api_client.v2.stable.models.bad_request_error_bulk
     import benchling_api_client.v2.stable.models.bad_request_error_bulk_error
@@ -2001,6 +2020,8 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.molecule_structure_structure_format
     import benchling_api_client.v2.stable.models.molecule_update
     import benchling_api_client.v2.stable.models.molecule_upsert_request
+    import benchling_api_client.v2.stable.models.molecule_with_entity_type
+    import benchling_api_client.v2.stable.models.molecule_with_entity_type_entity_type
     import benchling_api_client.v2.stable.models.molecules_archival_change
     import benchling_api_client.v2.stable.models.molecules_archive
     import benchling_api_client.v2.stable.models.molecules_archive_reason
@@ -2065,7 +2086,9 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.oligos_unarchive
     import benchling_api_client.v2.stable.models.optimize_codons
     import benchling_api_client.v2.stable.models.optimize_codons_gc_content
+    import benchling_api_client.v2.stable.models.optimize_codons_gc_content_range
     import benchling_api_client.v2.stable.models.optimize_codons_hairpin_parameters
+    import benchling_api_client.v2.stable.models.optimize_codons_method
     import benchling_api_client.v2.stable.models.organization
     import benchling_api_client.v2.stable.models.organization_summary
     import benchling_api_client.v2.stable.models.organizations_paginated_list
@@ -2159,6 +2182,10 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.requests_paginated_list
     import benchling_api_client.v2.stable.models.results_table_note_part
     import benchling_api_client.v2.stable.models.results_table_note_part_type
+    import benchling_api_client.v2.stable.models.review_change
+    import benchling_api_client.v2.stable.models.review_change_action
+    import benchling_api_client.v2.stable.models.review_snapshot
+    import benchling_api_client.v2.stable.models.review_snapshot_status
     import benchling_api_client.v2.stable.models.rna_annotation
     import benchling_api_client.v2.stable.models.rna_oligo
     import benchling_api_client.v2.stable.models.rna_oligo_bulk_update
@@ -2182,6 +2209,8 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.rna_sequence_part
     import benchling_api_client.v2.stable.models.rna_sequence_request_registry_fields
     import benchling_api_client.v2.stable.models.rna_sequence_update
+    import benchling_api_client.v2.stable.models.rna_sequence_with_entity_type
+    import benchling_api_client.v2.stable.models.rna_sequence_with_entity_type_entity_type
     import benchling_api_client.v2.stable.models.rna_sequences_archival_change
     import benchling_api_client.v2.stable.models.rna_sequences_archive
     import benchling_api_client.v2.stable.models.rna_sequences_bulk_create_request
@@ -2410,6 +2439,11 @@ if TYPE_CHECKING:
     import benchling_api_client.v2.stable.models.workflow_tasks_bulk_update_request
     import benchling_api_client.v2.stable.models.workflow_tasks_paginated_list
     import benchling_api_client.v2.stable.models.workflow_tasks_unarchive
+    import benchling_api_client.v2.stable.models.worksheet_review_changes
+    import benchling_api_client.v2.stable.models.worksheet_review_changes_review_record
+    import benchling_api_client.v2.stable.models.worksheet_review_changes_review_record_status
+    import benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event
+    import benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event_event_type
 
     AaAnnotation = benchling_api_client.v2.stable.models.aa_annotation.AaAnnotation
     AaSequence = benchling_api_client.v2.stable.models.aa_sequence.AaSequence
@@ -3038,8 +3072,14 @@ if TYPE_CHECKING:
     BackTranslateGcContent = (
         benchling_api_client.v2.stable.models.back_translate_gc_content.BackTranslateGcContent
     )
+    BackTranslateGcContentRange = (
+        benchling_api_client.v2.stable.models.back_translate_gc_content_range.BackTranslateGcContentRange
+    )
     BackTranslateHairpinParameters = (
         benchling_api_client.v2.stable.models.back_translate_hairpin_parameters.BackTranslateHairpinParameters
+    )
+    BackTranslateMethod = (
+        benchling_api_client.v2.stable.models.back_translate_method.BackTranslateMethod
     )
     BadRequestError = (
         benchling_api_client.v2.stable.models.bad_request_error.BadRequestError
@@ -4567,6 +4607,12 @@ if TYPE_CHECKING:
     MoleculeUpsertRequest = (
         benchling_api_client.v2.stable.models.molecule_upsert_request.MoleculeUpsertRequest
     )
+    MoleculeWithEntityType = (
+        benchling_api_client.v2.stable.models.molecule_with_entity_type.MoleculeWithEntityType
+    )
+    MoleculeWithEntityTypeEntityType = (
+        benchling_api_client.v2.stable.models.molecule_with_entity_type_entity_type.MoleculeWithEntityTypeEntityType
+    )
     MoleculesArchivalChange = (
         benchling_api_client.v2.stable.models.molecules_archival_change.MoleculesArchivalChange
     )
@@ -4739,8 +4785,14 @@ if TYPE_CHECKING:
     OptimizeCodonsGcContent = (
         benchling_api_client.v2.stable.models.optimize_codons_gc_content.OptimizeCodonsGcContent
     )
+    OptimizeCodonsGcContentRange = (
+        benchling_api_client.v2.stable.models.optimize_codons_gc_content_range.OptimizeCodonsGcContentRange
+    )
     OptimizeCodonsHairpinParameters = (
         benchling_api_client.v2.stable.models.optimize_codons_hairpin_parameters.OptimizeCodonsHairpinParameters
+    )
+    OptimizeCodonsMethod = (
+        benchling_api_client.v2.stable.models.optimize_codons_method.OptimizeCodonsMethod
     )
     Organization = benchling_api_client.v2.stable.models.organization.Organization
     OrganizationSummary = (
@@ -4973,6 +5025,16 @@ if TYPE_CHECKING:
     ResultsTableNotePartType = (
         benchling_api_client.v2.stable.models.results_table_note_part_type.ResultsTableNotePartType
     )
+    ReviewChange = benchling_api_client.v2.stable.models.review_change.ReviewChange
+    ReviewChangeAction = (
+        benchling_api_client.v2.stable.models.review_change_action.ReviewChangeAction
+    )
+    ReviewSnapshot = (
+        benchling_api_client.v2.stable.models.review_snapshot.ReviewSnapshot
+    )
+    ReviewSnapshotStatus = (
+        benchling_api_client.v2.stable.models.review_snapshot_status.ReviewSnapshotStatus
+    )
     RnaAnnotation = benchling_api_client.v2.stable.models.rna_annotation.RnaAnnotation
     RnaOligo = benchling_api_client.v2.stable.models.rna_oligo.RnaOligo
     RnaOligoBulkUpdate = (
@@ -5035,6 +5097,12 @@ if TYPE_CHECKING:
     )
     RnaSequenceUpdate = (
         benchling_api_client.v2.stable.models.rna_sequence_update.RnaSequenceUpdate
+    )
+    RnaSequenceWithEntityType = (
+        benchling_api_client.v2.stable.models.rna_sequence_with_entity_type.RnaSequenceWithEntityType
+    )
+    RnaSequenceWithEntityTypeEntityType = (
+        benchling_api_client.v2.stable.models.rna_sequence_with_entity_type_entity_type.RnaSequenceWithEntityTypeEntityType
     )
     RnaSequencesArchivalChange = (
         benchling_api_client.v2.stable.models.rna_sequences_archival_change.RnaSequencesArchivalChange
@@ -5670,6 +5738,21 @@ if TYPE_CHECKING:
     WorkflowTasksUnarchive = (
         benchling_api_client.v2.stable.models.workflow_tasks_unarchive.WorkflowTasksUnarchive
     )
+    WorksheetReviewChanges = (
+        benchling_api_client.v2.stable.models.worksheet_review_changes.WorksheetReviewChanges
+    )
+    WorksheetReviewChangesReviewRecord = (
+        benchling_api_client.v2.stable.models.worksheet_review_changes_review_record.WorksheetReviewChangesReviewRecord
+    )
+    WorksheetReviewChangesReviewRecordStatus = (
+        benchling_api_client.v2.stable.models.worksheet_review_changes_review_record_status.WorksheetReviewChangesReviewRecordStatus
+    )
+    WorksheetUpdatedReviewSnapshotBetaEvent = (
+        benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event.WorksheetUpdatedReviewSnapshotBetaEvent
+    )
+    WorksheetUpdatedReviewSnapshotBetaEventEventType = (
+        benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event_event_type.WorksheetUpdatedReviewSnapshotBetaEventEventType
+    )
 
 else:
     model_to_module_mapping = {
@@ -5892,7 +5975,9 @@ else:
         "AutomationTransformStatusSucceededEventV2EventEventType": "benchling_api_client.v2.stable.models.automation_transform_status_succeeded_event_v2_event_event_type",
         "BackTranslate": "benchling_api_client.v2.stable.models.back_translate",
         "BackTranslateGcContent": "benchling_api_client.v2.stable.models.back_translate_gc_content",
+        "BackTranslateGcContentRange": "benchling_api_client.v2.stable.models.back_translate_gc_content_range",
         "BackTranslateHairpinParameters": "benchling_api_client.v2.stable.models.back_translate_hairpin_parameters",
+        "BackTranslateMethod": "benchling_api_client.v2.stable.models.back_translate_method",
         "BadRequestError": "benchling_api_client.v2.stable.models.bad_request_error",
         "BadRequestErrorBulk": "benchling_api_client.v2.stable.models.bad_request_error_bulk",
         "BadRequestErrorBulkError": "benchling_api_client.v2.stable.models.bad_request_error_bulk_error",
@@ -6463,6 +6548,8 @@ else:
         "MoleculeStructureStructureFormat": "benchling_api_client.v2.stable.models.molecule_structure_structure_format",
         "MoleculeUpdate": "benchling_api_client.v2.stable.models.molecule_update",
         "MoleculeUpsertRequest": "benchling_api_client.v2.stable.models.molecule_upsert_request",
+        "MoleculeWithEntityType": "benchling_api_client.v2.stable.models.molecule_with_entity_type",
+        "MoleculeWithEntityTypeEntityType": "benchling_api_client.v2.stable.models.molecule_with_entity_type_entity_type",
         "MoleculesArchivalChange": "benchling_api_client.v2.stable.models.molecules_archival_change",
         "MoleculesArchive": "benchling_api_client.v2.stable.models.molecules_archive",
         "MoleculesArchiveReason": "benchling_api_client.v2.stable.models.molecules_archive_reason",
@@ -6527,7 +6614,9 @@ else:
         "OligosUnarchive": "benchling_api_client.v2.stable.models.oligos_unarchive",
         "OptimizeCodons": "benchling_api_client.v2.stable.models.optimize_codons",
         "OptimizeCodonsGcContent": "benchling_api_client.v2.stable.models.optimize_codons_gc_content",
+        "OptimizeCodonsGcContentRange": "benchling_api_client.v2.stable.models.optimize_codons_gc_content_range",
         "OptimizeCodonsHairpinParameters": "benchling_api_client.v2.stable.models.optimize_codons_hairpin_parameters",
+        "OptimizeCodonsMethod": "benchling_api_client.v2.stable.models.optimize_codons_method",
         "Organization": "benchling_api_client.v2.stable.models.organization",
         "OrganizationSummary": "benchling_api_client.v2.stable.models.organization_summary",
         "OrganizationsPaginatedList": "benchling_api_client.v2.stable.models.organizations_paginated_list",
@@ -6621,6 +6710,10 @@ else:
         "RequestsPaginatedList": "benchling_api_client.v2.stable.models.requests_paginated_list",
         "ResultsTableNotePart": "benchling_api_client.v2.stable.models.results_table_note_part",
         "ResultsTableNotePartType": "benchling_api_client.v2.stable.models.results_table_note_part_type",
+        "ReviewChange": "benchling_api_client.v2.stable.models.review_change",
+        "ReviewChangeAction": "benchling_api_client.v2.stable.models.review_change_action",
+        "ReviewSnapshot": "benchling_api_client.v2.stable.models.review_snapshot",
+        "ReviewSnapshotStatus": "benchling_api_client.v2.stable.models.review_snapshot_status",
         "RnaAnnotation": "benchling_api_client.v2.stable.models.rna_annotation",
         "RnaOligo": "benchling_api_client.v2.stable.models.rna_oligo",
         "RnaOligoBulkUpdate": "benchling_api_client.v2.stable.models.rna_oligo_bulk_update",
@@ -6644,6 +6737,8 @@ else:
         "RnaSequencePart": "benchling_api_client.v2.stable.models.rna_sequence_part",
         "RnaSequenceRequestRegistryFields": "benchling_api_client.v2.stable.models.rna_sequence_request_registry_fields",
         "RnaSequenceUpdate": "benchling_api_client.v2.stable.models.rna_sequence_update",
+        "RnaSequenceWithEntityType": "benchling_api_client.v2.stable.models.rna_sequence_with_entity_type",
+        "RnaSequenceWithEntityTypeEntityType": "benchling_api_client.v2.stable.models.rna_sequence_with_entity_type_entity_type",
         "RnaSequencesArchivalChange": "benchling_api_client.v2.stable.models.rna_sequences_archival_change",
         "RnaSequencesArchive": "benchling_api_client.v2.stable.models.rna_sequences_archive",
         "RnaSequencesBulkCreateRequest": "benchling_api_client.v2.stable.models.rna_sequences_bulk_create_request",
@@ -6872,6 +6967,11 @@ else:
         "WorkflowTasksBulkUpdateRequest": "benchling_api_client.v2.stable.models.workflow_tasks_bulk_update_request",
         "WorkflowTasksPaginatedList": "benchling_api_client.v2.stable.models.workflow_tasks_paginated_list",
         "WorkflowTasksUnarchive": "benchling_api_client.v2.stable.models.workflow_tasks_unarchive",
+        "WorksheetReviewChanges": "benchling_api_client.v2.stable.models.worksheet_review_changes",
+        "WorksheetReviewChangesReviewRecord": "benchling_api_client.v2.stable.models.worksheet_review_changes_review_record",
+        "WorksheetReviewChangesReviewRecordStatus": "benchling_api_client.v2.stable.models.worksheet_review_changes_review_record_status",
+        "WorksheetUpdatedReviewSnapshotBetaEvent": "benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event",
+        "WorksheetUpdatedReviewSnapshotBetaEventEventType": "benchling_api_client.v2.stable.models.worksheet_updated_review_snapshot_beta_event_event_type",
     }
 
     from types import ModuleType

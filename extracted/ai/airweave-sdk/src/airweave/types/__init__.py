@@ -10,6 +10,19 @@ if typing.TYPE_CHECKING:
     from .action_check_response import ActionCheckResponse
     from .admin_search_destination import AdminSearchDestination
     from .admin_sync_info import AdminSyncInfo
+    from .agentic_search_access_control import AgenticSearchAccessControl
+    from .agentic_search_answer import AgenticSearchAnswer
+    from .agentic_search_breadcrumb import AgenticSearchBreadcrumb
+    from .agentic_search_citation import AgenticSearchCitation
+    from .agentic_search_filter_condition import AgenticSearchFilterCondition
+    from .agentic_search_filter_group import AgenticSearchFilterGroup
+    from .agentic_search_filter_operator import AgenticSearchFilterOperator
+    from .agentic_search_filterable_field import AgenticSearchFilterableField
+    from .agentic_search_mode import AgenticSearchMode
+    from .agentic_search_request import AgenticSearchRequest
+    from .agentic_search_response import AgenticSearchResponse
+    from .agentic_search_result import AgenticSearchResult
+    from .agentic_search_system_metadata import AgenticSearchSystemMetadata
     from .api_key import ApiKey
     from .api_key_create import ApiKeyCreate
     from .auth_provider import AuthProvider
@@ -64,6 +77,7 @@ if typing.TYPE_CHECKING:
     from .feature_flag import FeatureFlag
     from .fields import Fields
     from .handler_config import HandlerConfig
+    from .health_status import HealthStatus
     from .http_validation_error import HttpValidationError
     from .integration_credential_in_db import IntegrationCredentialInDb
     from .integration_credential_raw_create import IntegrationCredentialRawCreate
@@ -132,14 +146,29 @@ if typing.TYPE_CHECKING:
     from .validation_error_detail import ValidationErrorDetail
     from .validation_error_loc_item import ValidationErrorLocItem
     from .validation_error_response import ValidationErrorResponse
+    from .value import Value
     from .webhook_message import WebhookMessage
     from .webhook_message_with_attempts import WebhookMessageWithAttempts
     from .webhook_subscription import WebhookSubscription
+    from .webhook_subscription_detail import WebhookSubscriptionDetail
 _dynamic_imports: typing.Dict[str, str] = {
     "ActionCheckRequest": ".action_check_request",
     "ActionCheckResponse": ".action_check_response",
     "AdminSearchDestination": ".admin_search_destination",
     "AdminSyncInfo": ".admin_sync_info",
+    "AgenticSearchAccessControl": ".agentic_search_access_control",
+    "AgenticSearchAnswer": ".agentic_search_answer",
+    "AgenticSearchBreadcrumb": ".agentic_search_breadcrumb",
+    "AgenticSearchCitation": ".agentic_search_citation",
+    "AgenticSearchFilterCondition": ".agentic_search_filter_condition",
+    "AgenticSearchFilterGroup": ".agentic_search_filter_group",
+    "AgenticSearchFilterOperator": ".agentic_search_filter_operator",
+    "AgenticSearchFilterableField": ".agentic_search_filterable_field",
+    "AgenticSearchMode": ".agentic_search_mode",
+    "AgenticSearchRequest": ".agentic_search_request",
+    "AgenticSearchResponse": ".agentic_search_response",
+    "AgenticSearchResult": ".agentic_search_result",
+    "AgenticSearchSystemMetadata": ".agentic_search_system_metadata",
     "ApiKey": ".api_key",
     "ApiKeyCreate": ".api_key_create",
     "AuthProvider": ".auth_provider",
@@ -190,6 +219,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "FeatureFlag": ".feature_flag",
     "Fields": ".fields",
     "HandlerConfig": ".handler_config",
+    "HealthStatus": ".health_status",
     "HttpValidationError": ".http_validation_error",
     "IntegrationCredentialInDb": ".integration_credential_in_db",
     "IntegrationCredentialRawCreate": ".integration_credential_raw_create",
@@ -258,9 +288,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ValidationErrorDetail": ".validation_error_detail",
     "ValidationErrorLocItem": ".validation_error_loc_item",
     "ValidationErrorResponse": ".validation_error_response",
+    "Value": ".value",
     "WebhookMessage": ".webhook_message",
     "WebhookMessageWithAttempts": ".webhook_message_with_attempts",
     "WebhookSubscription": ".webhook_subscription",
+    "WebhookSubscriptionDetail": ".webhook_subscription_detail",
 }
 
 
@@ -290,6 +322,19 @@ __all__ = [
     "ActionCheckResponse",
     "AdminSearchDestination",
     "AdminSyncInfo",
+    "AgenticSearchAccessControl",
+    "AgenticSearchAnswer",
+    "AgenticSearchBreadcrumb",
+    "AgenticSearchCitation",
+    "AgenticSearchFilterCondition",
+    "AgenticSearchFilterGroup",
+    "AgenticSearchFilterOperator",
+    "AgenticSearchFilterableField",
+    "AgenticSearchMode",
+    "AgenticSearchRequest",
+    "AgenticSearchResponse",
+    "AgenticSearchResult",
+    "AgenticSearchSystemMetadata",
     "ApiKey",
     "ApiKeyCreate",
     "AuthProvider",
@@ -340,6 +385,7 @@ __all__ = [
     "FeatureFlag",
     "Fields",
     "HandlerConfig",
+    "HealthStatus",
     "HttpValidationError",
     "IntegrationCredentialInDb",
     "IntegrationCredentialRawCreate",
@@ -408,7 +454,9 @@ __all__ = [
     "ValidationErrorDetail",
     "ValidationErrorLocItem",
     "ValidationErrorResponse",
+    "Value",
     "WebhookMessage",
     "WebhookMessageWithAttempts",
     "WebhookSubscription",
+    "WebhookSubscriptionDetail",
 ]

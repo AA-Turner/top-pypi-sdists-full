@@ -13,10 +13,10 @@ __device__ static inline bool mbarrier_test_wait(
 #if __cccl_ptx_isa >= 700
 extern "C" _CCCL_DEVICE void __cuda_ptx_mbarrier_test_wait_is_not_supported_before_SM_80__();
 template <typename = void>
-_CCCL_DEVICE static inline bool mbarrier_test_wait(_CUDA_VSTD::uint64_t* __addr, const _CUDA_VSTD::uint64_t& __state)
+_CCCL_DEVICE static inline bool mbarrier_test_wait(::cuda::std::uint64_t* __addr, const ::cuda::std::uint64_t& __state)
 {
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 800
-  _CUDA_VSTD::uint32_t __waitComplete;
+  ::cuda::std::uint32_t __waitComplete;
   asm("{\n\t .reg .pred P_OUT; \n\t"
       "mbarrier.test_wait.shared.b64 P_OUT, [%1], %2;                                                  // 1. \n\t"
       "selp.b32 %0, 1, 0, P_OUT; \n"
@@ -47,15 +47,18 @@ __device__ static inline bool mbarrier_test_wait(
 */
 #if __cccl_ptx_isa >= 800
 extern "C" _CCCL_DEVICE void __cuda_ptx_mbarrier_test_wait_is_not_supported_before_SM_90__();
-template <dot_scope _Scope>
+template <::cuda::ptx::dot_scope _Scope>
 _CCCL_DEVICE static inline bool mbarrier_test_wait(
-  sem_acquire_t, scope_t<_Scope> __scope, _CUDA_VSTD::uint64_t* __addr, const _CUDA_VSTD::uint64_t& __state)
+  ::cuda::ptx::sem_acquire_t,
+  ::cuda::ptx::scope_t<_Scope> __scope,
+  ::cuda::std::uint64_t* __addr,
+  const ::cuda::std::uint64_t& __state)
 {
   // __sem == sem_acquire (due to parameter type constraint)
   static_assert(__scope == scope_cta || __scope == scope_cluster, "");
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 900
-  _CUDA_VSTD::uint32_t __waitComplete;
-  _CCCL_IF_CONSTEXPR (__scope == scope_cta)
+  ::cuda::std::uint32_t __waitComplete;
+  if constexpr (__scope == scope_cta)
   {
     asm("{\n\t .reg .pred P_OUT; \n\t"
         "mbarrier.test_wait.acquire.cta.shared::cta.b64        P_OUT, [%1], %2;                        // 2.  \n\t"
@@ -65,7 +68,7 @@ _CCCL_DEVICE static inline bool mbarrier_test_wait(
         : "r"(__as_ptr_smem(__addr)), "l"(__state)
         : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_cluster)
+  else if constexpr (__scope == scope_cluster)
   {
     asm("{\n\t .reg .pred P_OUT; \n\t"
         "mbarrier.test_wait.acquire.cluster.shared::cta.b64        P_OUT, [%1], %2;                        // 2.  \n\t"
@@ -97,15 +100,18 @@ __device__ static inline bool mbarrier_test_wait(
 */
 #if __cccl_ptx_isa >= 860
 extern "C" _CCCL_DEVICE void __cuda_ptx_mbarrier_test_wait_is_not_supported_before_SM_90__();
-template <dot_scope _Scope>
+template <::cuda::ptx::dot_scope _Scope>
 _CCCL_DEVICE static inline bool mbarrier_test_wait(
-  sem_relaxed_t, scope_t<_Scope> __scope, _CUDA_VSTD::uint64_t* __addr, const _CUDA_VSTD::uint64_t& __state)
+  ::cuda::ptx::sem_relaxed_t,
+  ::cuda::ptx::scope_t<_Scope> __scope,
+  ::cuda::std::uint64_t* __addr,
+  const ::cuda::std::uint64_t& __state)
 {
   // __sem == sem_relaxed (due to parameter type constraint)
   static_assert(__scope == scope_cta || __scope == scope_cluster, "");
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 900
-  _CUDA_VSTD::uint32_t __waitComplete;
-  _CCCL_IF_CONSTEXPR (__scope == scope_cta)
+  ::cuda::std::uint32_t __waitComplete;
+  if constexpr (__scope == scope_cta)
   {
     asm("{\n\t .reg .pred P_OUT; \n\t"
         "mbarrier.test_wait.relaxed.cta.shared::cta.b64 P_OUT, [%1], %2;\n\t"
@@ -115,7 +121,7 @@ _CCCL_DEVICE static inline bool mbarrier_test_wait(
         : "r"(__as_ptr_smem(__addr)), "l"(__state)
         : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_cluster)
+  else if constexpr (__scope == scope_cluster)
   {
     asm("{\n\t .reg .pred P_OUT; \n\t"
         "mbarrier.test_wait.relaxed.cluster.shared::cta.b64 P_OUT, [%1], %2;\n\t"

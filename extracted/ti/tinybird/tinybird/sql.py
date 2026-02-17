@@ -821,11 +821,11 @@ def _parse_table_structure(schema: str) -> List[Dict[str, Any]]:
         nullable = column["type"].lower().startswith("nullable")
         column["type"] = column["type"] if not nullable else column["type"][len("Nullable(") : -1]  # ')'
         column["nullable"] = nullable
-        column["codec"] = column["codec"] if column["codec"] else None
+        column["codec"] = column["codec"] or None
         column["name"] = column["name"]
         column["normalized_name"] = column["name"]
-        column["jsonpath"] = column["jsonpath"] if column["jsonpath"] else None
-        default_value = column["default_value"] if column["default_value"] else None
+        column["jsonpath"] = column["jsonpath"] or None
+        default_value = column["default_value"] or None
         if nullable and default_value and default_value.lower() == "default null":
             default_value = None
         column["default_value"] = default_value

@@ -52,7 +52,7 @@ def box_fit_2d(
     """Returns an angle that best fits the points to an axis aligned rectangle
 
     :param points: Sequence of 2D points.
-    :return: angle
+    :return: The rotation angle in radians for the best axis-aligned bounding box fit.
     """
 
 def box_pack_2d(
@@ -85,10 +85,10 @@ def convex_hull_2d(
     points: collections.abc.Sequence[collections.abc.Sequence[float]],
     /,
 ) -> list[int]:
-    """Returns a list of indices into the list given
+    """Returns the indices of the points forming the convex hull, in counter-clockwise order.
 
     :param points: Sequence of 2D points.
-    :return: a list of indices
+    :return: Indices of convex hull vertices in counter-clockwise order.
     """
 
 def delaunay_2d_cdt(
@@ -176,7 +176,7 @@ def intersect_line_line(
     :param v2: Second point of the first line
     :param v3: First point of the second line
     :param v4: Second point of the second line
-    :return: The intersection on each line or None when the lines are co-linear.
+    :return: The intersection on each line or None when the lines are parallel.
     """
 
 def intersect_line_line_2d(
@@ -188,10 +188,10 @@ def intersect_line_line_2d(
 ) -> None | mathutils.Vector:
     """Takes 2 segments (defined by 4 vectors) and returns a vector for their point of intersection or None.
 
-    :param lineA_p1: First point of the first line
-    :param lineA_p2: Second point of the first line
-    :param lineB_p1: First point of the second line
-    :param lineB_p2: Second point of the second line
+    :param lineA_p1: First point of the first segment
+    :param lineA_p2: Second point of the first segment
+    :param lineB_p1: First point of the second segment
+    :param lineB_p2: Second point of the second segment
     :return: The point of intersection or None when not found
     """
 
@@ -206,11 +206,11 @@ def intersect_line_plane(
     """Calculate the intersection between a line (as 2 vectors) and a plane.
     Returns a vector for the intersection or None.
 
-        :param line_a: First point of the first line
-        :param line_b: Second point of the first line
+        :param line_a: First point of the line
+        :param line_b: Second point of the line
         :param plane_co: A point on the plane
         :param plane_no: The direction the plane is facing
-        :param no_flip: Not implemented
+        :param no_flip: Currently ignored.
         :return: The point of intersection or None when not found
     """
 
@@ -305,7 +305,7 @@ def intersect_point_quad_2d(
     /,
 ) -> int:
     """Takes 5 vectors (using only the x and y coordinates): one is the point and the next 4 define the quad,
-    only the x and y are used from the vectors. Returns 1 if the point is within the quad, otherwise 0.
+    only the x and y are used from the vectors. Returns a non-zero value if the point is within the quad, otherwise 0.
     Works only with convex quads without singular edges.
 
         :param pt: Point
@@ -313,7 +313,7 @@ def intersect_point_quad_2d(
         :param quad_p2: Second point of the quad
         :param quad_p3: Third point of the quad
         :param quad_p4: Fourth point of the quad
-        :return: 1 if the point is within the quad, otherwise 0.
+        :return: 1 if inside with CCW winding, -1 if inside with CW winding, otherwise 0.
     """
 
 def intersect_point_tri(
@@ -339,13 +339,13 @@ def intersect_point_tri_2d(
     tri_p3: collections.abc.Sequence[float] | mathutils.Vector,
     /,
 ) -> int:
-    """Takes 4 vectors (using only the x and y coordinates): one is the point and the next 3 define the triangle. Returns 1 if the point is within the triangle, otherwise 0.
+    """Takes 4 vectors (using only the x and y coordinates): one is the point and the next 3 define the triangle. Returns a non-zero value if the point is within the triangle, otherwise 0.
 
     :param pt: Point
     :param tri_p1: First point of the triangle
     :param tri_p2: Second point of the triangle
     :param tri_p3: Third point of the triangle
-    :return: 1 if the point is within the triangle, otherwise 0.
+    :return: 1 if inside with CCW winding, -1 if inside with CW winding, otherwise 0.
     """
 
 def intersect_ray_tri(
@@ -362,7 +362,7 @@ def intersect_ray_tri(
     :param v1: Point1
     :param v2: Point2
     :param v3: Point3
-    :param ray: Direction of the projection
+    :param ray: Direction of the ray
     :param orig: Origin
     :param clip: When False, dont restrict the intersection to the area of the triangle, use the infinite plane defined by the triangle.
     :return: The point of intersection or None if no intersection is found
@@ -375,13 +375,13 @@ def intersect_sphere_sphere_2d(
     radius_b: float,
     /,
 ) -> tuple[None, None] | tuple[mathutils.Vector, mathutils.Vector]:
-    """Returns 2 points between intersecting circles.
+    """Returns the 2 intersection points of two circles.
 
     :param p_a: Center of the first circle
     :param radius_a: Radius of the first circle
     :param p_b: Center of the second circle
     :param radius_b: Radius of the second circle
-    :return: 2 points between intersecting circles or None when there is no intersection.
+    :return: The 2 intersection points or None when there is no intersection.
     """
 
 def intersect_tri_tri_2d(
@@ -446,7 +446,7 @@ def volume_tetrahedron(
     v4: collections.abc.Sequence[float] | mathutils.Vector,
     /,
 ) -> float:
-    """Return the volume formed by a tetrahedron (points can be in any order).
+    """Return the absolute (unsigned) volume formed by a tetrahedron (points can be in any order).
 
     :param v1: Point1
     :param v2: Point2

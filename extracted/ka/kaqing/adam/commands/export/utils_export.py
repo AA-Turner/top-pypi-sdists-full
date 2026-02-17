@@ -4,7 +4,7 @@ import re
 
 from adam.utils import ExecResult
 from adam.directories import Directories
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles

@@ -31,16 +31,18 @@ from cli_helpers.utils import strip_ansi
 import click
 from configobj import ConfigObj
 import keyring
+from prompt_toolkit.application.current import get_app
 from prompt_toolkit.auto_suggest import AutoSuggestFromHistory
 from prompt_toolkit.completion import Completion, DynamicCompleter
 from prompt_toolkit.document import Document
 from prompt_toolkit.enums import DEFAULT_BUFFER, EditingMode
-from prompt_toolkit.filters import HasFocus, IsDone
+from prompt_toolkit.filters import Condition, HasFocus, IsDone
 from prompt_toolkit.formatted_text import ANSI, AnyFormattedText
 from prompt_toolkit.key_binding.bindings.named_commands import register as prompt_register
 from prompt_toolkit.key_binding.key_processor import KeyPressEvent
 from prompt_toolkit.layout.processors import ConditionalProcessor, HighlightMatchingBracketProcessor
 from prompt_toolkit.lexers import PygmentsLexer
+from prompt_toolkit.output import ColorDepth
 from prompt_toolkit.shortcuts import CompleteStyle, PromptSession
 import pymysql
 from pymysql.constants.ER import HANDSHAKE_ERROR
@@ -84,6 +86,36 @@ Query = namedtuple("Query", ["query", "successful", "mutating"])
 SUPPORT_INFO = "Home: http://mycli.net\nBug tracker: https://github.com/dbcli/mycli/issues"
 DEFAULT_WIDTH = 80
 DEFAULT_HEIGHT = 25
+MIN_COMPLETION_TRIGGER = 1
+
+
+@Condition
+def complete_while_typing_filter() -> bool:
+    """Whether enough characters have been typed to trigger completion.
+
+    Written in a verbose way, with a string slice, for efficiency."""
+    if MIN_COMPLETION_TRIGGER <= 1:
+        return True
+    app = get_app()
+    text = app.current_buffer.text.lstrip()
+    text_len = len(text)
+    if text_len < MIN_COMPLETION_TRIGGER:
+        return False
+    last_word = text[-MIN_COMPLETION_TRIGGER:]
+    if len(last_word) == text_len:
+        return text_len >= MIN_COMPLETION_TRIGGER
+    if text[:6].lower() in ['source', r'\.']:
+        # Different word characters for paths; see comment below.
+        # In fact, it might be nice if paths had a different threshold.
+        return not bool(re.search(r'[\s!-,:-@\[-^\{\}-]', last_word))
+    else:
+        # This is "whitespace and all punctuation except underscore and backtick"
+        # acting as word breaks, but it would be neat if we could complete differently
+        # when inside a backtick, accepting all legal characters towards the trigger
+        # limit.  We would have to parse the statement, or at least go back more
+        # characters, costing performance.  This still works within a backtick!  So
+        # long as there are three trailing non-punctuation characters.
+        return not bool(re.search(r'[\s!-/:-@\[-^\{-~]', last_word))
 
 
 class MyCli:
@@ -122,12 +154,15 @@ class MyCli:
         warn: bool | None = None,
         myclirc: str = "~/.myclirc",
     ) -> None:
+        global MIN_COMPLETION_TRIGGER
+
         self.sqlexecute = sqlexecute
         self.logfile = logfile
         self.defaults_suffix = defaults_suffix
         self.login_path = login_path
         self.toolbar_error_message: str | None = None
         self.prompt_app: PromptSession | None = None
+        self._keepalive_counter = 0
 
         # self.cnf_files is a class variable that stores the list of mysql
         # config files to read in at launch.
@@ -151,6 +186,7 @@ class MyCli:
         special.set_timing_enabled(c["main"].as_bool("timing"))
         special.set_show_favorite_query(c["main"].as_bool("show_favorite_query"))
         self.beep_after_seconds = float(c["main"]["beep_after_seconds"] or 0)
+        self.default_keepalive_ticks = c['connection'].as_int('default_keepalive_ticks')
 
         FavoriteQueries.instance = FavoriteQueries.from_config(self.config)
 
@@ -221,6 +257,9 @@ class MyCli:
             self.smart_completion, supported_formats=self.main_formatter.supported_formats, keyword_casing=keyword_casing
         )
         self._completer_lock = threading.Lock()
+
+        self.min_completion_trigger = c["main"].as_int("min_completion_trigger")
+        MIN_COMPLETION_TRIGGER = self.min_completion_trigger
 
         # Register custom special commands.
         self.register_special_commands()
@@ -745,6 +784,7 @@ class MyCli:
             while True:
                 try:
                     assert isinstance(self.prompt_app, PromptSession)
+                    # buglet: this prompt() invocation doesn't have an inputhook for keepalive pings
                     text = self.prompt_app.prompt(default=sql)
                     break
                 except KeyboardInterrupt:
@@ -949,11 +989,35 @@ class MyCli:
                         self.echo("")
                         self.output(formatted, status)
 
+        def keepalive_hook(_context):
+            """
+            prompt_toolkit shares the event loop with this hook, which seems
+            to get called a bit faster than once/second on one machine.
+
+            It would be nice to reset the counter whenever user input is made,
+            but was not clear how to do that with context.input_is_ready().
+
+            Example at https://github.com/prompt-toolkit/python-prompt-toolkit/blob/main/examples/prompts/inputhook.py
+            """
+            if self.default_keepalive_ticks < 1:
+                return
+            self._keepalive_counter += 1
+            if self._keepalive_counter > self.default_keepalive_ticks:
+                self._keepalive_counter = 0
+                self.logger.debug('keepalive ping')
+                try:
+                    assert self.sqlexecute is not None
+                    assert self.sqlexecute.conn is not None
+                    self.sqlexecute.conn.ping(reconnect=False)
+                except Exception as e:
+                    self.logger.debug('keepalive ping error %r', e)
+
         def one_iteration(text: str | None = None) -> None:
+            inputhook = keepalive_hook if self.default_keepalive_ticks >= 1 else None
             if text is None:
                 try:
                     assert self.prompt_app is not None
-                    text = self.prompt_app.prompt()
+                    text = self.prompt_app.prompt(inputhook=inputhook)
                 except KeyboardInterrupt:
                     return
 
@@ -996,7 +1060,7 @@ class MyCli:
                             click.echo("---")
                         if special.is_timing_enabled():
                             click.echo(f"Time: {duration:.2f} seconds")
-                        text = self.prompt_app.prompt(default=sql or '')
+                        text = self.prompt_app.prompt(default=sql or '', inputhook=inputhook)
                     except KeyboardInterrupt:
                         return
                     except special.FinishIteration as e:
@@ -1132,6 +1196,7 @@ class MyCli:
                 editing_mode = EditingMode.EMACS
 
             self.prompt_app = PromptSession(
+                color_depth=ColorDepth.DEPTH_24_BIT if 'truecolor' in os.getenv('COLORTERM', '').lower() else None,
                 lexer=PygmentsLexer(MyCliLexer),
                 reserve_space_for_menu=self.get_reserved_space(),
                 message=get_message,
@@ -1145,9 +1210,10 @@ class MyCli:
                 ],
                 tempfile_suffix=".sql",
                 completer=DynamicCompleter(lambda: self.completer),
+                complete_in_thread=True,
                 history=history,
                 auto_suggest=AutoSuggestFromHistory(),
-                complete_while_typing=True,
+                complete_while_typing=complete_while_typing_filter,
                 multiline=cli_is_multiline(self),
                 style=style_factory(self.syntax_style, self.cli_style),
                 include_default_pygments_style=False,
@@ -1401,6 +1467,10 @@ class MyCli:
         string = string.replace("\\r", now.strftime("%I"))
         string = string.replace("\\s", now.strftime("%S"))
         string = string.replace("\\p", str(sqlexecute.port))
+        string = string.replace("\\j", os.path.basename(sqlexecute.socket or '(none)'))
+        string = string.replace("\\J", sqlexecute.socket or '(none)')
+        string = string.replace("\\k", os.path.basename(sqlexecute.socket or str(sqlexecute.port)))
+        string = string.replace("\\K", sqlexecute.socket or str(sqlexecute.port))
         string = string.replace("\\A", self.dsn_alias or "(none)")
         string = string.replace("\\_", " ")
         return string

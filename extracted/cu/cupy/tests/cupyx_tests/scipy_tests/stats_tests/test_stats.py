@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import numpy
 import pytest
 
@@ -212,7 +214,7 @@ class TestZscore:
         x = testing.shaped_random((2, 3, 8), xp, dtype=xp.float16)
         return scp.stats.zscore(x, axis=2, ddof=2)
 
-    @testing.with_requires('scipy<1.15')
+    @testing.with_requires('scipy>=1.15')
     @testing.for_all_dtypes(no_bool=True)
     @testing.numpy_cupy_allclose(scipy_name='scp')
     def test_zscore_empty(self, xp, scp, dtype):

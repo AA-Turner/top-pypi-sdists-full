@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import contextlib
 import functools
 import re
@@ -333,7 +335,7 @@ class TestSvds:
     'b_ndim': [1, 2],
     'use_linear_operator': [False, True],
 }))
-@testing.with_requires('scipy<1.14')
+@testing.with_requires('scipy')
 class TestCg:
     n = 30
     density = 0.33
@@ -367,16 +369,10 @@ class TestCg:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
-        else:
-            return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
+        return sp.linalg.cg(a, b, x0=x0, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
@@ -479,7 +475,7 @@ class TestCg:
     'restart': [None, 10],
     'use_linear_operator': [False, True],
 }))
-@testing.with_requires('scipy<1.14')
+@testing.with_requires('scipy>=1.4')
 class TestGmres:
     n = 30
     density = 0.2
@@ -521,18 +517,11 @@ class TestGmres:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.gmres(
-                    a, b, x0=x0, restart=self.restart, M=M, atol=atol)
-        else:
-            return sp.linalg.gmres(
-                a, b, x0=x0, restart=self.restart, M=M, atol=atol)
+        return sp.linalg.gmres(
+            a, b, x0=x0, restart=self.restart, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')
@@ -1473,7 +1462,7 @@ class TestLsmr:
     'b_ndim': [1, 2],
     'use_linear_operator': [False, True],
 }))
-@testing.with_requires('scipy<1.14')
+@testing.with_requires('scipy')
 class TestCgs:
     n = 30
     density = 0.33
@@ -1507,16 +1496,10 @@ class TestCgs:
         x0 = None
         if self.x0 == 'ones':
             x0 = xp.ones((self.n,), dtype=dtype)
-        atol = None
+        atol = 0.0
         if self.atol == 'select-by-dtype':
             atol = self._atol[dtype.char.lower()]
-        if atol is None and xp == numpy:
-            # Note: If atol is None or not specified, Scipy (at least 1.5.3)
-            # raises DeprecationWarning
-            with pytest.deprecated_call():
-                return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
-        else:
-            return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
+        return sp.linalg.cgs(a, b, x0=x0, M=M, atol=atol)
 
     @testing.for_dtypes('fdFD')
     @testing.numpy_cupy_allclose(rtol=1e-5, atol=1e-5, sp_name='sp')

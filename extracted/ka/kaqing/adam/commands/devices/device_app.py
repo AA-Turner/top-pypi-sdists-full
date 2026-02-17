@@ -1,15 +1,15 @@
-from adam.apps import Apps
 from adam.commands import app
 from adam.commands.bash.bash_completer import BashCompleter
 from adam.commands.command import Command
 from adam.commands.devices.device import Device
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_apps.app_pods import AppPods
+from adam.utils_apps.apps import Apps
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import wait_log
 from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
-from adam.utils_k8s.app_pods import AppPods
 from adam.utils_k8s.ingresses import Ingresses
 
 class DeviceApp(Command, Device):

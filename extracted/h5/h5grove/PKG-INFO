@@ -1,58 +1,81 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: h5grove
-Version: 2.3.0
+Version: 3.0.0
 Summary: Core utilities to serve HDF5 file contents
-Home-page: https://github.com/silx-kit/h5grove
-Author: European Synchrotron Radiation Facility
-Author-email: h5web@esrf.fr
-License: MIT
-Project-URL: Bug Tracker, https://github.com/silx-kit/h5grove/-/issues
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+Project-URL: Homepage, https://github.com/silx-kit/h5grove
+Project-URL: Documentation, https://silx-kit.github.io/h5grove/
+Project-URL: Repository, https://github.com/silx-kit/h5grove
+Project-URL: Issues, https://github.com/silx-kit/h5grove/issues
+Project-URL: Changelog, https://github.com/silx-kit/h5grove/releases
+Author-email: ESRF <h5web@esrf.fr>
+License: MIT License
+        
+        Copyright (c) 2021 European Synchrotron Radiation Facility (ESRF)
+        
+        Permission is hereby granted, free of charge, to any person obtaining a copy
+        of this software and associated documentation files (the "Software"), to deal
+        in the Software without restriction, including without limitation the rights
+        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+        copies of the Software, and to permit persons to whom the Software is
+        furnished to do so, subject to the following conditions:
+        
+        The above copyright notice and this permission notice shall be included in all
+        copies or substantial portions of the Software.
+        
+        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+        SOFTWARE.
 License-File: LICENSE
+Classifier: Programming Language :: Python :: 3
+Requires-Python: >=3.10
+Requires-Dist: h5py>=3
 Requires-Dist: numpy
 Requires-Dist: orjson
-Requires-Dist: h5py>=3
 Requires-Dist: tifffile
 Requires-Dist: typing-extensions
-Provides-Extra: fastapi
-Requires-Dist: fastapi; extra == "fastapi"
-Requires-Dist: pydantic>2; extra == "fastapi"
-Requires-Dist: pydantic-settings; extra == "fastapi"
-Requires-Dist: uvicorn; extra == "fastapi"
-Provides-Extra: flask
-Requires-Dist: Flask; extra == "flask"
-Requires-Dist: Flask-Compress; extra == "flask"
-Requires-Dist: Flask-Cors; extra == "flask"
-Provides-Extra: tornado
-Requires-Dist: tornado; extra == "tornado"
 Provides-Extra: dev
-Requires-Dist: black; extra == "dev"
-Requires-Dist: bump2version; extra == "dev"
-Requires-Dist: check-manifest; extra == "dev"
-Requires-Dist: eval_type_backport; extra == "dev"
-Requires-Dist: flake8; extra == "dev"
-Requires-Dist: h5grove[fastapi]; extra == "dev"
-Requires-Dist: h5grove[flask]; extra == "dev"
-Requires-Dist: h5grove[tornado]; extra == "dev"
-Requires-Dist: invoke; extra == "dev"
-Requires-Dist: mypy; extra == "dev"
-Requires-Dist: myst-parser; extra == "dev"
-Requires-Dist: httpx>=0.23; extra == "dev"
-Requires-Dist: pytest; extra == "dev"
-Requires-Dist: pytest-benchmark; extra == "dev"
-Requires-Dist: pytest-cov; extra == "dev"
-Requires-Dist: pytest-tornado; extra == "dev"
-Requires-Dist: sphinx; extra == "dev"
-Requires-Dist: sphinx-argparse; extra == "dev"
-Requires-Dist: sphinx-autobuild; extra == "dev"
-Requires-Dist: h5grove[tornado]; extra == "dev"
-Requires-Dist: types-contextvars; extra == "dev"
-Requires-Dist: types-dataclasses; extra == "dev"
-Requires-Dist: types-orjson; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: bump2version; extra == 'dev'
+Requires-Dist: fastapi; extra == 'dev'
+Requires-Dist: flask; extra == 'dev'
+Requires-Dist: flask-compress; extra == 'dev'
+Requires-Dist: flask-cors; extra == 'dev'
+Requires-Dist: hatch; extra == 'dev'
+Requires-Dist: httpx>=0.23; extra == 'dev'
+Requires-Dist: mypy; extra == 'dev'
+Requires-Dist: myst-parser; extra == 'dev'
+Requires-Dist: pydantic-settings; extra == 'dev'
+Requires-Dist: pydantic>2; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Requires-Dist: pytest-benchmark; extra == 'dev'
+Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: pytest-tornado; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: setuptools<82; extra == 'dev'
+Requires-Dist: sphinx; extra == 'dev'
+Requires-Dist: sphinx-argparse; extra == 'dev'
+Requires-Dist: sphinx-autobuild; extra == 'dev'
+Requires-Dist: tornado; extra == 'dev'
+Requires-Dist: types-contextvars; extra == 'dev'
+Requires-Dist: types-dataclasses; extra == 'dev'
+Requires-Dist: types-orjson; extra == 'dev'
+Requires-Dist: types-setuptools; extra == 'dev'
+Requires-Dist: uvicorn; extra == 'dev'
+Provides-Extra: fastapi
+Requires-Dist: fastapi; extra == 'fastapi'
+Requires-Dist: pydantic-settings; extra == 'fastapi'
+Requires-Dist: pydantic>2; extra == 'fastapi'
+Requires-Dist: uvicorn; extra == 'fastapi'
+Provides-Extra: flask
+Requires-Dist: flask; extra == 'flask'
+Requires-Dist: flask-compress; extra == 'flask'
+Requires-Dist: flask-cors; extra == 'flask'
+Provides-Extra: tornado
+Requires-Dist: tornado; extra == 'tornado'
+Description-Content-Type: text/markdown
 
 # h5grove, core utilities to serve HDF5 file contents
 

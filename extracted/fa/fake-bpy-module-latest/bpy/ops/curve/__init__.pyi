@@ -12,7 +12,7 @@ def cyclic_toggle(
     *,
     direction: typing.Literal["CYCLIC_U", "CYCLIC_V"] | None = "CYCLIC_U",
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Make active spline closed/opened loop
+    """Make active spline closed/open loop
 
     :param direction: Direction, Direction to make surface cyclic in (optional)
     :return: Result of the operator call.
@@ -247,7 +247,7 @@ def pen(
         :param extrude_handle: Extrude Handle Type, Type of the extruded handle (optional)
         :param delete_point: Delete Point, Delete an existing point (optional)
         :param insert_point: Insert Point, Insert Point into a curve segment (optional)
-        :param move_segment: Move Segment, Delete an existing point (optional)
+        :param move_segment: Move Segment, Move an existing curve segment (optional)
         :param select_point: Select Point, Select a point or its handles (optional)
         :param move_point: Move Point, Move a point or its handles (optional)
         :param close_spline: Close Spline, Make a spline cyclic by clicking endpoints (optional)

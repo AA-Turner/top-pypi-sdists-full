@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: py-key-value-aio
-Version: 0.4.2
+Version: 0.4.4
 Summary: Async Key-Value Store - A pluggable interface for KV Stores
 License: Apache-2.0
 Classifier: Development Status :: 3 - Alpha

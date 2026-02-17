@@ -2,7 +2,7 @@
 # Forked from m9dicts.{api,dicts}.
 #
 # Copyright (C) 2011 - 2021 Red Hat, Inc.
-# Copyright (C) 2018 - 2021 Satoru SATOH <satoru.satoh gmail.com>
+# Copyright (C) 2018 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 r"""Utility functions to operate on mapping objects such as get, set and merge.
@@ -12,6 +12,8 @@ r"""Utility functions to operate on mapping objects such as get, set and merge.
    :mod:`m9dicts.dicts`
 
 """
+from __future__ import annotations
+
 import collections
 import functools
 import operator
@@ -22,20 +24,20 @@ from . import utils
 
 
 # Merge strategies:
-MS_REPLACE: str = 'replace'
-MS_NO_REPLACE: str = 'noreplace'
-MS_DICTS: str = 'merge_dicts'
-MS_DICTS_AND_LISTS: str = 'merge_dicts_and_lists'
-MERGE_STRATEGIES: typing.Tuple[str, ...] = (
-    MS_REPLACE, MS_NO_REPLACE, MS_DICTS, MS_DICTS_AND_LISTS
+MS_REPLACE: str = "replace"
+MS_NO_REPLACE: str = "noreplace"
+MS_DICTS: str = "merge_dicts"
+MS_DICTS_AND_LISTS: str = "merge_dicts_and_lists"
+MERGE_STRATEGIES: tuple[str, ...] = (
+    MS_REPLACE, MS_NO_REPLACE, MS_DICTS, MS_DICTS_AND_LISTS,
 )
 
-PATH_SEPS: typing.Tuple[str, ...] = ('/', '.')
+PATH_SEPS: tuple[str, ...] = ("/", ".")
 
-_JSNP_GET_ARRAY_IDX_REG: typing.Pattern = re.compile(r'(?:0|[1-9][0-9]*)')
+_JSNP_GET_ARRAY_IDX_REG: re.Pattern = re.compile(r"(?:0|[1-9][0-9]*)")
 
 
-DictT = typing.Dict[str, typing.Any]
+DictT = dict[str, typing.Any]
 
 
 def _jsnp_unescape(jsn_s: str) -> str:
@@ -45,11 +47,12 @@ def _jsnp_unescape(jsn_s: str) -> str:
 
     .. seealso:: JSON Pointer: http://tools.ietf.org/html/rfc6901
     """
-    return jsn_s.replace('~1', '/').replace('~0', '~')
+    return jsn_s.replace("~1", "/").replace("~0", "~")
 
 
-def _split_path(path: str, seps: typing.Tuple[str, ...] = PATH_SEPS
-                ) -> typing.List[str]:
+def _split_path(
+    path: str, seps: tuple[str, ...] = PATH_SEPS,
+) -> list[str]:
     """Parse a path expression and return a list of path items.
 
     :param path: Path expression may contain separator chars.
@@ -61,15 +64,16 @@ def _split_path(path: str, seps: typing.Tuple[str, ...] = PATH_SEPS
 
     for sep in seps:
         if sep in path:
-            if path == sep:  # Special case, '/' or '.' only.
-                return ['']
+            if path == sep:  # Special case, "/" or "." only.
+                return [""]
             return [x for x in path.split(sep) if x]
 
     return [path]
 
 
-def mk_nested_dic(path: str, val: typing.Any,
-                  seps: typing.Tuple[str, ...] = PATH_SEPS) -> DictT:
+def mk_nested_dic(
+    path: str, val: typing.Any, seps: tuple[str, ...] = PATH_SEPS,
+) -> DictT:
     """Make a nested dict iteratively.
 
     :param path: Path expression to make a nested dict
@@ -83,9 +87,10 @@ def mk_nested_dic(path: str, val: typing.Any,
     return ret
 
 
-def get(dic: DictT, path: str, seps: typing.Tuple[str, ...] = PATH_SEPS,
-        idx_reg: typing.Pattern = _JSNP_GET_ARRAY_IDX_REG
-        ) -> typing.Tuple[typing.Any, str]:
+def get(
+    dic: DictT, path: str, seps: tuple[str, ...] = PATH_SEPS,
+    idx_reg: re.Pattern = _JSNP_GET_ARRAY_IDX_REG,
+) -> tuple[typing.Any, str]:
     """Getter for nested dicts.
 
     :param dic: a dict[-like] object
@@ -95,23 +100,25 @@ def get(dic: DictT, path: str, seps: typing.Tuple[str, ...] = PATH_SEPS,
     """
     items = [_jsnp_unescape(s) for s in _split_path(path, seps)]  # : [str]
     if not items:
-        return (dic, '')
+        return (dic, "")
     try:
         if len(items) == 1:
-            return (dic[items[0]], '')
+            return (dic[items[0]], "")
 
         prnt: typing.Any = functools.reduce(operator.getitem, items[:-1], dic)
         arr = (idx_reg.match(items[-1])
-               if utils.is_list_like(prnt) else False)  # type: ignore
+               if utils.is_list_like(prnt) else False)
 
-        return (prnt[int(items[-1])], '') if arr else (prnt[items[-1]], '')
+        return (prnt[int(items[-1])], "") if arr else (prnt[items[-1]], "")
 
     except (TypeError, KeyError, IndexError) as exc:
         return (None, str(exc))
 
 
-def set_(dic: DictT, path: str, val: typing.Any,
-         seps: typing.Tuple[str, ...] = PATH_SEPS) -> None:
+def set_(
+    dic: DictT, path: str, val: typing.Any,
+    seps: tuple[str, ...] = PATH_SEPS,
+) -> None:
     """Setter for nested dicts.
 
     :param dic: a dict[-like] object support recursive merge operations
@@ -126,8 +133,10 @@ def _are_list_like(*objs: typing.Any) -> bool:
     return all(utils.is_list_like(obj) for obj in objs)
 
 
-def _update_with_replace(self: DictT, other: DictT, key: str,
-                         default: typing.Any = None, **_options) -> None:
+def _update_with_replace(
+    self: DictT, other: DictT, key: str,
+    default: typing.Any = None, **_options: typing.Any,
+) -> None:
     """Update ``self`` by replacements using ``other``.
 
     Replace value of a mapping object 'self' with 'other' has if both have same
@@ -147,8 +156,10 @@ def _update_with_replace(self: DictT, other: DictT, key: str,
         self[key] = default
 
 
-def _update_wo_replace(self: DictT, other: DictT, key: str,
-                       val: typing.Any = None, **_options) -> None:
+def _update_wo_replace(
+    self: DictT, other: DictT, key: str,
+    val: typing.Any = None, **_options: typing.Any,
+) -> None:
     """Update ``self`` without any replacements using ``other``.
 
     Never update (replace) the value of 'self' with 'other''s, that is, only
@@ -165,8 +176,9 @@ def _update_wo_replace(self: DictT, other: DictT, key: str,
         self[key] = other.get(key, val)
 
 
-def _merge_list(self: DictT, key: str,
-                lst: typing.Iterable[typing.Any]) -> None:
+def _merge_list(
+    self: DictT, key: str, lst: collections.abc.Iterable[typing.Any],
+) -> None:
     """Update a dict ``self`` using an iterable ``lst``.
 
     :param key: self[key] will be updated
@@ -184,9 +196,11 @@ def _merge_other(self: DictT, key: str, val: typing.Any) -> None:
     self[key] = val  # Just overwrite it by default implementation.
 
 
-def _update_with_merge(self: DictT, other: DictT, key: str,
-                       val: typing.Any = None,
-                       merge_lists: bool = False, **options) -> None:
+def _update_with_merge(
+    self: DictT, other: DictT, key: str, *,
+    val: typing.Any = None,
+    merge_lists: bool = False, **options: typing.Any,
+) -> None:
     """Update a dict ``self`` using ``other`` and optional arguments.
 
     Merge the value of self with other's recursively. Behavior of merge will be
@@ -221,8 +235,10 @@ def _update_with_merge(self: DictT, other: DictT, key: str,
         self[key] = val
 
 
-def _update_with_merge_lists(self: DictT, other: DictT, key: str,
-                             val: typing.Any = None, **options) -> None:
+def _update_with_merge_lists(
+    self: DictT, other: DictT, key: str,
+    val: typing.Any = None, **options: typing.Any,
+) -> None:
     """Similar to _update_with_merge but merge lists always.
 
     :param self: mapping object to update with 'other'
@@ -241,7 +257,7 @@ _MERGE_FNS = {MS_REPLACE: _update_with_replace,
               MS_DICTS_AND_LISTS: _update_with_merge_lists}
 
 
-def _get_update_fn(strategy: str) -> typing.Callable[..., None]:
+def _get_update_fn(strategy: str) -> collections.abc.Callable[..., None]:
     """Select dict-like class based on merge strategy and orderness of keys.
 
     :param merge: Specify strategy from MERGE_STRATEGIES of how to merge dicts.
@@ -250,22 +266,24 @@ def _get_update_fn(strategy: str) -> typing.Callable[..., None]:
     if strategy is None:
         strategy = MS_DICTS
     try:
-        return typing.cast(typing.Callable[..., None], _MERGE_FNS[strategy])
+        return typing.cast(
+            "collections.abc.Callable[..., None]",
+            _MERGE_FNS[strategy],
+        )
     except KeyError as exc:
         if callable(strategy):
             return strategy
 
-        raise ValueError(f'Wrong merge strategy: {strategy!r}') from exc
+        msg = f"Wrong merge strategy: {strategy!r}"
+        raise ValueError(msg) from exc
 
 
-UpdatesT = typing.Union[
-    typing.Iterable[typing.Tuple[str, typing.Any]],
-    DictT
-]
-
-
-def merge(self: DictT, other: UpdatesT, ac_merge: str = MS_DICTS,
-          **options) -> None:
+def merge(
+    self: DictT,
+    other: collections.abc.Iterable[tuple[str, typing.Any]] | DictT,
+    ac_merge: str = MS_DICTS,
+    **options: typing.Any,
+) -> None:
     """Update (merge) a mapping object ``self`` with ``other``.
 
     ``other`` may be a mapping object or an iterable yields (key, value) tuples
@@ -278,24 +296,27 @@ def merge(self: DictT, other: UpdatesT, ac_merge: str = MS_DICTS,
     _update_fn = _get_update_fn(ac_merge)
 
     if isinstance(other, dict):
-        for key in other.keys():
+        for key in other:
             _update_fn(self, other, key, **options)
     else:
         try:
             iother = typing.cast(
-                typing.Iterable[typing.Tuple[str, typing.Any]],
-                other
+                "collections.abc.Iterable[tuple[str, typing.Any]]",
+                other,
             )
             for key, val in iother:
                 _update_fn(self, dict(other), key, val=val, **options)
         except (ValueError, TypeError) as exc:  # Re-raise w/ info.
-            raise type(exc)(f'{exc!s} other={other!r}')
+            msg = f"{exc!s} other={other!r}"
+            raise type(exc)(msg) from exc
 
 
-def _make_recur(obj: typing.Any, make_fn: typing.Callable,
-                ac_ordered: bool = False,
-                ac_dict: typing.Optional[typing.Callable] = None,
-                **options) -> DictT:
+def _make_recur(
+    obj: typing.Any, make_fn: collections.abc.Callable, *,
+    ac_ordered: bool = False,
+    ac_dict: collections.abc.Callable | None = None,
+    **options: typing.Any,
+) -> DictT:
     """Apply ``make_fn`` to ``obj`` recursively.
 
     :param obj: A mapping objects or other primitive object
@@ -313,8 +334,10 @@ def _make_recur(obj: typing.Any, make_fn: typing.Callable,
                    for k, v in obj.items())
 
 
-def _make_iter(obj: typing.Any, make_fn: typing.Callable, **options
-               ) -> DictT:
+def _make_iter(
+    obj: typing.Any, make_fn: collections.abc.Callable,
+    **options: typing.Any,
+) -> DictT:
     """Apply ``make_fn`` to ``obj`` iteratively.
 
     :param obj: A mapping objects or other primitive object
@@ -326,9 +349,11 @@ def _make_iter(obj: typing.Any, make_fn: typing.Callable, **options
     return type(obj)(make_fn(v, **options) for v in obj)
 
 
-def convert_to(obj: typing.Any, ac_ordered: bool = False,
-               ac_dict: typing.Optional[typing.Callable] = None,
-               **options) -> DictT:
+def convert_to(
+    obj: typing.Any, *, ac_ordered: bool = False,
+    ac_dict: collections.abc.Callable | None = None,
+    **options: typing.Any,
+) -> DictT:
     """Convert a mapping objects to a dict or object of 'to_type' recursively.
 
     Borrowed basic idea and implementation from bunch.unbunchify. (bunch is
@@ -348,5 +373,3 @@ def convert_to(obj: typing.Any, ac_ordered: bool = False,
         return _make_iter(obj, convert_to, **options)
 
     return obj
-
-# vim:sw=4:ts=4:et:

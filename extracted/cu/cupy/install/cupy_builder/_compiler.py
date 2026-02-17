@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import distutils.ccompiler
 import os
 import os.path
@@ -5,7 +7,7 @@ import platform
 import shutil
 import sys
 import subprocess
-from typing import Any, Optional, List
+from typing import Any
 
 from setuptools import Extension
 
@@ -13,7 +15,7 @@ from cupy_builder._context import Context
 import cupy_builder.install_build as build
 
 
-def _nvcc_gencode_options(cuda_version: int) -> List[str]:
+def _nvcc_gencode_options(cuda_version: int) -> list[str]:
     """Returns NVCC GPU code generation options."""
 
     if sys.argv == ['setup.py', 'develop']:
@@ -76,7 +78,7 @@ def _nvcc_gencode_options(cuda_version: int) -> List[str]:
         #
         #   https://forums.developer.nvidia.com/t/software-migration-guide-for-nvidia-blackwell-rtx-gpus-a-guide-to-cuda-12-8-pytorch-tensorrt-and-llama-cpp/321330
         #
-        # Jetson platforms are also targetted when built under aarch64. c.f.:
+        # Jetson platforms are also targeted when built under aarch64. c.f.:
         #
         #   https://docs.nvidia.com/cuda/cuda-for-tegra-appnote/index.html#deployment-considerations-for-cuda-upgrade-package
 
@@ -124,54 +126,6 @@ def _nvcc_gencode_options(cuda_version: int) -> List[str]:
                     ('compute_72', 'sm_72'),  # Jetson (Xavier)
                     ('compute_87', 'sm_87'),  # Jetson (Orin)
                 ]
-        elif cuda_version >= 11080:
-            arch_list = [('compute_35', 'sm_35'),
-                         ('compute_37', 'sm_37'),
-                         ('compute_50', 'sm_50'),
-                         ('compute_52', 'sm_52'),
-                         ('compute_60', 'sm_60'),
-                         ('compute_61', 'sm_61'),
-                         ('compute_70', 'sm_70'),
-                         ('compute_75', 'sm_75'),
-                         ('compute_80', 'sm_80'),
-                         ('compute_86', 'sm_86'),
-                         ('compute_89', 'sm_89'),
-                         ('compute_90', 'sm_90'),
-                         'compute_90']
-            if aarch64:
-                # JetPack 5 (CUDA 11.4/11.8)
-                arch_list += [
-                    ('compute_72', 'sm_72'),  # Jetson (Xavier)
-                    ('compute_87', 'sm_87'),  # Jetson (Orin)
-                ]
-        elif cuda_version >= 11040:
-            arch_list = [('compute_35', 'sm_35'),
-                         ('compute_37', 'sm_37'),
-                         ('compute_50', 'sm_50'),
-                         ('compute_52', 'sm_52'),
-                         ('compute_60', 'sm_60'),
-                         ('compute_61', 'sm_61'),
-                         ('compute_70', 'sm_70'),
-                         ('compute_75', 'sm_75'),
-                         ('compute_80', 'sm_80'),
-                         ('compute_86', 'sm_86'),
-                         'compute_86']
-            if aarch64:
-                # JetPack 5 (CUDA 11.4/11.8)
-                arch_list += [
-                    ('compute_72', 'sm_72'),  # Jetson (Xavier)
-                    ('compute_87', 'sm_87'),  # Jetson (Orin)
-                ]
-        elif cuda_version >= 11020:
-            arch_list = ['compute_35',
-                         'compute_50',
-                         ('compute_60', 'sm_60'),
-                         ('compute_61', 'sm_61'),
-                         ('compute_70', 'sm_70'),
-                         ('compute_75', 'sm_75'),
-                         ('compute_80', 'sm_80'),
-                         ('compute_86', 'sm_86'),
-                         'compute_86']
         else:
             # This should not happen.
             assert False
@@ -196,16 +150,16 @@ class DeviceCompilerBase:
     def __init__(self, ctx: Context) -> None:
         self._context = ctx
 
-    def _get_preprocess_options(self, ext: Extension) -> List[str]:
+    def _get_preprocess_options(self, ext: Extension) -> list[str]:
         # https://setuptools.pypa.io/en/latest/deprecated/distutils/apiref.html#distutils.core.Extension
         # https://github.com/pypa/setuptools/blob/v60.0.0/setuptools/_distutils/command/build_ext.py#L524-L526
         incdirs = ext.include_dirs[:]
-        macros: List[Any] = ext.define_macros[:]
+        macros: list[Any] = ext.define_macros[:]
         for undef in ext.undef_macros:
             macros.append((undef,))
         return distutils.ccompiler.gen_preprocess_options(macros, incdirs)
 
-    def spawn(self, commands: List[str]) -> None:
+    def spawn(self, commands: list[str]) -> None:
         print('Command:', commands)
         subprocess.check_call(commands)
 
@@ -234,8 +188,7 @@ class DeviceCompilerUnix(DeviceCompilerBase):
         # Note: we only support CUDA 11.2+ since CuPy v13.0.0.
         # Bumping C++ standard from C++14 to C++17 for "if constexpr"
         postargs += ['--std=c++17',
-                     f'-t{num_threads}',
-                     '-Xcompiler=-fno-gnu-unique']
+                     f'-t{num_threads}']
         print('NVCC options:', postargs)
         self.spawn(compiler_so + base_opts + cc_args + [src, '-o', obj] +
                    postargs)
@@ -287,7 +240,7 @@ class DeviceCompilerWin32(DeviceCompilerBase):
         print('NVCC options:', postargs)
         self.spawn(compiler_so + cc_args + [src, '-o', obj] + postargs)
 
-    def _find_host_compiler_path(self) -> Optional[str]:
+    def _find_host_compiler_path(self) -> str | None:
         # c.f. cupy.cuda.compiler._get_extra_path_for_msvc
         cl_exe = shutil.which('cl.exe')
         if cl_exe:
@@ -305,7 +258,7 @@ class DeviceCompilerWin32(DeviceCompilerBase):
                   'setuptools.msvc could not be imported')
             return None
 
-        vctools: List[str] = setuptools.msvc.EnvironmentInfo(
+        vctools: list[str] = setuptools.msvc.EnvironmentInfo(
             platform.machine()).VCTools
         for path in vctools:
             cl_exe = os.path.join(path, 'cl.exe')

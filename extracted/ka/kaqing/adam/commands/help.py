@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.commands.command_filter import CommandFilter
-from adam.repl_commands import ReplCommands
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_commands import ReplCommands
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_tabulize import tabulize
 
 class Help(Command):

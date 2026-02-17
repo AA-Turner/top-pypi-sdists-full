@@ -1,5 +1,3 @@
-# coding: utf-8
-
 """
     Inventory
 
@@ -160,7 +158,7 @@ class Configuration:
       values before.
     :param ssl_ca_cert: str - the path to a file of concatenated CA certificates
       in PEM format.
-    :param retries: Number of retries for API requests.
+    :param retries: int | urllib3.util.retry.Retry - Retry configuration.
     :param ca_cert_data: verify the peer using concatenated CA certificate data
       in PEM (str) or DER (bytes) format.
     :param cert_file: the path to a client certificate file, for mTLS.
@@ -185,7 +183,7 @@ class Configuration:
         server_operation_variables: Optional[Dict[int, ServerVariablesT]]=None,
         ignore_operation_servers: bool=False,
         ssl_ca_cert: Optional[str]=None,
-        retries: Optional[int] = None,
+        retries: Optional[Union[int, Any]] = None,
         ca_cert_data: Optional[Union[str, bytes]] = None,
         cert_file: Optional[str]=None,
         key_file: Optional[str]=None,
@@ -302,7 +300,7 @@ class Configuration:
         """Safe chars for path_param
         """
         self.retries = retries
-        """Adding retries to override urllib3 default value 3
+        """Retry configuration
         """
         # Enable client side validation
         self.client_side_validation = True
@@ -516,7 +514,7 @@ class Configuration:
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0\n"\
-               "SDK Package Version: 1.1.4654".\
+               "SDK Package Version: 1.1.4657".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

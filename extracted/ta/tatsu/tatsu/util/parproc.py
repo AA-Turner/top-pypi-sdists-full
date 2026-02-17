@@ -1,8 +1,12 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+import io
 import multiprocessing
 import sys
 import time
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Generator, Iterable, Mapping, Sequence
 from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor, as_completed
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import partial
 from itertools import batched
@@ -20,17 +24,21 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from tatsu.util.unicode_characters import (
+from ..util import (
+    identity,
+    memory_use,
+    startscript,
+    try_read,
+)
+from ..util.datetime import iso_logpath
+from ..util.unicode_characters import (
     U_CHECK_MARK,
     U_CROSSED_SWORDS,
 )
 
-from ..util import identity, memory_use, program_name, try_read
-
 __all__: list[str] = ['parallel_proc', 'processing_loop']
 
 
-ERROR_LOG_FILENAME = 'ERROR.log'
 EOLCH = '\r' if sys.stderr.isatty() else '\n'
 sys.setrecursionlimit(2**16)
 
@@ -142,7 +150,7 @@ def parallel_proc(payloads: Iterable[Any], process: Callable, *args: Any, **kwar
 
 def _build_progressbar(total: int) -> tuple[Progress, TaskID]:
     progress = Progress(
-        TextColumn(f"[progress.description]{program_name()}"),
+        TextColumn(f"[progress.description]{startscript()}"),
         BarColumn(),
         # *Progress.get_default_columns(),
         TaskProgressColumn(),
@@ -175,10 +183,18 @@ def processing_loop(
         success_linecount = 0
         progress, progress_task = _build_progressbar(total)
 
-        if total == 1:
-            log = sys.stderr
-        else:
-            log = Path(ERROR_LOG_FILENAME).open('w')  # noqa: SIM115
+        logpath = None
+        if total > 1:
+            prefix = startscript().replace('.', '_')
+            logpath = iso_logpath(prefix=prefix)
+
+        @contextmanager
+        def logctx() -> Generator[io.TextIOBase | Any, None, None]:
+            if isinstance(logpath, Path):
+                with logpath.open(mode="a", encoding="utf-8") as logfile:
+                    yield logfile
+            else:
+                yield sys.stderr
 
         with progress:
             for result in results:
@@ -199,14 +215,17 @@ def processing_loop(
                     description=f'{icon} {filename}',
                 )
 
+                # with logctx() as log:
+                #     print(result.payload, file=log)
                 if result.exception:
-                    print(file=log)
                     try:
-                        print('ERROR:', result.payload, file=log)
-                        print(result.exception, file=log)
+                        with logctx() as log:
+                            print('ERROR:', result.payload, file=log)
+                            print(result.exception, file=log)
                     except Exception:
                         # in case of errors while serializing the exception
-                        print('EXCEPTION', type(result.exception).__name__, file=log)
+                        with logctx() as log:
+                            print('EXCEPTION', type(result.exception).__name__, file=log)
                     if reraise:
                         raise result.exception
                 elif result.outcome is not None:
@@ -215,13 +234,12 @@ def processing_loop(
                     run_time += result.time
                     yield result
 
-                log.flush()
-
             progress.update(progress_task, advance=0, description='')
             progress.stop()
-        file_process_summary(
-            filenames, total_time, run_time, success_count, success_linecount, log,
-        )
+        with logctx() as log:
+            file_process_summary(
+                filenames, total_time, run_time, success_count, success_linecount, log,
+            )
     except KeyboardInterrupt:
         return
 
@@ -280,7 +298,7 @@ def file_process_summary(
     failures = filecount - success_count
 
     summary_text = '''\
-        -----------------------------------------------------------------------
+        ──────────────────────────────────────────────────────────────────────
         {:12,d}   files input
         {:12,d}   source lines input
         {:12,d}   total lines processed
@@ -302,14 +320,12 @@ def file_process_summary(
         format_hours(total_time),
         format_hours(run_time),
     )
-    print(EOLCH + 80 * ' ', file=log)
     print(summary, file=log)
     print(EOLCH + 80 * ' ', file=sys.stderr)
 
-    if failures:
-        rich.print(f'[red bold]FAILURES logged to [green]{log.name}!')
-        print(file=sys.stderr)
     if log != sys.stderr:
         print(summary, file=sys.stderr)
     if failures:
+        rich.print(f'[red bold]FAILURES: [green]{log.name}')
+        print(file=sys.stderr)
         sys.exit(1)

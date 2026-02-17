@@ -18,22 +18,26 @@ __device__ static inline void mbarrier_expect_tx(
 */
 #if __cccl_ptx_isa >= 800
 extern "C" _CCCL_DEVICE void __cuda_ptx_mbarrier_expect_tx_is_not_supported_before_SM_90__();
-template <dot_scope _Scope>
+template <::cuda::ptx::dot_scope _Scope>
 _CCCL_DEVICE static inline void mbarrier_expect_tx(
-  sem_relaxed_t, scope_t<_Scope> __scope, space_shared_t, _CUDA_VSTD::uint64_t* __addr, _CUDA_VSTD::uint32_t __txCount)
+  ::cuda::ptx::sem_relaxed_t,
+  ::cuda::ptx::scope_t<_Scope> __scope,
+  ::cuda::ptx::space_shared_t,
+  ::cuda::std::uint64_t* __addr,
+  ::cuda::std::uint32_t __txCount)
 {
   // __sem == sem_relaxed (due to parameter type constraint)
   static_assert(__scope == scope_cta || __scope == scope_cluster, "");
 // __space == space_shared (due to parameter type constraint)
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 900
-  _CCCL_IF_CONSTEXPR (__scope == scope_cta)
+  if constexpr (__scope == scope_cta)
   {
     asm("mbarrier.expect_tx.relaxed.cta.shared::cta.b64 [%0], %1; // 1."
         :
         : "r"(__as_ptr_smem(__addr)), "r"(__txCount)
         : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_cluster)
+  else if constexpr (__scope == scope_cluster)
   {
     asm("mbarrier.expect_tx.relaxed.cluster.shared::cta.b64 [%0], %1; // 1."
         :
@@ -62,22 +66,26 @@ __device__ static inline void mbarrier_expect_tx(
 */
 #if __cccl_ptx_isa >= 800
 extern "C" _CCCL_DEVICE void __cuda_ptx_mbarrier_expect_tx_is_not_supported_before_SM_90__();
-template <dot_scope _Scope>
+template <::cuda::ptx::dot_scope _Scope>
 _CCCL_DEVICE static inline void mbarrier_expect_tx(
-  sem_relaxed_t, scope_t<_Scope> __scope, space_cluster_t, _CUDA_VSTD::uint64_t* __addr, _CUDA_VSTD::uint32_t __txCount)
+  ::cuda::ptx::sem_relaxed_t,
+  ::cuda::ptx::scope_t<_Scope> __scope,
+  ::cuda::ptx::space_cluster_t,
+  ::cuda::std::uint64_t* __addr,
+  ::cuda::std::uint32_t __txCount)
 {
   // __sem == sem_relaxed (due to parameter type constraint)
   static_assert(__scope == scope_cta || __scope == scope_cluster, "");
 // __space == space_cluster (due to parameter type constraint)
 #  if _CCCL_CUDA_COMPILER(NVHPC) || __CUDA_ARCH__ >= 900
-  _CCCL_IF_CONSTEXPR (__scope == scope_cta)
+  if constexpr (__scope == scope_cta)
   {
     asm("mbarrier.expect_tx.relaxed.cta.shared::cluster.b64 [%0], %1; // 2."
         :
         : "r"(__as_ptr_dsmem(__addr)), "r"(__txCount)
         : "memory");
   }
-  else _CCCL_IF_CONSTEXPR (__scope == scope_cluster)
+  else if constexpr (__scope == scope_cluster)
   {
     asm("mbarrier.expect_tx.relaxed.cluster.shared::cluster.b64 [%0], %1; // 2."
         :

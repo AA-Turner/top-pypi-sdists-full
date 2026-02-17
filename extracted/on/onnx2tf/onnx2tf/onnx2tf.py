@@ -4,6 +4,8 @@ import os
 import re
 import shutil
 import tempfile
+import io
+import contextlib
 __path__ = (os.path.dirname(__file__), )
 with open(os.path.join(__path__[0], '__init__.py')) as f:
     init_text = f.read()
@@ -25,10 +27,52 @@ import numpy as np
 np.random.seed(0)
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ["TF_USE_LEGACY_KERAS"] = '1'
-import tensorflow as tf
+
+
+def _should_suppress_tf_startup_stderr() -> bool:
+    raw = str(
+        os.environ.get(
+            'ONNX2TF_SUPPRESS_TF_STARTUP_STDERR',
+            '1',
+        )
+    ).strip().lower()
+    return raw not in {'0', 'false', 'off', 'no'}
+
+
+@contextlib.contextmanager
+def _suppress_stderr_fd_for_tf_startup():
+    if not _should_suppress_tf_startup_stderr():
+        yield
+        return
+    try:
+        stderr_fd = sys.stderr.fileno()
+    except Exception:
+        yield
+        return
+    saved_fd = None
+    devnull_fd = None
+    try:
+        saved_fd = os.dup(stderr_fd)
+        devnull_fd = os.open(os.devnull, os.O_WRONLY)
+        os.dup2(devnull_fd, stderr_fd)
+        yield
+    finally:
+        try:
+            if saved_fd is not None:
+                os.dup2(saved_fd, stderr_fd)
+        finally:
+            if saved_fd is not None:
+                os.close(saved_fd)
+            if devnull_fd is not None:
+                os.close(devnull_fd)
+
+
+with _suppress_stderr_fd_for_tf_startup():
+    import tensorflow as tf
+    from tensorflow.python.saved_model.load import _WrapperFunction
+    import tf_keras
+
 tf.random.set_seed(0)
-from tensorflow.python.saved_model.load import _WrapperFunction
-import tf_keras
 tf_keras.utils.set_random_seed(0)
 tf.config.experimental.enable_op_determinism()
 tf.get_logger().setLevel('INFO')
@@ -63,6 +107,9 @@ from onnx2tf.utils.json_auto_generator import (
 from onnx2tf.utils.enums import (
     CUDA_ONLY_OPS,
 )
+from onnx2tf.tflite_builder.preprocess.rules.cleanup_unused_initializers import (
+    prune_unused_initializers_inplace,
+)
 from onnx2tf.utils.logging import *
 from sng4onnx import generate as op_name_auto_generate
 
@@ -83,6 +130,7 @@ _TEMP_MICROSOFT_DOMAIN_OPS = {
     'QLinearAveragePool',
     'QLinearConcat',
     'QLinearGlobalAveragePool',
+    'QLinearLeakyRelu',
     'QLinearMul',
     'QLinearSoftmax',
     'QLinearSigmoid',
@@ -124,6 +172,63 @@ def _supplement_microsoft_domain_for_selected_ops(
             onnx_model.opset_import.append(onnx.helper.make_operatorsetid('com.microsoft', 1))
 
     return rewritten_counts
+
+
+def _prepare_onnx_graph_for_runtime_checks(
+    *,
+    source_onnx_graph: Optional[onnx.ModelProto],
+) -> Optional[onnx.ModelProto]:
+    if source_onnx_graph is None:
+        return None
+    prepared = onnx.ModelProto()
+    prepared.CopyFrom(source_onnx_graph)
+    _supplement_microsoft_domain_for_selected_ops(
+        onnx_model=prepared,
+    )
+    prune_unused_initializers_inplace(
+        prepared,
+        prune_orphan_value_info=True,
+    )
+    return prepared
+
+
+def _is_tf_saved_model_verbose_line(line: str) -> bool:
+    stripped = str(line).strip()
+    if stripped == "":
+        return False
+    if stripped == "Captures:":
+        return True
+    if re.match(r"^[0-9]+:\s*TensorSpec\(", stripped):
+        return True
+    return False
+
+
+def _filter_tf_saved_model_verbose_text(raw_text: str) -> str:
+    if not raw_text:
+        return ""
+    kept_lines: List[str] = []
+    for line in raw_text.splitlines():
+        if _is_tf_saved_model_verbose_line(line):
+            continue
+        kept_lines.append(line)
+    filtered = "\n".join(kept_lines).strip("\n")
+    if filtered == "":
+        return ""
+    return filtered + "\n"
+
+
+@contextlib.contextmanager
+def _capture_and_filter_tf_saved_model_console_output():
+    stdout_buffer = io.StringIO()
+    stderr_buffer = io.StringIO()
+    with contextlib.redirect_stdout(stdout_buffer), contextlib.redirect_stderr(stderr_buffer):
+        yield
+    filtered_stdout = _filter_tf_saved_model_verbose_text(stdout_buffer.getvalue())
+    filtered_stderr = _filter_tf_saved_model_verbose_text(stderr_buffer.getvalue())
+    if filtered_stdout != "":
+        sys.stdout.write(filtered_stdout)
+    if filtered_stderr != "":
+        sys.stderr.write(filtered_stderr)
 
 
 def _parse_size_to_bytes(
@@ -1627,11 +1732,13 @@ def convert(
         eval_fail_on_threshold_local = bool(eval_fail_on_threshold) if explicit_eval else False
 
         try:
-            _supplement_microsoft_domain_for_selected_ops(
-                onnx_model=onnx_graph,
+            onnx_graph_for_eval = _prepare_onnx_graph_for_runtime_checks(
+                source_onnx_graph=onnx_graph,
             )
+            if onnx_graph_for_eval is None:
+                raise RuntimeError('ONNX graph is unavailable for evaluation.')
             report = evaluate_onnx_tflite_outputs(
-                onnx_graph=onnx_graph,
+                onnx_graph=onnx_graph_for_eval,
                 tflite_path=tflite_path,
                 output_report_path=report_path,
                 num_samples=eval_num_samples_local,
@@ -1708,21 +1815,18 @@ def convert(
             return
 
         temp_onnx_path = None
-        report_onnx_path = input_onnx_file_path
-        if not report_onnx_path or not os.path.exists(str(report_onnx_path)):
-            if onnx_graph is None:
-                warn(
-                    'OP error report generation was skipped because ONNX graph is unavailable.'
-                )
-                return
+        report_onnx_path = None
+        if onnx_graph is not None:
             try:
                 fd, temp_onnx_path = tempfile.mkstemp(suffix='.onnx')
                 os.close(fd)
-                _supplement_microsoft_domain_for_selected_ops(
-                    onnx_model=onnx_graph,
+                onnx_graph_for_report = _prepare_onnx_graph_for_runtime_checks(
+                    source_onnx_graph=onnx_graph,
                 )
+                if onnx_graph_for_report is None:
+                    raise RuntimeError('ONNX graph is unavailable for report generation.')
                 onnx.save(
-                    proto=onnx_graph,
+                    proto=onnx_graph_for_report,
                     f=temp_onnx_path,
                 )
                 report_onnx_path = temp_onnx_path
@@ -1734,6 +1838,13 @@ def convert(
                 if temp_onnx_path and os.path.exists(temp_onnx_path):
                     os.remove(temp_onnx_path)
                 return
+        elif input_onnx_file_path and os.path.exists(str(input_onnx_file_path)):
+            report_onnx_path = input_onnx_file_path
+        else:
+            warn(
+                'OP error report generation was skipped because ONNX graph is unavailable.'
+            )
+            return
 
         output_json_path = os.path.join(
             output_folder_path,
@@ -3202,6 +3313,96 @@ def convert(
                     'Conversion failed. Automatic JSON generation on error is disabled by default.\n' +
                     'Re-run with --auto_generate_json_on_error or provide a parameter replacement JSON file.'
                 )
+            if tflite_backend == 'flatbuffer_direct':
+                warn(
+                    Color.YELLOW(
+                        'TF conversion path failed. '
+                        'Attempting flatbuffer_direct-only conversion. '
+                        f'reason={ex}'
+                    )
+                )
+                try:
+                    from onnx2tf.tflite_builder import export_tflite_model_flatbuffer_direct
+                    direct_outputs = None
+                    direct_error = None
+                    for direct_allow_custom_ops in (
+                        [flatbuffer_direct_allow_custom_ops]
+                        if flatbuffer_direct_allow_custom_ops
+                        else [False, True]
+                    ):
+                        try:
+                            direct_outputs = export_tflite_model_flatbuffer_direct(
+                                onnx_graph=onnx_graph,
+                                output_folder_path=output_folder_path,
+                                output_file_name=output_file_name,
+                                output_weights=output_weights,
+                                quant_type=quant_type,
+                                input_quant_dtype=input_quant_dtype,
+                                output_quant_dtype=output_quant_dtype,
+                                output_dynamic_range_quantized_tflite=output_dynamic_range_quantized_tflite,
+                                output_integer_quantized_tflite=output_integer_quantized_tflite,
+                                auto_split_tflite_by_size=auto_split_tflite_by_size,
+                                report_op_coverage=report_op_coverage,
+                                flatbuffer_direct_allow_custom_ops=direct_allow_custom_ops,
+                                flatbuffer_direct_custom_op_allowlist=flatbuffer_direct_custom_op_allowlist,
+                                keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
+                                keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
+                                keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
+                                tflite_split_max_bytes=tflite_split_max_bytes,
+                                tflite_split_target_bytes=tflite_split_target_bytes,
+                            )
+                            if direct_allow_custom_ops and not flatbuffer_direct_allow_custom_ops:
+                                warn(
+                                    Color.YELLOW(
+                                        'Retrying flatbuffer_direct with custom-op lowering enabled '
+                                        'after TF conversion failure.'
+                                    )
+                                )
+                            direct_error = None
+                            break
+                        except Exception as retry_ex:
+                            direct_error = retry_ex
+                            direct_outputs = None
+                            continue
+                    if direct_error is not None:
+                        raise direct_error
+                    if direct_outputs is not None:
+                        _run_flatbuffer_direct_op_error_report(
+                            tflite_path=direct_outputs.get('float32_tflite_path', None),
+                            tensor_correspondence_report_path=direct_outputs.get(
+                                'tensor_correspondence_report_path',
+                                None,
+                            ),
+                        )
+                        direct_eval_paths = {}
+                        if 'float32_tflite_path' in direct_outputs:
+                            direct_eval_paths['float32'] = direct_outputs['float32_tflite_path']
+                        if 'float16_tflite_path' in direct_outputs:
+                            direct_eval_paths['float16'] = direct_outputs['float16_tflite_path']
+                        if 'dynamic_range_quant_tflite_path' in direct_outputs:
+                            direct_eval_paths['dynamic_range_quant'] = direct_outputs['dynamic_range_quant_tflite_path']
+                        if 'integer_quant_tflite_path' in direct_outputs:
+                            direct_eval_paths['integer_quant'] = direct_outputs['integer_quant_tflite_path']
+                        if 'full_integer_quant_tflite_path' in direct_outputs:
+                            direct_eval_paths['full_integer_quant'] = direct_outputs['full_integer_quant_tflite_path']
+                        if 'integer_quant_with_int16_act_tflite_path' in direct_outputs:
+                            direct_eval_paths['integer_quant_with_int16_act'] = direct_outputs['integer_quant_with_int16_act_tflite_path']
+                        if 'full_integer_quant_with_int16_act_tflite_path' in direct_outputs:
+                            direct_eval_paths['full_integer_quant_with_int16_act'] = direct_outputs['full_integer_quant_with_int16_act_tflite_path']
+                        _run_onnx_tflite_output_check(
+                            tflite_paths=direct_eval_paths,
+                            source_label='flatbuffer_direct',
+                        )
+                    return None
+                except Exception as direct_ex:
+                    if not flatbuffer_direct_fallback_to_tf_converter:
+                        raise direct_ex
+                    warn(
+                        Color.YELLOW(
+                            'flatbuffer_direct-only conversion attempt failed after TF conversion failure. '
+                            f'reason={direct_ex}'
+                        )
+                    )
             # Re-raise the original error
             raise ex
 
@@ -3367,7 +3568,8 @@ def convert(
                 # concrete_func
                 info(Color.REVERSE(f'saved_model output started'), '=' * 58)
                 if not output_signaturedefs and not output_integer_quantized_tflite:
-                    tf.saved_model.save(model, output_folder_path)
+                    with _capture_and_filter_tf_saved_model_console_output():
+                        tf.saved_model.save(model, output_folder_path)
                 else:
                     export_archive = tf_keras.export.ExportArchive()
                     export_archive.add_endpoint(
@@ -3375,7 +3577,8 @@ def convert(
                         fn=lambda *inputs : model(inputs),
                         input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
                     )
-                    export_archive.write_out(output_folder_path)
+                    with _capture_and_filter_tf_saved_model_console_output():
+                        export_archive.write_out(output_folder_path)
                 info(Color.GREEN(f'saved_model output complete!'))
             except TypeError as e:
                 # Switch to .pb
@@ -3393,7 +3596,8 @@ def convert(
                                     fn=lambda *inputs : model(inputs),
                                     input_signature=[tf.TensorSpec(tensor.shape, tensor.dtype, tensor.name) for tensor in model.inputs],
                                 )
-                                export_archive.write_out(output_folder_path)
+                                with _capture_and_filter_tf_saved_model_console_output():
+                                    export_archive.write_out(output_folder_path)
                                 break
                     except ValueError as e:
                         msg_list = [s for s in e.args if isinstance(s, str)]
@@ -3405,6 +3609,11 @@ def convert(
                                     )
                                     matches = re.findall(r"'([^']*)'", s)
                                     error(f'{matches[0]}')
+                                    if tflite_backend == 'flatbuffer_direct':
+                                        warn(
+                                            'Skipping saved_model export and continuing with flatbuffer_direct flow.'
+                                        )
+                                        break
                                     error(
                                         f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
                                     )
@@ -3427,6 +3636,11 @@ def convert(
                             )
                             matches = re.findall(r"'([^']*)'", s)
                             error(f'{matches[0]}')
+                            if tflite_backend == 'flatbuffer_direct':
+                                warn(
+                                    'Skipping saved_model export and continuing with flatbuffer_direct flow.'
+                                )
+                                break
                             error(
                                 f'Please convert again with the `-osd` or `--output_signaturedefs` option.'
                             )
@@ -3484,26 +3698,47 @@ def convert(
             direct_outputs = None
             try:
                 from onnx2tf.tflite_builder import export_tflite_model_flatbuffer_direct
-                direct_outputs = export_tflite_model_flatbuffer_direct(
-                    onnx_graph=onnx_graph,
-                    output_folder_path=output_folder_path,
-                    output_file_name=output_file_name,
-                    output_weights=output_weights,
-                    quant_type=quant_type,
-                    input_quant_dtype=input_quant_dtype,
-                    output_quant_dtype=output_quant_dtype,
-                    output_dynamic_range_quantized_tflite=output_dynamic_range_quantized_tflite,
-                    output_integer_quantized_tflite=output_integer_quantized_tflite,
-                    auto_split_tflite_by_size=auto_split_tflite_by_size,
-                    report_op_coverage=report_op_coverage,
-                    flatbuffer_direct_allow_custom_ops=flatbuffer_direct_allow_custom_ops,
-                    flatbuffer_direct_custom_op_allowlist=flatbuffer_direct_custom_op_allowlist,
-                    keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
-                    keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
-                    keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
-                    tflite_split_max_bytes=tflite_split_max_bytes,
-                    tflite_split_target_bytes=tflite_split_target_bytes,
-                )
+                direct_error = None
+                for direct_allow_custom_ops in (
+                    [flatbuffer_direct_allow_custom_ops]
+                    if flatbuffer_direct_allow_custom_ops
+                    else [False, True]
+                ):
+                    try:
+                        direct_outputs = export_tflite_model_flatbuffer_direct(
+                            onnx_graph=onnx_graph,
+                            output_folder_path=output_folder_path,
+                            output_file_name=output_file_name,
+                            output_weights=output_weights,
+                            quant_type=quant_type,
+                            input_quant_dtype=input_quant_dtype,
+                            output_quant_dtype=output_quant_dtype,
+                            output_dynamic_range_quantized_tflite=output_dynamic_range_quantized_tflite,
+                            output_integer_quantized_tflite=output_integer_quantized_tflite,
+                            auto_split_tflite_by_size=auto_split_tflite_by_size,
+                            report_op_coverage=report_op_coverage,
+                            flatbuffer_direct_allow_custom_ops=direct_allow_custom_ops,
+                            flatbuffer_direct_custom_op_allowlist=flatbuffer_direct_custom_op_allowlist,
+                            keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
+                            keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
+                            keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
+                            tflite_split_max_bytes=tflite_split_max_bytes,
+                            tflite_split_target_bytes=tflite_split_target_bytes,
+                        )
+                        if direct_allow_custom_ops and not flatbuffer_direct_allow_custom_ops:
+                            warn(
+                                Color.YELLOW(
+                                    'Retrying flatbuffer_direct with custom-op lowering enabled.'
+                                )
+                            )
+                        direct_error = None
+                        break
+                    except Exception as retry_ex:
+                        direct_error = retry_ex
+                        direct_outputs = None
+                        continue
+                if direct_error is not None:
+                    raise direct_error
             except Exception as ex:
                 if not flatbuffer_direct_fallback_to_tf_converter:
                     raise

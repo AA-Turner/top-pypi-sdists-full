@@ -23,16 +23,18 @@
 # such as as_dict() to render as a dictionary.
 
 import datetime
+import json
 import time
 from functools import cached_property
+from threading import RLock
 from typing import Any
 from typing import Dict
 from typing import List
 from typing import Tuple
 from typing import Union
+from weakref import WeakValueDictionary
 
 import numpy
-import orjson
 from ormsgpack import OPT_SERIALIZE_NUMPY
 from ormsgpack import packb
 
@@ -44,6 +46,10 @@ from orso.schema import RelationSchema
 HEADER_SIZE: int = 14
 HEADER_PREFIX: bytes = b"\x10\x00"
 MAXIMUM_RECORD_SIZE: int = 16 * 1024 * 1024
+
+# Cache Row subclasses so we reuse the lightweight tuple wrappers across identical schemas.
+_ROW_CLASS_CACHE: "WeakValueDictionary[Tuple[Tuple[str, ...], bool], type]" = WeakValueDictionary()
+_ROW_CLASS_CACHE_LOCK = RLock()
 
 
 def extract_columns(table: List[Dict[str, Any]], columns: List[str]) -> Tuple[List[Any], ...]:
@@ -100,10 +106,18 @@ class Row(tuple):
         return instance
 
     def get(self, item, default=None):
+        # Use _field_map for O(1) lookup instead of O(n) list.index
         try:
-            return self[self._fields.index(item)]
-        except ValueError:
+            idx = self._field_map.get(item)
+            if idx is not None:
+                return self[idx]
             return default
+        except AttributeError:
+            # Fallback for compatibility (shouldn't happen with create_class)
+            try:
+                return self[self._fields.index(item)]
+            except ValueError:
+                return default
 
     @cached_property
     def as_map(self) -> Tuple[Tuple[str, Any], ...]:
@@ -181,7 +195,7 @@ class Row(tuple):
         Returns:
             The JSON byte representation of the Row.
         """
-        return orjson.dumps(self.as_dict, default=str)
+        return json.dumps(self.as_dict, default=str).encode()
 
     @classmethod
     def create_class(
@@ -202,11 +216,41 @@ class Row(tuple):
         else:
             fields = tuple(str(s) for s in schema)
 
-        if tuples_only:
-            # if we're only handling tuples, we can delegate to super, which is faster
-            return type(
-                "RowFactory",
-                (Row,),
-                {"_fields": fields, "__new__": super().__new__, "as_dict": make_as_dict(fields)},
-            )
-        return type("RowFactory", (Row,), {"_fields": fields, "as_dict": make_as_dict(fields)})
+        cache_key = (fields, tuples_only)
+        cached_factory = _ROW_CLASS_CACHE.get(cache_key)
+        if cached_factory is not None:
+            return cached_factory
+
+        with _ROW_CLASS_CACHE_LOCK:
+            cached_factory = _ROW_CLASS_CACHE.get(cache_key)
+            if cached_factory is not None:
+                return cached_factory
+
+            # Create field map for O(1) lookups in .get() method
+            field_map = {field: i for i, field in enumerate(fields)}
+
+            if tuples_only:
+                # if we're only handling tuples, we can delegate to super, which is faster
+                row_factory = type(
+                    "RowFactory",
+                    (Row,),
+                    {
+                        "_fields": fields,
+                        "_field_map": field_map,
+                        "__new__": super().__new__,
+                        "as_dict": make_as_dict(fields),
+                    },
+                )
+            else:
+                row_factory = type(
+                    "RowFactory",
+                    (Row,),
+                    {
+                        "_fields": fields,
+                        "_field_map": field_map,
+                        "as_dict": make_as_dict(fields),
+                    },
+                )
+
+            _ROW_CLASS_CACHE[cache_key] = row_factory
+            return row_factory

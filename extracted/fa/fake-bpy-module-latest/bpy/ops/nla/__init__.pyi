@@ -330,7 +330,7 @@ def previewrange_set(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Set Preview Range based on extends of selected strips
+    """Set Preview Range based on extents of selected strips
 
     :return: Result of the operator call.
     """

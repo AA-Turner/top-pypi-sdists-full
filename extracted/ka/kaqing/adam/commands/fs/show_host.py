@@ -1,5 +1,5 @@
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log
 from adam.utils_net import get_my_host
 

@@ -142,6 +142,66 @@ back_populates='simple_goods')
     )
 
 
+def test_onetomany_multiref(generator: CodeGenerator) -> None:
+    Table(
+        "simple_items_multiref",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+        Column("parent_container_id", INTEGER),
+        Column("top_container_id", INTEGER, nullable=False),
+        ForeignKeyConstraint(
+            ["parent_container_id"], ["simple_containers_multiref.id"]
+        ),
+        ForeignKeyConstraint(["top_container_id"], ["simple_containers_multiref.id"]),
+    )
+    Table(
+        "simple_containers_multiref",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+            from typing import Optional
+
+            from sqlalchemy import Column, ForeignKey, Integer
+            from sqlmodel import Field, Relationship, SQLModel
+
+            class SimpleContainersMultiref(SQLModel, table=True):
+                __tablename__ = 'simple_containers_multiref'
+
+                id: int = Field(sa_column=Column('id', Integer, primary_key=True))
+
+                simple_items_multiref_parent_container: list['SimpleItemsMultiref'] = \
+Relationship(back_populates='parent_container', sa_relationship_kwargs={\
+'foreign_keys': '[SimpleItemsMultiref.parent_container_id]'})
+                simple_items_multiref_top_container: list['SimpleItemsMultiref'] = \
+Relationship(back_populates='top_container', sa_relationship_kwargs={'foreign_keys': \
+'[SimpleItemsMultiref.top_container_id]'})
+
+
+            class SimpleItemsMultiref(SQLModel, table=True):
+                __tablename__ = 'simple_items_multiref'
+
+                id: int = Field(sa_column=Column('id', Integer, primary_key=True))
+                top_container_id: int = \
+Field(sa_column=Column('top_container_id', \
+ForeignKey('simple_containers_multiref.id'), nullable=False))
+                parent_container_id: Optional[int] = \
+Field(default=None, sa_column=Column('parent_container_id', \
+ForeignKey('simple_containers_multiref.id')))
+
+                parent_container: Optional['SimpleContainersMultiref'] = Relationship(\
+back_populates='simple_items_multiref_parent_container', sa_relationship_kwargs={\
+'foreign_keys': '[SimpleItemsMultiref.parent_container_id]'})
+                top_container: 'SimpleContainersMultiref' = Relationship(\
+back_populates='simple_items_multiref_top_container', sa_relationship_kwargs={\
+'foreign_keys': '[SimpleItemsMultiref.top_container_id]'})
+        """,
+    )
+
+
 def test_onetoone(generator: CodeGenerator) -> None:
     Table(
         "simple_onetoone",
@@ -167,7 +227,7 @@ def test_onetoone(generator: CodeGenerator) -> None:
                 id: int = Field(sa_column=Column('id', Integer, primary_key=True))
 
                 simple_onetoone: Optional['SimpleOnetoone'] = Relationship(\
-sa_relationship_kwargs={'uselist': False}, back_populates='other_item')
+back_populates='other_item', sa_relationship_kwargs={'uselist': False})
 
 
             class SimpleOnetoone(SQLModel, table=True):
@@ -202,5 +262,70 @@ def test_uuid(generator: CodeGenerator) -> None:
                 __tablename__ = 'simple_uuid'
 
                 id: uuid.UUID = Field(sa_column=Column('id', Uuid, primary_key=True))
+        """,
+    )
+
+
+def test_check_constraint_not_converted_to_enum(generator: CodeGenerator) -> None:
+    Table(
+        "users",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+        Column("status", VARCHAR(20), nullable=False),
+        CheckConstraint("users.status IN ('active', 'inactive', 'pending')"),
+    )
+
+    # Recreate generator with nosyntheticenums option to preserve constraints
+    generator = SQLModelGenerator(
+        generator.metadata, generator.bind, ["nosyntheticenums"]
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+            from sqlalchemy import CheckConstraint, Column, Integer, String
+            from sqlmodel import Field, SQLModel
+
+            class Users(SQLModel, table=True):
+                __table_args__ = (
+                    CheckConstraint("users.status IN ('active', 'inactive', 'pending')"),
+                )
+
+                id: int = Field(sa_column=Column('id', Integer, primary_key=True))
+                status: str = Field(sa_column=Column('status', String(20), nullable=False))
+        """,
+    )
+
+
+def test_synthetic_enum_generation(generator: CodeGenerator) -> None:
+    Table(
+        "accounts",
+        generator.metadata,
+        Column("id", INTEGER, primary_key=True),
+        Column("status", VARCHAR(20), nullable=False),
+        CheckConstraint("accounts.status IN ('active', 'inactive', 'pending')"),
+    )
+
+    validate_code(
+        generator.generate(),
+        """\
+            import enum
+
+            from sqlalchemy import CheckConstraint, Column, Enum, Integer
+            from sqlmodel import Field, SQLModel
+
+            class AccountsStatus(str, enum.Enum):
+                ACTIVE = 'active'
+                INACTIVE = 'inactive'
+                PENDING = 'pending'
+
+
+            class Accounts(SQLModel, table=True):
+                __table_args__ = (
+                    CheckConstraint("accounts.status IN ('active', 'inactive', 'pending')"),
+                )
+
+                id: int = Field(sa_column=Column('id', Integer, primary_key=True))
+                status: AccountsStatus = Field(sa_column=Column('status', Enum(AccountsStatus, values_callable=lambda cls: [member.value for member in cls]), nullable=False))
         """,
     )

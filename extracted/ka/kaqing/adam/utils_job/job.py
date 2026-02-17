@@ -74,15 +74,11 @@ class Job:
             elif command == 'job-scheduler':
                 Job._job_scheduler = job
 
-        # print('SEAN job create', job, job.job_id, job.command)
-
         return job
 
     def new_id(dt: datetime = None, cmd: str = None):
         if not dt:
             dt = datetime.now()
-
-        # print('SEAN Job.new_id', cmd)
 
         id = dt.strftime("%d%H%M%S")
         if not cmd or cmd not in ['job-scheduler']:
@@ -167,7 +163,6 @@ class Job:
 
         self.job_id = job_id
         self.extra = extra
-        # print('SEAN Job init', self.job_id, self.command)
 
     def write(self, f: TextIO):
         f.write(self.job_id)

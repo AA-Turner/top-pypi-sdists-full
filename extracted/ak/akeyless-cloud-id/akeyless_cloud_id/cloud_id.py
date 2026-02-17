@@ -35,14 +35,16 @@ class CloudId:
         return cloud_id
 
     def generateGcp(self, audience="akeyless.io"):
-        from google.auth import compute_engine
         import google.auth.transport.requests
+        from google.oauth2 import id_token
 
         request = google.auth.transport.requests.Request()
-        credentials = compute_engine.IDTokenCredentials(
-            request=request, target_audience=audience, use_metadata_identity_endpoint=True)
-        credentials.refresh(request)
-        cloud_id = base64.b64encode(credentials.token.encode()).decode()
+        
+        # Fetch ID token using default credentials
+        # This automatically handles service accounts, ADC, and compute engine
+        token = id_token.fetch_id_token(request, audience)
+        
+        cloud_id = base64.b64encode(token.encode()).decode()
         return cloud_id
 
     def generate(self, aws_access_id="", aws_secret_access_key="", security_token=""):

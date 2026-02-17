@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "chonkie"
-version = "1.5.5"
+version = "1.5.6"
 description = "🦛 CHONK your texts with Chonkie ✨ - The no-nonsense chunking library"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -170,6 +170,7 @@ dev = [
     "tabulate",
     "openpyxl",
     "uv>=0.9.18",
+    "requests-cache>=1.2.1",
 ]
 
 [dependency-groups]

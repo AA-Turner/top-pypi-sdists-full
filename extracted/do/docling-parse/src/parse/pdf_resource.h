@@ -6,24 +6,17 @@
 namespace pdflib
 {
   enum resource_name {
-    PAGE_DIMENSION,
-
+    
     PAGE_FONT,
     PAGE_FONTS,
-
+    
     PAGE_GRPH,
     PAGE_GRPHS,
 
-    PAGE_CELL,
-    PAGE_CELLS,
+    PAGE_XOBJECT_IMAGE,
+    PAGE_XOBJECT_FORM,
+    PAGE_XOBJECT_POSTSCRIPT,
 
-    PAGE_LINE,
-    PAGE_LINES,
-
-    PAGE_IMAGE,
-    PAGE_IMAGES,
-
-    PAGE_XOBJECT,
     PAGE_XOBJECTS
   };
 

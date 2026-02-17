@@ -1,19 +1,23 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
 from __future__ import annotations
 
 import functools
 from collections import defaultdict
 from collections.abc import Callable, Collection, Mapping
 from copy import copy
+from dataclasses import field
 from itertools import takewhile
 from pathlib import Path
+from typing import Any
 
 from .ast import AST
 from .contexts import ParseContext
 from .exceptions import FailedRef, GrammarError
 from .infos import ParserConfig, RuleInfo
-from .leftrec import Nullable, find_left_recursion  # type: ignore
-from .objectmodel import Node
-from .util import chunks, compress_seq, indent, re, trim
+from .objectmodel import Node, tatsudataclass
+from .util import debug, indent, re, trim, typename
+from .util.abctools import chunks, compress_seq
 
 PEP8_LLEN = 72
 PRAGMA_RE = r'^\s*#include.*$'
@@ -49,21 +53,30 @@ class ModelContext(ParseContext):
         **settings,
     ):
         config = ParserConfig.new(config, **settings)
-        config = config.replace(start=start)
+        config = config.override(start=start)
 
         super().__init__(config=config)
 
-        self.rules = {rule.name: rule for rule in rules}
+        self._rulemap: dict[str, Rule] = {rule.name: rule for rule in rules}
+
+    @property
+    def rulemap(self) -> dict[str, Rule]:
+        return self._rulemap
 
     @property
     def pos(self) -> int:
         return self._tokenizer.pos
 
     def _find_rule(self, name: str) -> Callable:
-        return functools.partial(self.rules[name]._parse, self)
+        return functools.partial(self.rulemap[name]._parse, self)
 
 
+@tatsudataclass
 class Model(Node):
+    _lookahead: ffset = field(init=False, default_factory=set)
+    _firstset: ffset = field(init=False, default_factory=set)
+    _follow_set: ffset = field(init=False, default_factory=set)
+
     @staticmethod
     def classes() -> list[type]:
         return [
@@ -73,26 +86,17 @@ class Model(Node):
             if isinstance(c, type) and issubclass(c, Model)
         ]
 
-    def __init__(self, ast: AST | Node | str | None = None, ctx: ParseContext | None = None):
-        super().__init__(ast=ast, ctx=ctx)
-        self._lookahead: ffset = set()
-        self._firstset: ffset = set()
-        self._follow_set: ffset = set()
-        self.value = None
-        self._nullability = self._nullable()
-        if isinstance(self._nullability, int):  # Allow simple boolean values
-            if self._nullability:
-                self._nullability = Nullable.yes()
-            else:
-                self._nullability = Nullable.no()
+    def follow_ref(self, rulemap: Mapping[str, Rule]) -> Model:
+        return self
 
-    def _parse(self, ctx: ModelContext):
+    def _parse(self, ctx: ModelContext) -> Any | None:
         ctx.last_node = None
+        return None
 
     def defines(self):
         return []
 
-    def _add_defined_attributes(self, ctx: ModelContext, ast: AST | None = None):
+    def _add_defined_attributes(self, ctx: ModelContext, ast: Any | None = None):
         if ast is None:
             return
         if not hasattr(ast, '_define'):
@@ -103,7 +107,8 @@ class Model(Node):
         keys = [k for k, list in defines.items() if not list]
         list_keys = [k for k, list in defines.items() if list]
         ctx._define(keys, list_keys)
-        ast._define(keys, list_keys)
+        if isinstance(ast, AST):
+            ast._define(keys, list_keys)
 
     def lookahead(self, k: int = 1) -> ffset:
         if not self._lookahead:
@@ -121,7 +126,7 @@ class Model(Node):
     def followset(self, k: int = 1) -> ffset:
         return self._follow_set
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
         return set()
 
     def _used_rule_names(self):
@@ -133,130 +138,130 @@ class Model(Node):
     def _follow(self, k, fl, a):
         return a
 
-    def is_nullable(self, ctx: Mapping[str, Rule] | None = None):
-        return self._nullability.nullable
+    def is_nullable(self, rulemap: Mapping[str, Rule] | None = None) -> bool:
+        return self._nullable()
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return False
 
-    # list of rules that can be invoked at the same position
-    def at_same_pos(self, ctx):
+    # list of Model that can be invoked at the same position
+    def callable_at_same_pos(self, rulemap: Mapping[str, Rule] | None = None) -> list[Model]:
         return []
 
-    def comments_str(self):
-        comments, _eol = self.comments
-        if not comments:
-            return ''
-
-        return '\n'.join(
-            '(* {} *)\n'.format('\n'.join(c).replace('(*', '').replace('*)', '').strip())
-            for c in comments
-        )
-
-    def nodecount(self):
+    def nodecount(self) -> int:
         return 1
 
-    def pretty(self):
-        return self._to_str()
+    def pretty(self, lean: bool = False) -> str:
+        return self._pretty(lean=lean)
 
     def pretty_lean(self):
-        return self._to_str(lean=True)
+        return self._pretty(lean=True)
 
-    def _to_str(self, lean=False):
-        return '%s:%d' % (type(self).__name__, id(self))
+    def _pretty(self, lean=False):
+        return f'{typename(self)}: {id(self)}'
 
     def __str__(self):
-        return self._to_str()
+        return self.pretty()
 
 
+@tatsudataclass
 class Void(Model):
     def _parse(self, ctx):
         return ctx._void()
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '()'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
-class Any(Model):
+@tatsudataclass
+class Dot(Model):
     def _parse(self, ctx):
-        return ctx._any()
+        return ctx._dot()
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '/./'
 
+    def _first(self, k: int, f: Mapping[str, ffset]) -> ffset:
+        return {('.',)}
 
+
+@tatsudataclass
 class Fail(Model):
     def _parse(self, ctx):
         return ctx._fail()
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '!()'
 
 
+@tatsudataclass
 class Comment(Model):
-    def __init__(self, ast: AST | None = None, **kwargs):
-        self.comment: str = ''
-        super().__init__(ast=AST(comment=ast))
+    comment: str = ''
 
-    def _to_str(self, lean: bool = False):
+    def _pretty(self, lean: bool = False):
         return f'(* {self.comment} *)'
 
 
+@tatsudataclass
 class EOLComment(Comment):
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return f'  # {self.comment}\n'
 
 
+@tatsudataclass
 class EOF(Model):
     def _parse(self, ctx):
         ctx._check_eof()
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '$'
 
 
+@tatsudataclass
 class Decorator(Model):
-    def __init__(self, ast: AST | Model | None = None, exp: Model | None = None, **kwargs):
-        if exp is not None:
-            self.exp = ast = exp
-        elif not isinstance(ast, AST):
-            # Patch to avoid bad interactions with attribute setting in Model.
-            # Also a shortcut for subexpressions that are not ASTs.
-            ast = AST(exp=ast)
-        super().__init__(ast=ast)
-        assert isinstance(self.exp, Model)
+    name: str = field(default='')  # note: pre-define as common attribute
+    exp: Model = field(default_factory=Void)
 
-    def _parse(self, ctx):
+    def __post_init__(self):
+        super().__post_init__()
+        if self.exp is None or not isinstance(self.ast, AST):
+            self.exp = self.ast
+        self.exp = self.exp or Void()
+        assert self.exp is not None, f'{typename(self)}({self.exp})'
+        assert self.exp, repr(self)
+
+    def _parse(self, ctx) -> Any | None:
         return self.exp._parse(ctx)
 
     def defines(self):
         return self.exp.defines()
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
-        return self.exp.missing_rules(rules)
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
+        assert isinstance(self.exp, Model), f'{self!r}:{self.exp=!r}'
+        return self.exp.missing_rules(rulenames)
 
     def _used_rule_names(self):
         return self.exp._used_rule_names()
 
-    def _first(self, k: int, f: Mapping[str, ffset]):
+    def _first(self, k: int, f: Mapping[str, ffset]) -> ffset:
         return self.exp._first(k, f)
 
     def _follow(self, k, fl, a):
         return self.exp._follow(k, fl, a)
 
-    def nodecount(self):
+    def nodecount(self) -> int:
         return 1 + self.exp.nodecount()
 
-    def _to_str(self, lean=False):
-        return self.exp._to_str(lean=lean)
+    def _pretty(self, lean=False):
+        return self.exp._pretty(lean=lean)
 
-    def _nullable(self):
-        return Nullable.of(self.exp)
+    def _nullable(self) -> bool:
+        return self.exp._nullable()
 
-    def at_same_pos(self, ctx):
+    def callable_at_same_pos(self, rulemap: Mapping[str, Rule] | None = None) -> list[Model]:
         return [self.exp]
 
 
@@ -264,94 +269,98 @@ class Decorator(Model):
 _Decorator = Decorator
 
 
+@tatsudataclass
 class Group(Decorator):
     def _parse(self, ctx):
         with ctx._group():
             self.exp._parse(ctx)
             return ctx.last_node
 
-    def _to_str(self, lean=False):
-        exp = self.exp._to_str(lean=lean)
-        if len(exp.splitlines()) > 1:
-            return f'(\n{indent(exp)}\n)'
-        else:
+    def _pretty(self, lean=False):
+        exp = self.exp._pretty(lean=lean)
+        if len(exp.splitlines()) <= 1:
             return f'({trim(exp)})'
+        return f'(\n{indent(exp)}\n)'
 
 
+@tatsudataclass
 class Token(Model):
+    token: str = ''
+
     def __post_init__(self):
         super().__post_init__()
-        ast = self.ast
-        self.token = ast
+        self.token = self.token or self.ast
 
     def _parse(self, ctx):
         return ctx._token(self.token)
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         return {(self.token,)}
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return repr(self.token)
 
 
+@tatsudataclass
 class Constant(Model):
+    literal: str = ''
+
     def __post_init__(self):
         super().__post_init__()
-        self.literal = self.ast
+        self.literal = self.literal or self.ast
 
     def _parse(self, ctx):
         return ctx._constant(self.literal)
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         return {()}
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return f'`{self.literal!r}`'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class Alert(Constant):
+    level: int = 0
+
     def __post_init__(self):
         super().__post_init__()
-        if isinstance(self.ast, AST):
-            self.literal = self.ast.message.literal
-            self.level = len(self.ast.level)
+        self.literal = self.ast.message.literal
+        self.level = len(self.ast.level)
 
     def _parse(self, ctx):
         return super()._parse(ctx)
 
-    def _to_str(self, lean=False):
-        return f'{"^" * self.level}{super()._to_str()}'
+    def _pretty(self, lean=False):
+        return f'{"^" * self.level}{super()._pretty()}'
 
 
+@tatsudataclass
 class Pattern(Model):
+    pattern: str = ''
+
     def __post_init__(self):
         super().__post_init__()
-        ast = self.ast
-        if not isinstance(ast, list):
-            ast = [ast]
-        self.patterns = ast
-        self.regex = re.compile(self.pattern)
-
-    @property
-    def pattern(self):
-        return ''.join(list(self.patterns))
+        self._patterns = self.ast if isinstance(self.ast, list) else [self.ast]
+        self.pattern = ''.join(self._patterns)
+        self._regex = re.compile(self.pattern)
 
     def _parse(self, ctx):
         return ctx._pattern(self.pattern)
 
-    def _first(self, k, f):
-        x = self
-        if bool(self.regex.match('')):
+    def _first(self, k, f) -> ffset:
+        x = str(self)
+        if bool(self._regex.match('')):
             return {(), (x,)}
         else:
             return {(x,)}
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         parts = []
-        for pat in (str(p) for p in self.patterns):
+        for pat in (str(p) for p in self._patterns):
             if '/' in pat:
                 newpat = pat.replace('"', r'\"')
                 regex = f'?"{newpat}"'
@@ -360,55 +369,61 @@ class Pattern(Model):
             parts.append(regex)
         return '\n+ '.join(parts)
 
-    def _nullable(self):
-        return bool(self.regex.match(''))
+    def _nullable(self) -> bool:
+        return bool(self._regex.match(''))
 
-    def __repr__(self):
-        return self.pattern.replace('\\\\', '\\')
+    def __str__(self):
+        return self.pattern
 
 
+@tatsudataclass
 class Lookahead(Decorator):
     def _parse(self, ctx):
         with ctx._if():
             return super()._parse(ctx)
 
-    def _to_str(self, lean=False):
-        return '&' + self.exp._to_str(lean=lean)
+    def _pretty(self, lean=False):
+        return '&' + self.exp._pretty(lean=lean)
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class NegativeLookahead(Decorator):
     def _parse(self, ctx):
         with ctx._ifnot():
             return super()._parse(ctx)
 
-    def _to_str(self, lean=False):
-        return '!' + str(self.exp._to_str(lean=lean))
+    def _pretty(self, lean=False):
+        return '!' + str(self.exp._pretty(lean=lean))
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class SkipTo(Decorator):
     def _parse(self, ctx):
         super_parse = super()._parse
         return ctx._skip_to(lambda: super_parse(ctx))
 
-    def _first(self, k, f):
-        # use None to represent ANY
-        return {(None,)} | super()._first(k, f)
+    def _first(self, k, f) -> ffset:
+        return {('.',)} | super()._first(k, f)
 
-    def _to_str(self, lean=False):
-        return '->' + self.exp._to_str(lean=lean)
+    def _pretty(self, lean=False):
+        return '->' + self.exp._pretty(lean=lean)
 
 
+@tatsudataclass
 class Sequence(Model):
-    def __init__(self, ast, **kwargs):
-        assert ast.sequence
-        self.sequence = ()
-        super().__init__(ast=ast)
+    sequence: list[Model] = field(default_factory=list)
+
+    def __post_init__(self):
+        super().__post_init__()
+        if not self.sequence:
+            self.sequence = self.ast or []
+        assert isinstance(self.sequence, list), self.sequence
 
     def _parse(self, ctx):
         ctx.last_node = [s._parse(ctx) for s in self.sequence]
@@ -417,19 +432,18 @@ class Sequence(Model):
     def defines(self):
         return [d for s in self.sequence for d in s.defines()]
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
-        return set().union(*[s.missing_rules(rules) for s in self.sequence])
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
+        return set().union(
+            *[s.missing_rules(rulenames) for s in self.sequence],
+        )
 
     def _used_rule_names(self):
         return set().union(*[s._used_rule_names() for s in self.sequence])
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         result = {()}
         for s in self.sequence:
             x = s._first(k, f)
-            # FIXME:
-            # if isinstance(x, RuleRef):
-            #     x |= f[x.name]
             result = kdot(result, x, k)
         self._firstset = result
         return result
@@ -437,38 +451,40 @@ class Sequence(Model):
     def _follow(self, k, fl, a):
         fs = a
         for x in reversed(self.sequence):
-            if isinstance(x, RuleRef):
+            if isinstance(x, Call):
                 fl[x.name] |= fs
             x._follow(k, fl, fs)
             fs = kdot(x.firstset(k=k), fs, k)
         return a
 
-    def nodecount(self):
+    def nodecount(self) -> int:
         return 1 + sum(s.nodecount() for s in self.sequence)
 
-    def _to_str(self, lean=False):
-        comments = self.comments_str()
-        seq = [str(s._to_str(lean=lean)) for s in self.sequence]
+    def _pretty(self, lean=False):
+        seq = [str(s._pretty(lean=lean)) for s in self.sequence]
         single = ' '.join(seq)
         if len(single) <= PEP8_LLEN and len(single.splitlines()) <= 1:
-            return comments + single
+            return single
         else:
-            return comments + '\n'.join(seq)
+            return '\n'.join(seq)
 
-    def _nullable(self):
-        return Nullable.all(self.sequence)
+    def _nullable(self) -> bool:
+        return all(s._nullable() for s in self.sequence)
 
-    def at_same_pos(self, ctx):
-        head = list(takewhile(lambda c: c.is_nullable(ctx), self.sequence))
+    def callable_at_same_pos(self, rulemap: Mapping[str, Rule] | None = None) -> list[Model]:
+        head = list(takewhile(lambda c: c.is_nullable(rulemap), self.sequence))
         if len(head) < len(self.sequence):
             head.append(self.sequence[len(head)])
         return head
 
 
+@tatsudataclass
 class Choice(Model):
-    def __init__(self, ast: AST | list[Model] | None = None, **kwargs):
-        self.options: list[Model] = []
-        super().__init__(ast=AST(options=ast))
+    options: list[Model] = field(default_factory=list)
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.options = self.options or self.ast
         assert isinstance(self.options, list), repr(self.options)
 
     def _parse(self, ctx):
@@ -480,20 +496,21 @@ class Choice(Model):
 
             lookahead = self.lookahead_str()
             if lookahead:
-                ctx._error(f'expecting one of: {lookahead}:')
-            ctx._error('no available options')
-            return None
+                raise ctx.newexcept(f'expecting one of: {lookahead}:')
+            raise ctx.newexcept('no available options')
 
     def defines(self):
         return [d for o in self.options for d in o.defines()]
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
-        return set().union(*[o.missing_rules(rules) for o in self.options])
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
+        return set().union(
+            *[o.missing_rules(rulenames) for o in self.options],
+        )
 
     def _used_rule_names(self):
         return set().union(*[o._used_rule_names() for o in self.options])
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         result = set()
         for o in self.options:
             result |= o._first(k, f)
@@ -505,11 +522,11 @@ class Choice(Model):
             o._follow(k, fl, a)
         return a
 
-    def nodecount(self):
+    def nodecount(self) -> int:
         return 1 + sum(o.nodecount() for o in self.options)
 
-    def _to_str(self, lean=False):
-        options = [str(o._to_str(lean=lean)) for o in self.options]
+    def _pretty(self, lean=False):
+        options = [str(o._pretty(lean=lean)) for o in self.options]
 
         multi = any(len(o.splitlines()) > 1 for o in options)
         single = ' | '.join(o for o in options)
@@ -521,13 +538,14 @@ class Choice(Model):
         else:
             return single
 
-    def _nullable(self):
-        return Nullable.any(self.options)
+    def _nullable(self) -> bool:
+        return any(o._nullable() for o in self.options)
 
-    def at_same_pos(self, ctx):
+    def callable_at_same_pos(self, rulemap: Mapping[str, Rule] | None = None) -> list[Model]:
         return self.options
 
 
+@tatsudataclass
 class Option(Decorator):
     def _parse(self, ctx):
         result = super()._parse(ctx)
@@ -535,52 +553,53 @@ class Option(Decorator):
         return result
 
 
+@tatsudataclass
 class Closure(Decorator):
     def _parse(self, ctx):
         return ctx._closure(lambda: self.exp._parse(ctx))
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         efirst = self.exp._first(k, f)
         result = {()}
         for _i in range(k):
             result = kdot(result, efirst, k)
         return {()} | result
 
-    def _to_str(self, lean=False):
-        sexp = str(self.exp._to_str(lean=lean))
+    def _pretty(self, lean=False):
+        sexp = str(self.exp._pretty(lean=lean))
         if len(sexp.splitlines()) <= 1:
             return f'{{{sexp}}}'
         else:
             return f'{{\n{indent(sexp)}\n}}'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class PositiveClosure(Closure):
     def _parse(self, ctx):
         return ctx._positive_closure(lambda: self.exp._parse(ctx))
 
-    def _first(self, k, f):
-        efirst = self.exp._first(k, f)
-        result = {()}
-        for _i in range(k):
-            result = kdot(result, efirst, k)
-        return result
+    def _first(self, k, f) -> ffset:
+        return self.exp._first(k, f)
 
-    def _to_str(self, lean=False):
-        return super()._to_str(lean=lean) + '+'
+    def _pretty(self, lean=False):
+        return super()._pretty(lean=lean) + '+'
 
-    def _nullable(self):
-        return Nullable.of(self.exp)
+    def _nullable(self) -> bool:
+        return self.exp._nullable()
 
 
+@tatsudataclass
 class Join(Decorator):
     JOINOP = '%'
 
-    def __init__(self, ast: AST, **kwargs):
-        super().__init__(ast.exp)
-        self.sep = ast['sep']
+    sep: Model = Model()
+
+    def __post_init__(self):
+        super().__post_init__()
+        assert self.sep == self.ast.sep, self.sep
 
     def _parse(self, ctx):
         def sep():
@@ -594,27 +613,30 @@ class Join(Decorator):
     def _do_parse(self, ctx, exp, sep):
         return ctx._join(exp, sep)
 
-    def _to_str(self, lean=False):
-        ssep = self.sep._to_str(lean=lean)
-        sexp = str(self.exp._to_str(lean=lean))
+    def _pretty(self, lean=False):
+        ssep = self.sep._pretty(lean=lean)
+        sexp = str(self.exp._pretty(lean=lean))
         if len(sexp.splitlines()) <= 1:
             return f'{ssep}{self.JOINOP}{{{sexp}}}'
         else:
             return f'{ssep}{self.JOINOP}{{\n{sexp}\n}}'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
 class PositiveJoin(Join):
+    def _first(self, k, f) -> ffset:
+        return self.exp._first(k, f)
+
     def _do_parse(self, ctx, exp, sep):
         return ctx._positive_join(exp, sep)
 
-    def _to_str(self, lean=False):
-        return super()._to_str(lean=lean) + '+'
+    def _pretty(self, lean=False):
+        return super()._pretty(lean=lean) + '+'
 
-    def _nullable(self):
-        return Nullable.of(self.exp)
+    def _nullable(self) -> bool:
+        return self.exp._nullable()
 
 
 class LeftJoin(PositiveJoin):
@@ -639,30 +661,35 @@ class Gather(Join):
 
 
 class PositiveGather(Gather):
+    def _first(self, k, f) -> ffset:
+        return self.exp._first(k, f)
+
     def _do_parse(self, ctx, exp, sep):
         return ctx._positive_gather(exp, sep)
 
-    def _to_str(self, lean=False):
-        return super()._to_str(lean=lean) + '+'
+    def _pretty(self, lean=False):
+        return super()._pretty(lean=lean) + '+'
 
-    def _nullable(self):
-        return Nullable.of(self.exp)
+    def _nullable(self) -> bool:
+        return self.exp._nullable()
 
 
+@tatsudataclass
 class EmptyClosure(Model):
     def _parse(self, ctx):
         return ctx._empty_closure()
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         return {()}
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '{}'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class Optional(Decorator):
     def _parse(self, ctx):
         ctx.last_node = None
@@ -670,48 +697,45 @@ class Optional(Decorator):
         with ctx._optional():
             return self.exp._parse(ctx)
 
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         return set({()}) | self.exp._first(k, f)
 
-    def _to_str(self, lean=False):
-        exp = str(self.exp._to_str(lean=lean))
-        template = '[%s]'
-        if isinstance(self.exp, Choice):
-            template = trim(self.str_template)
-        elif isinstance(self.exp, Group):
-            exp = self.exp.exp
-        return template % exp
+    def _pretty(self, lean=False):
+        exp = self.exp._pretty(lean=lean)
+        if len(exp.splitlines()) <= 1:
+            return f'[{exp}]'
+        return f'[\n{exp}\n]'
 
-    str_template = """
-            [
-            %s
-            ]
-            """
-
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class Cut(Model):
     def _parse(self, ctx):
         ctx._cut()
 
-    def _first(self, k, f):
-        return {('~',)}
+    def _first(self, k, f) -> ffset:
+        return {()}
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return '~'
 
-    def _nullable(self):
+    def _nullable(self) -> bool:
         return True
 
 
+@tatsudataclass
 class Named(Decorator):
-    def __init__(self, ast: AST | None = None, **kwargs):
-        if ast is None:
-            raise GrammarError('ast in Named cannot be None')
-        super().__init__(ast['exp'])
-        self.name = ast['name']
+    name: str = field(default='')
+
+    def __post_init__(self):
+        if not self.ast:
+            self.ast = AST(name=self.name, exp=self.exp)
+        super().__post_init__()
+        if not self.name:
+            raise TypeError(f'{typename(self)}.name is required')
+        assert getattr(self, 'name', None) is not None
 
     def _parse(self, ctx):
         value = self.exp._parse(ctx)
@@ -721,12 +745,13 @@ class Named(Decorator):
     def defines(self):
         return [(self.name, False), *super().defines()]
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         if lean:
-            return self.exp._to_str(lean=True)
-        return f'{self.name}:{self.exp._to_str(lean=lean)}'
+            return self.exp._pretty(lean=True)
+        return f'{self.name}:{self.exp._pretty(lean=lean)}'
 
 
+@tatsudataclass
 class NamedList(Named):
     def _parse(self, ctx):
         value = self.exp._parse(ctx)
@@ -736,54 +761,59 @@ class NamedList(Named):
     def defines(self):
         return [(self.name, True), *super().defines()]
 
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         if lean:
-            return self.exp._to_str(lean=True)
-        return f'{self.name}+:{self.exp._to_str(lean=lean)!s}'
+            return self.exp._pretty(lean=True)
+        return f'{self.name}+:{self.exp._pretty(lean=lean)!s}'
 
 
+@tatsudataclass
 class Override(Named):
-    def __init__(self, ast: AST | None = None, **kwargs):
-        super().__init__(ast=AST(name='@', exp=ast))
+    def __post_init__(self):
+        # HACK:
+        #   The rule for override in the bootstrap grammar uses `@:term`.
+        #   That's too difficult to change... So we path conformance with Named!
+        #   BaseNode.__post_init__() transfers AST entries to attributes
 
-    def defines(self):
-        return []
-
-
-class OverrideList(NamedList):
-    def __init__(self, ast: AST | None = None, **kwargs):
-        super().__init__(ast=AST(name='@', exp=ast))
-
-    def defines(self):
-        return []
-
-
-class Special(Model):
-    def _first(self, k, f):
-        return {(self.value,)}
-
-    def _to_str(self, lean=False):
-        return f'?{self.value}?'
-
-    def _nullable(self):
-        return True
-
-
-class RuleRef(Model):
-    def __post_init__(self) -> None:
+        self.ast = AST(name='@', exp=self.ast)
         super().__post_init__()
-        self.name: str = self.ast or 'unnamed'  # type: ignore
+
+    def defines(self):
+        return self.exp.defines()
+
+
+@tatsudataclass
+class OverrideList(NamedList):
+    def __post_init__(self):
+        self.ast = AST(name='@', exp=self.ast)
+        super().__post_init__()
+
+    def defines(self):
+        return self.exp.defines()
+
+
+@tatsudataclass
+class Call(Model):
+    name: str = ''
+
+    def __post_init__(self):
+        if not self.name:
+            self.ast = AST(name=self.ast)
+        super().__post_init__()
+        assert isinstance(self.name, str), self.name
+
+    def follow_ref(self, rulemap: Mapping[str, Rule]) -> Model:
+        return rulemap.get(self.name, self)
 
     def _parse(self, ctx):
         try:
             rule = ctx._find_rule(self.name)
-        except KeyError:
-            ctx._error(self.name, exclass=FailedRef)
-        else:
             return rule()
+        except KeyError as e:
+            raise ctx.newexcept(self.name, exclass=FailedRef) from e
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
-        if self.name not in rules:
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
+        if self.name not in rulenames:
             return set({self.name})
         return set()
 
@@ -791,51 +821,50 @@ class RuleRef(Model):
         return {self.name}
 
     def _first(self, k, f) -> ffset:
-        self._firstset = set(f[self.name]) | {ref(self.name)}
-        return self._firstset
+        return f[self.name] | {ref(self.name)}
 
     def _follow(self, k, fl, a):
         fl[self.name] |= a
         return set(a) | {self.name}
 
-    def firstset(self, k=1):
-        if self._firstset is None:
-            self._firstset = {ref(self.name)}
-        return self._firstset
-
-    def _to_str(self, lean=False):
+    def _pretty(self, lean=False):
         return self.name
 
-    def is_nullable(self, ctx: Mapping[str, Rule] | None = None) -> bool:
-        if ctx is None:
+    def is_nullable(self, rulemap: Mapping[str, Rule] | None = None) -> bool:
+        if rulemap is None:
             return False
         else:
-            return ctx[self.name].is_nullable(ctx)
+            return rulemap[self.name].is_nullable(rulemap)
 
 
-class RuleInclude(Decorator):
-    def __init__(self, rule):
-        assert isinstance(rule, Rule), str(rule.name)
-        super().__init__(rule.exp)
-        self.rule = rule
-
-    def _to_str(self, lean=False):
-        return f'>{self.rule.name}'
-
-
+@tatsudataclass
 class Rule(Decorator):
-    def __init__(self, ast, name, exp, params, kwparams, decorators: list[str] | None = None):
-        assert kwparams is None or isinstance(kwparams, Mapping), kwparams
-        super().__init__(exp=exp, ast=ast)
-        self.name = name
-        self.params = params
-        self.kwparams = kwparams
-        self.decorators = decorators or []
+    params: tuple[str, ...] = field(default_factory=tuple)
+    kwparams: dict[str, Any] = field(default_factory=dict)
+    decorators: list[str] = field(default_factory=list)
+    base: str | None = None
+    is_name: bool = False
+    is_leftrec: bool = False
+    is_memoizable: bool = True
 
+    def __post_init__(self):
+        super().__post_init__()
         self.is_name = 'name' in self.decorators
-        self.base: Rule | None = None
-        self.is_leftrec = False  # Starts a left recursive cycle
-        self.is_memoizable = 'nomemo' not in self.decorators
+        self.params = self.params or ()
+
+        if not self.kwparams:
+            self.kwparams = {}
+        elif not isinstance(self.kwparams, dict):
+            self.kwparams = dict(self.kwparams)
+        self.exp = self.exp if self.exp is not None else Void()
+        assert isinstance(self.kwparams, dict), f'{typename(self)}: {self.kwparams=!r}'
+
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
+        if self.exp is None:
+            debug(f'{self!r} weird with {self.exp=!r}')
+        if self.exp.missing_rules is None:
+            debug(f'{self!r}\nweird with {self.exp.missing_rules=!r}\n{self.exp=!r}')
+        return self.exp.missing_rules(rulenames)
 
     def _parse(self, ctx):
         return self._parse_rhs(ctx, self.exp)
@@ -852,18 +881,15 @@ class Rule(Decorator):
         )
         return ctx._call(ruleinfo)
 
-    # def firstset(self, k=1):
-    #     return self.exp.firstset(k=k)
-
-    def _first(self, k, f):
+    def _first(self, k, f) -> ffset:
         self._firstset = self.exp._first(k, f) | f[self.name]
         return self._firstset
 
     def _follow(self, k, fl, a):
         return self.exp._follow(k, fl, fl[self.name])
 
-    def _nullable(self):
-        return Nullable.of(self.exp)
+    def _nullable(self) -> bool:
+        return self.exp._nullable()
 
     @staticmethod
     def param_repr(p):
@@ -872,8 +898,14 @@ class Rule(Decorator):
         else:
             return repr(p)
 
-    def _to_str(self, lean=False):
-        comments = self.comments_str()
+    def _pretty(self, lean=False):
+        str_template = """\
+                {is_name}{name}{base}{params}
+                    =
+                {exp}
+                    ;
+                """
+
         if lean:
             params = ''
         else:
@@ -901,56 +933,53 @@ class Rule(Decorator):
                     else f'({params})'
                 )
 
-        base = f' < {self.base.name!s}' if self.base else ''
+        base = f' < {self.base!s}' if self.base else ''
 
-        return trim(self.str_template).format(
+        return trim(str_template).format(
             name=self.name,
             base=base,
             params=params,
-            exp=indent(self.exp._to_str(lean=lean)),
-            comments=comments,
+            exp=indent(self.exp._pretty(lean=lean)),
             is_name='@name\n' if self.is_name else '',
         )
 
-    str_template = """\
-                {is_name}{comments}{name}{base}{params}
-                    =
-                {exp}
-                    ;
-                """
+
+@tatsudataclass
+class RuleInclude(Decorator):
+    rule: Rule = field(default_factory=Rule)
+
+    def __post_init__(self):
+        super().__post_init__()
+        assert isinstance(self.rule, Rule)
+        # note: self.ast: str is the rule name
+        self.exp = self.rule.exp
+
+    def _pretty(self, lean=False):
+        return f'>{self.rule.name}'
 
 
+@tatsudataclass
 class BasedRule(Rule):
-    def __init__(
-        self,
-        ast: AST | None,
-        name: str,
-        exp: Model,
-        base: Rule,
-        params: list[Any],
-        kwparams: dict[str, Any],
-        decorators: list[str] | None = None,
-    ):
-        super().__init__(
-            ast,
-            name,
-            exp,
-            params or base.params,
-            kwparams or base.kwparams,
-            decorators=decorators,
-        )
-        self.base: Rule = base
-        ast = AST(sequence=[self.base.exp, self.exp])
-        ast.set_parseinfo(self.base.parseinfo)
-        self.rhs = Sequence(ast=ast)
+    baserule: Rule = field(default_factory=Rule)
+    rhs: Model = Model()
+
+    def __post_init__(self):
+        super().__post_init__()
+
+        assert isinstance(self.baserule, Rule), f'{typename(self.base)}: {self.basrulee=!r}'
+
+        self.params = self.params or self.baserule.params
+        self.kwparams = self.kwparams or self.baserule.kwparams
+        self.rhs = Sequence(ast=[self.baserule.exp, self.exp])
 
     def _parse(self, ctx):
         return self._parse_rhs(ctx, self.rhs)
 
     def defines(self):
-        return self.rhs.defines()
+        return super().defines() + self.rhs.defines()
 
 
+@tatsudataclass
 class Grammar(Model):
     def __init__(
         self,
@@ -966,14 +995,15 @@ class Grammar(Model):
         directives = directives or {}
         self.directives = directives
 
-        config = ParserConfig.new(config=config, **directives)
-        config = config.replace(**settings)
+        config = ParserConfig.new(config=config, **settings)
+        config = config.hard_override(**directives)
         self.config = config
 
-        self.rules = rules
-        self.rulemap = {rule.name: rule for rule in rules}
-
-        config = config.merge(**directives)
+        self.rules: list[Rule] = rules
+        self._rulemap: dict[str, Rule] = {
+            rule.name: rule
+            for rule in rules
+        }
 
         if name is None:
             name = self.directives.get('grammar')
@@ -985,14 +1015,16 @@ class Grammar(Model):
             name = 'My'
         self.name = name
 
-        missing: set[str] = self.missing_rules({r.name for r in self.rules})
+        missing: set[str] = self.missing_rules(set(self._rulemap))
         if missing:
             msg = '\n'.join(['', *sorted(missing)])
             raise GrammarError('Unknown rules, no parser generated:' + msg)
 
         self._calc_lookahead_sets()
-        if config.left_recursion:
-            find_left_recursion(self)
+
+    @property
+    def rulemap(self) -> dict[str, Rule]:
+        return self._rulemap
 
     @property
     def keywords(self) -> Collection[str]:
@@ -1006,9 +1038,9 @@ class Grammar(Model):
     def semantics(self, value: type[object]):
         self.config.semantics = value
 
-    def missing_rules(self, rules: set[str]) -> set[str]:
+    def missing_rules(self, rulenames: set[str]) -> set[str]:
         return set().union(
-            *[rule.missing_rules(rules) for rule in self.rules],
+            *[rule.missing_rules(rulenames) for rule in self.rules],
         )
 
     def _used_rule_names(self) -> set[str]:
@@ -1060,6 +1092,7 @@ class Grammar(Model):
             for rule in self.rules:
                 rule._follow(k, fl, set())
 
+        # cache results
         for rule in self.rules:
             rule._follow_set = fl[rule.name]
 
@@ -1070,14 +1103,22 @@ class Grammar(Model):
             ctx: ParseContext | None = None,
             config: ParserConfig | None = None,
             **settings):
-        # type: ignore[override]
-        config = self.config.replace_config(config)
-        config = config.replace(**settings)
+        config = self.config.override_config(config)
+        # note: bw-comp: allow overriding directives
+        config = config.override(**settings)
 
-        start = config.effective_rule_name()
+        if isinstance(config.semantics, type):
+            raise TypeError(
+                'semantics must be an object instance or None, '
+                f'not class {config.semantics!r}',
+            )
+
+        start = config.effective_start_rule_name()
         if start is None:
             start = self.rules[0].name
-            config.start_rule = start  # FIXME
+            config.start = start
+            config.start_rule = None
+            config.rule_name = None
 
         if ctx is None:
             ctx = ModelContext(self.rules, config=config)
@@ -1086,7 +1127,7 @@ class Grammar(Model):
     def nodecount(self) -> int:
         return 1 + sum(r.nodecount() for r in self.rules)
 
-    def _to_str(self, lean: bool = False) -> str:
+    def _pretty(self, lean: bool = False) -> str:
         regex_directives = {'comments', 'eol_comments', 'whitespace'}
         str_directives = {'comments', 'grammar'}
         string_directives = {'namechars'}
@@ -1115,6 +1156,6 @@ class Grammar(Model):
         keywords = '\n\n' + keywords + '\n' if keywords else ''
 
         rules = (
-            '\n\n'.join(str(rule._to_str(lean=lean)) for rule in self.rules)
+            '\n\n'.join(str(rule._pretty(lean=lean)) for rule in self.rules)
         ).rstrip() + '\n'
         return directives + keywords + rules

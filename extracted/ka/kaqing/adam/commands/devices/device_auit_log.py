@@ -1,9 +1,9 @@
 from adam.commands.command import Command
 from adam.commands.devices.device import Device
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_tabulize import tabulize
-from adam.utils_athena import Athena
+from adam.rdbms.utils_athena import Athena
 from adam.utils_context import NULL
 
 class DeviceAuditLog(Command, Device):

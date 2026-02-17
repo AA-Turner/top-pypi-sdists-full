@@ -6,18 +6,28 @@ from typing import Any, Callable, Dict, List, Optional
 import numpy as np
 
 from onnx2tf.tflite_builder.op_builders import (
+    build_argmax_op,
     build_batch_normalization_op,
     build_binary_op,
+    build_cast_op,
     build_clip_op,
     build_concat_op,
     build_conv2d_or_depthwise_op,
+    build_conv_transpose_op,
     build_custom_passthrough_op,
     build_dequantize_linear_op,
+    build_div_op,
+    build_expand_op,
     build_flatten_op,
     build_fully_connected_from_gemm_or_matmul,
+    build_matmul_op,
     build_gather_op,
+    build_gather_elements_op,
+    build_hardsigmoid_op,
     build_qgemm_op,
     build_identity_op,
+    build_pad_op,
+    build_mod_op,
     build_l2_normalization_op,
     build_logistic_op,
     build_pool2d_op,
@@ -27,6 +37,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_qlinear_concat_op,
     build_qlinear_conv_op,
     build_qlinear_global_average_pool_op,
+    build_qlinear_leaky_relu_op,
     build_qlinear_matmul_op,
     build_qlinear_mul_op,
     build_qlinear_sigmoid_op,
@@ -36,6 +47,7 @@ from onnx2tf.tflite_builder.op_builders import (
     build_resize_op,
     build_reshape_op,
     build_slice_op,
+    build_split_op,
     build_space_to_depth_op,
     build_squeeze_op,
     build_softmax_op,
@@ -115,6 +127,9 @@ _CUSTOM_OP_CANDIDATES = {
     "Unique",
     "TopK",
     "NonMaxSuppression",
+    "LSTM",
+    "QLinearConv",
+    "LogSoftmax",
 }
 
 
@@ -294,13 +309,83 @@ def _validate_slice(node: Any, ctx: Any) -> None:
             node_name=node.name,
             node_op=node.op,
         )
-    if any(int(step) != 1 for step in steps):
+    if any(int(step) == 0 for step in steps):
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
-            message=f"Slice steps must all be 1. steps={steps}",
+            message=f"Slice step must not be 0. steps={steps}",
             node_name=node.name,
             node_op=node.op,
         )
+    if any(int(step) < 0 for step in steps):
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Slice negative steps are not supported. steps={steps}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_split(node: Any, ctx: Any) -> None:
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    rank = len(input_shape)
+    axis = int(node.attrs.get("axis", 0))
+    if axis < 0:
+        axis += rank
+    if axis < 0 or axis >= rank:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Split axis out of range. axis={axis} rank={rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    split_sizes: list[int] | None = None
+    if len(node.inputs) >= 2:
+        split_arr = _require_const_input(node, ctx, 1, "split sizes")
+        split_sizes = [int(v) for v in np.asarray(split_arr).reshape(-1).tolist()]
+    elif "split" in node.attrs:
+        split_attr = node.attrs.get("split")
+        if isinstance(split_attr, (list, tuple, np.ndarray)):
+            split_sizes = [int(v) for v in np.asarray(split_attr).reshape(-1).tolist()]
+        elif split_attr is not None:
+            split_sizes = [int(split_attr)]
+
+    output_count = len(node.outputs)
+    if split_sizes is not None and len(split_sizes) != output_count:
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                f"Split split size count must match outputs. "
+                f"split_len={len(split_sizes)} outputs={output_count}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+    axis_dim = int(input_shape[axis]) if axis < len(input_shape) else -1
+    # Some quantized models carry incomplete shape metadata in direct lowering.
+    # When explicit split sizes are present, trust them even if inferred axis
+    # dimension disagrees with metadata.
+    if split_sizes is None:
+        if axis_dim <= 0:
+            raise NodeValidationError(
+                reason_code="unsupported_shape_inference",
+                message=(
+                    "Split without explicit split sizes requires known axis dimension."
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
+        if axis_dim % output_count != 0:
+            raise NodeValidationError(
+                reason_code="invalid_input_shape",
+                message=(
+                    f"Split without explicit sizes requires divisible axis. "
+                    f"axis_dim={axis_dim} outputs={output_count}"
+                ),
+                node_name=node.name,
+                node_op=node.op,
+            )
 
 
 def _validate_transpose(node: Any, ctx: Any) -> None:
@@ -354,6 +439,51 @@ def _validate_conv(node: Any, ctx: Any) -> None:
         )
 
 
+def _validate_conv_transpose(node: Any, ctx: Any) -> None:
+    weights = _require_const_input(node, ctx, 1, "convtranspose weights")
+    if weights.ndim != 4:
+        raise NodeValidationError(
+            reason_code="unsupported_weight_rank",
+            message=f"ConvTranspose weight rank must be 4. weight_shape={list(weights.shape)}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    if len(input_shape) not in [1, 4]:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"ConvTranspose input rank must be 4 (or unknown placeholder rank=1). input_shape={input_shape}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    group = int(node.attrs.get("group", 1))
+    if group != 1:
+        raise NodeValidationError(
+            reason_code="unsupported_grouped_convolution",
+            message=f"ConvTranspose currently supports group=1 only. group={group}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    dilations = [int(v) for v in list(node.attrs.get("dilations", [1, 1]))]
+    if dilations != [1, 1]:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"ConvTranspose dilations must be [1,1]. dilations={dilations}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    output_padding = [int(v) for v in list(node.attrs.get("output_padding", [0, 0]))]
+    if any(v != 0 for v in output_padding):
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"ConvTranspose output_padding must be [0,0]. output_padding={output_padding}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if len(node.inputs) >= 3:
+        _require_const_input(node, ctx, 2, "convtranspose bias")
+
+
 def _validate_pool(node: Any, ctx: Any) -> None:
     ceil_mode = int(node.attrs.get("ceil_mode", 0))
     if node.op == "MaxPool":
@@ -376,13 +506,22 @@ def _validate_pool(node: Any, ctx: Any) -> None:
 
 def _validate_fc(node: Any, ctx: Any) -> None:
     input_rank = len(ctx.get_tensor_shape(node.inputs[0].name))
-    if input_rank != 2:
-        raise NodeValidationError(
-            reason_code="unsupported_input_rank",
-            message=f"FullyConnected input rank must be 2. rank={input_rank}",
-            node_name=node.name,
-            node_op=node.op,
-        )
+    if node.op == "Gemm":
+        if input_rank != 2:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=f"Gemm input rank must be 2. rank={input_rank}",
+                node_name=node.name,
+                node_op=node.op,
+            )
+    else:
+        if input_rank < 2:
+            raise NodeValidationError(
+                reason_code="unsupported_input_rank",
+                message=f"{node.op} input rank must be >= 2. rank={input_rank}",
+                node_name=node.name,
+                node_op=node.op,
+            )
     weights = _require_const_input(node, ctx, 1, "fully_connected weights")
     if weights.ndim != 2:
         raise NodeValidationError(
@@ -399,6 +538,18 @@ def _validate_fc(node: Any, ctx: Any) -> None:
                 node_name=node.name,
                 node_op=node.op,
             )
+
+
+def _validate_matmul(node: Any, ctx: Any) -> None:
+    a_rank = len(ctx.get_tensor_shape(node.inputs[0].name))
+    b_rank = len(ctx.get_tensor_shape(node.inputs[1].name))
+    if a_rank < 2 or b_rank < 2:
+        raise NodeValidationError(
+            reason_code="unsupported_input_rank",
+            message=f"MatMul input rank must be >= 2. a_rank={a_rank} b_rank={b_rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
 
 
 def _extract_axes(
@@ -520,6 +671,97 @@ def _validate_gather(node: Any, ctx: Any) -> None:
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
             message=f"Gather batch_dims must be 0. batch_dims={int(node.attrs.get('batch_dims', 0))}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_argmax(node: Any, ctx: Any) -> None:
+    input_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    input_rank = len(input_shape)
+    axis = int(node.attrs.get("axis", 0))
+    if axis < 0:
+        axis += input_rank
+    if axis < 0 or axis >= input_rank:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"ArgMax axis out of range. axis={axis} rank={input_rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+    select_last_index = int(node.attrs.get("select_last_index", 0))
+    if select_last_index != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"ArgMax select_last_index must be 0. got={select_last_index}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_gather_elements(node: Any, ctx: Any) -> None:
+    data_shape = ctx.get_tensor_shape(node.inputs[0].name)
+    indices_shape = ctx.get_tensor_shape(node.inputs[1].name)
+    output_shape = ctx.get_tensor_shape(node.outputs[0].name)
+    if len(data_shape) != len(indices_shape):
+        raise NodeValidationError(
+            reason_code="invalid_input_shape",
+            message=(
+                "GatherElements requires data and indices with same rank. "
+                f"data_shape={data_shape} indices_shape={indices_shape}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    if len(indices_shape) != len(output_shape):
+        raise NodeValidationError(
+            reason_code="invalid_output_shape",
+            message=(
+                "GatherElements requires output rank equal to indices rank. "
+                f"indices_shape={indices_shape} output_shape={output_shape}"
+            ),
+            node_name=node.name,
+            node_op=node.op,
+        )
+    rank = len(data_shape)
+    axis = int(node.attrs.get("axis", 0))
+    if axis < 0:
+        axis += rank
+    if axis < 0 or axis >= rank:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"GatherElements axis out of range. axis={axis} rank={rank}",
+            node_name=node.name,
+            node_op=node.op,
+        )
+
+
+def _validate_cast(node: Any, _ctx: Any) -> None:
+    to_value = node.attrs.get("to", None)
+    if to_value is None:
+        return
+    try:
+        _ = int(to_value)
+    except Exception as ex:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Cast 'to' attribute must be integer enum. got={to_value}",
+            node_name=node.name,
+            node_op=node.op,
+        ) from ex
+
+
+def _validate_expand(node: Any, _ctx: Any) -> None:
+    # Expand is lowered via static-shape MUL-broadcast path in op_builders.shape.
+    return
+
+
+def _validate_mod(node: Any, _ctx: Any) -> None:
+    fmod = int(node.attrs.get("fmod", 0))
+    if fmod != 0:
+        raise NodeValidationError(
+            reason_code="unsupported_attribute_value",
+            message=f"Mod with fmod=1 is not supported by FLOOR_MOD lowering. fmod={fmod}",
             node_name=node.name,
             node_op=node.op,
         )
@@ -745,13 +987,22 @@ def _validate_qlinear_conv(node: Any, ctx: Any) -> None:
     group = int(node.attrs.get("group", 1))
     if len(input_shape) == 4:
         in_channels = int(input_shape[1])
-        is_depthwise = group == in_channels and int(weights.shape[1]) == 1 and group > 1
+        weight_in_channels_per_group = int(weights.shape[1])
+        weight_out_channels = int(weights.shape[0])
+        # Prefer weight/group-based depthwise detection because some quantized
+        # models carry incomplete shape metadata during direct lowering.
+        is_depthwise = (
+            group > 1
+            and weight_in_channels_per_group == 1
+            and (weight_out_channels % group) == 0
+        )
         if group != 1 and not is_depthwise:
             raise NodeValidationError(
                 reason_code="unsupported_grouped_convolution",
                 message=(
                     "QLinearConv supports only regular or depthwise group conv. "
-                    f"group={group} in_channels={in_channels}"
+                    f"group={group} in_channels={in_channels} "
+                    f"weight_shape={list(weights.shape)}"
                 ),
                 node_name=node.name,
                 node_op=node.op,
@@ -841,6 +1092,16 @@ def _validate_qlinear_sigmoid(node: Any, ctx: Any) -> None:
         (4, "y_zero_point"),
     ]:
         _require_const_input(node, ctx, idx, f"QLinearSigmoid {label}")
+
+
+def _validate_qlinear_leaky_relu(node: Any, ctx: Any) -> None:
+    for idx, label in [
+        (1, "x_scale"),
+        (2, "x_zero_point"),
+        (3, "y_scale"),
+        (4, "y_zero_point"),
+    ]:
+        _require_const_input(node, ctx, idx, f"QLinearLeakyRelu {label}")
 
 
 def _validate_qlinear_softmax(node: Any, ctx: Any) -> None:
@@ -1020,12 +1281,12 @@ def _validate_resize(node: Any, ctx: Any) -> None:
                 node_op=node.op,
             )
     else:
-        if ctm not in ["half_pixel", "asymmetric", "align_corners"]:
+        if ctm not in ["half_pixel", "pytorch_half_pixel", "asymmetric", "align_corners"]:
             raise NodeValidationError(
                 reason_code="unsupported_attribute_value",
                 message=(
                     "Resize(linear) supports coordinate_transformation_mode "
-                    f"half_pixel/asymmetric/align_corners only. got={ctm}"
+                    f"half_pixel/pytorch_half_pixel/asymmetric/align_corners only. got={ctm}"
                 ),
                 node_name=node.name,
                 node_op=node.op,
@@ -1172,6 +1433,25 @@ def _resolve_custom_candidate(node: Any, ctx: Any) -> Optional[DispatchResolutio
     )
 
 
+def _resolve_generic_custom_fallback(node: Any, ctx: Any) -> Optional[DispatchResolution]:
+    if str(node.op) in {"ArgMax", "Cast", "Expand", "GatherElements", "Mod"}:
+        return None
+    allow_custom_ops = bool(getattr(ctx, "allow_custom_ops", False))
+    if not allow_custom_ops:
+        return None
+    allowlist = _normalize_custom_op_allowlist(
+        getattr(ctx, "custom_op_allowlist", None)
+    )
+    if len(allowlist) > 0 and str(node.op).upper() not in allowlist:
+        return None
+    return DispatchResolution(
+        entry=_custom_dispatch_entry_for_node(str(node.op)),
+        dispatch_mode="custom",
+        reason_code="custom_op_lowered_generic",
+        message=f"Lowered as CUSTOM op with customCode=ONNX_{str(node.op).upper()}",
+    )
+
+
 def _validate_clip(node: Any, ctx: Any) -> None:
     min_value = node.attrs.get("min", float("-inf"))
     max_value = node.attrs.get("max", float("inf"))
@@ -1190,13 +1470,11 @@ def _validate_clip(node: Any, ctx: Any) -> None:
 
     min_f = _to_float(min_value, float("-inf"))
     max_f = _to_float(max_value, float("inf"))
-    supports_relu6 = abs(min_f - 0.0) <= 1e-6 and abs(max_f - 6.0) <= 1e-6
-    supports_relu = abs(min_f - 0.0) <= 1e-6 and np.isinf(max_f) and max_f > 0.0
-    if not supports_relu6 and not supports_relu:
+    if np.isfinite(min_f) and np.isfinite(max_f) and min_f > max_f:
         raise NodeValidationError(
             reason_code="unsupported_attribute_value",
             message=(
-                "Clip supports only relu-style ranges: min=0,max=6 or min=0,max=+inf. "
+                "Clip minimum must be <= maximum. "
                 f"min={min_f} max={max_f}"
             ),
             node_name=node.name,
@@ -1225,9 +1503,30 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
     ),
     "Div": DispatchEntry(
         onnx_op="Div",
-        tflite_ops=["DIV"],
-        builder=_make_binary_builder("DIV"),
+        tflite_ops=["DIV", "MUL"],
+        builder=build_div_op,
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+    ),
+    "Mod": DispatchEntry(
+        onnx_op="Mod",
+        tflite_ops=["FLOOR_MOD"],
+        builder=build_mod_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_mod,
+    ),
+    "Cast": DispatchEntry(
+        onnx_op="Cast",
+        tflite_ops=["CAST"],
+        builder=build_cast_op,
+        validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_cast,
+    ),
+    "Expand": DispatchEntry(
+        onnx_op="Expand",
+        tflite_ops=["RESHAPE", "MUL", "CAST"],
+        builder=build_expand_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_expand,
     ),
     "QuantizeLinear": DispatchEntry(
         onnx_op="QuantizeLinear",
@@ -1297,6 +1596,13 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=5, max_inputs=5, min_outputs=1, max_outputs=1),
         extra_validator=_validate_qlinear_sigmoid,
     ),
+    "QLinearLeakyRelu": DispatchEntry(
+        onnx_op="QLinearLeakyRelu",
+        tflite_ops=["DEQUANTIZE", "PRELU", "QUANTIZE"],
+        builder=build_qlinear_leaky_relu_op,
+        validation=ValidationSpec(min_inputs=5, max_inputs=5, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_qlinear_leaky_relu,
+    ),
     "QLinearSoftmax": DispatchEntry(
         onnx_op="QLinearSoftmax",
         tflite_ops=["DEQUANTIZE", "SOFTMAX", "QUANTIZE"],
@@ -1345,10 +1651,23 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=1, max_inputs=2, min_outputs=1, max_outputs=1),
         extra_validator=_validate_reduce,
     ),
+    "ReduceMax": DispatchEntry(
+        onnx_op="ReduceMax",
+        tflite_ops=["REDUCE_MAX"],
+        builder=lambda node, ctx: build_reduce_op(node, ctx, "REDUCE_MAX"),
+        validation=ValidationSpec(min_inputs=1, max_inputs=2, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_reduce,
+    ),
     "Sigmoid": DispatchEntry(
         onnx_op="Sigmoid",
         tflite_ops=["LOGISTIC"],
         builder=build_logistic_op,
+        validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+    ),
+    "HardSigmoid": DispatchEntry(
+        onnx_op="HardSigmoid",
+        tflite_ops=["MUL", "ADD", "MAXIMUM", "MINIMUM"],
+        builder=build_hardsigmoid_op,
         validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
     ),
     "Relu": DispatchEntry(
@@ -1381,6 +1700,12 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         builder=_make_unary_builder("NEG"),
         validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
     ),
+    "Pad": DispatchEntry(
+        onnx_op="Pad",
+        tflite_ops=["PAD"],
+        builder=build_pad_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=3, min_outputs=1, max_outputs=1),
+    ),
     "PRelu": DispatchEntry(
         onnx_op="PRelu",
         tflite_ops=["PRELU"],
@@ -1390,7 +1715,7 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
     ),
     "Clip": DispatchEntry(
         onnx_op="Clip",
-        tflite_ops=["RELU", "RELU6"],
+        tflite_ops=["RELU", "RELU6", "MAXIMUM", "MINIMUM"],
         builder=build_clip_op,
         validation=ValidationSpec(min_inputs=1, max_inputs=3, min_outputs=1, max_outputs=1),
         extra_validator=_validate_clip,
@@ -1457,12 +1782,33 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
         extra_validator=_validate_gather,
     ),
+    "GatherElements": DispatchEntry(
+        onnx_op="GatherElements",
+        tflite_ops=["CAST", "RESHAPE", "CONCATENATION", "GATHER_ND"],
+        builder=build_gather_elements_op,
+        validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_gather_elements,
+    ),
+    "ArgMax": DispatchEntry(
+        onnx_op="ArgMax",
+        tflite_ops=["ARG_MAX", "RESHAPE"],
+        builder=build_argmax_op,
+        validation=ValidationSpec(min_inputs=1, max_inputs=1, min_outputs=1, max_outputs=1),
+        extra_validator=_validate_argmax,
+    ),
     "Slice": DispatchEntry(
         onnx_op="Slice",
-        tflite_ops=["SLICE"],
+        tflite_ops=["SLICE", "STRIDED_SLICE"],
         builder=build_slice_op,
         validation=ValidationSpec(min_inputs=3, max_inputs=5, min_outputs=1, max_outputs=1),
         extra_validator=_validate_slice,
+    ),
+    "Split": DispatchEntry(
+        onnx_op="Split",
+        tflite_ops=["SLICE"],
+        builder=build_split_op,
+        validation=ValidationSpec(min_inputs=1, max_inputs=2, min_outputs=1, max_outputs=None),
+        extra_validator=_validate_split,
     ),
     "Identity": DispatchEntry(
         onnx_op="Identity",
@@ -1505,6 +1851,18 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
         ),
         extra_validator=_validate_conv,
     ),
+    "ConvTranspose": DispatchEntry(
+        onnx_op="ConvTranspose",
+        tflite_ops=["TRANSPOSE_CONV", "ADD"],
+        builder=build_conv_transpose_op,
+        validation=ValidationSpec(
+            min_inputs=2,
+            max_inputs=3,
+            min_outputs=1,
+            max_outputs=1,
+        ),
+        extra_validator=_validate_conv_transpose,
+    ),
     "AveragePool": DispatchEntry(
         onnx_op="AveragePool",
         tflite_ops=["AVERAGE_POOL_2D"],
@@ -1544,10 +1902,10 @@ _DISPATCH_REGISTRY: Dict[str, DispatchEntry] = {
     ),
     "MatMul": DispatchEntry(
         onnx_op="MatMul",
-        tflite_ops=["FULLY_CONNECTED"],
-        builder=build_fully_connected_from_gemm_or_matmul,
+        tflite_ops=["BATCH_MATMUL"],
+        builder=build_matmul_op,
         validation=ValidationSpec(min_inputs=2, max_inputs=2, min_outputs=1, max_outputs=1),
-        extra_validator=_validate_fc,
+        extra_validator=_validate_matmul,
     ),
     "Einsum": DispatchEntry(
         onnx_op="Einsum",
@@ -1590,6 +1948,9 @@ def resolve_node_dispatch(node: Any, ctx: Any) -> DispatchResolution:
             _validate_attrs(node, entry.validation)
             _validate_rank_constraints(node, ctx, entry.validation)
             return custom_resolution
+        generic_custom_resolution = _resolve_generic_custom_fallback(node, ctx)
+        if generic_custom_resolution is not None:
+            return generic_custom_resolution
         raise NodeValidationError(
             reason_code="unsupported_onnx_op",
             message=f"ONNX op is not supported by flatbuffer_direct: {node.op}",
@@ -1611,6 +1972,9 @@ def resolve_node_dispatch(node: Any, ctx: Any) -> DispatchResolution:
             custom_resolution = _resolve_custom_candidate(node, ctx)
             if custom_resolution is not None:
                 return custom_resolution
+        generic_custom_resolution = _resolve_generic_custom_fallback(node, ctx)
+        if generic_custom_resolution is not None:
+            return generic_custom_resolution
         raise ve
 
 

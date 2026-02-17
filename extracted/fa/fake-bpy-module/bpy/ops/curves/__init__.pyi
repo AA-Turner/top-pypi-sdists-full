@@ -93,6 +93,12 @@ def attribute_set(
     value_float: float | None = 0.0,
     value_float_vector_2d: collections.abc.Sequence[float] | None = (0.0, 0.0),
     value_float_vector_3d: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0),
+    value_float_vector_4d: collections.abc.Sequence[float] | None = (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ),
     value_int: int | None = 0,
     value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
     value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
@@ -103,6 +109,7 @@ def attribute_set(
     :param value_float: Value, (in [-inf, inf], optional)
     :param value_float_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_float_vector_3d: Value, (array of 3 items, in [-inf, inf], optional)
+    :param value_float_vector_4d: Value, (array of 4 items, in [-inf, inf], optional)
     :param value_int: Value, (in [-inf, inf], optional)
     :param value_int_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_color: Value, (array of 4 items, in [-inf, inf], optional)
@@ -150,7 +157,7 @@ def cyclic_toggle(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Make active curve closed/opened loop
+    """Make active curve closed/open loop
 
     :return: Result of the operator call.
     """
@@ -303,7 +310,7 @@ def pen(
     :param extrude_handle: Extrude Handle Type, Type of the extruded handle (optional)
     :param delete_point: Delete Point, Delete an existing point (optional)
     :param insert_point: Insert Point, Insert Point into a curve segment (optional)
-    :param move_segment: Move Segment, Delete an existing point (optional)
+    :param move_segment: Move Segment, Move an existing curve segment (optional)
     :param select_point: Select Point, Select a point or its handles (optional)
     :param move_point: Move Point, Move a point or its handles (optional)
     :param cycle_handle_type: Cycle Handle Type, Cycle between all four handle types (optional)
@@ -412,7 +419,7 @@ def select_random(
     seed: int | None = 0,
     probability: float | None = 0.5,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Randomizes existing selection or create new random selection
+    """Randomize existing selection or create new random selection
 
     :param seed: Seed, Source of randomness (in [-inf, inf], optional)
     :param probability: Probability, Chance of every point or curve being included in the selection (in [0, 1], optional)

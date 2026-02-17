@@ -6,9 +6,7 @@ from rich.console import Console
 from cognite_toolkit._cdf_tk.client.api.legacy.canvas import CanvasAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.charts import ChartsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.dml import DMLAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_data_modeling import ExtendedDataModelingAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_files import ExtendedFileMetadataAPI
-from cognite_toolkit._cdf_tk.client.api.legacy.extended_functions import ExtendedFunctionsAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_raw import ExtendedRawAPI
 from cognite_toolkit._cdf_tk.client.api.legacy.extended_timeseries import ExtendedTimeSeriesAPI
 from cognite_toolkit._cdf_tk.client.api.location_filters import LocationFiltersAPI
@@ -16,6 +14,7 @@ from cognite_toolkit._cdf_tk.client.http_client import HTTPClient
 
 from .api.agents import AgentsAPI
 from .api.assets import AssetsAPI
+from .api.cognite_files import CogniteFilesAPI
 from .api.containers import ContainersAPI
 from .api.data_models import DataModelsAPI
 from .api.datasets import DataSetsAPI
@@ -56,6 +55,7 @@ class ToolAPI:
         self.http_client = http_client
         self.agents = AgentsAPI(http_client)
         self.assets = AssetsAPI(http_client)
+        self.cognite_files = CogniteFilesAPI(http_client)
         self.datasets = DataSetsAPI(http_client)
         self.events = EventsAPI(http_client)
         self.extraction_pipelines = ExtractionPipelinesAPI(http_client)
@@ -90,7 +90,7 @@ class ToolkitClient(CogniteClient):
         console: Console | None = None,
     ) -> None:
         super().__init__(config=config)
-        http_client = HTTPClient(self.config)
+        http_client = HTTPClient(self.config, console=console)
         self.http_client = http_client
         toolkit_config = ToolkitClientConfig.from_client_config(self.config)
         self.console = console or Console(markup=True)
@@ -98,10 +98,7 @@ class ToolkitClient(CogniteClient):
         self.dml = DMLAPI(self._config, self._API_VERSION, self)
         self.verify = VerifyAPI(self._config, self._API_VERSION, self)
         self.lookup = LookUpGroup(self._config, self._API_VERSION, self, self.console)
-        self.functions: ExtendedFunctionsAPI = ExtendedFunctionsAPI(
-            toolkit_config, self._API_VERSION, self, self.console
-        )
-        self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
+        # self.data_modeling: ExtendedDataModelingAPI = ExtendedDataModelingAPI(self._config, self._API_VERSION, self)
         if enable_set_pending_ids:
             self.time_series: ExtendedTimeSeriesAPI = ExtendedTimeSeriesAPI(self._config, self._API_VERSION, self)
             self.files: ExtendedFileMetadataAPI = ExtendedFileMetadataAPI(self._config, self._API_VERSION, self)

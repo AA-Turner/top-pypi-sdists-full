@@ -1,7 +1,7 @@
 import sys
 import os
 
-from adam.app_session import AppSession
+from adam.utils_apps.app_session import AppSession
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_tabulize import tabulize
 
@@ -14,7 +14,7 @@ sys.path.append(grandparent_dir)
 from adam.utils_version import get_container_version, get_latest_version
 from version import __version__
 from adam.commands.command import Command
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class ShowAdam(Command):
     COMMAND = 'show adam'

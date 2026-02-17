@@ -15,7 +15,7 @@ def cell(
 ) -> float:
     """Returns cell noise value at the specified position.
 
-    :param position: The position to evaluate the selected noise function.
+    :param position: The position to evaluate the cell noise at.
     :return: The cell noise value.
     """
 
@@ -25,7 +25,7 @@ def cell_vector(
 ) -> mathutils.Vector:
     """Returns cell noise vector at the specified position.
 
-    :param position: The position to evaluate the selected noise function.
+    :param position: The position to evaluate the cell noise at.
     :return: The cell noise vector.
     """
 
@@ -52,7 +52,7 @@ def fractal(
     """Returns the fractal Brownian motion (fBm) noise value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :param H: The fractal increment factor.
+    :param H: The fractal increment parameter.
     :param lacunarity: The gap between successive frequencies.
     :param octaves: The number of different noise frequencies used.
     :param noise_basis: A noise basis string.
@@ -148,7 +148,7 @@ def multi_fractal(
     """Returns multifractal noise value from the noise basis at the specified position.
 
     :param position: The position to evaluate the selected noise function.
-    :param H: The fractal increment factor.
+    :param H: Determines the highest fractal dimension.
     :param lacunarity: The gap between successive frequencies.
     :param octaves: The number of different noise frequencies used.
     :param noise_basis: A noise basis string.
@@ -219,7 +219,7 @@ def random_unit_vector(*, size: int = 3) -> mathutils.Vector:
 def random_vector(*, size: int = 3) -> mathutils.Vector:
     """Returns a vector with random entries in the range (-1, 1).
 
-    :param size: The size of the vector to be produced.
+    :param size: The size of the vector to be produced, must be 2 or greater.
     :return: The random vector.
     """
 
@@ -295,7 +295,7 @@ def turbulence(
     :param hard: Specifies whether returned turbulence is hard (sharp transitions) or soft (smooth transitions).
     :param noise_basis: A noise basis string.
     :param amplitude_scale: The amplitude scaling factor.
-    :param frequency_scale: The frequency scaling factor
+    :param frequency_scale: The frequency scaling factor.
     :return: The turbulence value.
     """
 
@@ -327,7 +327,7 @@ def turbulence_vector(
     :param hard: Specifies whether returned turbulence is hard (sharp transitions) or soft (smooth transitions).
     :param noise_basis: A noise basis string.
     :param amplitude_scale: The amplitude scaling factor.
-    :param frequency_scale: The frequency scaling factor
+    :param frequency_scale: The frequency scaling factor.
     :return: The turbulence vector.
     """
 

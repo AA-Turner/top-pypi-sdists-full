@@ -13,6 +13,12 @@ def attribute_set(
     value_float: float | None = 0.0,
     value_float_vector_2d: collections.abc.Sequence[float] | None = (0.0, 0.0),
     value_float_vector_3d: collections.abc.Sequence[float] | None = (0.0, 0.0, 0.0),
+    value_float_vector_4d: collections.abc.Sequence[float] | None = (
+        0.0,
+        0.0,
+        0.0,
+        0.0,
+    ),
     value_int: int | None = 0,
     value_int_vector_2d: collections.abc.Sequence[int] | None = (0, 0),
     value_color: collections.abc.Sequence[float] | None = (1.0, 1.0, 1.0, 1.0),
@@ -23,6 +29,7 @@ def attribute_set(
     :param value_float: Value, (in [-inf, inf], optional)
     :param value_float_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_float_vector_3d: Value, (array of 3 items, in [-inf, inf], optional)
+    :param value_float_vector_4d: Value, (array of 4 items, in [-inf, inf], optional)
     :param value_int: Value, (in [-inf, inf], optional)
     :param value_int_vector_2d: Value, (array of 2 items, in [-inf, inf], optional)
     :param value_color: Value, (array of 4 items, in [-inf, inf], optional)
@@ -2172,7 +2179,7 @@ def primitive_torus_add(
     EXT_INT
     Exterior/Interior -- Use the exterior/interior radii for torus dimensions.
         :param major_radius: Major Radius, Radius from the origin to the center of the cross sections (in [0, 10000], optional)
-        :param minor_radius: Minor Radius, Radius of the torus cross section (in [0, 10000], optional)
+        :param minor_radius: Minor Radius, Radius of the toruss cross section (in [0, 10000], optional)
         :param abso_major_rad: Exterior Radius, Total Exterior Radius of the torus (in [0, 10000], optional)
         :param abso_minor_rad: Interior Radius, Total Interior Radius of the torus (in [0, 10000], optional)
         :param generate_uvs: Generate UVs, Generate a default UV map (optional)
@@ -2312,7 +2319,7 @@ def rip(
     use_accurate: bool | None = False,
     use_fill: bool | None = False,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Disconnect vertex or edges from connected geometry
+    """Disconnect vertices or edges from connected geometry
 
     :param mirror: Mirror Editing, (optional)
     :param use_proportional_edit: Proportional Editing, (optional)
@@ -2374,7 +2381,7 @@ def rip_move(
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Rip polygons and move the result
 
-    :param MESH_OT_rip: Rip, Disconnect vertex or edges from connected geometry (optional, `bpy.ops.mesh.rip` keyword arguments)
+    :param MESH_OT_rip: Rip, Disconnect vertices or edges from connected geometry (optional, `bpy.ops.mesh.rip` keyword arguments)
     :param TRANSFORM_OT_translate: Move, Move selected items (optional, `bpy.ops.transform.translate` keyword arguments)
     :return: Result of the operator call.
     """
@@ -2626,13 +2633,13 @@ def select_mode(
         :param action: Action, Selection action to execute (optional)
 
     DISABLE
-    Disable -- Disable selected markers.
+    Disable -- Disable the selection mode.
 
     ENABLE
-    Enable -- Enable selected markers.
+    Enable -- Enable the selection mode.
 
     TOGGLE
-    Toggle -- Toggle disabled flag for selected markers.
+    Toggle -- Toggle the selection mode.
         :return: Result of the operator call.
     """
 
@@ -2889,7 +2896,7 @@ def shortest_path_select(
     nth: int | None = 1,
     offset: int | None = 0,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Selected shortest path between two vertices/edges/faces
+    """Select shortest path between two vertices/edges/faces
 
     :param edge_mode: Edge Tag, The edge flag to tag when selecting the shortest path (optional)
     :param use_face_step: Face Stepping, Traverse connected faces (includes diagonals and edge-rings) (optional)
@@ -3208,7 +3215,7 @@ def vert_connect_concave(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Make all faces convex
+    """Split concave faces by connecting vertices to make them convex
 
     :return: Result of the operator call.
     """

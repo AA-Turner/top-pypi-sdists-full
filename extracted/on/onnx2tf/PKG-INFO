@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: onnx2tf
-Version: 2.0.14
+Version: 2.0.16
 Summary: Self-Created Tools to convert ONNX files (NCHW) to TensorFlow/TFLite/Keras format (NHWC). The purpose of this tool is to solve the massive Transpose extrapolation problem in onnx-tensorflow (onnx-tf).
 Keywords: onnx,tensorflow,tflite,keras,deep-learning,machine-learning
 Author: Katsuya Hyodo
@@ -50,7 +50,7 @@ You should use LiteRT Torch rather than onnx2tf. https://github.com/google-ai-ed
   <img src="https://user-images.githubusercontent.com/33194443/193840307-fa69eace-05a9-4d93-9c5d-999cf88af28e.png" />
 </p>
 
-[![Downloads](https://static.pepy.tech/personalized-badge/onnx2tf?period=total&units=none&left_color=grey&right_color=brightgreen&left_text=Downloads)](https://pepy.tech/project/onnx2tf) ![GitHub](https://img.shields.io/github/license/PINTO0309/onnx2tf?color=2BAF2B) [![Python](https://img.shields.io/badge/Python-3.10-2BAF2B)](https://img.shields.io/badge/Python-3.8-2BAF2B) [![PyPI](https://img.shields.io/pypi/v/onnx2tf?color=2BAF2B)](https://pypi.org/project/onnx2tf/) [![CodeQL](https://github.com/PINTO0309/onnx2tf/workflows/CodeQL/badge.svg)](https://github.com/PINTO0309/onnx2tf/actions?query=workflow%3ACodeQL) ![Model Convert Test Status](https://github.com/PINTO0309/onnx2tf/workflows/Model%20Convert%20Test/badge.svg) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7230085.svg)](https://doi.org/10.5281/zenodo.7230085) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PINTO0309/onnx2tf)
+[![Downloads](https://static.pepy.tech/personalized-badge/onnx2tf?period=total&units=none&left_color=grey&right_color=brightgreen&left_text=Downloads)](https://pepy.tech/project/onnx2tf) ![GitHub](https://img.shields.io/github/license/PINTO0309/onnx2tf?color=2BAF2B) [![Python](https://img.shields.io/badge/Python-3.12-2BAF2B)](https://img.shields.io/badge/Python-3.8-2BAF2B) [![PyPI](https://img.shields.io/pypi/v/onnx2tf?color=2BAF2B)](https://pypi.org/project/onnx2tf/) [![CodeQL](https://github.com/PINTO0309/onnx2tf/workflows/CodeQL/badge.svg)](https://github.com/PINTO0309/onnx2tf/actions?query=workflow%3ACodeQL) ![Model Convert Test Status](https://github.com/PINTO0309/onnx2tf/workflows/Model%20Convert%20Test/badge.svg) [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7230085.svg)](https://doi.org/10.5281/zenodo.7230085) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/PINTO0309/onnx2tf)
 
 ## Note
 
@@ -326,21 +326,21 @@ https://github.com/PINTO0309/onnx2tf/wiki/model_status
 
 ### [WIP・experimental] `flatbuffer_direct` support status for ONNX ops in this list
 
-The `flatbuffer_direct` conversion option exists to convert a QAT quantized ONNX model to an optimized quantized tflite (LiteRT) model.By the way, if you want to generate a highly optimized quantized tflite for your ONNX model, I recommend using this package. https://github.com/NXP/eiq-onnx2tflite
+The `flatbuffer_direct` conversion option exists to convert a QAT quantized ONNX model to an optimized quantized tflite (LiteRT) model. By the way, if you want to generate a highly optimized quantized tflite for your ONNX model, I recommend using this package. https://github.com/NXP/eiq-onnx2tflite
 
 |INT8 ONNX|INT8 TFLite(LiteRT)|
 |:-:|:-:|
-|<img width="300" alt="Image" src="https://github.com/user-attachments/assets/c1411cb7-35aa-489d-ad87-291d64b766ec" />|<img width="300" alt="Image" src="https://github.com/user-attachments/assets/41aefe26-f243-45fb-9d21-9e16c7ef30b3" />|
+|<img width="300" alt="Image" src="https://github.com/user-attachments/assets/c1411cb7-35aa-489d-ad87-291d64b766ec" />|<img width="300" alt="image" src="https://github.com/user-attachments/assets/7ffeaa53-4c83-4a9e-b5b4-17ea11c93b20" />|
 
-<details><summary>Click to Click to expand</summary>
+<details><summary>Click to expand</summary>
 
 - Scope: ONNX ops listed in the `Supported layers` table above.
 - Source of truth: `onnx2tf/tflite_builder/op_registry.py` and `--report_op_coverage` output.
 - Current summary:
   - Listed ONNX ops in this README section: `208`
-  - `builtin_supported`: `44`
-  - `custom_candidate` (opt-in): `16`
-  - `explicit_error` (default): `148`
+  - `builtin_supported`: `57`
+  - `custom_candidate` (opt-in): `18`
+  - `explicit_error` (default): `133`
 
 Notes:
 - `flatbuffer_direct` supports only a subset of ONNX ops as TFLite builtins.
@@ -352,35 +352,44 @@ Notes:
 |ONNX OP|TFLite OP|Key constraints (flatbuffer_direct)|
 |:-|:-|:-|
 |Add|ADD|-|
+|ArgMax|ARG_MAX (+ optional RESHAPE for keepdims)|`axis` must be in range, `keepdims` must be `0` or `1`, `select_last_index=0`, output dtype must be `INT32` or `INT64`|
 |AveragePool|AVERAGE_POOL_2D|2D only (rank=4), `ceil_mode=0`, zero pads or `auto_pad=SAME_*`|
 |BatchNormalization|MUL + ADD|All parameter inputs (`scale`, `bias`, `mean`, `var`) must be constant|
-|Clip|RELU / RELU6|Only `min=0,max=+inf` (ReLU) or `min=0,max=6` (ReLU6)|
+|Cast|CAST|-|
+|Clip|RELU / RELU6 / MAXIMUM + MINIMUM|General constant clip ranges are supported via `MAXIMUM`/`MINIMUM` decomposition. ReLU fast-path: `min=0,max=+inf`; ReLU6 fast-path: `min=0,max=6`|
 |Concat|CONCATENATION|-|
 |Conv|CONV_2D / DEPTHWISE_CONV_2D|2D only (rank=4), weights must be constant, grouped conv only regular/depthwise, zero pads or `auto_pad=SAME_*`|
+|ConvTranspose|TRANSPOSE_CONV (+ optional ADD bias)|2D only (input rank=4), weight must be constant rank=4, `group=1`, `dilations=[1,1]`, `output_padding=[0,0]`, and padding must be `auto_pad=SAME_*` or zero pads (`auto_pad` in `{NOTSET,VALID}`)|
 |DequantizeLinear|DEQUANTIZE|`scale` must be constant, `zero_point` (if provided) must be constant, per-axis `axis` must be in range|
-|Div|DIV|-|
+|Div|DIV or MUL (when divisor is constant reciprocal)|For non-floating outputs, lowered as `CAST -> MUL(reciprocal) -> CAST` to preserve output dtype without using unsupported integer DIV paths|
 |Einsum|FULLY_CONNECTED|Rank-2 matmul-style equation only (`ij,jk->ik`), rhs input must be constant weights|
 |Exp|EXP|-|
+|Expand|RESHAPE + MUL (broadcast via const ones)|Output shape must be statically known, non-negative, and broadcast-compatible with input shape (current direct lowering uses static `RESHAPE + MUL`)|
 |Flatten|RESHAPE|Input rank must be >= 1|
 |Gather|GATHER|`batch_dims=0` only|
+|GatherElements|CAST + RESHAPE + CONCATENATION + GATHER_ND|Data/indices ranks must match, output shape must equal indices shape, static positive output dims required, `axis` must be in range|
 |Gemm|FULLY_CONNECTED|Input rank=2, weight rank=2 + constant, `transA=0` only|
+|HardSigmoid|MUL + ADD + MAXIMUM + MINIMUM|Input/output dtype must be FLOAT16 or FLOAT32|
 |Identity|RESHAPE|-|
 |LpNormalization|L2_NORMALIZATION|`p=2`, `axis=last` only|
-|MatMul|FULLY_CONNECTED|Input rank=2, weight rank=2 + constant|
+|MatMul|BATCH_MATMUL|Input rank >= 2. Dynamic rhs input is supported (no constant-weight requirement)|
 |MaxPool|MAX_POOL_2D|2D only (rank=4), `ceil_mode=0`, zero pads or `auto_pad=SAME_*`|
 |Mul|MUL|-|
+|Mod|FLOOR_MOD|`fmod=0` only|
 |Neg|NEG|-|
+|Pad|PAD|`mode=constant` only, `pads` must be constant, constant pad value (if provided) must be zero|
 |PRelu|PRELU|`slope` must be constant (scalar or per-channel)|
 |QLinearAdd|ADD|All quantization params (`a/b/c scale`, `a/b/c zero_point`) must be constant|
 |QLinearAveragePool|DEQUANTIZE + TRANSPOSE + AVERAGE_POOL_2D + TRANSPOSE + QUANTIZE|Input rank=4 only, all quantization params (`x scale/zero_point`, `y scale/zero_point`) must be constant, `kernel_shape/strides` must be 2D, `dilations=[1,1]`, `ceil_mode=0`, `count_include_pad=0`, and pads must satisfy flatbuffer_direct pool constraints (zero/symmetric or `auto_pad=SAME_*`)|
 |QLinearConcat|DEQUANTIZE + CONCATENATION + QUANTIZE|`y scale/zero_point` and each input triplet (`x scale/zero_point`) must be constant, input ranks must match, `axis` must be in range|
-|QLinearConv|CONV_2D / DEPTHWISE_CONV_2D|Input/output rank=4, weight must be constant rank=4, all quantization params constant, group conv only regular/depthwise, optional bias must be constant|
+|QLinearConv|CONV_2D / DEPTHWISE_CONV_2D|Input/output rank=4, weight must be constant rank=4, all quantization params constant, group conv only regular/depthwise (depthwise detection uses `group` and weight shape), optional bias must be constant|
 |QLinearGlobalAveragePool|AVERAGE_POOL_2D (preferred) / DEQUANTIZE + MEAN + QUANTIZE (fallback)|All quantization params (`x scale/zero_point`, `y scale/zero_point`) must be constant, input rank >= 3, `channels_last` must be 0 or 1. Quantized `AVERAGE_POOL_2D` path is used for rank-4 with static spatial dims and per-tensor quantization|
 |QGemm|FULLY_CONNECTED|Input rank=1 or 2, weight must be constant rank=2, bias must be constant, quantization params must be constant, `transA=0`, `transB` in `{0,1}`|
 |QLinearMatMul|FULLY_CONNECTED|Input rank=1 or 2, weight must be constant rank=2, all quantization params constant|
 |QLinearMul|MUL|All quantization params (`a/b/c scale`, `a/b/c zero_point`) must be constant|
 |QLinearSigmoid|DEQUANTIZE + LOGISTIC + QUANTIZE|All quantization params (`x scale/zero_point`, `y scale/zero_point`) must be constant|
 |QuantizeLinear|QUANTIZE|`scale` must be constant, `zero_point` (if provided) must be constant, per-axis `axis` must be in range|
+|ReduceMax|REDUCE_MAX|Reduce axes must be constant when provided via input tensor|
 |ReduceMean|MEAN|Reduce axes must be constant when provided via input tensor|
 |ReduceSum|SUM|Reduce axes must be constant when provided via input tensor|
 |Relu|RELU|-|
@@ -406,6 +415,8 @@ Notes:
 |DynamicQuantizeLinear|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
 |GridSample|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
 |If|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
+|LSTM|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
+|LogSoftmax|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
 |Loop|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
 |NonMaxSuppression|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
 |RoiAlign|explicit_error (`custom_op_candidate_disabled`)|Lowered to TFLite `CUSTOM` when `--flatbuffer_direct_allow_custom_ops` is enabled and allowlist passes|
@@ -423,6 +434,7 @@ Notes:
 
 Notes:
 - `Einsum` is now treated as `builtin_supported` when it matches builtin constraints; unsupported `Einsum` patterns may still fallback to `CUSTOM` if custom-op mode is enabled.
+- `QLinearConv` is treated as `builtin_supported` for regular/depthwise patterns; unsupported grouped patterns may still fallback to `CUSTOM` when custom-op mode is enabled.
 
 ### tf_converter vs flatbuffer_direct (operational differences)
 
@@ -449,6 +461,7 @@ Notes:
    - `HardSwish`, `LeakyRelu`, `Gelu`, limited `Pow` rewrites to builtin-friendly forms
 4. `constant_fold_a5`
    - Limited constant folding for shape/axes and arithmetic helper chains
+   - Includes `DequantizeLinear` (axis/block-size aware) and downstream `Reshape` folding for constant-weight subgraphs
 5. `normalize_attrs_a5`
    - Normalize `perm`/`axes`/negative-axis forms and softmax-axis bridge rewrites
 
@@ -532,7 +545,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  ghcr.io/pinto0309/onnx2tf:2.0.14
+  ghcr.io/pinto0309/onnx2tf:2.0.16
 
   or
 
@@ -541,7 +554,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm -it \
   -v `pwd`:/workdir \
   -w /workdir \
-  docker.io/pinto0309/onnx2tf:2.0.14
+  docker.io/pinto0309/onnx2tf:2.0.16
 
   or
 
@@ -551,7 +564,7 @@ Video speed is adjusted approximately 50 times slower than actual speed.
   docker run --rm \
   --user $(id -u):$(id -g) \
   -v $(pwd):/work \
-  docker.io/pinto0309/onnx2tf:2.0.14 \
+  docker.io/pinto0309/onnx2tf:2.0.16 \
   onnx2tf -i /work/densenet-12.onnx -o /work/saved_model
 
   or
@@ -1893,12 +1906,13 @@ optional arguments:
        `*_integer_quant.tflite`, `*_full_integer_quant.tflite`,
        `*_integer_quant_with_int16_act.tflite`, `*_full_integer_quant_with_int16_act.tflite` are generated.
     5. Supported builtin OP set includes:
-       `ADD`, `SUB`, `MUL`, `DIV`,
-       `MEAN`, `SUM`, `RESHAPE`, `TRANSPOSE`, `SQUEEZE`,
-       `CONCATENATION`, `GATHER`,
+       `ADD`, `SUB`, `MUL`, `DIV`, `FLOOR_MOD`,
+       `MEAN`, `SUM`, `REDUCE_MAX`, `RESHAPE`, `TRANSPOSE`, `SQUEEZE`,
+       `CONCATENATION`, `GATHER`, `GATHER_ND`,
+       `ARG_MAX`, `CAST`,
        `LOGISTIC`, `RELU`, `RELU6`, `TANH`, `EXP`, `SQRT`, `NEG`,
        `SOFTMAX`, `L2_NORMALIZATION`,
-       `CONV_2D`, `DEPTHWISE_CONV_2D`, `AVERAGE_POOL_2D`, `MAX_POOL_2D`, `FULLY_CONNECTED`,
+       `CONV_2D`, `DEPTHWISE_CONV_2D`, `TRANSPOSE_CONV`, `AVERAGE_POOL_2D`, `MAX_POOL_2D`, `FULLY_CONNECTED`,
        `DEQUANTIZE`, `QUANTIZE`.
     6. Unsupported OPs fail explicitly with `NotImplementedError`.
     7. Custom OP policy (opt-in):

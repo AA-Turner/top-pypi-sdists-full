@@ -2,7 +2,7 @@ import functools
 from typing import Union
 
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils import ExecResult
 from adam.utils_color import Color
 from adam.utils_context import NULL

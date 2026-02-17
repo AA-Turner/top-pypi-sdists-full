@@ -18,7 +18,6 @@ from typing import (
 import pytest
 from hypothesis import (
     HealthCheck,
-    assume,
     given,
     settings,
 )
@@ -44,6 +43,7 @@ from .._testutils import strategy as _st
 from .._testutils.common import attr_value_types
 from .._testutils.errors import (
     raise_invalid_utf8_type,
+    raise_non_callable,
     raise_non_integer,
     raise_unexpected_kwarg,
     raise_wrong_pos_arg_count,
@@ -270,7 +270,7 @@ class TestFindClassArg:
     # yet they will never ever match class names
     def test_wrong_type_no_raise(self, disposable_html_element: HtmlElement) -> None:
         arg: Any
-        for arg in (
+        for arg in (  # pyright: ignore[reportUnknownVariableType]
             None,
             tuple(),
             True,
@@ -303,12 +303,15 @@ class TestResolveBaseHrefArg:
                     assert old != new
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(NoneType))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType).filter(
+            lambda x: x not in ("ignore", "discard")
+        )
+    )
     @pytest.mark.slow
     def test_handle_failures_arg_bad_1(
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
-        assume(thing not in ("ignore", "discard"))
         # collection raises TypeError instead
         # because of error in constructing exception
         # pyrefly: ignore[no-matching-overload]
@@ -351,12 +354,15 @@ class TestMakeLinksAbsoluteArg:
                     assert old != new
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(NoneType))
+    @given(
+        thing=_st.all_instances_except_of_type(NoneType).filter(
+            lambda x: x not in ("ignore", "discard")
+        )
+    )
     @pytest.mark.slow
     def test_handle_failures_wrong_type(
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
-        assume(thing not in ("ignore", "discard"))
         # pyrefly: ignore[no-matching-overload]
         with pytest.raises((
             ValueError,
@@ -370,13 +376,16 @@ class TestMakeLinksAbsoluteArg:
     # that can be anything
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(str, NoneType))
+    # Falsy values short circuited by urljoin() and never raises
+    @given(
+        thing=_st.all_instances_except_of_type(str, NoneType).filter(
+            lambda x: x is not NotImplemented and bool(x)
+        )
+    )
     @pytest.mark.slow
     def test_base_href(
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
-        # Falsy values short circuited by urljoin() and never raises
-        assume(thing is not NotImplemented and bool(thing))
         with pytest.raises(TypeError, match="Cannot mix str and non-str arguments"):
             _ = make_links_absolute(disposable_html_with_base_href, base_url=thing)
 
@@ -390,7 +399,7 @@ class TestRewriteLinksArg:
     def test_link_repl_func_is_callable(
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
-        with pytest.raises(TypeError, match="object is not callable"):
+        with raise_non_callable:
             _ = rewrite_links(disposable_html_with_base_href, thing)
 
     # QName has the unintended consequence of doing tag name check while
@@ -433,13 +442,16 @@ class TestRewriteLinksArg:
     # that can be anything
 
     @settings(suppress_health_check=[HealthCheck.too_slow], max_examples=300)
-    @given(thing=_st.all_instances_except_of_type(str, NoneType))
+    # Falsy values got short circuited by urljoin() and never raises
+    @given(
+        thing=_st.all_instances_except_of_type(str, NoneType).filter(
+            lambda x: x is not NotImplemented and bool(x)
+        )
+    )
     @pytest.mark.slow
     def test_base_href(
         self, disposable_html_with_base_href: HtmlElement, thing: Any
     ) -> None:
-        # Falsy values got short circuited by urljoin() and never raises
-        assume(thing is not NotImplemented and bool(thing))
         with pytest.raises(TypeError, match="Cannot mix str and non-str arguments"):
             _ = rewrite_links(disposable_html_with_base_href, str, base_href=thing)
 

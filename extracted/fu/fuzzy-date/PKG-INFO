@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fuzzy-date
-Version: 0.5.6
+Version: 0.6.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -12,7 +12,7 @@ License-File: LICENSE
 Summary: Convert various time strings into datetime objects
 Keywords: date,parser,relative,time,strtotime
 Author-email: Antti Launiainen <antti@antictools.com>
-Requires-Python: >=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Homepage, https://github.com/aldroid1/fuzzy-date
 Project-URL: Issues, https://github.com/aldroid1/fuzzy-date/issues
@@ -136,7 +136,7 @@ assert fd.to_duration(86400.0) == '1 dag'
 
 ## Requirements
 
-- Python >= 3.9
+- Python >= 3.11
 
 ## Installation
 

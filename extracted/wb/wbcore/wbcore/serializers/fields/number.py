@@ -102,10 +102,11 @@ class DecimalRangeField(RangeMixin, DecimalField):
     def to_representation(self, instance):
         res = list(super().to_representation(instance))
         # ensure empty value shows as None
-        if not res[0]:
-            res[0] = "-Infinity"
-        if not res[1]:
-            res[1] = "Infinity"
+        if self.coerce_to_string:
+            if not res[0]:
+                res[0] = "-Infinity"
+            if not res[1]:
+                res[1] = "Infinity"
         return tuple(res)
 
     def __init__(self, max_digits=None, decimal_places=None, **kwargs):

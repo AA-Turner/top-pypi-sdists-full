@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2023, 2024 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2023 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 r"""A backend module to load and dump python code conntains data.
@@ -29,15 +29,19 @@ Changelog:
 
    - Added builtin data loader from python code
 """
+from __future__ import annotations
+
+import typing
+
 from .. import base
 from . import (
-    loader, dumper
+    loader, dumper,
 )
 
 
 class Parser(base.Parser, loader.Loader, dumper.Dumper):
     """Parser for python code files."""
 
-    _cid = 'python.builtin'
-    _type = 'python'
-    _extensions = ['py']
+    _cid: typing.ClassVar[str] = "python.builtin"
+    _type: typing.ClassVar[str] = "python"
+    _extensions: tuple[str, ...] = ("py", )

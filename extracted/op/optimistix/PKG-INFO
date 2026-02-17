@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: optimistix
-Version: 0.0.11
+Version: 0.1.0
 Summary: Nonlinear optimisation in JAX and Equinox.
 Project-URL: repository, https://github.com/patrick-kidger/optimistix
-Author-email: Jason Rader <raderjason@outlook.com>, Patrick Kidger <contact@kidger.site>
+Author-email: Jason Rader <raderjason@outlook.com>, Patrick Kidger <contact@kidger.site>, Johanna Haffner <johanna.haffner@bsse.ethz.ch>
 License:                                  Apache License
                                    Version 2.0, January 2004
                                 http://www.apache.org/licenses/
@@ -218,7 +218,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Requires-Python: ~=3.10
+Requires-Python: ~=3.11
 Requires-Dist: equinox>=0.11.11
 Requires-Dist: jax!=0.7.0,!=0.7.1,>=0.4.38
 Requires-Dist: jaxtyping>=0.2.24
@@ -239,9 +239,12 @@ Requires-Dist: pymdown-extensions==10.14.3; extra == 'docs'
 Provides-Extra: tests
 Requires-Dist: beartype>=0.20.2; extra == 'tests'
 Requires-Dist: diffrax>=0.7.0; extra == 'tests'
+Requires-Dist: fire; extra == 'tests'
 Requires-Dist: jaxlib; extra == 'tests'
+Requires-Dist: matplotlib; extra == 'tests'
 Requires-Dist: optax>=0.2.4; extra == 'tests'
 Requires-Dist: pytest>=8.3.5; extra == 'tests'
+Requires-Dist: sif2jax; extra == 'tests'
 Description-Content-Type: text/markdown
 
 <h1 align='center'>Optimistix</h1>
@@ -263,7 +266,7 @@ Features include:
 pip install optimistix
 ```
 
-Requires Python 3.10+ and JAX 0.4.38+ and [Equinox](https://github.com/patrick-kidger/equinox) 0.11.11+.
+Requires Python 3.11+.
 
 ## Documentation
 
@@ -326,4 +329,4 @@ If you found this library to be useful in academic work, then please cite: ([arX
 
 ## Credit
 
-Optimistix was primarily built by Jason Rader (@packquickly): [Twitter](https://twitter.com/packquickly); [GitHub](https://github.com/packquickly); [Website](https://www.packquickly.com/).
+Optimistix was primarily built by Jason Rader (@packquickly): [Twitter](https://twitter.com/packquickly); [GitHub](https://github.com/packquickly); [Website](https://www.packquickly.com/). It is being co-maintained by Johanna Haffner (@johannahaffner): [GitHub](https://github.com/johannahaffner); [Website](https://haffner.dev).

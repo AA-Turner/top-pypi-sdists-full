@@ -1,7 +1,7 @@
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log, log2
 
 class SetParam(Command):

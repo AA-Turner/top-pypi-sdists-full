@@ -17,5 +17,5 @@ def poly_3d_calc(
 
     :param veclist: Sequence of 3D positions.
     :param pt: 2D or 3D position.
-    :return: list of per-vector weights.
+    :return: A list of weights, one per vertex in veclist.
     """

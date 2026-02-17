@@ -116,7 +116,7 @@ class TinyB:
     ) -> Response:
         url = f"{self.host.strip('/')}/{endpoint.strip('/')}"
 
-        token_to_use = use_token if use_token else self.token
+        token_to_use = use_token or self.token
         if token_to_use:
             url += ("&" if "?" in endpoint else "?") + "token=" + token_to_use
         if self.version:
@@ -179,7 +179,7 @@ class TinyB:
         use_token: Optional[str] = None,
         **kwargs,
     ):
-        token_to_use = use_token if use_token else self.token
+        token_to_use = use_token or self.token
         response = self._req_raw(endpoint, data, files, method, retries, use_token, **kwargs)
 
         if response.status_code == 403:
@@ -566,8 +566,8 @@ class TinyB:
     def pipes(self, branch=None, dependencies: bool = False, node_attrs=None, attrs=None) -> List[Dict[str, Any]]:
         params = {
             "dependencies": "true" if dependencies else "false",
-            "attrs": attrs if attrs else "",
-            "node_attrs": node_attrs if node_attrs else "",
+            "attrs": attrs or "",
+            "node_attrs": node_attrs or "",
         }
         response = self._req(f"/v0/pipes?{urlencode(params)}")
         pipes = response["pipes"]

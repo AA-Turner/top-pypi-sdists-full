@@ -42,7 +42,7 @@ def slot_paste(
     undo: bool | None = None,
     /,
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
-    """Copy the texture settings and nodes
+    """Paste the texture settings and nodes
 
     :return: Result of the operator call.
     """

@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 from adam.utils_concurrent import parallelize
 from adam.directories import Directories
 from adam.utils_k8s.pods import Pods

@@ -51,6 +51,7 @@ from .methods import batch as batch_methods
 from .methods import usage as usage_methods
 from .methods import extract as extract_module
 from .methods import agent as agent_module
+from .methods import browser as browser_module
 from .watcher import Watcher
 
 class FirecrawlClient:
@@ -135,7 +136,7 @@ class FirecrawlClient:
             include_tags: List of tags to include
             exclude_tags: List of tags to exclude
             only_main_content: Whether to only scrape the main content
-            timeout: Timeout in seconds
+            timeout: Timeout in milliseconds
             wait_for: Wait for a specific element to be present
             mobile: Whether to use mobile mode
             parsers: List of parsers to use
@@ -948,6 +949,87 @@ class FirecrawlClient:
     def get_queue_status(self):
         """Get metrics about the team's scrape queue."""
         return usage_methods.get_queue_status(self.http_client)
+
+    # Browser
+    def browser(
+        self,
+        *,
+        ttl: Optional[int] = None,
+        activity_ttl: Optional[int] = None,
+        stream_web_view: Optional[bool] = None,
+    ):
+        """Create a new browser session.
+
+        Args:
+            ttl: Total time-to-live in seconds (30-3600, default 300)
+            activity_ttl: Inactivity TTL in seconds (10-3600)
+            stream_web_view: Whether to enable webview streaming
+
+        Returns:
+            BrowserCreateResponse with session id and CDP URL
+        """
+        return browser_module.browser(
+            self.http_client,
+            ttl=ttl,
+            activity_ttl=activity_ttl,
+            stream_web_view=stream_web_view,
+        )
+
+    def browser_execute(
+        self,
+        session_id: str,
+        code: str,
+        *,
+        language: Literal["python", "node", "bash"] = "bash",
+        timeout: Optional[int] = None,
+    ):
+        """Execute code in a browser session.
+
+        Args:
+            session_id: Browser session ID
+            code: Code to execute
+            language: Programming language ("python", "node", or "bash")
+            timeout: Execution timeout in seconds (1-300, default 30)
+
+        Returns:
+            BrowserExecuteResponse with execution result
+        """
+        return browser_module.browser_execute(
+            self.http_client,
+            session_id,
+            code,
+            language=language,
+            timeout=timeout,
+        )
+
+    def delete_browser(self, session_id: str):
+        """Delete a browser session.
+
+        Args:
+            session_id: Browser session ID
+
+        Returns:
+            BrowserDeleteResponse
+        """
+        return browser_module.delete_browser(self.http_client, session_id)
+
+    def list_browsers(
+        self,
+        *,
+        status: Optional[Literal["active", "destroyed"]] = None,
+    ):
+        """List browser sessions.
+
+        Args:
+            status: Filter by session status ("active" or "destroyed")
+
+        Returns:
+            BrowserListResponse with list of sessions
+        """
+        return browser_module.list_browsers(
+            self.http_client,
+            status=status,
+        )
 
     def watcher(
         self,

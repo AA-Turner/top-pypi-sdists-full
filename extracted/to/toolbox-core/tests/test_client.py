@@ -14,15 +14,16 @@
 
 
 import inspect
+import warnings
 from typing import Mapping, Optional
-from unittest.mock import AsyncMock, Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from aiohttp import web
 
 from toolbox_core.client import ToolboxClient
 from toolbox_core.itransport import ITransport
-from toolbox_core.protocol import ManifestSchema, ParameterSchema, ToolSchema
+from toolbox_core.protocol import ManifestSchema, ParameterSchema, Protocol, ToolSchema
 
 TEST_BASE_URL = "http://toolbox.example.com"
 
@@ -691,3 +692,64 @@ class TestClientHeaders:
                     match=f"Client header\\(s\\) `X-Static-Header` already registered",
                 ):
                     client.add_headers(static_header)
+
+
+@pytest.mark.asyncio
+async def test_client_init_with_client_info():
+    """Tests that client_name and client_version are passed to the transport."""
+    client_name = "test-client"
+    client_version = "1.2.3"
+
+    with patch("toolbox_core.client.McpHttpTransportV20251125") as mock_transport:
+        ToolboxClient(
+            TEST_BASE_URL,
+            protocol=Protocol.MCP_v20251125,
+            client_name=client_name,
+            client_version=client_version,
+        )
+        mock_transport.assert_called_once()
+        call_args = mock_transport.call_args[0]
+        assert call_args[3] == client_name
+        assert call_args[4] == client_version
+
+
+def test_toolbox_client_deprecation_warning():
+    """Test that initializing ToolboxClient with Protocol.TOOLBOX issues a DeprecationWarning."""
+    # Mock ToolboxTransport to avoid aiohttp session creation and event loop requirements
+    with patch("toolbox_core.client.ToolboxTransport") as mock_transport:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter(
+                "always"
+            )  # Cause all warnings to always be triggered.
+
+            # Initialize client with Deprecated Protocol
+            client = ToolboxClient("http://localhost:5000", protocol=Protocol.TOOLBOX)
+
+            # Verify warning
+            assert len(w) > 0
+            assert issubclass(w[-1].category, DeprecationWarning)
+            assert "deprecated" in str(w[-1].message)
+            assert "March 4, 2026" in str(w[-1].message)
+
+
+def test_toolbox_client_no_warning_on_mcp():
+    """Test that initializing ToolboxClient with Protocol.MCP issues NO DeprecationWarning."""
+    # Mock the transport to avoid actual connection attempts or MCP version warnings
+    with patch("toolbox_core.client.McpHttpTransportV20250618") as mock_transport:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            client = ToolboxClient("http://localhost:5000", protocol=Protocol.MCP)
+            assert len(w) == 0
+
+
+def test_toolbox_client_no_warning_on_explicit_mcp_version():
+    """Test that specific MCP versions do not trigger the toolbox deprecation warning."""
+    with patch("toolbox_core.client.McpHttpTransportV20251125") as mock_transport:
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+
+            client = ToolboxClient(
+                "http://localhost:5000", protocol=Protocol.MCP_v20251125
+            )
+            assert len(w) == 0

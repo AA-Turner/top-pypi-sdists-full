@@ -1,10 +1,16 @@
-from typing import Literal, overload
+from typing import overload
 
 import cssselect as _csel
 from cssselect.parser import Function
 from cssselect.xpath import XPathExpr
 
-from ._types import _ET, _ElementOrTree, _XPathNSArg, _XPathVarArg
+from ._types import (
+    _ET,
+    _CSSTransArg,
+    _ElementOrTree,
+    _XPathNSArg,
+    _XPathVarArg,
+)
 from .etree import XPath
 from .html import HtmlElement
 from .objectify import ObjectifiedElement
@@ -25,12 +31,22 @@ class LxmlTranslator(_csel.GenericTranslator):
         self, xpath: XPathExpr, function: Function
     ) -> XPathExpr: ...
 
-_CSSTransArg = LxmlTranslator | Literal["xml", "html", "xhtml"]
-
-class LxmlHTMLTranslator(LxmlTranslator, _csel.HTMLTranslator):
-    pass
+class LxmlHTMLTranslator(LxmlTranslator, _csel.HTMLTranslator): ...
 
 class CSSSelector(XPath):
+    """A compiled CSS selector expression for querying elements.
+
+    This class provides the same interface as the XPath class, but accepts a
+    CSS selector expression as input. The selector is compiled to XPath 1.0
+    expression internally for evaluation.
+
+    The translator parameter can be 'xml' (the default), 'xhtml', 'html' or
+    a Translator object.
+
+    See Also
+    --------
+    - [Official Documentation](https://lxml.de/cssselect.html)
+    """
     # Although 'css' is implemented as plain attribute, it is
     # meaningless to modify it, because instance is initialized
     # with translated XPath expression, not the CSS expression.

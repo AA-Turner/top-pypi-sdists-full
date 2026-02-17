@@ -3,11 +3,12 @@ from adam.commands.command import Command
 from adam.utils_cassandra.node_restartability import NodeRestartability
 from adam.utils_cassandra.node_restart_scheduler import NodeRestartScheduler
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
+from adam.utils_job.job_status import NULL_JOB_STATUS
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.repl_state import ReplState, RequiredState
 from adam.utils_color import Color
 from adam.utils_log import log2
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class RestartCluster(Command):
     COMMAND = 'restart cassandra cluster'
@@ -30,6 +31,9 @@ class RestartCluster(Command):
     def backgrounable(self):
         return True
 
+    def schedulable(self):
+        return True
+
     def run(self, cmd: str, state: ReplState):
         if not(args := self.args(cmd)):
             return super().run(cmd, state)
@@ -44,6 +48,8 @@ class RestartCluster(Command):
                         # start with foreground, it become background if the node restart thread is not yet runnig during scheduling
                         for pod_name in pods:
                             NodeRestartScheduler.schedule(state, pod_name, ctx.copy(background=False))
+
+                        return NULL_JOB_STATUS
                     else:
                         if not forced:
                             for pod_name in pods:

@@ -1,5 +1,5 @@
 """
-This module provides access to Blender's bmesh data structures.
+This module provides bmesh utility functions for splitting, joining, and modifying mesh elements.
 
 """
 
@@ -64,7 +64,7 @@ def face_split(
     :param coords: Optional sequence of 3D points in between vert_a and vert_b.
     :param use_exist: Use an existing edge if it exists (only used when coords argument is empty or omitted)
     :param source: Newly created edge will copy settings from this one.
-    :return: The newly created face or None on failure.
+    :return: The newly created face and loop.
     """
 
 def face_split_edgenet(
@@ -106,7 +106,7 @@ def uv_select_check(
 
     :param bm: The BMesh to check.
     :param sync: Check the data is properly synchronized between UVs and the underlying mesh. Failure to synchronize with the mesh selection may cause tools not to behave properly.
-    :param flush: Check the selection has been properly flushed between elements (based on the current `BMesh.select_mode`).
+    :param flush: Check the selection has been properly flushed between elements (based on the current `bmesh.types.BMesh.select_mode`).
     :param contiguous: Check connected UVs and edges have a matching selection state.
     :return: An error dictionary or None when there are no errors found.
     """
@@ -151,8 +151,8 @@ def vert_separate(
     """
 
 def vert_splice(vert: bmesh.types.BMVert, vert_target: bmesh.types.BMVert) -> None:
-    """Splice vert into vert_target.
+    """Splice vert into vert_target, merging them.
 
     :param vert: The vertex to be removed.
-    :param vert_target: The vertex to use.
+    :param vert_target: The vertex to merge into.
     """

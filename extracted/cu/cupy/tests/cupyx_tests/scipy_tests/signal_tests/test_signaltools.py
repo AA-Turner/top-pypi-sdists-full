@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import sys
 
 import numpy as np
@@ -373,11 +375,11 @@ class TestMedFilt:
             kernel_size = kernel_size[:volume.ndim]
         return scp.signal.medfilt(volume, kernel_size)
 
-    @testing.with_requires('scipy>=1.11.0', 'scipy<1.12.0rc1')
+    @testing.with_requires('scipy>=1.12.0rc1')
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(
         atol=1e-8, rtol=1e-8, scipy_name='scp',
-        accept_error=(ValueError, TypeError))  # for even kernels
+        accept_error=ValueError)  # for even kernels
     def test_medfilt(self, xp, scp, dtype):
         if dtype == xp.longlong and "1.15.0" <= scipy_version < "1.17.0":
             # https://github.com/scipy/scipy/issues/22368
@@ -407,11 +409,11 @@ class TestMedFilt2d:
         kernel_size = self.kernel_size
         return scp.signal.medfilt2d(input, kernel_size)
 
-    @testing.with_requires('scipy>=1.11.0', 'scipy<1.12.0rc1')
+    @testing.with_requires('scipy>=1.12.0rc1')
     @testing.for_all_dtypes()
     @testing.numpy_cupy_allclose(
         atol=1e-8, rtol=1e-8, scipy_name='scp',
-        accept_error=(ValueError, TypeError))  # for even kernels
+        accept_error=ValueError)  # for even kernels
     def test_medfilt2d(self, xp, scp, dtype):
         if sys.platform == 'win32':
             pytest.xfail('medfilt2d broken for Scipy 1.7.0 in windows')
@@ -874,7 +876,6 @@ class TestDetrend:
             detrend(data, type="linear", bp=3)
 
 
-@testing.with_requires('numpy<2.0')
 @testing.with_requires('scipy')
 class TestFiltFilt:
     @pytest.mark.parametrize('size', [11, 20, 32, 51, 64, 120, 128, 250])
@@ -1090,3 +1091,32 @@ class TestHilbert2:
     def test_hilbert2_types(self, dtype, xp, scp):
         in_typed = xp.zeros((2, 32), dtype=dtype)
         return scp.signal.hilbert2(in_typed)
+
+    @testing.with_requires("scipy>=1.17")
+    @testing.numpy_cupy_allclose(scipy_name='scp')
+    def test_1d_input(self, xp, scp):
+        x = xp.asarray([0., 1., 1., 0., -1., -1.])
+        x0a = scp.signal.hilbert2(xp.reshape(x, (6, 1)))
+        return x0a
+
+    @testing.with_requires("scipy>=1.17")
+    @testing.numpy_cupy_allclose(scipy_name='scp')
+    @pytest.mark.parametrize("N", [4, (4, 4)])
+    def test_parameter_N(self, xp, scp, N):
+        """Compare passing tuple to single int. """
+        x = xp.zeros((5, 5))
+        x_a = scp.signal.hilbert2(x, N=N)
+        return x_a
+
+    @testing.with_requires("scipy>=1.17")
+    @testing.numpy_cupy_allclose(scipy_name='scp', atol=1e-15)
+    @pytest.mark.parametrize('shape', [(4, 5), (5, 4), (4, 4), (5, 5)])
+    def test_quadrant_values(self, shape, xp, scp):
+        x_f = xp.ones(shape, dtype=xp.complex128)  # FFT of input signal
+        x_f[0, 0] += 7
+        x = xp.real(scp.fft.ifft2(x_f))  # x.imag is zero
+
+        x_as = scp.signal.hilbert2(x)
+        x_as_f = scp.fft.fft2(x_as)
+
+        return x_as_f

@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2012 - 2021 Satoru SATOH <satoru.satoh @ gmail.com>
+# Copyright (C) 2012 - 2026 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 r"""Abstract implementation of backend modules.
@@ -15,24 +15,28 @@ needed:
   - :meth:`dump_to_stream`: Dump config to a file or file-like object
   - :meth:`dump_to_path`: Dump config to a file of given path
 """
+from __future__ import annotations
+
+import collections.abc
 import typing
 
 from ...models import processor
 from ...utils import is_dict_like
 from .datatypes import (
-    InDataExT, GenContainerT
+    InDataExT, GenContainerT,
 )
 from .dumpers import (
-    DumperMixin, ToStringDumperMixin, ToStreamDumperMixin
+    DumperMixin, ToStringDumperMixin, ToStreamDumperMixin,
 )
 from .loaders import (
-    LoaderMixin, FromStringLoaderMixin, FromStreamLoaderMixin
+    LoaderMixin, FromStringLoaderMixin, FromStreamLoaderMixin,
 )
 
 
 class Parser(LoaderMixin, DumperMixin, processor.Processor):
-    """
-    Abstract parser to provide basic implementation of some methods as below.
+    """Abstract parser to provide basic implementation.
+
+    The following members will be expected to be overridden.
 
     - _type: Parser type indicate which format it supports
     - _priority: Priority to select it if there are other parsers of same type
@@ -42,7 +46,7 @@ class Parser(LoaderMixin, DumperMixin, processor.Processor):
     .. seealso:: the doc of :class:`anyconfig.models.processor.Processor`
     """
 
-    _cid: str = 'base'
+    _cid = "base"
 
 
 class StringParser(Parser, FromStringLoaderMixin, ToStringDumperMixin):
@@ -65,15 +69,17 @@ class StreamParser(Parser, FromStreamLoaderMixin, ToStreamDumperMixin):
     """
 
 
-LoadFnT = typing.Callable[..., InDataExT]
-DumpFnT = typing.Callable[..., typing.Optional[str]]
+LoadFnT = collections.abc.Callable[..., InDataExT]
+DumpFnT = collections.abc.Callable[..., str]
 
 
-def load_with_fn(load_fn: typing.Optional[LoadFnT],
-                 content_or_strm: typing.Union[str, typing.IO],
-                 container: GenContainerT,
-                 allow_primitives: bool = False,
-                 **options) -> InDataExT:
+def load_with_fn(
+    load_fn: LoadFnT | None,
+    content_or_strm: str | bytes | typing.IO,
+    container: GenContainerT, *,
+    allow_primitives: bool = False,
+    **options: dict[str, typing.Any],
+) -> InDataExT:
     """Load data from given string or stream 'content_or_strm'.
 
     :param load_fn: Callable to load data
@@ -87,7 +93,8 @@ def load_with_fn(load_fn: typing.Optional[LoadFnT],
     :return: container object holding data
     """
     if load_fn is None:
-        raise TypeError('The first argument "load_fn" must be a callable!')
+        msg = "The first argument 'load_fn' must be a callable!"
+        raise TypeError(msg)
 
     ret = load_fn(content_or_strm, **options)
     if is_dict_like(ret):
@@ -96,9 +103,11 @@ def load_with_fn(load_fn: typing.Optional[LoadFnT],
     return ret if allow_primitives else container(ret)
 
 
-def dump_with_fn(dump_fn: typing.Optional[DumpFnT],
-                 data: InDataExT, stream: typing.Optional[typing.IO],
-                 **options) -> typing.Optional[str]:
+def dump_with_fn(
+    dump_fn: DumpFnT | None,
+    data: InDataExT, stream: typing.IO | None,
+    **options: dict[str, typing.Any],
+) -> str:
     """Dump 'data' to a string.
 
     If 'stream' is None, or dump 'data' to a file or file-like object 'stream'.
@@ -111,7 +120,8 @@ def dump_with_fn(dump_fn: typing.Optional[DumpFnT],
     :return: String represents data if stream is None or None
     """
     if dump_fn is None:
-        raise TypeError('The first argument "dump_fn" must be a callable!')
+        msg = "The first argument 'dump_fn' must be a callable!"
+        raise TypeError(msg)
 
     if stream is None:
         return dump_fn(data, **options)
@@ -139,13 +149,15 @@ class StringStreamFnParser(Parser, FromStreamLoaderMixin, ToStreamDumperMixin):
     :seealso: :class:`anyconfig.backend.json.Parser`
     """
 
-    _load_from_string_fn: typing.Optional[LoadFnT] = None
-    _load_from_stream_fn: typing.Optional[LoadFnT] = None
-    _dump_to_string_fn: typing.Optional[DumpFnT] = None
-    _dump_to_stream_fn: typing.Optional[DumpFnT] = None
+    _load_from_string_fn: LoadFnT | None = None
+    _load_from_stream_fn: LoadFnT | None = None
+    _dump_to_string_fn: DumpFnT | None = None
+    _dump_to_stream_fn: DumpFnT | None = None
 
-    def load_from_string(self, content: str, container: GenContainerT,
-                         **options) -> InDataExT:
+    def load_from_string(
+        self, content: str | bytes, container: GenContainerT,
+        **options: dict[str, typing.Any],
+    ) -> InDataExT:
         """Load configuration data from given string 'content'.
 
         :param content: Configuration string
@@ -154,12 +166,16 @@ class StringStreamFnParser(Parser, FromStreamLoaderMixin, ToStreamDumperMixin):
 
         :return: container object holding the configuration data
         """
-        return load_with_fn(self._load_from_string_fn, content, container,
-                            allow_primitives=self.allow_primitives(),
-                            **options)
+        return load_with_fn(
+            self._load_from_string_fn, content, container,
+            allow_primitives=self.allow_primitives(),
+            **options,
+        )
 
-    def load_from_stream(self, stream: typing.IO, container: GenContainerT,
-                         **options) -> InDataExT:
+    def load_from_stream(
+        self, stream: typing.IO, container: GenContainerT,
+        **options: dict[str, typing.Any],
+    ) -> InDataExT:
         """Load data from given stream 'stream'.
 
         :param stream: Stream provides configuration data
@@ -168,32 +184,35 @@ class StringStreamFnParser(Parser, FromStreamLoaderMixin, ToStreamDumperMixin):
 
         :return: container object holding the configuration data
         """
-        return load_with_fn(self._load_from_stream_fn, stream, container,
-                            allow_primitives=self.allow_primitives(),
-                            **options)
+        return load_with_fn(
+            self._load_from_stream_fn, stream, container,
+            allow_primitives=self.allow_primitives(),
+            **options,
+        )
 
-    def dump_to_string(self, cnf: InDataExT, **kwargs) -> str:
+    def dump_to_string(
+        self, cnf: InDataExT, **options: dict[str, typing.Any],
+    ) -> str:
         """Dump config 'cnf' to a string.
 
         :param cnf: Configuration data to dump
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
 
         :return: string represents the configuration
         """
         return dump_with_fn(self._dump_to_string_fn, cnf, None,
-                            **kwargs)  # type: ignore
+                            **options)
 
-    def dump_to_stream(self, cnf: InDataExT, stream: typing.IO,
-                       **kwargs) -> None:
+    def dump_to_stream(
+        self, cnf: InDataExT, stream: typing.IO,
+        **options: dict[str, typing.Any],
+    ) -> None:
         """Dump config 'cnf' to a file-like object 'stream'.
 
         TODO: How to process socket objects same as file objects ?
 
         :param cnf: Configuration data to dump
         :param stream:  Config file or file like object
-        :param kwargs: optional keyword parameters to be sanitized :: dict
+        :param options: optional keyword parameters to be sanitized :: dict
         """
-        dump_with_fn(self._dump_to_stream_fn, cnf, stream,
-                     **kwargs)  # type: ignore
-
-# vim:sw=4:ts=4:et:
+        dump_with_fn(self._dump_to_stream_fn, cnf, stream, **options)

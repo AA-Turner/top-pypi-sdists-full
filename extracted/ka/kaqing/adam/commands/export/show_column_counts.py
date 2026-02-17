@@ -2,7 +2,7 @@ from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.commands.export.export_databases import ExportDatabases, export_db
 from adam.config import Config
-from adam.repl_state import ReplState, RequiredState
+from adam.utils_repl.repl_state import ReplState, RequiredState
 
 class ShowColumnCounts(Command):
     COMMAND = 'show column counts on'

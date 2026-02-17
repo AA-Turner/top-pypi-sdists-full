@@ -1,5 +1,5 @@
 #
-# Copyright (C) 2011 - 2024 Satoru SATOH <satoru.satoh@gmail.com>
+# Copyright (C) 2011 - 2025 Satoru SATOH <satoru.satoh gmail.com>
 # SPDX-License-Identifier: MIT
 #
 # Ref. python -c "import json; help(json)"
@@ -32,7 +32,10 @@ Changelog:
 
 .. versionadded:: 0.0.1
 """
+from __future__ import annotations
+
 import json
+import typing
 
 from .. import base
 from .common import Parser as BaseParser
@@ -41,12 +44,10 @@ from .common import Parser as BaseParser
 class Parser(BaseParser):
     """Parser for JSON files."""
 
-    _cid = 'json.stdlib'
-    _priority = 30  # Higher priority than others.
+    _cid: typing.ClassVar[str] = "json.stdlib"
+    _priority: typing.ClassVar[int] = 30  # Higher priority than others.
 
     _load_from_string_fn = base.to_method(json.loads)
     _load_from_stream_fn = base.to_method(json.load)
     _dump_to_string_fn = base.to_method(json.dumps)
     _dump_to_stream_fn = base.to_method(json.dump)
-
-# vim:sw=4:ts=4:et:

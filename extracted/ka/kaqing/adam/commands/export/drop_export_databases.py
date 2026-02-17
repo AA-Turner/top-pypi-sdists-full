@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.commands.export.export_databases import export_db
-from adam.repl_state import ReplState
+from adam.utils_repl.repl_state import ReplState
 
 class DropExportDatabases(Command):
     COMMAND = 'drop all export databases'
