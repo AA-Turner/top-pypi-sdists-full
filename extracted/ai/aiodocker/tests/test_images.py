@@ -360,3 +360,74 @@ async def test_pull_image_invalid_platform(docker: Docker, image_name: str) -> N
         "unknown operating system or architecture: invalid argument"
         in excinfo.exconly()
     )
+
+
+@pytest.mark.asyncio
+async def test_prune_images(docker: Docker, random_name: str, image_name: str) -> None:
+    # Build an image to create a dangling image
+    name = f"{random_name}:latest"
+    dockerfile = f"""
+    FROM {image_name}
+    """
+    f = BytesIO(dockerfile.encode("utf-8"))
+    tar_obj = utils.mktar_from_dockerfile(f)
+    await docker.images.build(fileobj=tar_obj, encoding="gzip", tag=name)
+    tar_obj.close()
+
+    # Remove the tag to create a dangling image
+    await docker.images.delete(name=name)
+
+    # Prune dangling images
+    result = await docker.images.prune(filters={"dangling": ["true"]})
+
+    # Verify the response structure
+    assert isinstance(result, dict)
+    assert "ImagesDeleted" in result
+    assert "SpaceReclaimed" in result
+    assert isinstance(result["ImagesDeleted"], list)
+    assert isinstance(result["SpaceReclaimed"], int)
+
+
+@pytest.mark.asyncio
+async def test_prune_images_without_filters(docker: Docker) -> None:
+    # Prune without filters
+    result = await docker.images.prune()
+
+    # Verify the response structure
+    assert isinstance(result, dict)
+    assert "ImagesDeleted" in result
+    assert "SpaceReclaimed" in result
+    assert result["ImagesDeleted"] is None
+    assert isinstance(result["SpaceReclaimed"], int)
+
+
+@pytest.mark.asyncio
+async def test_prune_builds_with_options(docker: Docker, random_name: str) -> None:
+    """Test builds prune with options set."""
+    result = await docker.images.prune_builds(
+        reserved_space=0,
+        max_used_space=10**9,
+        min_free_space=0,
+        all_builds=True,
+        filters={"id": random_name},
+    )
+
+    # Verify the response structure
+    assert isinstance(result, dict)
+    assert "CachesDeleted" in result
+    assert "SpaceReclaimed" in result
+    assert result["CachesDeleted"] is None
+    assert isinstance(result["SpaceReclaimed"], int)
+
+
+@pytest.mark.asyncio
+async def test_prune_builds_default_options(docker: Docker) -> None:
+    """Test builds prune using default options."""
+    result = await docker.images.prune_builds()
+
+    # Verify the response structure
+    assert isinstance(result, dict)
+    assert "CachesDeleted" in result
+    assert "SpaceReclaimed" in result
+    assert result["CachesDeleted"] is None
+    assert isinstance(result["SpaceReclaimed"], int)

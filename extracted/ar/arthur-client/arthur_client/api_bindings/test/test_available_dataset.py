@@ -73,7 +73,8 @@ class TestAvailableDataset(unittest.TestCase):
                         name = '', 
                         column_id = '', 
                         column_name = '', ), 
-                    join_type = 'inner', )
+                    join_type = 'inner', ),
+                is_static = True
             )
         else:
             return AvailableDataset(

@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -89,23 +89,39 @@ class CheckpointLayout(Protocol):
     """
     ...
 
-  async def load(
+  async def load_pytree(
       self,
       path: Path,
-      abstract_checkpointables: dict[str, Any] | None = None,
-  ) -> Awaitable[dict[str, Any]]:
-    """Loads the checkpoint from the given directory.
+      checkpointable_name: str | None = None,
+      abstract_pytree: Any | None = None,
+  ) -> Awaitable[Any]:
+    """Loads a PyTree from the checkpoint.
 
     Args:
       path: The path to the checkpoint.
-      abstract_checkpointables: A dictionary of abstract checkpointables.
-        Dictionary keys represent the names of the checkpointables, while the
-        values are the abstract checkpointable objects themselves.
+      checkpointable_name: The name of the checkpointable to load.
+      abstract_pytree: The abstract PyTree structure.
 
     Returns:
-      An awaitable dictionary of checkpointables. Dictionary keys represent the
-      names of
-      the checkpointables, while the values are the checkpointable objects
-      themselves.
+      An awaitable PyTree.
+    """
+    ...
+
+  async def save(
+      self,
+      path: types.PathAwaitingCreation,
+      *,
+      checkpointables: dict[str, Any],
+  ) -> Awaitable[None]:
+    """Saves the checkpoint to the given directory.
+
+    Args:
+      path: The directory to save the checkpoint to.
+      checkpointables: A dictionary of checkpointables to save. Dictionary keys
+        represent the names of the checkpointables, while the values are the
+        checkpointable objects themselves.
+
+    Returns:
+      An awaitable that completes when the save operation is finished.
     """
     ...

@@ -22,9 +22,20 @@ def get_internal_routes():
 
     async def truncate(request: ApiRequest):
         """Truncate all inmem data (for testing)."""
-        from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415
+        from langgraph_api import config as api_config  # noqa: PLC0415
 
-        await asyncio.to_thread(Checkpointer().clear)
+        if api_config.USE_CUSTOM_CHECKPOINTER:
+            from langgraph_api._checkpointer._adapter import (  # noqa: PLC0415
+                CHECKPOINTER_STACK,
+            )
+
+            inner = getattr(CHECKPOINTER_STACK, "inner", None)
+            if inner is not None and hasattr(inner, "clear"):
+                await asyncio.to_thread(inner.clear)
+        else:
+            from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415
+
+            await asyncio.to_thread(Checkpointer().clear)
         async with connect() as conn:
             await asyncio.to_thread(conn.clear)
         return ApiResponse({"ok": True})

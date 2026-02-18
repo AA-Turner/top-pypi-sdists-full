@@ -357,3 +357,17 @@ class ArchiveDatasetRevisionResponse(_message.Message):
     REVISION_FIELD_NUMBER: _ClassVar[int]
     revision: DatasetRevisionMeta
     def __init__(self, revision: _Optional[_Union[DatasetRevisionMeta, _Mapping]] = ...) -> None: ...
+
+class ArchiveDatasetRevisionsRequest(_message.Message):
+    __slots__ = ("revision_ids",)
+    REVISION_IDS_FIELD_NUMBER: _ClassVar[int]
+    revision_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, revision_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ArchiveDatasetRevisionsResponse(_message.Message):
+    __slots__ = ("archived_revisions",)
+    ARCHIVED_REVISIONS_FIELD_NUMBER: _ClassVar[int]
+    archived_revisions: _containers.RepeatedCompositeFieldContainer[DatasetRevisionMeta]
+    def __init__(
+        self, archived_revisions: _Optional[_Iterable[_Union[DatasetRevisionMeta, _Mapping]]] = ...
+    ) -> None: ...

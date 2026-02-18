@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: reflex
-Version: 0.8.26
+Version: 0.8.27
 Summary: Web apps in pure Python.
 Project-URL: homepage, https://reflex.dev
 Project-URL: repository, https://github.com/reflex-dev/reflex
@@ -24,7 +24,7 @@ Requires-Dist: alembic<2.0,>=1.15.2
 Requires-Dist: click>=8.2
 Requires-Dist: granian[reload]>=2.5.5
 Requires-Dist: httpx<1.0,>=0.23.3
-Requires-Dist: packaging<26,>=24.2
+Requires-Dist: packaging<27,>=24.2
 Requires-Dist: platformdirs<5.0,>=4.3.7
 Requires-Dist: psutil<8.0,>=7.0.0; sys_platform == 'win32'
 Requires-Dist: pydantic<3.0,>=1.10.21

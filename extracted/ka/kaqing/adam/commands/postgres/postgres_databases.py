@@ -32,6 +32,8 @@ class ConnectionDetails:
         return PostgresDatabases._connection_property(self.state, 'pg.secret.password-key', 'postgres-admin-password', host=self.host)
 
 class PostgresDatabases:
+    get_latest_version: callable = None
+
     def hosts(state: ReplState, namespace: str = None):
         if not namespace:
             namespace = state.namespace
@@ -176,7 +178,10 @@ class PostgresDatabases:
         return pod_name, container_name
 
     def deploy_pg_agent(pod_name: str, namespace: str) -> str:
-        image = Config().get('pg.agent.image', 'seanahnsf/kaqing')
+        version = 'latest'
+        if v := PostgresDatabases.get_latest_version():
+            version = v
+        image = Config().get('pg.agent.image', 'seanahnsf/kaqing:{version}').replace('{version}', version)
         timeout = Config().get('pg.agent.timeout', 3600)
         try:
             Pods.create(namespace, pod_name, image, ['sleep', f'{timeout}'], env={'NAMESPACE': namespace}, sa_name='c3')

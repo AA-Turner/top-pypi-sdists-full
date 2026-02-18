@@ -145,6 +145,8 @@ CLASSIFIERS = [
     'Framework :: Django :: 4.2',
     'Framework :: Django :: 5.0',
     'Framework :: Django :: 5.1',
+    'Framework :: Django :: 5.2',
+    'Framework :: Django :: 6.0',
 
     'Operating System :: OS Independent',
 
@@ -158,13 +160,13 @@ CLASSIFIERS = [
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
     'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     'Programming Language :: Python :: Implementation :: CPython',
     'Programming Language :: Python :: Implementation :: PyPy',
 
     'Topic :: Software Development :: Libraries :: Python Modules',
     'Topic :: Utilities',
 
-    'License :: OSI Approved :: MIT License',
 ]
 
 # Dependencies that are downloaded by pip on installation and why.
@@ -188,6 +190,7 @@ EXTRAS_REQUIRE = {
     'docs': [
         'furo>=2024.8.6',  # Sphinx documentation theme
         'sphinx>=5.0',  # Python documentation generator
+        'sphinx-copybutton',  # Add copy button to code blocks
         'sphinx-notfound-page',  # Create a custom 404 page
     ],
 }

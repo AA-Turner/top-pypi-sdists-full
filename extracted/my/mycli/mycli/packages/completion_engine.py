@@ -1,5 +1,6 @@
+import functools
 import re
-from typing import Any
+from typing import Any, Literal
 
 import sqlparse
 from sqlparse.sql import Comparison, Identifier, Token, Where
@@ -21,7 +22,7 @@ def _enum_value_suggestion(text_before_cursor: str, full_text: str) -> dict[str,
     match = _ENUM_VALUE_RE.search(text_before_cursor)
     if not match:
         return None
-    if _is_inside_quotes(text_before_cursor, match.start("lhs")):
+    if is_inside_quotes(text_before_cursor, match.start("lhs")):
         return None
 
     lhs = match.group("lhs")
@@ -42,24 +43,82 @@ def _is_where_or_having(token: Token | None) -> bool:
     return bool(token and token.value and token.value.lower() in ("where", "having"))
 
 
-def _is_inside_quotes(text: str, pos: int) -> bool:
+def _find_doubled_backticks(text: str) -> list[int]:
+    length = len(text)
+    doubled_backticks: list[int] = []
+    backtick = '`'
+
+    for index in range(0, length):
+        ch = text[index]
+        if ch != backtick:
+            index += 1
+            continue
+        if index + 1 < length and text[index + 1] == backtick:
+            doubled_backticks.append(index)
+            doubled_backticks.append(index + 1)
+            index += 2
+            continue
+        index += 1
+
+    return doubled_backticks
+
+
+@functools.lru_cache(maxsize=128)
+def is_inside_quotes(text: str, pos: int) -> Literal[False, 'single', 'double', 'backtick']:
     in_single = False
     in_double = False
+    in_backticks = False
     escaped = False
+    doubled_backtick_positions = []
+    single_quote = "'"
+    double_quote = '"'
+    backtick = '`'
+    backslash = '\\'
 
-    for ch in text[:pos]:
-        if escaped:
+    # scanning the string twice seems to be needed to handle doubled backticks
+    if backtick in text:
+        doubled_backtick_positions = _find_doubled_backticks(text)
+
+    length = len(text)
+    if pos < 0:
+        pos = length + pos
+        pos = max(pos, 0)
+    pos = min(length, pos)
+
+    # optimization
+    up_to_pos = text[:pos]
+    if backtick not in up_to_pos and single_quote not in up_to_pos and double_quote not in up_to_pos:
+        return False
+
+    for index in range(0, pos):
+        ch = text[index]
+        if index in doubled_backtick_positions:
+            index += 1
+            continue
+        if escaped and (in_double or in_single):
             escaped = False
+            index += 1
             continue
-        if ch == "\\":
+        if ch == backslash and (in_double or in_single):
             escaped = True
+            index += 1
             continue
-        if ch == "'" and not in_double:
+        if ch == backtick and not in_double and not in_single:
+            in_backticks = not in_backticks
+        elif ch == single_quote and not in_double and not in_backticks:
             in_single = not in_single
-        elif ch == '"' and not in_single:
+        elif ch == double_quote and not in_single and not in_backticks:
             in_double = not in_double
+        index += 1
 
-    return in_single or in_double
+    if in_single:
+        return 'single'
+    elif in_double:
+        return 'double'
+    elif in_backticks:
+        return 'backtick'
+    else:
+        return False
 
 
 def suggest_type(full_text: str, text_before_cursor: str) -> list[dict[str, Any]]:
@@ -137,7 +196,7 @@ def suggest_type(full_text: str, text_before_cursor: str) -> list[dict[str, Any]
     last_token = statement and statement.token_prev(len(statement.tokens))[1] or ""
 
     # todo: unsure about empty string as identifier
-    return suggest_based_on_last_token(last_token, text_before_cursor, full_text, identifier or Identifier(''))
+    return suggest_based_on_last_token(last_token, text_before_cursor, word_before_cursor, full_text, identifier or Identifier(''))
 
 
 def suggest_special(text: str) -> list[dict[str, Any]]:
@@ -180,9 +239,24 @@ def suggest_special(text: str) -> list[dict[str, Any]]:
 def suggest_based_on_last_token(
     token: str | Token | None,
     text_before_cursor: str,
+    word_before_cursor: str | None,
     full_text: str,
     identifier: Identifier,
 ) -> list[dict[str, Any]]:
+
+    # don't suggest anything inside a string or number
+    if word_before_cursor:
+        if re.match(r'^[\d\.]', word_before_cursor[0]):
+            return []
+        # more efficient if no space was typed yet in the string
+        if word_before_cursor[0] in ('"', "'"):
+            return []
+        # less efficient, but handles all cases
+        # in fact, this is quite slow, but not as slow as offering completions!
+        # faster would be to peek inside the Pygments lexer run by prompt_toolkit -- how?
+        if is_inside_quotes(text_before_cursor, -1) in ['single', 'double']:
+            return []
+
     if isinstance(token, str):
         token_v = token.lower()
     elif isinstance(token, Comparison):
@@ -201,7 +275,7 @@ def suggest_based_on_last_token(
         original_text = text_before_cursor
         prev_keyword, text_before_cursor = find_prev_keyword(text_before_cursor)
         enum_suggestion = _enum_value_suggestion(original_text, full_text)
-        fallback = suggest_based_on_last_token(prev_keyword, text_before_cursor, full_text, identifier)
+        fallback = suggest_based_on_last_token(prev_keyword, text_before_cursor, None, full_text, identifier)
         if enum_suggestion and _is_where_or_having(prev_keyword):
             return [enum_suggestion] + fallback
         return fallback
@@ -231,7 +305,7 @@ def suggest_based_on_last_token(
             #        Suggest columns/functions AND keywords. (If we wanted to be
             #        really fancy, we could suggest only array-typed columns)
 
-            column_suggestions = suggest_based_on_last_token("where", text_before_cursor, full_text, identifier)
+            column_suggestions = suggest_based_on_last_token("where", text_before_cursor, None, full_text, identifier)
 
             # Check for a subquery expression (cases 3 & 4)
             where = p.tokens[-1]
@@ -366,14 +440,18 @@ def suggest_based_on_last_token(
         # "CREATE DATABASE <newdb> WITH TEMPLATE <db>"
         return [{"type": "database"}]
 
+    elif is_inside_quotes(text_before_cursor, -1) in ['single', 'double']:
+        return []
+
     elif token_v.endswith(",") or is_operand(token_v) or token_v in ["=", "and", "or"]:
         original_text = text_before_cursor
         prev_keyword, text_before_cursor = find_prev_keyword(text_before_cursor)
         enum_suggestion = _enum_value_suggestion(original_text, full_text)
-        fallback = suggest_based_on_last_token(prev_keyword, text_before_cursor, full_text, identifier) if prev_keyword else []
+        fallback = suggest_based_on_last_token(prev_keyword, text_before_cursor, None, full_text, identifier) if prev_keyword else []
         if enum_suggestion and _is_where_or_having(prev_keyword):
             return [enum_suggestion] + fallback
         return fallback
+
     else:
         return [{"type": "keyword"}]
 

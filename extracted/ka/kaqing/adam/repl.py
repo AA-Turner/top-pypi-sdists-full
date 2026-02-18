@@ -65,7 +65,7 @@ def enter_repl(state: ReplState):
         submit(Audits.log, 'entering kaqing repl', state.namespace, 'z', 0.0)
 
         # inject run_command to Commands, for example, Retry command needs it
-        cmd_list, cmds = cmd_list_n_chain(run_command=run_command)
+        cmd_list, chain = cmd_list_n_chain(run_command=run_command)
 
         cont = True
         while cont:
@@ -74,7 +74,7 @@ def enter_repl(state: ReplState):
                                      completer=repl_completer(state, cmd_list),
                                      key_bindings=kb,
                                      bottom_toolbar=None)
-            cont = run_command(state, collect_cmd, session=session, cmd_list=cmd_list, cmds=cmds, audit_submit=submit)
+            cont = run_command(state, collect_cmd, session=session, cmd_list=cmd_list, chain=chain, audit_submit=submit)
 
 def repl_completer(state: ReplState, cmd_list: list[Command]):
     if state.bash_session:

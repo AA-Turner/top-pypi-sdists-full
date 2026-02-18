@@ -156,18 +156,14 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
                     f"anyscale-access-{token}@{project_id}.iam.gserviceaccount.com"
                 )
             pool_id = f"anyscale-provider-pool-{token}"
-            if pool_name is None:
-                pool_name = f"projects/{project_id}/locations/global/workloadIdentityPools/{pool_id}"
             deployment_name = f"{resolved_cloud_id}-{token}".replace("_", "-").lower()
 
-            setup_utils.create_workload_identity_pool(
-                factory, project_id, pool_id, controller.log
-            )
-            controller.create_workload_identity_federation_provider(
+            actual_pool_name = controller.create_workload_identity_federation_provider(
                 factory, project_id, pool_id, anyscale_access_service_account
             )
+            pool_name = pool_name or actual_pool_name
 
-            controller.run_deployment_manager(
+            controller.setup_gcp_cloud_resources(
                 factory,
                 deployment_name,
                 resolved_cloud_id,
@@ -180,18 +176,6 @@ def setup_vm_cloud_resource(  # noqa: PLR0912, PLR0913
                 enable_head_node_fault_tolerance,
                 shared_storage=shared_storage,
             )
-            with controller.log.spinner(
-                "Updating Anyscale cloud with cloud resources..."
-            ):
-                controller.update_cloud_with_resources_gcp(
-                    factory,
-                    deployment_name,
-                    resolved_cloud_id,
-                    region,
-                    project_id,
-                    anyscale_access_service_account,
-                    provider_name=f"{pool_name}/providers/anyscale-access",
-                )
             controller.wait_for_cloud_to_be_active(
                 resolved_cloud_id, CloudProviders.GCP
             )
@@ -989,6 +973,16 @@ def cloud_update_storage_cors(
     cloud_resource_id: Optional[str],
     yes: bool,
 ) -> None:
+    """
+    Update CORS configuration on cloud storage to support Anyscale UI features.
+
+    This command configures CORS rules on cloud storage buckets (S3, GCS, Azure Blob)
+    to enable features like the file viewer in the Anyscale UI. Works with both managed
+    and customer-managed clouds.
+
+    `$ anyscale cloud update-storage-cors my-cloud`
+    `$ anyscale cloud update-storage-cors my-cloud --resource my-resource`
+    """
     if cloud_name and name and cloud_name != name:
         raise click.ClickException(
             "The positional argument CLOUD_NAME and the keyword argument --name "

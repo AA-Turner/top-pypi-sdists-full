@@ -61,6 +61,7 @@ from semgrep.config_resolver import Config
 from semgrep.config_resolver import ConfigLoader
 from semgrep.console import console
 from semgrep.constants import DEFAULT_TIMEOUT
+from semgrep.constants import MemoryPolicy
 from semgrep.constants import OutputFormat
 from semgrep.constants import TOO_MUCH_DATA
 from semgrep.core_runner import CoreRunner
@@ -209,6 +210,7 @@ def sanity_check_resolved_config(
 ##############################################################################
 
 
+@telemetry.trace()
 def log_running_rules(
     configs_obj: Config,
     config_errors: Sequence[SemgrepError],
@@ -227,6 +229,7 @@ def log_running_rules(
     )
 
 
+@telemetry.trace()
 def log_rules(filtered_rules: List[Rule], too_many_entries: int) -> None:
     experimental_rules, normal_rules = partition(
         filtered_rules, lambda rule: (isinstance(rule.severity.value, out.Experiment))
@@ -255,6 +258,7 @@ def log_rules(filtered_rules: List[Rule], too_many_entries: int) -> None:
 
 
 # TODO: group the diff scan params and secrets stuff in separate dataclasses
+@telemetry.trace()
 def add_metrics_part1(
     metrics: Metrics,
     project_url: Optional[str],
@@ -290,6 +294,7 @@ def add_metrics_part1(
         metrics.add_is_diff_scan(baseline_commit is not None)
 
 
+@telemetry.trace()
 def add_metrics_part2(
     metrics: Metrics,
     filtered_rules: List[Rule],
@@ -315,6 +320,7 @@ def add_metrics_part2(
 ##############################################################################
 
 
+@telemetry.trace()
 def baseline_handler_opt(
     baseline_commit: Optional[str], baseline_commit_is_mergebase: bool
 ) -> Optional[BaselineHandler]:
@@ -333,6 +339,7 @@ def baseline_handler_opt(
     return baseline_handler
 
 
+@telemetry.trace()
 def remove_matches_in_baseline(
     head_matches_by_rule: RuleMatchMap,
     baseline_matches_by_rule: RuleMatchMap,
@@ -369,6 +376,7 @@ def remove_matches_in_baseline(
 # params, insane
 
 
+@telemetry.trace()
 def baseline_run(
     baseline_handler: BaselineHandler,
     baseline_commit: Optional[str],
@@ -499,7 +507,6 @@ def baseline_run(
                     _,
                     _,
                     _,
-                    _,
                 ) = run_rules(
                     # only the rules that had a match
                     [rule for rule, matches in rule_matches_by_rule.items() if matches],
@@ -537,6 +544,7 @@ def baseline_run(
 ##############################################################################
 
 
+@telemetry.trace()
 def adjust_matches_for_join_rules(
     rule_matches_by_rule: RuleMatchMap,
     join_rules: List[Rule],
@@ -665,11 +673,28 @@ def resolve_dependencies(
         )
 
     # Configure dependency resolution
+    local_build_env: Dict[str, str] = {}
+    local_build_env_str = environ.get("SEMGREP_LOCAL_BUILD_ENV")
+    if local_build_env_str:
+        try:
+            parsed = json.loads(local_build_env_str)
+            if isinstance(parsed, dict) and all(
+                isinstance(k, str) and isinstance(v, str) for k, v in parsed.items()
+            ):
+                local_build_env = parsed
+            else:
+                logger.warning(
+                    "SEMGREP_LOCAL_BUILD_ENV must be a JSON object with string keys and values, ignoring"
+                )
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON in SEMGREP_LOCAL_BUILD_ENV, ignoring")
+
     dependency_resolution_config = DependencyResolutionConfig(
         allow_local_builds=allow_local_builds,
         ptt_enabled=ptt_enabled,
         resolve_untargeted_subprojects=resolve_all_deps_in_diff_scan,
         download_dependency_source_code=download_dependency_source_code,
+        local_build_env=local_build_env,
     )
 
     # Parse lockfiles to get dependency information
@@ -930,7 +955,6 @@ def run_rules(
     List[DependencyParserError],
     int,
     List[Union[out.UnresolvedSubproject, out.ResolvedSubproject]],
-    Optional[out.SymbolAnalysis],
     Optional[Sequence[SubprojectSymbolAnalysis]],
 ]:
     # ---------------------------------------
@@ -1011,8 +1035,6 @@ def run_rules(
         x_parmap,
     )
 
-    symbol_analysis = output_extra.core.symbol_analysis
-
     # ---------------------------------------
     # Step5: Adjusting rule_matches_by_rule
     # ---------------------------------------
@@ -1061,7 +1083,7 @@ def run_rules(
                     disable=(not sys.stderr.isatty() or total_subprojects == 0),
                 ) as progress:
                     task_id = progress.add_task(
-                        "Calculating symbol analysis",
+                        "Running symbol analysis",
                         total=total_subprojects,
                     )
                     sca_symbol_analysis = list(
@@ -1092,7 +1114,6 @@ def run_rules(
         dependency_parser_errors,
         executed_rule_count,
         all_subprojects,
-        symbol_analysis,
         sca_symbol_analysis,
     )
 
@@ -1182,6 +1203,7 @@ def run_scan(
     fips_mode: bool = False,
     x_group_taint_rules: bool = False,
     x_dump_symbol_analysis: bool = False,
+    x_mem_policy: Optional[MemoryPolicy] = None,
 ) -> Tuple[
     FilteredMatches,
     List[SemgrepError],
@@ -1196,7 +1218,6 @@ def run_scan(
     int,  # Executed Rule Count
     int,  # Missed Rule Count
     List[Union[out.UnresolvedSubproject, out.ResolvedSubproject]],
-    Optional[out.SymbolAnalysis],
     Optional[Sequence[SubprojectSymbolAnalysis]],
 ]:
     logger.debug(f"semgrep version {__VERSION__}")
@@ -1375,10 +1396,10 @@ def run_scan(
             allow_untrusted_validators=allow_untrusted_validators,
             respect_rule_paths=respect_rule_paths,
             path_sensitive=path_sensitive,
-            symbol_analysis=run_symbol_analysis,
             fips_mode=fips_mode,
             use_pro_naming_for_intrafile=x_pro_naming,
             group_taint_rules=x_group_taint_rules,
+            mem_policy=x_mem_policy,
         )
         # TODO? why displayed here? why not closer to log_running_rules?
         log_rules(filtered_rules, too_many_entries)
@@ -1391,7 +1412,6 @@ def run_scan(
             dependency_parser_errors,
             executed_rule_count,
             all_subprojects,
-            symbol_analysis,
             sca_symbol_analysis,
         ) = run_rules(
             filtered_rules,
@@ -1519,7 +1539,6 @@ def run_scan(
         executed_rule_count,
         missed_rule_count,
         all_subprojects,
-        symbol_analysis,
         sca_symbol_analysis,
     )
 
@@ -1560,7 +1579,6 @@ def run_scan_and_return_json(
         _,
         _,
         _all_subprojects,
-        _,
         _,
     ) = run_scan(
         output_handler=output_handler,

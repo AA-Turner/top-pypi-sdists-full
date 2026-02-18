@@ -35,7 +35,8 @@ GCP_REQUIRED_APIS = [
     "file.googleapis.com",  # Filestore
     "storage-component.googleapis.com",  # Cloud Storage
     "storage.googleapis.com",  # Cloud Storage
-    "deploymentmanager.googleapis.com",  # Deployment Manager
+    "deploymentmanager.googleapis.com",  # Deployment Manager (legacy)
+    "config.googleapis.com",  # Infrastructure Manager (Terraform-based)
     "cloudresourcemanager.googleapis.com",  # Resource Manager
     "certificatemanager.googleapis.com",  # Certificate Manager for Services
 ]

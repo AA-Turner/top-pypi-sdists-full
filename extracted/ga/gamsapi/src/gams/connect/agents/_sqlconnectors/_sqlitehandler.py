@@ -31,6 +31,7 @@ from gams.connect.agents._sqlconnectors._databasehandler import DatabaseConnecto
 class SQLiteConnector(DatabaseConnector):
     SUPPORTED_INSERT_METHODS = ["default"]
     QUOTE_CHAR = ["[]", '""', "``"]
+    SCHEMA_SUPPORT = False
 
     def connect(self, connection_details, connection_args, **kwargs) -> None:
 

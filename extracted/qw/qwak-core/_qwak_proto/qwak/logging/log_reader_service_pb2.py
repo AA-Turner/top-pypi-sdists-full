@@ -11,12 +11,13 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from google.api import annotations_pb2 as google_dot_api_dot_annotations__pb2
 from _qwak_proto.qwak.logging import log_filter_pb2 as qwak_dot_logging_dot_log__filter__pb2
 from _qwak_proto.qwak.logging import log_source_pb2 as qwak_dot_logging_dot_log__source__pb2
 from _qwak_proto.qwak.logging import log_line_pb2 as qwak_dot_logging_dot_log__line__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%qwak/logging/log_reader_service.proto\x12\x14qwak.logging.service\x1a\x1dqwak/logging/log_filter.proto\x1a\x1dqwak/logging/log_source.proto\x1a\x1bqwak/logging/log_line.proto\"\xd7\x01\n\x0fReadLogsRequest\x12/\n\x06source\x18\x01 \x01(\x0b\x32\x1f.qwak.logging.service.LogSource\x12\x17\n\rbefore_offset\x18\x02 \x01(\tH\x00\x12\x16\n\x0c\x61\x66ter_offset\x18\x03 \x01(\tH\x00\x12\x39\n\rsearch_filter\x18\x04 \x01(\x0b\x32\".qwak.logging.service.SearchFilter\x12\x1d\n\x15max_number_of_results\x18\x05 \x01(\x05\x42\x08\n\x06offset\"\x85\x01\n\x10ReadLogsResponse\x12/\n\x08log_line\x18\x01 \x03(\x0b\x32\x1d.qwak.logging.service.LogLine\x12\x14\n\x0c\x66irst_offset\x18\x02 \x01(\t\x12\x13\n\x0blast_offset\x18\x03 \x01(\t\x12\x15\n\rhas_next_page\x18\x04 \x01(\x08\x32m\n\x10LogReaderService\x12Y\n\x08ReadLogs\x12%.qwak.logging.service.ReadLogsRequest\x1a&.qwak.logging.service.ReadLogsResponseB\"\n\x1e\x63om.qwak.ai.logging.reader.apiP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n%qwak/logging/log_reader_service.proto\x12\x14qwak.logging.service\x1a\x1cgoogle/api/annotations.proto\x1a\x1dqwak/logging/log_filter.proto\x1a\x1dqwak/logging/log_source.proto\x1a\x1bqwak/logging/log_line.proto\"\xd7\x01\n\x0fReadLogsRequest\x12/\n\x06source\x18\x01 \x01(\x0b\x32\x1f.qwak.logging.service.LogSource\x12\x17\n\rbefore_offset\x18\x02 \x01(\tH\x00\x12\x16\n\x0c\x61\x66ter_offset\x18\x03 \x01(\tH\x00\x12\x39\n\rsearch_filter\x18\x04 \x01(\x0b\x32\".qwak.logging.service.SearchFilter\x12\x1d\n\x15max_number_of_results\x18\x05 \x01(\x05\x42\x08\n\x06offset\"\x85\x01\n\x10ReadLogsResponse\x12/\n\x08log_line\x18\x01 \x03(\x0b\x32\x1d.qwak.logging.service.LogLine\x12\x14\n\x0c\x66irst_offset\x18\x02 \x01(\t\x12\x13\n\x0blast_offset\x18\x03 \x01(\t\x12\x15\n\rhas_next_page\x18\x04 \x01(\x08\x32\x86\x01\n\x10LogReaderService\x12r\n\x08ReadLogs\x12%.qwak.logging.service.ReadLogsRequest\x1a&.qwak.logging.service.ReadLogsResponse\"\x17\x82\xd3\xe4\x93\x02\x11\"\x0c/api/v1/logs:\x01*B,\n\x1e\x63om.qwak.ai.logging.reader.apiP\x01Z\x08/loggingb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -24,11 +25,13 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.logging.log_reader_ser
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.logging.reader.apiP\001'
-  _globals['_READLOGSREQUEST']._serialized_start=155
-  _globals['_READLOGSREQUEST']._serialized_end=370
-  _globals['_READLOGSRESPONSE']._serialized_start=373
-  _globals['_READLOGSRESPONSE']._serialized_end=506
-  _globals['_LOGREADERSERVICE']._serialized_start=508
-  _globals['_LOGREADERSERVICE']._serialized_end=617
+  DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.logging.reader.apiP\001Z\010/logging'
+  _LOGREADERSERVICE.methods_by_name['ReadLogs']._options = None
+  _LOGREADERSERVICE.methods_by_name['ReadLogs']._serialized_options = b'\202\323\344\223\002\021\"\014/api/v1/logs:\001*'
+  _globals['_READLOGSREQUEST']._serialized_start=185
+  _globals['_READLOGSREQUEST']._serialized_end=400
+  _globals['_READLOGSRESPONSE']._serialized_start=403
+  _globals['_READLOGSRESPONSE']._serialized_end=536
+  _globals['_LOGREADERSERVICE']._serialized_start=539
+  _globals['_LOGREADERSERVICE']._serialized_end=673
 # @@protoc_insertion_point(module_scope)

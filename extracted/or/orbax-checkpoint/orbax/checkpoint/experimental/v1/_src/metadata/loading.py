@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,9 +14,9 @@
 
 """Functions for loading metadata from a checkpoint."""
 
-import asyncio
 from typing import Any
 
+from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint.experimental.v1 import errors
 from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 import orbax.checkpoint.experimental.v1._src.handlers.global_registration  # pylint: disable=unused-import
@@ -24,7 +24,6 @@ from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
 from orbax.checkpoint.experimental.v1._src.layout import registry as layout_registry
 from orbax.checkpoint.experimental.v1._src.metadata import types as metadata_types
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
-from orbax.checkpoint.experimental.v1._src.synchronization import asyncio_utils
 
 
 CheckpointMetadata = metadata_types.CheckpointMetadata
@@ -86,20 +85,29 @@ def pytree_metadata(
   Returns:
     A `CheckpointMetadata[PyTreeMetadata]` object.
   """
-  asyncio_utils.maybe_apply_nest_asyncio()
   ctx = context_lib.get_context()
   path = ctx.file_options.path_class(path)
-  layout, checkpointable_name, path = asyncio.run(
+
+  layout = asyncio_utils.run_sync(
       layout_registry.get_checkpoint_layout_pytree(
           path, ctx.checkpoint_layout, checkpointable_name
       )
   )
-  metadata = _checkpointables_metadata_impl(layout, path)
+
+  # TODO(b/477603241): This logic currently accounts for the V0
+  # metadata function returning a pytree for direct pytree checkpoints, while
+  # V1 returns a dictionary. This logic should be cleaned up once we roll up
+  # the composite handler into the layout themselves.
+  step_metadata = _checkpointables_metadata_impl(layout, path)
+  if checkpointable_name is None:
+    metadata = step_metadata.metadata
+  else:
+    metadata = step_metadata.metadata[checkpointable_name]
   return CheckpointMetadata[PyTreeMetadata](
-      metadata=metadata.metadata[checkpointable_name],
-      init_timestamp_nsecs=metadata.init_timestamp_nsecs,
-      commit_timestamp_nsecs=metadata.commit_timestamp_nsecs,
-      custom_metadata=metadata.custom_metadata,
+      metadata=metadata,
+      init_timestamp_nsecs=step_metadata.init_timestamp_nsecs,
+      commit_timestamp_nsecs=step_metadata.commit_timestamp_nsecs,
+      custom_metadata=step_metadata.custom_metadata,
   )
 
 
@@ -130,10 +138,9 @@ def checkpointables_metadata(
   Returns:
     A `CheckpointMetadata[dict[str, Any]]` object.
   """
-  asyncio_utils.maybe_apply_nest_asyncio()
   ctx = context_lib.get_context()
   path = ctx.file_options.path_class(path)
-  layout = asyncio.run(
+  layout = asyncio_utils.run_sync(
       layout_registry.get_checkpoint_layout(path, ctx.checkpoint_layout)
   )
   return _checkpointables_metadata_impl(layout, path)
@@ -150,4 +157,4 @@ def _checkpointables_metadata_impl(
   ):
     return await layout.metadata(path)
 
-  return asyncio.run(_load_metadata())
+  return asyncio_utils.run_sync(_load_metadata())

@@ -1,7 +1,4 @@
-import glob
 import json
-import os
-import subprocess
 import sys
 
 import click
@@ -9,7 +6,6 @@ import click
 from exponent.commands.common import (
     redirect_to_login,
     refresh_api_key_task,
-    report_sandbox_info,
     run_until_complete,
     set_login_complete,
 )
@@ -343,94 +339,3 @@ def refresh_key(settings: Settings) -> None:
             base_ws_url=settings.get_base_ws_url(),
         )
     )
-
-
-def _collect_system_metrics() -> float | None:
-    """Collect system metrics (disk usage).
-
-    Returns:
-        Disk usage in GB
-    """
-    disk_usage_gb = None
-
-    try:
-        result = subprocess.run(
-            ["df", "-BG", "/"],
-            capture_output=True,
-            text=True,
-            timeout=5,
-            check=False,
-        )
-        if result.returncode == 0:
-            lines = result.stdout.strip().split("\n")
-            if len(lines) >= 2:
-                parts = lines[1].split()
-                if len(parts) >= 3:
-                    used_str = parts[2].rstrip("G")
-                    disk_usage_gb = float(used_str)
-    except Exception:
-        pass
-
-    return disk_usage_gb
-
-
-@config_cli.command(name="report-sandbox", hidden=True)
-@click.option(
-    "--sandbox-id",
-    help="Sandbox ID (defaults to environment variable)",
-    required=False,
-)
-@use_settings
-def report_sandbox(settings: Settings, sandbox_id: str | None = None) -> None:
-    """Report sandbox metrics to Indent for monitoring."""
-    if not settings.api_key:
-        redirect_to_login(settings)
-        return
-
-    # Get sandbox ID from parameter or environment variable
-    if not sandbox_id:
-        sandbox_id = (
-            os.environ.get("SANDBOX_ID") or os.environ.get("E2B_SANDBOX_ID") or os.environ.get("MODAL_SANDBOX_ID")
-        )
-
-    if not sandbox_id:
-        click.secho("Error: Could not determine sandbox ID", fg="red")
-        click.echo("Please provide --sandbox-id or set SANDBOX_ID environment variable")
-        sys.exit(1)
-
-    assert sandbox_id is not None
-
-    # Collect system metrics
-    disk_usage_gb = _collect_system_metrics()
-
-    # Find the most recent indent log file
-    indent_log_file: str | None = None
-    try:
-        log_files = glob.glob("/tmp/indent_output_*.log")
-        if log_files:
-            # Get the most recent log file by modification time
-            indent_log_file = str(max(log_files, key=os.path.getmtime))
-    except Exception:
-        pass
-
-    click.echo(f"Reporting sandbox metrics for: {sandbox_id}")
-    if disk_usage_gb:
-        click.echo(f"  Disk Usage: {disk_usage_gb:.1f} GB")
-    if indent_log_file:
-        click.echo(f"  Indent Log: {indent_log_file}")
-
-    try:
-        run_until_complete(
-            report_sandbox_info(
-                api_key=settings.api_key,
-                base_api_url=settings.get_base_api_url(),
-                base_ws_url=settings.get_base_ws_url(),
-                sandbox_id=sandbox_id,
-                disk_usage_gb=disk_usage_gb,
-                indent_log_file=indent_log_file,
-            )
-        )
-        click.secho("✓ Sandbox metrics reported successfully", fg="green")
-    except Exception as e:
-        click.secho(f"✗ Failed to report sandbox metrics: {e}", fg="red")
-        sys.exit(1)

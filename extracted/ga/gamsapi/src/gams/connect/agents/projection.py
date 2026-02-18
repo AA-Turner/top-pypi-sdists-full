@@ -26,9 +26,10 @@
 import copy
 import re
 from gams.connect.agents.connectagent import ConnectAgent
+from gams.core.gdx import GMS_SV_NA, GMS_SV_UNDEF
 import gams.transfer as gt
+import numpy as np
 import pandas as pd
-
 
 class Projection(ConnectAgent):
 
@@ -279,7 +280,6 @@ class Projection(ConnectAgent):
 
     def _apply_aggregation_method(self, df, ssym_name, index_map):
         """Applies selected aggregation method."""
-
         if len(index_map) > 0:
             df = df.groupby(
                 [self._cdb.container[ssym_name].domain_labels[d] for d in index_map]
@@ -293,9 +293,11 @@ class Projection(ConnectAgent):
             self._connect_error(
                 f"Invalid aggregationMethod >{self._aggregation_method}<. Not callable."
             )
+
         df = func()
         if self._trace > 2:
             self._cdb.print_log(f"DataFrame after aggregation:\n{df}")
+
         return df
 
     def _drop_text(self, df, ssym, suffix_list, suffix_to_index):
@@ -402,10 +404,34 @@ class Projection(ConnectAgent):
         ), "No suffix, asSet: False but type of <name> <> type of <newName>"
 
         df = copy.deepcopy(self._cdb.container[ssym_name].records)
+
         # For symbols with None records or empty dataframe, an empty df is assigned then returned
         if df is None or df.empty:
             self._transform_sym_none_to_empty(tsym)
             return
+
+        # map GT NA -> GMS_SV_NA and GT UNDEF -> GMS_SV_UNDEF to keep them from being turned into arbitrary .nan values and being dropped
+        # only in case of parameter, variable, equation and aggregationMethod in ["first", "last"]
+        self._has_na = False
+        self._has_undef = False
+        if self._aggregation_method in ["first", "last"]:
+            if isinstance(tsym, (gt.Parameter, gt.Variable, gt.Equation)):
+                for col in ssym._attributes:
+                    arr = df[col].values
+                    if not np.isnan(arr).any():  # check for arbitrary .nan values first for better performance
+                        continue
+                    na_mask = gt.SpecialValues.isNA(arr)
+                    undef_mask = gt.SpecialValues.isUndef(arr)
+                    any_na = na_mask.any()
+                    any_undef = undef_mask.any()
+                    if any_na:
+                        self._has_na = True
+                        arr[na_mask] = GMS_SV_NA
+                    if any_undef:
+                        self._has_undef = True
+                        arr[undef_mask] = GMS_SV_UNDEF
+                    if any_na or any_undef:
+                        df[col] = arr
 
         if suffix_list:
             suffixes_to_drop = set(
@@ -443,7 +469,14 @@ class Projection(ConnectAgent):
                 # stack suffix index
                 if ssym.dimension == 0:
                     # source and target symbols have 0 dimensions (scalar)
-                    df = df.stack().droplevel(0)
+                    # pandas-version-check
+                    if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
+                        df = df.stack(dropna=False)
+                    elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
+                        df = df.stack(future_stack=True)
+                    else:  # pandas >= 3.0.0
+                        df = df.stack()
+                    df = df.droplevel(0)
                     df = list(dict(df).items())
                 else:
                     if len(index_map_unq) > 0:
@@ -451,9 +484,23 @@ class Projection(ConnectAgent):
                             df.columns.tolist()[i] for i in range(len(index_map_unq))
                         ]
                         df.set_index(new_index, inplace=True)
-                        df = df.stack().reset_index()
+                        # pandas-version-check
+                        if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
+                            df = df.stack(dropna=False)
+                        elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
+                            df = df.stack(future_stack=True)
+                        else:  # pandas >= 3.0.0
+                            df = df.stack()
+                        df = df.reset_index()
                     else:
-                        df = df.stack().droplevel(0)
+                        # pandas-version-check
+                        if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
+                            df = df.stack(dropna=False)
+                        elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
+                            df = df.stack(future_stack=True)
+                        else:  # pandas >= 3.0.0
+                            df = df.stack()
+                        df = df.droplevel(0)
                 if self._trace > 2:
                     self._cdb.print_log(f"DataFrame after stacking suffix index:\n{df}")
 
@@ -469,7 +516,6 @@ class Projection(ConnectAgent):
                 "last",
             ]:
                 # target symbol has 0 dimensions (scalar) and aggregation first/last -> fast aggregation
-
                 df.drop(columns=drop_cols, inplace=True)
                 if self._trace > 2:
                     self._cdb.print_log(f"DataFrame after dropping columns:\n{df}")
@@ -502,7 +548,13 @@ class Projection(ConnectAgent):
 
                 if isinstance(df, pd.DataFrame):
                     if suffix_to_index:
-                        df = df.stack()
+                        # pandas-version-check
+                        if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
+                            df = df.stack(dropna=False)
+                        elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
+                            df = df.stack(future_stack=True)
+                        else:  # pandas >= 3.0.0
+                            df = df.stack()
                         if self._trace > 2:
                             self._cdb.print_log(
                                 f"DataFrame after stacking suffix index:\n{df}"
@@ -511,6 +563,15 @@ class Projection(ConnectAgent):
                     df = df.reset_index(drop=False)
                     if self._trace > 2:
                         self._cdb.print_log(f"DataFrame after .reset_index():\n{df}")
+
+        if self._has_na or self._has_undef:
+            col = df.columns[-1]
+            arr = df[col].values
+            if self._has_na:
+                arr[arr == GMS_SV_NA] = gt.SpecialValues.NA
+            if self._has_undef:
+                arr[arr == GMS_SV_UNDEF] = gt.SpecialValues.UNDEF
+            df[col] = arr
 
         if isinstance(df, pd.DataFrame) and isinstance(tsym, gt.Set):
             df = self._drop_text(df, ssym, suffix_list, suffix_to_index)

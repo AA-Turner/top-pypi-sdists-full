@@ -5,7 +5,7 @@ import threading
 from typing import TextIO
 
 from adam.directories import local_log_dir
-from adam.utils_global import thread_local
+from adam.thread_locals import thread_local_command
 from adam.utils_log import log_exc
 
 class Job:
@@ -17,9 +17,14 @@ class Job:
     _pod_log_cnts_by_job_id: dict[str, int] = {}
     lock = threading.Lock()
 
-    def local_log_file(command: str, job_id: str = None, err = False, dir: str = None, extra: dict[str, str] = {}):
+    def local_log_file(command: str,
+                       job_id: str = None,
+                       err = False,
+                       dir: str = None,
+                       extra: dict[str, str] = {},
+                       retriable = False):
         with log_exc():
-            job: Job = Job.create(job_id, command, extra)
+            job: Job = Job.create(job_id, command, extra, retriable=retriable)
 
             return job._local_log_file(dir, err=err)
 
@@ -30,10 +35,11 @@ class Job:
                      suffix = '.log',
                      err = False,
                      dir: str = None,
-                     extra: dict[str, str] = {}):
+                     extra: dict[str, str] = {},
+                     retriable = False):
         with log_exc():
             # for export, local file creates the last file, then pods will try to create the last file again
-            job: Job = Job.create(job_id, command, extra, replace_last_file = False)
+            job: Job = Job.create(job_id, command, extra, replace_last_file = False, retriable=retriable)
 
             if pod_suffix is None:
                 pod_suffix = '{pod}'
@@ -55,14 +61,14 @@ class Job:
 
             return log_file, pod_log_cnt
 
-    def create(job_id: str, command: str, extra: dict[str, str], replace_last_file = True):
+    def create(job_id: str, command: str, extra: dict[str, str], replace_last_file = True, retriable = False):
         if not job_id:
             job_id = Job.new_id()
 
         if job_id in Job.jobs():
             return Job.jobs()[job_id]
 
-        job = Job(command=command, job_id=job_id, extra=extra)
+        job = Job(command=command, job_id=job_id, extra=extra, retriable=retriable)
         if command:
             if command not in ['job-scheduler']:
                 if Job.write_last_job(job, replace=replace_last_file):
@@ -148,21 +154,23 @@ class Job:
 
         return Job(command, raw_command, job_id, extra)
 
-    def __init__(self, command: str = None, raw_command: str = None, job_id: str = None, extra: dict[str, str] = {}):
+    def __init__(self, command: str = None, raw_command: str = None, job_id: str = None, extra: dict[str, str] = {}, retriable = False):
         self.command = command
 
         self.raw_command = raw_command
-        if hasattr(thread_local, 'cmd'):
-            self.raw_command = thread_local.cmd
+        if rc := thread_local_command().raw_command:
+            self.raw_command = rc
         if self.raw_command is None:
             self.raw_command = ''
 
         self.scheduled_command = ''
-        if hasattr(thread_local, 'scheduled_command'):
-            self.scheduled_command = thread_local.scheduled_command
+        if sc := thread_local_command().scheduled_command:
+            self.scheduled_command = sc
 
         self.job_id = job_id
         self.extra = extra
+
+        self.retriable = retriable
 
     def write(self, f: TextIO):
         f.write(self.job_id)

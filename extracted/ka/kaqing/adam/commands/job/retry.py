@@ -48,12 +48,14 @@ class Retry(Command):
                         ctx.log2('Cannot find raw command for job.')
                         return state
 
-                    self.run_command(state, job.raw_command, job=job)
+                    r = self.run_command(state, job.raw_command, job=job)
+                    if not r:
+                        ctx.log2('Command is not retriable, ignored.')
 
                     return state
 
     def completion(self, state: ReplState):
-        return super().completion(state, job_completer())
+        return super().completion(state, job_completer(retriable=True))
 
     def help(self, state: ReplState):
         return super().help(state, 'retry command', args='[job_id]')

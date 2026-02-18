@@ -114,6 +114,52 @@ class Path:
         return hash(self.uri)
 
 
+class Location:
+    """
+    Data Class for Location (named database object referencing storage).
+    """
+
+    def __init__(self, name: str, schema: Schema = Schema(), **kwargs):
+        """
+        :param name: location name (e.g. @STAGE_01, @DB.SCHEMA.STAGE)
+        :param schema: schema as defined by :class:`Schema`
+        """
+        self._str = None
+        self._hash = None
+        # Strip leading @ for internal representation
+        raw = name.lstrip("@")
+        if "." not in raw:
+            self.schema = schema
+            self.raw_name = escape_identifier_name(raw)
+        else:
+            schema_name, loc_name = raw.rsplit(".", 1)
+            if len(schema_name.split(".")) > 2:
+                raise SQLLineageException("Invalid format for location name: %s.", name)
+            self.schema = Schema(schema_name)
+            self.raw_name = escape_identifier_name(loc_name)
+            if schema:
+                warnings.warn(
+                    "Name is in schema.location format, schema param is ignored"
+                )
+        self.alias = kwargs.pop("alias", self.raw_name)
+
+    def __str__(self):
+        if self._str is None:
+            self._str = f"{self.schema}.{self.raw_name.lower()}"
+        return self._str
+
+    def __repr__(self):
+        return "Location: " + str(self)
+
+    def __eq__(self, other):
+        return isinstance(other, Location) and str(self) == str(other)
+
+    def __hash__(self):
+        if self._hash is None:
+            self._hash = hash(str(self))
+        return self._hash
+
+
 class DataFunction:
     """
     Data Class for Function
@@ -206,9 +252,11 @@ class Column:
         :param kwargs:
         """
         self._str = None
-        self._final_parent: Optional[Union[DataFunction, Path, Table, SubQuery]] = None
+        self._final_parent: Optional[
+            Union[DataFunction, Location, Path, Table, SubQuery]
+        ] = None
         self._hash = None
-        self._parent: Set[Union[DataFunction, Path, Table, SubQuery]] = set()
+        self._parent: Set[Union[DataFunction, Location, Path, Table, SubQuery]] = set()
         self.raw_name = escape_identifier_name(name)
         self.source_columns = kwargs.pop("source_columns", ((self.raw_name, None),))
 
@@ -233,7 +281,9 @@ class Column:
         return self._hash
 
     @property
-    def parent(self) -> Optional[Union[DataFunction, Path, Table, SubQuery]]:
+    def parent(
+        self,
+    ) -> Optional[Union[DataFunction, Location, Path, Table, SubQuery]]:
         if self._final_parent is None:
             self._final_parent = (
                 list(self._parent)[0] if len(self._parent) == 1 else None
@@ -241,11 +291,13 @@ class Column:
         return self._final_parent
 
     @parent.setter
-    def parent(self, value: Union[DataFunction, Path, Table, SubQuery]):
+    def parent(self, value: Union[DataFunction, Location, Path, Table, SubQuery]):
         self._parent.add(value)
 
     @property
-    def parent_candidates(self) -> List[Union[DataFunction, Path, Table, SubQuery]]:
+    def parent_candidates(
+        self,
+    ) -> List[Union[DataFunction, Location, Path, Table, SubQuery]]:
         return sorted(self._parent, key=lambda p: str(p))
 
     @staticmethod
@@ -258,7 +310,8 @@ class Column:
         raise NotImplementedError
 
     def to_source_columns(
-        self, alias_mapping: Dict[str, Union[DataFunction, Path, Table, SubQuery]]
+        self,
+        alias_mapping: Dict[str, Union[DataFunction, Location, Path, Table, SubQuery]],
     ):
         """
         Best guess for source table given all the possible table/subquery and their alias.
@@ -266,7 +319,9 @@ class Column:
 
         def _to_src_col(
             name: str,
-            parent: Optional[Union[DataFunction, Path, Table, SubQuery]] = None,
+            parent: Optional[
+                Union[DataFunction, Location, Path, Table, SubQuery]
+            ] = None,
         ):
             col = Column(name)
             if parent:

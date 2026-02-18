@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import warnings
-from datetime import timedelta
+from logging import getLogger
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from sqlalchemy.exc import IntegrityError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncEngine, async_sessionmaker, create_async_engine
@@ -23,6 +23,9 @@ if TYPE_CHECKING:
     from types import TracebackType
 
     from sqlalchemy.ext.asyncio import AsyncSession
+
+
+logger = getLogger(__name__)
 
 
 @docs_group('Storage clients')
@@ -46,6 +49,8 @@ class SqlStorageClient(StorageClient):
     _DEFAULT_DB_NAME = 'crawlee.db'
     """Default database name if not specified in connection string."""
 
+    _SUPPORTED_DIALECTS: ClassVar[set[str]] = {'sqlite', 'postgresql', 'mysql', 'mariadb'}
+
     def __init__(
         self,
         *,
@@ -66,9 +71,6 @@ class SqlStorageClient(StorageClient):
         self._engine = engine
         self._initialized = False
         self.session_maker: None | async_sessionmaker[AsyncSession] = None
-
-        # Minimum interval to reduce database load from frequent concurrent metadata updates
-        self._accessed_modified_update_interval = timedelta(seconds=1)
 
         # Flag needed to apply optimizations only for default database
         self._default_flag = self._engine is None and self._connection_string is None
@@ -105,10 +107,6 @@ class SqlStorageClient(StorageClient):
         """Get the database dialect name."""
         return self._dialect_name
 
-    def get_accessed_modified_update_interval(self) -> timedelta:
-        """Get the interval for accessed and modified updates."""
-        return self._accessed_modified_update_interval
-
     async def initialize(self, configuration: Configuration) -> None:
         """Initialize the database schema.
 
@@ -120,10 +118,10 @@ class SqlStorageClient(StorageClient):
             async with engine.begin() as conn:
                 self._dialect_name = engine.dialect.name
 
-                if self._dialect_name not in ('sqlite', 'postgresql'):
+                if self._dialect_name not in self._SUPPORTED_DIALECTS:
                     raise ValueError(
-                        f'Unsupported database dialect: {self._dialect_name}. Supported: sqlite, postgresql. '
-                        'Consider using a different database.',
+                        f'Unsupported database dialect: {self._dialect_name}. Supported: '
+                        f'{", ".join(self._SUPPORTED_DIALECTS)}. Consider using a different database.',
                     )
 
                 # Create tables if they don't exist.
@@ -139,9 +137,7 @@ class SqlStorageClient(StorageClient):
                         await conn.execute(text('PRAGMA mmap_size=268435456'))  # 256MB memory mapping
                         await conn.execute(text('PRAGMA foreign_keys=ON'))  # Enforce constraints
                         await conn.execute(text('PRAGMA busy_timeout=30000'))  # 30s busy timeout
-
                     await conn.run_sync(Base.metadata.create_all, checkfirst=True)
-
                     from crawlee import __version__  # Noqa: PLC0415
 
                     db_version = (await conn.execute(select(VersionDb))).scalar_one_or_none()
@@ -157,7 +153,6 @@ class SqlStorageClient(StorageClient):
                         )
                     elif not db_version:
                         await conn.execute(insert(VersionDb).values(version=__version__))
-
                 except (IntegrityError, OperationalError):
                     await conn.rollback()
 
@@ -263,20 +258,31 @@ class SqlStorageClient(StorageClient):
             # Create connection string with path to default database
             connection_string = f'sqlite+aiosqlite:///{db_path}'
 
-        if 'sqlite' not in connection_string and 'postgresql' not in connection_string:
+        if not any(connection_string.startswith(dialect) for dialect in self._SUPPORTED_DIALECTS):
             raise ValueError(
-                'Unsupported database. Supported: sqlite, postgresql. Consider using a different database.'
+                f'Unsupported database. Supported: {", ".join(self._SUPPORTED_DIALECTS)}. Consider using a different '
+                'database.'
             )
+
+        kwargs: dict[str, Any] = {}
+        if 'mysql' in connection_string or 'mariadb' in connection_string:
+            connect_args: dict[str, Any] = {'connect_timeout': 30}
+            # MySQL/MariaDB require READ COMMITTED isolation level for correct behavior in concurrent environments
+            # without deadlocks.
+            kwargs['isolation_level'] = 'READ COMMITTED'
+        else:
+            connect_args = {'timeout': 30}
 
         self._engine = create_async_engine(
             connection_string,
             future=True,
             pool_size=5,
             max_overflow=10,
-            pool_timeout=30,
+            pool_timeout=60,
             pool_recycle=600,
             pool_pre_ping=True,
             echo=False,
-            connect_args={'timeout': 30},
+            connect_args=connect_args,
+            **kwargs,
         )
         return self._engine

@@ -1,1 +1,0 @@
-cdef object cigather(object coros_or_futures, bint return_exceptions=*)

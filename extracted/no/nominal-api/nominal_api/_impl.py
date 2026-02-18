@@ -26020,12 +26020,13 @@ class scout_catalog_CreateDataset(ConjureBeanType):
             'granularity': ConjureFieldDefinition('granularity', OptionalTypeWrapper[api_Granularity]),
             'is_v2_dataset': ConjureFieldDefinition('isV2Dataset', OptionalTypeWrapper[bool]),
             'workspace': ConjureFieldDefinition('workspace', OptionalTypeWrapper[api_rids_WorkspaceRid]),
-            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid])
+            'marking_rids': ConjureFieldDefinition('markingRids', List[scout_rids_api_MarkingRid]),
+            'dataset_type': ConjureFieldDefinition('datasetType', OptionalTypeWrapper[scout_catalog_DatasetBackingType])
         }
 
-    __slots__: List[str] = ['_name', '_handle', '_metadata', '_origin_metadata', '_labels', '_properties', '_description', '_granularity', '_is_v2_dataset', '_workspace', '_marking_rids']
+    __slots__: List[str] = ['_name', '_handle', '_metadata', '_origin_metadata', '_labels', '_properties', '_description', '_granularity', '_is_v2_dataset', '_workspace', '_marking_rids', '_dataset_type']
 
-    def __init__(self, labels: List[str], marking_rids: List[str], metadata: Dict[str, str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, handle: Optional["scout_catalog_Handle"] = None, is_v2_dataset: Optional[bool] = None, workspace: Optional[str] = None) -> None:
+    def __init__(self, labels: List[str], marking_rids: List[str], metadata: Dict[str, str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], dataset_type: Optional["scout_catalog_DatasetBackingType"] = None, description: Optional[str] = None, granularity: Optional["api_Granularity"] = None, handle: Optional["scout_catalog_Handle"] = None, is_v2_dataset: Optional[bool] = None, workspace: Optional[str] = None) -> None:
         self._name = name
         self._handle = handle
         self._metadata = metadata
@@ -26037,6 +26038,7 @@ class scout_catalog_CreateDataset(ConjureBeanType):
         self._is_v2_dataset = is_v2_dataset
         self._workspace = workspace
         self._marking_rids = marking_rids
+        self._dataset_type = dataset_type
 
     @builtins.property
     def name(self) -> str:
@@ -26091,6 +26093,12 @@ the user's organization, if the default workspace for the organization is config
 If not provided, the dataset will be visible to all users in the same workspace.
         """
         return self._marking_rids
+
+    @builtins.property
+    def dataset_type(self) -> Optional["scout_catalog_DatasetBackingType"]:
+        """The backing dataset type. Defaults to LEGACY type.
+        """
+        return self._dataset_type
 
 
 scout_catalog_CreateDataset.__name__ = "CreateDataset"
@@ -26189,12 +26197,13 @@ class scout_catalog_Dataset(ConjureBeanType):
             'timestamp_type': ConjureFieldDefinition('timestampType', scout_catalog_WeakTimestampType),
             'allow_streaming': ConjureFieldDefinition('allowStreaming', bool),
             'granularity': ConjureFieldDefinition('granularity', api_Granularity),
-            'is_archived': ConjureFieldDefinition('isArchived', bool)
+            'is_archived': ConjureFieldDefinition('isArchived', bool),
+            'dataset_type': ConjureFieldDefinition('datasetType', OptionalTypeWrapper[scout_catalog_DatasetBackingType])
         }
 
-    __slots__: List[str] = ['_rid', '_name', '_handle', '_description', '_origin_metadata', '_bounds', '_properties', '_labels', '_timestamp_type', '_allow_streaming', '_granularity', '_is_archived']
+    __slots__: List[str] = ['_rid', '_name', '_handle', '_description', '_origin_metadata', '_bounds', '_properties', '_labels', '_timestamp_type', '_allow_streaming', '_granularity', '_is_archived', '_dataset_type']
 
-    def __init__(self, allow_streaming: bool, granularity: "api_Granularity", is_archived: bool, labels: List[str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], rid: str, timestamp_type: "scout_catalog_WeakTimestampType", bounds: Optional["scout_catalog_Bounds"] = None, description: Optional[str] = None, handle: Optional["scout_catalog_Handle"] = None) -> None:
+    def __init__(self, allow_streaming: bool, granularity: "api_Granularity", is_archived: bool, labels: List[str], name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], rid: str, timestamp_type: "scout_catalog_WeakTimestampType", bounds: Optional["scout_catalog_Bounds"] = None, dataset_type: Optional["scout_catalog_DatasetBackingType"] = None, description: Optional[str] = None, handle: Optional["scout_catalog_Handle"] = None) -> None:
         self._rid = rid
         self._name = name
         self._handle = handle
@@ -26207,6 +26216,7 @@ class scout_catalog_Dataset(ConjureBeanType):
         self._allow_streaming = allow_streaming
         self._granularity = granularity
         self._is_archived = is_archived
+        self._dataset_type = dataset_type
 
     @builtins.property
     def rid(self) -> str:
@@ -26256,10 +26266,32 @@ class scout_catalog_Dataset(ConjureBeanType):
     def is_archived(self) -> bool:
         return self._is_archived
 
+    @builtins.property
+    def dataset_type(self) -> Optional["scout_catalog_DatasetBackingType"]:
+        return self._dataset_type
+
 
 scout_catalog_Dataset.__name__ = "Dataset"
 scout_catalog_Dataset.__qualname__ = "Dataset"
 scout_catalog_Dataset.__module__ = "nominal_api.scout_catalog"
+
+
+class scout_catalog_DatasetBackingType(ConjureEnumType):
+
+    ICEBERG = 'ICEBERG'
+    '''ICEBERG'''
+    LEGACY = 'LEGACY'
+    '''LEGACY'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_catalog_DatasetBackingType.__name__ = "DatasetBackingType"
+scout_catalog_DatasetBackingType.__qualname__ = "DatasetBackingType"
+scout_catalog_DatasetBackingType.__module__ = "nominal_api.scout_catalog"
 
 
 class scout_catalog_DatasetFile(ConjureBeanType):
@@ -26625,12 +26657,13 @@ class scout_catalog_EnrichedDataset(ConjureBeanType):
             'properties': ConjureFieldDefinition('properties', Dict[api_PropertyName, api_PropertyValue]),
             'granularity': ConjureFieldDefinition('granularity', api_Granularity),
             'allow_streaming': ConjureFieldDefinition('allowStreaming', bool),
-            'is_archived': ConjureFieldDefinition('isArchived', bool)
+            'is_archived': ConjureFieldDefinition('isArchived', bool),
+            'dataset_type': ConjureFieldDefinition('datasetType', OptionalTypeWrapper[scout_catalog_DatasetBackingType])
         }
 
-    __slots__: List[str] = ['_rid', '_uuid', '_name', '_description', '_display_name', '_metadata', '_handle', '_ingest_date', '_ingest_status', '_origin_metadata', '_last_ingest_status', '_retention_policy', '_source', '_bounds', '_timestamp_type', '_labels', '_properties', '_granularity', '_allow_streaming', '_is_archived']
+    __slots__: List[str] = ['_rid', '_uuid', '_name', '_description', '_display_name', '_metadata', '_handle', '_ingest_date', '_ingest_status', '_origin_metadata', '_last_ingest_status', '_retention_policy', '_source', '_bounds', '_timestamp_type', '_labels', '_properties', '_granularity', '_allow_streaming', '_is_archived', '_dataset_type']
 
-    def __init__(self, allow_streaming: bool, display_name: str, granularity: "api_Granularity", ingest_date: str, is_archived: bool, labels: List[str], last_ingest_status: "api_IngestStatusV2", name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], retention_policy: "scout_catalog_RetentionPolicy", rid: str, timestamp_type: "scout_catalog_WeakTimestampType", uuid: str, bounds: Optional["scout_catalog_Bounds"] = None, description: Optional[str] = None, handle: Optional["scout_catalog_Handle"] = None, ingest_status: Optional["scout_catalog_IngestStatus"] = None, metadata: Optional[Dict[str, str]] = None, source: Optional[str] = None) -> None:
+    def __init__(self, allow_streaming: bool, display_name: str, granularity: "api_Granularity", ingest_date: str, is_archived: bool, labels: List[str], last_ingest_status: "api_IngestStatusV2", name: str, origin_metadata: "scout_catalog_DatasetOriginMetadata", properties: Dict[str, str], retention_policy: "scout_catalog_RetentionPolicy", rid: str, timestamp_type: "scout_catalog_WeakTimestampType", uuid: str, bounds: Optional["scout_catalog_Bounds"] = None, dataset_type: Optional["scout_catalog_DatasetBackingType"] = None, description: Optional[str] = None, handle: Optional["scout_catalog_Handle"] = None, ingest_status: Optional["scout_catalog_IngestStatus"] = None, metadata: Optional[Dict[str, str]] = None, source: Optional[str] = None) -> None:
         self._rid = rid
         self._uuid = uuid
         self._name = name
@@ -26651,6 +26684,7 @@ class scout_catalog_EnrichedDataset(ConjureBeanType):
         self._granularity = granularity
         self._allow_streaming = allow_streaming
         self._is_archived = is_archived
+        self._dataset_type = dataset_type
 
     @builtins.property
     def rid(self) -> str:
@@ -26731,6 +26765,10 @@ class scout_catalog_EnrichedDataset(ConjureBeanType):
     @builtins.property
     def is_archived(self) -> bool:
         return self._is_archived
+
+    @builtins.property
+    def dataset_type(self) -> Optional["scout_catalog_DatasetBackingType"]:
+        return self._dataset_type
 
 
 scout_catalog_EnrichedDataset.__name__ = "EnrichedDataset"
@@ -51547,19 +51585,37 @@ class scout_compute_api_FrequencyDecimateWithBuckets(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'buckets': ConjureFieldDefinition('buckets', int)
+            'buckets': ConjureFieldDefinition('buckets', int),
+            'min_frequency': ConjureFieldDefinition('minFrequency', OptionalTypeWrapper[float]),
+            'max_frequency': ConjureFieldDefinition('maxFrequency', OptionalTypeWrapper[float])
         }
 
-    __slots__: List[str] = ['_buckets']
+    __slots__: List[str] = ['_buckets', '_min_frequency', '_max_frequency']
 
-    def __init__(self, buckets: int) -> None:
+    def __init__(self, buckets: int, max_frequency: Optional[float] = None, min_frequency: Optional[float] = None) -> None:
         self._buckets = buckets
+        self._min_frequency = min_frequency
+        self._max_frequency = max_frequency
 
     @builtins.property
     def buckets(self) -> int:
         """Target number of frequency bins/buckets.
         """
         return self._buckets
+
+    @builtins.property
+    def min_frequency(self) -> Optional[float]:
+        """Optional minimum frequency bound (Hz). When set, frequencies below this value are excluded
+before bucketing, increasing resolution within the requested range. This bound is inclusive.
+        """
+        return self._min_frequency
+
+    @builtins.property
+    def max_frequency(self) -> Optional[float]:
+        """Optional maximum frequency bound (Hz). When set, frequencies above this value are excluded
+before bucketing, increasing resolution within the requested range. This bound is exclusive.
+        """
+        return self._max_frequency
 
 
 scout_compute_api_FrequencyDecimateWithBuckets.__name__ = "FrequencyDecimateWithBuckets"
@@ -54695,6 +54751,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _max: Optional["scout_compute_api_MaxSeries"] = None
     _mean: Optional["scout_compute_api_MeanSeries"] = None
     _min: Optional["scout_compute_api_MinSeries"] = None
+    _z_score: Optional["scout_compute_api_ZscoreSeries"] = None
     _offset: Optional["scout_compute_api_OffsetSeries"] = None
     _product: Optional["scout_compute_api_ProductSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
@@ -54738,6 +54795,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'max': ConjureFieldDefinition('max', scout_compute_api_MaxSeries),
             'mean': ConjureFieldDefinition('mean', scout_compute_api_MeanSeries),
             'min': ConjureFieldDefinition('min', scout_compute_api_MinSeries),
+            'z_score': ConjureFieldDefinition('zScore', scout_compute_api_ZscoreSeries),
             'offset': ConjureFieldDefinition('offset', scout_compute_api_OffsetSeries),
             'product': ConjureFieldDefinition('product', scout_compute_api_ProductSeries),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
@@ -54781,6 +54839,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             max: Optional["scout_compute_api_MaxSeries"] = None,
             mean: Optional["scout_compute_api_MeanSeries"] = None,
             min: Optional["scout_compute_api_MinSeries"] = None,
+            z_score: Optional["scout_compute_api_ZscoreSeries"] = None,
             offset: Optional["scout_compute_api_OffsetSeries"] = None,
             product: Optional["scout_compute_api_ProductSeries"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
@@ -54813,7 +54872,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (z_score is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) + (aggregate_under_ranges is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -54846,6 +54905,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if min is not None:
                 self._min = min
                 self._type = 'min'
+            if z_score is not None:
+                self._z_score = z_score
+                self._type = 'zScore'
             if offset is not None:
                 self._offset = offset
                 self._type = 'offset'
@@ -54984,6 +55046,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._min = min
             self._type = 'min'
+        elif type_of_union == 'zScore':
+            if z_score is None:
+                raise ValueError('a union value must not be None')
+            self._z_score = z_score
+            self._type = 'zScore'
         elif type_of_union == 'offset':
             if offset is None:
                 raise ValueError('a union value must not be None')
@@ -55171,6 +55238,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._min
 
     @builtins.property
+    def z_score(self) -> Optional["scout_compute_api_ZscoreSeries"]:
+        return self._z_score
+
+    @builtins.property
     def offset(self) -> Optional["scout_compute_api_OffsetSeries"]:
         return self._offset
 
@@ -55309,6 +55380,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._mean(self.mean)
         if self._type == 'min' and self.min is not None:
             return visitor._min(self.min)
+        if self._type == 'zScore' and self.z_score is not None:
+            return visitor._z_score(self.z_score)
         if self._type == 'offset' and self.offset is not None:
             return visitor._offset(self.offset)
         if self._type == 'product' and self.product is not None:
@@ -55414,6 +55487,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _min(self, min: "scout_compute_api_MinSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _z_score(self, z_score: "scout_compute_api_ZscoreSeries") -> Any:
         pass
 
     @abstractmethod
@@ -61695,6 +61772,53 @@ scout_compute_api_WindowSymmetry.__qualname__ = "WindowSymmetry"
 scout_compute_api_WindowSymmetry.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_ZscoreSeries(ConjureBeanType):
+    """Computes the z-score for each series within a group-by family. For each group at each timestamp, the output is
+(value - mean) / stddev, where mean and stddev are computed across all groups in the family at that timestamp,
+using the interpolation configuration to align values across groups. When stddev is zero at a timestamp (e.g., all groups have the same value), that data point is excluded from the output.
+If groupByTags is empty, all groups in the input series will be considered as a single family. This node only
+produces meaningful results when the input has a group by.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', List[scout_compute_api_StringConstant]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', OptionalTypeWrapper[scout_compute_api_InterpolationConfiguration])
+        }
+
+    __slots__: List[str] = ['_input', '_group_by_tags', '_interpolation_configuration']
+
+    def __init__(self, group_by_tags: List["scout_compute_api_StringConstant"], input: "scout_compute_api_NumericSeries", interpolation_configuration: Optional["scout_compute_api_InterpolationConfiguration"] = None) -> None:
+        self._input = input
+        self._group_by_tags = group_by_tags
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def group_by_tags(self) -> List["scout_compute_api_StringConstant"]:
+        """Tags to group by for the normalization. If left empty, all groups in the input will be considered as a
+single family. Otherwise, inputs will be normalized separately across the groups specified by the tags.
+        """
+        return self._group_by_tags
+
+    @builtins.property
+    def interpolation_configuration(self) -> Optional["scout_compute_api_InterpolationConfiguration"]:
+        """Configuration for aligning values across groups at each timestamp. Defaults to forward fill interpolation
+with a 1s interpolation radius.
+        """
+        return self._interpolation_configuration
+
+
+scout_compute_api_ZscoreSeries.__name__ = "ZscoreSeries"
+scout_compute_api_ZscoreSeries.__qualname__ = "ZscoreSeries"
+scout_compute_api_ZscoreSeries.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_deprecated_ArithmeticSeriesNode(ConjureBeanType):
 
     @builtins.classmethod
@@ -67239,6 +67363,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _enum_to_numeric: Optional["scout_compute_resolved_api_EnumToNumericSeriesNode"] = None
     _refprop: Optional["scout_compute_resolved_api_RefpropSeriesNode"] = None
     _extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None
+    _z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -67278,7 +67403,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'filter_by_expression': ConjureFieldDefinition('filterByExpression', scout_compute_resolved_api_FilterByExpressionSeriesNode),
             'enum_to_numeric': ConjureFieldDefinition('enumToNumeric', scout_compute_resolved_api_EnumToNumericSeriesNode),
             'refprop': ConjureFieldDefinition('refprop', scout_compute_resolved_api_RefpropSeriesNode),
-            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractNumericFromStructSeriesNode)
+            'extract_from_struct': ConjureFieldDefinition('extractFromStruct', scout_compute_resolved_api_ExtractNumericFromStructSeriesNode),
+            'z_score': ConjureFieldDefinition('zScore', scout_compute_resolved_api_ZscoreSeriesNode)
         }
 
     def __init__(
@@ -67319,10 +67445,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             enum_to_numeric: Optional["scout_compute_resolved_api_EnumToNumericSeriesNode"] = None,
             refprop: Optional["scout_compute_resolved_api_RefpropSeriesNode"] = None,
             extract_from_struct: Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"] = None,
+            z_score: Optional["scout_compute_resolved_api_ZscoreSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) != 1:
+            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) + (ranges_numeric_aggregation_to_numeric is not None) + (filter_by_expression is not None) + (enum_to_numeric is not None) + (refprop is not None) + (extract_from_struct is not None) + (z_score is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if arithmetic is not None:
@@ -67433,6 +67560,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if extract_from_struct is not None:
                 self._extract_from_struct = extract_from_struct
                 self._type = 'extractFromStruct'
+            if z_score is not None:
+                self._z_score = z_score
+                self._type = 'zScore'
 
         elif type_of_union == 'arithmetic':
             if arithmetic is None:
@@ -67614,6 +67744,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._extract_from_struct = extract_from_struct
             self._type = 'extractFromStruct'
+        elif type_of_union == 'zScore':
+            if z_score is None:
+                raise ValueError('a union value must not be None')
+            self._z_score = z_score
+            self._type = 'zScore'
 
     @builtins.property
     def arithmetic(self) -> Optional["scout_compute_resolved_api_ArithmeticSeriesNode"]:
@@ -67759,6 +67894,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def extract_from_struct(self) -> Optional["scout_compute_resolved_api_ExtractNumericFromStructSeriesNode"]:
         return self._extract_from_struct
 
+    @builtins.property
+    def z_score(self) -> Optional["scout_compute_resolved_api_ZscoreSeriesNode"]:
+        return self._z_score
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -67834,6 +67973,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._refprop(self.refprop)
         if self._type == 'extractFromStruct' and self.extract_from_struct is not None:
             return visitor._extract_from_struct(self.extract_from_struct)
+        if self._type == 'zScore' and self.z_score is not None:
+            return visitor._z_score(self.z_score)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -67985,6 +68126,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _extract_from_struct(self, extract_from_struct: "scout_compute_resolved_api_ExtractNumericFromStructSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _z_score(self, z_score: "scout_compute_resolved_api_ZscoreSeriesNode") -> Any:
         pass
 
 
@@ -71224,6 +71369,41 @@ class scout_compute_resolved_api_Window(ConjureBeanType):
 scout_compute_resolved_api_Window.__name__ = "Window"
 scout_compute_resolved_api_Window.__qualname__ = "Window"
 scout_compute_resolved_api_Window.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_ZscoreSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', OptionalTypeWrapper[List[api_TagName]]),
+            'interpolation_configuration': ConjureFieldDefinition('interpolationConfiguration', scout_compute_resolved_api_InterpolationConfiguration)
+        }
+
+    __slots__: List[str] = ['_input', '_group_by_tags', '_interpolation_configuration']
+
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", interpolation_configuration: "scout_compute_resolved_api_InterpolationConfiguration", group_by_tags: Optional[List[str]] = None) -> None:
+        self._input = input
+        self._group_by_tags = group_by_tags
+        self._interpolation_configuration = interpolation_configuration
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._input
+
+    @builtins.property
+    def group_by_tags(self) -> Optional[List[str]]:
+        return self._group_by_tags
+
+    @builtins.property
+    def interpolation_configuration(self) -> "scout_compute_resolved_api_InterpolationConfiguration":
+        return self._interpolation_configuration
+
+
+scout_compute_resolved_api_ZscoreSeriesNode.__name__ = "ZscoreSeriesNode"
+scout_compute_resolved_api_ZscoreSeriesNode.__qualname__ = "ZscoreSeriesNode"
+scout_compute_resolved_api_ZscoreSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_dataexport_api_AllTimestampsForwardFillStrategy(ConjureBeanType):

@@ -33,7 +33,14 @@ _gcp_extra_requires = [
     "google-cloud-certificate-manager",
 ]
 
-_all_extra_requires = _gcp_extra_requires + ["ray>=2.0.0"]
+_azure_extra_requires = [
+    "azure-identity",
+    "azure-mgmt-resource>=25.0.0",
+    "azure-mgmt-resource-deployments",
+    "azure-storage-blob",
+]
+
+_all_extra_requires = _gcp_extra_requires + _azure_extra_requires + ["ray>=2.0.0"]
 
 # If adding new webterminal deps,
 # Update backend/server/services/application_templates_service.py
@@ -45,6 +52,7 @@ _backend_extra_requires = _gcp_extra_requires + [
 
 extras_require = {
     "gcp": _gcp_extra_requires,
+    "azure": _azure_extra_requires,
     "all": _all_extra_requires,
     "backend": _backend_extra_requires,
 }

@@ -125,6 +125,7 @@ _SIZE_WITH_UNIT_PATTERN = re.compile(
 )
 
 _TEMP_MICROSOFT_DOMAIN_OPS = {
+    'FusedMatMul',
     'QGemm',
     'QLinearAdd',
     'QLinearAveragePool',
@@ -143,7 +144,7 @@ def _supplement_microsoft_domain_for_selected_ops(
     target_ops: Optional[set] = None,
 ) -> Dict[str, int]:
     """
-    Supplement node domains for selected quantized ops that are often exported
+    Supplement node domains for selected contrib ops that are often exported
     as default-domain custom ops, but are registered in ORT contrib under
     `com.microsoft`.
 
@@ -3348,6 +3349,7 @@ def convert(
                                 keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
                                 keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
                                 keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
+                                output_nms_with_argmax=output_nms_with_argmax,
                                 tflite_split_max_bytes=tflite_split_max_bytes,
                                 tflite_split_target_bytes=tflite_split_target_bytes,
                             )
@@ -3722,6 +3724,7 @@ def convert(
                             keep_ncw_or_nchw_or_ncdhw_input_names=keep_ncw_or_nchw_or_ncdhw_input_names,
                             keep_nwc_or_nhwc_or_ndhwc_input_names=keep_nwc_or_nhwc_or_ndhwc_input_names,
                             keep_shape_absolutely_input_names=keep_shape_absolutely_input_names,
+                            output_nms_with_argmax=output_nms_with_argmax,
                             tflite_split_max_bytes=tflite_split_max_bytes,
                             tflite_split_target_bytes=tflite_split_target_bytes,
                         )

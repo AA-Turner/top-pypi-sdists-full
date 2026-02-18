@@ -1,14 +1,14 @@
-#include <pybind11/eigen.h>
-#include <pybind11/functional.h>
-#include <pybind11/numpy.h>
-#include <pybind11/pybind11.h>
-#include <pybind11/stl.h>
+#include <nanobind/nanobind.h>
+#include <nanobind/ndarray.h>
+#include <nanobind/stl/string.h>
+#include <nanobind/eigen/dense.h>
 
 #include "Eigen/Dense"
 
 #include "polyscope/affine_remapper.h"
 #include "polyscope/camera_parameters.h"
 #include "polyscope/curve_network.h"
+#include "polyscope/imgui_config.h"
 #include "polyscope/messages.h"
 #include "polyscope/pick.h"
 #include "polyscope/point_cloud.h"
@@ -20,46 +20,42 @@
 
 #include "utils.h"
 
-namespace py = pybind11;
+namespace nb = nanobind;
+using namespace nb::literals;
 namespace ps = polyscope;
 
-// For overloaded functions, with C++11 compiler only
-template <typename... Args>
-using overload_cast_ = pybind11::detail::overload_cast_impl<Args...>;
-
-
 // Forward-declare bindings from other files
-void bind_surface_mesh(py::module& m);
-void bind_point_cloud(py::module& m);
-void bind_curve_network(py::module& m);
-void bind_volume_mesh(py::module& m);
-void bind_volume_grid(py::module& m);
-void bind_camera_view(py::module& m);
-void bind_floating_quantities(py::module& m);
-void bind_implicit_helpers(py::module& m);
-void bind_managed_buffer(py::module& m);
-void bind_imgui(py::module& m);
-void bind_implot(py::module& m);
+void bind_surface_mesh(nb::module_& m);
+void bind_point_cloud(nb::module_& m);
+void bind_curve_network(nb::module_& m);
+void bind_volume_mesh(nb::module_& m);
+void bind_volume_grid(nb::module_& m);
+void bind_sparse_volume_grid(nb::module_& m);
+void bind_camera_view(nb::module_& m);
+void bind_floating_quantities(nb::module_& m);
+void bind_implicit_helpers(nb::module_& m);
+void bind_managed_buffer(nb::module_& m);
+void bind_imgui(nb::module_& m);
+void bind_implot(nb::module_& m);
 
 // Signal handler (makes ctrl-c work, etc)
 void checkSignals() {
-  if (PyErr_CheckSignals() != 0) throw py::error_already_set();
+  if (PyErr_CheckSignals() != 0) throw nb::python_error();
 }
 void defaultCallback() { checkSignals(); }
 
 // Actual binding code
 // clang-format off
-PYBIND11_MODULE(polyscope_bindings, m) {
+NB_MODULE(polyscope_bindings, m) {
   m.doc() = "Polyscope low-level bindings";
-  
 
   // Register a cleanup function which will run when the module is exiting.
   // Suggested at: https://pybind11.readthedocs.io/en/stable/advanced/misc.html#module-destructors
   // We use it to ensure any Python data held on the C++ side gets properly deleted and cleaned up. This
   // is particularly difficult to do any other way, because Polyscope extensively uses static variables 
   // to hold this state, so we can't just fall back on some other object's lifetime.
-  auto atexit = py::module_::import("atexit");
-  atexit.attr("register")(py::cpp_function([]() {
+  auto atexit = nb::module_::import_("atexit");
+  atexit.attr("register")(nb::cpp_function([]() {
         ps::state::userCallback = nullptr;
         if (ps::render::engine != nullptr) {
           ps::shutdown(true);
@@ -67,7 +63,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   }));
   
   // === Basic flow 
-  m.def("init", &ps::init, py::arg("backend")="auto", "Initialize Polyscope");
+  m.def("init", &ps::init, nb::arg("backend")="auto", "Initialize Polyscope");
   m.def("check_initialized", &ps::checkInitialized);
   m.def("is_initialized", &ps::isInitialized);
   m.def("show", [](size_t forFrames) {
@@ -85,7 +81,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
           ps::show(forFrames);
         }
       },
-      py::arg("forFrames")=std::numeric_limits<size_t>::max()
+      nb::arg("forFrames")=std::numeric_limits<size_t>::max()
   );
   m.def("unshow", &ps::unshow);
   m.def("window_requests_close", &ps::windowRequestsClose);
@@ -97,21 +93,21 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("is_headless", &ps::isHeadless);
   m.def("set_allow_headless_backends", [](bool x) { ps::options::allowHeadlessBackends = x; });
 
-  // === Structure management
-  m.def("remove_all_structures", &ps::removeAllStructures, "Remove all structures from polyscope");
-  
   // === Screenshots
-  py::class_<ps::ScreenshotOptions>(m, "ScreenshotOptions")
-   .def(py::init<>())
-   .def_readwrite("include_UI", &ps::ScreenshotOptions::includeUI)
-   .def_readwrite("transparent_background", &ps::ScreenshotOptions::transparentBackground)
+  nb::class_<ps::ScreenshotOptions>(m, "ScreenshotOptions")
+   .def(nb::init<>())
+   .def_rw("include_UI", &ps::ScreenshotOptions::includeUI)
+   .def_rw("transparent_background", &ps::ScreenshotOptions::transparentBackground)
   ;
-  m.def("screenshot", overload_cast_<const ps::ScreenshotOptions&>()(&ps::screenshot), "Take a screenshot");
+  m.def("screenshot", nb::overload_cast<const ps::ScreenshotOptions&>(&ps::screenshot), "Take a screenshot");
   m.def("screenshot_to_buffer", [](const ps::ScreenshotOptions& opts) { 
       std::vector<unsigned char> buff = ps::screenshotToBuffer(opts);
-      return py::array(buff.size(), buff.data());
+      // copy to an eigen array
+      Eigen::Vector<unsigned char, Eigen::Dynamic> vec = 
+        Eigen::Map<Eigen::Vector<unsigned char, Eigen::Dynamic>>(buff.data(), buff.size());
+      return vec;
     }, "Take a screenshot to buffer");
-  m.def("named_screenshot", overload_cast_<std::string, const ps::ScreenshotOptions&>()(&ps::screenshot), "Take a screenshot");
+  m.def("named_screenshot", nb::overload_cast<std::string, const ps::ScreenshotOptions&>(&ps::screenshot), "Take a screenshot");
   m.def("set_screenshot_extension", [](std::string x) { ps::options::screenshotExtension = x; });
 
   // === Small options
@@ -136,6 +132,8 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("set_build_gui", [](bool x) { ps::options::buildGui = x; });
   m.def("set_user_gui_is_on_right_side", [](bool x) { ps::options::userGuiIsOnRightSide = x; });
   m.def("set_build_default_gui_panels", [](bool x) { ps::options::buildDefaultGuiPanels = x; });
+  m.def("set_right_gui_pane_width", [](int x) { ps::options::rightGuiPaneWidth = x; });
+  m.def("get_right_gui_pane_width", []() { return ps::options::rightGuiPaneWidth; });
   m.def("set_render_scene", [](bool x) { ps::options::renderScene = x; });
   m.def("set_open_imgui_window_for_user_callback", [](bool x) { ps::options::openImGuiWindowForUserCallback= x; });
   m.def("set_invoke_user_callback_for_nested_show", [](bool x) { ps::options::invokeUserCallbackForNestedShow = x; });
@@ -143,6 +141,12 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("set_hide_window_after_show", [](bool x) { ps::options::hideWindowAfterShow = x; });
   m.def("set_warn_for_invalid_values", [](bool x) { ps::options::warnForInvalidValues = x; });
   m.def("set_display_message_popups", [](bool x) { ps::options::displayMessagePopups = x; });
+  m.def("set_configure_imgui_style_callback", [](std::function<void()> x) { ps::options::configureImGuiStyleCallback = x; });
+  m.def("clear_configure_imgui_style_callback", []() {ps::options::configureImGuiStyleCallback = polyscope::configureImGuiStyle;});
+  m.def("set_files_dropped_callback", [](std::function<void(const std::vector<std::string>&)> x) { ps::state::filesDroppedCallback = x; });
+  m.def("clear_files_dropped_callback", []() {ps::state::filesDroppedCallback = nullptr;});
+  m.def("set_prepare_imgui_fonts_callback", [](std::function<std::tuple<ImFont*, ImFont*>(ImFontAtlas*)> x) { ps::options::prepareImGuiFontsCallback = x; });
+  m.def("clear_prepare_imgui_fonts_callback", []() {ps::options::prepareImGuiFontsCallback = polyscope::loadBaseFonts;});
 
 
   // === Scene extents
@@ -174,7 +178,9 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("set_view_camera_parameters", &ps::view::setViewToCamera);
   m.def("set_camera_view_matrix", [](Eigen::Matrix4f mat) { ps::view::setCameraViewMatrix(eigen2glm(mat)); });
   m.def("get_camera_view_matrix", []() { return glm2eigen(ps::view::getCameraViewMatrix()); });
-  m.def("set_view_center", [](glm::vec3 pos, bool flyTo) { ps::view::setViewCenter(pos, flyTo); });
+  m.def("set_view_center_and_look_at", [](glm::vec3 pos, bool flyTo) { ps::view::setViewCenterAndLookAt(pos, flyTo); });
+  m.def("set_view_center_and_project", [](glm::vec3 pos) { ps::view::setViewCenterAndProject(pos); });
+  m.def("set_view_center_raw", [](glm::vec3 pos) { ps::view::setViewCenterRaw(pos); });
   m.def("get_view_center", &ps::view::getViewCenter);
   m.def("set_window_size", &ps::view::setWindowSize);
   m.def("get_window_size", &ps::view::getWindowSize);
@@ -198,7 +204,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("build_user_gui_and_invoke_callback", &ps::buildUserGuiAndInvokeCallback);
   
   // === Messages
-  m.def("info", overload_cast_<int, std::string>()(&ps::info), "Send an info message");
+  m.def("info", nb::overload_cast<int, std::string>(&ps::info), "Send an info message");
   m.def("warning", &ps::warning, "Send a warning message");
   m.def("error", &ps::error, "Send an error message");
   m.def("terminating_error", &ps::terminatingError, "Send a terminating error message");
@@ -207,7 +213,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("set_user_callback", [](const std::function<void(void)>& func) { 
       // Create a wrapper which checks signals before calling the passed fuction
       // Captures by value, because otherwise func seems to become invalid. This is probably happening
-      // on the Python side, and could be fixed with some Pybind11 keep_alive-s or something, but in
+      // on the Python side, and could be fixed with some nanobind keep_alive-s or something, but in
       // lieu of figuring that out capture by value seems fine.
       // See also the atexit() cleanup registered above, which is used to ensure any bound functions get deleted and we can exit cleanly.
       auto wrapperFunc = [=]()  { 
@@ -220,19 +226,19 @@ PYBIND11_MODULE(polyscope_bindings, m) {
 
   // === Pick
 
-  py::class_<ps::PickResult>(m, "PickResult")
-   .def(py::init<>())
-   .def_readonly("is_hit", &ps::PickResult::isHit)
-  //  .def_readonly("structure", &ps::PickResult::structure)
-   .def_readonly("structure_handle", &ps::PickResult::structureHandle)
-   .def_readonly("structure_type", &ps::PickResult::structureType)
-   .def_readonly("structure_name", &ps::PickResult::structureName)
-   .def_readonly("quantity_name", &ps::PickResult::quantityName)
-   .def_readonly("screen_coords", &ps::PickResult::screenCoords)
-   .def_readonly("buffer_inds", &ps::PickResult::bufferInds)
-   .def_readonly("position", &ps::PickResult::position)
-   .def_readonly("depth", &ps::PickResult::depth)
-   .def_readonly("local_index", &ps::PickResult::localIndex)
+  nb::class_<ps::PickResult>(m, "PickResult")
+   .def(nb::init<>())
+   .def_ro("is_hit", &ps::PickResult::isHit)
+  //  .def_ro("structure", &ps::PickResult::structure)
+   .def_ro("structure_handle", &ps::PickResult::structureHandle)
+   .def_ro("structure_type", &ps::PickResult::structureType)
+   .def_ro("structure_name", &ps::PickResult::structureName)
+   .def_ro("quantity_name", &ps::PickResult::quantityName)
+   .def_ro("screen_coords", &ps::PickResult::screenCoords)
+   .def_ro("buffer_inds", &ps::PickResult::bufferInds)
+   .def_ro("position", &ps::PickResult::position)
+   .def_ro("depth", &ps::PickResult::depth)
+   .def_ro("local_index", &ps::PickResult::localIndex)
   ;
 
   // stateful selection
@@ -259,9 +265,12 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   
   // === Materials
   m.def("load_static_material", ps::loadStaticMaterial, "Load a static material");
-  m.def("load_blendable_material_explicit", overload_cast_<std::string, std::array<std::string,4>>()(&ps::loadBlendableMaterial), 
+  m.def("load_blendable_material_explicit", 
+          [](std::string mat_name, std::tuple<std::string,std::string,std::string,std::string> filenames) {
+            ps::loadBlendableMaterial(mat_name, {std::get<0>(filenames), std::get<1>(filenames), std::get<2>(filenames), std::get<3>(filenames)});
+          },
         "Load a blendable material from explicit names");
-  m.def("load_blendable_material_baseext", overload_cast_<std::string, std::string, std::string>()(&ps::loadBlendableMaterial), 
+  m.def("load_blendable_material_baseext", nb::overload_cast<std::string, std::string, std::string>(&ps::loadBlendableMaterial), 
         "Load a blendable material from base and ext names");
   
   // === Colormaps
@@ -273,21 +282,60 @@ PYBIND11_MODULE(polyscope_bindings, m) {
 
   // === Structure
 
-  // (this is the generic structure class, subtypes get bound in their respective files)
-  py::class_<ps::Structure>(m, "Structure")
-   .def_readonly("name", &ps::Structure::name) 
-  ;
+  // Structure management
+  m.def("remove_all_structures", &ps::removeAllStructures, "Remove all structures from polyscope");
+ 
+  // Main structure class
+  { // (this is the generic structure class, subtypes get bound in their respective files)
+    nb::class_<ps::Structure> s = nb::class_<ps::Structure>(m, "Structure");
+    s.def_ro("name", &ps::Structure::name);
+
+    // Basics
+    s.def("remove", &ps::Structure::remove, "Remove the structure");
+    s.def("get_name", [](ps::Structure& s) { return s.name; }, "Ge the name");
+    s.def("get_unique_prefix", &ps::Structure::uniquePrefix, "Get unique prefix");
+    s.def("set_enabled", &ps::Structure::setEnabled, "Enable the structure");
+    s.def("enable_isolate", &ps::Structure::enableIsolate, "Enable the structure, disable all of same type");
+    s.def("is_enabled", &ps::Structure::isEnabled, "Check if the structure is enabled");
+    s.def("set_transparency", &ps::Structure::setTransparency, "Set transparency alpha");
+    s.def("get_transparency", &ps::Structure::getTransparency, "Get transparency alpha");
+
+    // group things
+    s.def("add_to_group", nb::overload_cast<std::string>(&ps::Structure::addToGroup), "Add to group");
+
+    // slice plane things
+    s.def("set_ignore_slice_plane", &ps::Structure::setIgnoreSlicePlane, "Set ignore slice plane");
+    s.def("get_ignore_slice_plane", &ps::Structure::getIgnoreSlicePlane, "Get ignore slice plane");
+    s.def("set_cull_whole_elements", &ps::Structure::setCullWholeElements, "Set cull whole elements");
+    s.def("get_cull_whole_elements", &ps::Structure::getCullWholeElements, "Get cull whole elememts");
+
+    // transform management
+    // clang-format off
+    s.def("center_bounding_box", &ps::Structure::centerBoundingBox, "center bounding box");
+    s.def("rescale_to_unit", &ps::Structure::rescaleToUnit, "set the transform so the object has length scale 1");
+    s.def("reset_transform", &ps::Structure::resetTransform, "reset the transform to the identity");
+    s.def("set_transform", [](ps::Structure& s, Eigen::Matrix4f T) { s.setTransform(eigen2glm(T)); }, "set the transform to the given 4x4 homogenous transform matrix");
+    s.def("set_position", [](ps::Structure& s, Eigen::Vector3f T) { s.setPosition(eigen2glm(T)); }, "set the translation component of the transform to the given position");
+    s.def("translate", [](ps::Structure& s, Eigen::Vector3f T) { s.translate(eigen2glm(T)); }, "apply the given translation to the shape, updating its position");
+    s.def("get_transform", [](ps::Structure& s) { return glm2eigen(s.getTransform()); }, "get the current 4x4 transform matrix");
+    s.def("get_position", [](ps::Structure& s) { return glm2eigen(s.getPosition()); }, "get the position of the shape origin after transform");
+    s.def("set_transform_gizmo_enabled", &ps::Structure::setTransformGizmoEnabled);
+    s.def("get_transform_gizmo_enabled", &ps::Structure::getTransformGizmoEnabled);
+    s.def("get_transformation_gizmo", &ps::Structure::getTransformGizmo, nb::rv_policy::reference, "Get the TransformationGizmo associated with this structure");
+    ;
+      
+  }
   
   // === Groups
  
-  py::class_<ps::Group>(m, "Group")
-   .def(py::init<std::string>())
-   .def_readonly("name", &ps::Group::name) 
+  nb::class_<ps::Group>(m, "Group")
+   .def(nb::init<std::string>())
+   .def_ro("name", &ps::Group::name) 
    .def("add_child_group", &ps::Group::addChildGroup)
    .def("add_child_structure", &ps::Group::addChildStructure)
    .def("remove_child_group", &ps::Group::removeChildGroup)
    .def("remove_child_structure", &ps::Group::removeChildStructure)
-   .def("set_enabled", &ps::Group::setEnabled, py::return_value_policy::reference)
+   .def("set_enabled", &ps::Group::setEnabled, nb::rv_policy::reference)
    .def("set_show_child_details", &ps::Group::setShowChildDetails)
    .def("set_hide_descendants_from_structure_lists", &ps::Group::setHideDescendantsFromStructureLists)
    .def("get_child_structure_names", [](ps::Group& g) { 
@@ -311,9 +359,9 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   ;
 
   // create/get/delete
-  m.def("create_group", &ps::createGroup, py::return_value_policy::reference);
-  m.def("get_group", &ps::getGroup, py::return_value_policy::reference);
-  m.def("remove_group", overload_cast_<std::string, bool>()(&ps::removeGroup));
+  m.def("create_group", &ps::createGroup, nb::rv_policy::reference);
+  m.def("get_group", &ps::getGroup, nb::rv_policy::reference);
+  m.def("remove_group", nb::overload_cast<std::string, bool>(&ps::removeGroup));
   m.def("remove_all_groups", &ps::removeAllGroups);
 
 
@@ -322,36 +370,89 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   m.def("get_final_scene_color_texture_native_handle", []() { ps::render::engine->getFinalSceneColorTexture().getNativeBufferID(); });
 
   // === Slice planes
-  py::class_<ps::SlicePlane>(m, "SlicePlane")
-   .def(py::init<std::string>())
-   .def_readonly("name", &ps::SlicePlane::name) 
-   .def("set_pose", &ps::SlicePlane::setPose, "set pose")
-   .def("set_active", &ps::SlicePlane::setActive, "set active")
+  nb::class_<ps::SlicePlane>(m, "SlicePlane")
+   .def(nb::init<std::string>())
+   .def_ro("name", &ps::SlicePlane::name) 
+   .def("remove", &ps::SlicePlane::remove, "remove")
+   .def("set_enabled", &ps::SlicePlane::setEnabled, "set enabled")
+   .def("get_enabled", &ps::SlicePlane::getEnabled, "get enabled")
+   .def("set_active", &ps::SlicePlane::setActive, "set active") // should have been called 'enabled'
    .def("get_active", &ps::SlicePlane::getActive, "get active")
+   .def("set_pose", &ps::SlicePlane::setPose, "set pose")
+   .def("get_center", [](ps::SlicePlane& s) { return glm2eigen(s.getCenter()); })
+   .def("get_normal", [](ps::SlicePlane& s) { return glm2eigen(s.getNormal()); })
+   .def("set_color", &ps::SlicePlane::setColor, "set color")
+   .def("get_color", [](ps::SlicePlane& s) { return glm2eigen(s.getColor()); })
+   .def("set_grid_line_color", &ps::SlicePlane::setGridLineColor, "set grid line color")
+   .def("get_grid_line_color", [](ps::SlicePlane& s) { return glm2eigen(s.getGridLineColor()); })
+   .def("set_transparency", &ps::SlicePlane::setTransparency, "set transparency")
+   .def("get_transparency", &ps::SlicePlane::getTransparency, "get transparency")
    .def("set_draw_plane", &ps::SlicePlane::setDrawPlane, "set draw plane")
    .def("get_draw_plane", &ps::SlicePlane::getDrawPlane, "get draw plane")
    .def("set_draw_widget", &ps::SlicePlane::setDrawWidget, "set draw widget")
    .def("get_draw_widget", &ps::SlicePlane::getDrawWidget, "get draw widget")
    .def("set_volume_mesh_to_inspect", &ps::SlicePlane::setVolumeMeshToInspect, "set name of inspected volume mesh")
    .def("get_volume_mesh_to_inspect", &ps::SlicePlane::getVolumeMeshToInspect, "get name of inspected volume mesh");
+  
+  
+  m.def("add_slice_plane", nb::overload_cast<>(&ps::addSlicePlane), "add a slice plane", nb::rv_policy::reference);
+  m.def("add_slice_plane", nb::overload_cast<std::string>(&ps::addSlicePlane), "add a slice plane", nb::rv_policy::reference);
+  m.def("get_slice_plane", &ps::getSlicePlane, "get a slice plane by name", nb::rv_policy::reference);
+  m.def("remove_slice_plane", nb::overload_cast<std::string>(&ps::removeSlicePlane), "remove a slice plane by name");
+  m.def("remove_all_slice_planes", &ps::removeAllSlicePlanes, "remove all slice planes");
 
-  m.def("add_scene_slice_plane", ps::addSceneSlicePlane, "add a slice plane", py::return_value_policy::reference);
+
+  // deprecated, but still supprorted for now
+  m.def("add_scene_slice_plane", ps::addSceneSlicePlane, "add a slice plane", nb::rv_policy::reference); 
   m.def("remove_last_scene_slice_plane", ps::removeLastSceneSlicePlane, "remove last scene plane");
   
+  // === Transformation Gizmos
+
+  nb::class_<ps::TransformationGizmo>(m, "TransformationGizmo")
+   .def(nb::init<std::string>())
+   .def_ro("name", &ps::TransformationGizmo::name) 
+   .def("remove", &ps::TransformationGizmo::remove, "remove")
+   .def("set_enabled", &ps::TransformationGizmo::setEnabled, "set enabled")
+   .def("get_enabled", &ps::TransformationGizmo::getEnabled, "get enabled")
+   .def("set_transform", [] (ps::TransformationGizmo& g, const Eigen::Matrix4d& T) { g.setTransform(eigen2glm(T)); }, "set transform")
+   .def("get_transform", [](ps::TransformationGizmo& g) { return glm2eigen(g.getTransform()); }, "get transform")
+   .def("set_position", &ps::TransformationGizmo::setPosition, "set position")
+   .def("get_position", [](ps::TransformationGizmo& g) { return glm2eigen(g.getPosition()); }, "get position")
+   .def("set_allow_translation", &ps::TransformationGizmo::setAllowTranslation, "set allow translation")
+   .def("get_allow_translation", &ps::TransformationGizmo::getAllowTranslation, "get allow translation")
+   .def("set_allow_rotation", &ps::TransformationGizmo::setAllowRotation, "set allow rotation")
+   .def("get_allow_rotation", &ps::TransformationGizmo::getAllowRotation, "get allow rotation")
+   .def("set_allow_scaling", &ps::TransformationGizmo::setAllowScaling, "set allow scaling")
+   .def("get_allow_scaling", &ps::TransformationGizmo::getAllowScaling, "get allow scaling")
+   .def("set_allow_nonuniform_scaling", &ps::TransformationGizmo::setAllowNonUniformScaling, "set allow non-uniform scaling")
+   .def("get_allow_nonuniform_scaling", &ps::TransformationGizmo::getAllowNonUniformScaling, "get allow non-uniform scaling")
+   .def("get_interact_in_local_space", &ps::TransformationGizmo::getInteractInLocalSpace, "get interact in local space")
+   .def("set_interact_in_local_space", &ps::TransformationGizmo::setInteractInLocalSpace, "set interact in local space")
+   .def("get_gizmo_size", &ps::TransformationGizmo::getGizmoSize, "get gizmo size")
+   .def("set_gizmo_size", &ps::TransformationGizmo::setGizmoSize, "set gizmo size")
+   .def("build_inline_transform_ui", &ps::TransformationGizmo::buildInlineTransformUI, "build inline transform UI")
+  ;
+  
+  m.def("add_transformation_gizmo", [](std::string name) {return ps::addTransformationGizmo(name); }, "add a transformation gizmo", nb::rv_policy::reference);
+  m.def("get_transformation_gizmo", &ps::getTransformationGizmo, "get a transformation gizmo", nb::rv_policy::reference);
+  m.def("remove_transformation_gizmo", nb::overload_cast<std::string>(&ps::removeTransformationGizmo), "remove a transformation gizmo by name");
+  m.def("remove_transformation_gizmo", nb::overload_cast<ps::TransformationGizmo*>(&ps::removeTransformationGizmo), "remove a transformation gizmo by ptr");
+  m.def("remove_all_transformation_gizmos", &ps::removeAllTransformationGizmos, "remove all transformation gizmos");
+  
   // === Camera Parameters
-  py::class_<ps::CameraIntrinsics>(m, "CameraIntrinsics")
-   .def(py::init<>())
+  nb::class_<ps::CameraIntrinsics>(m, "CameraIntrinsics")
+   .def(nb::init<>())
    .def_static("from_FoV_deg_vertical_and_aspect", &ps::CameraIntrinsics::fromFoVDegVerticalAndAspect)
    .def_static("from_FoV_deg_horizontal_and_aspect", &ps::CameraIntrinsics::fromFoVDegHorizontalAndAspect)
    .def_static("from_FoV_deg_horizontal_and_vertical", &ps::CameraIntrinsics::fromFoVDegHorizontalAndVertical)
   ;
-  py::class_<ps::CameraExtrinsics>(m, "CameraExtrinsics")
-   .def(py::init<>())
+  nb::class_<ps::CameraExtrinsics>(m, "CameraExtrinsics")
+   .def(nb::init<>())
    .def_static("from_vectors", &ps::CameraExtrinsics::fromVectors<Eigen::Vector3f,Eigen::Vector3f,Eigen::Vector3f>)
    .def_static("from_matrix", [](Eigen::Matrix4f mat) { return ps::CameraExtrinsics::fromMatrix(eigen2glm(mat)); })
   ;
-  py::class_<ps::CameraParameters>(m, "CameraParameters")
-   .def(py::init<ps::CameraIntrinsics, ps::CameraExtrinsics>())
+  nb::class_<ps::CameraParameters>(m, "CameraParameters")
+   .def(nb::init<ps::CameraIntrinsics, ps::CameraExtrinsics>())
    .def("get_intrinsics", [](ps::CameraParameters& c) { return c.intrinsics; })
    .def("get_extrinsics", [](ps::CameraParameters& c) { return c.extrinsics; })
    .def("get_T", [](ps::CameraParameters& c) { return glm2eigen(c.getT()); })
@@ -391,15 +492,14 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   
   // === Weak Handles
   // (used for lifetime tracking tricks)
-  py::class_<ps::GenericWeakHandle>(m, "GenericWeakHandle")
-   .def(py::init<>())
+  nb::class_<ps::GenericWeakHandle>(m, "GenericWeakHandle")
+   .def(nb::init<>())
    .def("is_valid", &ps::GenericWeakHandle::isValid)
    .def("get_unique_ID", &ps::GenericWeakHandle::getUniqueID)
   ;
 
   // === Enums
-  
-  py::enum_<ps::view::NavigateStyle>(m, "NavigateStyle")
+  nb::enum_<ps::view::NavigateStyle>(m, "NavigateStyle")
     .value("turntable", ps::view::NavigateStyle::Turntable)
     .value("free", ps::view::NavigateStyle::Free)
     .value("planar", ps::view::NavigateStyle::Planar)
@@ -408,12 +508,12 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("first_person", ps::view::NavigateStyle::FirstPerson)
     ; 
   
-  py::enum_<ps::ProjectionMode>(m, "ProjectionMode")
+  nb::enum_<ps::ProjectionMode>(m, "ProjectionMode")
     .value("perspective", ps::ProjectionMode::Perspective)
     .value("orthographic", ps::ProjectionMode::Orthographic)
     ; 
   
-  py::enum_<ps::UpDir>(m, "UpDir")
+  nb::enum_<ps::UpDir>(m, "UpDir")
     .value("x_up", ps::UpDir::XUp)
     .value("y_up", ps::UpDir::YUp)
     .value("z_up", ps::UpDir::ZUp)
@@ -422,7 +522,7 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("neg_z_up", ps::UpDir::NegZUp)
     ; 
   
-  py::enum_<ps::FrontDir>(m, "FrontDir")
+  nb::enum_<ps::FrontDir>(m, "FrontDir")
     .value("x_front", ps::FrontDir::XFront)
     .value("y_front", ps::FrontDir::YFront)
     .value("z_front", ps::FrontDir::ZFront)
@@ -431,24 +531,24 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("neg_z_front", ps::FrontDir::NegZFront)
     ; 
 
-  py::enum_<ps::DataType>(m, "DataType")
+  nb::enum_<ps::DataType>(m, "DataType")
     .value("standard", ps::DataType::STANDARD)
     .value("symmetric", ps::DataType::SYMMETRIC)
     .value("magnitude", ps::DataType::MAGNITUDE)
     .value("categorical", ps::DataType::CATEGORICAL)
     ; 
 
-  py::enum_<ps::VectorType>(m, "VectorType")
+  nb::enum_<ps::VectorType>(m, "VectorType")
     .value("standard", ps::VectorType::STANDARD)
     .value("ambient", ps::VectorType::AMBIENT)
     ; 
   
-  py::enum_<ps::ParamCoordsType>(m, "ParamCoordsType")
+  nb::enum_<ps::ParamCoordsType>(m, "ParamCoordsType")
     .value("unit", ps::ParamCoordsType::UNIT)
     .value("world", ps::ParamCoordsType::WORLD)
     ; 
   
-  py::enum_<ps::ParamVizStyle>(m, "ParamVizStyle")
+  nb::enum_<ps::ParamVizStyle>(m, "ParamVizStyle")
     .value("checker", ps::ParamVizStyle::CHECKER)
     .value("checker_islands", ps::ParamVizStyle::CHECKER_ISLANDS)
     .value("grid", ps::ParamVizStyle::GRID)
@@ -456,43 +556,43 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("local_rad", ps::ParamVizStyle::LOCAL_RAD)
     ; 
 
-  py::enum_<ps::BackFacePolicy>(m, "BackFacePolicy")
+  nb::enum_<ps::BackFacePolicy>(m, "BackFacePolicy")
     .value("identical", ps::BackFacePolicy::Identical)
     .value("different", ps::BackFacePolicy::Different)
     .value("custom", ps::BackFacePolicy::Custom)
     .value("cull", ps::BackFacePolicy::Cull)
     ; 
   
-  py::enum_<ps::LimitFPSMode>(m, "LimitFPSMode")
+  nb::enum_<ps::LimitFPSMode>(m, "LimitFPSMode")
     .value("ignore_limits", ps::LimitFPSMode::IgnoreLimits)
     .value("block_to_hit_target", ps::LimitFPSMode::BlockToHitTarget)
     .value("skip_frames_to_hit_target", ps::LimitFPSMode::SkipFramesToHitTarget)
     ; 
   
-  py::enum_<ps::GroundPlaneMode>(m, "GroundPlaneMode")
+  nb::enum_<ps::GroundPlaneMode>(m, "GroundPlaneMode")
     .value("none", ps::GroundPlaneMode::None)
     .value("tile", ps::GroundPlaneMode::Tile)
     .value("tile_reflection", ps::GroundPlaneMode::TileReflection)
     .value("shadow_only", ps::GroundPlaneMode::ShadowOnly)
     ; 
   
-  py::enum_<ps::GroundPlaneHeightMode>(m, "GroundPlaneHeightMode")
+  nb::enum_<ps::GroundPlaneHeightMode>(m, "GroundPlaneHeightMode")
     .value("automatic", ps::GroundPlaneHeightMode::Automatic)
     .value("manual", ps::GroundPlaneHeightMode::Manual)
     ; 
   
-  py::enum_<ps::TransparencyMode>(m, "TransparencyMode")
+  nb::enum_<ps::TransparencyMode>(m, "TransparencyMode")
     .value("none", ps::TransparencyMode::None)
     .value("simple", ps::TransparencyMode::Simple)
     .value("pretty", ps::TransparencyMode::Pretty)
     ; 
     
-    py::enum_<ps::CurveNetworkElement>(m, "CurveNetworkElement")
+  nb::enum_<ps::CurveNetworkElement>(m, "CurveNetworkElement")
     .value("node", ps::CurveNetworkElement::NODE)
     .value("edge", ps::CurveNetworkElement::EDGE)
     ;
 
-    py::enum_<ps::MeshElement>(m, "MeshElement")
+  nb::enum_<ps::MeshElement>(m, "MeshElement")
     .value("vertex", ps::MeshElement::VERTEX)
     .value("face", ps::MeshElement::FACE)
     .value("edge", ps::MeshElement::EDGE)
@@ -500,56 +600,61 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value("corner", ps::MeshElement::CORNER)
     ; 
 
-  py::enum_<ps::MeshSelectionMode>(m, "MeshSelectionMode")
+  nb::enum_<ps::MeshSelectionMode>(m, "MeshSelectionMode")
     .value("auto", ps::MeshSelectionMode::Auto)
     .value("vertices_only", ps::MeshSelectionMode::VerticesOnly)
     .value("faces_only", ps::MeshSelectionMode::FacesOnly)
     ; 
 
-    py::enum_<ps::VolumeMeshElement>(m, "VolumeMeshElement")
+  nb::enum_<ps::VolumeMeshElement>(m, "VolumeMeshElement")
     .value("vertex", ps::VolumeMeshElement::VERTEX)
     .value("edge", ps::VolumeMeshElement::EDGE)
     .value("face", ps::VolumeMeshElement::FACE)
     .value("cell", ps::VolumeMeshElement::CELL)
     ; 
     
-    py::enum_<ps::VolumeGridElement>(m, "VolumeGridElement")
+  nb::enum_<ps::VolumeGridElement>(m, "VolumeGridElement")
     .value("node", ps::VolumeGridElement::NODE)
     .value("cell", ps::VolumeGridElement::CELL)
-    ; 
-  
-  py::enum_<ps::PointRenderMode>(m, "PointRenderMode")
+    ;
+
+  nb::enum_<ps::SparseVolumeGridElement>(m, "SparseVolumeGridElement")
+    .value("cell", ps::SparseVolumeGridElement::CELL)
+    .value("node", ps::SparseVolumeGridElement::NODE)
+    ;
+
+  nb::enum_<ps::PointRenderMode>(m, "PointRenderMode")
     .value("sphere", ps::PointRenderMode::Sphere)
     .value("quad", ps::PointRenderMode::Quad)
     ; 
   
-  py::enum_<ps::FilterMode>(m, "FilterMode")
+  nb::enum_<ps::FilterMode>(m, "FilterMode")
     .value("linear", ps::FilterMode::Linear)
     .value("nearest", ps::FilterMode::Nearest)
     ; 
   
-  py::enum_<ps::ImageOrigin>(m, "ImageOrigin")
+  nb::enum_<ps::ImageOrigin>(m, "ImageOrigin")
     .value("lower_left", ps::ImageOrigin::LowerLeft)
     .value("upper_left", ps::ImageOrigin::UpperLeft)
     ; 
   
-  py::enum_<ps::MeshShadeStyle>(m, "MeshShadeStyle")
+  nb::enum_<ps::MeshShadeStyle>(m, "MeshShadeStyle")
     .value("smooth", ps::MeshShadeStyle::Smooth)
     .value("flat", ps::MeshShadeStyle::Flat)
     .value("tri_flat", ps::MeshShadeStyle::TriFlat)
     ; 
   
-  py::enum_<ps::IsolineStyle>(m, "IsolineStyle")
+  nb::enum_<ps::IsolineStyle>(m, "IsolineStyle")
     .value("stripe", ps::IsolineStyle::Stripe)
     .value("contour", ps::IsolineStyle::Contour)
     ; 
   
-  py::enum_<ps::ImplicitRenderMode>(m, "ImplicitRenderMode")
+  nb::enum_<ps::ImplicitRenderMode>(m, "ImplicitRenderMode")
     .value("sphere_march", ps::ImplicitRenderMode::SphereMarch)
     .value("fixed_step", ps::ImplicitRenderMode::FixedStep)
     ; 
   
-  py::enum_<ps::ManagedBufferType>(m, "ManagedBufferType")
+  nb::enum_<ps::ManagedBufferType>(m, "ManagedBufferType")
     .value(ps::typeName(ps::ManagedBufferType::Float   ).c_str(),   ps::ManagedBufferType::Float   )
     .value(ps::typeName(ps::ManagedBufferType::Double  ).c_str(),   ps::ManagedBufferType::Double  )
     .value(ps::typeName(ps::ManagedBufferType::Vec2    ).c_str(),   ps::ManagedBufferType::Vec2    )
@@ -565,44 +670,45 @@ PYBIND11_MODULE(polyscope_bindings, m) {
     .value(ps::typeName(ps::ManagedBufferType::UVec4   ).c_str(),   ps::ManagedBufferType::UVec4   )
     ; 
   
-  py::enum_<ps::DeviceBufferType>(m, "DeviceBufferType")
+  nb::enum_<ps::DeviceBufferType>(m, "DeviceBufferType")
     .value("attribute", ps::DeviceBufferType::Attribute)
     .value("texture1d", ps::DeviceBufferType::Texture1d)
     .value("texture2d", ps::DeviceBufferType::Texture2d)
     .value("texture3d", ps::DeviceBufferType::Texture3d)
     ; 
 
+
   // === Mini bindings for a little bit of glm
-  py::class_<glm::vec2>(m, "glm_vec2").
-    def(py::init<float, float>())
+  nb::class_<glm::vec2>(m, "glm_vec2").
+    def(nb::init<float, float>())
    .def("as_tuple",
         [](const glm::vec2& x) {
         return std::tuple<float, float>(x[0], x[1]);
         });
 
-  py::class_<glm::vec3>(m, "glm_vec3").
-    def(py::init<float, float, float>())
+  nb::class_<glm::vec3>(m, "glm_vec3").
+    def(nb::init<float, float, float>())
    .def("as_tuple",
         [](const glm::vec3& x) {
         return std::tuple<float, float, float>(x[0], x[1], x[2]);
         });
   
-  py::class_<glm::vec4>(m, "glm_vec4").
-    def(py::init<float, float, float, float>())
+  nb::class_<glm::vec4>(m, "glm_vec4").
+    def(nb::init<float, float, float, float>())
    .def("as_tuple",
         [](const glm::vec4& x) {
         return std::tuple<float, float, float, float>(x[0], x[1], x[2], x[3]);
         });
   
-  py::class_<glm::ivec2>(m, "glm_ivec2").
-    def(py::init<int32_t, int32_t>())
+  nb::class_<glm::ivec2>(m, "glm_ivec2").
+    def(nb::init<int32_t, int32_t>())
    .def("as_tuple",
         [](const glm::ivec2& x) {
         return std::tuple<int32_t, int32_t>(x[0], x[1]); 
         });
 
-  py::class_<glm::uvec3>(m, "glm_uvec3").
-    def(py::init<uint32_t, uint32_t, uint32_t>())
+  nb::class_<glm::uvec3>(m, "glm_uvec3").
+    def(nb::init<uint32_t, uint32_t, uint32_t>())
    .def("as_tuple",
         [](const glm::uvec3& x) {
         return std::tuple<uint32_t, uint32_t, uint32_t>(x[0], x[1], x[2]); 
@@ -617,11 +723,11 @@ PYBIND11_MODULE(polyscope_bindings, m) {
   bind_surface_mesh(m);
   bind_volume_mesh(m);
   bind_volume_grid(m);
+  bind_sparse_volume_grid(m);
   bind_camera_view(m);
   bind_managed_buffer(m);
   bind_imgui(m);
   bind_implot(m);
-
 }
 
 // clang-format on

@@ -440,6 +440,7 @@ ALL_MODULES = [
             cloud_commands.setup_cloud,
             cloud_commands.register_cloud,
             cloud_commands.cloud_update,
+            cloud_commands.cloud_update_storage_cors,
             cloud_commands.cloud_delete,
             cloud_commands.cloud_verify,
             cloud_commands.list_cloud,

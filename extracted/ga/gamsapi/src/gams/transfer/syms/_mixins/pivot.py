@@ -120,7 +120,7 @@ class PivotSetMixin(PivotBase):
         df = df.pivot(index=index, columns=columns, values=value)
 
         # fill missing values
-        if (int(major), int(minor)) >= (2, 2):
+        if (int(major), int(minor)) >= (2, 2) and (int(major), int(minor)) < (3, 0):
             with pd.option_context("future.no_silent_downcasting", True):
                 df.fillna(fill_value, inplace=True)
         else:
@@ -185,7 +185,7 @@ class PivotParameterMixin(PivotBase):
         stored_columns = df.columns
 
         # fill missing values
-        if (int(major), int(minor)) >= (2, 2):
+        if (int(major), int(minor)) >= (2, 2) and (int(major), int(minor)) < (3, 0):
             with pd.option_context("future.no_silent_downcasting", True):
                 df.fillna(fill_value, inplace=True)
         else:
@@ -279,7 +279,7 @@ class PivotVariableMixin(PivotBase):
         stored_columns = df.columns
 
         # fill missing values
-        if (int(major), int(minor)) >= (2, 2):
+        if (int(major), int(minor)) >= (2, 2) and (int(major), int(minor)) < (3, 0):
             with pd.option_context("future.no_silent_downcasting", True):
                 df.fillna(fill_value, inplace=True)
         else:

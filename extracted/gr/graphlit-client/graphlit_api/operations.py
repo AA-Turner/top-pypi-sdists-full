@@ -3,6 +3,7 @@
 
 __all__ = [
     "ADD_CONTENTS_TO_COLLECTIONS_GQL",
+    "ADD_CONVERSATIONS_TO_COLLECTIONS_GQL",
     "APPROVE_CONTENT_GQL",
     "ASK_GRAPHLIT_GQL",
     "BRANCH_CONVERSATION_GQL",
@@ -362,6 +363,7 @@ __all__ = [
     "QUERY_WORKFLOWS_GQL",
     "REJECT_CONTENT_GQL",
     "REMOVE_CONTENTS_FROM_COLLECTION_GQL",
+    "REMOVE_CONVERSATIONS_FROM_COLLECTION_GQL",
     "RESEARCH_CONTENTS_GQL",
     "RESOLVE_ENTITIES_GQL",
     "RESOLVE_ENTITY_GQL",
@@ -1018,6 +1020,24 @@ mutation AddContentsToCollections($contents: [EntityReferenceInput!]!, $collecti
 }
 """
 
+ADD_CONVERSATIONS_TO_COLLECTIONS_GQL = """
+mutation AddConversationsToCollections($conversations: [EntityReferenceInput!]!, $collections: [EntityReferenceInput!]!) {
+  addConversationsToCollections(
+    conversations: $conversations
+    collections: $collections
+  ) {
+    id
+    name
+    state
+    type
+    contents {
+      id
+      name
+    }
+  }
+}
+"""
+
 COUNT_COLLECTIONS_GQL = """
 query CountCollections($filter: CollectionFilter, $correlationId: String) {
   countCollections(filter: $filter, correlationId: $correlationId) {
@@ -1084,6 +1104,10 @@ query GetCollection($id: ID!, $correlationId: String) {
       id
       name
     }
+    conversations {
+      id
+      name
+    }
   }
 }
 """
@@ -1110,6 +1134,24 @@ query QueryCollections($filter: CollectionFilter, $correlationId: String) {
 REMOVE_CONTENTS_FROM_COLLECTION_GQL = """
 mutation RemoveContentsFromCollection($contents: [EntityReferenceInput!]!, $collection: EntityReferenceInput!) {
   removeContentsFromCollection(contents: $contents, collection: $collection) {
+    id
+    name
+    state
+    type
+    contents {
+      id
+      name
+    }
+  }
+}
+"""
+
+REMOVE_CONVERSATIONS_FROM_COLLECTION_GQL = """
+mutation RemoveConversationsFromCollection($conversations: [EntityReferenceInput!]!, $collection: EntityReferenceInput!) {
+  removeConversationsFromCollection(
+    conversations: $conversations
+    collection: $collection
+  ) {
     id
     name
     state
@@ -1490,6 +1532,12 @@ mutation DescribeEncodedImage($prompt: String!, $mimeType: String!, $data: Strin
     mimeType
     toolCallId
     toolCallResponse
+    artifacts {
+      id
+      name
+      mimeType
+      uri
+    }
   }
 }
 """
@@ -1632,6 +1680,12 @@ mutation DescribeImage($prompt: String!, $uri: URL!, $specification: EntityRefer
     mimeType
     toolCallId
     toolCallResponse
+    artifacts {
+      id
+      name
+      mimeType
+      uri
+    }
   }
 }
 """
@@ -4639,6 +4693,12 @@ mutation AskGraphlit($prompt: String!, $type: SdkTypes, $id: ID, $specification:
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
   }
@@ -4679,13 +4739,14 @@ mutation CloseConversation($id: ID!) {
 """
 
 COMPLETE_CONVERSATION_GQL = """
-mutation CompleteConversation($completion: String!, $id: ID!, $completionTime: TimeSpan, $ttft: TimeSpan, $throughput: Float, $correlationId: String) {
+mutation CompleteConversation($completion: String!, $id: ID!, $completionTime: TimeSpan, $ttft: TimeSpan, $throughput: Float, $artifacts: [EntityReferenceInput!], $correlationId: String) {
   completeConversation(
     completion: $completion
     id: $id
     completionTime: $completionTime
     ttft: $ttft
     throughput: $throughput
+    artifacts: $artifacts
     correlationId: $correlationId
   ) {
     conversation {
@@ -4822,6 +4883,12 @@ mutation CompleteConversation($completion: String!, $id: ID!, $completionTime: T
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
     facets {
@@ -5007,6 +5074,12 @@ mutation CompleteConversation($completion: String!, $id: ID!, $completionTime: T
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
     }
   }
@@ -5154,6 +5227,12 @@ mutation ContinueConversation($id: ID!, $responses: [ConversationToolResponseInp
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
     facets {
@@ -5339,6 +5418,12 @@ mutation ContinueConversation($id: ID!, $responses: [ConversationToolResponseInp
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
     }
   }
@@ -5541,6 +5626,12 @@ mutation FormatConversation($prompt: String!, $id: ID, $specification: EntityRef
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
     facets {
@@ -5726,6 +5817,12 @@ mutation FormatConversation($prompt: String!, $id: ID, $specification: EntityRef
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
     }
   }
@@ -5876,6 +5973,12 @@ query GetConversation($id: ID!, $correlationId: String) {
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     transcriptUri
     turns {
@@ -6279,6 +6382,12 @@ mutation Prompt($prompt: String, $mimeType: String, $data: String, $specificatio
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     error
   }
@@ -6434,6 +6543,12 @@ mutation PromptConversation($prompt: String!, $mimeType: String, $data: String, 
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
     facets {
@@ -6619,6 +6734,12 @@ mutation PromptConversation($prompt: String!, $mimeType: String, $data: String, 
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
     }
   }
@@ -6901,6 +7022,12 @@ query QueryConversations($filter: ConversationFilter, $correlationId: String) {
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
       transcriptUri
       turns {
@@ -7271,6 +7398,12 @@ query QueryConversationsClusters($filter: ConversationFilter, $clusters: EntityC
         mimeType
         toolCallId
         toolCallResponse
+        artifacts {
+          id
+          name
+          mimeType
+          uri
+        }
       }
       transcriptUri
       turns {
@@ -7799,6 +7932,12 @@ mutation ReviseContent($prompt: String!, $content: EntityReferenceInput!, $id: I
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
   }
@@ -7949,6 +8088,12 @@ mutation ReviseEncodedImage($prompt: String!, $mimeType: String!, $data: String!
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
   }
@@ -8098,6 +8243,12 @@ mutation ReviseImage($prompt: String!, $uri: URL!, $id: ID, $specification: Enti
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
   }
@@ -8247,6 +8398,12 @@ mutation ReviseText($prompt: String!, $text: String!, $id: ID, $specification: E
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     messageCount
   }
@@ -17082,6 +17239,12 @@ mutation PromptSpecifications($prompt: String!, $ids: [ID!]!) {
       mimeType
       toolCallId
       toolCallResponse
+      artifacts {
+        id
+        name
+        mimeType
+        uri
+      }
     }
     error
   }

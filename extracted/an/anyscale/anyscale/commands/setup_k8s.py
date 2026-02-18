@@ -1081,20 +1081,16 @@ class KubernetesCloudSetupCommand:
                     zones = cluster_locations
 
             # Remove duplicates and sort
-            if zones:
-                unique_zones = sorted(set(zones))
+            unique_zones = sorted(set(zones))
+            if unique_zones:
                 self._debug(f"Discovered zones: {', '.join(unique_zones)}")
-                return unique_zones
             else:
-                # Fallback to default zones
-                self._debug(
-                    "No zones found in cluster info, falling back to default zones"
-                )
-                return [region + "-a", region + "-b", region + "-c"]
+                self._debug("No zones found in cluster info")
+            return unique_zones
 
         except Exception as e:  # noqa: BLE001
-            self._debug(f"Failed to get zones: {e}, using default zones")
-            return [region + "-a", region + "-b", region + "-c"]
+            self._debug(f"Failed to get zones: {e}")
+            return []
 
     def _configure_gcp_kubeconfig(
         self, cluster_name: str, region: str, project_id: str
@@ -1204,12 +1200,11 @@ class KubernetesCloudSetupCommand:
 
             if unique_zones:
                 self._debug(f"Discovered availability zones: {', '.join(unique_zones)}")
-                return unique_zones
             else:
-                raise click.ClickException(
-                    f"No availability zones found for EKS cluster '{cluster_name}'. "
-                    "Please ensure the cluster subnets are properly configured."
+                self._debug(
+                    f"No availability zones found for EKS cluster '{cluster_name}'"
                 )
+            return unique_zones
 
         except click.ClickException:
             raise
@@ -1358,15 +1353,14 @@ class KubernetesCloudSetupCommand:
                 zones.extend(pool_zones)
 
             # Remove duplicates and sort
-            if len(zones) > 0:
-                unique_zones = sorted(set(zones))
+            unique_zones = sorted(set(zones))
+            if unique_zones:
                 self._debug(f"Discovered zones: {', '.join(unique_zones)}")
-                return unique_zones
             else:
-                raise click.ClickException(
-                    f"No availability zones found for AKS cluster '{cluster_name}'. "
-                    "Please ensure the cluster node pools have availability zones configured."
+                self._debug(
+                    f"No availability zones found for AKS cluster '{cluster_name}'"
                 )
+            return unique_zones
 
         except click.ClickException:
             raise

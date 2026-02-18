@@ -148,6 +148,9 @@ from .common import BatchPredictionResourceUsageAssessmentResultOrDict
 from .common import BatchPredictionValidationAssessmentConfig
 from .common import BatchPredictionValidationAssessmentConfigDict
 from .common import BatchPredictionValidationAssessmentConfigOrDict
+from .common import BatchPredictionValidationAssessmentResult
+from .common import BatchPredictionValidationAssessmentResultDict
+from .common import BatchPredictionValidationAssessmentResultOrDict
 from .common import BigQueryRequestSet
 from .common import BigQueryRequestSetDict
 from .common import BigQueryRequestSetOrDict
@@ -755,6 +758,9 @@ from .common import ReasoningEngineSpecSourceCodeSpecDeveloperConnectSource
 from .common import ReasoningEngineSpecSourceCodeSpecDeveloperConnectSourceDict
 from .common import ReasoningEngineSpecSourceCodeSpecDeveloperConnectSourceOrDict
 from .common import ReasoningEngineSpecSourceCodeSpecDict
+from .common import ReasoningEngineSpecSourceCodeSpecImageSpec
+from .common import ReasoningEngineSpecSourceCodeSpecImageSpecDict
+from .common import ReasoningEngineSpecSourceCodeSpecImageSpecOrDict
 from .common import ReasoningEngineSpecSourceCodeSpecInlineSource
 from .common import ReasoningEngineSpecSourceCodeSpecInlineSourceDict
 from .common import ReasoningEngineSpecSourceCodeSpecInlineSourceOrDict
@@ -1416,6 +1422,9 @@ __all__ = [
     "ReasoningEngineSpecSourceCodeSpecPythonSpec",
     "ReasoningEngineSpecSourceCodeSpecPythonSpecDict",
     "ReasoningEngineSpecSourceCodeSpecPythonSpecOrDict",
+    "ReasoningEngineSpecSourceCodeSpecImageSpec",
+    "ReasoningEngineSpecSourceCodeSpecImageSpecDict",
+    "ReasoningEngineSpecSourceCodeSpecImageSpecOrDict",
     "ReasoningEngineSpecSourceCodeSpec",
     "ReasoningEngineSpecSourceCodeSpecDict",
     "ReasoningEngineSpecSourceCodeSpecOrDict",
@@ -1908,6 +1917,9 @@ __all__ = [
     "BatchPredictionResourceUsageAssessmentResult",
     "BatchPredictionResourceUsageAssessmentResultDict",
     "BatchPredictionResourceUsageAssessmentResultOrDict",
+    "BatchPredictionValidationAssessmentResult",
+    "BatchPredictionValidationAssessmentResultDict",
+    "BatchPredictionValidationAssessmentResultOrDict",
     "TuningResourceUsageAssessmentResult",
     "TuningResourceUsageAssessmentResultDict",
     "TuningResourceUsageAssessmentResultOrDict",

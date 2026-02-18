@@ -45,6 +45,9 @@ def validate_schema(schema, obj, msg_prefix):
             else:
                 # Fall back to msgspec.convert for validation
                 msgspec.convert(obj, schema)
+        # Handle plain Python types (e.g. str, int) via msgspec.convert
+        elif isinstance(schema, type):
+            msgspec.convert(obj, schema)
         else:
             raise TypeError(f"Unsupported schema type: {type(schema)}")
     except (
@@ -295,7 +298,7 @@ class Schema(
     will cause validation errors. Child classes can override this by
     setting forbid_unknown_fields=False in their class definition:
 
-        class MySchema(Schema, forbid_unknown_fields=False):
+        class MySchema(Schema, forbid_unknown_fields=False, kw_only=True):
             foo: str
     """
 
@@ -311,6 +314,37 @@ class Schema(
             raise msgspec.ValidationError(str(e))
 
 
+class IndexSchema(Schema):
+    # the name of the product this build produces
+    product: str
+    # the names to use for this task in the TaskCluster index
+    job_name: str
+    # Type of gecko v2 index to use
+    type: str = "generic"
+    # The rank that the task will receive in the TaskCluster
+    # index.  A newly completed task supersedes the currently
+    # indexed task iff it has a higher rank.  If unspecified,
+    # 'by-tier' behavior will be used.
+    rank: Union[Literal["by-tier", "build_date"], int] = "by-tier"
+
+
+class TreeherderConfig(Schema):
+    # Either a bare symbol, or 'grp(sym)'. Defaults to the
+    # uppercased first letter of each section of the kind
+    # (delimited by '-') all smooshed together.
+    symbol: Optional[str] = None
+    # The task kind. Defaults to 'build', 'test', or 'other'
+    # based on the kind name.
+    kind: Optional[Literal["build", "test", "other"]] = None
+    # Tier for this task. Defaults to 1.
+    tier: Optional[int] = None
+    # Task platform in the form platform/collection, used to
+    # set treeherder.machine.platform and
+    # treeherder.collection or treeherder.labels Defaults to
+    # 'default/opt'.
+    platform: Optional[str] = None
+
+
 class IndexSearchOptimizationSchema(Schema):
     """Search the index for the given index namespaces."""
 
@@ -324,7 +358,7 @@ class SkipUnlessChangedOptimizationSchema(Schema):
 
 
 # Create a class for optimization types to avoid dict union issues
-class OptimizationTypeSchema(Schema, forbid_unknown_fields=False):
+class OptimizationTypeSchema(Schema, forbid_unknown_fields=False, kw_only=True):
     """Schema that accepts various optimization configurations."""
 
     index_search: Optional[list[str]] = None
@@ -353,7 +387,7 @@ class ArtifactReferenceSchema(Schema):
     artifact_reference: str
 
 
-class TaskRefTypeSchema(Schema, forbid_unknown_fields=False):
+class TaskRefTypeSchema(Schema, forbid_unknown_fields=False, kw_only=True):
     """Schema that accepts either task-reference or artifact-reference (msgspec version)."""
 
     task_reference: Optional[str] = None

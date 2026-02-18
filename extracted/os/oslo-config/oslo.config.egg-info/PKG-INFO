@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.config
-Version: 10.2.0
+Version: 10.3.0
 Summary: Oslo Configuration API
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

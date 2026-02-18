@@ -111,6 +111,21 @@ class Workbook:
         else:
             raise Exception("Invalid engine.")
 
+    def delete_range(self, sheet_name, nw_col, nw_row, se_col, se_row):
+        if self._engine == "xlwings":
+            raise Exception("Not imlemented.")
+        elif self._engine == "openpyxl":
+            sheet = self._wb[sheet_name]
+            if se_row is None:
+                se_row = sheet.max_row
+            if se_col is None:
+                se_col = sheet.max_column
+            for row in range(nw_row+1, se_row + 1):
+                for col in range(nw_col+1, se_col + 1):
+                    sheet.cell(row=row, column=col).value = None
+        else:
+            raise Exception("Invalid engine.")
+
     def delete_sheet(self, sheet_name):
         if self._engine == "xlwings":
             self._wb.sheets[sheet_name].delete()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockfish
-Version: 4.0.6
+Version: 4.0.7
 Summary: Wraps the open-source Stockfish chess engine for easy integration into python.
 Author-email: Ilya Zhelyabuzhsky <zhelyabuzhsky@icloud.com>
 License-Expression: MIT
@@ -204,7 +204,7 @@ e2e4
 Returns True if the passed in move is legal in the current position.
 
 ```python
-stockfish.is_move_correct('a2a3')
+stockfish.is_move_legal('a2a3')
 ```
 
 ```text

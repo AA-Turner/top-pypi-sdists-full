@@ -127,17 +127,17 @@ __all__ = (
 
 
 class AssertionAttributesTypeDef(TypedDict):
+    name: NotRequired[str]
+    login: NotRequired[str]
     email: NotRequired[str]
     groups: NotRequired[str]
-    login: NotRequired[str]
-    name: NotRequired[str]
-    org: NotRequired[str]
     role: NotRequired[str]
+    org: NotRequired[str]
 
 
 class AssociateLicenseRequestTypeDef(TypedDict):
-    licenseType: LicenseTypeType
     workspaceId: str
+    licenseType: LicenseTypeType
     grafanaToken: NotRequired[str]
 
 
@@ -166,8 +166,8 @@ class CreateWorkspaceApiKeyRequestTypeDef(TypedDict):
 
 
 class CreateWorkspaceServiceAccountRequestTypeDef(TypedDict):
-    grafanaRole: RoleType
     name: str
+    grafanaRole: RoleType
     workspaceId: str
 
 
@@ -182,8 +182,8 @@ ServiceAccountTokenSummaryWithKeyTypeDef = TypedDict(
     "ServiceAccountTokenSummaryWithKeyTypeDef",
     {
         "id": str,
-        "key": str,
         "name": str,
+        "key": str,
     },
 )
 
@@ -203,8 +203,8 @@ class DeleteWorkspaceServiceAccountRequestTypeDef(TypedDict):
 
 
 class DeleteWorkspaceServiceAccountTokenRequestTypeDef(TypedDict):
-    serviceAccountId: str
     tokenId: str
+    serviceAccountId: str
     workspaceId: str
 
 
@@ -221,8 +221,8 @@ class DescribeWorkspaceRequestTypeDef(TypedDict):
 
 
 class DisassociateLicenseRequestTypeDef(TypedDict):
-    licenseType: LicenseTypeType
     workspaceId: str
+    licenseType: LicenseTypeType
 
 
 class IdpMetadataTypeDef(TypedDict):
@@ -238,11 +238,11 @@ class PaginatorConfigTypeDef(TypedDict):
 
 class ListPermissionsRequestTypeDef(TypedDict):
     workspaceId: str
-    groupId: NotRequired[str]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    userId: NotRequired[str]
     userType: NotRequired[UserTypeType]
+    userId: NotRequired[str]
+    groupId: NotRequired[str]
 
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
@@ -265,10 +265,10 @@ class ListWorkspaceServiceAccountTokensRequestTypeDef(TypedDict):
 ServiceAccountTokenSummaryTypeDef = TypedDict(
     "ServiceAccountTokenSummaryTypeDef",
     {
-        "createdAt": datetime,
-        "expiresAt": datetime,
         "id": str,
         "name": str,
+        "createdAt": datetime,
+        "expiresAt": datetime,
         "lastUsedAt": NotRequired[datetime],
     },
 )
@@ -283,10 +283,10 @@ class ListWorkspaceServiceAccountsRequestTypeDef(TypedDict):
 ServiceAccountSummaryTypeDef = TypedDict(
     "ServiceAccountSummaryTypeDef",
     {
-        "grafanaRole": RoleType,
         "id": str,
-        "isDisabled": str,
         "name": str,
+        "isDisabled": str,
+        "grafanaRole": RoleType,
     },
 )
 
@@ -316,13 +316,13 @@ UserTypeDef = TypedDict(
 
 
 class RoleValuesOutputTypeDef(TypedDict):
-    admin: NotRequired[list[str]]
     editor: NotRequired[list[str]]
+    admin: NotRequired[list[str]]
 
 
 class RoleValuesTypeDef(TypedDict):
-    admin: NotRequired[Sequence[str]]
     editor: NotRequired[Sequence[str]]
+    admin: NotRequired[Sequence[str]]
 
 
 class TagResourceRequestTypeDef(TypedDict):
@@ -352,8 +352,8 @@ class VpcConfigurationTypeDef(TypedDict):
 
 
 class CreateWorkspaceApiKeyResponseTypeDef(TypedDict):
-    key: str
     keyName: str
+    key: str
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -361,9 +361,9 @@ class CreateWorkspaceApiKeyResponseTypeDef(TypedDict):
 CreateWorkspaceServiceAccountResponseTypeDef = TypedDict(
     "CreateWorkspaceServiceAccountResponseTypeDef",
     {
-        "grafanaRole": RoleType,
         "id": str,
         "name": str,
+        "grafanaRole": RoleType,
         "workspaceId": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
@@ -383,8 +383,8 @@ class DeleteWorkspaceServiceAccountResponseTypeDef(TypedDict):
 
 
 class DeleteWorkspaceServiceAccountTokenResponseTypeDef(TypedDict):
-    serviceAccountId: str
     tokenId: str
+    serviceAccountId: str
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -409,35 +409,35 @@ class ListVersionsResponseTypeDef(TypedDict):
 WorkspaceSummaryTypeDef = TypedDict(
     "WorkspaceSummaryTypeDef",
     {
-        "authentication": AuthenticationSummaryTypeDef,
         "created": datetime,
         "endpoint": str,
         "grafanaVersion": str,
         "id": str,
         "modified": datetime,
         "status": WorkspaceStatusType,
+        "authentication": AuthenticationSummaryTypeDef,
         "description": NotRequired[str],
-        "grafanaToken": NotRequired[str],
-        "licenseType": NotRequired[LicenseTypeType],
         "name": NotRequired[str],
         "notificationDestinations": NotRequired[list[Literal["SNS"]]],
         "tags": NotRequired[dict[str, str]],
+        "licenseType": NotRequired[LicenseTypeType],
+        "grafanaToken": NotRequired[str],
     },
 )
 
 
 class CreateWorkspaceServiceAccountTokenResponseTypeDef(TypedDict):
-    serviceAccountId: str
     serviceAccountToken: ServiceAccountTokenSummaryWithKeyTypeDef
+    serviceAccountId: str
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
 class ListPermissionsRequestPaginateTypeDef(TypedDict):
     workspaceId: str
-    groupId: NotRequired[str]
-    userId: NotRequired[str]
     userType: NotRequired[UserTypeType]
+    userId: NotRequired[str]
+    groupId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -462,8 +462,8 @@ class ListWorkspacesRequestPaginateTypeDef(TypedDict):
 
 
 class ListWorkspaceServiceAccountTokensResponseTypeDef(TypedDict):
-    serviceAccountId: str
     serviceAccountTokens: list[ServiceAccountTokenSummaryTypeDef]
+    serviceAccountId: str
     workspaceId: str
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
@@ -482,8 +482,8 @@ NetworkAccessConfigurationUnionTypeDef = Union[
 
 
 class PermissionEntryTypeDef(TypedDict):
-    role: RoleType
     user: UserTypeDef
+    role: RoleType
 
 
 class UpdateInstructionOutputTypeDef(TypedDict):
@@ -500,24 +500,23 @@ class UpdateInstructionTypeDef(TypedDict):
 
 class SamlConfigurationOutputTypeDef(TypedDict):
     idpMetadata: IdpMetadataTypeDef
-    allowedOrganizations: NotRequired[list[str]]
     assertionAttributes: NotRequired[AssertionAttributesTypeDef]
-    loginValidityDuration: NotRequired[int]
     roleValues: NotRequired[RoleValuesOutputTypeDef]
+    allowedOrganizations: NotRequired[list[str]]
+    loginValidityDuration: NotRequired[int]
 
 
 class SamlConfigurationTypeDef(TypedDict):
     idpMetadata: IdpMetadataTypeDef
-    allowedOrganizations: NotRequired[Sequence[str]]
     assertionAttributes: NotRequired[AssertionAttributesTypeDef]
-    loginValidityDuration: NotRequired[int]
     roleValues: NotRequired[RoleValuesTypeDef]
+    allowedOrganizations: NotRequired[Sequence[str]]
+    loginValidityDuration: NotRequired[int]
 
 
 WorkspaceDescriptionTypeDef = TypedDict(
     "WorkspaceDescriptionTypeDef",
     {
-        "authentication": AuthenticationSummaryTypeDef,
         "created": datetime,
         "dataSources": list[DataSourceTypeType],
         "endpoint": str,
@@ -525,23 +524,25 @@ WorkspaceDescriptionTypeDef = TypedDict(
         "id": str,
         "modified": datetime,
         "status": WorkspaceStatusType,
+        "authentication": AuthenticationSummaryTypeDef,
         "accountAccessType": NotRequired[AccountAccessTypeType],
         "description": NotRequired[str],
-        "freeTrialConsumed": NotRequired[bool],
-        "freeTrialExpiration": NotRequired[datetime],
-        "grafanaToken": NotRequired[str],
-        "licenseExpiration": NotRequired[datetime],
-        "licenseType": NotRequired[LicenseTypeType],
         "name": NotRequired[str],
-        "networkAccessControl": NotRequired[NetworkAccessConfigurationOutputTypeDef],
-        "notificationDestinations": NotRequired[list[Literal["SNS"]]],
         "organizationRoleName": NotRequired[str],
+        "notificationDestinations": NotRequired[list[Literal["SNS"]]],
         "organizationalUnits": NotRequired[list[str]],
         "permissionType": NotRequired[PermissionTypeType],
         "stackSetName": NotRequired[str],
+        "workspaceRoleArn": NotRequired[str],
+        "licenseType": NotRequired[LicenseTypeType],
+        "freeTrialConsumed": NotRequired[bool],
+        "licenseExpiration": NotRequired[datetime],
+        "freeTrialExpiration": NotRequired[datetime],
         "tags": NotRequired[dict[str, str]],
         "vpcConfiguration": NotRequired[VpcConfigurationOutputTypeDef],
-        "workspaceRoleArn": NotRequired[str],
+        "networkAccessControl": NotRequired[NetworkAccessConfigurationOutputTypeDef],
+        "grafanaToken": NotRequired[str],
+        "kmsKeyId": NotRequired[str],
     },
 )
 VpcConfigurationUnionTypeDef = Union[VpcConfigurationTypeDef, VpcConfigurationOutputTypeDef]
@@ -560,9 +561,9 @@ class ListPermissionsResponseTypeDef(TypedDict):
 
 
 class UpdateErrorTypeDef(TypedDict):
-    causedBy: UpdateInstructionOutputTypeDef
     code: int
     message: str
+    causedBy: UpdateInstructionOutputTypeDef
 
 
 UpdateInstructionUnionTypeDef = Union[UpdateInstructionTypeDef, UpdateInstructionOutputTypeDef]
@@ -608,40 +609,41 @@ class UpdateWorkspaceResponseTypeDef(TypedDict):
 
 class CreateWorkspaceRequestTypeDef(TypedDict):
     accountAccessType: AccountAccessTypeType
-    authenticationProviders: Sequence[AuthenticationProviderTypesType]
     permissionType: PermissionTypeType
+    authenticationProviders: Sequence[AuthenticationProviderTypesType]
     clientToken: NotRequired[str]
-    configuration: NotRequired[str]
-    grafanaVersion: NotRequired[str]
-    networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
     organizationRoleName: NotRequired[str]
     stackSetName: NotRequired[str]
-    tags: NotRequired[Mapping[str, str]]
-    vpcConfiguration: NotRequired[VpcConfigurationUnionTypeDef]
     workspaceDataSources: NotRequired[Sequence[DataSourceTypeType]]
     workspaceDescription: NotRequired[str]
     workspaceName: NotRequired[str]
     workspaceNotificationDestinations: NotRequired[Sequence[Literal["SNS"]]]
     workspaceOrganizationalUnits: NotRequired[Sequence[str]]
     workspaceRoleArn: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+    vpcConfiguration: NotRequired[VpcConfigurationUnionTypeDef]
+    configuration: NotRequired[str]
+    networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
+    grafanaVersion: NotRequired[str]
+    kmsKeyId: NotRequired[str]
 
 
 class UpdateWorkspaceRequestTypeDef(TypedDict):
     workspaceId: str
     accountAccessType: NotRequired[AccountAccessTypeType]
-    networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
     organizationRoleName: NotRequired[str]
     permissionType: NotRequired[PermissionTypeType]
-    removeNetworkAccessConfiguration: NotRequired[bool]
-    removeVpcConfiguration: NotRequired[bool]
     stackSetName: NotRequired[str]
-    vpcConfiguration: NotRequired[VpcConfigurationUnionTypeDef]
     workspaceDataSources: NotRequired[Sequence[DataSourceTypeType]]
     workspaceDescription: NotRequired[str]
     workspaceName: NotRequired[str]
     workspaceNotificationDestinations: NotRequired[Sequence[Literal["SNS"]]]
     workspaceOrganizationalUnits: NotRequired[Sequence[str]]
     workspaceRoleArn: NotRequired[str]
+    vpcConfiguration: NotRequired[VpcConfigurationUnionTypeDef]
+    removeVpcConfiguration: NotRequired[bool]
+    networkAccessControl: NotRequired[NetworkAccessConfigurationUnionTypeDef]
+    removeNetworkAccessConfiguration: NotRequired[bool]
 
 
 class UpdatePermissionsResponseTypeDef(TypedDict):
@@ -656,13 +658,13 @@ class UpdatePermissionsRequestTypeDef(TypedDict):
 
 class AuthenticationDescriptionTypeDef(TypedDict):
     providers: list[AuthenticationProviderTypesType]
-    awsSso: NotRequired[AwsSsoAuthenticationTypeDef]
     saml: NotRequired[SamlAuthenticationTypeDef]
+    awsSso: NotRequired[AwsSsoAuthenticationTypeDef]
 
 
 class UpdateWorkspaceAuthenticationRequestTypeDef(TypedDict):
-    authenticationProviders: Sequence[AuthenticationProviderTypesType]
     workspaceId: str
+    authenticationProviders: Sequence[AuthenticationProviderTypesType]
     samlConfiguration: NotRequired[SamlConfigurationUnionTypeDef]
 
 

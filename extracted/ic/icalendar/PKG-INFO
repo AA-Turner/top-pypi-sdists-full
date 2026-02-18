@@ -1,16 +1,16 @@
 Metadata-Version: 2.4
 Name: icalendar
-Version: 7.0.0
+Version: 7.0.1
 Summary: RFC 5545 compatible parser and generator of iCalendar files
 Project-URL: Homepage, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Repository, https://github.com/collective/icalendar
-Project-URL: source_archive, https://github.com/collective/icalendar/archive/8cc8803c70f4ea63a88ccfcd7ee203ffb75b8e72.zip
+Project-URL: source_archive, https://github.com/collective/icalendar/archive/8ddddb6172e3bdf2652e860d4b1b016cd3d2e23a.zip
 Project-URL: Issues, https://github.com/collective/icalendar/issues
 Project-URL: Documentation, https://icalendar.readthedocs.io/en/stable/
 Project-URL: Changelog, https://icalendar.readthedocs.io/en/stable/changelog.html
 Project-URL: Funding, https://opencollective.com/python-icalendar
 Author: Plone Foundation
-Maintainer: Christian Geier
+Maintainer: Sashank Bhamidi, Christian Geier
 Maintainer-email: Nicco Kunzmann <niccokunzmann@rambler.ru>, Jaca <vitouejj@gmail.com>
 License-Expression: BSD-2-Clause
 License-File: LICENSE.rst
@@ -29,6 +29,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.10
 Requires-Dist: python-dateutil
+Requires-Dist: typing-extensions~=4.10; python_version < '3.13'
 Requires-Dist: tzdata>=2025.3
 Description-Content-Type: text/x-rst
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: polyscope
-Version: 2.5.0
+Version: 2.6.0
 Summary: Polyscope: A viewer and user interface for 3D data.
 Author-Email: Nicholas Sharp <nmwsharp@gmail.com>
 Maintainer-Email: Nicholas Sharp <nmwsharp@gmail.com>
@@ -33,8 +33,9 @@ Project-URL: Homepage, https://github.com/nmwsharp/polyscope
 Project-URL: Documentation, https://polyscope.run
 Project-URL: Bug Tracker, https://github.com/nmwsharp/polyscope/issues
 Project-URL: Discussions, https://github.com/nmwsharp/polyscope/discussions
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Requires-Dist: numpy
+Requires-Dist: typing_extensions
 Description-Content-Type: text/markdown
 
 # polyscope-py
@@ -62,7 +63,7 @@ or
 conda install -c conda-forge polyscope
 ```
 
-polyscope-py should work out-of-the-box on any combination of Python 3.7-3.12 and Linux/macOS/Windows. Your graphics hardware must support OpenGL >= 3.3 core profile.
+polyscope-py should work out-of-the-box on any combination of Python 3.9-3.14 and Linux/macOS/Windows. Your graphics hardware must support OpenGL >= 3.3 core profile (which is >15 years old; all remotely recent machines do, but funky VMs might not).
 
 ## For developers
 

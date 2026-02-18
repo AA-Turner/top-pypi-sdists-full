@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meraki
-Version: 2.1.1
+Version: 2.1.2
 Summary: Meraki library for Python
 Home-page: https://github.com/meraki/dashboard-api-python
 Author: Cisco Meraki

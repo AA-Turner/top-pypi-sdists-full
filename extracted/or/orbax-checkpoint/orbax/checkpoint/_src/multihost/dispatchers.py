@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -99,6 +99,11 @@ class Dispatcher(abc.ABC):
   """Dispatches a function to run on workers and returns a future."""
 
   @abc.abstractmethod
+  def name(self) -> str:
+    """Returns the name of type of the dispatcher."""
+    ...
+
+  @abc.abstractmethod
   def device_to_host(self, arrays: PyTree) -> PyTree:
     """Performs device to host transfer on the given arrays."""
     ...
@@ -135,6 +140,9 @@ class Dispatcher(abc.ABC):
 
 class ColocatedPythonDispatcher(Dispatcher):
   """Dispatches functions using colocated Python."""
+
+  def name(self) -> str:
+    return 'colocated_python'
 
   def _colocated_cpu_sharding(
       self,

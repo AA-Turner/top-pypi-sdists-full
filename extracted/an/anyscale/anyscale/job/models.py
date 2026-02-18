@@ -512,6 +512,8 @@ class JobState(ModelEnum):
     }
 
 
+# TODO(praneethkaturi): ENDED_AT returns 500 server error because the ha_jobs
+# table has no ended_at column. Validate and remove ENDED_AT or fix the backend.
 class JobSortField(ModelEnum):
     """Fields available for sorting jobs."""
 

@@ -162,7 +162,7 @@ class DomainGovernanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/create_domain_governance.py.html>`__ to see an example of how to use create_domain_governance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/create_domain_governance.py.html>`__ to see an example of how to use create_domain_governance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -265,7 +265,7 @@ class DomainGovernanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/delete_domain_governance.py.html>`__ to see an example of how to use delete_domain_governance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/delete_domain_governance.py.html>`__ to see an example of how to use delete_domain_governance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainGovernanceId']
@@ -368,7 +368,7 @@ class DomainGovernanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/get_domain_governance.py.html>`__ to see an example of how to use get_domain_governance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/get_domain_governance.py.html>`__ to see an example of how to use get_domain_governance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainGovernanceId']
@@ -504,7 +504,7 @@ class DomainGovernanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/list_domain_governances.py.html>`__ to see an example of how to use list_domain_governances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/list_domain_governances.py.html>`__ to see an example of how to use list_domain_governances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -649,7 +649,7 @@ class DomainGovernanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/update_domain_governance.py.html>`__ to see an example of how to use update_domain_governance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/update_domain_governance.py.html>`__ to see an example of how to use update_domain_governance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['domainGovernanceId']

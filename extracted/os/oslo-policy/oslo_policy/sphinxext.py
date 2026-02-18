@@ -14,6 +14,7 @@
 
 """Sphinx extension for pretty-formatting policy docs."""
 
+from collections.abc import Generator, Iterable, Sequence
 import os
 
 from docutils import nodes
@@ -21,24 +22,28 @@ from docutils.parsers import rst
 from docutils.parsers.rst import directives
 from docutils import statemachine
 from oslo_config import cfg
+from sphinx import application
 from sphinx.util import logging
 from sphinx.util.nodes import nested_parse_with_titles
 
 from oslo_policy import generator
+from oslo_policy import policy
 
 
-def _indent(text):
+def _indent(text: str) -> str:
     """Indent by four spaces."""
     prefix = ' ' * 4
 
-    def prefixed_lines():
+    def prefixed_lines() -> Iterable[str]:
         for line in text.splitlines(True):
             yield (prefix + line if line.strip() else line)
 
     return ''.join(prefixed_lines())
 
 
-def _format_policy_rule(rule):
+def _format_policy_rule(
+    rule: policy.RuleDefault,
+) -> Generator[str, None, None]:
     """Output a definition list-style rule.
 
     For example::
@@ -60,8 +65,13 @@ def _format_policy_rule(rule):
     if hasattr(rule, 'operations'):
         yield _indent(':Operations:')
         for operation in rule.operations:
-            yield _indent(_indent('- **{}** ``{}``'.format(
-                operation['method'], operation['path'])))
+            yield _indent(
+                _indent(
+                    '- **{}** ``{}``'.format(
+                        operation['method'], operation['path']
+                    )
+                )
+            )
 
     if hasattr(rule, 'scope_types') and rule.scope_types is not None:
         yield _indent(':Scope Types:')
@@ -79,7 +89,9 @@ def _format_policy_rule(rule):
     yield ''
 
 
-def _format_policy_section(section, rules):
+def _format_policy_section(
+    section: str, rules: Sequence[policy.RuleDefault]
+) -> Generator[str, None, None]:
     # The nested_parse_with_titles will ensure the correct header leve is used.
     yield section
     yield '=' * len(section)
@@ -89,7 +101,7 @@ def _format_policy_section(section, rules):
         yield from _format_policy_rule(rule)
 
 
-def _format_policy(namespaces):
+def _format_policy(namespaces: Sequence[str]) -> Generator[str, None, None]:
     policies = generator.get_policies_dict(namespaces)
 
     for section in sorted(policies.keys()):
@@ -97,13 +109,12 @@ def _format_policy(namespaces):
 
 
 class ShowPolicyDirective(rst.Directive):
-
     has_content = False
     option_spec = {
         'config-file': directives.unchanged,
     }
 
-    def run(self):
+    def run(self) -> list[nodes.Node]:
         env = self.state.document.settings.env
         app = env.app
 
@@ -111,15 +122,22 @@ class ShowPolicyDirective(rst.Directive):
 
         # if the config_file option was not defined, attempt to reuse the
         # 'oslo_policy.sphinxpolicygen' extension's setting
-        if not config_file and hasattr(env.config,
-                                       'policy_generator_config_file'):
+        if not config_file and hasattr(
+            env.config, 'policy_generator_config_file'
+        ):
             config_file = env.config.policy_generator_config_file
+
+        if not config_file:
+            raise ValueError('could not find config file')
 
         # If we are given a file that isn't an absolute path, look for it
         # in the source directory if it doesn't exist.
         candidates = [
             config_file,
-            os.path.join(app.srcdir, config_file,),
+            os.path.join(
+                app.srcdir,
+                config_file,
+            ),
         ]
         for c in candidates:
             if os.path.isfile(c):
@@ -127,10 +145,10 @@ class ShowPolicyDirective(rst.Directive):
                 break
         else:
             raise ValueError(
-                'could not find config file in: %s' % str(candidates)
+                f'could not find config file in: {str(candidates)}'
             )
 
-        self.info('loading config file %s' % config_path)
+        self.info(f'loading config file {config_path}')
 
         conf = cfg.ConfigOpts()
         opts = generator.GENERATOR_OPTS + generator.RULE_OPTS
@@ -141,7 +159,7 @@ class ShowPolicyDirective(rst.Directive):
         )
         namespaces = conf.namespace[:]
 
-        result = statemachine.ViewList()
+        result = statemachine.StringList()
         source_name = '<' + __name__ + '>'
         for line in _format_policy(namespaces):
             result.append(line, source_name)
@@ -161,7 +179,7 @@ class ShowPolicyDirective(rst.Directive):
         return node.children
 
 
-def setup(app):
+def setup(app: application.Sphinx) -> dict[str, bool]:
     app.add_directive('show-policy', ShowPolicyDirective)
     return {
         'parallel_read_safe': True,

@@ -5,21 +5,16 @@ endif
 .SECONDARY:
 .PHONY: all clean
 
-all: apycula/GW1N-1.pickle apycula/GW1N-9.pickle apycula/GW1N-4.pickle \
-	 apycula/GW1NS-4.pickle apycula/GW1N-9C.pickle apycula/GW1NZ-1.pickle \
-	 apycula/GW2A-18.pickle apycula/GW2A-18C.pickle apycula/GW5A-25A.pickle \
-	 apycula/GW5AST-138C.pickle
+all: apycula/GW1N-1.msgpack.xz apycula/GW1N-9.msgpack.xz apycula/GW1N-4.msgpack.xz \
+	 apycula/GW1NS-4.msgpack.xz apycula/GW1N-9C.msgpack.xz apycula/GW1NZ-1.msgpack.xz \
+	 apycula/GW2A-18.msgpack.xz apycula/GW2A-18C.msgpack.xz apycula/GW5A-25A.msgpack.xz \
+	 apycula/GW5AST-138C.msgpack.xz
 
-%_stage1.pickle: apycula/tiled_fuzzer.py
-	python3 -m apycula.tiled_fuzzer $*
+BUILDER_DEPS = apycula/chipdb_builder.py apycula/fse_parser.py apycula/dat_parser.py \
+               apycula/tm_parser.py apycula/chipdb.py
 
-%_stage2.pickle: apycula/find_sdram_pins.py %_stage1.pickle
-	python3 -m apycula.find_sdram_pins $*
-
-apycula/%.pickle: %_stage2.pickle
-	gzip -c $< > $@
+apycula/%.msgpack.xz: $(BUILDER_DEPS)
+	python3 -m apycula.chipdb_builder $*
 
 clean:
-	rm -f *.json
-	rm -f *.pickle
-	rm -f apycula/*.pickle
+	rm -f apycula/*.msgpack.xz

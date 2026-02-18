@@ -43,7 +43,8 @@ class GCPConfig(object):
         'cluster_service_account_email': 'str',
         'memorystore_instance_name': 'str',
         'memorystore_endpoint': 'str',
-        'deployment_manager_id': 'str'
+        'deployment_manager_id': 'str',
+        'infrastructure_manager_id': 'str'
     }
 
     attribute_map = {
@@ -57,10 +58,11 @@ class GCPConfig(object):
         'cluster_service_account_email': 'cluster_service_account_email',
         'memorystore_instance_name': 'memorystore_instance_name',
         'memorystore_endpoint': 'memorystore_endpoint',
-        'deployment_manager_id': 'deployment_manager_id'
+        'deployment_manager_id': 'deployment_manager_id',
+        'infrastructure_manager_id': 'infrastructure_manager_id'
     }
 
-    def __init__(self, project_id=None, host_project_id=None, provider_name=None, vpc_name=None, subnet_names=None, firewall_policy_names=None, anyscale_service_account_email=None, cluster_service_account_email=None, memorystore_instance_name=None, memorystore_endpoint=None, deployment_manager_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, project_id=None, host_project_id=None, provider_name=None, vpc_name=None, subnet_names=None, firewall_policy_names=None, anyscale_service_account_email=None, cluster_service_account_email=None, memorystore_instance_name=None, memorystore_endpoint=None, deployment_manager_id=None, infrastructure_manager_id=None, local_vars_configuration=None):  # noqa: E501
         """GCPConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -77,6 +79,7 @@ class GCPConfig(object):
         self._memorystore_instance_name = None
         self._memorystore_endpoint = None
         self._deployment_manager_id = None
+        self._infrastructure_manager_id = None
         self.discriminator = None
 
         if project_id is not None:
@@ -101,6 +104,8 @@ class GCPConfig(object):
             self.memorystore_endpoint = memorystore_endpoint
         if deployment_manager_id is not None:
             self.deployment_manager_id = deployment_manager_id
+        if infrastructure_manager_id is not None:
+            self.infrastructure_manager_id = infrastructure_manager_id
 
     @property
     def project_id(self):
@@ -354,6 +359,29 @@ class GCPConfig(object):
         """
 
         self._deployment_manager_id = deployment_manager_id
+
+    @property
+    def infrastructure_manager_id(self):
+        """Gets the infrastructure_manager_id of this GCPConfig.  # noqa: E501
+
+        The Infrastructure Manager deployment ID, for Anyscale-managed resources.  # noqa: E501
+
+        :return: The infrastructure_manager_id of this GCPConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._infrastructure_manager_id
+
+    @infrastructure_manager_id.setter
+    def infrastructure_manager_id(self, infrastructure_manager_id):
+        """Sets the infrastructure_manager_id of this GCPConfig.
+
+        The Infrastructure Manager deployment ID, for Anyscale-managed resources.  # noqa: E501
+
+        :param infrastructure_manager_id: The infrastructure_manager_id of this GCPConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._infrastructure_manager_id = infrastructure_manager_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

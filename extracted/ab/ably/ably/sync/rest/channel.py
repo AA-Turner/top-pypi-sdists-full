@@ -9,6 +9,7 @@ from urllib import parse
 import msgpack
 
 from ably.sync.http.paginatedresult import PaginatedResultSync, format_params
+from ably.sync.rest.annotations import RestAnnotations
 from ably.sync.types.channeldetails import ChannelDetails
 from ably.sync.types.message import (
     Message,
@@ -30,6 +31,8 @@ log = logging.getLogger(__name__)
 
 
 class ChannelSync:
+    __annotations: RestAnnotations
+
     def __init__(self, ably, name, options):
         self.__ably = ably
         self.__name = name
@@ -37,6 +40,7 @@ class ChannelSync:
         self.__cipher = None
         self.options = options
         self.__presence = Presence(self)
+        self.__annotations = RestAnnotations(self)
 
     @catch_all
     def history(self, direction=None, limit: int = None, start=None, end=None):
@@ -108,7 +112,7 @@ class ChannelSync:
 
         path = self.__base_path + 'messages'
         if params:
-            params = {k: str(v).lower() if type(v) is bool else v for k, v in params.items()}
+            params = {k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()}
             path += '?' + parse.urlencode(params)
         response = self.ably.http.post(path, body=request_body, timeout=timeout)
 
@@ -169,8 +173,8 @@ class ChannelSync:
         if not message.serial:
             raise AblyException(
                 "Message serial is required for update/delete/append operations",
-                400,
-                40003
+                status_code=400,
+                code=40003,
             )
 
         if not operation:
@@ -207,7 +211,7 @@ class ChannelSync:
         # Build path with params
         path = self.__base_path + 'messages/{}'.format(parse.quote_plus(message.serial, safe=':'))
         if params:
-            params = {k: str(v).lower() if type(v) is bool else v for k, v in params.items()}
+            params = {k: str(v).lower() if isinstance(v, bool) else v for k, v in params.items()}
             path += '?' + parse.urlencode(params)
 
         # Send request
@@ -282,8 +286,8 @@ class ChannelSync:
             raise AblyException(
                 'This message lacks a serial. Make sure you have enabled "Message annotations, '
                 'updates, and deletes" in channel settings on your dashboard.',
-                400,
-                40003
+                status_code=400,
+                code=40003,
             )
 
         # Build the path
@@ -321,8 +325,8 @@ class ChannelSync:
             raise AblyException(
                 'This message lacks a serial. Make sure you have enabled "Message annotations, '
                 'updates, and deletes" in channel settings on your dashboard.',
-                400,
-                40003
+                status_code=400,
+                code=40003,
             )
 
         # Build the path
@@ -362,6 +366,10 @@ class ChannelSync:
     @property
     def presence(self):
         return self.__presence
+
+    @property
+    def annotations(self) -> RestAnnotations:
+        return self.__annotations
 
     @options.setter
     def options(self, options):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-environ
-Version: 0.12.1
+Version: 0.13.0
 Summary: A package that allows you to utilize 12factor inspired environment variables to configure your Django application.
 Home-page: https://django-environ.readthedocs.org
 Author: Daniele Faraglia
@@ -27,6 +27,8 @@ Classifier: Framework :: Django :: 4.1
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Developers
 Classifier: Natural Language :: English
@@ -37,11 +39,11 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.9,<4
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
@@ -53,6 +55,7 @@ Requires-Dist: setuptools>=71.0.0; extra == "testing"
 Provides-Extra: docs
 Requires-Dist: furo>=2024.8.6; extra == "docs"
 Requires-Dist: sphinx>=5.0; extra == "docs"
+Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-notfound-page; extra == "docs"
 Provides-Extra: develop
 Requires-Dist: coverage[toml]>=5.0a4; extra == "develop"
@@ -60,6 +63,7 @@ Requires-Dist: pytest>=4.6.11; extra == "develop"
 Requires-Dist: setuptools>=71.0.0; extra == "develop"
 Requires-Dist: furo>=2024.8.6; extra == "develop"
 Requires-Dist: sphinx>=5.0; extra == "develop"
+Requires-Dist: sphinx-copybutton; extra == "develop"
 Requires-Dist: sphinx-notfound-page; extra == "develop"
 Dynamic: author
 Dynamic: author-email
@@ -154,7 +158,7 @@ it and return a ``urllib.parse.ParseResult``. These strings from ``os.environ``
 are loaded from a ``.env`` file and filled in ``os.environ`` with ``setdefault``
 method, to avoid to overwrite the real environ.
 A similar approach is used in
-`Two Scoops of Django <https://web.archive.org/web/20240121133956/https://www.feldroy.com/books/two-scoops-of-django-3-x>`_
+`Two Scoops of Django <https://www.feldroy.com/two-scoops-of-django>`_
 book and explained in `12factor-django <https://dev.to/ale_jacques/django-drf-12-factor-app-with-examples-36jg>`_
 article.
 
@@ -184,7 +188,7 @@ the code on `GitHub <https://github.com/joke2k/django-environ>`_,
 and the latest release on `PyPI <https://pypi.org/project/django-environ/>`_.
 
 It’s rigorously tested on Python 3.9+, and officially supports
-Django 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, and 5.1.
+Django 2.2, 3.0, 3.1, 3.2, 4.0, 4.1, 4.2, 5.0, 5.1, 5.2, and 6.0.
 
 If you'd like to contribute to ``django-environ`` you're most welcome!
 
@@ -281,17 +285,34 @@ Resources
 Release Information
 ===================
 
-v0.12.1 - 13-February-2026
+v0.13.0 - 18-February-2026
 -----------------------------
+Added
++++++
+- Added optional warnings when defaults are used
+  `#582 <https://github.com/joke2k/django-environ/pull/582>`_.
+- Added `choices` argument support for value validation in ``Env.str(...)``
+  `#555 <https://github.com/joke2k/django-environ/pull/555>`_.
+- Added Valkey support via ``valkey://`` and ``valkeys://`` cache URL schemes
+  `#554 <https://github.com/joke2k/django-environ/pull/554>`_.
+- Added support for ``rediss://`` scheme in channels URL parsing
+  `#573 <https://github.com/joke2k/django-environ/pull/573>`_.
+- Added django-prometheus database backend aliases to DB URL parsing schemes
+  `#559 <https://github.com/joke2k/django-environ/pull/559>`_.
+
+Changed
++++++++
+- Declared support for Python 3.14
+  `#580 <https://github.com/joke2k/django-environ/pull/580>`_.
+- Declared support for Django 5.2 and Django 6.0
+  `#578 <https://github.com/joke2k/django-environ/pull/578>`_.
+
 Fixed
 +++++
-- Fixed PostgreSQL cluster URL parsing with bracketed IPv6 hosts in recent
-  Python versions, preventing failures in runtime URL parsing and related
-  regression tests
-  `#574 <https://github.com/joke2k/django-environ/issues/574>`_.
-- Fixed debug logging in ``Env.get_value()`` to avoid evaluating lazy default
-  objects when DEBUG logging is enabled
-  `#571 <https://github.com/joke2k/django-environ/issues/571>`_.
+- Improved type hint coverage and related lint issues
+  `#546 <https://github.com/joke2k/django-environ/pull/546>`_.
+- Fixed typos in the FAQ page
+  `#445 <https://github.com/joke2k/django-environ/pull/445>`_.
 
 `Full changelog <https://django-environ.readthedocs.org/en/latest/changelog.html>`_.
 

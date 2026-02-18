@@ -1,11 +1,6 @@
 import os
-import sys
-
-import pytest
 
 import setupmeta
-
-from . import conftest
 
 
 def test_shortening():
@@ -27,11 +22,7 @@ def test_shortening():
 
     assert setupmeta.short("found in %s" % path) == "found in ~/foo/bar"
 
-    assert setupmeta.short(dict(foo="bar"), c=8) == "1 keys"
-
-    assert setupmeta.merged("a", None) == "a"
-    assert setupmeta.merged(None, "a") == "a"
-    assert setupmeta.merged("a", "b") == "a\nb"
+    assert setupmeta.short({"foo": "bar"}, c=8) == "1 keys"
 
 
 def test_strip():
@@ -47,12 +38,7 @@ def test_listify():
     assert setupmeta.listify("a,, b", separator=",") == ["a", "b"]
     assert setupmeta.listify("a,\n b", separator=",") == ["a", "b"]
     assert setupmeta.listify("a\n b", separator=",") == ["a", "b"]
-
-
-def test_decode():
-    assert setupmeta.decode(None) is None
-    assert setupmeta.decode("") == ""
-    assert setupmeta.decode(b"") == ""
+    assert setupmeta.listify(("a", "b")) == ["a", "b"]
 
 
 def test_parsing():
@@ -64,36 +50,6 @@ def test_parsing():
     assert setupmeta.to_int([1]) is None
     assert setupmeta.to_int(1, default=2) == 1
     assert setupmeta.to_int(0, default=2) == 0
-
-
-def test_which():
-    assert setupmeta.which(None) is None
-    assert setupmeta.which("/foo/does/not/exist") is None
-    assert setupmeta.which("foo/does/not/exist") is None
-    assert setupmeta.which("pip")
-
-
-def test_run_program():
-    setupmeta.DEBUG = True
-    with conftest.capture_output() as out:
-        assert setupmeta.run_program("ls", capture=True, dryrun=True) is None
-        assert setupmeta.run_program("ls", capture=False, dryrun=True) == 0
-        assert setupmeta.run_program("ls", "foo/does/not/exist", capture=None) != 0
-        assert setupmeta.run_program(sys.executable, "--version", capture=True)
-        assert setupmeta.run_program(sys.executable, "-c", "foo", capture=True) == ""
-        assert "NameError:" in setupmeta.run_program(sys.executable, "-c", "foo", capture="all")
-        assert setupmeta.run_program("/foo/does/not/exist", capture=True, dryrun=True) is None
-        assert setupmeta.run_program("/foo/does/not/exist", capture=False) != 0
-
-        with pytest.raises(SystemExit):
-            setupmeta.run_program("/foo/does/not/exist", fatal=True)
-
-        with pytest.raises(SystemExit):
-            assert setupmeta.run_program("ls", "foo/does/not/exist", fatal=True)
-
-        assert "exitcode" in out
-
-    setupmeta.DEBUG = False
 
 
 def test_stringify():
@@ -112,9 +68,3 @@ def test_stringify():
     assert setupmeta.listify("a b") == ["a", "b"]
     assert sorted(setupmeta.listify(set("ab"))) == ["a", "b"]
     assert setupmeta.listify(("a", "b")) == ["a", "b"]
-
-
-def test_meta_command_init():
-    with pytest.raises(Exception):
-        obj = setupmeta.MetaDefs()
-        setupmeta.meta_command_init(obj, {})

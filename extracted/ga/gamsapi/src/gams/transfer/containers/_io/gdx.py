@@ -651,8 +651,9 @@ def container_write(
         symbols = container.listSymbols()
 
     # reorder symbols if necessary
-    if container._isValidSymbolOrder() == False:
-        container.reorderSymbols()
+    if container._requires_state_check:
+        if container._isValidSymbolOrder() == False:
+            container.reorderSymbols()
 
     # get symbol objects to write
     symobjs = container.getSymbols(symbols)

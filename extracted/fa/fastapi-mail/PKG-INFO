@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-mail
-Version: 1.6.1
+Version: 1.6.2
 Summary: Simple lightweight mail library for FastApi
 License: MIT
 License-File: LICENSE

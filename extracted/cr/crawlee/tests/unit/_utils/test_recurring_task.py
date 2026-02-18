@@ -41,6 +41,7 @@ async def test_start_and_stop(function: AsyncMock, delay: timedelta) -> None:
     assert rt.task.done()
 
 
+@pytest.mark.run_alone
 async def test_execution(function: AsyncMock, delay: timedelta) -> None:
     task = RecurringTask(function, delay)
 

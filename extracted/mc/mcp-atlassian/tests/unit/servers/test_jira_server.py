@@ -534,6 +534,54 @@ async def test_create_issue_accepts_json_string(jira_client, mock_jira_fetcher):
 
 
 @pytest.mark.anyio
+async def test_create_issue_additional_fields_empty_string(jira_client):
+    """Test that empty string additional_fields raises ValueError."""
+    with pytest.raises(ToolError) as excinfo:
+        await jira_client.call_tool(
+            "jira_create_issue",
+            {
+                "project_key": "TEST",
+                "summary": "Test issue",
+                "issue_type": "Task",
+                "additional_fields": "",
+            },
+        )
+    assert "not valid JSON" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+async def test_create_issue_additional_fields_invalid_json(jira_client):
+    """Test that invalid JSON additional_fields raises ValueError."""
+    with pytest.raises(ToolError) as excinfo:
+        await jira_client.call_tool(
+            "jira_create_issue",
+            {
+                "project_key": "TEST",
+                "summary": "Test issue",
+                "issue_type": "Task",
+                "additional_fields": "{invalid json",
+            },
+        )
+    assert "not valid JSON" in str(excinfo.value)
+
+
+@pytest.mark.anyio
+async def test_create_issue_additional_fields_non_dict_json(jira_client):
+    """Test that JSON array additional_fields raises ValueError."""
+    with pytest.raises(ToolError) as excinfo:
+        await jira_client.call_tool(
+            "jira_create_issue",
+            {
+                "project_key": "TEST",
+                "summary": "Test issue",
+                "issue_type": "Task",
+                "additional_fields": '["item1", "item2"]',
+            },
+        )
+    assert "not a JSON object" in str(excinfo.value)
+
+
+@pytest.mark.anyio
 async def test_batch_create_issues(jira_client, mock_jira_fetcher):
     """Test batch creation of Jira issues."""
     test_issues = [
@@ -683,12 +731,12 @@ async def test_get_issue_with_user_specific_fetcher_in_state(
         async with Client(transport=FastMCPTransport(test_jira_mcp)) as client_instance:
             response = await client_instance.call_tool(
                 "jira_get_issue",
-                {"issue_key": "USER-STATE-1", "fields": test_fields_str},
+                {"issue_key": "USRST-1", "fields": test_fields_str},
             )
 
     mock_get_http.assert_called()
     mock_jira_fetcher.get_issue.assert_called_with(
-        issue_key="USER-STATE-1",
+        issue_key="USRST-1",
         fields=expected_fields_list,
         expand=None,
         comment_limit=10,
@@ -696,7 +744,7 @@ async def test_get_issue_with_user_specific_fetcher_in_state(
         update_history=True,
     )
     result_data = json.loads(response.content[0].text)
-    assert result_data["key"] == "USER-STATE-1"
+    assert result_data["key"] == "USRST-1"
 
 
 @pytest.mark.anyio
@@ -1178,3 +1226,112 @@ async def test_batch_create_versions_empty(jira_client, mock_jira_fetcher):
     )
     content = json.loads(response.content[0].text)
     assert content == []
+
+
+# Regression tests for issue #883: project keys with 4+ characters
+# https://github.com/sooperset/mcp-atlassian/issues/883
+
+
+@pytest.mark.anyio
+async def test_get_issue_long_project_key(jira_client, mock_jira_fetcher):
+    """Regression test for #883: 4-character project keys with digits should work."""
+    response = await jira_client.call_tool(
+        "jira_get_issue",
+        {"issue_key": "ACV2-642"},
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) > 0
+    content = json.loads(response.content[0].text)
+    assert content["key"] == "ACV2-642"
+    mock_jira_fetcher.get_issue.assert_called_once()
+
+
+@pytest.mark.anyio
+async def test_get_issue_five_char_project_key(jira_client, mock_jira_fetcher):
+    """Regression test for #883: 5-character project keys should work."""
+    response = await jira_client.call_tool(
+        "jira_get_issue",
+        {"issue_key": "CMSV2-1"},
+    )
+    assert hasattr(response, "content")
+    assert len(response.content) > 0
+    content = json.loads(response.content[0].text)
+    assert content["key"] == "CMSV2-1"
+
+
+@pytest.mark.anyio
+async def test_get_issue_min_length_project_key(jira_client, mock_jira_fetcher):
+    """Test minimum length (2-character) project keys still work."""
+    response = await jira_client.call_tool(
+        "jira_get_issue",
+        {"issue_key": "AB-1"},
+    )
+    assert hasattr(response, "content")
+    content = json.loads(response.content[0].text)
+    assert content["key"] == "AB-1"
+
+
+@pytest.mark.anyio
+async def test_get_issue_max_length_project_key(jira_client, mock_jira_fetcher):
+    """Test maximum length (10-character) project keys work."""
+    response = await jira_client.call_tool(
+        "jira_get_issue",
+        {"issue_key": "ABCDEFGHIJ-99"},
+    )
+    assert hasattr(response, "content")
+    content = json.loads(response.content[0].text)
+    assert content["key"] == "ABCDEFGHIJ-99"
+
+
+@pytest.mark.anyio
+async def test_get_project_issues_long_key(jira_client, mock_jira_fetcher):
+    """Regression test for #883: get_project_issues with 4+ char project key."""
+    mock_search_result = MagicMock()
+    mock_search_result.to_simplified_dict.return_value = {
+        "total": 0,
+        "start_at": 0,
+        "max_results": 10,
+        "issues": [],
+    }
+    mock_jira_fetcher.get_project_issues.return_value = mock_search_result
+
+    response = await jira_client.call_tool(
+        "jira_get_project_issues",
+        {"project_key": "CMSV2"},
+    )
+    assert hasattr(response, "content")
+    content = json.loads(response.content[0].text)
+    assert content["total"] == 0
+    mock_jira_fetcher.get_project_issues.assert_called_once_with(
+        project_key="CMSV2", start=0, limit=10
+    )
+
+
+def test_issue_key_pattern_validation():
+    """Verify the issue key and project key regex patterns accept valid keys."""
+    import re
+
+    from src.mcp_atlassian.servers.jira import ISSUE_KEY_PATTERN, PROJECT_KEY_PATTERN
+
+    # Valid issue keys
+    assert re.match(ISSUE_KEY_PATTERN, "PROJ-123")
+    assert re.match(ISSUE_KEY_PATTERN, "ACV2-642")
+    assert re.match(ISSUE_KEY_PATTERN, "CMSV2-1")
+    assert re.match(ISSUE_KEY_PATTERN, "AB-1")
+    assert re.match(ISSUE_KEY_PATTERN, "ABCDEFGHIJ-99")
+    # Invalid issue keys
+    assert not re.match(ISSUE_KEY_PATTERN, "a-1")
+    assert not re.match(ISSUE_KEY_PATTERN, "PROJ")
+    assert not re.match(ISSUE_KEY_PATTERN, "2ABC-1")
+    assert not re.match(ISSUE_KEY_PATTERN, "A-1-2")
+
+    # Valid project keys
+    assert re.match(PROJECT_KEY_PATTERN, "PROJ")
+    assert re.match(PROJECT_KEY_PATTERN, "ACV2")
+    assert re.match(PROJECT_KEY_PATTERN, "CMSV2")
+    assert re.match(PROJECT_KEY_PATTERN, "AB")
+    assert re.match(PROJECT_KEY_PATTERN, "ABCDEFGHIJ")
+    # Invalid project keys
+    assert not re.match(PROJECT_KEY_PATTERN, "a")
+    assert not re.match(PROJECT_KEY_PATTERN, "2ABC")
+    assert not re.match(PROJECT_KEY_PATTERN, "A")

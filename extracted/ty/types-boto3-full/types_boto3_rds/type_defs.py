@@ -49,6 +49,7 @@ from .literals import (
     MasterUserAuthenticationTypeType,
     ReplicaModeType,
     SourceTypeType,
+    StorageEncryptionTypeType,
     TargetConnectionNetworkTypeType,
     TargetHealthReasonType,
     TargetRoleType,
@@ -1957,6 +1958,7 @@ class DBClusterSnapshotTypeDef(TypedDict):
     SnapshotType: NotRequired[str]
     PercentProgress: NotRequired[int]
     StorageEncrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     BackupRetentionPeriod: NotRequired[int]
     PreferredBackupWindow: NotRequired[str]
     KmsKeyId: NotRequired[str]
@@ -2256,6 +2258,7 @@ class DBSnapshotTypeDef(TypedDict):
     StorageType: NotRequired[str]
     TdeCredentialArn: NotRequired[str]
     Encrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     BackupRetentionPeriod: NotRequired[int]
     PreferredBackupWindow: NotRequired[str]
     KmsKeyId: NotRequired[str]
@@ -2364,6 +2367,7 @@ class DBClusterAutomatedBackupTypeDef(TypedDict):
     IAMDatabaseAuthenticationEnabled: NotRequired[bool]
     ClusterCreateTime: NotRequired[datetime]
     StorageEncrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     AllocatedStorage: NotRequired[int]
     EngineVersion: NotRequired[str]
     DBClusterArn: NotRequired[str]
@@ -2517,6 +2521,7 @@ class DBInstanceAutomatedBackupTypeDef(TypedDict):
     OptionGroupName: NotRequired[str]
     TdeCredentialArn: NotRequired[str]
     Encrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     StorageType: NotRequired[str]
     KmsKeyId: NotRequired[str]
     Timezone: NotRequired[str]
@@ -3412,6 +3417,7 @@ class GlobalClusterTypeDef(TypedDict):
     EngineLifecycleSupport: NotRequired[str]
     DatabaseName: NotRequired[str]
     StorageEncrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     DeletionProtection: NotRequired[bool]
     GlobalClusterMembers: NotRequired[list[GlobalClusterMemberTypeDef]]
     Endpoint: NotRequired[str]
@@ -4217,6 +4223,7 @@ class DBClusterTypeDef(TypedDict):
     VpcSecurityGroups: NotRequired[list[VpcSecurityGroupMembershipTypeDef]]
     HostedZoneId: NotRequired[str]
     StorageEncrypted: NotRequired[bool]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     KmsKeyId: NotRequired[str]
     DbClusterResourceId: NotRequired[str]
     DBClusterArn: NotRequired[str]
@@ -4746,6 +4753,7 @@ class DBInstanceTypeDef(TypedDict):
     PubliclyAccessible: NotRequired[bool]
     StatusInfos: NotRequired[list[DBInstanceStatusInfoTypeDef]]
     StorageType: NotRequired[str]
+    StorageEncryptionType: NotRequired[StorageEncryptionTypeType]
     TdeCredentialArn: NotRequired[str]
     DbInstancePort: NotRequired[int]
     DBClusterIdentifier: NotRequired[str]

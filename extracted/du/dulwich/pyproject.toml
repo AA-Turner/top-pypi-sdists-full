@@ -43,7 +43,7 @@ pgp = ["gpg"]
 paramiko = ["paramiko"]
 colordiff = ["rich"]
 dev = [
-    "ruff==0.14.10",
+    "ruff==0.14.14",
     "mypy==1.19.1",
     "dissolve>=0.1.1",
     "codespell==2.4.1",
@@ -175,8 +175,5 @@ before-build = "pip install -U setuptools-rust && yum -y install libatomic && cu
 archs = ["auto", "universal2", "x86_64", "arm64"]
 before-all = "rustup target add x86_64-apple-darwin aarch64-apple-darwin"
 skip = """\
-    cp310-macosx_x86_64 cp310-macosx_universal2 \
-    cp311-macosx_x86_64 cp311-macosx_universal2 \
-    cp312-macosx_x86_64 cp312-macosx_universal2 \
-    cp313-macosx_x86_64 cp313-macosx_universal2 \
+    cp*-macosx_x86_64 cp*-macosx_universal2 \
     """

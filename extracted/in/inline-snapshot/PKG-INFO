@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inline-snapshot
-Version: 0.32.0
+Version: 0.32.1
 Summary: golden master/snapshot/approval testing library which puts the values right into your source code
 Project-URL: Changelog, https://15r10nk.github.io/inline-snapshot/latest/changelog/
 Project-URL: Discussions, https://github.com/15r10nk/inline-snapshots/discussions

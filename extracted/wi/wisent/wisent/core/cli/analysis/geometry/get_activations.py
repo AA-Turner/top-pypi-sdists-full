@@ -10,7 +10,7 @@ def execute_get_activations(args):
     """Execute the get-activations command - load pairs and collect activations."""
     from wisent.core.models.wisent_model import WisentModel
     from wisent.core.activations.activations_collector import ActivationCollector
-    from wisent.core.activations import ExtractionStrategy
+    from wisent.core.activations import ExtractionStrategy, ExtractionComponent
     
     from wisent.core.contrastive_pairs.core.pair import ContrastivePair
     from wisent.core.contrastive_pairs.core.io.response import PositiveResponse, NegativeResponse
@@ -74,7 +74,9 @@ def execute_get_activations(args):
 
         # 4. Get extraction strategy from args
         extraction_strategy = ExtractionStrategy(getattr(args, 'extraction_strategy', 'chat_last'))
+        extraction_component = ExtractionComponent(getattr(args, 'extraction_component', 'residual_stream'))
         print(f"   Extraction strategy: {extraction_strategy.value}")
+        print(f"   Extraction component: {extraction_component.value}")
 
         # 5. Create pair set and reconstruct pairs
         pair_set = ContrastivePairSet(name=task_name, task_type=trait_label)
@@ -110,7 +112,7 @@ def execute_get_activations(args):
                 # Collect RAW hidden states (full sequences)
                 raw_data = collector.collect_raw(
                     pair, strategy=extraction_strategy,
-                    layers=layer_strs,
+                    layers=layer_strs, component=extraction_component,
                 )
                 raw_pairs_data.append({
                     'pair': pair,
@@ -127,6 +129,7 @@ def execute_get_activations(args):
                 'model': args.model,
                 'layers': layers,
                 'extraction_strategy': extraction_strategy.value,
+                'extraction_component': extraction_component.value,
                 'text_family': text_family,
                 'raw_mode': True,
                 'num_pairs': len(raw_pairs_data),
@@ -178,7 +181,7 @@ def execute_get_activations(args):
                 # Collect activations for all requested layers at once
                 updated_pair = collector.collect(
                     pair, strategy=extraction_strategy,
-                    layers=layer_strs,
+                    layers=layer_strs, component=extraction_component,
                 )
 
                 enriched_pairs.append(updated_pair)
@@ -213,6 +216,7 @@ def execute_get_activations(args):
                 'model': args.model,
                 'layers': layers,
                 'extraction_strategy': extraction_strategy.value,
+                'extraction_component': extraction_component.value,
                 'raw_mode': False,
                 'num_pairs': len(enriched_pairs),
                 'calibration_norms': calibration_norms,  # For auto-calibrated steering strength

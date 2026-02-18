@@ -58,7 +58,8 @@ class TestPutAvailableDataset(unittest.TestCase):
                     right_dataset_id = '', 
                     left_dataset_join_key = '', 
                     right_dataset_join_key = '', 
-                    join_type = 'inner', )
+                    join_type = 'inner', ),
+                is_static = True
             )
         else:
             return PutAvailableDataset(

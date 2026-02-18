@@ -150,7 +150,14 @@ class _ConnectionBase:
         self._connected = False
         self._skip_init_checks = skip_init_checks
 
-        self._headers = {"content-type": "application/json"}
+        client_type = "sync" if isinstance(self, ConnectionSync) else "async"
+        embedded_suffix = "-embedded" if self.embedded_db is not None else ""
+        client_header = f"weaviate-client-python/{client_version}-{client_type}{embedded_suffix}"
+
+        self._headers = {
+            "content-type": "application/json",
+            "X-Weaviate-Client": client_header,
+        }
         self.__add_weaviate_embedding_service_header(connection_params.http.host)
         if additional_headers is not None:
             _validate_input(_ValidateArgument([dict], "additional_headers", additional_headers))
@@ -731,15 +738,19 @@ class _ConnectionBase:
             if is_weaviate_client_too_old(client_version, latest_version):
                 _Warnings.weaviate_client_too_old_vs_latest(client_version, latest_version)
 
-        try:
-            if colour == "async":
+        if colour == "async":
 
-                async def _execute() -> None:
+            async def _execute() -> None:
+                try:
                     async with AsyncClient() as client:
                         res = await client.get(PYPI_PACKAGE_URL, timeout=self.timeout_config.init)
                     return resp(res)
+                except RequestError:
+                    pass  # ignore any errors related to requests, it is a best-effort warning
 
-                return _execute()
+            return _execute()
+
+        try:
             with Client() as client:
                 res = client.get(PYPI_PACKAGE_URL, timeout=self.timeout_config.init)
             return resp(res)

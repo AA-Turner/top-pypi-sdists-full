@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from importlib.metadata import version
 from subprocess import check_call, check_output
 from textwrap import dedent
@@ -47,8 +48,8 @@ def test_run_precommit_hook() -> None:
 
 @pytest.mark.usefixtures("install_hook")
 def test_call_as_module() -> None:
-    run_result = check_output(["python3", "-m", "pre_commit", "run", "-a", "--color", "never"], encoding="utf-8")
-    assert f"[INFO] Using pre-commit with uv {uv} via pre-commit-uv {self}" not in run_result.splitlines()
+    run_result = check_output([sys.executable, "-m", "pre_commit", "run", "-a", "--color", "never"], encoding="utf-8")
+    assert f"[INFO] Using pre-commit with uv {uv} via pre-commit-uv {self}" in run_result.splitlines()
 
 
 def test_install(git_repo: Path, caplog: pytest.LogCaptureFixture, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -66,6 +67,21 @@ def test_install(git_repo: Path, caplog: pytest.LogCaptureFixture, monkeypatch: 
         "This may take a few minutes...",
         f"Using pre-commit with uv {uv} via pre-commit-uv {self}",
     ]
+
+
+def test_install_seeds_pip(git_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("FORCE_PRE_COMMIT_UV_PATCH", "1")
+
+    import pre_commit_uv  # noqa: PLC0415
+
+    pre_commit_uv._patch()  # noqa: SLF001
+    main.main(["install-hooks", "-c", str(git_repo / precommit_file)])
+
+    env_dirs = list((git_repo / "store").rglob("py_env-*"))
+    assert env_dirs, "expected at least one hook environment"
+    py = next((env_dirs[0] / "bin").glob("python*"))
+    result = check_output([str(py), "-c", "import pip"], encoding="utf-8")
+    assert not result
 
 
 test_install_with_uv_config_cases: list[tuple[str, str]] = [

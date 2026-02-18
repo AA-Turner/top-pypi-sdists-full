@@ -910,10 +910,10 @@ class WallpaperImageInputTypeDef(TypedDict):
 
 class BrandingConfigurationTypeDef(TypedDict):
     logo: ImageMetadataTypeDef
-    wallpaper: ImageMetadataTypeDef
     favicon: ImageMetadataTypeDef
     localizedStrings: dict[LocaleType, LocalizedBrandingStringsTypeDef]
     colorTheme: ColorThemeType
+    wallpaper: NotRequired[ImageMetadataTypeDef]
     termsOfService: NotRequired[str]
 
 
@@ -1186,10 +1186,10 @@ WebContentFilteringPolicyUnionTypeDef = Union[
 
 class BrandingConfigurationCreateInputTypeDef(TypedDict):
     logo: IconImageInputTypeDef
-    wallpaper: WallpaperImageInputTypeDef
     favicon: IconImageInputTypeDef
     localizedStrings: Mapping[LocaleType, LocalizedBrandingStringsTypeDef]
     colorTheme: ColorThemeType
+    wallpaper: NotRequired[WallpaperImageInputTypeDef]
     termsOfService: NotRequired[str]
 
 

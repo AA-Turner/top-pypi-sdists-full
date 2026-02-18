@@ -174,7 +174,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/add_log_analytics_log_group.py.html>`__ to see an example of how to use add_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/add_log_analytics_log_group.py.html>`__ to see an example of how to use add_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -302,7 +302,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/add_oracle_managed_custom_endpoint.py.html>`__ to see an example of how to use add_oracle_managed_custom_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/add_oracle_managed_custom_endpoint.py.html>`__ to see an example of how to use add_oracle_managed_custom_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -430,7 +430,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/change_integration_instance_compartment.py.html>`__ to see an example of how to use change_integration_instance_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/change_integration_instance_compartment.py.html>`__ to see an example of how to use change_integration_instance_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -557,7 +557,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/change_integration_instance_network_endpoint.py.html>`__ to see an example of how to use change_integration_instance_network_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/change_integration_instance_network_endpoint.py.html>`__ to see an example of how to use change_integration_instance_network_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -684,7 +684,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/change_private_endpoint_outbound_connection.py.html>`__ to see an example of how to use change_private_endpoint_outbound_connection API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/change_private_endpoint_outbound_connection.py.html>`__ to see an example of how to use change_private_endpoint_outbound_connection API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -812,7 +812,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/convert_instance.py.html>`__ to see an example of how to use convert_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/convert_instance.py.html>`__ to see an example of how to use convert_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -930,7 +930,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/create_integration_instance.py.html>`__ to see an example of how to use create_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/create_integration_instance.py.html>`__ to see an example of how to use create_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1033,7 +1033,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/delete_integration_instance.py.html>`__ to see an example of how to use delete_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/delete_integration_instance.py.html>`__ to see an example of how to use delete_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1151,7 +1151,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/disable_process_automation.py.html>`__ to see an example of how to use disable_process_automation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/disable_process_automation.py.html>`__ to see an example of how to use disable_process_automation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1277,7 +1277,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/disaster_recovery_failover.py.html>`__ to see an example of how to use disaster_recovery_failover API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/disaster_recovery_failover.py.html>`__ to see an example of how to use disaster_recovery_failover API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1400,7 +1400,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/enable_process_automation.py.html>`__ to see an example of how to use enable_process_automation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/enable_process_automation.py.html>`__ to see an example of how to use enable_process_automation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1524,7 +1524,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/extend_data_retention.py.html>`__ to see an example of how to use extend_data_retention API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/extend_data_retention.py.html>`__ to see an example of how to use extend_data_retention API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1634,7 +1634,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/get_integration_instance.py.html>`__ to see an example of how to use get_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/get_integration_instance.py.html>`__ to see an example of how to use get_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -1737,7 +1737,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -1868,7 +1868,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/list_integration_instances.py.html>`__ to see an example of how to use list_integration_instances API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/list_integration_instances.py.html>`__ to see an example of how to use list_integration_instances API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2008,7 +2008,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -2131,7 +2131,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId', 'compartmentId']
@@ -2254,7 +2254,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2374,7 +2374,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/remove_log_analytics_log_group.py.html>`__ to see an example of how to use remove_log_analytics_log_group API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/remove_log_analytics_log_group.py.html>`__ to see an example of how to use remove_log_analytics_log_group API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -2497,7 +2497,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/remove_oracle_managed_custom_endpoint.py.html>`__ to see an example of how to use remove_oracle_managed_custom_endpoint API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/remove_oracle_managed_custom_endpoint.py.html>`__ to see an example of how to use remove_oracle_managed_custom_endpoint API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -2620,7 +2620,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/start_integration_instance.py.html>`__ to see an example of how to use start_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/start_integration_instance.py.html>`__ to see an example of how to use start_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -2741,7 +2741,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/stop_integration_instance.py.html>`__ to see an example of how to use stop_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/stop_integration_instance.py.html>`__ to see an example of how to use stop_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']
@@ -2857,7 +2857,7 @@ class IntegrationInstanceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/integration/update_integration_instance.py.html>`__ to see an example of how to use update_integration_instance API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/integration/update_integration_instance.py.html>`__ to see an example of how to use update_integration_instance API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['integrationInstanceId']

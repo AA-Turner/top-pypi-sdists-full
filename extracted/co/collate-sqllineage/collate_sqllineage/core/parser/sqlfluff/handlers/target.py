@@ -4,7 +4,7 @@ from sqlfluff.core.parser import BaseSegment
 
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import Path
+from collate_sqllineage.core.models import Location, Path
 from collate_sqllineage.core.parser.sqlfluff.handlers.base import (
     ConditionalSegmentBaseHandler,
 )
@@ -97,18 +97,31 @@ class TargetHandler(ConditionalSegmentBaseHandler):
         :param holder: 'SqlFluffSubQueryLineageHolder' to hold lineage
         """
         if segment.type in ("table_reference", "object_reference"):
-            write_obj = SqlFluffTable.of(segment)
-            if self.prev_token_read:
-                holder.add_read(write_obj)
+            # Check if this table_reference is actually a named location (e.g. @stage)
+            stage_path = get_child(segment, "stage_path")
+            if stage_path:
+                loc_obj = Location(escape_identifier_name(segment.raw))
+                if self.prev_token_read or self.prev_token_from:
+                    holder.add_read(loc_obj)
+                else:
+                    self.write_record(loc_obj, holder)
             else:
-                self.write_record(write_obj, holder)
+                write_obj = SqlFluffTable.of(segment)
+                if self.prev_token_read:
+                    holder.add_read(write_obj)
+                elif self.prev_token_from:
+                    holder.add_read(write_obj)
+                else:
+                    self.write_record(write_obj, holder)
             self._reset_tokens()
 
         elif segment.type in {"literal", "storage_location"}:
+            raw = escape_identifier_name(segment.raw)
+            obj = Location(raw) if raw.strip().startswith("@") else Path(raw)
             if self.prev_token_from:
-                holder.add_read(Path(escape_identifier_name(segment.raw)))
+                holder.add_read(obj)
             else:
-                self.write_record(Path(escape_identifier_name(segment.raw)), holder)
+                self.write_record(obj, holder)
             self._reset_tokens()
 
         elif segment.type == "into_table_clause":

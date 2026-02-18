@@ -255,6 +255,21 @@ def setup_modify_weights_parser(parser: argparse.ArgumentParser) -> None:
         help="Components to modify (e.g., 'self_attn.o_proj' 'mlp.down_proj'). Default: method-specific defaults"
     )
 
+    # Extraction component (auto-selects --components if not explicit)
+    parser.add_argument(
+        "--extraction-component",
+        type=str,
+        default="residual_stream",
+        choices=["residual_stream", "attn_output", "mlp_output", "per_head",
+                 "mlp_intermediate", "post_attn_residual", "pre_attn_layernorm",
+                 "embedding_output", "final_layernorm", "q_proj", "k_proj",
+                 "v_proj", "mlp_gate_activation", "attention_scores", "logits"],
+        help=(
+            "Extraction component used for steering vectors. Auto-selects "
+            "--components if not explicitly set. Default: residual_stream"
+        )
+    )
+
     # Kernel-based layer weighting
     kernel_group = parser.add_argument_group("kernel-based layer weighting")
     kernel_group.add_argument(

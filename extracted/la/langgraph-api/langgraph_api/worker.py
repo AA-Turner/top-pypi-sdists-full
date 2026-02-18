@@ -316,7 +316,7 @@ async def worker(
             elif isinstance(exception, TimeoutError):
                 status = "timeout"
                 await logger.awarning(
-                    "Background run timed out. To increase the timeout, set the BG_JOB_TIMEOUT_SECS environment variable (integer, defaults to 3600).",
+                    "Background run timed out. To increase the timeout, set the BG_JOB_TIMEOUT_SECS environment variable (integer, defaults to 86400).",
                     **log_info,
                 )
                 if not temporary:

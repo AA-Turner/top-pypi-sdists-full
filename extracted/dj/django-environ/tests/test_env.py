@@ -9,13 +9,15 @@
 
 import os
 import tempfile
+from unittest import mock
 import logging
 import io
+import warnings
 from urllib.parse import quote
 
 import pytest
 
-from environ import Env, Path
+from environ import DefaultValueWarning, Env, Path
 from environ.compat import (
     DJANGO_POSTGRES,
     ImproperlyConfigured,
@@ -102,6 +104,19 @@ class TestEnv:
     def test_not_present_with_default(self):
         assert self.env('not_present', default=3) == 3
 
+    def test_not_present_with_default_warning_disabled(self):
+        with warnings.catch_warnings(record=True) as warns:
+            warnings.simplefilter('always')
+            assert self.env('not_present', default=3) == 3
+        assert warns == []
+
+    def test_not_present_with_default_warning_enabled(self):
+        self.env.warn_on_default = True
+        with pytest.warns(
+                DefaultValueWarning,
+                match='not_present environment variable not set'):
+            assert self.env('not_present', default=3) == 3
+
     def test_not_present_without_default(self):
         with pytest.raises(ImproperlyConfigured) as excinfo:
             self.env('not_present')
@@ -114,22 +129,31 @@ class TestEnv:
         assert 'I_AM_NOT_A_VAR' not in self.env
 
     @pytest.mark.parametrize(
-        'var,val,multiline',
+        'var,val,multiline,choices',
         [
-            ('STR_VAR', 'bar', False),
-            ('MULTILINE_STR_VAR', 'foo\\nbar', False),
-            ('MULTILINE_STR_VAR', 'foo\nbar', True),
-            ('MULTILINE_QUOTED_STR_VAR', '---BEGIN---\\r\\n---END---', False),
-            ('MULTILINE_QUOTED_STR_VAR', '---BEGIN---\n---END---', True),
-            ('MULTILINE_ESCAPED_STR_VAR', '---BEGIN---\\\\n---END---', False),
-            ('MULTILINE_ESCAPED_STR_VAR', '---BEGIN---\\\n---END---', True),
+            ('STR_VAR', 'bar', False, Env.NOTSET),
+            ('STR_VAR', 'bar', False, ['foo', 'bar']),
+            ('STR_VAR', 'bar', False, ['pow', 'foo']),
+            ('MULTILINE_STR_VAR', 'foo\\nbar', False, Env.NOTSET),
+            ('MULTILINE_STR_VAR', 'foo\\nbar', False, ['foo\\nbar', '***']),
+            ('MULTILINE_STR_VAR', 'foo\\nbar', False, ['***', '***']),
+            ('MULTILINE_STR_VAR', 'foo\nbar', True, Env.NOTSET),
+            ('MULTILINE_QUOTED_STR_VAR', '---BEGIN---\\r\\n---END---', False, Env.NOTSET),
+            ('MULTILINE_QUOTED_STR_VAR', '---BEGIN---\n---END---', True, Env.NOTSET),
+            ('MULTILINE_ESCAPED_STR_VAR', '---BEGIN---\\\\n---END---', False, Env.NOTSET),
+            ('MULTILINE_ESCAPED_STR_VAR', '---BEGIN---\\\n---END---', True, Env.NOTSET),
         ],
     )
-    def test_str(self, var, val, multiline):
-        assert isinstance(self.env(var), str)
-        if not multiline:
-            assert self.env(var) == val
-        assert self.env.str(var, multiline=multiline) == val
+    def test_str(self, var, val, multiline, choices):
+        if choices is Env.NOTSET or val in choices:
+            assert isinstance(self.env(var), str)
+            if not multiline:
+                assert self.env(var) == val
+            assert self.env.str(var, multiline=multiline) == val
+        else:
+            with pytest.raises(ImproperlyConfigured) as excinfo:
+                self.env.str(var, multiline=multiline, choices=choices)
+            assert str(excinfo.value) == f"Invalid value: {val} not in {choices}"
 
     @pytest.mark.parametrize(
         'var,val,default',
@@ -355,26 +379,40 @@ class TestEnv:
             (Env.DEFAULT_CACHE_ENV,
              'django.core.cache.backends.memcached.MemcachedCache',
              '127.0.0.1:11211', None),
-            ('CACHE_REDIS', REDIS_DRIVER,
+            ('CACHE_REDIS',
+             'django.core.cache.backends.redis.RedisCache',
+             'redis://127.0.0.1:6379/1',
+             {'client_class': 'django_redis.client.DefaultClient',
+              'password': 'secret'}),
+            ('CACHE_REDIS',
+             'django_redis.cache.RedisCache',
              'redis://127.0.0.1:6379/1',
              {'CLIENT_CLASS': 'django_redis.client.DefaultClient',
               'PASSWORD': 'secret'}),
         ],
         ids=[
             'memcached',
-            'redis',
+            'django',  # Django Redis cache backend
+            'redis_django',  # django_redis backend
         ],
     )
     def test_cache_url_value(self, var, backend, location, options):
-        config = self.env.cache_url(var)
+        mocked_cache_schemes = Env.CACHE_SCHEMES.copy()
+        mocked_cache_schemes.update({
+            'rediscache': backend,
+            'redis': backend,
+            'rediss': backend,
+        })
+        with mock.patch.object(Env, 'CACHE_SCHEMES', mocked_cache_schemes):
+            config = self.env.cache_url(var)
 
-        assert config['BACKEND'] == backend
-        assert config['LOCATION'] == location
+            assert config['BACKEND'] == backend
+            assert config['LOCATION'] == location
 
-        if options is None:
-            assert 'OPTIONS' not in config
-        else:
-            assert config['OPTIONS'] == options
+            if options is None:
+                assert 'OPTIONS' not in config
+            else:
+                assert config['OPTIONS'] == options
 
     def test_email_url_value(self):
         email_config = self.env.email_url()

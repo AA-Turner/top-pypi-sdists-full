@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.cache
-Version: 4.0.0
+Version: 4.1.0
 Summary: Cache storage for OpenStack projects.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -32,19 +33,16 @@ Requires-Dist: python-binary-memcached>=0.29.0; extra == "dogpile"
 Requires-Dist: redis>=3.0.0; extra == "dogpile"
 Provides-Extra: etcd3gw
 Requires-Dist: etcd3gw>=0.2.0; extra == "etcd3gw"
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/oslo.cache.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
+Dynamic: license-file
+Dynamic: requires-dist
 
 ==========
 oslo.cache
 ==========
+
+.. image:: https://governance.openstack.org/tc/badges/oslo.cache.svg
+
+.. Change things from this point on
 
 .. image:: https://img.shields.io/pypi/v/oslo.cache.svg
     :target: https://pypi.org/project/oslo.cache/

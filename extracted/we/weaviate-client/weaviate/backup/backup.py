@@ -41,6 +41,8 @@ class BackupStatus(str, Enum):
     STARTED = "STARTED"
     TRANSFERRING = "TRANSFERRING"
     TRANSFERRED = "TRANSFERRED"
+    CANCELLING = "CANCELLING"
+    FINALIZING = "FINALIZING"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     CANCELED = "CANCELED"
@@ -84,6 +86,7 @@ class BackupStatusReturn(BaseModel):
     status: BackupStatus
     path: str
     backup_id: str = Field(alias="id")
+    size: float = Field(default=0)
 
 
 class BackupReturn(BackupStatusReturn):

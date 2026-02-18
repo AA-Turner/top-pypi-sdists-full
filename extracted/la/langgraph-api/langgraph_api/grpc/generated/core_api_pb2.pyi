@@ -70,6 +70,17 @@ class CancelRunStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CANCEL_RUN_STATUS_PENDING: _ClassVar[CancelRunStatus]
     CANCEL_RUN_STATUS_RUNNING: _ClassVar[CancelRunStatus]
     CANCEL_RUN_STATUS_ALL: _ClassVar[CancelRunStatus]
+
+class CronsSortBy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CRONS_SORT_BY_UNSPECIFIED: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_CRON_ID: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_ASSISTANT_ID: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_THREAD_ID: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_NEXT_RUN_DATE: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_END_TIME: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_CREATED_AT: _ClassVar[CronsSortBy]
+    CRONS_SORT_BY_UPDATED_AT: _ClassVar[CronsSortBy]
 RAISE: OnConflictBehavior
 DO_NOTHING: OnConflictBehavior
 DESC: SortOrder
@@ -97,6 +108,14 @@ CREATE_THREAD_IF_THREAD_NOT_EXISTS: CreateRunBehavior
 CANCEL_RUN_STATUS_PENDING: CancelRunStatus
 CANCEL_RUN_STATUS_RUNNING: CancelRunStatus
 CANCEL_RUN_STATUS_ALL: CancelRunStatus
+CRONS_SORT_BY_UNSPECIFIED: CronsSortBy
+CRONS_SORT_BY_CRON_ID: CronsSortBy
+CRONS_SORT_BY_ASSISTANT_ID: CronsSortBy
+CRONS_SORT_BY_THREAD_ID: CronsSortBy
+CRONS_SORT_BY_NEXT_RUN_DATE: CronsSortBy
+CRONS_SORT_BY_END_TIME: CronsSortBy
+CRONS_SORT_BY_CREATED_AT: CronsSortBy
+CRONS_SORT_BY_UPDATED_AT: CronsSortBy
 
 class Tags(_message.Message):
     __slots__ = ("values",)
@@ -913,3 +932,95 @@ class ControlEvent(_message.Message):
     ACTION_FIELD_NUMBER: _ClassVar[int]
     action: _enum_control_signal_pb2.ControlSignal
     def __init__(self, action: _Optional[_Union[_enum_control_signal_pb2.ControlSignal, str]] = ...) -> None: ...
+
+class Cron(_message.Message):
+    __slots__ = ("cron_id", "assistant_id", "thread_id", "on_run_completed", "end_time", "schedule", "created_at", "updated_at", "user_id", "payload_json", "next_run_date", "metadata_json")
+    CRON_ID_FIELD_NUMBER: _ClassVar[int]
+    ASSISTANT_ID_FIELD_NUMBER: _ClassVar[int]
+    THREAD_ID_FIELD_NUMBER: _ClassVar[int]
+    ON_RUN_COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_JSON_FIELD_NUMBER: _ClassVar[int]
+    NEXT_RUN_DATE_FIELD_NUMBER: _ClassVar[int]
+    METADATA_JSON_FIELD_NUMBER: _ClassVar[int]
+    cron_id: str
+    assistant_id: str
+    thread_id: str
+    on_run_completed: str
+    end_time: _timestamp_pb2.Timestamp
+    schedule: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    user_id: str
+    payload_json: bytes
+    next_run_date: _timestamp_pb2.Timestamp
+    metadata_json: bytes
+    def __init__(self, cron_id: _Optional[str] = ..., assistant_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., on_run_completed: _Optional[str] = ..., end_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., schedule: _Optional[str] = ..., created_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., updated_at: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., user_id: _Optional[str] = ..., payload_json: _Optional[bytes] = ..., next_run_date: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ..., metadata_json: _Optional[bytes] = ...) -> None: ...
+
+class CreateCronRequest(_message.Message):
+    __slots__ = ("filters", "schedule", "payload_json", "metadata_json", "cron_id", "thread_id", "on_run_completed", "end_time")
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    PAYLOAD_JSON_FIELD_NUMBER: _ClassVar[int]
+    METADATA_JSON_FIELD_NUMBER: _ClassVar[int]
+    CRON_ID_FIELD_NUMBER: _ClassVar[int]
+    THREAD_ID_FIELD_NUMBER: _ClassVar[int]
+    ON_RUN_COMPLETED_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
+    schedule: str
+    payload_json: bytes
+    metadata_json: bytes
+    cron_id: str
+    thread_id: str
+    on_run_completed: str
+    end_time: _timestamp_pb2.Timestamp
+    def __init__(self, filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., schedule: _Optional[str] = ..., payload_json: _Optional[bytes] = ..., metadata_json: _Optional[bytes] = ..., cron_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., on_run_completed: _Optional[str] = ..., end_time: _Optional[_Union[datetime.datetime, _timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
+class DeleteCronRequest(_message.Message):
+    __slots__ = ("cron_id", "filters")
+    CRON_ID_FIELD_NUMBER: _ClassVar[int]
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    cron_id: str
+    filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
+    def __init__(self, cron_id: _Optional[str] = ..., filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ...) -> None: ...
+
+class SearchCronsRequest(_message.Message):
+    __slots__ = ("filters", "assistant_id", "thread_id", "limit", "offset", "sort_by", "sort_order", "select")
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    ASSISTANT_ID_FIELD_NUMBER: _ClassVar[int]
+    THREAD_ID_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    OFFSET_FIELD_NUMBER: _ClassVar[int]
+    SORT_BY_FIELD_NUMBER: _ClassVar[int]
+    SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
+    SELECT_FIELD_NUMBER: _ClassVar[int]
+    filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
+    assistant_id: str
+    thread_id: str
+    limit: int
+    offset: int
+    sort_by: CronsSortBy
+    sort_order: SortOrder
+    select: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., assistant_id: _Optional[str] = ..., thread_id: _Optional[str] = ..., limit: _Optional[int] = ..., offset: _Optional[int] = ..., sort_by: _Optional[_Union[CronsSortBy, str]] = ..., sort_order: _Optional[_Union[SortOrder, str]] = ..., select: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class SearchCronsResponse(_message.Message):
+    __slots__ = ("crons",)
+    CRONS_FIELD_NUMBER: _ClassVar[int]
+    crons: _containers.RepeatedCompositeFieldContainer[Cron]
+    def __init__(self, crons: _Optional[_Iterable[_Union[Cron, _Mapping]]] = ...) -> None: ...
+
+class CountCronsRequest(_message.Message):
+    __slots__ = ("filters", "assistant_id", "thread_id")
+    FILTERS_FIELD_NUMBER: _ClassVar[int]
+    ASSISTANT_ID_FIELD_NUMBER: _ClassVar[int]
+    THREAD_ID_FIELD_NUMBER: _ClassVar[int]
+    filters: _containers.RepeatedCompositeFieldContainer[AuthFilter]
+    assistant_id: str
+    thread_id: str
+    def __init__(self, filters: _Optional[_Iterable[_Union[AuthFilter, _Mapping]]] = ..., assistant_id: _Optional[str] = ..., thread_id: _Optional[str] = ...) -> None: ...

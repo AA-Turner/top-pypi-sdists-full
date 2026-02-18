@@ -3,10 +3,10 @@ pub mod init;
 pub mod syntax;
 
 use std::borrow::Cow;
-use std::collections::hash_map::Entry;
 use std::fmt::Debug;
 
-use ahash::{AHashMap, AHashSet};
+use hashbrown::hash_map::Entry;
+use hashbrown::{HashMap, HashSet};
 
 use crate::dialects::init::DialectKind;
 use crate::dialects::syntax::SyntaxKind;
@@ -19,10 +19,10 @@ use crate::parser::types::DialectElementType;
 #[derive(Debug, Clone, Default)]
 pub struct Dialect {
     pub name: DialectKind,
-    lexer_matchers: Option<Vec<Matcher>>,
-    library: AHashMap<Cow<'static, str>, DialectElementType>,
-    sets: AHashMap<&'static str, AHashSet<&'static str>>,
-    pub bracket_collections: AHashMap<&'static str, AHashSet<BracketPair>>,
+    lexer_matchers: Vec<Matcher>,
+    library: HashMap<Cow<'static, str>, DialectElementType>,
+    sets: HashMap<&'static str, HashSet<&'static str>>,
+    pub bracket_collections: HashMap<&'static str, HashSet<BracketPair>>,
     lexer: Option<Lexer>,
 }
 
@@ -86,21 +86,19 @@ impl Dialect {
     }
 
     pub fn lexer_matchers(&self) -> &[Matcher] {
-        match &self.lexer_matchers {
-            Some(lexer_matchers) => lexer_matchers,
-            None => panic!("Lexing struct has not been set for dialect {self:?}"),
-        }
+        &self.lexer_matchers
     }
 
     pub fn insert_lexer_matchers(&mut self, lexer_patch: Vec<Matcher>, before: &str) {
+        assert!(
+            !self.lexer_matchers.is_empty(),
+            "Lexer struct must be defined before it can be patched!"
+        );
+
         let mut buff = Vec::new();
         let mut found = false;
 
-        if self.lexer_matchers.is_none() {
-            panic!("Lexer struct must be defined before it can be patched!");
-        }
-
-        for elem in self.lexer_matchers.take().unwrap() {
+        for elem in std::mem::take(&mut self.lexer_matchers) {
             if elem.name() == before {
                 found = true;
                 for patch in lexer_patch.clone() {
@@ -112,25 +110,28 @@ impl Dialect {
             }
         }
 
-        if !found {
-            panic!("Lexer struct insert before '{before}' failed because tag never found.");
-        }
+        assert!(
+            found,
+            "Lexer struct insert before '{before}' failed because tag never found."
+        );
 
-        self.lexer_matchers = Some(buff);
+        self.lexer_matchers = buff;
     }
 
     pub fn patch_lexer_matchers(&mut self, lexer_patch: Vec<Matcher>) {
-        let mut buff = Vec::with_capacity(self.lexer_matchers.as_ref().map_or(0, Vec::len));
-        if self.lexer_matchers.is_none() {
-            panic!("Lexer struct must be defined before it can be patched!");
-        }
+        assert!(
+            !self.lexer_matchers.is_empty(),
+            "Lexer struct must be defined before it can be patched!"
+        );
 
-        let patch_dict: AHashMap<&'static str, Matcher> = lexer_patch
+        let mut buff = Vec::with_capacity(self.lexer_matchers.len());
+
+        let patch_dict: HashMap<&'static str, Matcher> = lexer_patch
             .into_iter()
             .map(|elem| (elem.name(), elem))
             .collect();
 
-        for elem in self.lexer_matchers.take().unwrap() {
+        for elem in std::mem::take(&mut self.lexer_matchers) {
             if let Some(patch) = patch_dict.get(elem.name()) {
                 buff.push(patch.clone());
             } else {
@@ -138,14 +139,14 @@ impl Dialect {
             }
         }
 
-        self.lexer_matchers = Some(buff);
+        self.lexer_matchers = buff;
     }
 
     pub fn set_lexer_matchers(&mut self, lexer_matchers: Vec<Matcher>) {
-        self.lexer_matchers = lexer_matchers.into();
+        self.lexer_matchers = lexer_matchers;
     }
 
-    pub fn sets(&self, label: &str) -> AHashSet<&'static str> {
+    pub fn sets(&self, label: &str) -> HashSet<&'static str> {
         match label {
             "bracket_pairs" | "angle_bracket_pairs" => {
                 panic!("Use `bracket_sets` to retrieve {label} set.");
@@ -156,7 +157,7 @@ impl Dialect {
         self.sets.get(label).cloned().unwrap_or_default()
     }
 
-    pub fn sets_mut(&mut self, label: &'static str) -> &mut AHashSet<&'static str> {
+    pub fn sets_mut(&mut self, label: &'static str) -> &mut HashSet<&'static str> {
         assert!(
             label != "bracket_pairs" && label != "angle_bracket_pairs",
             "Use `bracket_sets` to retrieve {label} set."
@@ -181,7 +182,7 @@ impl Dialect {
         self.sets_mut(set_label).insert(value);
     }
 
-    pub fn bracket_sets(&self, label: &str) -> AHashSet<BracketPair> {
+    pub fn bracket_sets(&self, label: &str) -> HashSet<BracketPair> {
         assert!(
             label == "bracket_pairs" || label == "angle_bracket_pairs",
             "Invalid bracket set. Consider using another identifier instead."
@@ -193,7 +194,7 @@ impl Dialect {
             .unwrap_or_default()
     }
 
-    pub fn bracket_sets_mut(&mut self, label: &'static str) -> &mut AHashSet<BracketPair> {
+    pub fn bracket_sets_mut(&mut self, label: &'static str) -> &mut HashSet<BracketPair> {
         assert!(
             label == "bracket_pairs" || label == "angle_bracket_pairs",
             "Invalid bracket set. Consider using another identifier instead."

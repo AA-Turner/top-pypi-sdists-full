@@ -117,6 +117,7 @@ class SQLWriter(ConnectAgent):
             self._describe_container(self._cdb.container, "Connect Container:")
 
         self._handler.validate_insert_method(method=self._insertMethod)
+        self._handler.is_schema_available(schema=self._schema_name)
         self._open()
 
         try:
@@ -170,6 +171,7 @@ class SQLWriter(ConnectAgent):
                 insertMethod = sym["insertMethod"]
                 skip_text = sym["skipText"]
                 self._handler.validate_insert_method(method=insertMethod)
+                self._handler.is_schema_available(schema=schema)
 
                 if self._small and table_name == "UEL$":
                     self._connect_error(

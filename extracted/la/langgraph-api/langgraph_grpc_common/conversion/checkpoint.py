@@ -35,8 +35,10 @@ SOURCE_MAP = {
 def checkpoint_from_proto(
     request_checkpoint: engine_common_pb2.Checkpoint,
 ) -> Checkpoint:
-    channel_versions = dict(request_checkpoint.channel_versions)
-    versions_seen = {
+    channel_versions: dict[str, str | int | float] = dict(
+        request_checkpoint.channel_versions
+    )
+    versions_seen: dict[str, dict[str, str | int | float]] = {
         k: dict(v.channel_versions) for k, v in request_checkpoint.versions_seen.items()
     }
 

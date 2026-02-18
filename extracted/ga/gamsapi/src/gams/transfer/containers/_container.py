@@ -23,6 +23,7 @@
 # SOFTWARE.
 #
 
+from collections import deque
 import os
 import pathlib
 import pandas as pd
@@ -1064,80 +1065,127 @@ class Container(CCCMixin, abcs.ABCContainer):
             for symname, symobj in self:
                 symobj.modified = False
 
+    def _topolocial_sort(self, graph):
+        # find number of edges going into all nodes (in_degree)
+        all_nodes = set(graph.keys())
+        for neighbors in graph.values():
+            all_nodes.update(neighbors)
+
+        in_degree = {node: 0 for node in all_nodes}
+        for node in graph:
+            for neighbor in graph[node]:
+                in_degree[neighbor] += 1
+
+        # initialize the queue
+        queue = deque([node for node in in_degree if in_degree[node] == 0])
+
+        sorted_order = []
+        while queue:
+            node = queue.popleft()
+            sorted_order.append(node)
+
+            for neighbor in graph.get(node, []):
+                in_degree[neighbor] -= 1
+
+                # only add node to the queue if in_degree reaches zero
+                if in_degree[neighbor] == 0:
+                    queue.append(neighbor)
+
+        if len(sorted_order) == len(all_nodes):
+            return sorted_order
+        else:
+            raise ValueError(
+                "Domain cycle detected -- must resolve circular domain referencing"
+            )
+
+    def _get_symbols_by_type(self, typ, is_valid=None):
+        if is_valid is None:
+            return (sym for _, sym in self if isinstance(sym, typ))
+
+        if is_valid:
+            return (sym for _, sym in self if isinstance(sym, typ) and sym.isValid())
+
+        return (sym for _, sym in self if isinstance(sym, typ) and not sym.isValid())
+
     def _validSymbolOrder(self):
-        ordered_symbols = []
-        symbols_to_sort = [k for k, _ in self]
+        if any(sym.domain != [] for _, sym in self):
+            domains = [
+                sym
+                for sym in self._get_symbols_by_type(abcs.AnyContainerDomainSymbol)
+                if sym.dimension == 1
+            ]
 
-        idx = 0
-        while symbols_to_sort:
-            sym = symbols_to_sort[idx]
+            # all sets that do not reference other sets
+            sym_order = [
+                sym
+                for sym in self._get_symbols_by_type(abcs.ABCSet)
+                if all(isinstance(d, str) for d in sym.domain)
+            ]
 
-            # special 1D sets (universe domain & relaxed sets)
-            if (
-                isinstance(self.data[sym], abcs.ABCSet)
-                and self.data[sym].dimension == 1
-                and isinstance(self.data[sym].domain[0], str)
-            ):
-                ordered_symbols.append(self.data[sym].name)
-                symbols_to_sort.pop(symbols_to_sort.index(sym))
-                idx = 0
+            # append all universe aliases
+            sym_order.extend(
+                [sym for sym in self._get_symbols_by_type(abcs.ABCUniverseAlias)]
+            )
 
-            # everything else
-            else:
-                doi = []
-                for i in self.data[sym].domain:
-                    if isinstance(i, str):
-                        doi.append(True)
-                    elif (
-                        isinstance(i, abcs.AnyContainerDomainSymbol)
-                        and i.name in ordered_symbols
-                    ):
-                        doi.append(True)
-                    else:
-                        doi.append(False)
+            # append aliases to sets that do not
+            sym_order.extend(
+                [
+                    sym
+                    for sym in self._get_symbols_by_type(abcs.ABCAlias)
+                    if sym.alias_with in sym_order
+                ]
+            )
 
-                if all(doi):
-                    ordered_symbols.append(sym)
-                    symbols_to_sort.pop(symbols_to_sort.index(sym))
-                    idx = 0
-                else:
-                    idx += 1
+            # get symbols that might need sorting
+            domain_graph = {
+                sym: [d for d in sym.domain if not isinstance(d, str)]
+                for sym in self._get_symbols_by_type((abcs.ABCSet, abcs.ABCAlias))
+                if sym not in sym_order
+            }
+            sym_order.extend(self._topolocial_sort(domain_graph))
 
-            if idx == len(symbols_to_sort) and symbols_to_sort != []:
-                raise Exception(
-                    "Graph cycle detected among symbols:"
-                    f" {[i for i in symbols_to_sort if isinstance(self.data[i], abcs.ABCSet)]} --"
-                    " must resolve circular domain referencing"
-                )
+            # append everything else
+            sym_order.extend(
+                [
+                    sym
+                    for sym in self._get_symbols_by_type(
+                        (Parameter, Variable, Equation),
+                    )
+                ],
+            )
 
-        return ordered_symbols
+            return sym_order
+
+        # all scalars -- no sort necessary
+        return list(self.data.values())
 
     def reorderSymbols(self) -> None:
         """
         Reorder symbols in order to avoid domain violations
         """
         self.data = CasePreservingDict(
-            {k: self.data[k] for k in self._validSymbolOrder()}
+            {sym.name: sym for sym in self._validSymbolOrder()}
         )
 
     def _isValidSymbolOrder(self):
-        valid_order = self._validSymbolOrder()
-        current_order = [k for k, _ in self]
+        idx = {name: n for n, (name, _) in enumerate(self)}
+        for sym_idx, (_, sym) in enumerate(self):
+            dom = sym.domain
+            if not dom:
+                continue
 
-        h = []
-        for i in current_order:
-            if isinstance(self.data[i], abcs.AnyContainerDomainSymbol):
-                if current_order.index(i) <= valid_order.index(i):
-                    h.append(True)
-                else:
-                    h.append(False)
-            else:
-                h.append(True)
+            for d in dom:
+                if not isinstance(d, abcs.AnyContainerDomainSymbol):
+                    continue
 
-        if all(h):
-            return True
-        else:
-            return False
+                dom_idx = idx.get(d.name)
+                if dom_idx is None:
+                    return False
+
+                if dom_idx > sym_idx:
+                    return False
+
+        return True
 
     def hasSymbols(self, symbols: Union[List[str], str]) -> Union[List[bool], bool]:
         """

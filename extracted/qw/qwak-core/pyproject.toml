@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qwak-core"
-version = "0.7.25"
+version = "0.7.27"
 description = "Qwak Core contains the necessary objects and communication tools for using the Qwak Platform"
 authors = ["Qwak <info@qwak.com>"]
 readme = "README.md"
@@ -55,6 +55,7 @@ pydantic = "*"
 typer = "*"
 tqdm = "*"
 orjson = {version = "^3.11.1", optional = true}
+googleapis-common-protos = ">=1.72.0, <2.0.0"
 
 [tool.poetry.group.dev.dependencies]
 pyarrow = { version = ">=20.0.0" }

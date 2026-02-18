@@ -30,6 +30,7 @@ from gams.connect.agents._sqlconnectors._databasehandler import DatabaseConnecto
 class AccessConnector(DatabaseConnector):
     SUPPORTED_INSERT_METHODS = ["default", "bulkInsert"]
     QUOTE_CHAR = ["[]", '""', "``"]
+    SCHEMA_SUPPORT = False
 
     @staticmethod
     def _create_accdb(dbpath):

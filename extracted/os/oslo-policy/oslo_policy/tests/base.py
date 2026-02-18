@@ -28,7 +28,6 @@ from oslo_policy import policy
 
 
 class PolicyBaseTestCase(test_base.BaseTestCase):
-
     def setUp(self):
         super().setUp()
         self.conf = self.useFixture(config.Config()).conf
@@ -66,7 +65,7 @@ class FakeCheck(_checks.BaseCheck):
     def __str__(self):
         return str(self.result)
 
-    def __call__(self, target, creds, enforcer):
+    def __call__(self, target, creds, enforcer, current_rule=None):
         if self.result is not None:
             return self.result
         return (target, creds, enforcer)

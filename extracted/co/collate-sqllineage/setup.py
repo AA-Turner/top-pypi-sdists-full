@@ -29,8 +29,8 @@ setup(
     install_requires=[
         "sqlparse==0.5.3",
         "networkx>=2.4",
-        "collate-sqlfluff~=3.3.0",
-        "sqlglot>=27.29.0,<28.0.0",
+        "collate-sqlfluff~=3.3",
+        "sqlglot~=27.29",
     ],
     entry_points={"console_scripts": ["sqllineage = collate_sqllineage.cli:main"]},
     extras_require={
@@ -48,6 +48,7 @@ setup(
             "tox",
             "twine",
             "wheel",
+            "setuptools<81",
         ],
         "docs": ["Sphinx>=3.2.0", "sphinx_rtd_theme>=0.5.0"],
     },

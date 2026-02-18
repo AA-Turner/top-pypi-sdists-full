@@ -561,6 +561,8 @@ from datadog_api_client.v1.model.slo_correction_type import SLOCorrectionType
 from datadog_api_client.v1.model.slo_correction_update_data import SLOCorrectionUpdateData
 from datadog_api_client.v1.model.slo_correction_update_request import SLOCorrectionUpdateRequest
 from datadog_api_client.v1.model.slo_correction_update_request_attributes import SLOCorrectionUpdateRequestAttributes
+from datadog_api_client.v1.model.slo_count_definition import SLOCountDefinition
+from datadog_api_client.v1.model.slo_count_spec import SLOCountSpec
 from datadog_api_client.v1.model.slo_creator import SLOCreator
 from datadog_api_client.v1.model.slo_data_source_query_definition import SLODataSourceQueryDefinition
 from datadog_api_client.v1.model.slo_delete_response import SLODeleteResponse
@@ -1138,6 +1140,7 @@ from datadog_api_client.v1.model.widget_sort import WidgetSort
 from datadog_api_client.v1.model.widget_sort_by import WidgetSortBy
 from datadog_api_client.v1.model.widget_sort_order_by import WidgetSortOrderBy
 from datadog_api_client.v1.model.widget_style import WidgetStyle
+from datadog_api_client.v1.model.widget_style_order_by import WidgetStyleOrderBy
 from datadog_api_client.v1.model.widget_summary_type import WidgetSummaryType
 from datadog_api_client.v1.model.widget_text_align import WidgetTextAlign
 from datadog_api_client.v1.model.widget_tick_edge import WidgetTickEdge
@@ -1633,6 +1636,8 @@ __all__ = [
     "SLOCorrectionUpdateData",
     "SLOCorrectionUpdateRequest",
     "SLOCorrectionUpdateRequestAttributes",
+    "SLOCountDefinition",
+    "SLOCountSpec",
     "SLOCreator",
     "SLODataSourceQueryDefinition",
     "SLODeleteResponse",
@@ -2128,6 +2133,7 @@ __all__ = [
     "WidgetSortBy",
     "WidgetSortOrderBy",
     "WidgetStyle",
+    "WidgetStyleOrderBy",
     "WidgetSummaryType",
     "WidgetTextAlign",
     "WidgetTickEdge",

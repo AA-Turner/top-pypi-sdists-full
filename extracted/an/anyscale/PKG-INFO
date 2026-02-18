@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: anyscale
-Version: 0.26.85
+Version: 0.26.86
 Summary: Command Line Interface for Anyscale
 Author: Anyscale Inc.
 License: AS License
@@ -48,6 +48,11 @@ Requires-Dist: google-cloud-filestore; extra == "gcp"
 Requires-Dist: google-cloud-storage; extra == "gcp"
 Requires-Dist: google-cloud-redis; extra == "gcp"
 Requires-Dist: google-cloud-certificate-manager; extra == "gcp"
+Provides-Extra: azure
+Requires-Dist: azure-identity; extra == "azure"
+Requires-Dist: azure-mgmt-resource>=25.0.0; extra == "azure"
+Requires-Dist: azure-mgmt-resource-deployments; extra == "azure"
+Requires-Dist: azure-storage-blob; extra == "azure"
 Provides-Extra: all
 Requires-Dist: google-api-python-client; extra == "all"
 Requires-Dist: google-cloud-secret-manager; extra == "all"
@@ -57,6 +62,10 @@ Requires-Dist: google-cloud-filestore; extra == "all"
 Requires-Dist: google-cloud-storage; extra == "all"
 Requires-Dist: google-cloud-redis; extra == "all"
 Requires-Dist: google-cloud-certificate-manager; extra == "all"
+Requires-Dist: azure-identity; extra == "all"
+Requires-Dist: azure-mgmt-resource>=25.0.0; extra == "all"
+Requires-Dist: azure-mgmt-resource-deployments; extra == "all"
+Requires-Dist: azure-storage-blob; extra == "all"
 Requires-Dist: ray>=2.0.0; extra == "all"
 Provides-Extra: backend
 Requires-Dist: google-api-python-client; extra == "backend"

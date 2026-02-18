@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,7 +16,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import hashlib
 import time
 from typing import Any, Awaitable, Iterable
@@ -25,6 +24,7 @@ import uuid
 from absl import logging
 import jax
 import numpy as np
+from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src.futures import future
 from orbax.checkpoint._src.logging import event_tracking
 from orbax.checkpoint._src.metadata import step_metadata_serialization
@@ -34,11 +34,11 @@ from orbax.checkpoint.experimental.v1._src.context import context as context_lib
 from orbax.checkpoint.experimental.v1._src.handlers import composite_handler
 from orbax.checkpoint.experimental.v1._src.handlers import types as handler_types
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
+from orbax.checkpoint.experimental.v1._src.layout import registry
 from orbax.checkpoint.experimental.v1._src.metadata import serialization as metadata_serialization
 from orbax.checkpoint.experimental.v1._src.path import async_utils as path_async_utils
 from orbax.checkpoint.experimental.v1._src.path import types as path_types
 from orbax.checkpoint.experimental.v1._src.saving import path_utils as saving_path_utils
-from orbax.checkpoint.experimental.v1._src.synchronization import asyncio_utils
 from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 from orbax.checkpoint.experimental.v1._src.synchronization import thread_utils
 from orbax.checkpoint.experimental.v1._src.synchronization import types as async_types
@@ -133,6 +133,8 @@ class _SaveResponse(AsyncResponse[None]):
         temporary_path.temporary_path.get_final(),
     )
 
+    # TODO(b/477603241): Refactor this to use resolution utility once we remove
+    # the composite handler.
     handler = composite_handler.CompositeHandler(
         context.checkpointables_options.registry
     )
@@ -156,11 +158,6 @@ class _SaveResponse(AsyncResponse[None]):
 
   async def _finalize_save(self):
     logging.info(
-        '[process=%s] Finalizing checkpoint on %s',
-        multihost.process_index(),
-        self._temporary_path.temporary_path.get(),
-    )
-    logging.info(
         '[process=%s] Creating directories on %s',
         multihost.process_index(),
         self._temporary_path.temporary_path.get(),
@@ -175,6 +172,11 @@ class _SaveResponse(AsyncResponse[None]):
         1,
         '[process=%s] Finished waiting for background save operations.',
         multihost.process_index(),
+    )
+    logging.info(
+        '[process=%s] Finalizing checkpoint on %s',
+        multihost.process_index(),
+        self._temporary_path.temporary_path.get(),
     )
 
     if multihost.is_primary_host(
@@ -263,9 +265,9 @@ async def _run_blocking_save(
         context=context,
     )
 
-  handler = composite_handler.CompositeHandler(
-      context.checkpointables_options.registry
-  )
+  layout_enum = context.checkpoint_layout
+  layout_class = await registry.get_layout_class(layout_enum)
+  layout = layout_class()
   if (
       partial_save
       or not context.async_options.create_directories_asynchronously
@@ -283,8 +285,9 @@ async def _run_blocking_save(
     )
 
   # Delegate to the handler to get the background awaitable.
-  background_awaitable = await handler.save(
-      temporary_path.path_awaiting_creation, checkpointables
+  background_awaitable = await layout.save(
+      path=temporary_path.path_awaiting_creation,
+      checkpointables=checkpointables,
   )
   # Log write event for the final path.
   event_tracking.record_write_event(temporary_path.temporary_path.get_final())
@@ -375,10 +378,9 @@ def save_checkpointables_impl(
   """See caller docstrings."""
   start_time = time.time()
   event_tracking.record_save_start(path, async_origin=async_origin)
-  asyncio_utils.maybe_apply_nest_asyncio()
   # Ensure the operation ID is incremented as soon as possible. This must be
   # done uniquely for each save operation.
-  asyncio.run(context_lib.synchronize_next_operation_id())
+  asyncio_utils.run_sync(context_lib.synchronize_next_operation_id())
   context = context_lib.get_context()
 
   path = context.file_options.path_class(path)
@@ -395,7 +397,7 @@ def save_checkpointables_impl(
       subdirectories=subdirectories,
       use_snapshot=path_exists,
   )
-  background_awaitable = asyncio.run(
+  background_awaitable = asyncio_utils.run_sync(
       _run_blocking_save(
           temporary_path,
           checkpointables,

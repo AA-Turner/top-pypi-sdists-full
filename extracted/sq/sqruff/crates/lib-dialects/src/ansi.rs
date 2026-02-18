@@ -18,8 +18,19 @@ use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::ParseMode;
 
 use super::ansi_keywords::{ANSI_RESERVED_KEYWORDS, ANSI_UNRESERVED_KEYWORDS};
+use sqruff_lib_core::dialects::init::{DialectConfig, NullDialectConfig};
+use sqruff_lib_core::value::Value;
 
-pub fn dialect() -> Dialect {
+/// Configuration for the ANSI dialect.
+/// Currently empty but can be extended with dialect-specific options.
+pub type AnsiDialectConfig = NullDialectConfig;
+
+pub fn dialect(config: Option<&Value>) -> Dialect {
+    // Parse and validate dialect configuration, falling back to defaults on failure
+    let _dialect_config: AnsiDialectConfig = config
+        .map(AnsiDialectConfig::from_value)
+        .unwrap_or_default();
+
     raw_dialect().config(|this| this.expand())
 }
 
@@ -5194,10 +5205,6 @@ pub fn raw_dialect() -> Dialect {
                     Ref::new("WithCompoundStatementSegment").to_matchable(),
                 ])
                 .to_matchable(),
-                optionally_bracketed(vec![
-                    Ref::new("WithCompoundNonSelectStatementSegment").to_matchable(),
-                ])
-                .to_matchable(),
                 Ref::new("NonWithSelectableGrammar").to_matchable(),
                 Bracketed::new(vec![Ref::new("SelectableGrammar").to_matchable()]).to_matchable(),
             ])
@@ -5215,16 +5222,15 @@ pub fn raw_dialect() -> Dialect {
             .to_matchable()
             .into(),
         ),
+        // NOTE: In ANSI SQL, CTEs (WITH clause) can only precede SELECT statements,
+        // not DML statements like INSERT/UPDATE/DELETE. This grammar is kept as a
+        // hook point for dialects that support CTE+DML (e.g., PostgreSQL, SQL Server,
+        // SQLite). Those dialects should either:
+        // 1. Add DML statements to NonWithSelectableGrammar (like PostgreSQL), or
+        // 2. Add WithCompoundNonSelectStatementSegment to their SelectableGrammar
         (
             "NonWithNonSelectableGrammar".into(),
-            one_of(vec![
-                Ref::new("UpdateStatementSegment").to_matchable(),
-                Ref::new("InsertStatementSegment").to_matchable(),
-                Ref::new("DeleteStatementSegment").to_matchable(),
-                Ref::new("MergeStatementSegment").to_matchable(),
-            ])
-            .to_matchable()
-            .into(),
+            Nothing::new().to_matchable().into(),
         ),
         (
             "NonSetSelectableGrammar".into(),

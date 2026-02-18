@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,8 @@
 # A new PyPI release will be pushed everytime `__version__` is increased.
 # Also modify version and date in CHANGELOG.
 # LINT.IfChange
-__version__ = '0.11.32'
-# LINT.ThenChange(//depot//orbax/checkpoint/CHANGELOG.md)
+__version__ = '0.11.33'
+# LINT.ThenChange(//depot/orbax/checkpoint/CHANGELOG.md)
 
 
 # TODO: b/362813406 - Add latest change timestamp and commit number.

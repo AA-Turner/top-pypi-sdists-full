@@ -5,11 +5,10 @@ Market-related utility functions have been moved to xbbg.markets.info.
 """
 
 from dataclasses import dataclass
-
-from xbbg.io import files
+from pathlib import Path
 
 # Package path
-PKG_PATH = files.abspath(__file__, 0)
+PKG_PATH = Path(__file__).parent.as_posix()
 
 # Futures month codes
 Futures = {
@@ -49,7 +48,7 @@ ASSET_INFO = {
 }
 
 # Dividend type mappings
-DVD_TPYES = {
+DVD_TYPES = {
     "all": "DVD_Hist_All",
     "dvd": "DVD_Hist",
     "split": "Eqy_DVD_Hist_Splits",
@@ -61,6 +60,9 @@ DVD_TPYES = {
     "gross_amt": "DVD_Hist_Gross_with_Amt_Stat",
     "projected": "BDVD_Pr_Ex_Dts_DVD_Amts_w_Ann",
 }
+
+# Deprecated alias for backward compatibility -- use DVD_TYPES instead
+DVD_TPYES = DVD_TYPES
 
 # Dividend column name mappings
 DVD_COLS = {
@@ -167,7 +169,8 @@ __all__ = [
     "ASSET_INFO",
     "CurrencyPair",
     "DVD_COLS",
-    "DVD_TPYES",
+    "DVD_TYPES",
+    "DVD_TPYES",  # Deprecated alias -- use DVD_TYPES
     "Futures",
     "LIVE_CHG",
     "LIVE_INFO",

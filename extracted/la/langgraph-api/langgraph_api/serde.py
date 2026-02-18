@@ -218,7 +218,7 @@ class Serializer(JsonPlusSerializer):
         __unpack_ext_hook__: Callable[[int, bytes], Any] | None = None,
         pickle_fallback: bool | None = None,
     ):
-        from langgraph_api.config import SERDE  # noqa: PLC0415
+        from langgraph_api.config import SERDE, USE_PICKLE_FALLBACK  # noqa: PLC0415
 
         allowed_json_modules: list[tuple[str, ...]] | Literal[True] | None = None
         if SERDE and "allowed_json_modules" in SERDE:
@@ -230,10 +230,7 @@ class Serializer(JsonPlusSerializer):
             else:
                 allowed_json_modules = [tuple(x) for x in allowed_]
         if pickle_fallback is None:
-            if SERDE and "pickle_fallback" in SERDE:
-                pickle_fallback = SERDE["pickle_fallback"]
-            else:
-                pickle_fallback = True
+            pickle_fallback = USE_PICKLE_FALLBACK
 
         super().__init__(
             allowed_json_modules=allowed_json_modules,

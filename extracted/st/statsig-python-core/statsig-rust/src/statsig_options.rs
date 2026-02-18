@@ -4,6 +4,7 @@ use serde::{Serialize, Serializer};
 use crate::console_capture::console_capture_options::ConsoleCaptureOptions;
 use crate::data_store_interface::{DataStoreKeyVersion, DataStoreTrait};
 use crate::evaluation::dynamic_value::DynamicValue;
+use crate::event_logging::event_logger;
 use crate::event_logging_adapter::EventLoggingAdapter;
 use crate::id_lists_adapter::IdListsAdapter;
 use crate::networking::proxy_config::ProxyConfig;
@@ -31,6 +32,7 @@ pub struct StatsigOptions {
     pub disable_network: Option<bool>, // Disable all out-going network including get configs, log_events...
 
     pub enable_id_lists: Option<bool>,
+    pub enable_dcs_deltas: Option<bool>,
     pub environment: Option<String>,
     pub config_compression_mode: Option<ConfigCompressionMode>,
 
@@ -192,6 +194,12 @@ impl StatsigOptionsBuilder {
     }
 
     #[must_use]
+    pub fn enable_dcs_deltas(mut self, enable_dcs_deltas: Option<bool>) -> Self {
+        self.inner.enable_dcs_deltas = enable_dcs_deltas;
+        self
+    }
+
+    #[must_use]
     pub fn id_lists_url(mut self, id_lists_url: Option<String>) -> Self {
         self.inner.id_lists_url = id_lists_url;
         self
@@ -345,7 +353,7 @@ impl Serialize for StatsigOptions {
     where
         S: Serializer,
     {
-        let mut state = serializer.serialize_struct("StatsigOptions", 20)?;
+        let mut state = serializer.serialize_struct("StatsigOptions", 21)?;
         serialize_if_not_none!(state, "spec_url", &self.specs_url);
         serialize_if_not_none!(
             state,
@@ -368,6 +376,7 @@ impl Serialize for StatsigOptions {
 
         serialize_if_not_none!(state, "id_lists_url", &self.id_lists_url);
         serialize_if_not_none!(state, "enable_id_lists", &self.enable_id_lists);
+        serialize_if_not_none!(state, "enable_dcs_deltas", &self.enable_dcs_deltas);
         serialize_if_not_none!(
             state,
             "wait_for_user_agent_init",
@@ -450,6 +459,29 @@ impl StatsigOptions {
             mut_ref.id_lists_sync_interval_ms = None;
         }
 
+        if bounds_check_logging_batch_size(&self.event_logging_max_queue_size) {
+            log_w!(
+                TAG,
+                "Invalid 'event_logging_max_queue_size', value cannot be lower than {} or greater than {}, received {:?}",
+                event_logger::MIN_BATCH_SIZE,
+                event_logger::MAX_BATCH_SIZE,
+                &self.event_logging_max_queue_size
+            );
+            mut_ref.event_logging_max_queue_size = None;
+        }
+
+        if bounds_check_loggging_pending_queue_size(
+            &self.event_logging_max_pending_batch_queue_size,
+        ) {
+            log_w!(
+                TAG,
+                "Invalid 'event_logging_max_pending_batch_queue_size', value cannot be lower than {}, received {:?}",
+                event_logger::MIN_PENDING_BATCH_COUNT,
+                &self.event_logging_max_pending_batch_queue_size
+            );
+            mut_ref.event_logging_max_pending_batch_queue_size = None;
+        }
+
         if should_fix_null_url(&self.specs_url) {
             log_d!(TAG, "Setting specs_url to be default url");
             mut_ref.specs_url = None;
@@ -481,5 +513,20 @@ fn should_fix_null_url(maybe_url: &Option<String>) -> bool {
         return url.is_empty() || url.eq_ignore_ascii_case("null");
     }
 
+    false
+}
+
+fn bounds_check_logging_batch_size(batch_size: &Option<u32>) -> bool {
+    if let Some(batch_size) = batch_size {
+        return *batch_size < event_logger::MIN_BATCH_SIZE
+            || *batch_size > event_logger::MAX_BATCH_SIZE;
+    }
+    false
+}
+
+fn bounds_check_loggging_pending_queue_size(queue_size: &Option<u32>) -> bool {
+    if let Some(queue_size) = queue_size {
+        return *queue_size < event_logger::MIN_PENDING_BATCH_COUNT;
+    }
     false
 }

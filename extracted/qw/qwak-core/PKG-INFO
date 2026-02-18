@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: qwak-core
-Version: 0.7.25
+Version: 0.7.27
 Summary: Qwak Core contains the necessary objects and communication tools for using the Qwak Platform
 License: Apache-2.0
 Keywords: mlops,ml,deployment,serving,model
@@ -23,6 +23,7 @@ Requires-Dist: cloudpickle (==2.2.1) ; extra == "feature-store"
 Requires-Dist: dacite (==1.9.2)
 Requires-Dist: dependency-injector (>=4.0)
 Requires-Dist: filelock
+Requires-Dist: googleapis-common-protos (>=1.72.0,<2.0.0)
 Requires-Dist: grpcio (>=1.71.2)
 Requires-Dist: joblib (>=1.3.2,<2.0.0)
 Requires-Dist: marshmallow-dataclass (>=8.5.8,<9.0.0)

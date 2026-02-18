@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,25 @@
 """Validation functions involved in loading."""
 
 from orbax.checkpoint.experimental.v1._src.layout import checkpoint_layout
+
+
+def validate_pytree_checkpointable_name(
+    checkpointable_name: str | None,
+):
+  """Validates the checkpointable name.
+
+  Args:
+    checkpointable_name: The name of the checkpointable.
+
+  Raises:
+    ValueError: If the checkpointable name is reserved.
+  """
+  if checkpointable_name is None:
+    return
+  if checkpointable_name in checkpoint_layout.RESERVED_CHECKPOINTABLE_KEYS:
+    raise ValueError(
+        f'Provided reserved checkpointable key: {checkpointable_name}.'
+    )
 
 
 def validate_abstract_checkpointables(abstract_checkpointables):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: botorch
-Version: 0.16.1
+Version: 0.17.0
 Summary: Bayesian Optimization in PyTorch
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -13,14 +13,14 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Scientific/Engineering
 Classifier: Intended Audience :: Science/Research
 Classifier: Intended Audience :: Developers
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: typing_extensions
 Requires-Dist: pyre_extensions
-Requires-Dist: gpytorch>=1.14.2
+Requires-Dist: gpytorch>=1.15.1
 Requires-Dist: linear_operator>=0.6
-Requires-Dist: torch>=2.0.1
+Requires-Dist: torch>=2.2
 Requires-Dist: pyro-ppl>=1.8.4
 Requires-Dist: scipy
 Requires-Dist: multipledispatch
@@ -111,7 +111,7 @@ Optimization simply use Ax.
 ## Installation
 
 **Installation Requirements**
-- Python >= 3.10
+- Python >= 3.11
 - PyTorch >= 2.0.1
 - gpytorch >= 1.14
 - linear_operator >= 0.6

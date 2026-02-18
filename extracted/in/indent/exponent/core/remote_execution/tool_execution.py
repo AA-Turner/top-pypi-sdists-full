@@ -102,8 +102,8 @@ async def execute_tool(
         assert_unreachable(tool_input)
 
 
-def truncate_result[T: ToolResultType](tool_result: T, chat_uuid: str) -> T:
-    return truncate_tool_result(tool_result, chat_uuid)
+def truncate_result[T: ToolResultType](tool_result: T) -> T:
+    return truncate_tool_result(tool_result)
 
 
 def is_image_file(file_path: str) -> tuple[bool, str | None]:
@@ -470,6 +470,7 @@ async def execute_bash_tool(
         timed_out=result.cancelled_for_timeout,
         stopped_by_user=result.halted,
         bash_id=bash_id,
+        output_file=result.output_file,
     )
 
 

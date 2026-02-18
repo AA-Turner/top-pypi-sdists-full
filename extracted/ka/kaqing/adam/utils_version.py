@@ -1,5 +1,6 @@
 import re
 
+from adam.commands.postgres.postgres_databases import PostgresDatabases
 from adam.commands.postgres.utils_postgres import ops
 from adam.config import Config
 from adam.utils_context import NULL
@@ -30,7 +31,10 @@ def get_container_version(state: ReplState, ctx = NULL) -> tuple[str, int, str]:
 
 def get_latest_version():
     # curl -s 'https://hub.docker.com/v2/repositories/seanahnsf/kaqing/tags' -H 'Content-Type: application/json' | jq -r '.results[].name' | grep -v 'latest' | sort -r | head -n 1
-    curl = "curl -s 'https://hub.docker.com/v2/repositories/seanahnsf/kaqing/tags' -H 'Content-Type: application/json' | jq -r '.results[].name' | grep -v 'latest' | sort -r | head -n 1"
+    curl = "curl -s 'https://hub.docker.com/v2/repositories/seanahnsf/kaqing-cloud/tags' -H 'Content-Type: application/json' | jq -r '.results[].name' | grep -v 'latest' | sort -r | head -n 1"
     r = local_exec(['bash', '-c', curl])
 
     return r.stdout.strip(' \r\n')
+
+# inject get_latest_version due to circular dependencies
+PostgresDatabases.get_latest_version = get_latest_version

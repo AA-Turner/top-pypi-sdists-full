@@ -3,6 +3,8 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import platform
+import socket
 import time
 import uuid
 from collections.abc import AsyncGenerator, Callable, Coroutine, Generator
@@ -20,6 +22,7 @@ from websockets.asyncio.client import ClientConnection, connect
 
 from exponent.commands.utils import ConnectionTracker
 from exponent.core.config import get_indent_home, is_editable_install
+from exponent.core.file_layout import ensure_chat_directories
 from exponent.core.remote_execution import files, system_context
 from exponent.core.remote_execution.background_tracker import (
     BackgroundProcessTracker,
@@ -40,8 +43,6 @@ from exponent.core.remote_execution.cli_rpc_types import (
     GetAllFilesRequest,
     GetAllFilesResponse,
     HttpRequest,
-    KeepAliveCliChatRequest,
-    KeepAliveCliChatResponse,
     ListTerminalsRequest,
     ListTerminalsResponse,
     StartTerminalRequest,
@@ -334,21 +335,6 @@ class RemoteExecutionClient:
                 )
             )
             return SwitchCLIChat(new_chat_uuid=request.request.new_chat_uuid)
-        elif isinstance(request.request, KeepAliveCliChatRequest):
-            await websocket.send(
-                json.dumps(
-                    {
-                        "type": "result",
-                        "data": msgspec.to_builtins(
-                            CliRpcResponse(
-                                request_id=request.request_id,
-                                response=KeepAliveCliChatResponse(),
-                            )
-                        ),
-                    }
-                )
-            )
-            return None
         elif isinstance(request.request, StartTerminalRequest):
             session_id = await terminal_session_manager.start_session(
                 websocket=websocket,
@@ -648,6 +634,27 @@ class RemoteExecutionClient:
             if connection_tracker is not None:
                 await connection_tracker.set_connected(False)
 
+    @staticmethod
+    def _configure_tcp_keepalive(websocket: ClientConnection) -> None:
+        # Detect dead TCP connections quickly after E2B sandbox pause/resume by setting
+        # aggressive keepalive probes (idle sockets) and TCP_USER_TIMEOUT (all states).
+        # See: https://blog.cloudflare.com/when-tcp-sockets-refuse-to-die/
+        if platform.system() != "Linux":
+            return
+
+        try:
+            sock = websocket.transport.get_extra_info("socket")
+            if sock is None:
+                return
+
+            sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
+            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 14_000)
+        except OSError:
+            logger.debug("Failed to set TCP keepalive options", exc_info=True)
+
     async def run_connection(
         self,
         chat_uuid: str,
@@ -655,6 +662,7 @@ class RemoteExecutionClient:
         timeout_seconds: int | None = None,
     ) -> REMOTE_EXECUTION_CLIENT_EXIT_INFO:
         self.current_session.set_chat_uuid(chat_uuid)
+        ensure_chat_directories(chat_uuid)
 
         self._last_request_time = time.time()
 
@@ -669,6 +677,7 @@ class RemoteExecutionClient:
 
         try:
             async for websocket in self.ws_connect(f"/api/ws/chat/{chat_uuid}"):
+                self._configure_tcp_keepalive(websocket)
                 done, pending = await asyncio.wait(
                     [
                         asyncio.create_task(
@@ -812,7 +821,7 @@ class RemoteExecutionClient:
                         raw_result = bash_result
                 else:
                     raw_result = await execute_tool(request.request.tool_input, self.working_directory, self)
-                tool_result = truncate_result(raw_result, self.chat_uuid)
+                tool_result = truncate_result(raw_result)
                 return CliRpcResponse(
                     request_id=request.request_id,
                     response=ToolExecutionResponse(
@@ -841,8 +850,9 @@ class RemoteExecutionClient:
                     else:
                         coros.append(execute_tool(tool_input, self.working_directory, self))
 
-                results_list: list[ToolResultType | BackgroundBashResult | BaseException] = await asyncio.gather(
-                    *coros, return_exceptions=True
+                gathered_results = await asyncio.gather(*coros, return_exceptions=True)
+                results_list: list[ToolResultType | BackgroundBashResult | BaseException] = cast(
+                    list[ToolResultType | BackgroundBashResult | BaseException], gathered_results
                 )
 
                 processed_results: list[ToolResultType] = []
@@ -858,9 +868,9 @@ class RemoteExecutionClient:
                             command=tool_input.command,
                             correlation_id=f"{request.request_id}_{i}",
                         )
-                        processed_results.append(truncate_result(result.result, self.chat_uuid))
+                        processed_results.append(truncate_result(result.result))
                     else:
-                        processed_results.append(truncate_result(result, self.chat_uuid))
+                        processed_results.append(truncate_result(result))
 
                 return CliRpcResponse(
                     request_id=request.request_id,
@@ -885,8 +895,6 @@ class RemoteExecutionClient:
 
             elif isinstance(request.request, SwitchCLIChatRequest):
                 raise ValueError("SwitchCLIChatRequest should not be handled by handle_request")
-            elif isinstance(request.request, KeepAliveCliChatRequest):
-                raise ValueError("KeepAliveCliChatRequest should not be handled by handle_request")
             elif isinstance(request.request, StartTerminalRequest):
                 raise ValueError("StartTerminalRequest should not be handled by handle_request")
             elif isinstance(request.request, TerminalInputRequest):

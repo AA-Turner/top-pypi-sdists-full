@@ -1,6 +1,7 @@
 """Materialized Path Trees"""
 
 import collections
+from functools import cache
 from typing import Any
 
 from django.core import serializers
@@ -202,6 +203,9 @@ class MP_AddRootHandler:
         self.kwargs = kwargs
 
     def process(self):
+        # Lock all root node rows to avoid integrity errors. We must force evaluation of the queryset
+        list(self.cls.get_root_nodes().select_for_update().only("pk"))
+
         # do we have a root node already?
         last_root = self.cls.get_last_root_node()
 
@@ -246,14 +250,13 @@ class MP_AddChildHandler:
         self.kwargs = creation_kwargs
 
     def process(self):
-        if self.node_cls.node_order_by and not self.node.is_leaf():
+        # Lock the parent row
+        node = self.node_cls.objects.select_for_update().get(pk=self.node.pk)
+        if self.node_cls.node_order_by and not node.is_leaf():
             # there are child nodes and node_order_by has been set
             # delegate sorted insertion to add_sibling
             self.node.numchild += 1
-            return self.node.get_last_child().add_sibling("sorted-sibling", **self.kwargs)
-
-        # Lock parent row
-        parent_qs = self.node_cls.tree_model().objects.filter(path=self.node.path).select_for_update()
+            return node.get_last_child().add_sibling("sorted-sibling", **self.kwargs)
 
         if len(self.kwargs) == 1 and "instance" in self.kwargs:
             # adding the passed (unsaved) instance to the tree
@@ -264,10 +267,10 @@ class MP_AddChildHandler:
             # creating a new object
             newobj = self.node_cls(**self.kwargs)
 
-        newobj.depth = self.node.depth + 1
-        if self.node.is_leaf():
+        newobj.depth = node.depth + 1
+        if node.is_leaf():
             # the node had no children, adding the first child
-            newobj.path = self.node_cls._get_path(self.node.path, newobj.depth, 1)
+            newobj.path = self.node_cls._get_path(node.path, newobj.depth, 1)
             max_length = self.node_cls._meta.get_field("path").max_length
             if len(newobj.path) > max_length:
                 raise PathOverflow(
@@ -279,12 +282,11 @@ class MP_AddChildHandler:
                 )
         else:
             # adding the new child as the last one
-            newobj.path = self.node.get_last_child()._inc_path()
+            newobj.path = node.get_last_child()._inc_path()
 
-        parent_qs.update(numchild=F("numchild") + 1)
-
-        # we increase the numchild value of the object in memory
-        self.node.numchild += 1
+        # Increment numchild on the parent, and also update the object in memory in case the caller reuses it
+        self.node_cls.tree_model().objects.filter(pk=node.pk).update(numchild=F("numchild") + 1)
+        self.node.numchild = node.numchild + 1
 
         # saving the instance before returning it
         newobj._cached_parent_obj = self.node
@@ -443,6 +445,7 @@ class MP_Node(Node):
     numchild = models.PositiveIntegerField(default=0)
 
     TREEBEARD_IDENTIFYING_FIELD = "path"
+    MOVENODE_FORM_EXCLUDED_FIELDS = ("path", "depth", "numchild")
 
     objects = MP_NodeManager()
 
@@ -462,10 +465,9 @@ class MP_Node(Node):
         return cls.numconv_obj().str2int(num)
 
     @classmethod
+    @cache
     def numconv_obj(cls):
-        if cls.numconv_obj_ is None:
-            cls.numconv_obj_ = NumConv(len(cls.alphabet), cls.alphabet)
-        return cls.numconv_obj_
+        return NumConv(cls.alphabet)
 
     @classmethod
     @transaction.atomic

@@ -21,7 +21,7 @@ from dataclasses import dataclass
 import json
 from typing import Any, Callable, Dict, Generic, Optional, Tuple, TypeVar, Union
 
-__version__ = '1.28.0'
+__version__ = '1.28.1'
 
 T = TypeVar('T')
 

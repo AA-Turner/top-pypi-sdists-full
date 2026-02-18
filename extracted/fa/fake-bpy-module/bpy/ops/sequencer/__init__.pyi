@@ -1908,6 +1908,7 @@ def strip_modifier_copy(
     /,
     *,
     type: typing.Literal["REPLACE", "APPEND"] | None = "REPLACE",
+    modifier: str | None = "",
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
     """Copy modifiers of the active strip to all selected strips
 
@@ -1918,7 +1919,21 @@ def strip_modifier_copy(
 
     APPEND
     Append -- Append active modifiers to selected strips.
+        :param modifier: Modifier, Name of the modifier to copy. If empty, copy all modifiers (optional, never None)
         :return: Result of the operator call.
+    """
+
+def strip_modifier_duplicate(
+    execution_context: int | str | None = None,
+    undo: bool | None = None,
+    /,
+    *,
+    modifier: str | None = "",
+) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+    """Duplicate (active) modifier of the active strip
+
+    :param modifier: Modifier, Name of the modifier to duplicate. If empty duplicate the active modifier (optional, never None)
+    :return: Result of the operator call.
     """
 
 def strip_modifier_equalizer_redefine(

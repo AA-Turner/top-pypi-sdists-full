@@ -17,8 +17,8 @@ import os
 from oslotest import base
 
 from oslo_privsep import priv_context
+from oslo_privsep.test import fixture
 import oslo_privsep.tests
-from oslo_privsep.tests import fixture
 
 
 context = priv_context.PrivContext(
@@ -35,8 +35,7 @@ class TestContextTestCase(base.BaseTestCase):
         super().setUp()
         config_override = getattr(self, 'config_override', {})
         privsep_fixture = self.useFixture(
-            fixture.UnprivilegedPrivsepFixture(
-                context, config_override)
+            fixture.UnprivilegedPrivsepFixture(context, config_override)
         )
         self.privsep_conf = privsep_fixture.conf
 

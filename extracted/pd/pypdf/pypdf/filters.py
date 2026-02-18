@@ -66,6 +66,7 @@ from .generic import (
     DictionaryObject,
     IndirectObject,
     NullObject,
+    NumberObject,
     StreamObject,
     is_null_or_none,
 )
@@ -73,7 +74,10 @@ from .generic import (
 JBIG2_MAX_OUTPUT_LENGTH = 75_000_000
 LZW_MAX_OUTPUT_LENGTH = 75_000_000
 ZLIB_MAX_OUTPUT_LENGTH = 75_000_000
+ZLIB_MAX_RECOVERY_INPUT_LENGTH = 5_000_000
 
+# Reuse cached 1-byte values in the fallback loop to avoid per-byte allocations.
+_SINGLE_BYTES = tuple(bytes((i,)) for i in range(256))
 
 
 def _decompress_with_limit(data: bytes) -> bytes:
@@ -132,18 +136,23 @@ def decompress(data: bytes) -> bytes:
         decompressor = zlib.decompressobj(zlib.MAX_WBITS | 32)
         result_str = b""
         remaining_limit = ZLIB_MAX_OUTPUT_LENGTH
-        data_single_bytes = [data[i : i + 1] for i in range(len(data))]
+        data_length = len(data)
         known_errors = set()
-        for index, b in enumerate(data_single_bytes):
+        for index in range(data_length):
+            chunk = _SINGLE_BYTES[data[index]]
             try:
-                decompressed = decompressor.decompress(b, max_length=remaining_limit)
+                decompressed = decompressor.decompress(chunk, max_length=remaining_limit)
                 result_str += decompressed
                 remaining_limit -= len(decompressed)
                 if remaining_limit <= 0:
                     raise LimitReachedError(
-                        f"Limit reached while decompressing. {len(data_single_bytes) - index} bytes remaining."
+                        f"Limit reached while decompressing. {data_length - index} bytes remaining."
                     )
             except zlib.error as error:
+                if index > ZLIB_MAX_RECOVERY_INPUT_LENGTH:
+                    raise LimitReachedError(
+                        f"Recovery limit reached while decompressing. {data_length - index} bytes remaining."
+                    )
                 error_str = str(error)
                 if error_str in known_errors:
                     continue
@@ -163,45 +172,28 @@ class FlateDecode:
         Decode data which is flate-encoded.
 
         Args:
-          data: flate-encoded data.
-          decode_parms: a dictionary of values, understanding the
-            "/Predictor":<int> key only
+          data: Flate-encoded data.
+          decode_parms: Additional decoding parameters.
 
         Returns:
           The flate-decoded data.
 
         Raises:
-          PdfReadError:
+          PdfReadError: Unsupported parameters have been found.
 
         """
         str_data = decompress(data)
-        predictor = 1
 
-        if decode_parms:
-            try:
-                predictor = decode_parms.get("/Predictor", 1)
-            except (AttributeError, TypeError):  # Type Error is NullObject
-                pass  # Usually an array with a null object was read
+        if isinstance(decode_parms, DictionaryObject):
+            parameters = decode_parms
+        else:
+            parameters = DictionaryObject()
+
+        predictor = parameters.get("/Predictor", 1)
+
         # predictor 1 == no predictor
         if predictor != 1:
-            # /Columns, the number of samples in each row, has a default value of 1;
-            # §7.4.4.3, ISO 32000.
-            DEFAULT_BITS_PER_COMPONENT = 8
-            try:
-                columns = cast(int, decode_parms[LZW.COLUMNS].get_object())  # type: ignore
-            except (TypeError, KeyError):
-                columns = 1
-            try:
-                colors = cast(int, decode_parms[LZW.COLORS].get_object())  # type: ignore
-            except (TypeError, KeyError):
-                colors = 1
-            try:
-                bits_per_component = cast(
-                    int,
-                    decode_parms[LZW.BITS_PER_COMPONENT].get_object(),  # type: ignore
-                )
-            except (TypeError, KeyError):
-                bits_per_component = DEFAULT_BITS_PER_COMPONENT
+            columns, colors, bits_per_component = FlateDecode._get_parameters(parameters)
 
             # PNG predictor can vary by row and so is the lead byte on each row
             rowlength = (
@@ -225,6 +217,20 @@ class FlateDecode:
             else:
                 raise PdfReadError(f"Unsupported flatedecode predictor {predictor!r}")
         return str_data
+
+    @staticmethod
+    def _get_parameters(parameters: DictionaryObject) -> tuple[int, int, int]:
+        # For details, see table 8 of ISO 32000-2:2020.
+        def get(key: str, default: int) -> int:
+            _value = parameters.get(key, NumberObject(default)).get_object()
+            if not isinstance(_value, int) or _value < 1:
+                raise PdfReadError(f"Expected positive number for {key}, got {_value}!")
+            return _value
+
+        columns = get(key=LZW.COLUMNS, default=1)
+        colors = get(key=LZW.COLORS, default=1)
+        bits_per_component = get(key=LZW.BITS_PER_COMPONENT, default=8)
+        return columns, colors, bits_per_component
 
     @staticmethod
     def _decode_png_prediction(data: bytes, columns: int, rowlength: int) -> bytes:

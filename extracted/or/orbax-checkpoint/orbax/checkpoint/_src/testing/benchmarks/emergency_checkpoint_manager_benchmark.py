@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -124,12 +124,7 @@ def _restore_and_validate(
   with metrics.measure(f"sync_global_processes_{step}"):
     multihost.sync_global_processes(f"save_completed_{step}")
 
-  # Remove local checkpoint on secondary slice.
-  if not is_in_primary_slice:
-    assert (local_directory / str(step)).exists()
-  if is_in_secondary_slice:
-    (local_directory / str(step)).rename(local_directory / "backup")
-    logging.info("Removing secondary slice checkpoint at step %d", step)
+
   with metrics.measure(f"reload_first_time_{step}"):
     manager.reload()
   with metrics.measure(f"restore_{step}"):
@@ -145,10 +140,7 @@ def _restore_and_validate(
   logging.info("Assert Local Restored Pytree")
   pytree_utils.assert_pytree_equal(pytree, restored)
 
-  # Put back secondary slice local checkpoint.
-  if is_in_secondary_slice:
-    (local_directory / "backup").rename(local_directory / str(step))
-    logging.info("Putting back secondary slice checkpoint at step %d", step)
+
   with metrics.measure(f"reload_second_time_{step}"):
     manager.reload()
 
@@ -166,11 +158,16 @@ class EmergencyCheckpointManagerBenchmark(benchmarks_core.BenchmarksGenerator):
     metrics = metric_lib.Metrics()
     pytree = context.pytree
     persistent_directory = context.path / "persistent_replica_ckpt"
-    local_directory = (
-        context.path
-        / "local_replica_ckpt"
-        / f"process_{multihost.process_index()}"
-    )
+    if context.local_path is not None:
+      local_path = epath.Path(context.local_path) / "local_replica_ckpt"
+      local_directory = epath.Path(local_path)
+      local_directory.mkdir(parents=True, exist_ok=True)
+    else:
+      local_directory = (
+          context.path
+          / "local_replica_ckpt"
+          / f"process_{multihost.process_index()}"
+      )
     options = context.options
     mesh = context.mesh
     assert isinstance(options, EcmBenchmarkOptions)
@@ -200,7 +197,7 @@ class EmergencyCheckpointManagerBenchmark(benchmarks_core.BenchmarksGenerator):
     with metrics.measure("create_directories"):
       if jax.process_index() == 0:
         persistent_directory.mkdir(parents=True)
-      local_directory.mkdir(parents=True)
+      local_directory.mkdir(parents=True, exist_ok=True)
       multihost.sync_global_processes("create directories")
 
     with metrics.measure("create_abstract_pytree"):
@@ -242,8 +239,25 @@ class EmergencyCheckpointManagerBenchmark(benchmarks_core.BenchmarksGenerator):
         is_in_secondary_slice,
     )
 
+    step = manager.latest_step()
+    if step is not None:
+      logging.info("Latest step: %d", step)
+
+      with metrics.measure(f"restore_and_validate_{step}"):
+        _restore_and_validate(
+            manager,
+            metrics,
+            pytree,
+            step,
+            local_directory,
+            is_in_primary_slice,
+            is_in_secondary_slice,
+            restore_args,
+        )
+
+    start_step = step + 1 if step is not None else 0
     with metrics.measure("train_loop"):
-      for step in range(options.train_steps):
+      for step in range(start_step, options.train_steps):
         logging.info("Training step %d", step)
         with metrics.measure(f"save_{step}"):
           manager.save(

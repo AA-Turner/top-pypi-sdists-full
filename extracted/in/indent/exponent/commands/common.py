@@ -29,7 +29,6 @@ from exponent.core.remote_execution.exceptions import (
     ExponentError,
     HandledExponentError,
 )
-from exponent.core.remote_execution.files import FileCache
 from exponent.core.remote_execution.git import get_git_info
 from exponent.core.remote_execution.session import send_exception_log
 from exponent.core.remote_execution.types import ChatSource
@@ -257,7 +256,6 @@ async def start_client(
     base_api_url: str,
     base_ws_url: str,
     chat_uuid: str,
-    file_cache: FileCache | None = None,
     prompt: str | None = None,
     workflow_id: str | None = None,
     connection_tracker: ConnectionTracker | None = None,
@@ -268,7 +266,6 @@ async def start_client(
         base_url=base_api_url,
         base_ws_url=base_ws_url,
         working_directory=os.getcwd(),
-        file_cache=file_cache,
     ) as client:
         main_coro = client.run_connection(chat_uuid, connection_tracker, timeout_seconds)
         aux_coros: list[Coroutine[Any, Any, None]] = []
@@ -323,38 +320,3 @@ async def refresh_api_key_task(
     settings.write_settings_to_config_file()
 
     click.secho("API key has been refreshed and saved successfully!", fg="green")
-
-
-async def report_sandbox_info(
-    api_key: str,
-    base_api_url: str,
-    base_ws_url: str,
-    sandbox_id: str,
-    disk_usage_gb: float | None = None,
-    indent_log_file: str | None = None,
-) -> None:
-    """Report sandbox metrics to the backend for monitoring.
-
-    Args:
-        api_key: User's API key
-        base_api_url: Base API URL
-        base_ws_url: Base WebSocket URL
-        sandbox_id: Sandbox identifier
-        disk_usage_gb: Disk usage in GB
-        indent_log_file: Path to the indent CLI log file
-
-    Raises:
-        HandledExponentError: If the mutation fails
-    """
-    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
-
-    result = await graphql_client.report_sandbox_info(
-        sandbox_id=sandbox_id,
-        disk_usage_gb=disk_usage_gb,
-        indent_log_file=indent_log_file,
-    )
-
-    data = result.report_sandbox_info
-
-    if not data.success:
-        raise HandledExponentError(f"Failed to report sandbox info: {data.message}")

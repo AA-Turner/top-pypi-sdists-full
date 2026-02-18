@@ -50,7 +50,7 @@ class TruncationStrategy(ABC, Generic[_T]):
         """Return True if the result should be truncated."""
 
     @abstractmethod
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
+    def truncate(self, result: _T) -> _T:
         """Truncate the result and return the truncated version."""
 
 
@@ -70,7 +70,7 @@ class StringFieldTruncation(TruncationStrategy[_T]):
                 return len(value) > self.character_limit
         return False
 
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
+    def truncate(self, result: _T) -> _T:
         if not hasattr(result, self.field_name):
             return result
 
@@ -105,7 +105,7 @@ class ListFieldTruncation(TruncationStrategy[_T]):
                 return len(value) > self.item_limit
         return False
 
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
+    def truncate(self, result: _T) -> _T:
         if not hasattr(result, self.field_name):
             return result
 
@@ -129,25 +129,8 @@ class ListFieldTruncation(TruncationStrategy[_T]):
         return replace(result, **updates)
 
 
-class CompositeTruncation(TruncationStrategy[_T]):
-    def __init__(self, strategies: list[TruncationStrategy[_T]]):
-        self.strategies = strategies
-
-    def should_truncate(self, result: _T) -> bool:
-        return any(strategy.should_truncate(result) for strategy in self.strategies)
-
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
-        for strategy in self.strategies:
-            if strategy.should_truncate(result):
-                result = strategy.truncate(result, chat_uuid)
-        return result
-
-
 class TailTruncation(TruncationStrategy[_T]):
-    """Truncation strategy that keeps the end of the output (tail) instead of the beginning.
-
-    Writes full output to a temp file before truncating.
-    """
+    """Truncation strategy that keeps the end of the output (tail) instead of the beginning."""
 
     def __init__(
         self,
@@ -164,7 +147,7 @@ class TailTruncation(TruncationStrategy[_T]):
                 return len(value) > self.character_limit
         return False
 
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
+    def truncate(self, result: _T) -> _T:
         if not hasattr(result, self.field_name):
             return result
 
@@ -172,15 +155,7 @@ class TailTruncation(TruncationStrategy[_T]):
         if not isinstance(value, str):
             return result
 
-        file_path = _write_full_output_to_file(value, chat_uuid) if chat_uuid else None
-
-        updates: dict[str, Any] = {}
-        if file_path and hasattr(result, "output_file"):
-            updates["output_file"] = file_path
-
         if len(value) <= self.character_limit:
-            if updates:
-                return replace(result, **updates)
             return result
 
         truncated_value = value[-self.character_limit :]
@@ -189,27 +164,14 @@ class TailTruncation(TruncationStrategy[_T]):
         if newline_pos != -1 and newline_pos < 1000:
             truncated_value = truncated_value[newline_pos + 1 :]
 
-        if file_path:
-            truncation_msg = (
-                f"[Truncated to last {self.character_limit} characters. Full output written to: {file_path}]\n"
-            )
-        else:
-            truncation_msg = f"[Truncated to last {self.character_limit} characters.]\n"
+        truncation_msg = f"[Truncated to last {self.character_limit} characters.]\n"
         truncated_value = truncation_msg + truncated_value
 
-        updates[self.field_name] = truncated_value
+        updates: dict[str, Any] = {self.field_name: truncated_value}
         if hasattr(result, "truncated"):
             updates["truncated"] = True
 
         return replace(result, **updates)
-
-
-class NoOpTruncation(TruncationStrategy[_T]):
-    def should_truncate(self, result: _T) -> bool:
-        return False
-
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
-        return result
 
 
 class StringListTruncation(TruncationStrategy[_T]):
@@ -267,7 +229,7 @@ class StringListTruncation(TruncationStrategy[_T]):
         else:
             return item
 
-    def truncate(self, result: _T, chat_uuid: str | None = None) -> _T:
+    def truncate(self, result: _T) -> _T:
         if not hasattr(result, self.field_name):
             return result
 
@@ -309,7 +271,7 @@ TRUNCATION_REGISTRY: dict[type[ToolResult], TruncationStrategy[Any]] = {
 T = TypeVar("T", bound=ToolResult)
 
 
-def truncate_tool_result(result: T, chat_uuid: str | None = None) -> T:
+def truncate_tool_result(result: T) -> T:
     if isinstance(result, ErrorToolResult):
         return result
 
@@ -317,8 +279,8 @@ def truncate_tool_result(result: T, chat_uuid: str | None = None) -> T:
     if result_type in TRUNCATION_REGISTRY:
         strategy = TRUNCATION_REGISTRY[result_type]
         if isinstance(result, BashToolResult):
-            return cast(T, strategy.truncate(result, chat_uuid))
+            return cast(T, strategy.truncate(result))
         elif strategy.should_truncate(result):
-            return cast(T, strategy.truncate(result, chat_uuid))
+            return cast(T, strategy.truncate(result))
 
     return result

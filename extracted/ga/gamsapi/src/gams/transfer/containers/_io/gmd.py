@@ -333,7 +333,7 @@ def create_symbol_from_metadata(container, metadata):
                         f"Add `{metadata['parent_set']}` to the list of symbols to read."
                     )
                 )
-        else: # symbol number of universe (*) is 0
+        else:  # symbol number of universe (*) is 0
             UniverseAlias._from_gams(container, metadata["name"])
 
     # regular set
@@ -507,8 +507,9 @@ def container_write(
             )
 
     # reorder symbols if necessary
-    if container._isValidSymbolOrder() == False:
-        container.reorderSymbols()
+    if container._requires_state_check:
+        if container._isValidSymbolOrder() == False:
+            container.reorderSymbols()
 
     #
     # register the universe
@@ -595,7 +596,7 @@ def power_write_alias(write_to, symobj, rc):
             symobj.name,
             symobj.dimension,
             gmd.GMS_DT_ALIAS,
-            0, # universe (*) symbol number in GMD is 0
+            0,  # universe (*) symbol number in GMD is 0
             f"Aliased with {symobj.alias_with}",
             [None] * symobj.dimension,
             [""] * symobj.dimension,

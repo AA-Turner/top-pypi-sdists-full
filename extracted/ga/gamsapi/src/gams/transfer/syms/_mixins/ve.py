@@ -912,6 +912,7 @@ class VEMixin:
                 "floating",
                 "mixed-integer-float",
             ]:
+                records[i] = records[i].astype(object)
                 idx = records.loc[:, i].isin(EPS)
                 if idx.any():
                     records.loc[records[idx].index, i] = SpecialValues.EPS
@@ -927,7 +928,9 @@ class VEMixin:
         return records
 
     def _filter_zero_records(self, records):
-        idx = records[records[records.columns[self.dimension :]].eq(0).all(1)].index
+        idx = records[
+            records[records.columns[self.dimension :]].eq(0).all(axis=1)
+        ].index
         eps_idx = records[
             SpecialValues.isEps(records[records.columns[self.dimension :]]).any(1)
         ].index

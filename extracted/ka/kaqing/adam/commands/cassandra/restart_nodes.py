@@ -46,6 +46,8 @@ class RestartNodes(Command):
                         args = self.comma_separated_args(args)
 
                         if ctx.background:
+                            ctx.copy(background=False).log2(f'Scheduling restart of {len(args)} pods...')
+
                             # start with foreground, it becomes background if the node scheduler is not yet runnig during scheduling
                             for pod in args:
                                 NodeRestartScheduler.schedule(state, pod, ctx.copy(background=False))

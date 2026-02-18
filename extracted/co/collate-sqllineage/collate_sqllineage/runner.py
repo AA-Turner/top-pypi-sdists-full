@@ -11,7 +11,11 @@ from collate_sqllineage.core.parser.sqlparse.analyzer import SqlParseLineageAnal
 from collate_sqllineage.drawing import draw_lineage_graph
 from collate_sqllineage.io import to_cytoscape
 from collate_sqllineage.utils.constant import LineageLevel
-from collate_sqllineage.utils.helpers import split, trim_comment
+from collate_sqllineage.utils.helpers import (
+    sanitize_template_params,
+    split,
+    trim_comment,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -179,8 +183,9 @@ Target Tables:
         """
         print column level lineage to stdout
         """
+        print("Column Lineage:")
         for path in self.get_column_lineage():
-            print(" <- ".join(str(col) for col in reversed(path)))
+            print("    " + " <- ".join(str(col) for col in reversed(path)))
 
     def print_table_lineage(self) -> None:
         """
@@ -189,7 +194,7 @@ Target Tables:
         print(str(self))
 
     def _eval(self):
-        self._stmt = split(self._sql.strip())
+        self._stmt = split(sanitize_template_params(self._sql.strip()))
         self._stmt_holders = [self._analyzer.analyze(stmt) for stmt in self._stmt]
         if hasattr(self._analyzer, "parsed_result"):
             self._parsed_result = self._analyzer.parsed_result

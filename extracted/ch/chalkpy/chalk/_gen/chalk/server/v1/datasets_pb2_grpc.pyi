@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.datasets_pb2 import (
     ArchiveDatasetRevisionRequest,
     ArchiveDatasetRevisionResponse,
+    ArchiveDatasetRevisionsRequest,
+    ArchiveDatasetRevisionsResponse,
     GetDatasetRequest,
     GetDatasetResponse,
     GetDatasetRevisionDownloadLinksRequest,
@@ -60,6 +62,10 @@ class DatasetMetadataServiceStub:
         ArchiveDatasetRevisionRequest,
         ArchiveDatasetRevisionResponse,
     ]
+    ArchiveDatasetRevisions: UnaryUnaryMultiCallable[
+        ArchiveDatasetRevisionsRequest,
+        ArchiveDatasetRevisionsResponse,
+    ]
 
 class DatasetMetadataServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -104,5 +110,11 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: ArchiveDatasetRevisionRequest,
         context: ServicerContext,
     ) -> ArchiveDatasetRevisionResponse: ...
+    @abstractmethod
+    def ArchiveDatasetRevisions(
+        self,
+        request: ArchiveDatasetRevisionsRequest,
+        context: ServicerContext,
+    ) -> ArchiveDatasetRevisionsResponse: ...
 
 def add_DatasetMetadataServiceServicer_to_server(servicer: DatasetMetadataServiceServicer, server: Server) -> None: ...

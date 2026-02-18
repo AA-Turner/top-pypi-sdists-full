@@ -176,12 +176,16 @@ class JsonRpcTransport(ClientTransport):
             try:
                 event_source.response.raise_for_status()
                 async for sse in event_source.aiter_sse():
+                    if not sse.data:
+                        continue
                     response = SendStreamingMessageResponse.model_validate(
                         json.loads(sse.data)
                     )
                     if isinstance(response.root, JSONRPCErrorResponse):
                         raise A2AClientJSONRPCError(response.root)
                     yield response.root.result
+            except httpx.TimeoutException as e:
+                raise A2AClientTimeoutError('Client Request timed out') from e
             except httpx.HTTPStatusError as e:
                 raise A2AClientHTTPError(e.response.status_code, str(e)) from e
             except SSEError as e:
@@ -206,7 +210,7 @@ class JsonRpcTransport(ClientTransport):
             )
             response.raise_for_status()
             return response.json()
-        except httpx.ReadTimeout as e:
+        except httpx.TimeoutException as e:
             raise A2AClientTimeoutError('Client Request timed out') from e
         except httpx.HTTPStatusError as e:
             raise A2AClientHTTPError(e.response.status_code, str(e)) from e
@@ -363,6 +367,8 @@ class JsonRpcTransport(ClientTransport):
                     if isinstance(response.root, JSONRPCErrorResponse):
                         raise A2AClientJSONRPCError(response.root)
                     yield response.root.result
+            except httpx.TimeoutException as e:
+                raise A2AClientTimeoutError('Client Request timed out') from e
             except SSEError as e:
                 raise A2AClientHTTPError(
                     400, f'Invalid SSE response or protocol error: {e}'

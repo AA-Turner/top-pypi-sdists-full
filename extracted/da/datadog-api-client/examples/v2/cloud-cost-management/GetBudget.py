@@ -1,5 +1,5 @@
 """
-Get a budget returns "OK" response
+Get budget returns "OK" response
 """
 
 from datadog_api_client import ApiClient, Configuration

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskcluster-taskgraph
-Version: 19.0.0
+Version: 19.1.0
 Summary: Build taskcluster taskgraphs
 Project-URL: Repository, https://github.com/taskcluster/taskgraph
 Project-URL: Issues, https://github.com/taskcluster/taskgraph/issues
@@ -20,7 +20,7 @@ Requires-Python: >=3.9
 Requires-Dist: appdirs>=1.4
 Requires-Dist: cookiecutter~=2.1
 Requires-Dist: json-e>=2.7
-Requires-Dist: mozilla-repo-urls
+Requires-Dist: mozilla-repo-urls>=0.1.1
 Requires-Dist: msgspec>=0.20.0
 Requires-Dist: pyyaml>=5.3.1
 Requires-Dist: redo>=2.0
@@ -30,19 +30,15 @@ Requires-Dist: taskcluster-urls>=11.0
 Requires-Dist: taskcluster>=92.0
 Requires-Dist: voluptuous>=0.12.1
 Provides-Extra: load-image
-Requires-Dist: zstandard; extra == 'load-image'
+Requires-Dist: zstandard>=0.23.0; extra == 'load-image'
 Provides-Extra: orjson
-Requires-Dist: orjson; extra == 'orjson'
+Requires-Dist: orjson>=3; extra == 'orjson'
 Description-Content-Type: text/x-rst
 
 
 .. image:: https://firefox-ci-tc.services.mozilla.com/api/github/v1/repository/taskcluster/taskgraph/main/badge.svg
    :target: https://firefox-ci-tc.services.mozilla.com/api/github/v1/repository/taskcluster/taskgraph/main/latest
    :alt: Task Status
-
-.. image:: https://results.pre-commit.ci/badge/github/taskcluster/taskgraph/main.svg
-   :target: https://results.pre-commit.ci/latest/github/taskcluster/taskgraph/main
-   :alt: pre-commit.ci status
 
 .. image:: https://codecov.io/gh/taskcluster/taskgraph/branch/main/graph/badge.svg?token=GJIV52ZQNP
    :target: https://codecov.io/gh/taskcluster/taskgraph

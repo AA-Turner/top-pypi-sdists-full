@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: code-puppy
-Version: 0.0.410
+Version: 0.0.411
 Summary: Code generation agent
 Project-URL: repository, https://github.com/mpfaffenberger/code_puppy
 Project-URL: HomePage, https://github.com/mpfaffenberger/code_puppy
@@ -15,6 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Code Generators
 Requires-Python: <3.14,>=3.11
+Requires-Dist: anthropic==0.79.0
 Requires-Dist: dbos>=2.11.0
 Requires-Dist: fastapi>=0.109.0
 Requires-Dist: httpx[http2]>=0.24.1

@@ -328,3 +328,31 @@ def test_select_join_with_complex_union_subquery():
         """,
         {"tab1", "tab2", "tab3", "tab4", "tab5", "tab6"},
     )
+
+
+def test_select_with_quoted_template_param():
+    assert_table_lineage_equal(
+        "SELECT col1 FROM tab1 WHERE col2 = '{{ date_param }}'",
+        {"tab1"},
+    )
+
+
+def test_select_with_unquoted_template_param():
+    assert_table_lineage_equal(
+        "SELECT col1 FROM tab1 WHERE col2 = {{ date_param }}",
+        {"tab1"},
+    )
+
+
+def test_select_with_multiple_template_params():
+    assert_table_lineage_equal(
+        "SELECT col1 FROM tab1 WHERE col2 = {{ start_date }} AND col3 = {{ end_date }}",
+        {"tab1"},
+    )
+
+
+def test_select_with_template_param_in_select_list():
+    assert_table_lineage_equal(
+        "SELECT col1, {{ threshold }} AS threshold_val FROM tab1",
+        {"tab1"},
+    )

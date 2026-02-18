@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-pghistory
-Version: 3.9.1
+Version: 3.9.2
 Summary: History tracking for Django and Postgres
 License: BSD-3-Clause
 License-File: LICENSE

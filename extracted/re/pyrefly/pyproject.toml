@@ -4,11 +4,11 @@ build-backend = "maturin"
 
 [tool.maturin]
 bindings = "bin"
-python-source = "python"
 module-name = "pyrefly"
 strip = false
 include = ["rust-toolchain"]
 manifest-path = "pyrefly/Cargo.toml"
+python-source = "python"
 
 [project.urls]
 homepage = "https://pyrefly.org"

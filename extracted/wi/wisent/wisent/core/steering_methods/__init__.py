@@ -4,6 +4,7 @@ from .methods.caa import CAAMethod
 from .methods.advanced import PRISMMethod, PRISMConfig, MultiDirectionResult
 from .methods.advanced import PULSEMethod, PULSEConfig, PULSEResult
 from .methods.titan import TITANMethod, TITANConfig, TITANResult, GatingNetwork, IntensityNetwork
+from .methods.concept_flow import ConceptFlowMethod, ConceptFlowConfig, ConceptFlowResult
 from .rotator import SteeringMethodRotator
 from .registry import (
     SteeringMethodRegistry,
@@ -20,6 +21,7 @@ CAA = CAAMethod
 PRISM = PRISMMethod
 PULSE = PULSEMethod
 TITAN = TITANMethod
+ConceptFlow = ConceptFlowMethod
 SteeringMethod = CAAMethod  # Default steering method
 
 __all__ = [
@@ -40,6 +42,10 @@ __all__ = [
     "TITANResult",
     "GatingNetwork",
     "IntensityNetwork",
+    "ConceptFlowMethod",
+    "ConceptFlow",
+    "ConceptFlowConfig",
+    "ConceptFlowResult",
     "SteeringMethod",
     "SteeringMethodRotator",
     # Registry

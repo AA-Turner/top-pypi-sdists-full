@@ -24,8 +24,10 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import warnings
 from io import BytesIO
+from struct import pack
 from typing import NoReturn
 from unittest.mock import MagicMock, Mock, patch
 from urllib.parse import quote as urlquote
@@ -43,6 +45,7 @@ from dulwich.client import (
     HttpGitClient,
     InvalidWants,
     LocalGitClient,
+    PackDataProgressWrapper,
     PLinkSSHVendor,
     ReportStatusParser,
     SendPackError,
@@ -55,6 +58,8 @@ from dulwich.client import (
     _extract_symrefs_and_agent,
     _remote_error_from_stderr,
     _win32_url_to_path,
+    build_fetch_request_v2,
+    build_ls_refs_request_v2,
     check_wants,
     default_urllib3_manager,
     get_credentials_from_store,
@@ -66,7 +71,12 @@ from dulwich.config import ConfigDict
 from dulwich.object_format import DEFAULT_OBJECT_FORMAT
 from dulwich.objects import ZERO_SHA, Blob, Commit, Tree
 from dulwich.pack import pack_objects_to_data, write_pack_data, write_pack_objects
-from dulwich.protocol import DEFAULT_GIT_PROTOCOL_VERSION_FETCH, TCP_GIT_PORT, Protocol
+from dulwich.protocol import (
+    DEFAULT_GIT_PROTOCOL_VERSION_FETCH,
+    TCP_GIT_PORT,
+    Protocol,
+    agent_string,
+)
 from dulwich.repo import MemoryRepo, Repo
 from dulwich.tests.utils import open_repo, setup_warning_catcher, tear_down_repo
 
@@ -3093,3 +3103,741 @@ class TestExtractAgentAndSymrefs(TestCase):
         )
         self.assertEqual(agent, b"git/2.31.1")
         self.assertEqual(symrefs, {b"HEAD": b"refs/heads/master"})
+
+
+class TestBuildLsRefsRequestV2(TestCase):
+    def test_with_sha256_object_format(self) -> None:
+        server_caps = {b"object-format=sha256\n", b"ls-refs=unborn\n"}
+        cmd_packets, arg_packets = build_ls_refs_request_v2(server_caps, "sha256", None)
+
+        # Check exact command packets (before delimiter)
+        self.assertEqual(
+            cmd_packets,
+            [b"command=ls-refs\n", b"agent=" + agent_string(), b"object-format=sha256"],
+        )
+
+        # Check exact argument packets (after delimiter)
+        self.assertEqual(
+            arg_packets,
+            [b"peel", b"symrefs", b"unborn", b"ref-prefix HEAD", b"ref-prefix refs/"],
+        )
+
+    def test_without_object_format(self) -> None:
+        server_caps = {b"ls-refs=unborn\n"}
+        cmd_packets, arg_packets = build_ls_refs_request_v2(server_caps, None, None)
+
+        # Check exact command packets (before delimiter)
+        self.assertEqual(
+            cmd_packets,
+            [b"command=ls-refs\n", b"agent=" + agent_string()],
+        )
+
+        # Check exact argument packets (after delimiter)
+        self.assertEqual(
+            arg_packets,
+            [b"peel", b"symrefs", b"unborn", b"ref-prefix HEAD", b"ref-prefix refs/"],
+        )
+
+    def test_custom_ref_prefix(self) -> None:
+        server_caps = {b"ls-refs\n"}
+        custom_prefixes = [b"refs/heads/main", b"refs/tags/v1.0"]
+        cmd_packets, arg_packets = build_ls_refs_request_v2(
+            server_caps, None, custom_prefixes
+        )
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=ls-refs\n", b"agent=" + agent_string()],
+        )
+
+        # Check exact argument packets include custom prefixes
+        # Note: ls-refs capability triggers unborn support
+        self.assertEqual(
+            arg_packets,
+            [
+                b"peel",
+                b"symrefs",
+                b"unborn",
+                b"ref-prefix refs/heads/main",
+                b"ref-prefix refs/tags/v1.0",
+            ],
+        )
+
+    def test_no_unborn_support(self) -> None:
+        server_caps = {b"fetch=shallow\n"}  # No ls-refs capability
+        cmd_packets, arg_packets = build_ls_refs_request_v2(server_caps, None, None)
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=ls-refs\n", b"agent=" + agent_string()],
+        )
+
+        # Should not include unborn argument
+        self.assertEqual(
+            arg_packets,
+            [b"peel", b"symrefs", b"ref-prefix HEAD", b"ref-prefix refs/"],
+        )
+
+
+class TestBuildFetchRequestV2(TestCase):
+    def test_with_sha256_object_format(self) -> None:
+        cmd_packets = build_fetch_request_v2("sha256")
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=fetch\n", b"agent=" + agent_string(), b"object-format=sha256"],
+        )
+
+    def test_without_object_format(self) -> None:
+        cmd_packets = build_fetch_request_v2(None)
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=fetch\n", b"agent=" + agent_string()],
+        )
+
+    def test_with_sha1_object_format(self) -> None:
+        cmd_packets = build_fetch_request_v2("sha1")
+
+        # Check exact command packets
+        self.assertEqual(
+            cmd_packets,
+            [b"command=fetch\n", b"agent=" + agent_string(), b"object-format=sha1"],
+        )
+
+
+class TestPackfileUris(TestCase):
+    def setUp(self) -> None:
+        self.rin = BytesIO()
+        self.rout = BytesIO()
+
+    def test_download_packfile_from_uri_success(self) -> None:
+        from dulwich.client import _download_packfile_from_uri
+
+        # Create a mock packfile content
+        packfile_data = b"PACK\x00\x00\x00\x02\x00\x00\x00\x00" + b"test data" * 100
+        import hashlib
+
+        expected_hash = hashlib.sha1(packfile_data).hexdigest().encode("ascii")
+
+        # Mock HTTP response
+        mock_response = Mock()
+        mock_response.close = Mock()
+
+        def mock_read(size):
+            if mock_read.pos < len(packfile_data):
+                chunk = packfile_data[mock_read.pos : mock_read.pos + size]
+                mock_read.pos += len(chunk)
+                return chunk
+            return b""
+
+        mock_read.pos = 0
+
+        def mock_http_request(url):
+            return mock_response, mock_read
+
+        collected_data = BytesIO()
+
+        def pack_data_callback(data):
+            collected_data.write(data)
+            return len(data)
+
+        # Test successful download
+        _download_packfile_from_uri(
+            "https://example.com/pack.pack",
+            expected_hash,
+            "sha1",
+            pack_data_callback,
+            None,
+            mock_http_request,
+        )
+
+        self.assertEqual(collected_data.getvalue(), packfile_data)
+        mock_response.close.assert_called_once()
+
+    def test_download_packfile_from_uri_hash_mismatch(self) -> None:
+        from dulwich.client import _download_packfile_from_uri
+
+        packfile_data = b"PACK\x00\x00\x00\x02\x00\x00\x00\x00"
+        wrong_hash = b"0000000000000000000000000000000000000000"
+
+        mock_response = Mock()
+        mock_response.close = Mock()
+
+        def mock_read(size):
+            if mock_read.pos < len(packfile_data):
+                chunk = packfile_data[mock_read.pos : mock_read.pos + size]
+                mock_read.pos += len(chunk)
+                return chunk
+            return b""
+
+        mock_read.pos = 0
+
+        def mock_http_request(url):
+            return mock_response, mock_read
+
+        def pack_data_callback(data):
+            return len(data)
+
+        # Test hash mismatch
+        with self.assertRaises(GitProtocolError) as cm:
+            _download_packfile_from_uri(
+                "https://example.com/pack.pack",
+                wrong_hash,
+                "sha1",
+                pack_data_callback,
+                None,
+                mock_http_request,
+            )
+
+        self.assertIn("hash mismatch", str(cm.exception))
+        mock_response.close.assert_called_once()
+
+    def test_download_packfile_from_uri_no_data_written_on_hash_mismatch(
+        self,
+    ) -> None:
+        """Verify that NO data is written when hash verification fails.
+
+        This is the critical security test - we must ensure corrupted data
+        never reaches the repository even if downloaded.
+        """
+        from dulwich.client import _download_packfile_from_uri
+
+        packfile_data = b"MALICIOUS DATA THAT SHOULD NOT BE WRITTEN"
+        wrong_hash = b"0000000000000000000000000000000000000000"
+
+        mock_response = Mock()
+        mock_response.close = Mock()
+
+        def mock_read(size):
+            if mock_read.pos < len(packfile_data):
+                chunk = packfile_data[mock_read.pos : mock_read.pos + size]
+                mock_read.pos += len(chunk)
+                return chunk
+            return b""
+
+        mock_read.pos = 0
+
+        def mock_http_request(url):
+            return mock_response, mock_read
+
+        # Track what gets written
+        written_data = BytesIO()
+        write_count = [0]
+
+        def pack_data_callback(data):
+            write_count[0] += 1
+            written_data.write(data)
+            return len(data)
+
+        # Test hash mismatch - should raise error
+        with self.assertRaises(GitProtocolError):
+            _download_packfile_from_uri(
+                "https://example.com/pack.pack",
+                wrong_hash,
+                "sha1",
+                pack_data_callback,
+                None,
+                mock_http_request,
+            )
+
+        # CRITICAL: Verify NO data was written to pack_data callback
+        self.assertEqual(
+            write_count[0],
+            0,
+            "pack_data callback should NEVER be called when hash verification fails",
+        )
+        self.assertEqual(
+            written_data.getvalue(),
+            b"",
+            "NO data should be written when hash verification fails",
+        )
+
+    def test_download_packfile_from_uri_non_https(self) -> None:
+        from dulwich.client import _download_packfile_from_uri
+
+        def mock_http_request(url):
+            pass
+
+        def pack_data_callback(data):
+            return len(data)
+
+        # Test non-HTTPS URI rejection
+        with self.assertRaises(GitProtocolError) as cm:
+            _download_packfile_from_uri(
+                "http://example.com/pack.pack",
+                b"hash",
+                "sha1",
+                pack_data_callback,
+                None,
+                mock_http_request,
+            )
+
+        self.assertIn("HTTPS", str(cm.exception))
+
+    def test_handle_upload_pack_tail_with_packfile_uris(self) -> None:
+        from dulwich.client import _handle_upload_pack_tail
+        from dulwich.protocol import CAPABILITY_SIDE_BAND_64K, Protocol, pkt_line
+
+        # Create mock packfile data
+        packfile_data = b"PACK\x00\x00\x00\x02\x00\x00\x00\x00"
+        import hashlib
+
+        expected_hash = hashlib.sha1(packfile_data).hexdigest().encode("ascii")
+
+        # Build protocol response with packfile-uris using proper pkt-line format
+        self.rin.write(
+            pkt_line(b"packfile-uris\n")
+            + pkt_line(
+                b"https://cdn.example.com/pack1.pack sha1 " + expected_hash + b"\n"
+            )
+            + pkt_line(b"packfile\n")
+            + b"0000"
+        )
+        self.rin.seek(0)
+
+        proto = Protocol(self.rin.read, self.rout.write)
+
+        # Mock HTTP request
+        mock_response = Mock()
+        mock_response.close = Mock()
+
+        def mock_read(size):
+            if mock_read.pos < len(packfile_data):
+                chunk = packfile_data[mock_read.pos : mock_read.pos + size]
+                mock_read.pos += len(chunk)
+                return chunk
+            return b""
+
+        mock_read.pos = 0
+
+        def mock_http_request(url):
+            return mock_response, mock_read
+
+        class DummyGraphWalker:
+            def ack(self, sha):
+                pass
+
+            def nak(self):
+                pass
+
+        collected_data = BytesIO()
+
+        def pack_data_callback(data):
+            collected_data.write(data)
+            return len(data)
+
+        # Test with packfile-uris
+        _handle_upload_pack_tail(
+            proto,
+            {CAPABILITY_SIDE_BAND_64K},
+            DummyGraphWalker(),
+            pack_data_callback,
+            None,
+            protocol_version=2,
+            http_request=mock_http_request,
+        )
+
+        self.assertEqual(collected_data.getvalue(), packfile_data)
+        mock_response.close.assert_called_once()
+
+    def test_handle_upload_pack_tail_packfile_uris_without_http_request(self) -> None:
+        from dulwich.client import _handle_upload_pack_tail
+        from dulwich.protocol import CAPABILITY_SIDE_BAND_64K, Protocol, pkt_line
+
+        # Build protocol response with packfile-uris using proper pkt-line format
+        self.rin.write(
+            pkt_line(b"packfile-uris\n")
+            + pkt_line(b"https://cdn.example.com/pack1.pack sha1 abc123\n")
+            + pkt_line(b"packfile\n")
+            + b"0000"
+        )
+        self.rin.seek(0)
+
+        proto = Protocol(self.rin.read, self.rout.write)
+
+        class DummyGraphWalker:
+            def ack(self, sha):
+                pass
+
+            def nak(self):
+                pass
+
+        def pack_data_callback(data):
+            return len(data)
+
+        # Test that it raises error when http_request is None
+        with self.assertRaises(GitProtocolError) as cm:
+            _handle_upload_pack_tail(
+                proto,
+                {CAPABILITY_SIDE_BAND_64K},
+                DummyGraphWalker(),
+                pack_data_callback,
+                None,
+                protocol_version=2,
+                http_request=None,
+            )
+
+        self.assertIn("does not support URI downloads", str(cm.exception))
+
+    def test_verify_and_read_sha256(self) -> None:
+        """Test verify_and_read() with SHA-256 hash algorithm."""
+        from dulwich.pack import verify_and_read
+
+        data = b"test data for sha256"
+        import hashlib
+
+        expected_hash = hashlib.sha256(data).hexdigest().encode("ascii")
+
+        # Create a read function
+        pos = [0]
+
+        def read_func(size):
+            if pos[0] < len(data):
+                chunk = data[pos[0] : pos[0] + size]
+                pos[0] += len(chunk)
+                return chunk
+            return b""
+
+        # Verify and read
+        chunks = list(verify_and_read(read_func, expected_hash, "sha256"))
+        result = b"".join(chunks)
+
+        self.assertEqual(result, data)
+
+    def test_verify_and_read_unsupported_algorithm(self) -> None:
+        """Test verify_and_read() with unsupported hash algorithm."""
+        from dulwich.pack import verify_and_read
+
+        def read_func(size):
+            return b"data"
+
+        # Should raise ValueError for unsupported algorithm
+        with self.assertRaises(ValueError) as cm:
+            list(verify_and_read(read_func, b"hash", "md5"))
+
+        self.assertIn("Unsupported hash algorithm", str(cm.exception))
+
+
+class TestPackDataProgressWrapper(TestCase):
+    """Tests for PackDataProgressWrapper."""
+
+    def test_integration_with_fetch(self) -> None:
+        """Test that progress wrapper is used and called during pack data reception."""
+        # Test that the wrapper is correctly invoked with pack data
+        mock_write = Mock(return_value=12)
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(
+            mock_write,
+            progress_callback,
+            report_interval=0.01,
+            report_byte_threshold=512,
+        )
+
+        # Simulate what happens during fetch: receive pack header
+        num_objects = 100
+        header = b"PACK" + pack(">L", 2) + pack(">L", num_objects)
+        wrapper(header)
+
+        # Verify header was parsed
+        self.assertEqual(wrapper.total_objects, num_objects)
+        self.assertTrue(wrapper.header_parsed)
+
+        # Simulate receiving data chunks (like during network transfer)
+        for i in range(5):
+            wrapper(b"data" * 256)  # 1KB chunks
+            time.sleep(0.02)  # Allow time-based reporting to trigger
+
+        # Finalize
+        wrapper.finalize()
+
+        # Verify write was called for each chunk
+        self.assertEqual(mock_write.call_count, 6)  # header + 5 data chunks
+
+        # Verify progress messages were generated
+        self.assertGreater(len(progress_messages), 0, "Expected progress messages")
+
+        # Check for "Receiving objects" messages
+        receiving_msgs = [
+            msg for msg in progress_messages if b"Receiving objects:" in msg
+        ]
+        self.assertGreater(
+            len(receiving_msgs), 0, "Expected 'Receiving objects' messages"
+        )
+
+        # Check for final "done" message
+        has_done = any(b"done." in msg for msg in progress_messages)
+        self.assertTrue(has_done, "Expected final 'done' message")
+
+    def test_basic_progress_tracking(self) -> None:
+        """Test that progress wrapper tracks bytes received."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(output.write, progress_callback)
+
+        # Write some data
+        test_data = b"test data chunk"
+        result = wrapper(test_data)
+
+        self.assertEqual(result, len(test_data))
+        self.assertEqual(output.getvalue(), test_data)
+        self.assertEqual(wrapper.bytes_received, len(test_data))
+
+    def test_header_parsing(self) -> None:
+        """Test that pack header is correctly parsed."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(output.write, progress_callback)
+
+        # Create a valid pack header: "PACK" + version (2) + num_objects (100)
+        header = b"PACK" + pack(">L", 2) + pack(">L", 100)
+
+        wrapper(header)
+
+        self.assertEqual(wrapper.header_parsed, True)
+        self.assertEqual(wrapper.total_objects, 100)
+
+    def test_progress_reporting(self) -> None:
+        """Test that progress messages are generated."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        # Use a short report interval for testing
+        wrapper = PackDataProgressWrapper(
+            output.write,
+            progress_callback,
+            report_interval=0.01,
+            report_byte_threshold=1,
+        )
+
+        # Write pack header
+        header = b"PACK" + pack(">L", 2) + pack(">L", 100)
+        wrapper(header)
+
+        # Write more data to trigger progress report
+        wrapper(b"x" * 1024)
+        time.sleep(0.02)  # Wait for report interval
+        wrapper(b"y" * 1024)
+
+        # Should have at least one progress message
+        self.assertGreater(len(progress_messages), 0)
+
+        # Check message format
+        for msg in progress_messages:
+            self.assertIn(b"Receiving objects:", msg)
+            self.assertIn(b"MiB", msg)
+
+    def test_finalize(self) -> None:
+        """Test that finalize() generates final progress message."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(output.write, progress_callback)
+
+        # Write pack header and some data
+        header = b"PACK" + pack(">L", 2) + pack(">L", 50)
+        wrapper(header)
+        wrapper(b"x" * 1024)
+
+        # Call finalize
+        wrapper.finalize()
+
+        # Should have a final message with newline
+        self.assertGreater(len(progress_messages), 0)
+        final_msg = progress_messages[-1]
+        self.assertIn(b"Receiving objects:", final_msg)
+        self.assertIn(b"done.\n", final_msg)
+
+    def test_no_progress_callback(self) -> None:
+        """Test that wrapper works without progress callback."""
+        output = BytesIO()
+
+        # No progress callback
+        wrapper = PackDataProgressWrapper(output.write, None)
+
+        # Should work without errors
+        header = b"PACK" + pack(">L", 2) + pack(">L", 100)
+        wrapper(header)
+        wrapper(b"x" * 1024)
+        wrapper.finalize()
+
+        # Data should still be written
+        self.assertGreater(len(output.getvalue()), 0)
+
+    def test_invalid_header(self) -> None:
+        """Test that wrapper handles invalid pack headers gracefully."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(output.write, progress_callback)
+
+        # Write invalid header
+        wrapper(b"INVALID_HEADER_DATA")
+
+        # Should not have parsed the header
+        self.assertEqual(wrapper.header_parsed, False)
+        self.assertIsNone(wrapper.total_objects)
+
+        # But data should still be written
+        self.assertEqual(output.getvalue(), b"INVALID_HEADER_DATA")
+
+    def test_large_transfer(self) -> None:
+        """Test progress reporting with large data transfers."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        # Use fast report settings for testing
+        wrapper = PackDataProgressWrapper(
+            output.write,
+            progress_callback,
+            report_interval=0.01,
+            report_byte_threshold=1024,
+        )
+
+        # Write pack header
+        header = b"PACK" + pack(">L", 2) + pack(">L", 1000)
+        wrapper(header)
+
+        # Simulate large transfer with multiple chunks
+        chunk_size = 1024
+        num_chunks = 100
+        for i in range(num_chunks):
+            wrapper(b"x" * chunk_size)
+
+        wrapper.finalize()
+
+        # Should have multiple progress reports
+        self.assertGreater(
+            len(progress_messages),
+            1,
+            "Expected multiple progress messages for large transfer",
+        )
+
+        # Verify all messages are well-formed
+        for msg in progress_messages:
+            self.assertIn(b"Receiving objects:", msg)
+
+        # Last message should indicate completion
+        self.assertIn(b"done.", progress_messages[-1])
+
+    def test_write_function_failure_propagates(self) -> None:
+        """Test that exceptions from write function are propagated."""
+
+        class FailingWriter:
+            def write(self, data: bytes) -> int:
+                raise OSError("Disk full")
+
+        wrapper = PackDataProgressWrapper(FailingWriter().write, None)
+
+        # Exception should be propagated
+        with self.assertRaises(OSError) as cm:
+            wrapper(b"test data")
+
+        self.assertIn("Disk full", str(cm.exception))
+
+    def test_multiple_small_chunks(self) -> None:
+        """Test that header parsing works when header arrives in small chunks."""
+        output = BytesIO()
+        wrapper = PackDataProgressWrapper(output.write, None)
+
+        # Send pack header byte by byte
+        header = b"PACK" + pack(">L", 2) + pack(">L", 42)
+        for byte in header:
+            wrapper(bytes([byte]))
+
+        # Header should be parsed after receiving all 12 bytes
+        self.assertTrue(wrapper.header_parsed)
+        self.assertEqual(wrapper.total_objects, 42)
+        self.assertEqual(output.getvalue(), header)
+
+    def test_finalize_zero_elapsed_time(self) -> None:
+        """Test that finalize works even when elapsed time is 0 (e.g., on Windows)."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(output.write, progress_callback)
+
+        # Write pack header and some data
+        header = b"PACK" + pack(">L", 2) + pack(">L", 50)
+        wrapper(header)
+        wrapper(b"x" * 1024)
+
+        # Mock time.time to return the same value as start_time (elapsed = 0)
+        with patch("time.time", return_value=wrapper.start_time):
+            wrapper.finalize()
+
+        # Should still have a final message even with 0 elapsed time
+        self.assertGreater(
+            len(progress_messages), 0, "Expected final message even with 0 elapsed time"
+        )
+        final_msg = progress_messages[-1]
+        self.assertIn(b"done.\n", final_msg)
+        self.assertIn(b"0.00 MiB/s", final_msg)  # Speed should be 0 when elapsed is 0
+
+    def test_progress_reporting_zero_elapsed_time(self) -> None:
+        """Test that progress reports work even when elapsed time is 0 (e.g., on Windows)."""
+        output = BytesIO()
+        progress_messages = []
+
+        def progress_callback(msg: bytes) -> None:
+            progress_messages.append(msg)
+
+        wrapper = PackDataProgressWrapper(
+            output.write,
+            progress_callback,
+            report_interval=0.01,
+            report_byte_threshold=1024,
+        )
+
+        # Write pack header
+        header = b"PACK" + pack(">L", 2) + pack(">L", 100)
+        wrapper(header)
+
+        # Mock time.time to always return start_time (elapsed = 0)
+        with patch("time.time", return_value=wrapper.start_time):
+            # Write chunks that should trigger byte-threshold reports
+            wrapper(b"x" * 1024)
+            wrapper(b"y" * 1024)
+
+        # Should have progress messages even with 0 elapsed time
+        self.assertGreater(
+            len(progress_messages),
+            0,
+            "Expected progress messages even with 0 elapsed time",
+        )
+
+        # All messages should contain "0.00 MiB/s" since elapsed time is 0
+        for msg in progress_messages:
+            self.assertIn(b"Receiving objects:", msg)
+            self.assertIn(b"0.00 MiB/s", msg)

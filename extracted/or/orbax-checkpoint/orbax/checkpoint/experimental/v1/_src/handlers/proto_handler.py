@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 """ProtoHandler class."""
 
 import inspect
+import typing
 from typing import Any, Awaitable, Type
 
 from google.protobuf import message
@@ -29,6 +30,7 @@ from orbax.checkpoint.experimental.v1._src.synchronization import multihost
 _DEFAULT_FILENAME = "proto.pbtxt"
 
 
+@typing.final
 class ProtoHandler(
     handler_types.CheckpointableHandler[message.Message, Type[message.Message]]
 ):

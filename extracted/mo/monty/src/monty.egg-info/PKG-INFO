@@ -1,47 +1,38 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: monty
-Version: 2025.3.3
+Version: 2026.2.18
 Summary: Monty is the missing complement to Python.
-Maintainer-email: Shyue Ping Ong <ongsp@ucsd.edu>
+Maintainer-email: Shyue Ping Ong <shyuep@gmail.com>
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: <3.14,>=3.9
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE.rst
 Requires-Dist: ruamel.yaml
 Requires-Dist: numpy
-Provides-Extra: ci
-Requires-Dist: coverage; extra == "ci"
-Requires-Dist: monty[optional]; extra == "ci"
-Requires-Dist: pytest>=8; extra == "ci"
-Requires-Dist: pytest-cov>=4; extra == "ci"
-Requires-Dist: types-requests; extra == "ci"
-Requires-Dist: pymongo; extra == "ci"
 Provides-Extra: dev
 Requires-Dist: ipython; extra == "dev"
-Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
-Requires-Dist: sphinx_rtd_theme; extra == "docs"
 Provides-Extra: json
 Requires-Dist: pymongo; extra == "json"
 Requires-Dist: orjson>=3.6.1; extra == "json"
 Requires-Dist: pandas; extra == "json"
 Requires-Dist: pydantic; extra == "json"
-Requires-Dist: pint; python_version < "3.13" and extra == "json"
-Requires-Dist: torch; python_version < "3.13" and extra == "json"
+Requires-Dist: pint; extra == "json"
+Requires-Dist: torch; extra == "json"
 Provides-Extra: multiprocessing
 Requires-Dist: tqdm; extra == "multiprocessing"
 Provides-Extra: optional
 Requires-Dist: monty[dev,json,multiprocessing,serialization]; extra == "optional"
 Provides-Extra: serialization
 Requires-Dist: msgpack; extra == "serialization"
-Provides-Extra: task
-Requires-Dist: requests; extra == "task"
-Requires-Dist: invoke; extra == "task"
+Dynamic: license-file
 
 [![GitHub license](https://img.shields.io/github/license/materialsvirtuallab/monty)](https://github.com/materialsvirtuallab/monty/blob/main/LICENSE)
 [![Linting](https://github.com/materialsvirtuallab/monty/workflows/Linting/badge.svg)](https://github.com/materialsvirtuallab/monty/workflows/Linting/badge.svg)

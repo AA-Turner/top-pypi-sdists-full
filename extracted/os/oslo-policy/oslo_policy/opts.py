@@ -11,6 +11,7 @@
 #    under the License.
 
 import copy
+from typing import Any
 
 from oslo_config import cfg
 
@@ -24,84 +25,109 @@ __all__ = [
 _option_group = 'oslo_policy'
 
 _options = [
-    cfg.BoolOpt('enforce_scope',
-                default=True,
-                deprecated_for_removal=True,
-                deprecated_reason='This configuration was added temporarily '
-                                  'to facilitate a smooth transition to the '
-                                  'new RBAC. OpenStack will always enforce '
-                                  'scope checks. This configuration option '
-                                  'is deprecated and will be removed in the '
-                                  '2025.2 cycle.',
-                help=_('This option controls whether or not to enforce scope '
-                       'when evaluating policies. If ``True``, the scope of '
-                       'the token used in the request is compared to the '
-                       '``scope_types`` of the policy being enforced. If the '
-                       'scopes do not match, an ``InvalidScope`` exception '
-                       'will be raised. If ``False``, a message will be '
-                       'logged informing operators that policies are being '
-                       'invoked with mismatching scope.')),
-    cfg.BoolOpt('enforce_new_defaults',
-                default=True,
-                help=_('This option controls whether or not to use old '
-                       'deprecated defaults when evaluating policies. If '
-                       '``True``, the old deprecated defaults are not going '
-                       'to be evaluated. This means if any existing token is '
-                       'allowed for old defaults but is disallowed for new '
-                       'defaults, it will be disallowed. It is encouraged to '
-                       'enable this flag along with the ``enforce_scope`` '
-                       'flag so that you can get the benefits of new defaults '
-                       'and ``scope_type`` together. If ``False``, the '
-                       'deprecated policy check string is logically OR\'d '
-                       'with the new policy check string, allowing for a '
-                       'graceful upgrade experience between releases with '
-                       'new policies, which is the default behavior.')),
-    cfg.StrOpt('policy_file',
-               default='policy.yaml',
-               help=_('The relative or absolute path of a file that maps '
-                      'roles to permissions for a given service. Relative '
-                      'paths must be specified in relation to the '
-                      'configuration file setting this option.')),
-    cfg.StrOpt('policy_default_rule',
-               default='default',
-               help=_('Default rule. Enforced when a requested rule is not '
-                      'found.')),
-    cfg.MultiStrOpt('policy_dirs',
-                    default=['policy.d'],
-                    help=_('Directories where policy configuration files are '
-                           'stored. They can be relative to any directory '
-                           'in the search path defined by the config_dir '
-                           'option, or absolute paths. The file defined by '
-                           'policy_file must exist for these directories to '
-                           'be searched.  Missing or empty directories are '
-                           'ignored.')),
-    cfg.StrOpt('remote_content_type',
-               choices=('application/x-www-form-urlencoded',
-                        'application/json'),
-               default='application/x-www-form-urlencoded',
-               help=_("Content Type to send and receive data for "
-                      "REST based policy check")),
-    cfg.BoolOpt('remote_ssl_verify_server_crt',
-                help=_("server identity verification for REST based "
-                       "policy check"),
-                default=False),
-    cfg.StrOpt('remote_ssl_ca_crt_file',
-               help=_("Absolute path to ca cert file for REST based "
-                      "policy check")),
-    cfg.StrOpt('remote_ssl_client_crt_file',
-               help=_("Absolute path to client cert for REST based "
-                      "policy check")),
-    cfg.StrOpt('remote_ssl_client_key_file',
-               help=_("Absolute path client key file REST based "
-                      "policy check")),
-    cfg.FloatOpt('remote_timeout',
-                 default=60,
-                 min=0,
-                 help=_("Timeout in seconds for REST based policy check"))
+    cfg.BoolOpt(
+        'enforce_scope',
+        default=True,
+        deprecated_for_removal=True,
+        deprecated_reason='This configuration was added temporarily '
+        'to facilitate a smooth transition to the '
+        'new RBAC. OpenStack will always enforce '
+        'scope checks. This configuration option '
+        'is deprecated and will be removed in the '
+        '2025.2 cycle.',
+        help=_(
+            'This option controls whether or not to enforce scope '
+            'when evaluating policies. If ``True``, the scope of '
+            'the token used in the request is compared to the '
+            '``scope_types`` of the policy being enforced. If the '
+            'scopes do not match, an ``InvalidScope`` exception '
+            'will be raised. If ``False``, a message will be '
+            'logged informing operators that policies are being '
+            'invoked with mismatching scope.'
+        ),
+    ),
+    cfg.BoolOpt(
+        'enforce_new_defaults',
+        default=True,
+        help=_(
+            'This option controls whether or not to use old '
+            'deprecated defaults when evaluating policies. If '
+            '``True``, the old deprecated defaults are not going '
+            'to be evaluated. This means if any existing token is '
+            'allowed for old defaults but is disallowed for new '
+            'defaults, it will be disallowed. It is encouraged to '
+            'enable this flag along with the ``enforce_scope`` '
+            'flag so that you can get the benefits of new defaults '
+            'and ``scope_type`` together. If ``False``, the '
+            "deprecated policy check string is logically OR'd "
+            'with the new policy check string, allowing for a '
+            'graceful upgrade experience between releases with '
+            'new policies, which is the default behavior.'
+        ),
+    ),
+    cfg.StrOpt(
+        'policy_file',
+        default='policy.yaml',
+        help=_(
+            'The relative or absolute path of a file that maps '
+            'roles to permissions for a given service. Relative '
+            'paths must be specified in relation to the '
+            'configuration file setting this option.'
+        ),
+    ),
+    cfg.StrOpt(
+        'policy_default_rule',
+        default='default',
+        help=_('Default rule. Enforced when a requested rule is not found.'),
+    ),
+    cfg.MultiStrOpt(
+        'policy_dirs',
+        default=['policy.d'],
+        help=_(
+            'Directories where policy configuration files are '
+            'stored. They can be relative to any directory '
+            'in the search path defined by the config_dir '
+            'option, or absolute paths. The file defined by '
+            'policy_file must exist for these directories to '
+            'be searched.  Missing or empty directories are '
+            'ignored.'
+        ),
+    ),
+    cfg.StrOpt(
+        'remote_content_type',
+        choices=('application/x-www-form-urlencoded', 'application/json'),
+        default='application/x-www-form-urlencoded',
+        help=_(
+            'Content Type to send and receive data for REST based policy check'
+        ),
+    ),
+    cfg.BoolOpt(
+        'remote_ssl_verify_server_crt',
+        help=_('server identity verification for REST based policy check'),
+        default=False,
+    ),
+    cfg.StrOpt(
+        'remote_ssl_ca_crt_file',
+        help=_('Absolute path to ca cert file for REST based policy check'),
+    ),
+    cfg.StrOpt(
+        'remote_ssl_client_crt_file',
+        help=_('Absolute path to client cert for REST based policy check'),
+    ),
+    cfg.StrOpt(
+        'remote_ssl_client_key_file',
+        help=_('Absolute path client key file REST based policy check'),
+    ),
+    cfg.FloatOpt(
+        'remote_timeout',
+        default=60,
+        min=0,
+        help=_('Timeout in seconds for REST based policy check'),
+    ),
 ]
 
 
-def list_opts():
+def list_opts() -> list[tuple[str, list[cfg.Opt]]]:
     """Return a list of oslo.config options available in the library.
 
     The returned list includes all oslo.config options which may be registered
@@ -121,7 +147,7 @@ def list_opts():
     return [(_option_group, copy.deepcopy(_options))]
 
 
-def _register(conf):
+def _register(conf: cfg.ConfigOpts) -> None:
     """Register the policy options.
 
     We do this in a few places, so use a function to ensure it is done
@@ -130,17 +156,18 @@ def _register(conf):
     conf.register_opts(_options, group=_option_group)
 
 
-def set_defaults(conf, policy_file=None, **kwargs):
+def set_defaults(
+    conf: cfg.ConfigOpts,
+    policy_file: str | None = None,
+    **kwargs: Any,
+) -> None:
     """Set defaults for configuration variables.
 
     Overrides default options values.
 
     :param conf: Configuration object, managed by the caller.
-    :type conf: oslo.config.cfg.ConfigOpts
-
     :param policy_file: The base filename for the file that
                         defines policies.
-    :type policy_file: unicode
     :param kwargs: Any other configuration variable and their new
                    default value.
     """

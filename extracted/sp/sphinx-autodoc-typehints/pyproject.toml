@@ -47,9 +47,9 @@ optional-dependencies.docs = [
 ]
 optional-dependencies.testing = [
   "covdefaults>=2.3",
-  "coverage>=7.13.1",
+  "coverage>=7.13.4",
   "defusedxml>=0.7.1",       # required by sphinx.testing
-  "diff-cover>=10.1",
+  "diff-cover>=10.2",
   "pytest>=9.0.2",
   "pytest-cov>=7",
   "sphobjinv>=2.3.1.3",
@@ -80,6 +80,7 @@ lint.ignore = [
   "D212",   # `multi-line-summary-first-line` (D212) and `multi-line-summary-second-line` (D213) are incompatible
   "DOC",    # no sphinx support
   "ISC001", # Conflict with formatter
+  "RUF067", # `__init__` module should only contain docstrings and re-exports
   "S104",   # Possible binding to all interface
 ]
 lint.per-file-ignores."tests/**/*.py" = [
@@ -113,14 +114,16 @@ count = true
 [tool.pyproject-fmt]
 max_supported_python = "3.14"
 
-[tool.pytest.ini_options]
-testpaths = [
+[tool.pytest]
+ini_options.testpaths = [
   "tests",
 ]
 
 [tool.coverage]
-html.show_contexts = true
-html.skip_covered = false
+run.parallel = true
+run.plugins = [
+  "covdefaults",
+]
 paths.source = [
   "src",
   ".tox/*/lib/python*/site-packages",
@@ -133,12 +136,9 @@ paths.source = [
   "*\\src",
 ]
 report.fail_under = 88
-report.omit = [
-]
-run.parallel = true
-run.plugins = [
-  "covdefaults",
-]
+report.omit = []
+html.show_contexts = true
+html.skip_covered = false
 
 [tool.mypy]
 python_version = "3.12"

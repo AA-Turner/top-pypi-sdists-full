@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.dataset_locator import DatasetLocator
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType
@@ -35,7 +35,8 @@ class PutAvailableDataset(BaseModel):
     dataset_schema: Optional[PutDatasetSchema] = None
     model_problem_type: Optional[ModelProblemType] = None
     dataset_join_spec: Optional[PostDatasetJoinSpec] = None
-    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "model_problem_type", "dataset_join_spec"]
+    is_static: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "model_problem_type", "dataset_join_spec", "is_static"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -110,6 +111,11 @@ class PutAvailableDataset(BaseModel):
         if self.dataset_join_spec is None and "dataset_join_spec" in self.model_fields_set:
             _dict['dataset_join_spec'] = None
 
+        # set to None if is_static (nullable) is None
+        # and model_fields_set contains the field
+        if self.is_static is None and "is_static" in self.model_fields_set:
+            _dict['is_static'] = None
+
         return _dict
 
     @classmethod
@@ -126,7 +132,8 @@ class PutAvailableDataset(BaseModel):
             "dataset_locator": DatasetLocator.from_dict(obj["dataset_locator"]) if obj.get("dataset_locator") is not None else None,
             "dataset_schema": PutDatasetSchema.from_dict(obj["dataset_schema"]) if obj.get("dataset_schema") is not None else None,
             "model_problem_type": obj.get("model_problem_type"),
-            "dataset_join_spec": PostDatasetJoinSpec.from_dict(obj["dataset_join_spec"]) if obj.get("dataset_join_spec") is not None else None
+            "dataset_join_spec": PostDatasetJoinSpec.from_dict(obj["dataset_join_spec"]) if obj.get("dataset_join_spec") is not None else None,
+            "is_static": obj.get("is_static")
         })
         return _obj
 

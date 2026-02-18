@@ -1,23 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: timing-asgi
-Version: 0.3.1
+Version: 0.3.2
 Summary: ASGI middleware to emit timing metrics with something like statsd
-License: MIT
+License-Expression: MIT
+License-File: LICENSE
 Author: Steinn Eldjárn Sigurðarson
 Author-email: steinnes@gmail.com
-Requires-Python: >=3.6,<4.0
-Classifier: License :: OSI Approved :: MIT License
+Requires-Python: >=3.10
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Project-URL: Source, https://github.com/steinnes/timing-asgi
 Description-Content-Type: text/markdown
 
 # timing-asgi
-[![CircleCI](https://circleci.com/gh/steinnes/timing-asgi.svg?style=svg&circle-token=4e141ed4d7231ab6d00dc7b14624d759cf16e1d2)](https://circleci.com/gh/steinnes/timing-asgi)
+[![CI](https://github.com/steinnes/timing-asgi/actions/workflows/ci.yml/badge.svg)](https://github.com/steinnes/timing-asgi/actions/workflows/ci.yml)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/timing-asgi.svg)](https://pypi.org/project/timing-asgi/)
 [![PyPI Version](https://img.shields.io/pypi/v/timing-asgi.svg)](https://pypi.org/project/timing-asgi/)
 [![License](https://img.shields.io/badge/license-mit-blue.svg)](https://pypi.org/project/timing-asgi/)

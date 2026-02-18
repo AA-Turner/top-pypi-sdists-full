@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydocket
-Version: 0.17.7
+Version: 0.17.8
 Summary: A distributed background task system for Python functions
 Project-URL: Homepage, https://github.com/chrisguidry/docket
 Project-URL: Bug Tracker, https://github.com/chrisguidry/docket/issues
@@ -39,6 +39,7 @@ Requires-Dist: rich>=13.9.4
 Requires-Dist: taskgroup>=0.2.2; python_version < '3.11'
 Requires-Dist: typer>=0.15.1
 Requires-Dist: typing-extensions>=4.12.0
+Requires-Dist: tzdata>=2025.2; sys_platform == 'win32'
 Provides-Extra: metrics
 Requires-Dist: opentelemetry-sdk>=1.33.0; extra == 'metrics'
 Description-Content-Type: text/markdown
@@ -129,8 +130,8 @@ pip install pydocket
 Docket requires a [Redis](http://redis.io/) server with Streams support (which was
 introduced in Redis 5.0.0). Docket is tested with:
 
-- Redis 6.2, 7.4, and 8.0 (standalone and cluster modes)
-- [Valkey](https://valkey.io/) 8.0
+- Redis 6.2, 7.4, and 8.6 (standalone and cluster modes)
+- [Valkey](https://valkey.io/) 8.1
 - In-memory backend via [fakeredis](https://github.com/cunla/fakeredis-py) for testing
 
 For testing without Redis, use the in-memory backend:
@@ -165,3 +166,13 @@ believe that `docket` should stay small, simple, understandable, and reliable, a
 begins with testing all the dusty branches and corners. This will give us the
 confidence to upgrade dependencies quickly and to adapt to new versions of Redis over
 time.
+
+To work on the documentation locally:
+
+```bash
+uv sync --group docs
+uv run zensical serve
+```
+
+This will start a local preview server. The docs are built with
+[Zensical](https://zensical.dev/) and configured in `mkdocs.yml`.

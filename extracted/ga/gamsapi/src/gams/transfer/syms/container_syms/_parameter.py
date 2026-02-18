@@ -52,6 +52,7 @@ from typing import Any, Optional, Union, TYPE_CHECKING
 if TYPE_CHECKING:
     from gams.transfer import Container
 
+
 class Parameter(
     PVEMixin,
     SAPVEMixin,
@@ -945,6 +946,7 @@ class Parameter(
             "floating",
             "mixed-integer-float",
         ]:
+            records[records.columns[-1]] = records[records.columns[-1]].astype(object)
             idx = records.iloc[:, -1].isin(EPS)
             if idx.any():
                 records.loc[

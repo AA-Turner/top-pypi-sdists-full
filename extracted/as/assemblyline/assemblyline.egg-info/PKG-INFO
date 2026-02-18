@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: assemblyline
-Version: 4.7.1.0
+Version: 4.7.1.1
 Summary: Assemblyline 4 - Automated malware analysis framework
 Home-page: https://github.com/CybercentreCanada/assemblyline-base
 Author: CCCS Assemblyline development team
@@ -36,7 +36,7 @@ Requires-Dist: PyYAML
 Requires-Dist: easydict
 Requires-Dist: bcrypt
 Requires-Dist: cart
-Requires-Dist: ssdeep
+Requires-Dist: cccs-ssdeep
 Requires-Dist: python-magic
 Requires-Dist: pytz
 Requires-Dist: apscheduler

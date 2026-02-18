@@ -169,6 +169,7 @@ def execute_generate_vector_from_task(args):
             device=args.device,
             layers=args.layers,
             extraction_strategy=args.extraction_strategy,
+            extraction_component=getattr(args, 'extraction_component', 'residual_stream'),
             verbose=args.verbose,
             timing=args.timing,
         )

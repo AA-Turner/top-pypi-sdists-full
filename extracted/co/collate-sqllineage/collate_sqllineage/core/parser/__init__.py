@@ -1,13 +1,20 @@
 from typing import Dict, List, Tuple, Union
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import Column, DataFunction, Path, SubQuery, Table
+from collate_sqllineage.core.models import (
+    Column,
+    DataFunction,
+    Location,
+    Path,
+    SubQuery,
+    Table,
+)
 from collate_sqllineage.exceptions import SQLLineageException
 from collate_sqllineage.utils.constant import EdgeType
 
 
 class SourceHandlerMixin:
-    tables: List[Union[DataFunction, Path, SubQuery, Table]]
+    tables: List[Union[DataFunction, Location, Path, SubQuery, Table]]
     columns: List[Column]
     union_barriers: List[Tuple[int, int]]
 
@@ -60,9 +67,9 @@ class SourceHandlerMixin:
     @classmethod
     def get_alias_mapping_from_table_group(
         cls,
-        table_group: List[Union[DataFunction, Path, Table, SubQuery]],
+        table_group: List[Union[DataFunction, Location, Path, Table, SubQuery]],
         holder: SubQueryLineageHolder,
-    ) -> Dict[str, Union[DataFunction, Path, Table, SubQuery]]:
+    ) -> Dict[str, Union[DataFunction, Location, Path, Table, SubQuery]]:
         """
         A table can be referred to as alias, table name, or database_name.table_name, create the mapping here.
         For SubQuery, it's only alias then.

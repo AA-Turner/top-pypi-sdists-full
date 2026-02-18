@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: atlan-mcp-server
-Version: 0.3.2
+Version: 0.3.3
 Summary: Atlan Model Context Protocol server for interacting with Atlan services
 Project-URL: Homepage, https://github.com/atlanhq/agent-toolkit
 Project-URL: Documentation, https://ask.atlan.com/hc/en-us/articles/12525731740175-How-to-implement-the-Atlan-MCP-server

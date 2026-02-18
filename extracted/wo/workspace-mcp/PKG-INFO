@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: workspace-mcp
-Version: 1.11.2
+Version: 1.11.5
 Summary: Comprehensive, highly performant Google Workspace Streamable HTTP & SSE MCP Server for Calendar, Gmail, Docs, Sheets, Slides & Drive
 Author-email: Taylor Wilsdon <taylor@taylorwilsdon.com>
-License: MIT
+License-Expression: MIT
 Project-URL: Homepage, https://workspacemcp.com
 Project-URL: Repository, https://github.com/taylorwilsdon/google_workspace_mcp
 Project-URL: Documentation, https://github.com/taylorwilsdon/google_workspace_mcp#readme
@@ -13,7 +13,6 @@ Keywords: mcp,google,workspace,llm,ai,claude,model,context,protocol,server
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
@@ -991,7 +990,7 @@ Saved files expire after 1 hour and are cleaned up automatically.
 |------|------|-------------|
 | `get_doc_content` | **Core** | Extract document text |
 | `create_doc` | **Core** | Create new documents |
-| `modify_doc_text` | **Core** | Modify document text |
+| `modify_doc_text` | **Core** | Modify document text (formatting + links) |
 | `search_docs` | Extended | Find documents by name |
 | `find_and_replace_doc` | Extended | Find and replace text |
 | `list_docs_in_folder` | Extended | List docs in folder |

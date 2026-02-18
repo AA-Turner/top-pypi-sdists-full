@@ -144,6 +144,8 @@ class Thread(TypedDict):
     """The time the thread was created."""
     updated_at: datetime
     """The last time the thread was updated."""
+    state_updated_at: datetime
+    """The last time the thread state was updated."""
     metadata: Fragment
     """The thread metadata."""
     config: Fragment
@@ -305,6 +307,7 @@ ThreadSelectField = Literal[
     "thread_id",
     "created_at",
     "updated_at",
+    "state_updated_at",
     "metadata",
     "config",
     "status",

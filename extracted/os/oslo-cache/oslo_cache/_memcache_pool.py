@@ -136,7 +136,7 @@ class ConnectionPool(queue.Queue[T], Generic[T]):
                 break
             except Exception as e:
                 self._do_log(
-                    LOG.warning, "Unable to cleanup a connection: %s", e
+                    log.WARNING, "Unable to cleanup a connection: %s", e
                 )
 
     def _create_connection(self) -> T:
@@ -166,7 +166,8 @@ class ConnectionPool(queue.Queue[T], Generic[T]):
             thread_id = threading.current_thread().ident
             args = (id(self), thread_id) + args
             prefix = 'Memcached pool %s, thread %s: '
-            LOG.log(level, prefix + msg, *args)
+            base_msg = prefix + msg
+            LOG.log(level, base_msg, *args)
 
     def _debug_logger(self, msg: str, *args: Any) -> None:
         self._do_log(log.DEBUG, msg, *args)

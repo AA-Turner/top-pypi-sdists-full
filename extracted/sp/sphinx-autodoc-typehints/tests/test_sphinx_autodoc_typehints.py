@@ -33,6 +33,7 @@ import pytest
 import typing_extensions
 from sphinx.application import Sphinx
 from sphinx.config import Config
+from sphinx.ext.autodoc import Options
 
 from sphinx_autodoc_typehints import (
     _resolve_type_guarded_imports,
@@ -43,6 +44,7 @@ from sphinx_autodoc_typehints import (
     get_annotation_module,
     normalize_source_lines,
     process_docstring,
+    process_signature,
 )
 
 if typing.TYPE_CHECKING:
@@ -357,7 +359,7 @@ _CASES = [
     pytest.param(D, f":py:class:`~{__name__}.D`", id="D"),
     pytest.param(E, f":py:class:`~{__name__}.E`", id="E"),
     pytest.param(E[int], rf":py:class:`~{__name__}.E`\ \[:py:class:`int`]", id="E-int"),
-    pytest.param(W, r":py:class:`~typing.NewType`\ \(``W``, :py:class:`str`)", id="W"),
+    pytest.param(W, r":py:obj:`~typing.NewType`\ \(``W``, :py:class:`str`)", id="W"),
     pytest.param(T, r":py:class:`~typing.TypeVar`\ \(``T``)", id="T"),
     pytest.param(U_co, r":py:class:`~typing.TypeVar`\ \(``U_co``, covariant=True)", id="U-co"),
     pytest.param(V_contra, r":py:class:`~typing.TypeVar`\ \(``V_contra``, contravariant=True)", id="V-contra"),
@@ -519,6 +521,58 @@ def test_process_docstring_slot_wrapper() -> None:
     assert not lines
 
 
+def test_process_docstring_wrapper_loop() -> None:
+    """Regression test for #405: inspect.unwrap raises ValueError on wrapper loops."""
+
+    def func(x: int) -> str:
+        return str(x)
+
+    func.__wrapped__ = func  # type: ignore[attr-defined]  # circular wrapper loop
+
+    lines: list[str] = []
+    config = create_autospec(
+        Config,
+        typehints_fully_qualified=False,
+        simplify_optional_unions=False,
+        typehints_formatter=None,
+        autodoc_mock_imports=[],
+    )
+    app: Sphinx = create_autospec(Sphinx, config=config)
+    # Should not raise ValueError
+    process_docstring(app, "function", "func", func, None, lines)
+
+
+def test_process_signature_wrapper_loop() -> None:
+    """Regression test for #405: inspect.unwrap raises ValueError on wrapper loops."""
+
+    def func(x: int) -> str:
+        return str(x)
+
+    func.__wrapped__ = func  # type: ignore[attr-defined]  # circular wrapper loop
+
+    config = create_autospec(
+        Config,
+        typehints_fully_qualified=False,
+        simplify_optional_unions=False,
+        typehints_formatter=None,
+        typehints_use_signature=False,
+        typehints_use_signature_return=False,
+        autodoc_type_aliases={},
+    )
+    app: Sphinx = create_autospec(Sphinx, config=config)
+    # Should return None instead of raising ValueError
+    result = process_signature(
+        app,
+        "function",
+        "func",
+        func,
+        Options(),
+        "",
+        "",
+    )
+    assert result is None
+
+
 def set_python_path() -> None:
     test_path = Path(__file__).parent
     # Add test directory to sys.path to allow imports of dummy module.
@@ -585,6 +639,55 @@ def test_always_document_param_types(
     """
     expected_contents = dedent(expected_contents).format(**format_args)
     assert contents == expected_contents
+
+
+@pytest.mark.sphinx("text", testroot="dummy")
+@patch("sphinx.writers.text.MAXWIDTH", 2000)
+def test_always_document_param_types_with_defaults_braces_after(
+    app: SphinxTestApp,
+    status: StringIO,
+    warning: StringIO,  # noqa: ARG001
+) -> None:
+    """Regression test for #575: IndexError when combining always_document_param_types with braces-after."""
+    set_python_path()
+
+    app.config.always_document_param_types = True
+    app.config.typehints_defaults = "braces-after"
+
+    for rst_file in Path(app.srcdir).glob("*.rst"):
+        rst_file.unlink()
+    index_content = """\
+        .. autofunction:: dummy_module.undocumented_function_with_defaults
+    """
+    (Path(app.srcdir) / "index.rst").write_text(dedent(index_content))
+
+    app.build()
+
+    assert "build succeeded" in status.getvalue()
+
+
+@pytest.mark.sphinx("text", testroot="dummy")
+@patch("sphinx.writers.text.MAXWIDTH", 2000)
+def test_namedtuple_new_no_warning(
+    app: SphinxTestApp,
+    status: StringIO,
+    warning: StringIO,
+) -> None:
+    """Regression test for #601: NamedTuple __new__ causes 'NoneType' attribute error."""
+    set_python_path()
+
+    for rst_file in Path(app.srcdir).glob("*.rst"):
+        rst_file.unlink()
+    index_content = """\
+        .. autoclass:: dummy_module.MyNamedTuple
+            :special-members: __new__
+    """
+    (Path(app.srcdir) / "index.rst").write_text(dedent(index_content))
+
+    app.build()
+
+    assert "build succeeded" in status.getvalue()
+    assert "NoneType" not in warning.getvalue()
 
 
 @pytest.mark.sphinx("text", testroot="dummy")

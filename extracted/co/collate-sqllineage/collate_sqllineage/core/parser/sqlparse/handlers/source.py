@@ -2,7 +2,7 @@ import logging
 import re
 import traceback
 
-from typing import Optional
+from typing import List, Optional
 
 from sqlparse.sql import (
     Case,
@@ -16,7 +16,7 @@ from sqlparse.sql import (
 from sqlparse.tokens import Literal, Name as TokenName, Wildcard
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import DataFunction, Path, Schema
+from collate_sqllineage.core.models import DataFunction, Location, Path, Schema
 from collate_sqllineage.core.parser import SourceHandlerMixin
 from collate_sqllineage.core.parser.sqlparse.handlers.base import NextTokenBaseHandler
 from collate_sqllineage.core.parser.sqlparse.holder_utils import (
@@ -46,9 +46,9 @@ class SourceHandler(SourceHandlerMixin, NextTokenBaseHandler):
 
     def __init__(self):
         self.column_flag = False
-        self.columns = []
-        self.tables = []
-        self.union_barriers = []
+        self.columns: List = []
+        self.tables: List = []
+        self.union_barriers: List = []
         super().__init__()
 
     def _indicate(self, token: Token) -> bool:
@@ -128,6 +128,10 @@ class SourceHandler(SourceHandlerMixin, NextTokenBaseHandler):
                 return
             if Function.__name__ in {type(t).__name__ for t in token.get_sublists()}:
                 self._data_function_handler(token)
+                return
+            if token.value.strip().startswith("@"):
+                # Named location reference, e.g. @STAGE_01, @db.schema.stage
+                self.tables.append(Location(token.value.strip()))
                 return
             self._add_dataset_from_identifier(token, holder)
         elif isinstance(token, IdentifierList):

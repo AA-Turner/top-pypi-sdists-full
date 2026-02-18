@@ -43,9 +43,9 @@ def compute_probe_accuracies(
         where scores are per-fold accuracies for statistical testing.
     """
     X, y = _prepare_data(pos, neg)
-
+    n_per_class = min(len(pos), len(neg))
+    n_splits = max(2, min(n_splits, n_per_class))
     cv = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=random_state)
-
     linear_model = LogisticRegression( solver="lbfgs", random_state=random_state)
     nonlinear_model = MLPClassifier(
         hidden_layer_sizes=(64,),  random_state=random_state
@@ -219,8 +219,8 @@ def ramsey_polynomial_test(
     pca = PCA(n_components=n_components, random_state=random_state)
     X_reduced = pca.fit_transform(X)
 
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=random_state)
-
+    n_per_class = min(len(pos), len(neg)); _ns = max(2, min(5, n_per_class))
+    cv = StratifiedKFold(n_splits=_ns, shuffle=True, random_state=random_state)
     linear = LogisticRegression( solver="lbfgs", random_state=random_state)
     linear_scores = cross_val_score(linear, X_reduced, y, cv=cv, scoring="accuracy")
     linear_acc = float(np.mean(linear_scores))

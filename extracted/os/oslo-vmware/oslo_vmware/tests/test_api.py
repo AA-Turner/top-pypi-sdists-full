@@ -18,7 +18,6 @@
 from datetime import datetime
 from unittest import mock
 
-from eventlet import greenthread
 from oslo_context import context
 import suds
 
@@ -27,71 +26,6 @@ from oslo_vmware import exceptions
 from oslo_vmware import pbm
 from oslo_vmware.tests import base
 from oslo_vmware import vim_util
-
-
-class RetryDecoratorTest(base.TestCase):
-    """Tests for retry decorator class."""
-
-    def test_retry(self):
-        result = "RESULT"
-
-        @api.RetryDecorator()
-        def func(*args, **kwargs):
-            return result
-
-        self.assertEqual(result, func())
-
-        def func2(*args, **kwargs):
-            return result
-
-        retry = api.RetryDecorator()
-        self.assertEqual(result, retry(func2)())
-        self.assertTrue(retry._retry_count == 0)
-
-    def test_retry_with_expected_exceptions(self):
-        result = "RESULT"
-        responses = [exceptions.VimSessionOverLoadException(None),
-                     exceptions.VimSessionOverLoadException(None),
-                     result]
-
-        def func(*args, **kwargs):
-            response = responses.pop(0)
-            if isinstance(response, Exception):
-                raise response
-            return response
-
-        sleep_time_incr = 0.01
-        retry_count = 2
-        retry = api.RetryDecorator(10, sleep_time_incr, 10,
-                                   (exceptions.VimSessionOverLoadException,))
-        self.assertEqual(result, retry(func)())
-        self.assertTrue(retry._retry_count == retry_count)
-        self.assertEqual(retry_count * sleep_time_incr, retry._sleep_time)
-
-    def test_retry_with_max_retries(self):
-        responses = [exceptions.VimSessionOverLoadException(None),
-                     exceptions.VimSessionOverLoadException(None),
-                     exceptions.VimSessionOverLoadException(None)]
-
-        def func(*args, **kwargs):
-            response = responses.pop(0)
-            if isinstance(response, Exception):
-                raise response
-            return response
-
-        retry = api.RetryDecorator(2, 0, 0,
-                                   (exceptions.VimSessionOverLoadException,))
-        self.assertRaises(exceptions.VimSessionOverLoadException, retry(func))
-        self.assertTrue(retry._retry_count == 2)
-
-    def test_retry_with_unexpected_exception(self):
-
-        def func(*args, **kwargs):
-            raise exceptions.VimException(None)
-
-        retry = api.RetryDecorator()
-        self.assertRaises(exceptions.VimException, retry(func))
-        self.assertTrue(retry._retry_count == 0)
 
 
 class VMwareAPISessionTest(base.TestCase):
@@ -276,7 +210,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         module = mock.Mock()
         module.api = api
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             self.assertEqual(ret, api_session.invoke_api(module, 'api'))
         api_session._create_session.assert_called_once_with()
 
@@ -296,7 +230,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         module = mock.Mock()
         module.api = api
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             self.assertEqual(ret, api_session.invoke_api(module, 'api'))
         self.assertFalse(api_session._create_session.called)
 
@@ -369,7 +303,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         module = mock.Mock()
         module.api = api
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             ret = api_session.invoke_api(module, 'api')
         self.assertEqual(result, ret)
         vim_obj.SessionIsActive.assert_called_once_with(
@@ -410,7 +344,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         api_session.invoke_api = mock.Mock(side_effect=invoke_api_side_effect)
         task = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             ret = api_session.wait_for_task(task)
             self.assertEqual('success', ret.state)
             self.assertEqual(100, ret.progress)
@@ -441,7 +375,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         api_session.invoke_api = mock.Mock(side_effect=invoke_api_side_effect)
         task = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             ret = api_session.wait_for_task(task)
             self.assertEqual('success', ret.state)
             self.assertEqual(100, ret.progress)
@@ -469,7 +403,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         api_session.invoke_api = mock.Mock(side_effect=invoke_api_side_effect)
         task = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             self.assertRaises(exceptions.VimFaultException,
                               api_session.wait_for_task,
                               task)
@@ -488,7 +422,7 @@ class VMwareAPISessionTest(base.TestCase):
         api_session.invoke_api = mock.Mock(
             side_effect=exceptions.VimException(None))
         task = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             self.assertRaises(exceptions.VimException,
                               api_session.wait_for_task,
                               task)
@@ -509,7 +443,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         api_session.invoke_api = mock.Mock(side_effect=invoke_api_side_effect)
         lease = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             api_session.wait_for_lease_ready(lease)
         api_session.invoke_api.assert_called_with(vim_util,
                                                   'get_object_property',
@@ -527,7 +461,7 @@ class VMwareAPISessionTest(base.TestCase):
 
         api_session.invoke_api = mock.Mock(side_effect=invoke_api_side_effect)
         lease = mock.Mock()
-        with mock.patch.object(greenthread, 'sleep'):
+        with mock.patch('time.sleep'):
             self.assertRaises(exceptions.VimException,
                               api_session.wait_for_lease_ready,
                               lease)

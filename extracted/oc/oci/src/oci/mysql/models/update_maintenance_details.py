@@ -71,23 +71,30 @@ class UpdateMaintenanceDetails(object):
             Allowed values for this property are: "EARLY", "REGULAR"
         :type maintenance_schedule_type: str
 
+        :param maintenance_disabled_windows:
+            The value to assign to the maintenance_disabled_windows property of this UpdateMaintenanceDetails.
+        :type maintenance_disabled_windows: list[oci.mysql.models.MaintenanceDisabledWindow]
+
         """
         self.swagger_types = {
             'window_start_time': 'str',
             'version_preference': 'str',
             'version_track_preference': 'str',
-            'maintenance_schedule_type': 'str'
+            'maintenance_schedule_type': 'str',
+            'maintenance_disabled_windows': 'list[MaintenanceDisabledWindow]'
         }
         self.attribute_map = {
             'window_start_time': 'windowStartTime',
             'version_preference': 'versionPreference',
             'version_track_preference': 'versionTrackPreference',
-            'maintenance_schedule_type': 'maintenanceScheduleType'
+            'maintenance_schedule_type': 'maintenanceScheduleType',
+            'maintenance_disabled_windows': 'maintenanceDisabledWindows'
         }
         self._window_start_time = None
         self._version_preference = None
         self._version_track_preference = None
         self._maintenance_schedule_type = None
+        self._maintenance_disabled_windows = None
 
     @property
     def window_start_time(self):
@@ -241,6 +248,34 @@ class UpdateMaintenanceDetails(object):
                 f"Invalid value for `maintenance_schedule_type`, must be None or one of {allowed_values}"
             )
         self._maintenance_schedule_type = maintenance_schedule_type
+
+    @property
+    def maintenance_disabled_windows(self):
+        """
+        Gets the maintenance_disabled_windows of this UpdateMaintenanceDetails.
+        Time window during which downtime-inducing maintenance shall not be performed.
+        Downtime-free maintenance may be performed to apply required security patches.
+        At most one configured window is supported.
+
+
+        :return: The maintenance_disabled_windows of this UpdateMaintenanceDetails.
+        :rtype: list[oci.mysql.models.MaintenanceDisabledWindow]
+        """
+        return self._maintenance_disabled_windows
+
+    @maintenance_disabled_windows.setter
+    def maintenance_disabled_windows(self, maintenance_disabled_windows):
+        """
+        Sets the maintenance_disabled_windows of this UpdateMaintenanceDetails.
+        Time window during which downtime-inducing maintenance shall not be performed.
+        Downtime-free maintenance may be performed to apply required security patches.
+        At most one configured window is supported.
+
+
+        :param maintenance_disabled_windows: The maintenance_disabled_windows of this UpdateMaintenanceDetails.
+        :type: list[oci.mysql.models.MaintenanceDisabledWindow]
+        """
+        self._maintenance_disabled_windows = maintenance_disabled_windows
 
     def __repr__(self):
         return formatted_flat_dict(self)

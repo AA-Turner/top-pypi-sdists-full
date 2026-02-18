@@ -22,6 +22,11 @@ from datadog_api_client.v2.model.case_create_request import CaseCreateRequest
 from datadog_api_client.v2.model.projects_response import ProjectsResponse
 from datadog_api_client.v2.model.project_response import ProjectResponse
 from datadog_api_client.v2.model.project_create_request import ProjectCreateRequest
+from datadog_api_client.v2.model.project_update_request import ProjectUpdateRequest
+from datadog_api_client.v2.model.case_notification_rules_response import CaseNotificationRulesResponse
+from datadog_api_client.v2.model.case_notification_rule_response import CaseNotificationRuleResponse
+from datadog_api_client.v2.model.case_notification_rule_create_request import CaseNotificationRuleCreateRequest
+from datadog_api_client.v2.model.case_notification_rule_update_request import CaseNotificationRuleUpdateRequest
 from datadog_api_client.v2.model.case_empty_request import CaseEmptyRequest
 from datadog_api_client.v2.model.case_assign_request import CaseAssignRequest
 from datadog_api_client.v2.model.case_update_attributes_request import CaseUpdateAttributesRequest
@@ -30,6 +35,12 @@ from datadog_api_client.v2.model.case_comment_request import CaseCommentRequest
 from datadog_api_client.v2.model.case_update_custom_attribute_request import CaseUpdateCustomAttributeRequest
 from datadog_api_client.v2.model.case_update_description_request import CaseUpdateDescriptionRequest
 from datadog_api_client.v2.model.case_update_priority_request import CaseUpdatePriorityRequest
+from datadog_api_client.v2.model.relationship_to_incident_request import RelationshipToIncidentRequest
+from datadog_api_client.v2.model.jira_issue_link_request import JiraIssueLinkRequest
+from datadog_api_client.v2.model.jira_issue_create_request import JiraIssueCreateRequest
+from datadog_api_client.v2.model.notebook_create_request import NotebookCreateRequest
+from datadog_api_client.v2.model.project_relationship import ProjectRelationship
+from datadog_api_client.v2.model.service_now_ticket_create_request import ServiceNowTicketCreateRequest
 from datadog_api_client.v2.model.case_update_status_request import CaseUpdateStatusRequest
 from datadog_api_client.v2.model.case_update_title_request import CaseUpdateTitleRequest
 
@@ -142,6 +153,84 @@ class CaseManagementApi:
             api_client=api_client,
         )
 
+        self._create_case_jira_issue_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/jira_issues",
+                "operation_id": "create_case_jira_issue",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (JiraIssueCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_case_notebook_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/notebook",
+                "operation_id": "create_case_notebook",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (NotebookCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_case_service_now_ticket_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/servicenow_tickets",
+                "operation_id": "create_case_service_now_ticket",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (ServiceNowTicketCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._create_project_endpoint = _Endpoint(
             settings={
                 "response_type": (ProjectResponse,),
@@ -155,6 +244,32 @@ class CaseManagementApi:
                 "body": {
                     "required": True,
                     "openapi_types": (ProjectCreateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._create_project_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": (CaseNotificationRuleResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/projects/{project_id}/notification_rules",
+                "operation_id": "create_project_notification_rule",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "project_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "project_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (CaseNotificationRuleCreateRequest,),
                     "location": "body",
                 },
             },
@@ -243,6 +358,35 @@ class CaseManagementApi:
             api_client=api_client,
         )
 
+        self._delete_project_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/projects/{project_id}/notification_rules/{notification_rule_id}",
+                "operation_id": "delete_project_notification_rule",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "project_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "project_id",
+                    "location": "path",
+                },
+                "notification_rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "notification_rule_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
         self._get_case_endpoint = _Endpoint(
             settings={
                 "response_type": (CaseResponse,),
@@ -289,6 +433,29 @@ class CaseManagementApi:
             api_client=api_client,
         )
 
+        self._get_project_notification_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (CaseNotificationRulesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/projects/{project_id}/notification_rules",
+                "operation_id": "get_project_notification_rules",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={
+                "project_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "project_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["application/json"],
+            },
+            api_client=api_client,
+        )
+
         self._get_projects_endpoint = _Endpoint(
             settings={
                 "response_type": (ProjectsResponse,),
@@ -302,6 +469,84 @@ class CaseManagementApi:
             headers_map={
                 "accept": ["application/json"],
             },
+            api_client=api_client,
+        )
+
+        self._link_incident_endpoint = _Endpoint(
+            settings={
+                "response_type": (CaseResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/incidents",
+                "operation_id": "link_incident",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (RelationshipToIncidentRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._link_jira_issue_to_case_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/jira_issues",
+                "operation_id": "link_jira_issue_to_case",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (JiraIssueLinkRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._move_case_to_project_endpoint = _Endpoint(
+            settings={
+                "response_type": (CaseResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/project",
+                "operation_id": "move_case_to_project",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (ProjectRelationship,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
             api_client=api_client,
         )
 
@@ -396,6 +641,29 @@ class CaseManagementApi:
                 },
             },
             headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._unlink_jira_issue_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/{case_id}/relationships/jira_issues",
+                "operation_id": "unlink_jira_issue",
+                "http_method": "DELETE",
+                "version": "v2",
+            },
+            params_map={
+                "case_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "case_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
             api_client=api_client,
         )
 
@@ -535,6 +803,64 @@ class CaseManagementApi:
             api_client=api_client,
         )
 
+        self._update_project_endpoint = _Endpoint(
+            settings={
+                "response_type": (ProjectResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/projects/{project_id}",
+                "operation_id": "update_project",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "project_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "project_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (ProjectUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._update_project_notification_rule_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/cases/projects/{project_id}/notification_rules/{notification_rule_id}",
+                "operation_id": "update_project_notification_rule",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "project_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "project_id",
+                    "location": "path",
+                },
+                "notification_rule_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "notification_rule_id",
+                    "location": "path",
+                },
+                "body": {
+                    "required": True,
+                    "openapi_types": (CaseNotificationRuleUpdateRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["*/*"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
         self._update_status_endpoint = _Endpoint(
             settings={
                 "response_type": (CaseResponse,),
@@ -644,6 +970,72 @@ class CaseManagementApi:
 
         return self._create_case_endpoint.call_with_http_info(**kwargs)
 
+    def create_case_jira_issue(
+        self,
+        case_id: str,
+        body: JiraIssueCreateRequest,
+    ) -> None:
+        """Create Jira issue for case.
+
+        Create a new Jira issue and link it to a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: Jira issue creation request
+        :type body: JiraIssueCreateRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._create_case_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def create_case_notebook(
+        self,
+        case_id: str,
+        body: NotebookCreateRequest,
+    ) -> None:
+        """Create investigation notebook for case.
+
+        Create a new investigation notebook and link it to a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: Notebook creation request
+        :type body: NotebookCreateRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._create_case_notebook_endpoint.call_with_http_info(**kwargs)
+
+    def create_case_service_now_ticket(
+        self,
+        case_id: str,
+        body: ServiceNowTicketCreateRequest,
+    ) -> None:
+        """Create ServiceNow ticket for case.
+
+        Create a new ServiceNow incident ticket and link it to a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: ServiceNow ticket creation request
+        :type body: ServiceNowTicketCreateRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._create_case_service_now_ticket_endpoint.call_with_http_info(**kwargs)
+
     def create_project(
         self,
         body: ProjectCreateRequest,
@@ -660,6 +1052,28 @@ class CaseManagementApi:
         kwargs["body"] = body
 
         return self._create_project_endpoint.call_with_http_info(**kwargs)
+
+    def create_project_notification_rule(
+        self,
+        project_id: str,
+        body: CaseNotificationRuleCreateRequest,
+    ) -> CaseNotificationRuleResponse:
+        """Create a notification rule.
+
+        Create a notification rule for a project.
+
+        :param project_id: Project UUID
+        :type project_id: str
+        :param body: Notification rule payload
+        :type body: CaseNotificationRuleCreateRequest
+        :rtype: CaseNotificationRuleResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["project_id"] = project_id
+
+        kwargs["body"] = body
+
+        return self._create_project_notification_rule_endpoint.call_with_http_info(**kwargs)
 
     def delete_case_comment(
         self,
@@ -722,6 +1136,28 @@ class CaseManagementApi:
 
         return self._delete_project_endpoint.call_with_http_info(**kwargs)
 
+    def delete_project_notification_rule(
+        self,
+        project_id: str,
+        notification_rule_id: str,
+    ) -> None:
+        """Delete a notification rule.
+
+        Delete a notification rule using the notification rule's ``id``.
+
+        :param project_id: Project UUID
+        :type project_id: str
+        :param notification_rule_id: Notification Rule UUID
+        :type notification_rule_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["project_id"] = project_id
+
+        kwargs["notification_rule_id"] = notification_rule_id
+
+        return self._delete_project_notification_rule_endpoint.call_with_http_info(**kwargs)
+
     def get_case(
         self,
         case_id: str,
@@ -756,6 +1192,23 @@ class CaseManagementApi:
 
         return self._get_project_endpoint.call_with_http_info(**kwargs)
 
+    def get_project_notification_rules(
+        self,
+        project_id: str,
+    ) -> CaseNotificationRulesResponse:
+        """Get notification rules.
+
+        Get all notification rules for a project.
+
+        :param project_id: Project UUID
+        :type project_id: str
+        :rtype: CaseNotificationRulesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["project_id"] = project_id
+
+        return self._get_project_notification_rules_endpoint.call_with_http_info(**kwargs)
+
     def get_projects(
         self,
     ) -> ProjectsResponse:
@@ -767,6 +1220,72 @@ class CaseManagementApi:
         """
         kwargs: Dict[str, Any] = {}
         return self._get_projects_endpoint.call_with_http_info(**kwargs)
+
+    def link_incident(
+        self,
+        case_id: str,
+        body: RelationshipToIncidentRequest,
+    ) -> CaseResponse:
+        """Link incident to case.
+
+        Link an incident to a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: Incident link request
+        :type body: RelationshipToIncidentRequest
+        :rtype: CaseResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._link_incident_endpoint.call_with_http_info(**kwargs)
+
+    def link_jira_issue_to_case(
+        self,
+        case_id: str,
+        body: JiraIssueLinkRequest,
+    ) -> None:
+        """Link existing Jira issue to case.
+
+        Link an existing Jira issue to a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: Jira issue link request
+        :type body: JiraIssueLinkRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._link_jira_issue_to_case_endpoint.call_with_http_info(**kwargs)
+
+    def move_case_to_project(
+        self,
+        case_id: str,
+        body: ProjectRelationship,
+    ) -> CaseResponse:
+        """Update case project.
+
+        Update the project associated with a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :param body: Project update request
+        :type body: ProjectRelationship
+        :rtype: CaseResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        kwargs["body"] = body
+
+        return self._move_case_to_project_endpoint.call_with_http_info(**kwargs)
 
     def search_cases(
         self,
@@ -910,6 +1429,23 @@ class CaseManagementApi:
 
         return self._unassign_case_endpoint.call_with_http_info(**kwargs)
 
+    def unlink_jira_issue(
+        self,
+        case_id: str,
+    ) -> None:
+        """Remove Jira issue link from case.
+
+        Remove the link between a Jira issue and a case
+
+        :param case_id: Case's UUID or key
+        :type case_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["case_id"] = case_id
+
+        return self._unlink_jira_issue_endpoint.call_with_http_info(**kwargs)
+
     def update_attributes(
         self,
         case_id: str,
@@ -1024,6 +1560,55 @@ class CaseManagementApi:
         kwargs["body"] = body
 
         return self._update_priority_endpoint.call_with_http_info(**kwargs)
+
+    def update_project(
+        self,
+        project_id: str,
+        body: ProjectUpdateRequest,
+    ) -> ProjectResponse:
+        """Update a project.
+
+        Update a project.
+
+        :param project_id: Project UUID
+        :type project_id: str
+        :param body: Project payload
+        :type body: ProjectUpdateRequest
+        :rtype: ProjectResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["project_id"] = project_id
+
+        kwargs["body"] = body
+
+        return self._update_project_endpoint.call_with_http_info(**kwargs)
+
+    def update_project_notification_rule(
+        self,
+        project_id: str,
+        notification_rule_id: str,
+        body: CaseNotificationRuleUpdateRequest,
+    ) -> None:
+        """Update a notification rule.
+
+        Update a notification rule.
+
+        :param project_id: Project UUID
+        :type project_id: str
+        :param notification_rule_id: Notification Rule UUID
+        :type notification_rule_id: str
+        :param body: Notification rule payload
+        :type body: CaseNotificationRuleUpdateRequest
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["project_id"] = project_id
+
+        kwargs["notification_rule_id"] = notification_rule_id
+
+        kwargs["body"] = body
+
+        return self._update_project_notification_rule_endpoint.call_with_http_info(**kwargs)
 
     def update_status(
         self,

@@ -267,7 +267,7 @@ def format_annotation(annotation: Any, config: Config, *, short_literals: bool =
     # Some types require special handling
     if full_name == "typing.NewType":
         args_format = f"\\(``{annotation.__name__}``, {{}})"
-        role = "class"
+        role = "obj"
     elif full_name == "typing.Annotated":
         # By default we don't show metadata in Annotated
         return format_annotation(annotation.__origin__, config, short_literals=short_literals)
@@ -364,7 +364,7 @@ def normalize_source_lines(source_lines: str) -> str:
     return "\n".join(aligned_prefix + aligned_suffix)
 
 
-def process_signature(  # noqa: C901, PLR0913, PLR0917
+def process_signature(  # noqa: C901, PLR0911, PLR0912, PLR0913, PLR0917
     app: Sphinx,
     what: str,
     name: str,
@@ -393,7 +393,10 @@ def process_signature(  # noqa: C901, PLR0913, PLR0917
     if not getattr(obj, "__annotations__", None):  # when has no annotation we cannot autodoc typehints so bail
         return None
 
-    obj = inspect.unwrap(obj)
+    try:
+        obj = inspect.unwrap(obj)
+    except ValueError:
+        return None
     sph_signature = sphinx_signature(obj, type_aliases=app.config["autodoc_type_aliases"])
     typehints_formatter: Callable[..., str | None] | None = getattr(app.config, "typehints_formatter", None)
 
@@ -432,8 +435,11 @@ def process_signature(  # noqa: C901, PLR0913, PLR0917
                 )
                 return None
             outer = inspect.getmodule(obj)
+            if outer is None:
+                return None
             for class_name in obj.__qualname__.split(".")[:-1]:
-                outer = getattr(outer, class_name)
+                if (outer := getattr(outer, class_name, None)) is None:
+                    return None
             method_name = obj.__name__
             if method_name.startswith("__") and not method_name.endswith("__"):
                 # when method starts with double underscore Python applies mangling -> prepend the class name
@@ -732,7 +738,10 @@ def process_docstring(  # noqa: PLR0913, PLR0917
     if not callable(obj):
         return
     obj = obj.__init__ if inspect.isclass(obj) else obj
-    obj = inspect.unwrap(obj)
+    try:
+        obj = inspect.unwrap(obj)
+    except ValueError:
+        return
 
     try:
         signature = sphinx_signature(obj, type_aliases=app.config["autodoc_type_aliases"])
@@ -839,7 +848,7 @@ def _inject_arg_signature(
 
     if annotation is not None and insert_index is None and app.config.always_document_param_types:
         lines.append(f":param {arg_name}:")
-        insert_index = len(lines)
+        insert_index = len(lines) - 1
 
     if insert_index is not None:
         has_preexisting_annotation = False

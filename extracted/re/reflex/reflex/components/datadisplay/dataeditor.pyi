@@ -154,8 +154,19 @@ class DataEditor(NoSSRComponent):
         max_column_width: Var[int] | int | None = None,
         min_column_width: Var[int] | int | None = None,
         row_height: Var[int] | int | None = None,
-        row_markers: Literal["both", "checkbox", "clickable-number", "none", "number"]
-        | Var[Literal["both", "checkbox", "clickable-number", "none", "number"]]
+        row_markers: Literal[
+            "both", "checkbox", "checkbox-visible", "clickable-number", "none", "number"
+        ]
+        | Var[
+            Literal[
+                "both",
+                "checkbox",
+                "checkbox-visible",
+                "clickable-number",
+                "none",
+                "number",
+            ]
+        ]
         | None = None,
         row_marker_start_index: Var[int] | int | None = None,
         row_marker_width: Var[int] | int | None = None,
@@ -185,11 +196,15 @@ class DataEditor(NoSSRComponent):
         row_selection_blending: Literal["exclusive", "mixed"]
         | Var[Literal["exclusive", "mixed"]]
         | None = None,
+        row_selection_mode: Literal["auto", "multi"]
+        | Var[Literal["auto", "multi"]]
+        | None = None,
         span_range_behavior: Literal["allowPartial", "default"]
         | Var[Literal["allowPartial", "default"]]
         | None = None,
         theme: DataEditorTheme | Var[DataEditorTheme | dict] | dict | None = None,
         grid_selection: GridSelection | Var[GridSelection] | None = None,
+        show_search: Var[bool] | bool | None = None,
         style: Sequence[Mapping[str, Any]]
         | Mapping[str, Any]
         | Var[Mapping[str, Any]]
@@ -256,6 +271,7 @@ class DataEditor(NoSSRComponent):
         on_row_appended: EventType[()] | None = None,
         on_scroll: EventType[()] | None = None,
         on_scroll_end: EventType[()] | None = None,
+        on_search_close: EventType[()] | None = None,
         on_selection_cleared: EventType[()] | None = None,
         on_unmount: EventType[()] | None = None,
         **props,
@@ -281,7 +297,7 @@ class DataEditor(NoSSRComponent):
             max_column_width: The maximum width a column can be resized to.
             min_column_width: The minimum width a column can be resized to.
             row_height: Determines the height of each row.
-            row_markers: Kind of row markers.
+            row_markers: Kind of row markers. Options are: "none", "number", "checkbox", "both", "checkbox-visible", "clickable-number".
             row_marker_start_index: Changes the starting index for row markers.
             row_marker_width: Sets the width of row markers in pixels, if unset row markers will automatically size.
             smooth_scroll_x: Enable horizontal smooth scrolling.
@@ -298,6 +314,7 @@ class DataEditor(NoSSRComponent):
             range_selection_blending: Controls which types of range selections can exist at the same time. ("exclusive", "mixed").
             column_selection_blending: Controls which types of column selections can exist at the same time. ("exclusive", "mixed").
             row_selection_blending: Controls which types of row selections can exist at the same time. ("exclusive", "mixed").
+            row_selection_mode: Controls row marker selection behavior. "auto" adapts to touch/mouse, "multi" acts as if Ctrl is pressed. ("auto", "multi").
             span_range_behavior: Controls how spans are handled in selections. ("default", "allowPartial").
             theme: global theme
             on_cell_activated: Fired when a cell is activated.
@@ -318,6 +335,8 @@ class DataEditor(NoSSRComponent):
             on_grid_selection_change: Fired when the grid selection changes. Will pass the current selection, the selected columns and the selected rows.
             on_selection_cleared: Fired when the selection is cleared.
             on_column_resize: Fired when a column is resized.
+            show_search: Shows search bar.
+            on_search_close: Fired when the search close button is clicked.
             style: The style of the component.
             key: A unique key for the component.
             id: The id for the component.

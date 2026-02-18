@@ -48,6 +48,7 @@ from semgrep.app import auth
 from semgrep.config_resolver import Config
 from semgrep.console import console
 from semgrep.constants import Colors
+from semgrep.constants import MemoryPolicy
 from semgrep.constants import PLEASE_FILE_ISSUE_TEXT
 from semgrep.core_output import core_error_to_semgrep_error
 from semgrep.core_output import core_matches_to_rule_matches
@@ -302,8 +303,7 @@ class StreamingSemgrepCore:
                     The most common reason this happens is because it used too much memory.
                     If your repo is large (~10k files or more), you have three options:
                     1. Increase the amount of memory available to semgrep
-                    2. Reduce the number of jobs semgrep runs with via `-j <jobs>`. We
-                        recommend using 1 job if you are running out of memory.
+                    2. Reduce the number of jobs semgrep runs with via `-j <jobs>`.
                     3. Scan the repo in parts (contact us for help)
 
                     Otherwise, it is likely that semgrep is hitting the limit on only some
@@ -312,9 +312,6 @@ class StreamingSemgrepCore:
                     lowering this to a limit 70% of the available memory. For CI runs with
                     interfile analysis, the default max-memory is 5000MB. Without, the default
                     is unlimited.
-
-                    The last thing you can try if none of these work is to raise the stack
-                    limit with `ulimit -s <limit>`.
 
                     If you have tried all these steps and still are seeing this error, please
                     contact us.
@@ -589,6 +586,7 @@ class CoreRunner:
         fips_mode: bool = False,
         use_pro_naming_for_intrafile: bool = False,
         group_taint_rules: bool = False,
+        mem_policy: Optional[MemoryPolicy] = None,
     ):
         self._binary_path = engine_type.get_binary_path()
         self._jobs = jobs
@@ -609,6 +607,7 @@ class CoreRunner:
         self._fips_mode = fips_mode
         self._use_pro_naming_for_intrafile = use_pro_naming_for_intrafile
         self._group_taint_rules = group_taint_rules
+        self.mem_policy = mem_policy
 
     def _extract_core_output(
         self,
@@ -700,24 +699,13 @@ class CoreRunner:
             return cast(Dict[str, Any], json.loads(semgrep_output))
         except ValueError as exn:
             if returncode == -11 or returncode == -9:
-                # Killed by signal 11 (segmentation fault), this could be a
-                # stack overflow that was not intercepted by the OCaml runtime.
-                soft_limit, _hard_limit = (
-                    (-1, -1)
-                    if IS_WINDOWS
-                    else resource.getrlimit(resource.RLIMIT_STACK)
-                )
                 tip = f"""
                 Semgrep exceeded system resources. This may be caused by
-                    1. Stack overflow. Try increasing the stack limit to
-                       `{soft_limit}` by running `ulimit -s {soft_limit}`
-                       before running Semgrep.
+                    1. Stack overflow.
                     2. Out of memory. Try increasing the memory available to
-                       your container (if running in CI). If that is not
-                       possible, run `semgrep` with `--max-memory
-                       $YOUR_MEMORY_LIMIT`.
-                    3. Some extremely niche compiler/c-bindings bug. (We've
-                       never seen this, but it's always possible.)
+                       your container (if running in CI).
+                    3. Some extremely niche compiler/native code bug.
+
                     You can also try reducing the number of processes Semgrep
                     uses by running `semgrep` with `--jobs 1` (or some other
                     number of jobs). If you are running in CI, please try
@@ -1132,15 +1120,10 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
             ):
                 cmd.append("-use_pro_naming_for_intrafile")
 
-            # This flag is only in the pro binary, so make sure we're pro
-            # More than that, `symbol_analysis` is only collectible on interfile
-            # scans. So let's only add it if that's the case.
-            if self._symbol_analysis and engine.is_interfile:
-                cmd.append("-symbol_analysis")
-
             if self._group_taint_rules:
                 cmd += ["-group_taint_rules"]
 
+            # These flags are only in the pro binary, so make sure we're pro
             # TODO: use exact same command-line arguments so just
             # need to replace the SemgrepCore.path() part.
             if engine.is_pro:
@@ -1171,6 +1154,15 @@ Could not find the semgrep-core executable. Your Semgrep install is likely corru
                     cmd += [root]
                 elif engine is EngineType.PRO_INTRAFILE:
                     cmd += ["-pro_intra_file"]
+
+                # More than needing pro, `symbol_analysis` is only collectible
+                # on interfile scans. So let's only add it if that's the case.
+                # TODO: warn if engine is not interfile?
+                if self._symbol_analysis and engine.is_interfile:
+                    cmd.append("-symbol_analysis")
+
+                if self.mem_policy:
+                    cmd.extend(["-x-mem-policy", self.mem_policy.cli_value])
 
             if state.terminal.is_debug:
                 cmd += ["-debug"]

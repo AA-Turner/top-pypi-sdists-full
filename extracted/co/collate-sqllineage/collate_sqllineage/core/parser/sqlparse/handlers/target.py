@@ -2,7 +2,7 @@ from sqlparse.sql import Comparison, Function, Identifier, Token
 from sqlparse.tokens import Literal, Number
 
 from collate_sqllineage.core.holders import SubQueryLineageHolder
-from collate_sqllineage.core.models import Path
+from collate_sqllineage.core.models import Location, Path
 from collate_sqllineage.core.parser.sqlparse.handlers.base import NextTokenBaseHandler
 from collate_sqllineage.core.parser.sqlparse.models import SqlParseTable
 from collate_sqllineage.exceptions import SQLLineageException
@@ -70,5 +70,8 @@ class TargetHandler(NextTokenBaseHandler):
             if token.token_first(skip_cm=True).ttype is Number.Integer:
                 # Special Handling for Spark Bucket Table DDL
                 pass
+            elif token.value.strip().startswith("@"):
+                # Named location reference, e.g. @STAGE_01, @db.schema.stage
+                holder.add_write(Location(token.value.strip()))
             else:
                 holder.add_write(SqlParseTable.of(token))

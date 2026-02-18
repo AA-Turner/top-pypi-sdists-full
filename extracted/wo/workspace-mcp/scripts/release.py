@@ -1,5 +1,6 @@
 # ruff: noqa
 
+import argparse
 import json
 import subprocess
 import sys
@@ -42,10 +43,12 @@ check_dependencies()
 import tomlkit
 
 # --- Configuration ---
-PYPROJECT_PATH = Path(__file__).parent.parent / "pyproject.toml"
-SERVER_JSON_PATH = Path(__file__).parent.parent / "server.json"
-README_PATH = Path(__file__).parent.parent / "README.md"
-DIST_DIR = Path(__file__).parent.parent / "dist"
+REPO_ROOT = Path(__file__).parent.parent
+PYPROJECT_PATH = REPO_ROOT / "pyproject.toml"
+SERVER_JSON_PATH = REPO_ROOT / "server.json"
+README_PATH = REPO_ROOT / "README.md"
+DIST_DIR = REPO_ROOT / "dist"
+DXT_SAFE_PACK = REPO_ROOT / "dxt-safe-pack.sh"
 
 # --- Helper Functions ---
 
@@ -150,6 +153,41 @@ def verify_readme_mcp_marker(server_name):
     print("✅ README.md contains MCP ownership marker.")
 
 
+def update_manifest_version(new_version):
+    """Updates the version in manifest.json."""
+    manifest_path = REPO_ROOT / "manifest.json"
+    if not manifest_path.exists():
+        print(f"⚠️ Warning: manifest.json not found at {manifest_path}, skipping")
+        return
+
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    data["version"] = new_version
+
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+        f.write("\n")
+
+    print(f"✅ Version updated to {new_version} in manifest.json")
+
+
+def build_dxt(new_version):
+    """Builds the DXT extension using the safe pack script."""
+    if not DXT_SAFE_PACK.exists():
+        print(
+            f"❌ Error: {DXT_SAFE_PACK} not found. Cannot build DXT package.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    dxt_output = DIST_DIR / f"workspace-mcp-{new_version}.dxt"
+    DIST_DIR.mkdir(parents=True, exist_ok=True)
+    run_command([str(DXT_SAFE_PACK), str(dxt_output)])
+    print(f"✅ DXT extension built: {dxt_output}")
+    return dxt_output
+
+
 def get_next_versions(current_version):
     """Calculates next patch, minor, and major versions."""
     major, minor, patch = map(int, current_version.split("."))
@@ -181,8 +219,20 @@ def select_version(current_version):
 # --- Main Release Logic ---
 
 
+def parse_args():
+    """Parse command-line arguments."""
+    parser = argparse.ArgumentParser(description="Release google-workspace-mcp")
+    parser.add_argument(
+        "--registry",
+        action="store_true",
+        help="Also publish to the MCP Registry",
+    )
+    return parser.parse_args()
+
+
 def main():
     """Main function to orchestrate the release process."""
+    args = parse_args()
     print("🚀 Starting the release process for google-workspace-mcp...")
 
     # 1. Pre-flight checks
@@ -215,6 +265,7 @@ def main():
     print("\n--- 3. Updating Version ---")
     update_pyproject_version(new_version)
     server_name = update_server_json_version(new_version)
+    update_manifest_version(new_version)
     verify_readme_mcp_marker(server_name)
 
     # 4. Build the project
@@ -227,10 +278,15 @@ def main():
     run_command(["uv", "build"])
     print(f"✅ Project built successfully in {DIST_DIR}")
 
+    # 4b. Build DXT extension (git-tracked files only)
+    print("\n--- 4b. Building DXT Extension (safe pack) ---")
+    dxt_path = build_dxt(new_version)
+
     # 5. Git commit and tag
     print("\n--- 5. Committing and Tagging ---")
     tag_name = f"v{new_version}"
-    run_command(["git", "add", str(PYPROJECT_PATH), str(SERVER_JSON_PATH)])
+    manifest_json = REPO_ROOT / "manifest.json"
+    run_command(["git", "add", str(PYPROJECT_PATH), str(SERVER_JSON_PATH), str(manifest_json)])
     run_command(["git", "commit", "-m", f"chore: release {tag_name}"])
     run_command(["git", "tag", "-a", tag_name, "-m", f"Release {tag_name}"])
     print(f"✅ Committed and tagged release {tag_name}")
@@ -241,29 +297,38 @@ def main():
     run_command(["git", "push", "--force", "origin", "HEAD", "--follow-tags"])
     print("✅ Pushed commit and tags to origin.")
 
-    # 7. Upload to PyPI
+    # 7. Upload to PyPI (only wheels and tarballs, not .dxt)
     print("\n--- 7. Uploading to PyPI ---")
     print("🔑 You may be prompted to enter your PyPI API token.")
+    pypi_files = list(DIST_DIR.glob("*.whl")) + list(DIST_DIR.glob("*.tar.gz"))
     run_command(
-        ["twine", "upload", "--skip-existing", f"{DIST_DIR}/*"], interactive=True
+        ["twine", "upload", "--skip-existing"] + [str(f) for f in pypi_files],
+        interactive=True,
     )
     print("✅ Successfully uploaded to PyPI (or skipped if already present).")
 
-    # 8. Publish to MCP Registry
-    print("\n--- 8. Publishing to MCP Registry ---")
-    run_command(["mcp-publisher", "--version"])
-    print(
-        "🔑 Ensure you're authenticated (run 'mcp-publisher login github' once if needed)."
-    )
-    run_command(["mcp-publisher", "publish"], interactive=True)
-    print("✅ Successfully published to MCP Registry.")
+    # 8. Publish to MCP Registry (opt-in via --registry)
+    if args.registry:
+        print("\n--- 8. Publishing to MCP Registry ---")
+        run_command(["mcp-publisher", "--version"])
+        print(
+            "🔑 Ensure you're authenticated (run 'mcp-publisher login github' once if needed)."
+        )
+        run_command(["mcp-publisher", "publish"], interactive=True)
+        print("✅ Successfully published to MCP Registry.")
+    else:
+        print("\n--- 8. Skipping MCP Registry (use --registry to publish) ---")
 
     # 9. Create GitHub Release
     print("\n--- 9. Creating GitHub Release ---")
     print("📝 Creating a draft release on GitHub...")
 
     # Get the list of distribution files
-    dist_files = list(DIST_DIR.glob("*.whl")) + list(DIST_DIR.glob("*.tar.gz"))
+    dist_files = (
+        list(DIST_DIR.glob("*.whl"))
+        + list(DIST_DIR.glob("*.tar.gz"))
+        + list(DIST_DIR.glob("*.dxt"))
+    )
     dist_file_paths = [str(f) for f in dist_files]
 
     if dist_file_paths:

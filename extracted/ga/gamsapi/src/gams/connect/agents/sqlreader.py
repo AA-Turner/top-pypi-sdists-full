@@ -216,8 +216,12 @@ class SQLReader(ConnectAgent):
                             pd.__version__, "2.2"
                         ):  # pandas < 2.2.0
                             df = df.stack(dropna=False)
-                        else:  # pandas >= 2.2.0
+                        elif self._pandas_version_before(
+                            pd.__version__, "3.0"
+                        ):  # 2.2.0 <= pandas < 3.0.0
                             df = df.stack(future_stack=True)
+                        else:  # pandas >= 3.0.0
+                            df = df.stack()
                         if dim == 1:
                             df = df.droplevel(
                                 level=0

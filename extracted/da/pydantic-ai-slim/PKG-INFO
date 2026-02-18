@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 1.60.0
+Version: 1.61.0
 Summary: Agent Framework / shim to use Pydantic with LLMs, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
@@ -33,8 +34,8 @@ Requires-Dist: genai-prices>=0.0.48
 Requires-Dist: griffe>=1.14.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==1.60.0
-Requires-Dist: pydantic>=2.10
+Requires-Dist: pydantic-graph==1.61.0
+Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: a2a
 Requires-Dist: fasta2a>=0.4.1; extra == 'a2a'
@@ -42,7 +43,7 @@ Provides-Extra: ag-ui
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'ag-ui'
 Requires-Dist: starlette>=0.45.3; extra == 'ag-ui'
 Provides-Extra: anthropic
-Requires-Dist: anthropic>=0.78.0; extra == 'anthropic'
+Requires-Dist: anthropic>=0.80.0; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: boto3>=1.42.14; extra == 'bedrock'
 Provides-Extra: cli
@@ -57,7 +58,7 @@ Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==1.60.0; extra == 'evals'
+Requires-Dist: pydantic-evals==1.61.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: fastmcp
@@ -80,27 +81,27 @@ Requires-Dist: tiktoken>=0.12.0; extra == 'openai'
 Provides-Extra: openrouter
 Requires-Dist: openai>=2.8.0; extra == 'openrouter'
 Provides-Extra: outlines-llamacpp
-Requires-Dist: outlines[llamacpp]<1.3.0,>=1.0.0; extra == 'outlines-llamacpp'
+Requires-Dist: outlines[llamacpp]<1.3.0,>=1.0.0; (python_version < '3.14') and extra == 'outlines-llamacpp'
 Provides-Extra: outlines-mlxlm
-Requires-Dist: outlines[mlxlm]<1.3.0,>=1.0.0; (platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
+Requires-Dist: outlines[mlxlm]<1.3.0,>=1.0.0; (python_version < '3.14' and platform_system == 'Darwin' and platform_machine == 'arm64') and extra == 'outlines-mlxlm'
 Provides-Extra: outlines-sglang
-Requires-Dist: outlines[sglang]<1.3.0,>=1.0.0; extra == 'outlines-sglang'
-Requires-Dist: pillow>=11.0.0; extra == 'outlines-sglang'
+Requires-Dist: outlines[sglang]<1.3.0,>=1.0.0; (python_version < '3.14') and extra == 'outlines-sglang'
+Requires-Dist: pillow>=11.0.0; (python_version < '3.14') and extra == 'outlines-sglang'
 Provides-Extra: outlines-transformers
-Requires-Dist: outlines[transformers]<1.3.0,>=1.0.0; (sys_platform != 'darwin' or platform_machine != 'x86_64') and extra == 'outlines-transformers'
-Requires-Dist: pillow>=11.0.0; extra == 'outlines-transformers'
-Requires-Dist: torch>=2.8.0; (sys_platform != 'darwin' or platform_machine != 'x86_64') and extra == 'outlines-transformers'
-Requires-Dist: transformers>=4.0.0; extra == 'outlines-transformers'
+Requires-Dist: outlines[transformers]<1.3.0,>=1.0.0; (python_version < '3.14' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'outlines-transformers'
+Requires-Dist: pillow>=11.0.0; (python_version < '3.14') and extra == 'outlines-transformers'
+Requires-Dist: torch>=2.8.0; (python_version < '3.14' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'outlines-transformers'
+Requires-Dist: transformers>=4.0.0; (python_version < '3.14') and extra == 'outlines-transformers'
 Provides-Extra: outlines-vllm-offline
-Requires-Dist: outlines<1.3.0,>=1.0.0; extra == 'outlines-vllm-offline'
-Requires-Dist: torch>=2.8.0; (sys_platform != 'darwin' or platform_machine != 'x86_64') and extra == 'outlines-vllm-offline'
+Requires-Dist: outlines<1.3.0,>=1.0.0; (python_version < '3.14') and extra == 'outlines-vllm-offline'
+Requires-Dist: torch>=2.8.0; (python_version < '3.14' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'outlines-vllm-offline'
 Requires-Dist: vllm>=0.11.0; (python_version < '3.12' and (sys_platform != 'darwin' or platform_machine != 'x86_64')) and extra == 'outlines-vllm-offline'
 Provides-Extra: prefect
 Requires-Dist: prefect>=3.4.21; extra == 'prefect'
 Provides-Extra: retries
 Requires-Dist: tenacity>=8.2.3; extra == 'retries'
 Provides-Extra: sentence-transformers
-Requires-Dist: sentence-transformers>=5.2.0; extra == 'sentence-transformers'
+Requires-Dist: sentence-transformers>=5.2.0; (python_version < '3.14') and extra == 'sentence-transformers'
 Provides-Extra: tavily
 Requires-Dist: tavily-python>=0.5.0; extra == 'tavily'
 Provides-Extra: temporal
@@ -111,7 +112,7 @@ Provides-Extra: vertexai
 Requires-Dist: google-auth>=2.36.0; extra == 'vertexai'
 Requires-Dist: requests>=2.32.2; extra == 'vertexai'
 Provides-Extra: voyageai
-Requires-Dist: voyageai>=0.3.2; extra == 'voyageai'
+Requires-Dist: voyageai>=0.3.7; (python_version < '3.14') and extra == 'voyageai'
 Provides-Extra: web
 Requires-Dist: httpx>=0.27.0; extra == 'web'
 Requires-Dist: starlette>=0.45.3; extra == 'web'

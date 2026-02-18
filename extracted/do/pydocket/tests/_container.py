@@ -6,6 +6,8 @@ including single-node Redis, Redis Cluster, and Valkey variants.
 
 import os
 import socket
+import sys
+import tempfile
 import time
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
@@ -167,7 +169,13 @@ def with_image_retry(fn: Callable[P, T], max_retries: int = 3) -> Callable[P, T]
 
 
 def build_cluster_image(client: DockerClient, base_image: str) -> str:
-    """Build cluster image from base image, return image tag."""
+    """Build cluster image from base image, return image tag.
+
+    Uses a file lock to serialize builds across parallel xdist workers.
+    Without the lock, concurrent builds for the same tag race: one build
+    re-tags the image and the Docker SDK's post-build inspect on the
+    loser's image ID gets a 404.
+    """
     tag = f"docket-cluster:{base_image.replace('/', '-').replace(':', '-')}"
 
     try:
@@ -176,12 +184,30 @@ def build_cluster_image(client: DockerClient, base_image: str) -> str:
     except docker.errors.ImageNotFound:
         pass
 
-    cluster_dir = Path(__file__).parent / "cluster"
-    client.images.build(
-        path=str(cluster_dir),
-        tag=tag,
-        buildargs={"BASE_IMAGE": base_image},
-    )
+    lock_path = Path(tempfile.gettempdir()) / f"docket-{tag.replace(':', '-')}.lock"
+    with open(lock_path, "wb") as lock_file:
+        if sys.platform == "win32":
+            import msvcrt
+
+            msvcrt.locking(lock_file.fileno(), msvcrt.LK_LOCK, 1)
+        else:
+            import fcntl
+
+            fcntl.flock(lock_file, fcntl.LOCK_EX)
+
+        # Re-check after acquiring lock; another worker may have built it
+        try:
+            client.images.get(tag)
+            return tag
+        except docker.errors.ImageNotFound:
+            pass
+
+        cluster_dir = Path(__file__).parent / "cluster"
+        client.images.build(
+            path=str(cluster_dir),
+            tag=tag,
+            buildargs={"BASE_IMAGE": base_image},
+        )
     return tag
 
 

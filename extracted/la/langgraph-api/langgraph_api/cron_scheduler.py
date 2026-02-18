@@ -9,6 +9,7 @@ from langgraph_api import config
 from langgraph_api.encryption.context import set_encryption_context
 from langgraph_api.encryption.middleware import decrypt_response
 from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY
+from langgraph_api.feature_flags import FF_USE_CORE_API
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.schema import Cron
 from langgraph_api.serde import json_loads
@@ -16,8 +17,12 @@ from langgraph_api.utils import next_cron_date
 from langgraph_api.utils.config import run_in_executor
 from langgraph_api.worker import set_auth_ctx_for_run
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons
 from langgraph_runtime.retry import retry_db
+
+if FF_USE_CORE_API:
+    from langgraph_api.grpc.ops import Crons
+else:
+    from langgraph_runtime.ops import Crons
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -50,7 +55,15 @@ async def cron_scheduler():
     while True:
         try:
             async with connect(supports_core_api=False) as conn:
-                async for cron in Crons.next(conn):
+                async for item in Crons.next(conn):
+                    # gRPC path yields (cron, enc_ctx) tuples;
+                    # non-gRPC path yields plain Cron dicts.
+                    if isinstance(item, tuple):
+                        cron, enc_ctx = item
+                    else:
+                        cron = item
+                        enc_ctx = None
+
                     on_run_completed = cron.get("on_run_completed")
 
                     run_payload = cron["payload"]
@@ -58,15 +71,16 @@ async def cron_scheduler():
                         run_payload = json_loads(run_payload)
                     run_payload = cast("dict", run_payload)
 
-                    # Extract and set encryption context from cron payload before
-                    # decryption. This ensures that runs created by crons inherit the
-                    # same encryption context that was used when the cron was created.
-                    # New crons store context at payload root; fall back to empty for
-                    # backward compatibility with old crons that don't have it.
-                    # Always set the context (even if empty) to avoid leaking context
-                    # from a previous cron iteration.
-                    enc_ctx = run_payload.get(BLOB_ENCRYPTION_CONTEXT_KEY) or {}
-                    set_encryption_context(enc_ctx)
+                    # Restore the encryption context so runs created by crons
+                    # inherit the same context used when the cron was created.
+                    # gRPC path: Go extracts it before decryption and returns
+                    # it as a separate value from next().
+                    # Non-gRPC path: it lives inside the payload blob.
+                    if enc_ctx is None:
+                        enc_ctx = run_payload.get(BLOB_ENCRYPTION_CONTEXT_KEY)
+                    # Always set (even if empty) to avoid leaking context from
+                    # a previous cron iteration.
+                    set_encryption_context(enc_ctx or {})
 
                     run_payload = await decrypt_response(
                         run_payload, "cron", ["metadata", "context", "input", "config"]

@@ -36,9 +36,9 @@ class Budget(ModelNormal):
 
     def __init__(
         self_,
+        type: str,
         attributes: Union[BudgetAttributes, UnsetType] = unset,
         id: Union[str, UnsetType] = unset,
-        type: Union[str, UnsetType] = unset,
         **kwargs,
     ):
         """
@@ -51,12 +51,12 @@ class Budget(ModelNormal):
         :type id: str, optional
 
         :param type: The type of the object, must be ``budget``.
-        :type type: str, optional
+        :type type: str
         """
         if attributes is not unset:
             kwargs["attributes"] = attributes
         if id is not unset:
             kwargs["id"] = id
-        if type is not unset:
-            kwargs["type"] = type
         super().__init__(kwargs)
+
+        self_.type = type

@@ -12,6 +12,7 @@ from langgraph_grpc_common.proto.core_api_pb2_grpc import (
     AdminStub,
     AssistantsStub,
     CacheStub,
+    CronsStub,
     RunsStub,
     ThreadsStub,
 )
@@ -48,6 +49,7 @@ class GrpcClient:
         self._assistants_stub: AssistantsStub | None = None
         self._runs_stub: RunsStub | None = None
         self._threads_stub: ThreadsStub | None = None
+        self._crons_stub: CronsStub | None = None
         self._admin_stub: AdminStub | None = None
         self._cache_stub: CacheStub | None = None
         self._checkpointer_stub: CheckpointerStub | None = None
@@ -77,6 +79,7 @@ class GrpcClient:
         self._assistants_stub = AssistantsStub(self._channel)
         self._runs_stub = RunsStub(self._channel)
         self._threads_stub = ThreadsStub(self._channel)
+        self._crons_stub = CronsStub(self._channel)
         self._admin_stub = AdminStub(self._channel)
         self._cache_stub = CacheStub(self._channel)
         self._checkpointer_stub = CheckpointerStub(self._channel)
@@ -94,6 +97,7 @@ class GrpcClient:
             self._assistants_stub = None
             self._runs_stub = None
             self._threads_stub = None
+            self._crons_stub = None
             self._admin_stub = None
             self._cache_stub = None
             self._checkpointer_stub = None
@@ -132,6 +136,15 @@ class GrpcClient:
                 "Client not connected. Use async context manager or call connect() first."
             )
         return self._assistants_stub
+
+    @property
+    def crons(self) -> CronsStub:
+        """Get the crons service stub."""
+        if self._crons_stub is None:
+            raise RuntimeError(
+                "Client not connected. Use async context manager or call connect() first."
+            )
+        return self._crons_stub
 
     @property
     def threads(self) -> ThreadsStub:

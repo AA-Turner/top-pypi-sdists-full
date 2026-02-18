@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lbt-honeybee
-Version: 0.9.241
+Version: 0.9.244
 Summary: Installs a collection of all Honeybee core and extension libraries.
 Home-page: https://github.com/ladybug-tools/lbt-honeybee
 Author: Ladybug Tools
@@ -21,7 +21,7 @@ License-File: LICENSE
 Requires-Dist: honeybee-radiance-postprocess==0.4.605
 Requires-Dist: honeybee-energy[openstudio,standards]==1.116.123
 Requires-Dist: honeybee-display==0.6.1
-Requires-Dist: lbt-ladybug==0.27.169
+Requires-Dist: lbt-ladybug==0.27.171
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -38,7 +38,7 @@ Dynamic: summary
 
 [![Build Status](https://github.com/ladybug-tools/lbt-honeybee/actions/workflows/ci.yaml/badge.svg)](https://github.com/ladybug-tools/lbt-honeybee/actions)
 
-[![Python 3.10](https://img.shields.io/badge/python-3.10-orange.svg)](https://www.python.org/downloads/release/python-3100/) [![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-370/) [![IronPython](https://img.shields.io/badge/ironpython-2.7-red.svg)](https://github.com/IronLanguages/ironpython2/releases/tag/ipy-2.7.8/)
+[![Python 3.12](https://img.shields.io/badge/python-3.12-green.svg)](https://www.python.org/downloads/release/python-3120/) [![Python 3.10](https://img.shields.io/badge/python-3.10-orange.svg)](https://www.python.org/downloads/release/python-3100/) [![Python 3.7](https://img.shields.io/badge/python-3.7-blue.svg)](https://www.python.org/downloads/release/python-370/) [![IronPython](https://img.shields.io/badge/ironpython-2.7-red.svg)](https://github.com/IronLanguages/ironpython2/releases/tag/ipy-2.7.8/)
 
 # lbt-honeybee
 

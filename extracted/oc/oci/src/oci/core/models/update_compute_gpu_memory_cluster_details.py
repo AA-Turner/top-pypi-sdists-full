@@ -40,26 +40,33 @@ class UpdateComputeGpuMemoryClusterDetails(object):
             The value to assign to the display_name property of this UpdateComputeGpuMemoryClusterDetails.
         :type display_name: str
 
+        :param gpu_memory_cluster_scale_config:
+            The value to assign to the gpu_memory_cluster_scale_config property of this UpdateComputeGpuMemoryClusterDetails.
+        :type gpu_memory_cluster_scale_config: oci.core.models.UpdateComputeGpuMemoryClusterScaleConfig
+
         """
         self.swagger_types = {
             'instance_configuration_id': 'str',
             'size': 'int',
             'defined_tags': 'dict(str, dict(str, object))',
             'freeform_tags': 'dict(str, str)',
-            'display_name': 'str'
+            'display_name': 'str',
+            'gpu_memory_cluster_scale_config': 'UpdateComputeGpuMemoryClusterScaleConfig'
         }
         self.attribute_map = {
             'instance_configuration_id': 'instanceConfigurationId',
             'size': 'size',
             'defined_tags': 'definedTags',
             'freeform_tags': 'freeformTags',
-            'display_name': 'displayName'
+            'display_name': 'displayName',
+            'gpu_memory_cluster_scale_config': 'gpuMemoryClusterScaleConfig'
         }
         self._instance_configuration_id = None
         self._size = None
         self._defined_tags = None
         self._freeform_tags = None
         self._display_name = None
+        self._gpu_memory_cluster_scale_config = None
 
     @property
     def instance_configuration_id(self):
@@ -202,6 +209,26 @@ class UpdateComputeGpuMemoryClusterDetails(object):
         :type: str
         """
         self._display_name = display_name
+
+    @property
+    def gpu_memory_cluster_scale_config(self):
+        """
+        Gets the gpu_memory_cluster_scale_config of this UpdateComputeGpuMemoryClusterDetails.
+
+        :return: The gpu_memory_cluster_scale_config of this UpdateComputeGpuMemoryClusterDetails.
+        :rtype: oci.core.models.UpdateComputeGpuMemoryClusterScaleConfig
+        """
+        return self._gpu_memory_cluster_scale_config
+
+    @gpu_memory_cluster_scale_config.setter
+    def gpu_memory_cluster_scale_config(self, gpu_memory_cluster_scale_config):
+        """
+        Sets the gpu_memory_cluster_scale_config of this UpdateComputeGpuMemoryClusterDetails.
+
+        :param gpu_memory_cluster_scale_config: The gpu_memory_cluster_scale_config of this UpdateComputeGpuMemoryClusterDetails.
+        :type: oci.core.models.UpdateComputeGpuMemoryClusterScaleConfig
+        """
+        self._gpu_memory_cluster_scale_config = gpu_memory_cluster_scale_config
 
     def __repr__(self):
         return formatted_flat_dict(self)

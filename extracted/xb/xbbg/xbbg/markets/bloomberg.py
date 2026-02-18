@@ -4,12 +4,12 @@ This module provides functions to query Bloomberg for exchange metadata includin
 timezone, MIC code, and trading hours. It serves as one layer in the exchange
 resolution waterfall:
 
-1. Runtime Override → User-set via function call
-2. Cache → ~/.xbbg/cache/exchanges.parquet
-3. Bloomberg Query → This module
-4. PMC Calendar → Use MIC from Bloomberg
-5. Country Inference → Infer timezone from COUNTRY_ISO
-6. Hardcoded Fallback → Minimal defaults
+1. Runtime Override -> User-set via function call
+2. Cache -> ~/.xbbg/cache/exchanges.parquet
+3. Bloomberg Query -> This module
+4. PMC Calendar -> Use MIC from Bloomberg
+5. Country Inference -> Infer timezone from COUNTRY_ISO
+6. Hardcoded Fallback -> Minimal defaults
 
 Design:
 - Queries Bloomberg for exchange-related fields via bdp API.
@@ -20,7 +20,6 @@ Design:
 
 from __future__ import annotations
 
-import asyncio
 from dataclasses import dataclass, field
 from datetime import datetime
 import logging
@@ -441,12 +440,11 @@ async def afetch_exchange_info(
         ctx_kwargs = ctx.to_kwargs()
 
     try:
-        # Import bdp from API module
-        from xbbg.api.reference import bdp
+        # Import abdp -- the true async version
+        from xbbg.api.reference import abdp
 
-        # Run bdp in thread pool to avoid blocking
-        df = await asyncio.to_thread(
-            bdp,
+        # Use abdp directly -- truly non-blocking async
+        df = await abdp(
             tickers=ticker,
             flds=EXCHANGE_FIELDS,
             **ctx_kwargs,
@@ -493,4 +491,6 @@ def fetch_exchange_info(
         >>> print(info.mic)  # doctest: +SKIP
         XNGS
     """
-    return asyncio.run(afetch_exchange_info(ticker, ctx, **kwargs))
+    from xbbg.core.infra.conn import _run_sync
+
+    return _run_sync(afetch_exchange_info(ticker, ctx, **kwargs))

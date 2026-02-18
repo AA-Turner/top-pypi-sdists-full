@@ -36,6 +36,7 @@ from .create_node_shape_config_details import CreateNodeShapeConfigDetails
 from .create_virtual_node_pool_details import CreateVirtualNodePoolDetails
 from .create_workload_mapping_details import CreateWorkloadMappingDetails
 from .credential_rotation_status import CredentialRotationStatus
+from .extend_endpoint_decommission_rollback_deadline_details import ExtendEndpointDecommissionRollbackDeadlineDetails
 from .flannel_overlay_cluster_pod_network_option_details import FlannelOverlayClusterPodNetworkOptionDetails
 from .flannel_overlay_node_pool_pod_network_option_details import FlannelOverlayNodePoolPodNetworkOptionDetails
 from .image import Image
@@ -73,6 +74,7 @@ from .pod_shape import PodShape
 from .pod_shape_summary import PodShapeSummary
 from .preemptible_node_config_details import PreemptibleNodeConfigDetails
 from .preemption_action import PreemptionAction
+from .public_api_endpoint_decommission_status import PublicApiEndpointDecommissionStatus
 from .reboot_cluster_node_details import RebootClusterNodeDetails
 from .replace_boot_volume_cluster_node_details import ReplaceBootVolumeClusterNodeDetails
 from .service_lb_config_details import ServiceLbConfigDetails
@@ -137,6 +139,7 @@ container_engine_type_mapping = {
     "CreateVirtualNodePoolDetails": CreateVirtualNodePoolDetails,
     "CreateWorkloadMappingDetails": CreateWorkloadMappingDetails,
     "CredentialRotationStatus": CredentialRotationStatus,
+    "ExtendEndpointDecommissionRollbackDeadlineDetails": ExtendEndpointDecommissionRollbackDeadlineDetails,
     "FlannelOverlayClusterPodNetworkOptionDetails": FlannelOverlayClusterPodNetworkOptionDetails,
     "FlannelOverlayNodePoolPodNetworkOptionDetails": FlannelOverlayNodePoolPodNetworkOptionDetails,
     "Image": Image,
@@ -174,6 +177,7 @@ container_engine_type_mapping = {
     "PodShapeSummary": PodShapeSummary,
     "PreemptibleNodeConfigDetails": PreemptibleNodeConfigDetails,
     "PreemptionAction": PreemptionAction,
+    "PublicApiEndpointDecommissionStatus": PublicApiEndpointDecommissionStatus,
     "RebootClusterNodeDetails": RebootClusterNodeDetails,
     "ReplaceBootVolumeClusterNodeDetails": ReplaceBootVolumeClusterNodeDetails,
     "ServiceLbConfigDetails": ServiceLbConfigDetails,

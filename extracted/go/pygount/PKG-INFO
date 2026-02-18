@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygount
-Version: 3.1.0
+Version: 3.1.1
 Summary: count source lines of code (SLOC) using pygments
 Project-URL: Homepage, https://github.com/roskakori/pygount
 Project-URL: Repository, https://github.com/roskakori/pygount.git
@@ -18,17 +18,17 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development
-Requires-Python: <4,>=3.9
+Requires-Python: <4,>=3.10
 Requires-Dist: chardet<6,>=5
 Requires-Dist: gitpython~=3.1
 Requires-Dist: pygments<3,>=2
-Requires-Dist: rich>=9
+Requires-Dist: rich>=14
 Description-Content-Type: text/markdown
 
 [![PyPI](https://img.shields.io/pypi/v/pygount)](https://pypi.org/project/pygount/)

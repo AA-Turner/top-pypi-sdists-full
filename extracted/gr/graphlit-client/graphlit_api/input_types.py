@@ -3650,6 +3650,7 @@ class CollectionUpdateInput(BaseModel):
     name: Optional[str] = None
     type: Optional[CollectionTypes] = None
     contents: Optional[list["EntityReferenceInput"]] = None
+    conversations: Optional[list["EntityReferenceInput"]] = None
     expected_count: Optional[int] = Field(alias="expectedCount", default=None)
 
 
@@ -3937,6 +3938,7 @@ class ConversationMessageInput(BaseModel):
     timestamp: Optional[Any] = None
     data: Optional[str] = None
     mime_type: Optional[str] = Field(alias="mimeType", default=None)
+    artifacts: Optional[list[Optional["EntityReferenceInput"]]] = None
 
 
 class ProjectInput(BaseModel):
@@ -4834,6 +4836,7 @@ class CollectionInput(BaseModel):
     name: str
     type: Optional[CollectionTypes] = None
     contents: Optional[list["EntityReferenceInput"]] = None
+    conversations: Optional[list["EntityReferenceInput"]] = None
     expected_count: Optional[int] = Field(alias="expectedCount", default=None)
 
 
@@ -6134,6 +6137,9 @@ class ConversationFilter(BaseModel):
         alias="similarConversations", default=None
     )
     conversations: Optional[list["EntityReferenceFilter"]] = None
+    collections: Optional[list["EntityReferenceFilter"]] = None
+    has_collections: Optional[bool] = Field(alias="hasCollections", default=None)
+    collection_mode: Optional[FilterMode] = Field(alias="collectionMode", default=None)
     observations: Optional[list["ObservationReferenceFilter"]] = None
     has_observations: Optional[bool] = Field(alias="hasObservations", default=None)
     observation_mode: Optional[FilterMode] = Field(

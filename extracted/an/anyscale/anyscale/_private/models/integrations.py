@@ -1,7 +1,9 @@
 from dataclasses import dataclass, field
+import re
 from typing import ClassVar, Dict
 
 from anyscale._private.models.model_base import ModelBase, ModelEnum
+from anyscale.utils.name_utils import CONNECTION_NAME_VALIDATION_REGEX_PATTERN
 
 
 class ConnectionType(ModelEnum):
@@ -78,3 +80,8 @@ connections:
             )
         if not connection_name:
             raise ValueError("'connection_name' cannot be empty.")
+        if not re.match(CONNECTION_NAME_VALIDATION_REGEX_PATTERN, connection_name):
+            raise ValueError(
+                "'connection_name' can only contain alphanumeric characters, "
+                "periods, dashes, and underscores."
+            )

@@ -75,7 +75,8 @@ class TestResourceListAvailableDataset(unittest.TestCase):
                                 name = '', 
                                 column_id = '', 
                                 column_name = '', ), 
-                            join_type = 'inner', ), )
+                            join_type = 'inner', ), 
+                        is_static = True, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -125,7 +126,8 @@ class TestResourceListAvailableDataset(unittest.TestCase):
                                 name = '', 
                                 column_id = '', 
                                 column_name = '', ), 
-                            join_type = 'inner', ), )
+                            join_type = 'inner', ), 
+                        is_static = True, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

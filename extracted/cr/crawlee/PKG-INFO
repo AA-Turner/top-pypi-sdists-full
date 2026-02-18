@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.3.2
+Version: 1.4.0
 Summary: Crawlee for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
@@ -303,6 +303,10 @@ Requires-Dist: browserforge>=1.2.3; extra == 'playwright'
 Requires-Dist: playwright>=1.27.0; extra == 'playwright'
 Provides-Extra: redis
 Requires-Dist: redis[hiredis]>=7.0.0; extra == 'redis'
+Provides-Extra: sql-mysql
+Requires-Dist: aiomysql>=0.3.2; extra == 'sql-mysql'
+Requires-Dist: cryptography>=46.0.5; extra == 'sql-mysql'
+Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-mysql'
 Provides-Extra: sql-postgres
 Requires-Dist: asyncpg>=0.24.0; extra == 'sql-postgres'
 Requires-Dist: sqlalchemy[asyncio]<3.0.0,>=2.0.0; extra == 'sql-postgres'

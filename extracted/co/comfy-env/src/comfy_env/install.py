@@ -229,6 +229,13 @@ def _install_cuda_to_host(cfg: ComfyEnvConfig, log: Callable[[str], None], dry_r
     if not cfg.cuda_packages or sys.platform == "darwin":
         return
 
+    # Check for actual GPU hardware before attempting CUDA package install
+    # (torch.version.cuda reports compile-time CUDA even without a GPU)
+    from .detection.cuda import has_nvidia_gpu
+    if not has_nvidia_gpu():
+        log(f"\n[cuda] No GPU detected, skipping CUDA packages: {', '.join(cfg.cuda_packages)}")
+        return
+
     log(f"\n[cuda] Installing to host Python: {', '.join(cfg.cuda_packages)}")
     if dry_run: return
 
@@ -280,6 +287,29 @@ def _install_cuda_to_host(cfg: ComfyEnvConfig, log: Callable[[str], None], dry_r
             log(f"  {package}: install failed (non-fatal, will use fallback)")
             log(f"    {stderr_last}")
             continue
+
+
+def _save_env_metadata(build_dir: Path, node_dir: Path, config_path: Path) -> None:
+    """Save source config metadata alongside the built environment."""
+    import json
+    try:
+        main_dir = _find_main_node_dir(node_dir)
+        # e.g. "ComfyUI-GeometryPack/nodes/gpu" or just "ComfyUI-GeometryPack"
+        try:
+            subpath = str(node_dir.relative_to(main_dir))
+        except ValueError:
+            subpath = ""
+        node_label = main_dir.name if subpath == "." else f"{main_dir.name}/{subpath}"
+        meta = {
+            "node_name": node_label,
+            "config_file": config_path.name,
+            "config_content": config_path.read_text(encoding="utf-8"),
+        }
+        (build_dir / ".comfy-env-meta.json").write_text(
+            json.dumps(meta, indent=2), encoding="utf-8"
+        )
+    except Exception:
+        pass  # Non-fatal — metadata is optional
 
 
 def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], None], dry_run: bool, is_root: bool = True) -> None:
@@ -361,6 +391,9 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
     if done_marker.exists():
         log(f"[comfy-env] Found existing env for {env_path.name}, skipping install ({build_dir / 'env'})")
         _link_env()
+        # Backfill metadata for pre-existing builds
+        if not (build_dir / ".comfy-env-meta.json").exists():
+            _save_env_metadata(build_dir, node_dir, config_path)
         try: _rmtree(node_dir / ".pixi")
         except OSError: pass
         return
@@ -484,6 +517,7 @@ def _install_via_pixi(cfg: ComfyEnvConfig, node_dir: Path, log: Callable[[str], 
             except OSError: pass
 
         done_marker.touch()
+        _save_env_metadata(build_dir, node_dir, config_path)
     finally:
         try: lock_dir.rmdir()
         except OSError: pass

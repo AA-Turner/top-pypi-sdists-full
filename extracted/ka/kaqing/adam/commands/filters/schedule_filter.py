@@ -4,7 +4,7 @@ from typing import Callable
 from adam.commands.command import Command
 from adam.commands.command_filter import CommandFilter
 from adam.utils_context import Context
-from adam.utils_global import thread_local
+from adam.thread_locals import thread_local_command
 from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_job.job_status import JobStatus, NullJobStatus
 from adam.utils_log import log2
@@ -18,7 +18,7 @@ class ScheduleFilter(CommandFilter):
         if (pre := f'{self.command()} ') and cmd.startswith(pre):
             cmd = cmd[len(pre):]
 
-            thread_local.scheduled_command = cmd
+            thread_local_command().scheduled_command = cmd
 
             # scheduled job needs background
             if not cmd.endswith(' &'):
@@ -32,8 +32,7 @@ class ScheduleFilter(CommandFilter):
         return [c for c in commands if c.schedulable()]
 
     def callback(state: ReplState, cmd: str, result: JobStatus):
-        if hasattr(thread_local, 'scheduled_command'):
-            thread_local.scheduled_command = None
+        thread_local_command().scheduled_command = None
 
         if not isinstance(result, JobStatus):
             log2('Scheduling is ignored as command is not schedulable.')
@@ -47,4 +46,4 @@ class ScheduleFilter(CommandFilter):
         JobScheduler.schedule(state, cmd, result, ctx=Context.new(show_out=True, job_id=result.job_id()))
 
     def help(self, state: ReplState) -> str:
-        return super().help(state, 'schedule command that is automatically retried until succeeded', command='schedule <command>...')
+        return super().help(state, 'schedule command automatically retried until succeeded', command='schedule <command>...')

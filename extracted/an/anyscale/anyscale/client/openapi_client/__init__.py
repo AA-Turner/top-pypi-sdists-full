@@ -523,6 +523,7 @@ from openapi_client.models.mini_cloud import MiniCloud
 from openapi_client.models.mini_cluster import MiniCluster
 from openapi_client.models.mini_compute_template import MiniComputeTemplate
 from openapi_client.models.mini_compute_template_config import MiniComputeTemplateConfig
+from openapi_client.models.mini_job_queue import MiniJobQueue
 from openapi_client.models.mini_job_run import MiniJobRun
 from openapi_client.models.mini_namespace import MiniNamespace
 from openapi_client.models.mini_organization import MiniOrganization

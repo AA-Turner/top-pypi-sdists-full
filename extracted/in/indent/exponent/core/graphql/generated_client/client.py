@@ -8,6 +8,7 @@ from .base_client import AsyncBaseClient
 from .base_model import UNSET, UnsetType
 from .chats import Chats
 from .create_cloud_chat_from_repository import CreateCloudChatFromRepository
+from .current_user import CurrentUser
 from .enable_cloud_repository import EnableCloudRepository
 from .github_repositories import GithubRepositories
 from .halt_chat_stream import HaltChatStream
@@ -17,9 +18,7 @@ from .input_types import (
     ChatResourceConfigInput,
     RepositoryInput,
 )
-from .rebuild_cloud_repository import RebuildCloudRepository
 from .refresh_api_key import RefreshApiKey
-from .report_sandbox_info import ReportSandboxInfo
 from .set_login_complete import SetLoginComplete
 from .start_chat_turn import StartChatTurn
 
@@ -29,10 +28,12 @@ def gql(q: str) -> str:
 
 
 class IndentGraphQLClient(AsyncBaseClient):
-    async def chats(self, **kwargs: Any) -> Chats:
+    async def chats(
+        self, user_uuids: Union[Optional[list[UUID]], UnsetType] = UNSET, **kwargs: Any
+    ) -> Chats:
         query = gql("""
-            query Chats {
-              organizationChatsPage(limit: 200) {
+            query Chats($userUuids: [UUID!] = null) {
+              organizationChatsPage(userUuids: $userUuids, limit: 200) {
                 ... on OrganizationChatsPage {
                   chats {
                     chatUuid
@@ -54,7 +55,7 @@ class IndentGraphQLClient(AsyncBaseClient):
               }
             }
             """)
-        variables: dict[str, object] = {}
+        variables: dict[str, object] = {"userUuids": user_uuids}
         response = await self.execute(
             query=query, operation_name="Chats", variables=variables, **kwargs
         )
@@ -87,6 +88,21 @@ class IndentGraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return CreateCloudChatFromRepository.model_validate(data)
 
+    async def current_user(self, **kwargs: Any) -> CurrentUser:
+        query = gql("""
+            query CurrentUser {
+              currentUser {
+                userUuid
+              }
+            }
+            """)
+        variables: dict[str, object] = {}
+        response = await self.execute(
+            query=query, operation_name="CurrentUser", variables=variables, **kwargs
+        )
+        data = self.get_data(response)
+        return CurrentUser.model_validate(data)
+
     async def enable_cloud_repository(
         self, repositories: list[RepositoryInput], **kwargs: Any
     ) -> EnableCloudRepository:
@@ -106,9 +122,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                       updatedAt
                     }
                   }
-                }
-                ... on CloudSessionError {
-                  message
                 }
               }
             }
@@ -171,36 +184,6 @@ class IndentGraphQLClient(AsyncBaseClient):
         data = self.get_data(response)
         return HaltChatStream.model_validate(data)
 
-    async def rebuild_cloud_repository(
-        self, repository_uuid: UUID, **kwargs: Any
-    ) -> RebuildCloudRepository:
-        query = gql("""
-            mutation RebuildCloudRepository($repositoryUuid: UUID!) {
-              rebuildCloudRepository(input: {repositoryUuid: $repositoryUuid}) {
-                __typename
-                ... on ContainerImages {
-                  images {
-                    buildRef
-                    createdAt
-                    updatedAt
-                  }
-                }
-                ... on CloudSessionError {
-                  message
-                }
-              }
-            }
-            """)
-        variables: dict[str, object] = {"repositoryUuid": repository_uuid}
-        response = await self.execute(
-            query=query,
-            operation_name="RebuildCloudRepository",
-            variables=variables,
-            **kwargs
-        )
-        data = self.get_data(response)
-        return RebuildCloudRepository.model_validate(data)
-
     async def refresh_api_key(self, **kwargs: Any) -> RefreshApiKey:
         query = gql("""
             mutation RefreshApiKey {
@@ -218,40 +201,6 @@ class IndentGraphQLClient(AsyncBaseClient):
         )
         data = self.get_data(response)
         return RefreshApiKey.model_validate(data)
-
-    async def report_sandbox_info(
-        self,
-        sandbox_id: str,
-        disk_usage_gb: Union[Optional[float], UnsetType] = UNSET,
-        indent_log_file: Union[Optional[str], UnsetType] = UNSET,
-        **kwargs: Any
-    ) -> ReportSandboxInfo:
-        query = gql("""
-            mutation ReportSandboxInfo($sandboxId: String!, $diskUsageGb: Float, $indentLogFile: String) {
-              reportSandboxInfo(
-                input: {sandboxId: $sandboxId, diskUsageGb: $diskUsageGb, indentLogFile: $indentLogFile}
-              ) {
-                __typename
-                ... on SandboxInfoResponse {
-                  success
-                  message
-                }
-              }
-            }
-            """)
-        variables: dict[str, object] = {
-            "sandboxId": sandbox_id,
-            "diskUsageGb": disk_usage_gb,
-            "indentLogFile": indent_log_file,
-        }
-        response = await self.execute(
-            query=query,
-            operation_name="ReportSandboxInfo",
-            variables=variables,
-            **kwargs
-        )
-        data = self.get_data(response)
-        return ReportSandboxInfo.model_validate(data)
 
     async def set_login_complete(self, **kwargs: Any) -> SetLoginComplete:
         query = gql("""

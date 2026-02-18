@@ -1,5 +1,6 @@
 import copy
 import os
+import secrets
 from string import Template
 import time
 from typing import Any, Dict, List, Optional
@@ -356,6 +357,7 @@ def generate_deployment_manager_config(  # noqa: PLR0913
     region: str,
     project_id: str,
     cloud_id: str,
+    deployment_name: str,
     anyscale_access_service_account_name: str,
     workload_identity_pool_name: str,
     anyscale_aws_account: str,
@@ -399,10 +401,11 @@ def generate_deployment_manager_config(  # noqa: PLR0913
         "ANYSCALE_HOST": shared_anyscale_conf.ANYSCALE_HOST,
         "ANYSCALE_CORS_ORIGIN": shared_anyscale_conf.ANYSCALE_CORS_ORIGIN,
         "REGION": region,
-        # `cloud_id` is used as the deployment name, which cannot contain underscores.
+        # `cloud_id` is used for resource naming, which cannot contain underscores.
         "CLOUD_ID": cloud_id.replace("_", "-").lower(),
         # `cloud_id_underscore` is used as the the label values, which should be consistent with GCE instances.
         "CLOUD_ID_UNDERSCORE": cloud_id,
+        "DEPLOYMENT_NAME": deployment_name,
         "PROJECT_ID": project_id,
         "ANYSCALE_ACCESS_SERVICE_ACCOUNT": anyscale_access_service_account_name,
         "WORKLOAD_IDENTITY_POOL_NAME": workload_identity_pool_name,
@@ -951,3 +954,208 @@ def get_deployment_config(
         fingerprint=fingerprint,
         config_content=manifest["config"]["content"],
     )
+
+
+USE_INFRASTRUCTURE_MANAGER = False
+
+INFRA_MANAGER_TIMEOUT_SECONDS = 1800  # 30 minutes
+
+
+def _grant_iam_roles(
+    factory: GoogleCloudClientFactory, project_id: str, member: str, roles: list
+):
+    """Grant IAM roles to a member on a project."""
+    rm = factory.build("cloudresourcemanager", "v1")
+    policy = rm.projects().getIamPolicy(resource=project_id, body={}).execute()
+    for role in roles:
+        existing = next(
+            (b for b in policy.get("bindings", []) if b.get("role") == role), None
+        )
+        if existing:
+            if member not in existing.get("members", []):
+                existing["members"].append(member)
+        else:
+            policy.setdefault("bindings", []).append(
+                {"role": role, "members": [member]}
+            )
+    rm.projects().setIamPolicy(resource=project_id, body={"policy": policy}).execute()
+
+
+def run_infra_manager_deployment(  # noqa: PLR0913
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    region: str,
+    deployment_name: str,
+    cloud_id_underscore: str,
+    anyscale_access_service_account_name: str,
+    workload_identity_pool_name: str,
+    anyscale_aws_account: str,
+    organization_id: str,
+    enable_head_node_fault_tolerance: bool,
+    enable_filestore: bool = False,
+    timeout: int = INFRA_MANAGER_TIMEOUT_SECONDS,
+) -> Dict[str, Any]:
+    """Create GCP resources via Infrastructure Manager and return outputs."""
+    # Upload Terraform config to staging bucket
+    staging_bucket = f"anyscale-infra-bucket-{project_id}"[:63]
+    gcs_prefix = f"infra-manager/{deployment_name}"
+    storage_client = factory.storage.Client(project=project_id)
+    bucket = storage_client.bucket(staging_bucket)
+    if not bucket.exists():
+        storage_client.create_bucket(staging_bucket, location=region)
+    tf_path = os.path.join(anyscale.conf.ROOT_DIR_PATH, "terraform", "main.tf")
+    with open(tf_path) as f:
+        bucket.blob(f"{gcs_prefix}/main.tf").upload_from_string(f.read())
+
+    # Infra manager uses Cloud Build to run Terraform, which by default
+    # runs as the Compute Engine default service account: project_number-compute@developer.gserviceaccount.com.
+    # We grant it the roles needed to create the resources defined in our tf config.
+    project_number = get_project_number(factory, project_id).split("/")[-1]
+    service_account = f"{project_number}-compute@developer.gserviceaccount.com"
+    _grant_iam_roles(
+        factory,
+        project_id,
+        f"serviceAccount:{service_account}",
+        [
+            "roles/config.agent",  # Required for Infrastructure Manager operations
+            "roles/resourcemanager.projectIamAdmin",  # Set IAM policies on project
+            "roles/iam.serviceAccountAdmin",  # Create service accounts
+            "roles/iam.serviceAccountUser",  # Act as service accounts
+            "roles/compute.networkAdmin",  # Create VPC, subnets, firewall policies
+            "roles/storage.admin",  # Create GCS buckets
+            "roles/redis.admin",  # Create Memorystore Redis (for HNFT)
+            "roles/file.editor",  # Create Filestore (for NFS shared storage)
+        ],
+    )
+
+    # Create Infrastructure Manager deployment
+    infra_manager = factory.build("config", "v1")
+    cloud_id_dash = cloud_id_underscore.replace("_", "-").lower()
+    input_values = {
+        k: {"inputValue": str(v).lower() if isinstance(v, bool) else v}
+        for k, v in {
+            "project_id": project_id,
+            "region": region,
+            "cloud_id": cloud_id_dash,
+            "cloud_id_underscore": cloud_id_underscore,
+            "resource_id": f"{cloud_id_dash[:12]}-{secrets.token_hex(4)}",
+            "anyscale_access_service_account": anyscale_access_service_account_name,
+            "workload_identity_pool_name": workload_identity_pool_name,
+            "anyscale_aws_account": anyscale_aws_account,
+            "organization_id": organization_id,
+            "anyscale_cors_origin": shared_anyscale_conf.ANYSCALE_CORS_ORIGIN,
+            "enable_head_node_fault_tolerance": enable_head_node_fault_tolerance,
+            "enable_filestore": enable_filestore,
+        }.items()
+    }
+
+    operation = (
+        infra_manager.projects()
+        .locations()
+        .deployments()
+        .create(
+            parent=f"projects/{project_id}/locations/{region}",
+            deploymentId=deployment_name,
+            body={
+                "serviceAccount": f"projects/{project_id}/serviceAccounts/{service_account}",
+                "terraformBlueprint": {
+                    "gcsSource": f"gs://{staging_bucket}/{gcs_prefix}",
+                    "inputValues": input_values,
+                },
+                "labels": {"anyscale-cloud-id": cloud_id_underscore},
+            },
+        )
+        .execute()
+    )
+
+    # Wait for completion
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        op = (
+            infra_manager.projects()
+            .locations()
+            .operations()
+            .get(name=operation["name"])
+            .execute()
+        )
+        if op.get("done"):
+            if "error" in op:
+                raise ClickException(f"Infrastructure Manager failed: {op['error']}")
+            break
+        time.sleep(10)
+    else:
+        raise ClickException(f"Infrastructure Manager timed out after {timeout}s")
+
+    # Get deployment and check state
+    deployment = (
+        infra_manager.projects()
+        .locations()
+        .deployments()
+        .get(
+            name=f"projects/{project_id}/locations/{region}/deployments/{deployment_name}"
+        )
+        .execute()
+    )
+
+    # Check if deployment succeeded
+    state = deployment.get("state", "")
+    if state != "ACTIVE":
+        error_detail = deployment.get("stateDetail", "Unknown error")
+        raise ClickException(
+            f"Infrastructure Manager deployment failed (state={state}): {error_detail}"
+        )
+
+    # Outputs are in applyResults.outputs field of the revision
+    outputs = {}
+    latest_revision = deployment.get("latestRevision")
+    if latest_revision:
+        revision = (
+            infra_manager.projects()
+            .locations()
+            .deployments()
+            .revisions()
+            .get(name=latest_revision)
+            .execute()
+        )
+        tf_outputs = revision.get("applyResults", {}).get("outputs", {})
+        for k, v in tf_outputs.items():
+            outputs[k] = v.get("value") if isinstance(v, dict) else v
+
+    return outputs
+
+
+def delete_infra_manager_deployment(
+    factory: GoogleCloudClientFactory,
+    project_id: str,
+    region: str,
+    deployment_name: str,
+):
+    """Delete an Infrastructure Manager deployment and its resources."""
+    infra_manager = factory.build("config", "v1")
+    name = f"projects/{project_id}/locations/{region}/deployments/{deployment_name}"
+
+    try:
+        # Use force=true to cascade delete all created resources
+        op = (
+            infra_manager.projects()
+            .locations()
+            .deployments()
+            .delete(name=name, force=True)
+            .execute()
+        )
+        # Wait briefly for delete
+        start = time.time()
+        while time.time() - start < 600:
+            result = (
+                infra_manager.projects()
+                .locations()
+                .operations()
+                .get(name=op["name"])
+                .execute()
+            )
+            if result.get("done"):
+                break
+            time.sleep(10)
+    except HttpError as e:
+        if e.status_code != 404:
+            raise

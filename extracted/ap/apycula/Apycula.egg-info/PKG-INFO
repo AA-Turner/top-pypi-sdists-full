@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Apycula
-Version: 0.29
+Version: 0.30
 Summary: Open Source tools for Gowin FPGAs
 Home-page: https://github.com/YosysHQ/apicula
 Author: Pepijn de Vos
@@ -11,7 +11,12 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: crc
+Requires-Dist: msgspec
+Requires-Dist: numpy
+Requires-Dist: crcmod
+Provides-Extra: pure
+Requires-Dist: msgpack; extra == "pure"
+Requires-Dist: cattrs; extra == "pure"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -19,6 +24,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license-file
+Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
@@ -52,6 +58,12 @@ Install the tools with pip.
 
 ```bash
 pip install apycula
+```
+
+On platforms where the default C extension dependencies are not available, you can use pure Python alternatives instead:
+
+```bash
+pip install --no-deps apycula msgpack cattrs
 ```
 
 Note that on some systems the installed binaries might not be on the path. Either add the binaries to the path, or use the path of the _installed binary_ directly. (running the source files will lead to import errors)

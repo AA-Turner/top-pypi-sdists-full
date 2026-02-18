@@ -13,6 +13,7 @@ from adam.utils_k8s.service_accounts import ServiceAccounts
 from adam.utils_k8s.volumes import ConfigMapMount
 from adam.utils_log import ing, log2, log_exc
 from adam.utils_repl.repl_state import ReplState, RequiredState
+from adam.utils_version import get_latest_version
 
 class DeployPod(Command):
     COMMAND = 'deploy pod'
@@ -76,13 +77,16 @@ class DeployPod(Command):
                 with ing('Creating config map'):
                     ConfigMaps.create(cm_name, state.namespace, map_data, labels=labels)
 
-                pod_name = Config().get('pod.name', 'ops')
-                image = Config().get('pod.image', 'seanahnsf/kaqing')
+                version = 'latest'
+                if v := get_latest_version():
+                    version = v
+                image = Config().get('pod.image', 'seanahnsf/kaqing-cloud:{version}').replace('{version}', version)
                 security_context = client.V1SecurityContext(
                     capabilities=client.V1Capabilities(
                         add=["SYS_PTRACE"]
                     )
                 )
+                pod_name = Config().get('pod.name', 'ops')
                 with ing('Creating deployment'):
                     Deployments.create(state.namespace,
                                         pod_name,

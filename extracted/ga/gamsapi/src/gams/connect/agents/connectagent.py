@@ -381,14 +381,21 @@ class ConnectAgent(ABC):
                 # pandas-version-check
                 if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
                     df.iloc[:, -1] = df.iloc[:, -1].replace(vs)
-                else:  # pandas >= 2.2.0
+                elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
                     with pd.option_context("future.no_silent_downcasting", True):
                         df.iloc[:, -1] = df.iloc[:, -1].replace(vs).infer_objects()
+                else:  # pandas >= 3.0.0
+                    df.iloc[:, -1] = df.iloc[:, -1].replace(vs).infer_objects()
+
             else:
                 # pandas-version-check
                 if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
                     df.iloc[~mask, -1] = df.iloc[~mask, -1].replace(vs)
-                else:  # pandas >= 2.2.0
+                elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
+                    df.iloc[~mask, -1] = (
+                        df.iloc[~mask, -1].replace(vs).infer_objects()
+                    )
+                else:  # pandas >= 3.0.0
                     with pd.option_context("future.no_silent_downcasting", True):
                         df.iloc[~mask, -1] = (
                             df.iloc[~mask, -1].replace(vs).infer_objects()

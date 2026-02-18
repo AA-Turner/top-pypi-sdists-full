@@ -16,6 +16,7 @@ from .protocols import (
     AttachmentsOperationsProto,
     EpicOperationsProto,
     FieldsOperationsProto,
+    FormsOperationsProto,
     IssueOperationsProto,
     ProjectsOperationsProto,
     UsersOperationsProto,
@@ -29,6 +30,7 @@ class IssuesMixin(
     AttachmentsOperationsProto,
     EpicOperationsProto,
     FieldsOperationsProto,
+    FormsOperationsProto,
     IssueOperationsProto,
     ProjectsOperationsProto,
     UsersOperationsProto,
@@ -90,11 +92,11 @@ class IssuesMixin(
             elif isinstance(fields_param, list | tuple | set):
                 fields_param = ",".join(fields_param)
 
-            # Ensure necessary fields are included based on special parameters
-            if (
-                fields_param == ",".join(DEFAULT_READ_JIRA_FIELDS)
-                or fields_param == "*all"
-            ):
+            # Compare as sets to avoid hash randomization issues across processes
+            fields_set = (
+                set(fields_param.split(",")) if fields_param != "*all" else None
+            )
+            if fields_param == "*all" or fields_set == DEFAULT_READ_JIRA_FIELDS:
                 # Default fields are being used - preserve the order
                 default_fields_list = (
                     fields_param.split(",")
@@ -126,6 +128,14 @@ class IssuesMixin(
                     and "properties" not in additional_fields
                 ):
                     additional_fields.append("properties")
+
+                comment_limit_int = self._normalize_comment_limit(comment_limit)
+                if (
+                    (comment_limit_int is None or comment_limit_int > 0)
+                    and "comment" not in default_fields_list
+                    and "comment" not in additional_fields
+                ):
+                    additional_fields.append("comment")
 
                 # Combine default fields with additional fields, preserving order
                 if additional_fields:
@@ -161,6 +171,15 @@ class IssuesMixin(
             # Extract fields data, safely handling None
             fields_data = issue.get("fields", {}) or {}
 
+            # Clean description field (convert Jira wiki markup to Markdown)
+            # Note: ADF format (dict) is handled in the model layer
+            if "description" in fields_data:
+                raw_description = fields_data["description"]
+                # Only clean string descriptions (wiki markup)
+                # Dict descriptions (ADF) are handled by the model
+                if isinstance(raw_description, str) and raw_description:
+                    fields_data["description"] = self._clean_text(raw_description)
+
             # Get comments if needed
             if "comment" in fields_data:
                 comment_limit_int = self._normalize_comment_limit(comment_limit)
@@ -169,6 +188,19 @@ class IssuesMixin(
                 )
                 # Add comments to the issue data for processing by the model
                 fields_data["comment"]["comments"] = comments
+
+            # Clean comment bodies (convert Jira wiki markup/HTML to Markdown)
+            # Must happen AFTER _get_issue_comments_if_needed which may replace comments
+            if "comment" in fields_data and isinstance(fields_data["comment"], dict):
+                comments_list = fields_data["comment"].get("comments", [])
+                if isinstance(comments_list, list):
+                    for comment in comments_list:
+                        if isinstance(comment, dict) and "body" in comment:
+                            raw_body = comment["body"]
+                            # Only clean string bodies (wiki markup/HTML)
+                            # Dict bodies (ADF) are handled by the model
+                            if isinstance(raw_body, str) and raw_body:
+                                comment["body"] = self._clean_text(raw_body)
 
             # Extract epic information
             try:
@@ -204,10 +236,11 @@ class IssuesMixin(
             issue["fields"] = fields_data
 
             # Create and return the JiraIssue model, passing requested_fields
+            model_fields = "*all" if fields == "*all" else fields_param
             return JiraIssue.from_api_response(
                 issue,
                 base_url=self.config.url if hasattr(self, "config") else None,
-                requested_fields=fields,
+                requested_fields=model_fields,
             )
         except HTTPError as http_err:
             if http_err.response is not None and http_err.response.status_code in [
@@ -813,8 +846,11 @@ class IssuesMixin(
         # Process each kwarg
         # Iterate over a copy to allow modification of the original kwargs if needed elsewhere
         for key, value in kwargs.copy().items():
-            # Skip keys used internally for epic/parent handling or explicitly handled args like assignee/components
-            if key.startswith("__epic_") or key in ("parent", "assignee", "components"):
+            # Skip fields handled explicitly in create_issue()/update_issue()
+            # (e.g., assignee requires account ID lookup via _get_account_id).
+            # Other array fields like components, fixVersions, etc. flow through
+            # _format_field_value_for_write() which handles their formatting.
+            if key.startswith("__epic_") or key in ("parent", "assignee"):
                 continue
 
             normalized_key = key.lower()
@@ -1055,9 +1091,7 @@ class IssuesMixin(
 
             # Update the issue fields
             if update_fields:
-                self.jira.update_issue(
-                    issue_key=issue_key, update={"fields": update_fields}
-                )
+                self.jira.update_issue(issue_key=issue_key, fields=update_fields)  # type: ignore[call-arg]
 
             # Handle attachments if provided
             if "attachments" in kwargs and kwargs["attachments"]:

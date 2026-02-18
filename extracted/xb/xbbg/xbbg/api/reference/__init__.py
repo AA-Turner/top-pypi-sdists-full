@@ -3,31 +3,13 @@
 This module provides Bloomberg reference data functionality using a pipeline-based architecture.
 """
 
-from xbbg.api.reference.lookup import (
-    bfld,
-    blkp,
-    bport,
-    fieldInfo,
-    fieldSearch,
-    getBlpapiVersion,
-    getPortfolio,
-    lookupSecurity,
-)
-from xbbg.api.reference.reference import abdp, abds, bdp, bds
+# pyright: reportImportCycles=false
 
-__all__ = [
-    "bdp",
-    "bds",
-    "abdp",
-    "abds",
-    # v1.0 names
-    "bfld",
-    "blkp",
-    "bport",
-    # legacy names (backward compatible)
-    "fieldInfo",
-    "fieldSearch",
-    "lookupSecurity",
-    "getPortfolio",
-    "getBlpapiVersion",
-]
+from . import lookup as lookup, reference as reference  # noqa: F401
+from .lookup import *
+from .reference import *
+
+
+def bdp(*args, **kwargs):
+    """Forward to reference.bdp to keep runtime lookup patchable."""
+    return reference.bdp(*args, **kwargs)

@@ -16,16 +16,12 @@ from exponent.core.config import Settings
 from exponent.core.graphql.client import GraphQLClient
 from exponent.core.graphql.generated_client import (
     RepositoryInput,
-    SandboxProvider,
 )
 from exponent.core.graphql.generated_client.create_cloud_chat_from_repository import (
     CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat,
 )
 from exponent.core.graphql.generated_client.enable_cloud_repository import (
     EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult,
-)
-from exponent.core.graphql.generated_client.rebuild_cloud_repository import (
-    RebuildCloudRepositoryRebuildCloudRepositoryContainerImages,
 )
 from exponent.utils.version import check_exponent_version_and_upgrade
 
@@ -78,40 +74,6 @@ async def enable_cloud_repository(
         }
 
 
-async def rebuild_cloud_repository(
-    api_key: str,
-    base_api_url: str,
-    base_ws_url: str,
-    repository_uuid: str,
-) -> dict[str, Any]:
-    graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
-
-    result = await graphql_client.rebuild_cloud_repository(repository_uuid=repository_uuid)
-
-    # Convert typed response to dict for backward compatibility
-    rebuild_result = result.rebuild_cloud_repository
-    if isinstance(rebuild_result, RebuildCloudRepositoryRebuildCloudRepositoryContainerImages):
-        # Return the first image for backward compatibility
-        if rebuild_result.images:
-            first_image = rebuild_result.images[0]
-            return {
-                "__typename": "ContainerImage",
-                "buildRef": first_image.build_ref,
-                "createdAt": first_image.created_at,
-                "updatedAt": first_image.updated_at,
-            }
-        else:
-            return {
-                "__typename": "Error",
-                "message": "No container images returned",
-            }
-    else:
-        return {
-            "__typename": rebuild_result.typename__,
-            "message": rebuild_result.message if hasattr(rebuild_result, "message") else "Unknown error",
-        }
-
-
 async def list_github_repositories(
     api_key: str,
     base_api_url: str,
@@ -145,11 +107,10 @@ async def create_cloud_chat_from_repository(
     base_api_url: str,
     base_ws_url: str,
     repository_uuid: str,
-    provider: SandboxProvider | None = None,
 ) -> dict[str, Any]:
     graphql_client = GraphQLClient(api_key=api_key, base_api_url=base_api_url, base_ws_url=base_ws_url)
 
-    result = await graphql_client.create_cloud_chat_from_repository(repository_uuid=repository_uuid, provider=provider)
+    result = await graphql_client.create_cloud_chat_from_repository(repository_uuid=repository_uuid)
 
     chat_result = result.create_chat_with_resource_config
     if isinstance(chat_result, CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat):
@@ -235,50 +196,6 @@ def enable_repo(
 
     except Exception as e:
         click.secho(f"✗ Error enabling repository: {e!s}", fg="red")
-        sys.exit(1)
-
-
-@cloud_cli.command(hidden=True)
-@click.option(
-    "--repository-uuid",
-    help="Repository UUID",
-    required=True,
-)
-@use_settings
-def rebuild(
-    settings: Settings,
-    repository_uuid: str,
-) -> None:
-    check_exponent_version_and_upgrade(settings)
-
-    if not settings.api_key:
-        redirect_to_login(settings)
-        return
-
-    api_key = settings.api_key
-    base_api_url = settings.get_base_api_url()
-    base_ws_url = settings.get_base_ws_url()
-
-    try:
-        result = asyncio.run(rebuild_cloud_repository(api_key, base_api_url, base_ws_url, repository_uuid))
-
-        if result["__typename"] == "ContainerImage":
-            click.secho(
-                f"Successfully triggered rebuild for {repository_uuid}",
-                fg="green",
-            )
-            click.echo(f"  Build ref: {result.get('buildRef', 'N/A')}")
-            click.echo(f"  Created at: {result.get('createdAt', 'N/A')}")
-            click.echo(f"  Updated at: {result.get('updatedAt', 'N/A')}")
-        else:
-            click.secho(
-                f"Failed to trigger rebuild: {result.get('message', 'Unknown error')}",
-                fg="red",
-            )
-            click.echo(f"  Error type: {result['__typename']}")
-
-    except Exception as e:
-        click.secho(f"Error triggering rebuild: {e!s}", fg="red")
         sys.exit(1)
 
 

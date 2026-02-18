@@ -18,11 +18,16 @@ setuptools.setup(
         "Operating System :: OS Independent",
     ],
     install_requires=[
-        'crc',
+        'msgspec',
+        'numpy',
+        'crcmod',
     ],
+    extras_require={
+        'pure': ['msgpack', 'cattrs'],
+    },
     python_requires='>=3.9',
     package_data={
-        'apycula': ['*.pickle']
+        'apycula': ['*.msgpack.xz']
     },
     entry_points={
         'console_scripts': [

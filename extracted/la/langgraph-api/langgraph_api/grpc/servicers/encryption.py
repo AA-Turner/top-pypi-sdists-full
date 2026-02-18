@@ -20,7 +20,7 @@ from langgraph_grpc_common.proto.encryption_pb2_grpc import EncryptionServicer
 from langgraph_sdk import EncryptionContext
 
 from langgraph_api.encryption.middleware import _extract_skip_fields
-from langgraph_api.encryption.shared import get_encryption
+from langgraph_api.encryption.shared import BLOB_ENCRYPTION_CONTEXT_KEY, get_encryption
 from langgraph_api.schema import NESTED_ENCRYPTED_SUBFIELDS
 
 if TYPE_CHECKING:
@@ -289,6 +289,12 @@ class EncryptionServicerImpl(EncryptionServicer):
 
             data: dict[str, Any] = orjson.loads(request.data)
 
+            # Preserve __blob_encryption_context__ — this is user-facing
+            # metadata (e.g., tenant/key info for cron execution) that must
+            # survive decryption.  The decryptor's strip_encryption_metadata
+            # removes it, so we save and restore it after decryption.
+            blob_enc_ctx = data.get(BLOB_ENCRYPTION_CONTEXT_KEY)
+
             # Model and field are optional, used for decryptor selection/routing
             model_type: ModelType | None = request.model or None
             field = request.field or None
@@ -306,6 +312,13 @@ class EncryptionServicerImpl(EncryptionServicer):
             decrypted = await self._decrypt_field_recursive(
                 data, model_type, field or "", decryptor
             )
+
+            # Restore __blob_encryption_context__ so that internal consumers
+            # (e.g., the cron scheduler) can recover the original encryption
+            # context when creating downstream runs.
+            if blob_enc_ctx is not None and isinstance(decrypted, dict):
+                decrypted[BLOB_ENCRYPTION_CONTEXT_KEY] = blob_enc_ctx
+
             decrypted_bytes = orjson.dumps(decrypted)
 
             return DecryptResponse(data=decrypted_bytes)

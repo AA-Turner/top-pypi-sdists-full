@@ -38,6 +38,7 @@ class Thread(TypedDict):
     thread_id: UUID
     created_at: NotRequired[datetime]
     updated_at: NotRequired[datetime]
+    state_updated_at: NotRequired[datetime]
     metadata: dict[str, Any]
     status: str
 

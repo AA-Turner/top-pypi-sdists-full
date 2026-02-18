@@ -4,11 +4,18 @@ from typing import List, Set, Tuple, Union
 import networkx as nx
 from networkx import DiGraph
 
-from collate_sqllineage.core.models import Column, DataFunction, Path, SubQuery, Table
+from collate_sqllineage.core.models import (
+    Column,
+    DataFunction,
+    Location,
+    Path,
+    SubQuery,
+    Table,
+)
 from collate_sqllineage.utils.constant import EdgeTag, EdgeType, NodeTag
 from collate_sqllineage.utils.wildcard_handler import handle_wildcard
 
-DATASET_CLASSES = (Path, Table, DataFunction)
+DATASET_CLASSES = (Location, Path, Table, DataFunction)
 
 
 class ColumnLineageMixin:
@@ -283,7 +290,9 @@ class SQLLineageHolder(ColumnLineageMixin):
         intermediate_tables -= self.__retrieve_tag_tables(NodeTag.SELFLOOP)
         return intermediate_tables
 
-    def __retrieve_tag_tables(self, tag) -> Set[Union[DataFunction, Path, Table]]:
+    def __retrieve_tag_tables(
+        self, tag
+    ) -> Set[Union[DataFunction, Location, Path, Table]]:
         return {
             table
             for table, attr in self.graph.nodes(data=True)

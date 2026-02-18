@@ -180,6 +180,7 @@ from .compute_gpu_memory_cluster import ComputeGpuMemoryCluster
 from .compute_gpu_memory_cluster_collection import ComputeGpuMemoryClusterCollection
 from .compute_gpu_memory_cluster_instance_collection import ComputeGpuMemoryClusterInstanceCollection
 from .compute_gpu_memory_cluster_instance_summary import ComputeGpuMemoryClusterInstanceSummary
+from .compute_gpu_memory_cluster_scale_config import ComputeGpuMemoryClusterScaleConfig
 from .compute_gpu_memory_cluster_summary import ComputeGpuMemoryClusterSummary
 from .compute_gpu_memory_fabric import ComputeGpuMemoryFabric
 from .compute_gpu_memory_fabric_collection import ComputeGpuMemoryFabricCollection
@@ -229,6 +230,7 @@ from .create_compute_capacity_reservation_details import CreateComputeCapacityRe
 from .create_compute_capacity_topology_details import CreateComputeCapacityTopologyDetails
 from .create_compute_cluster_details import CreateComputeClusterDetails
 from .create_compute_gpu_memory_cluster_details import CreateComputeGpuMemoryClusterDetails
+from .create_compute_gpu_memory_cluster_scale_config import CreateComputeGpuMemoryClusterScaleConfig
 from .create_compute_host_group_details import CreateComputeHostGroupDetails
 from .create_compute_image_capability_schema_details import CreateComputeImageCapabilitySchemaDetails
 from .create_cpe_details import CreateCpeDetails
@@ -587,6 +589,7 @@ from .update_compute_capacity_reservation_details import UpdateComputeCapacityRe
 from .update_compute_capacity_topology_details import UpdateComputeCapacityTopologyDetails
 from .update_compute_cluster_details import UpdateComputeClusterDetails
 from .update_compute_gpu_memory_cluster_details import UpdateComputeGpuMemoryClusterDetails
+from .update_compute_gpu_memory_cluster_scale_config import UpdateComputeGpuMemoryClusterScaleConfig
 from .update_compute_gpu_memory_fabric_details import UpdateComputeGpuMemoryFabricDetails
 from .update_compute_host_group_details import UpdateComputeHostGroupDetails
 from .update_compute_hosts_details import UpdateComputeHostsDetails
@@ -876,6 +879,7 @@ core_type_mapping = {
     "ComputeGpuMemoryClusterCollection": ComputeGpuMemoryClusterCollection,
     "ComputeGpuMemoryClusterInstanceCollection": ComputeGpuMemoryClusterInstanceCollection,
     "ComputeGpuMemoryClusterInstanceSummary": ComputeGpuMemoryClusterInstanceSummary,
+    "ComputeGpuMemoryClusterScaleConfig": ComputeGpuMemoryClusterScaleConfig,
     "ComputeGpuMemoryClusterSummary": ComputeGpuMemoryClusterSummary,
     "ComputeGpuMemoryFabric": ComputeGpuMemoryFabric,
     "ComputeGpuMemoryFabricCollection": ComputeGpuMemoryFabricCollection,
@@ -925,6 +929,7 @@ core_type_mapping = {
     "CreateComputeCapacityTopologyDetails": CreateComputeCapacityTopologyDetails,
     "CreateComputeClusterDetails": CreateComputeClusterDetails,
     "CreateComputeGpuMemoryClusterDetails": CreateComputeGpuMemoryClusterDetails,
+    "CreateComputeGpuMemoryClusterScaleConfig": CreateComputeGpuMemoryClusterScaleConfig,
     "CreateComputeHostGroupDetails": CreateComputeHostGroupDetails,
     "CreateComputeImageCapabilitySchemaDetails": CreateComputeImageCapabilitySchemaDetails,
     "CreateCpeDetails": CreateCpeDetails,
@@ -1283,6 +1288,7 @@ core_type_mapping = {
     "UpdateComputeCapacityTopologyDetails": UpdateComputeCapacityTopologyDetails,
     "UpdateComputeClusterDetails": UpdateComputeClusterDetails,
     "UpdateComputeGpuMemoryClusterDetails": UpdateComputeGpuMemoryClusterDetails,
+    "UpdateComputeGpuMemoryClusterScaleConfig": UpdateComputeGpuMemoryClusterScaleConfig,
     "UpdateComputeGpuMemoryFabricDetails": UpdateComputeGpuMemoryFabricDetails,
     "UpdateComputeHostGroupDetails": UpdateComputeHostGroupDetails,
     "UpdateComputeHostsDetails": UpdateComputeHostsDetails,

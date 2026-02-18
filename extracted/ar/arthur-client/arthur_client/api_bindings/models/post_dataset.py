@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.dataset_locator import DatasetLocator
 from arthur_client.api_bindings.models.model_problem_type import ModelProblemType
@@ -35,7 +35,8 @@ class PostDataset(BaseModel):
     dataset_schema: Optional[PutDatasetSchema] = None
     dataset_join_spec: Optional[PostDatasetJoinSpec] = None
     model_problem_type: ModelProblemType = Field(description="Model problem type associated with the dataset.")
-    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "dataset_join_spec", "model_problem_type"]
+    is_static: Optional[StrictBool] = Field(default=False, description="Whether this dataset has no time dimension. Static datasets are fully loaded on each metrics run.")
+    __properties: ClassVar[List[str]] = ["name", "dataset_locator", "dataset_schema", "dataset_join_spec", "model_problem_type", "is_static"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -121,7 +122,8 @@ class PostDataset(BaseModel):
             "dataset_locator": DatasetLocator.from_dict(obj["dataset_locator"]) if obj.get("dataset_locator") is not None else None,
             "dataset_schema": PutDatasetSchema.from_dict(obj["dataset_schema"]) if obj.get("dataset_schema") is not None else None,
             "dataset_join_spec": PostDatasetJoinSpec.from_dict(obj["dataset_join_spec"]) if obj.get("dataset_join_spec") is not None else None,
-            "model_problem_type": obj.get("model_problem_type")
+            "model_problem_type": obj.get("model_problem_type"),
+            "is_static": obj.get("is_static") if obj.get("is_static") is not None else False
         })
         return _obj
 

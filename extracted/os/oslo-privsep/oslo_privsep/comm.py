@@ -20,12 +20,18 @@ python datatypes.  Msgpack 'raw' is assumed to be a valid utf8 string
 converted to tuples during serialization/deserialization.
 """
 
+from __future__ import annotations
+
+from collections.abc import Iterator
 import datetime
 import enum
 import logging
 import socket
 import sys
 import threading
+from typing import Any
+
+from typing_extensions import Self
 
 import msgpack
 
@@ -38,6 +44,7 @@ LOG = logging.getLogger(__name__)
 @enum.unique
 class Message(enum.IntEnum):
     """Types of messages sent across the communication channel"""
+
     PING = 1
     PONG = 2
     CALL = 3
@@ -51,15 +58,16 @@ class PrivsepTimeout(Exception):
 
 
 class Serializer:
-    def __init__(self, writesock):
+    def __init__(self, writesock: socket.socket) -> None:
         self.writesock = writesock
 
-    def send(self, msg):
-        buf = msgpack.packb(msg, use_bin_type=True,
-                            unicode_errors='surrogateescape')
+    def send(self, msg: Any) -> None:
+        buf = msgpack.packb(
+            msg, use_bin_type=True, unicode_errors='surrogateescape'
+        )
         self.writesock.sendall(buf)
 
-    def close(self):
+    def close(self) -> None:
         # Hilarious. `socket._socketobject.close()` doesn't actually
         # call `self._sock.close()`.  Oh well, we really wanted a half
         # close anyway.
@@ -67,7 +75,7 @@ class Serializer:
 
 
 class Deserializer:
-    def __init__(self, readsock):
+    def __init__(self, readsock: socket.socket) -> None:
         self.readsock = readsock
         self.unpacker = msgpack.Unpacker(
             use_list=False,
@@ -79,10 +87,10 @@ class Deserializer:
             max_buffer_size=100 * 1024 * 1024,
         )
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         while True:
             try:
                 return next(self.unpacker)
@@ -99,41 +107,47 @@ class Deserializer:
 class Future:
     """A very simple object to track the return of a function call"""
 
-    def __init__(self, lock, timeout=None):
+    def __init__(
+        self, lock: threading.Lock, timeout: float | None = None
+    ) -> None:
         self.condvar = threading.Condition(lock)
-        self.error = None
-        self.data = None
+        self.error: BaseException | None = None
+        self.data: Any = None
         self.timeout = timeout
 
-    def set_result(self, data):
+    def set_result(self, data: Any) -> None:
         """Must already be holding lock used in constructor"""
         self.data = data
         self.condvar.notify()
 
-    def set_exception(self, exc):
+    def set_exception(self, exc: BaseException) -> None:
         """Must already be holding lock used in constructor"""
         self.error = exc
         self.condvar.notify()
 
-    def result(self):
+    def result(self) -> Any:
         """Must already be holding lock used in constructor"""
         before = datetime.datetime.now()
         if not self.condvar.wait(timeout=self.timeout):
             now = datetime.datetime.now()
-            LOG.warning('Timeout while executing a command, timeout: %s, '
-                        'time elapsed: %s', self.timeout,
-                        (now - before).total_seconds())
-            return (Message.ERR.value,
-                    '{}.{}'.format(PrivsepTimeout.__module__,
-                                   PrivsepTimeout.__name__),
-                    '')
+            LOG.warning(
+                'Timeout while executing a command, timeout: %s, '
+                'time elapsed: %s',
+                self.timeout,
+                (now - before).total_seconds(),
+            )
+            return (
+                Message.ERR.value,
+                f'{PrivsepTimeout.__module__}.{PrivsepTimeout.__name__}',
+                '',
+            )
         if self.error is not None:
             raise self.error
         return self.data
 
 
 class ClientChannel:
-    def __init__(self, sock):
+    def __init__(self, sock: socket.socket) -> None:
         self.running = False
         self.writer = Serializer(sock)
         self.lock = threading.Lock()
@@ -143,11 +157,11 @@ class ClientChannel:
             args=(Deserializer(sock),),
         )
         self.reader_thread.daemon = True
-        self.outstanding_msgs = {}
+        self.outstanding_msgs: dict[str, Future] = {}
 
         self.reader_thread.start()
 
-    def _reader_main(self, reader):
+    def _reader_main(self, reader: Deserializer) -> None:
         """This thread owns and demuxes the read channel"""
         with self.lock:
             self.running = True
@@ -158,8 +172,10 @@ class ClientChannel:
             else:
                 with self.lock:
                     if msgid not in self.outstanding_msgs:
-                        LOG.warning("msgid should be in oustanding_msgs, it is"
-                                    "possible that timeout is reached!")
+                        LOG.warning(
+                            "msgid should be in oustanding_msgs, it is"
+                            "possible that timeout is reached!"
+                        )
                         continue
                     self.outstanding_msgs[msgid].set_result(data)
 
@@ -169,17 +185,17 @@ class ClientChannel:
         # get an immediate similar error.
         LOG.debug('EOF on privsep read channel')
 
-        exc = IOError(_('Premature eof waiting for privileged process'))
+        exc = OSError(_('Premature eof waiting for privileged process'))
         with self.lock:
             for mbox in self.outstanding_msgs.values():
                 mbox.set_exception(exc)
             self.running = False
 
-    def out_of_band(self, msg):
+    def out_of_band(self, msg: Any) -> None:
         """Received OOB message. Subclasses might want to override this."""
         pass
 
-    def send_recv(self, msg, timeout=None):
+    def send_recv(self, msg: Any, timeout: float | None = None) -> Any:
         myid = uuidutils.generate_uuid()
         while myid in self.outstanding_msgs:
             LOG.warning("myid shoudn't be in outstanding_msgs.")
@@ -193,14 +209,14 @@ class ClientChannel:
 
                 reply = future.result()
             except Exception:
-                LOG.warning(f"Unexpected error: {sys.exc_info()[0]}")
+                LOG.warning("Unexpected error: %s", sys.exc_info()[0])
                 raise
             finally:
                 del self.outstanding_msgs[myid]
 
         return reply
 
-    def close(self):
+    def close(self) -> None:
         with self.lock:
             self.writer.close()
 
@@ -210,19 +226,19 @@ class ClientChannel:
 class ServerChannel:
     """Server-side twin to ClientChannel"""
 
-    def __init__(self, sock):
+    def __init__(self, sock: socket.socket) -> None:
         self.rlock = threading.Lock()
-        self.reader_iter = iter(Deserializer(sock))
+        self.reader_iter: Iterator[Any] = iter(Deserializer(sock))
         self.wlock = threading.Lock()
         self.writer = Serializer(sock)
 
-    def __iter__(self):
+    def __iter__(self) -> Self:
         return self
 
-    def __next__(self):
+    def __next__(self) -> Any:
         with self.rlock:
             return next(self.reader_iter)
 
-    def send(self, msg):
+    def send(self, msg: Any) -> None:
         with self.wlock:
             self.writer.send(msg)

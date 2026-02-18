@@ -19,7 +19,7 @@ def cd_dirs(state: ReplState) -> list[str]:
         return StatefulSets.list_sts_names()
 
 @functools.lru_cache()
-def cassandra_keyspaces(state: ReplState, on_any=True):
+def cassandra_keyspaces(state: ReplState, on_any=True) -> list[str]:
     if state.pod:
         wait_log(f'Inspecting Cassandra Keyspaces on {state.pod}...')
     else:

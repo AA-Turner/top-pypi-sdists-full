@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: paddle
-Version: 1.2.4
+Version: 1.2.6
 Summary: Python Atmospheric Dynamics: Discovery and Learning about Exoplanets. An open-source, user-friendly python frontend of canoe
 Project-URL: Homepage, https://github.com/elijah-mullens/paddle
 Project-URL: Repository, https://github.com/elijah-mullens/paddle
@@ -23,7 +23,7 @@ Classifier: Topic :: Scientific/Engineering :: Atmospheric Science
 Classifier: Topic :: Scientific/Engineering :: Physics
 Requires-Python: >=3.9
 Requires-Dist: scipy
-Requires-Dist: snapy>=1.1.5
+Requires-Dist: snapy>=1.3.0
 Requires-Dist: torch<=2.7.1,>=2.7.0
 Provides-Extra: dev
 Requires-Dist: pytest>=7; extra == 'dev'

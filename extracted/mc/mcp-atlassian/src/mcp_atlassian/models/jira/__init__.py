@@ -17,6 +17,7 @@ from .common import (
     JiraTimetracking,
     JiraUser,
 )
+from .forms import ProFormaForm, ProFormaFormField, ProFormaFormState
 from .issue import JiraIssue
 from .link import (
     JiraIssueLink,
@@ -24,8 +25,27 @@ from .link import (
     JiraLinkedIssue,
     JiraLinkedIssueFields,
 )
+from .metrics import (
+    IssueDatesBatchResponse,
+    IssueDatesResponse,
+    StatusChangeEntry,
+    StatusTimeSummary,
+)
 from .project import JiraProject
 from .search import JiraSearchResult
+from .sla import (
+    CycleTimeMetric,
+    DueDateComplianceMetric,
+    FirstResponseTimeMetric,
+    IssueSLABatchResponse,
+    IssueSLAMetrics,
+    IssueSLAResponse,
+    LeadTimeMetric,
+    ResolutionTimeMetric,
+    TimeInStatusEntry,
+    TimeInStatusMetric,
+    WorkingHoursConfig,
+)
 from .workflow import JiraTransition
 from .worklog import JiraWorklog
 
@@ -52,4 +72,25 @@ __all__ = [
     "JiraIssueLink",
     "JiraLinkedIssue",
     "JiraLinkedIssueFields",
+    # ProForma models
+    "ProFormaForm",
+    "ProFormaFormField",
+    "ProFormaFormState",
+    # Metrics models
+    "IssueDatesResponse",
+    "IssueDatesBatchResponse",
+    "StatusChangeEntry",
+    "StatusTimeSummary",
+    # SLA models
+    "IssueSLAResponse",
+    "IssueSLABatchResponse",
+    "IssueSLAMetrics",
+    "CycleTimeMetric",
+    "LeadTimeMetric",
+    "TimeInStatusEntry",
+    "TimeInStatusMetric",
+    "DueDateComplianceMetric",
+    "ResolutionTimeMetric",
+    "FirstResponseTimeMetric",
+    "WorkingHoursConfig",
 ]

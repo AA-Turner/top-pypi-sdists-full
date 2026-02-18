@@ -24,6 +24,17 @@
 #
 
 from gams.tools.toolcollection.tooltemplate import ToolTemplate
+from gams.connect import ConnectDatabase
+from gams import transfer as gt
+from collections import defaultdict
+
+
+def scalar_symbol_template():
+    """
+    Template for maintaining scalar symbols within a dictionary.
+    Intended to support potential future implementations of SpecialSymbols, subclasses of base symbols
+    """
+    return {"sym_name": [], "sym_recs": []}
 
 
 class Sqlitewrite(ToolTemplate):
@@ -95,6 +106,16 @@ class Sqlitewrite(ToolTemplate):
 
         return False
 
+    @staticmethod
+    def combine_scalars(m: gt.Container, scalar_dict, scalar_name, pd_concat):
+        df = pd_concat(scalar_dict["sym_recs"], ignore_index=True)
+        df.insert(0, "name", scalar_dict["sym_name"])
+        dom = ["name"]
+        if scalar_name in ["scalarvariables", "scalarequations"]:
+            dom.append("attribute")
+            df = df.melt(id_vars="name", var_name="attribute", value_name="value")
+        m.addParameter(name=scalar_name, domain=dom, records=df)
+
     def execute(self):
         if self.dohelp():
             return
@@ -137,9 +158,6 @@ class Sqlitewrite(ToolTemplate):
         unstack = self.check_bool_args("unstack")
         fast = self.check_bool_args("fast")
 
-        from gams.connect import ConnectDatabase
-        from gams import transfer as gt
-
         id_list = None  # reads all if ids is not set
         if "ids" in self.namedargs:
             id_list = self.namedargs_val("ids").split(",")
@@ -148,117 +166,92 @@ class Sqlitewrite(ToolTemplate):
         m: gt.Container = cdb.container
         self.read_id_inputs(m, inputs=id_list)
 
-        scalars = False
-        scalar_parameter, scalar_variable, scalar_equation, symbols = [], [], [], []
+        symbols = []
+        scalar_data = defaultdict(scalar_symbol_template)
         cc = m.data.copy()  # the following loop adds new symbols
 
-        for sym_name, data in cc.items():
-            if data.dimension == 0:
-                scalars = True
-                if isinstance(data, gt.Parameter):  # scalar parameter
-                    scalar_parameter.append(sym_name)
-                elif isinstance(data, gt.Variable):  # scalar variable
-                    scalar_variable.append(sym_name)
-                elif isinstance(data, gt.Equation):  # scalar equation
-                    scalar_equation.append(sym_name)
-            elif isinstance(data, gt.Variable) or isinstance(data, gt.Equation):
-                dom = ",".join(f"d{i}" for i in range(data.dimension))
-                cdb.execute(
-                    {
-                        "Projection": {
-                            "name": f"{sym_name}.all({dom})",
-                            "newName": f"{sym_name}_all({dom})",
-                        }
-                    }
+        for name, sym in cc.items():
+            if sym.dimension == 0:
+                if isinstance(sym, gt.Parameter):
+                    sym_type = "Parameter"
+                elif isinstance(sym, gt.Equation):
+                    sym_type = "Equation"
+                elif isinstance(sym, gt.Variable):
+                    sym_type = "Variable"
+                else:
+                    continue
+                scalar_data[sym_type]["sym_name"].append(sym.name)
+                scalar_data[sym_type]["sym_recs"].append(sym.records)
+            elif isinstance(sym, (gt.Variable, gt.Equation)):
+                if sym.records is not None:
+                    dom = list(sym.records.columns[: sym.dimension])
+                    df = sym.records.melt(
+                        id_vars=dom, var_name="attribute", value_name="value"
+                    )
+                else:
+                    ### The old tool creates a blank table for symbols with no records
+                    df = None
+                m.addParameter(
+                    name=f"{name}_all",
+                    # NOTE: using sym.domain causes validity issues later on in SQLWriter
+                    domain=[dom if isinstance(dom, str) else dom.name for dom in sym.domain] + ["attribute"],
+                    records=df,
                 )
                 symbols.append(
                     {
-                        "name": f"{sym_name}_all",
-                        "tableName": sym_name if small else f"[{sym_name}]",
+                        "name": f"{name}_all",
+                        "tableName": name if small else f"[{name}]",
                         "unstack": True,
                     }
                 )
 
-            elif isinstance(data, gt.Alias):
+            elif isinstance(sym, gt.Alias):
                 pass
             else:
                 symbols.append(
                     {
-                        "name": sym_name,
-                        "tableName": sym_name if small else f"[{sym_name}]",
+                        "name": name,
+                        "tableName": name if small else f"[{name}]",
                     }
                 )
-
-        if scalars:
-            if scalar_parameter:
-                cdb.execute(
-                    {"Projection": {"name": scalar_parameter, "newName": "scalars"}}
-                )
-                m["scalars"].records = m["scalars"].records.rename(
-                    columns={"uni_0": "name"}
-                )
-                symbols.append({"name": "scalars", "tableName": "scalars"})
-            if scalar_variable:
-                cdb.execute(
-                    [
-                        # combine all scalar variables into one
-                        {
-                            "Projection": {
-                                "name": scalar_variable,
-                                "newName": "scalarvariables_dummy",
-                            }
-                        },
-                        # convert the combined variable to parameter with variable attributes
-                        {
-                            "Projection": {
-                                "name": f"scalarvariables_dummy.all(i)",
-                                "newName": f"scalarvariables(i)",
-                            }
-                        },
-                    ]
-                )
-                m["scalarvariables"].records = m["scalarvariables"].records.rename(
-                    columns={"uni_0": "name"}
-                )
-                symbols.append(
-                    {
-                        "name": "scalarvariables",
-                        "tableName": "scalarvariables",
-                        "unstack": True,
-                    }
-                )
-                m.removeSymbols(symbols="scalarvariables_dummy")
-            if scalar_equation:
-                cdb.execute(
-                    [
-                        # combine all scalar equations into one
-                        {
-                            "Projection": {
-                                "name": scalar_equation,
-                                "newName": "scalarequations_dummy",
-                            }
-                        },
-                        # convert the combined equation to parameter with equation attributes
-                        {
-                            "Projection": {
-                                "name": f"scalarequations_dummy.all(i)",
-                                "newName": f"scalarequations(i)",
-                            }
-                        },
-                    ]
-                )
-
-                m["scalarequations"].records = m["scalarequations"].records.rename(
-                    columns={"uni_0": "name"}
-                )
-                symbols.append(
-                    {
-                        "name": "scalarequations",
-                        "tableName": "scalarequations",
-                        "unstack": True,
-                    }
-                )
-                m.removeSymbols(symbols="scalarequations_dummy")
+        if any(data["sym_name"] for data in scalar_data.values()):
+            from pandas import concat as pd_concat
+        if scalar_data["Parameter"]["sym_name"]:
+            self.combine_scalars(
+                m,
+                scalar_dict=scalar_data["Parameter"],
+                scalar_name="scalars",
+                pd_concat=pd_concat,
+            )
+            symbols.append({"name": "scalars", "tableName": "scalars"})
+        if scalar_data["Variable"]["sym_name"]:
+            self.combine_scalars(
+                m,
+                scalar_dict=scalar_data["Variable"],
+                scalar_name="scalarvariables",
+                pd_concat=pd_concat,
+            )
+            symbols.append(
+                {
+                    "name": "scalarvariables",
+                    "tableName": "scalarvariables",
+                    "unstack": True,
+                }
+            )
+        if scalar_data["Equation"]["sym_name"]:
+            self.combine_scalars(
+                m,
+                scalar_dict=scalar_data["Equation"],
+                scalar_name="scalarequations",
+                pd_concat=pd_concat,
+            )
+            symbols.append(
+                {
+                    "name": "scalarequations",
+                    "tableName": "scalarequations",
+                    "unstack": True,
+                }
+            )
         sqlite_params = {
             "connection": {"database": sqlite_file},
             "connectionArguments": {"__globalCommit__": True},

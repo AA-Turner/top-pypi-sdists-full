@@ -17,10 +17,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
-
-if TYPE_CHECKING:
-    pass
+from typing import Any
 
 
 @dataclass
@@ -64,10 +61,7 @@ class Subscription:
     Example (v1.0)::
 
         # Create subscription
-        sub = await xbbg.asubscribe(
-            ["AAPL US Equity", "GOOGL US Equity"],
-            ["LAST_PRICE", "BID", "ASK"]
-        )
+        sub = await xbbg.asubscribe(["AAPL US Equity", "GOOGL US Equity"], ["LAST_PRICE", "BID", "ASK"])
 
         # Iterate over ticks
         async for batch in sub:
@@ -136,6 +130,6 @@ class Subscription:
         """Async context manager entry."""
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(self, _exc_type, _exc_val, _exc_tb):
         """Async context manager exit."""
         await self.unsubscribe()

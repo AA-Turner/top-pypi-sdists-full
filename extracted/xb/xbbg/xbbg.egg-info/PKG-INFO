@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xbbg
-Version: 0.11.4
+Version: 0.12.0
 Summary: Intuitive Bloomberg data API
 Author-email: Alpha x1 <alpha.xone@outlook.com>
 License-Expression: Apache-2.0
@@ -28,6 +28,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: narwhals>=2.14.0
 Requires-Dist: pyarrow>=22.0.0
+Requires-Dist: tomli>=2.0.1; python_version < "3.11"
 Provides-Extra: pandas
 Requires-Dist: pandas>=2.0; extra == "pandas"
 Provides-Extra: polars
@@ -66,11 +67,11 @@ Dynamic: license-file
 [![PyPI version](https://img.shields.io/pypi/v/xbbg.svg)](https://pypi.org/project/xbbg/)
 [![Python versions](https://img.shields.io/pypi/pyversions/xbbg.svg)](https://pypi.org/project/xbbg/)
 [![PyPI Downloads](https://img.shields.io/pypi/dm/xbbg)](https://pypistats.org/packages/xbbg)
-[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/fUUy2nfzxM)
+[![Discord](https://img.shields.io/badge/Discord-Join%20Chat-5865F2?logo=discord&logoColor=white)](https://discord.gg/P34uMwgCjC)
 
 <a href="https://www.buymeacoffee.com/Lntx29Oof"><img src="https://img.shields.io/badge/Buy%20Me%20a%20Coffee-1E3A8A?style=plastic&logo=buy-me-a-coffee&logoColor=white" alt="Buy Me a Coffee"></a>
 
-**Quick Links:** [Discord](https://discord.gg/fUUy2nfzxM) • [Documentation](https://xbbg.readthedocs.io/) • [Installation](#installation) • [Quickstart](#quickstart) • [Examples](#examples) • [Contributing](CONTRIBUTING.md) • [Changelog](CHANGELOG.md)
+**Quick Links:** [Discord](https://discord.gg/P34uMwgCjC) • [Documentation](https://xbbg.readthedocs.io/) • [Installation](#installation) • [Quickstart](#quickstart) • [Examples](#examples) • [Contributing](CONTRIBUTING.md) • [Changelog](CHANGELOG.md)
 
 </div>
 <!-- markdownlint-enable MD033 MD041 -->
@@ -78,7 +79,7 @@ Dynamic: license-file
 ---
 
 <!-- xbbg:latest-release-start -->
-Latest release: xbbg==0.11.3 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.3))
+Latest release: xbbg==0.12.0b3 (release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.12.0b3))
 <!-- xbbg:latest-release-end -->
 
 ## Table of Contents
@@ -131,7 +132,7 @@ xbbg is a comprehensive Bloomberg API wrapper for Python, providing a clean, Pyt
 <td width="50%">
 
 **Production-Grade Features**
-- Intelligent Parquet-based caching
+- Parquet caching for intraday bars
 - Async/await support for non-blocking operations
 - **Multi-backend output** (pandas, Polars, PyArrow, DuckDB)
 - Full type hints for IDE integration
@@ -194,7 +195,7 @@ xbbg is the **only Python library** that provides:
 
 ### 📊 Production-Grade Features
 
-- **Intelligent caching**: Automatic Parquet-based storage reduces API calls by 80%+
+- **Intraday caching**: Automatic Parquet storage for `bdib()` bar data
 - **Async/await support**: Non-blocking operations for modern Python applications
 - **Exchange-aware sessions**: Precise market hour handling for 50+ global exchanges
 - **Type safety**: Full type hints for IDE autocomplete and static analysis
@@ -235,7 +236,7 @@ xbbg is the **only Python library** that provides:
 | Excel-compatible syntax | ✅ | ❌ | ❌ | ❌ |
 | Sub-minute intervals (10s bars) | ✅ | ❌ | ❌ | ❌ |
 | Async/await support | ✅ | ❌ | ❌ | ❌ |
-| Local Parquet caching | ✅ | ❌ | ❌ | ❌ |
+| Intraday bar caching (Parquet) | ✅ | ❌ | ❌ | ❌ |
 | Multi-backend output | ✅ | ❌ | ❌ | ❌ |
 | **Utilities** | | | | |
 | Currency conversion | ✅ | ❌ | ❌ | ❌ |
@@ -288,8 +289,9 @@ xbbg is the **only Python library** that provides:
 
 | Function | Description | Key Features |
 |----------|-------------|--------------|
-| **`bdib()`** | Intraday bar data | Sub-minute bars (10s intervals)<br>Session filtering (open/close)<br>Exchange-aware timing |
+| **`bdib()`** | Intraday bar data | Sub-minute bars (10s intervals)<br>Session filtering (open/close)<br>Exchange-aware timing<br>Timezone control (`tz` parameter) |
 | **`bdtick()`** | Tick-by-tick data | Trade & quote events<br>Condition codes<br>Exchange/broker details |
+| **`exchange_tz()`** | Exchange timezone lookup | Returns IANA timezone string for any ticker |
 
 ### Screening & Advanced Queries
 
@@ -322,8 +324,8 @@ xbbg is the **only Python library** that provides:
 
 ### Additional Features
 
-- **Smart Caching**: Automatic Parquet storage reduces API calls
-- **Timezone Support**: Exchange-aware market hours for 50+ global exchanges
+- **Intraday Caching**: Automatic Parquet storage for `bdib()` bar data
+- **Timezone Support**: Exchange-aware market hours for 50+ global exchanges; `bdib()` and `bdtick()` return data in exchange local time by default (configurable via `tz` parameter)
 - **Configurable Logging**: Debug mode for troubleshooting
 - **Batch Processing**: Efficient multi-ticker queries
 - **Standardized Output**: Consistent DataFrame column naming
@@ -418,6 +420,12 @@ bars_10s = blp.bdib('AAPL US Equity', dt='2024-01-15', interval=10, intervalHasS
 
 # Session filtering (e.g., first 30 minutes)
 opening = blp.bdib('SPY US Equity', dt='2024-01-15', session='day_open_30')
+
+# Get data in UTC instead of exchange local time
+bars_utc = blp.bdib('SPY US Equity', dt='2024-01-15', tz='UTC')
+
+# Look up exchange timezone for a ticker
+tz = blp.exchange_tz('AAPL US Equity')  # → 'America/New_York'
 ```
 
 </details>
@@ -467,7 +475,7 @@ divs = blp.dividend('AAPL US Equity', start_date='2024-01-01', end_date='2024-12
 ### Best Practices
 
 - **Excel users**: Use the same field names and date formats as Bloomberg Excel
-- **Performance**: Enable caching with `os.environ['BBG_ROOT'] = '/path/to/cache'`
+- **Performance**: `bdib()` caches intraday bars as Parquet files automatically (see [Data Storage](#data-storage))
 - **Async operations**: Use `abdp()`, `abdh()`, `abds()` for non-blocking requests
 - **Debugging**: Set `logging.getLogger('xbbg').setLevel(logging.DEBUG)` for detailed logs
 
@@ -487,35 +495,55 @@ The `server` parameter (or `server_host`) can be passed through any function tha
 
 ### Async Functions
 
-xbbg provides async versions of reference and historical data functions for non-blocking, concurrent requests. Use `abdp()`, `abds()`, and `abdh()` in async contexts:
+Every sync function has an async counterpart prefixed with `a` — for example `bdp()` → `abdp()`, `bdh()` → `abdh()`, `bdib()` → `abdib()`. The async versions are the real implementations; the sync functions are thin wrappers.
+
+#### In scripts (no existing event loop)
 
 ```python
 import asyncio
 from xbbg import blp
 
-# Single async request
 async def get_data():
-    df = await blp.abdp(tickers='TICKER US Equity', flds=['PX_LAST', 'VOLUME'])
+    df = await blp.abdp(tickers='AAPL US Equity', flds=['PX_LAST', 'VOLUME'])
     return df
 
-# Concurrent requests for multiple tickers
 async def get_multiple():
+    # Concurrent requests — runs in parallel on a single thread
     results = await asyncio.gather(
-        blp.abdp(tickers='TICKER1 US Equity', flds=['PX_LAST']),
-        blp.abdp(tickers='TICKER2 US Equity', flds=['PX_LAST']),
-        blp.abdh(tickers='TICKER3 US Equity', start_date='2024-01-01'),
+        blp.abdp(tickers='AAPL US Equity', flds=['PX_LAST']),
+        blp.abdp(tickers='MSFT US Equity', flds=['PX_LAST']),
+        blp.abdh(tickers='GOOGL US Equity', start_date='2024-01-01'),
     )
     return results
 
-# Run async functions
 data = asyncio.run(get_data())
 multiple = asyncio.run(get_multiple())
 ```
 
+#### In Jupyter notebooks
+
+Jupyter already runs an event loop, so `asyncio.run()` will raise `RuntimeError: asyncio.run() cannot be called from a running event loop`. Use `await` directly in notebook cells instead:
+
+```python
+from xbbg import blp
+
+# Just await directly — Jupyter cells are already async
+df = await blp.abdp(tickers='AAPL US Equity', flds=['PX_LAST', 'VOLUME'])
+
+# Concurrent requests work the same way
+import asyncio
+results = await asyncio.gather(
+    blp.abdp(tickers='AAPL US Equity', flds=['PX_LAST']),
+    blp.abdp(tickers='MSFT US Equity', flds=['PX_LAST']),
+)
+```
+
+> **Tip:** If you don't need async, the sync functions (`bdp`, `bdh`, `bdib`, etc.) work everywhere — scripts, notebooks, and async contexts — without any special handling.
+
 **Benefits:**
 - Non-blocking: doesn't block the event loop
 - Concurrent: use `asyncio.gather()` for parallel requests
-- Compatible: works with async web frameworks and async codebases
+- Compatible: works with async web frameworks, Jupyter, and async codebases
 - Same API: identical parameters to sync versions (`bdp`, `bds`, `bdh`)
 
 ### Multi-Backend Support
@@ -1091,6 +1119,34 @@ blp.bdtick(ticker='XYZ US Equity', dt='2024-10-15', session='day', timeout=1000)
 
 Note: `bdtick` requests can take longer to respond. Use `timeout` parameter (in milliseconds) if you encounter empty DataFrames due to timeout.
 
+#### Timezone handling
+
+By default, `bdib()` and `bdtick()` return timestamps in the **exchange's local timezone** (e.g., `America/New_York` for US equities, `Asia/Tokyo` for Japanese equities, `Australia/Sydney` for Australian equities). Bloomberg sends intraday data in UTC; xbbg converts it automatically using exchange metadata.
+
+Use the `tz` parameter to control the output timezone:
+
+```python
+# Default: exchange local time (America/New_York for US equities)
+bars = blp.bdib('SPY US Equity', dt='2024-01-15')
+# Index: 2024-01-15 09:31:00-05:00, 2024-01-15 09:32:00-05:00, ...
+
+# Keep timestamps in UTC (skip conversion)
+bars_utc = blp.bdib('SPY US Equity', dt='2024-01-15', tz='UTC')
+# Index: 2024-01-15 14:31:00+00:00, 2024-01-15 14:32:00+00:00, ...
+
+# Convert to a specific timezone
+bars_london = blp.bdib('SPY US Equity', dt='2024-01-15', tz='Europe/London')
+# Index: 2024-01-15 14:31:00+00:00, 2024-01-15 14:32:00+00:00, ...
+```
+
+To look up the exchange timezone for any ticker, use `exchange_tz()`:
+
+```python
+blp.exchange_tz('AAPL US Equity')   # → 'America/New_York'
+blp.exchange_tz('7974 JT Equity')   # → 'Asia/Tokyo'
+blp.exchange_tz('BHP AU Equity')    # → 'Australia/Sydney'
+```
+
 ```python
 # Trading volume & turnover (currency-adjusted, in millions)
 blp.turnover(['ABC US Equity', 'DEF US Equity'], start_date='2024-01-01', end_date='2024-01-10', ccy='USD')
@@ -1283,18 +1339,60 @@ Out[18]:
 
 ## Data Storage
 
-If `BBG_ROOT` is provided in `os.environ`, data can be saved locally in Parquet format. By default, local storage is preferred over blpapi for all queries.
+### What gets cached
 
-**Setup**:
+Currently, only **`bdib()` intraday bar data** is cached as local Parquet files. Other functions (`bdp`, `bds`, `bdh`, `bql`, `beqs`, `bsrch`, `bta`, `bqr`) always make live Bloomberg API calls — they are not cached.
+
+When `bdib()` fetches intraday bars, it will:
+
+1. **Check the cache first** — if a Parquet file exists for that ticker/date/interval, return it instead of calling Bloomberg.
+2. **Save results to cache** — after a successful Bloomberg fetch, save the bars as a Parquet file (only once the trading session has ended, to avoid saving incomplete data).
+
+Exchange metadata (timezone, session hours) is also cached locally to avoid repeated lookups.
+
+### Cache location
+
+By default, xbbg uses a platform-specific cache directory:
+
+| Platform | Default location |
+|----------|-----------------|
+| Windows | `%APPDATA%\xbbg` |
+| Linux/macOS | `~/.cache/xbbg` or `~/.xbbg` |
+
+To use a custom location, set `BBG_ROOT` before importing xbbg:
 
 ```python
 import os
-os.environ['BBG_ROOT'] = '/path/to/your/data/directory'
+os.environ['BBG_ROOT'] = '/path/to/your/cache/directory'
 ```
 
-Once configured, xbbg will automatically save and retrieve data from local Parquet files, reducing blpapi calls and improving performance.
+### Cache structure
 
-**Important**: Local data usage must be compliant with Bloomberg Datafeed Addendum (full description in `DAPI<GO>`):
+Intraday bar files are organized as:
+
+```
+{BBG_ROOT}/{asset_class}/{ticker}/{event_type}/{interval}/{date}.parq
+```
+
+For example, 1-minute TRADE bars for AAPL on 2024-01-15:
+
+```
+/path/to/cache/Equity/AAPL US Equity/TRADE/1m/2024-01-15.parq
+```
+
+### Controlling cache behavior
+
+```python
+# Disable cache for a specific call (always fetch from Bloomberg)
+blp.bdib('AAPL US Equity', dt='2024-01-15', cache=False)
+
+# Force reload (fetch from Bloomberg even if cached, then overwrite cache)
+blp.bdib('AAPL US Equity', dt='2024-01-15', reload=True)
+```
+
+### Bloomberg data license compliance
+
+Local data usage must be compliant with the Bloomberg Datafeed Addendum (see `DAPI<GO>`):
 
 > To access Bloomberg data via the API (and use that data in Microsoft Excel), your company must sign the 'Datafeed Addendum' to the Bloomberg Agreement. This legally binding contract describes the terms and conditions of your use of the data and information available via the API (the "Data"). The most fundamental requirement regarding your use of Data is that it cannot leave the local PC you use to access the BLOOMBERG PROFESSIONAL service.
 
@@ -1374,7 +1472,7 @@ blp.fieldInfo(['PX_LAST', 'VOLUME'])  # See data types & descriptions
 <summary><b>🐛 Still Stuck?</b></summary>
 
 **Get help fast:**
-- 💬 **Discord**: [Join our community](https://discord.gg/fUUy2nfzxM) - Usually get answers within hours
+- 💬 **Discord**: [Join our community](https://discord.gg/P34uMwgCjC) - Usually get answers within hours
 - 🐛 **GitHub Issues**: [Report bugs](https://github.com/alpha-xone/xbbg/issues) - Include error messages & code
 - 📚 **Documentation**: [ReadTheDocs](https://xbbg.readthedocs.io/) - Comprehensive guides
 - 📓 **Examples**: [`xbbg_jupyter_examples.ipynb`](examples/xbbg_jupyter_examples.ipynb) - 100+ working examples
@@ -1458,7 +1556,7 @@ uv run pytest --doctest-modules -q
 
 ### Community Support
 
-- **Discord**: [Join our community](https://discord.gg/fUUy2nfzxM) for discussions, questions, and help
+- **Discord**: [Join our community](https://discord.gg/P34uMwgCjC) for discussions, questions, and help
 - **GitHub Issues**: [Report bugs or request features](https://github.com/alpha-xone/xbbg/issues)
 - **GitHub Discussions**: Share ideas and ask questions
 
@@ -1475,7 +1573,7 @@ uv run pytest --doctest-modules -q
 - [Documentation](https://xbbg.readthedocs.io/)
 - [Source Code](https://github.com/alpha-xone/xbbg)
 - [Issue Tracker](https://github.com/alpha-xone/xbbg/issues)
-- [Discord Community](https://discord.gg/fUUy2nfzxM)
+- [Discord Community](https://discord.gg/P34uMwgCjC)
 - [Changelog](CHANGELOG.md)
 - [Contributing Guidelines](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
@@ -1502,325 +1600,4 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 |                | [![CodeFactor](https://www.codefactor.io/repository/github/alpha-xone/xbbg/badge)](https://www.codefactor.io/repository/github/alpha-xone/xbbg) |
 | License        | [![GitHub license](https://img.shields.io/github/license/alpha-xone/xbbg.svg)](https://github.com/alpha-xone/xbbg/blob/main/LICENSE)   |
 
-_0.11.0b1_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0b1)
-
-## v0.11.0b1 - Beta Release
-
-### Highlights
-
-- **Arrow-first pipeline**: Complete rewrite of data processing using PyArrow internally
-
-- **Multi-backend support**: New Backend enum supporting narwhals, pandas, polars, polars_lazy, pyarrow, duckdb
-
-- **Output format control**: New Format enum with long, semi_long, wide options
-
-- **Bloomberg Technical Analysis (BTA)**: New `bta()` function for technical indicators
-
-- **v1.0 migration infrastructure**: Deprecation warnings and forward-compatible APIs
-
-### Added
-
-- `Backend` and `Format` enums for output control
-
-- `set_backend()`, `get_backend()`, `set_format()`, `get_format()` functions
-
-- `bta()` function for Bloomberg Technical Analysis
-
-- `get_sdk_info()` as replacement for `getBlpapiVersion()`
-
-- v1.0-compatible exception classes (`BlpError`, `BlpSessionError`, etc.)
-
-- `EngineConfig` dataclass and `configure()` function
-
-- `Service` and `Operation` enums for Bloomberg services
-
-### Changed
-
-- All API functions now support `backend` and `format` parameters
-
-- Internal pipeline uses PyArrow tables with narwhals transformations
-
-- Removed pytz dependency (using stdlib datetime.timezone)
-
-### Deprecated
-
-- `connect()` / `disconnect()` - engine auto-initializes in v1.0
-
-- `getBlpapiVersion()` - use `get_sdk_info()`
-
-- `lookupSecurity()` - will become `blkp()` in v1.0
-
-- `fieldInfo()` / `fieldSearch()` - will merge into `bfld()` in v1.0
-
-This is a **beta release** for testing the new Arrow-first architecture before v1.0.
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.10.3...v0.11.0b1
-
-_0.11.0b3_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0b3)
-
-v0.11.0b3
-
-- bqr(): New Bloomberg Quote Request function emulating Excel =BQR() for dealer quote data with broker attribution (#22)
-
-- Slow Bloomberg fields no longer timeout prematurely - TIMEOUT events handled correctly (#193)
-
-- Pipeline data types: Preserve original data types in pipeline output instead of converting to strings (#191)
-
-_0.11.0b4_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0b4)
-
-### Added
-
-- **yas()**: New Bloomberg YAS (Yield Analysis) wrapper for fixed income analytics
-  - Provides convenient interface to Bloomberg's YAS calculator via `bdp()` overrides
-  - `YieldType` enum for yield calculation type (`YTM=1`, `YTC=2`)
-  - Supports settlement date, spread, yield, price, and benchmark overrides
-  - Parameter mapping: `settle_dt` → `SETTLE_DT`, `yield_type` → `YAS_YLD_FLAG`, etc.
-  - Available via `blp.yas()` or `from xbbg.api.fixed_income import yas, YieldType`
-
-- **Treasury & SOFR futures support**: Added TY, ZN, ZB, ZF, ZT, UB, TN (Treasury), SFR, SR1, SR3 (SOFR), and ED (Eurodollar) futures to assets.yml (#198)
-
-### Fixed
-
-- **stream() field values**: Subscribed field values are now always included in output dict (#199)
-  - Previously, fields not in `const.LIVE_INFO` (like `RT_BN_SURVEY_MEDIAN`) were filtered out
-  - Output would show `FIELD='RT_BN_SURVEY_MEDIAN'` but contain `LAST_PRICE` value instead
-  - Fix ensures the subscribed field's value is always present regardless of info filter
-
-- **Futures symbol parsing for bdib**: Fixed `market_info()` to correctly parse futures symbols like `TYH6` → `TY` (#198)
-  - Previously failed to identify root symbol when ticker had single-digit year suffix
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.0b3...v0.11.0b4
-
-_0.11.0b5_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0b5)
-
-### Fixed
-
-- **Import without blpapi installed**: Fixed `AttributeError` when importing xbbg without blpapi installed (#200)
-  - Added `from __future__ import annotations` to defer type annotation evaluation in `conn.py`
-  - Guarded `blpapi.Name()` constants with `is_available()` check in `process.py`
-
-- **Japan/non-US timezone fix for bdib**: Fixed timezone conversion for non-US exchanges (#198)
-  - Bloomberg returns `TRADING_DAY_START_TIME_EOD` and `TRADING_DAY_END_TIME_EOD` in EST (America/New_York)
-  - These are now correctly converted to the exchange's local timezone (e.g., Asia/Tokyo for Japanese equities)
-  - Previously, Tokyo's 09:00-15:45 trading hours appeared as 19:00-01:45 (EST times misinterpreted as local)
-  - `FUT_TRADING_HRS` is not converted (already in exchange local time)
-
-- **get_tz() no longer triggers Bloomberg lookup for timezone strings**: Direct timezone strings like `"America/New_York"` or `"UTC"` are now recognized without calling Bloomberg API
-
-### Removed
-
-- **Trials mechanism removed**: Eliminated the retry-blocking system that caused silent failures
-  - The trials system tracked failed API requests and blocked future attempts after 2 failures
-  - This caused issues when bugs were fixed (stale entries still blocked requests)
-  - Users had to manually clear SQLite database entries to retry
-  - Pipeline caching already handles "don't re-fetch" use case properly
-  - Deleted `xbbg/core/utils/trials.py` and related test files
-
-- **pandas-market-calendars dependency removed**: Simplified exchange metadata resolution
-  - Removed `PmcCalendarResolver` from resolver chain
-  - Exchange information now sourced exclusively from Bloomberg API with local caching
-  - Removed `pmc_extended` context option (no longer needed)
-  - Reduces package dependencies and improves consistency
-
-### Changed
-
-- **Internal class renames** (backward compatible aliases provided):
-  - `YamlMarketInfoProvider` → `MetadataProvider`
-  - `ExchangeYamlResolver` → `ExchangeMetadataResolver`
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.10.3...v0.11.0b5
-
-_0.11.0_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.0)
-
-### Highlights
-
-- **Arrow-first pipeline**: Complete rewrite of internal data processing using PyArrow for improved performance
-
-- **Multi-backend support**: Output to pandas, Polars, PyArrow, DuckDB, or narwhals with the new `Backend` enum
-
-- **New API functions**: `bta()` for technical analysis, `bqr()` for dealer quotes, `yas()` for fixed income analytics
-
-- **BQL helpers**: `preferreds()` and `corporate_bonds()` convenience functions
-
-- **Dependency cleanup**: Removed pandas-market-calendars and the trials mechanism for a leaner install
-
-- **v1.0 migration path**: Deprecation warnings and forward-compatible APIs prepare for the upcoming v1.0 release
-
-### Added
-
-- **Arrow-first pipeline**: Complete rewrite of internal data processing using PyArrow
-
-- **Multi-backend support**: New `Backend` enum supporting narwhals, pandas, polars, polars_lazy, pyarrow, duckdb
-
-- **Output format control**: New `Format` enum with long, semi_long, wide options
-
-- **bta()**: Bloomberg Technical Analysis function for 50+ technical indicators (#175)
-
-- **bqr()**: Bloomberg Quote Request function emulating Excel `=BQR()` for dealer quote data with broker attribution (#22)
-
-- **yas()**: Bloomberg YAS (Yield Analysis) wrapper for fixed income analytics with `YieldType` enum
-
-- **preferreds()**: BQL convenience function to find preferred stocks for an equity ticker
-
-- **corporate_bonds()**: BQL convenience function to find active corporate bonds for a ticker
-
-- `set_backend()`, `get_backend()`, `set_format()`, `get_format()` configuration functions
-
-- `get_sdk_info()` as replacement for deprecated `getBlpapiVersion()`
-
-- v1.0-compatible exception classes (`BlpError`, `BlpSessionError`, `BlpRequestError`, etc.)
-
-- `EngineConfig` dataclass and `configure()` function for engine configuration
-
-- `Service` and `Operation` enums for Bloomberg service URIs
-
-- Treasury & SOFR futures support: TY, ZN, ZB, ZF, ZT, UB, TN, SFR, SR1, SR3, ED futures (#198)
-
-- Comprehensive logging improvements across critical paths with better error traceability
-
-- CONTRIBUTING.md and CODE_OF_CONDUCT.md for community standards
-
-### Changed
-
-- All API functions now accept `backend` and `format` parameters
-
-- Internal pipeline uses PyArrow tables with narwhals transformations
-
-- Removed pytz dependency (using stdlib `datetime.timezone`)
-
-- **Intraday cache now includes interval in path** (#80) - different bar intervals cached separately (**breaking**: existing cache will miss)
-
-- Internal class renames with backward compatible aliases (`YamlMarketInfoProvider` → `MetadataProvider`)
-
-- Logging level adjustments: `BBG_ROOT not set` promoted to WARNING, cache timing demoted to DEBUG
-
-### Deprecated
-
-- `connect()` / `disconnect()` - engine auto-initializes in v1.0
-
-- `getBlpapiVersion()` - use `get_sdk_info()` instead
-
-- `lookupSecurity()` - will become `blkp()` in v1.0
-
-- `fieldInfo()` / `fieldSearch()` - will merge into `bfld()` in v1.0
-
-- `bta_studies()` - renamed to `ta_studies()` in v1.0
-
-- `getPortfolio()` - renamed to `bport()` in v1.0
-
-- Helper functions (`dividend()`, `earning()`, `turnover()`, `adjust_ccy()`) moving to `xbbg.ext` in v1.0
-
-- Futures/CDX utilities (`fut_ticker()`, `active_futures()`, `cdx_ticker()`, `active_cdx()`) moving to `xbbg.ext` in v1.0
-
-### Removed
-
-- **Trials mechanism**: Eliminated retry-blocking system that caused silent failures after 2 failed attempts
-
-- **pandas-market-calendars dependency**: Exchange info now sourced exclusively from Bloomberg API with local caching
-
-### Fixed
-
-- **Import without blpapi installed**: Fixed `AttributeError` when importing xbbg without blpapi (#200)
-
-- **Japan/non-US timezone fix for bdib**: Trading hours now correctly converted to exchange's local timezone (#198)
-
-- **stream() field values**: Subscribed field values now always included in output dict (#199)
-
-- **Slow Bloomberg fields**: TIMEOUT events handled correctly; requests wait for response with `slow_warn_seconds` warning (#193)
-
-- **Pipeline data types**: Preserve original data types instead of converting to strings (#191)
-
-- **Futures symbol parsing**: Fixed `market_info()` to correctly parse symbols like `TYH6` → `TY` (#198)
-
-- **get_tz() optimization**: Direct timezone strings recognized without Bloomberg API call
-
-- **bdtick timezone fix**: Pass exchange timezone to fix blank results for non-UTC exchanges (#185)
-
-- **bdtick timeout**: Increased from 10s to 2 minutes for tick data requests
-
-- Extended BDS test date range to 120 days for quarterly dividends
-
-- Helper functions now work correctly with LONG format output
-
-- Logging format compliance fixes (G004, G201)
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.10.3...v0.11.0
-
-_0.11.1_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.1)
-
-### Fixed
-
-- **Field names now lowercase**: Restored v0.10.x behavior where `bdp()`, `bdh()`, and `bds()` return field/column names as lowercase (#206)
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.0...v0.11.1
-
-_0.11.2_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.2)
-
-### Added
-
-- **Extended multi-backend support**: Added 6 new backends matching narwhals' full backend support:
-  - **Eager backends**: `cudf` (GPU-accelerated via NVIDIA RAPIDS), `modin` (distributed pandas)
-  - **Lazy backends**: `dask` (parallel computing), `ibis` (portable DataFrame expressions), `pyspark` (Apache Spark), `sqlframe` (SQL-based DataFrames)
-  - Total: 13 backends (6 eager + 7 lazy)
-
-- **Backend availability checking**: New functions to check and validate backend availability with helpful error messages:
-  - `is_backend_available(backend)` - Check if a backend package is installed
-  - `check_backend(backend)` - Check availability with version validation, raises helpful errors
-  - `get_available_backends()` - List all currently available backends
-  - `print_backend_status()` - Diagnostic function showing all backend statuses
-
-- **Format compatibility checking**: New functions to validate format support per backend:
-  - `is_format_supported(backend, format)` - Check if a format works with a backend
-  - `get_supported_formats(backend)` - Get set of supported formats for a backend
-  - `check_format_compatibility(backend, format)` - Validate with helpful errors
-  - `validate_backend_format(backend, format)` - Combined validation for API functions
-
-- **`xbbg.ext` module**: New extension module for v1.0 migration containing helper functions that will be removed from `blp` namespace
-  - `xbbg.ext.currency` - `adjust_ccy()` for currency conversion
-  - `xbbg.ext.dividends` - `dividend()` for dividend history
-  - `xbbg.ext.earnings` - `earning()` for earnings breakdowns
-  - `xbbg.ext.turnover` - `turnover()` for trading volume
-  - `xbbg.ext.holdings` - `etf_holdings()`, `preferreds()`, `corporate_bonds()` BQL helpers
-  - `xbbg.ext.futures` - `fut_ticker()`, `active_futures()` for futures resolution
-  - `xbbg.ext.cdx` - `cdx_ticker()`, `active_cdx()` for CDX index resolution
-  - `xbbg.ext.yas` - `yas()`, `YieldType` for fixed income analytics
-
-- New v1.0-compatible import path: `from xbbg.ext import dividend, fut_ticker, ...` (no deprecation warnings)
-
-- **Pandas removed as required dependency**: `xbbg.ext` modules now use only stdlib datetime and narwhals, making pandas fully optional
-
-### Changed
-
-- **Backend enum reorganized**: Backends now categorized as eager (full API) vs lazy (deferred execution)
-
-- **Format restrictions**: WIDE format only available for eager backends (pandas, polars, pyarrow, narwhals, cudf, modin); lazy backends limited to LONG and SEMI_LONG
-
-- **Version requirements updated**: Minimum versions now match narwhals requirements (duckdb>=1.0, dask>=2024.1)
-
-- `xbbg/markets/resolvers.py` now re-exports from `xbbg.ext.futures` and `xbbg.ext.cdx` for backwards compatibility
-
-- Internal implementations moved to `xbbg/ext/` module; old import paths still work with deprecation warnings
-
-### Fixed
-
-- **ibis backend**: Updated to use `ibis.memtable()` instead of deprecated `con.read_in_memory()`
-
-- **sqlframe backend**: Fixed import path to use `sqlframe.duckdb.DuckDBSession`
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.1...v0.11.2
-
-_0.11.3_ - see release: [notes](https://github.com/alpha-xone/xbbg/releases/tag/v0.11.3)
-
-### Fixed
-
-- **Duplicate `port` keyword argument**: `bbg_service()` and `bbg_session()` used `.get()` to extract `port` then forwarded `**kwargs` still containing it, causing `TypeError: got multiple values for keyword argument 'port'` on non-default ports (e.g., B-Pipe connections) (#212)
-
-- **Session resource leak**: `clear_default_session()` set `_default_session = None` without calling `session.stop()`, leaking OS file descriptors over repeated connect/disconnect cycles (#211)
-
-- **Wrong session removed on retry**: `send_request()` retry path called `remove_session(port=port)` without `server_host`, always targeting `//localhost:{port}` even for remote hosts
-
-- **Inconsistent `server_host` extraction**: `get_session()` / `get_service()` checked `server_host` before `server`, but `connect_bbg()` did the opposite, causing different code paths to resolve different hosts when both keys were present
-
-- **Resource leak on start failure**: `connect_bbg()` did not stop the session before raising `ConnectionError` when `.start()` failed, leaking C++ resources allocated by the `Session()` constructor
-
-**Full Changelog**: https://github.com/alpha-xone/xbbg/compare/v0.11.2...v0.11.3
+For detailed release history, see [CHANGELOG.md](CHANGELOG.md).

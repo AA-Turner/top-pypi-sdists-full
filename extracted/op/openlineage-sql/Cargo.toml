@@ -1,5 +1,5 @@
 [workspace]
-members = ["iface-py"]
+members = ["impl", "iface-py"]
 resolver = "2"
 
 [workspace.dependencies]

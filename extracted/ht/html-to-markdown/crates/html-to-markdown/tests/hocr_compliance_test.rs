@@ -350,3 +350,160 @@ fn test_container_elements() {
     assert!(markdown.contains("Layout analysis"));
     assert!(markdown.contains("Block content"));
 }
+
+#[test]
+fn test_ocr_header_renders_as_italic_not_heading() {
+    // OcrHeader is a "page running header" (repeated at top of pages),
+    // NOT a section heading. It must render as italic (*text*), not as # heading.
+    let hocr = r#"<div class="ocr_page" title="bbox 0 0 1000 1000">
+    <div class="ocr_header" title="bbox 0 0 1000 50">
+        <span class="ocr_line" title="bbox 0 0 500 30">
+            <span class="ocrx_word" title="bbox 0 0 100 30; x_wconf 95">Chapter</span>
+            <span class="ocrx_word" title="bbox 110 0 200 30; x_wconf 95">One</span>
+        </span>
+    </div>
+    <p class="ocr_par" title="bbox 0 100 900 200">
+        <span class="ocr_line" title="bbox 0 100 800 130">
+            <span class="ocrx_word" title="bbox 0 100 50 130; x_wconf 95">Some</span>
+            <span class="ocrx_word" title="bbox 60 100 120 130; x_wconf 95">body</span>
+            <span class="ocrx_word" title="bbox 130 100 180 130; x_wconf 95">text</span>
+            <span class="ocrx_word" title="bbox 190 100 240 130; x_wconf 95">here</span>
+        </span>
+    </p>
+</div>"#;
+
+    let dom = tl::parse(hocr, tl::ParserOptions::default()).unwrap();
+    let (elements, _) = extract_hocr_document(&dom);
+    let markdown = convert_to_markdown(&elements, true);
+
+    // OcrHeader must render as italic
+    assert!(
+        markdown.contains("*Chapter One*"),
+        "OcrHeader should render as italic (*text*), got: {markdown}"
+    );
+    // It must NOT render as a markdown heading
+    assert!(
+        !markdown.contains("# Chapter One"),
+        "OcrHeader must NOT render as a markdown heading, got: {markdown}"
+    );
+}
+
+#[test]
+fn test_heading_detection_with_x_fsize_on_line_child() {
+    // A paragraph containing a single ocr_line child with x_fsize 18 (large font)
+    // and short capitalized text should be detected as a heading.
+    let hocr = r#"<div class="ocr_page" title="bbox 0 0 1000 1000">
+    <div class="ocr_carea" title="bbox 0 0 1000 500">
+        <p class="ocr_par" title="bbox 0 0 500 40">
+            <span class="ocr_line" title="bbox 0 0 500 30; x_fsize 18">
+                <span class="ocrx_word" title="bbox 0 0 120 30; x_wconf 95">Important</span>
+                <span class="ocrx_word" title="bbox 130 0 250 30; x_wconf 95">Section</span>
+                <span class="ocrx_word" title="bbox 260 0 350 30; x_wconf 95">Title</span>
+            </span>
+        </p>
+        <p class="ocr_par" title="bbox 0 60 900 200">
+            <span class="ocr_line" title="bbox 0 60 800 90; x_fsize 12">
+                <span class="ocrx_word" title="bbox 0 60 50 90; x_wconf 95">This</span>
+                <span class="ocrx_word" title="bbox 60 60 90 90; x_wconf 92">is</span>
+                <span class="ocrx_word" title="bbox 100 60 200 90; x_wconf 98">regular</span>
+                <span class="ocrx_word" title="bbox 210 60 280 90; x_wconf 98">body</span>
+                <span class="ocrx_word" title="bbox 290 60 340 90; x_wconf 98">text</span>
+                <span class="ocrx_word" title="bbox 350 60 430 90; x_wconf 98">content.</span>
+            </span>
+        </p>
+    </div>
+</div>"#;
+
+    let dom = tl::parse(hocr, tl::ParserOptions::default()).unwrap();
+    let (elements, _) = extract_hocr_document(&dom);
+    let markdown = convert_to_markdown(&elements, true);
+
+    // The large-font paragraph should be detected as a heading
+    assert!(
+        markdown.contains("# Important Section Title"),
+        "Large font paragraph should be detected as heading, got: {markdown}"
+    );
+}
+
+#[test]
+fn test_single_word_heading_with_large_font() {
+    // A single-word paragraph with large font size should be detected as a heading.
+    // Without font size awareness, single-word paragraphs are rejected.
+    let hocr = r#"<div class="ocr_page" title="bbox 0 0 1000 1000">
+    <div class="ocr_carea" title="bbox 0 0 1000 500">
+        <p class="ocr_par" title="bbox 0 0 300 40">
+            <span class="ocr_line" title="bbox 0 0 300 30; x_fsize 24">
+                <span class="ocrx_word" title="bbox 0 0 200 30; x_wconf 95">Introduction</span>
+            </span>
+        </p>
+        <p class="ocr_par" title="bbox 0 60 900 200">
+            <span class="ocr_line" title="bbox 0 60 800 90; x_fsize 12">
+                <span class="ocrx_word" title="bbox 0 60 50 90; x_wconf 95">Some</span>
+                <span class="ocrx_word" title="bbox 60 60 120 90; x_wconf 92">body</span>
+                <span class="ocrx_word" title="bbox 130 60 180 90; x_wconf 98">text</span>
+                <span class="ocrx_word" title="bbox 190 60 280 90; x_wconf 98">follows.</span>
+            </span>
+        </p>
+    </div>
+</div>"#;
+
+    let dom = tl::parse(hocr, tl::ParserOptions::default()).unwrap();
+    let (elements, _) = extract_hocr_document(&dom);
+    let markdown = convert_to_markdown(&elements, true);
+
+    // Single word with large font should be detected as heading
+    assert!(
+        markdown.contains("# Introduction"),
+        "Single word with large font should be detected as heading, got: {markdown}"
+    );
+}
+
+#[test]
+fn test_single_word_without_large_font_not_heading() {
+    // A single-word paragraph without large font should NOT be detected as heading.
+    // This ensures we haven't broken the existing behavior.
+    let hocr = r#"<div class="ocr_page" title="bbox 0 0 1000 1000">
+    <div class="ocr_carea" title="bbox 0 0 1000 500">
+        <p class="ocr_par" title="bbox 0 0 300 20">
+            <span class="ocr_line" title="bbox 0 0 300 12; x_fsize 10">
+                <span class="ocrx_word" title="bbox 0 0 100 12; x_wconf 95">Word</span>
+            </span>
+        </p>
+    </div>
+</div>"#;
+
+    let dom = tl::parse(hocr, tl::ParserOptions::default()).unwrap();
+    let (elements, _) = extract_hocr_document(&dom);
+    let markdown = convert_to_markdown(&elements, true);
+
+    // Single word with small font should NOT be a heading
+    assert!(
+        !markdown.contains("# Word"),
+        "Single word with small font should not be detected as heading, got: {markdown}"
+    );
+}
+
+#[test]
+fn test_heading_detection_with_bbox_height_proxy() {
+    // When x_fsize is absent, bbox height should serve as a font-size proxy.
+    // A bbox height of 30 pixels (>= 14) indicates large text.
+    let hocr = r#"<div class="ocr_page" title="bbox 0 0 1000 1000">
+    <div class="ocr_carea" title="bbox 0 0 1000 500">
+        <p class="ocr_par" title="bbox 0 0 500 40">
+            <span class="ocr_line" title="bbox 0 0 500 30">
+                <span class="ocrx_word" title="bbox 0 0 200 30; x_wconf 95">Summary</span>
+            </span>
+        </p>
+    </div>
+</div>"#;
+
+    let dom = tl::parse(hocr, tl::ParserOptions::default()).unwrap();
+    let (elements, _) = extract_hocr_document(&dom);
+    let markdown = convert_to_markdown(&elements, true);
+
+    // bbox height of 30 (y2=30 - y1=0) should serve as proxy for large font
+    assert!(
+        markdown.contains("# Summary"),
+        "Single word with tall bbox (height=30) should be detected as heading via bbox proxy, got: {markdown}"
+    );
+}

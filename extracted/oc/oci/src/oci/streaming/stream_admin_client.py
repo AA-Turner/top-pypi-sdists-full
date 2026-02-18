@@ -162,7 +162,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/change_connect_harness_compartment.py.html>`__ to see an example of how to use change_connect_harness_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/change_connect_harness_compartment.py.html>`__ to see an example of how to use change_connect_harness_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['connectHarnessId']
@@ -278,7 +278,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/change_stream_compartment.py.html>`__ to see an example of how to use change_stream_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/change_stream_compartment.py.html>`__ to see an example of how to use change_stream_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamId']
@@ -392,7 +392,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/change_stream_pool_compartment.py.html>`__ to see an example of how to use change_stream_pool_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/change_stream_pool_compartment.py.html>`__ to see an example of how to use change_stream_pool_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamPoolId']
@@ -504,7 +504,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/create_connect_harness.py.html>`__ to see an example of how to use create_connect_harness API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/create_connect_harness.py.html>`__ to see an example of how to use create_connect_harness API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -607,7 +607,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/create_stream.py.html>`__ to see an example of how to use create_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/create_stream.py.html>`__ to see an example of how to use create_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -708,7 +708,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/create_stream_pool.py.html>`__ to see an example of how to use create_stream_pool API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/create_stream_pool.py.html>`__ to see an example of how to use create_stream_pool API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -814,7 +814,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/delete_connect_harness.py.html>`__ to see an example of how to use delete_connect_harness API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/delete_connect_harness.py.html>`__ to see an example of how to use delete_connect_harness API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['connectHarnessId']
@@ -927,7 +927,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/delete_stream.py.html>`__ to see an example of how to use delete_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/delete_stream.py.html>`__ to see an example of how to use delete_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamId']
@@ -1037,7 +1037,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/delete_stream_pool.py.html>`__ to see an example of how to use delete_stream_pool API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/delete_stream_pool.py.html>`__ to see an example of how to use delete_stream_pool API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamPoolId']
@@ -1143,7 +1143,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/get_connect_harness.py.html>`__ to see an example of how to use get_connect_harness API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/get_connect_harness.py.html>`__ to see an example of how to use get_connect_harness API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['connectHarnessId']
@@ -1249,7 +1249,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/get_stream.py.html>`__ to see an example of how to use get_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/get_stream.py.html>`__ to see an example of how to use get_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamId']
@@ -1355,7 +1355,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/get_stream_pool.py.html>`__ to see an example of how to use get_stream_pool API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/get_stream_pool.py.html>`__ to see an example of how to use get_stream_pool API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamPoolId']
@@ -1488,7 +1488,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/list_connect_harnesses.py.html>`__ to see an example of how to use list_connect_harnesses API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/list_connect_harnesses.py.html>`__ to see an example of how to use list_connect_harnesses API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1651,7 +1651,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/list_stream_pools.py.html>`__ to see an example of how to use list_stream_pools API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/list_stream_pools.py.html>`__ to see an example of how to use list_stream_pools API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1820,7 +1820,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/list_streams.py.html>`__ to see an example of how to use list_streams API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/list_streams.py.html>`__ to see an example of how to use list_streams API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -1965,7 +1965,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/update_connect_harness.py.html>`__ to see an example of how to use update_connect_harness API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/update_connect_harness.py.html>`__ to see an example of how to use update_connect_harness API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['connectHarnessId']
@@ -2081,7 +2081,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/update_stream.py.html>`__ to see an example of how to use update_stream API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/update_stream.py.html>`__ to see an example of how to use update_stream API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamId']
@@ -2197,7 +2197,7 @@ class StreamAdminClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/streaming/update_stream_pool.py.html>`__ to see an example of how to use update_stream_pool API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/streaming/update_stream_pool.py.html>`__ to see an example of how to use update_stream_pool API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['streamPoolId']

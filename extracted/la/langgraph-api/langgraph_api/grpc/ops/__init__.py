@@ -29,7 +29,7 @@ _MAX_AUTH_FILTER_DEPTH = 2
 if TYPE_CHECKING:
     from langgraph_api.schema import Context
 
-__all__ = ["Assistants", "Runs", "Threads"]
+__all__ = ["Assistants", "Crons", "Runs", "Threads"]
 
 logger = structlog.stdlib.get_logger(__name__)
 
@@ -360,6 +360,29 @@ def _filters_to_proto(
     return proto_filters
 
 
+def _static_interrupt_config_from_proto(
+    config: Any,  # pb.StaticInterruptConfig from engine-common.proto
+) -> str | list[str] | None:
+    """Convert protobuf StaticInterruptConfig to Python format.
+
+    The protobuf uses a oneof with two cases:
+    - all: true means interrupt at all nodes (returns "*")
+    - node_names: list of specific node names (returns list of strings)
+    - neither set means no interrupts (returns None)
+    """
+    if not config:
+        return None
+
+    # Check which field is set in the oneof
+    which = config.WhichOneof("config")
+    if which == "all":
+        return "*"
+    elif which == "node_names":
+        return list(config.node_names.names)
+    else:
+        return None
+
+
 class Authenticated:
     """Base class for authenticated operations (matches storage_postgres interface)."""
 
@@ -450,5 +473,6 @@ def grpc_error_guard(cls):
 
 # Import at the end to avoid circular imports
 from .assistants import Assistants  # noqa: E402
+from .crons import Crons  # noqa: E402
 from .runs import Runs  # noqa: E402
 from .threads import Threads  # noqa: E402

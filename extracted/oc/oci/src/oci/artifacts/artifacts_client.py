@@ -185,7 +185,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/change_container_repository_compartment.py.html>`__ to see an example of how to use change_container_repository_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/change_container_repository_compartment.py.html>`__ to see an example of how to use change_container_repository_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -319,7 +319,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/change_repository_compartment.py.html>`__ to see an example of how to use change_repository_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/change_repository_compartment.py.html>`__ to see an example of how to use change_repository_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -442,7 +442,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/create_container_image_signature.py.html>`__ to see an example of how to use create_container_image_signature API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/create_container_image_signature.py.html>`__ to see an example of how to use create_container_image_signature API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -550,7 +550,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/create_container_repository.py.html>`__ to see an example of how to use create_container_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/create_container_repository.py.html>`__ to see an example of how to use create_container_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -656,7 +656,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/create_repository.py.html>`__ to see an example of how to use create_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/create_repository.py.html>`__ to see an example of how to use create_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -762,7 +762,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_container_image.py.html>`__ to see an example of how to use delete_container_image API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_container_image.py.html>`__ to see an example of how to use delete_container_image API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageId']
@@ -877,7 +877,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_container_image_signature.py.html>`__ to see an example of how to use delete_container_image_signature API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_container_image_signature.py.html>`__ to see an example of how to use delete_container_image_signature API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageSignatureId']
@@ -992,7 +992,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_container_repository.py.html>`__ to see an example of how to use delete_container_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_container_repository.py.html>`__ to see an example of how to use delete_container_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -1109,7 +1109,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_generic_artifact.py.html>`__ to see an example of how to use delete_generic_artifact API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_generic_artifact.py.html>`__ to see an example of how to use delete_generic_artifact API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['artifactId']
@@ -1234,7 +1234,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_generic_artifact_by_path.py.html>`__ to see an example of how to use delete_generic_artifact_by_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_generic_artifact_by_path.py.html>`__ to see an example of how to use delete_generic_artifact_by_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId', 'artifactPath', 'version']
@@ -1351,7 +1351,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/delete_repository.py.html>`__ to see an example of how to use delete_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/delete_repository.py.html>`__ to see an example of how to use delete_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -1459,7 +1459,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_container_configuration.py.html>`__ to see an example of how to use get_container_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_container_configuration.py.html>`__ to see an example of how to use get_container_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -1564,7 +1564,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_container_image.py.html>`__ to see an example of how to use get_container_image API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_container_image.py.html>`__ to see an example of how to use get_container_image API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageId']
@@ -1674,7 +1674,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_container_image_signature.py.html>`__ to see an example of how to use get_container_image_signature API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_container_image_signature.py.html>`__ to see an example of how to use get_container_image_signature API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageSignatureId']
@@ -1784,7 +1784,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_container_repository.py.html>`__ to see an example of how to use get_container_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_container_repository.py.html>`__ to see an example of how to use get_container_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -1896,7 +1896,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_generic_artifact.py.html>`__ to see an example of how to use get_generic_artifact API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_generic_artifact.py.html>`__ to see an example of how to use get_generic_artifact API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['artifactId']
@@ -2016,7 +2016,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_generic_artifact_by_path.py.html>`__ to see an example of how to use get_generic_artifact_by_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_generic_artifact_by_path.py.html>`__ to see an example of how to use get_generic_artifact_by_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId', 'artifactPath', 'version']
@@ -2128,7 +2128,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/get_repository.py.html>`__ to see an example of how to use get_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/get_repository.py.html>`__ to see an example of how to use get_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -2315,7 +2315,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/list_container_image_signatures.py.html>`__ to see an example of how to use list_container_image_signatures API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/list_container_image_signatures.py.html>`__ to see an example of how to use list_container_image_signatures API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2536,7 +2536,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/list_container_images.py.html>`__ to see an example of how to use list_container_images API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/list_container_images.py.html>`__ to see an example of how to use list_container_images API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2732,7 +2732,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/list_container_repositories.py.html>`__ to see an example of how to use list_container_repositories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/list_container_repositories.py.html>`__ to see an example of how to use list_container_repositories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2922,7 +2922,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/list_generic_artifacts.py.html>`__ to see an example of how to use list_generic_artifacts API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/list_generic_artifacts.py.html>`__ to see an example of how to use list_generic_artifacts API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'repositoryId']
@@ -3106,7 +3106,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/list_repositories.py.html>`__ to see an example of how to use list_repositories API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/list_repositories.py.html>`__ to see an example of how to use list_repositories API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3237,7 +3237,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/lookup_container_image_by_uri.py.html>`__ to see an example of how to use lookup_container_image_by_uri API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/lookup_container_image_by_uri.py.html>`__ to see an example of how to use lookup_container_image_by_uri API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3352,7 +3352,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/remove_container_version.py.html>`__ to see an example of how to use remove_container_version API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/remove_container_version.py.html>`__ to see an example of how to use remove_container_version API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageId']
@@ -3484,7 +3484,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/restore_container_image.py.html>`__ to see an example of how to use restore_container_image API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/restore_container_image.py.html>`__ to see an example of how to use restore_container_image API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageId']
@@ -3607,7 +3607,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_container_configuration.py.html>`__ to see an example of how to use update_container_configuration API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_container_configuration.py.html>`__ to see an example of how to use update_container_configuration API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3724,7 +3724,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_container_image.py.html>`__ to see an example of how to use update_container_image API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_container_image.py.html>`__ to see an example of how to use update_container_image API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageId']
@@ -3846,7 +3846,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_container_image_signature.py.html>`__ to see an example of how to use update_container_image_signature API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_container_image_signature.py.html>`__ to see an example of how to use update_container_image_signature API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['imageSignatureId']
@@ -3968,7 +3968,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_container_repository.py.html>`__ to see an example of how to use update_container_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_container_repository.py.html>`__ to see an example of how to use update_container_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']
@@ -4094,7 +4094,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_generic_artifact.py.html>`__ to see an example of how to use update_generic_artifact API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_generic_artifact.py.html>`__ to see an example of how to use update_generic_artifact API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['artifactId']
@@ -4226,7 +4226,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_generic_artifact_by_path.py.html>`__ to see an example of how to use update_generic_artifact_by_path API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_generic_artifact_by_path.py.html>`__ to see an example of how to use update_generic_artifact_by_path API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId', 'artifactPath', 'version']
@@ -4350,7 +4350,7 @@ class ArtifactsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/artifacts/update_repository.py.html>`__ to see an example of how to use update_repository API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/artifacts/update_repository.py.html>`__ to see an example of how to use update_repository API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['repositoryId']

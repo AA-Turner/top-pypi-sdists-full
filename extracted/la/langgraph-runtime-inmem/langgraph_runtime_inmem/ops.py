@@ -858,12 +858,14 @@ class Threads(Authenticated):
             if status and thread.get("status") != status:
                 continue
 
+            thread.setdefault("state_updated_at", thread.get("updated_at"))
             filtered_threads.append(thread)
 
         if sort_by and sort_by in [
             "thread_id",
             "created_at",
             "updated_at",
+            "state_updated_at",
             "status",
         ]:
             reverse = False if sort_order and sort_order.upper() == "ASC" else True
@@ -912,6 +914,9 @@ class Threads(Authenticated):
         ):
             return
 
+        matching_thread.setdefault(
+            "state_updated_at", matching_thread.get("updated_at")
+        )
         return matching_thread
 
     @staticmethod
@@ -1003,10 +1008,12 @@ class Threads(Authenticated):
 
                 return _yield_existing()
         # Create new thread
+        now = datetime.now(UTC)
         new_thread: Thread = {
             "thread_id": thread_id,
-            "created_at": datetime.now(UTC),
-            "updated_at": datetime.now(UTC),
+            "created_at": now,
+            "updated_at": now,
+            "state_updated_at": now,
             "metadata": copy.deepcopy(metadata),
             "status": "idle",
             "config": {},
@@ -1050,6 +1057,7 @@ class Threads(Authenticated):
                 thread_list[thread_idx]["metadata"], filters
             ):
                 thread = copy.deepcopy(thread_list[thread_idx])
+                thread.setdefault("state_updated_at", thread.get("updated_at"))
                 thread["metadata"] = {**thread["metadata"], **metadata}
                 thread["updated_at"] = datetime.now(UTC)
                 thread_list[thread_idx] = thread
@@ -1116,23 +1124,25 @@ class Threads(Authenticated):
             status = "busy"
 
         # Update thread
-        thread.update(
-            {
-                "updated_at": datetime.now(UTC),
-                "values": checkpoint["values"] if checkpoint else None,
-                "status": status,
-                "interrupts": (
-                    {
-                        t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
-                        for t in checkpoint["tasks"]
-                        if t.get("interrupts")
-                    }
-                    if checkpoint
-                    else {}
-                ),
-                "error": json_loads(json_dumpb(exception)) if exception else None,
-            }
-        )
+        now = datetime.now(UTC)
+        update: dict = {
+            "updated_at": now,
+            "state_updated_at": now,
+            "status": status,
+            "interrupts": (
+                {
+                    t["id"]: [_patch_interrupt(i) for i in t["interrupts"]]
+                    for t in checkpoint["tasks"]
+                    if t.get("interrupts")
+                }
+                if checkpoint
+                else {}
+            ),
+            "error": json_loads(json_dumpb(exception)) if exception else None,
+        }
+        if checkpoint is not None:
+            update["values"] = checkpoint["values"]
+        thread.update(update)
 
     @staticmethod
     async def set_joint_status(
@@ -1221,15 +1231,16 @@ class Threads(Authenticated):
             else:
                 final_thread_status = base_thread_status
         thread["metadata"]["graph_id"] = graph_id
-        thread.update(
-            {
-                "updated_at": now,
-                "values": checkpoint["values"] if checkpoint else None,
-                "interrupts": interrupts,
-                "status": final_thread_status,
-                "error": json_loads(json_dumpb(exception)) if exception else None,
-            }
-        )
+        update: dict = {
+            "updated_at": now,
+            "state_updated_at": now,
+            "interrupts": interrupts,
+            "status": final_thread_status,
+            "error": json_loads(json_dumpb(exception)) if exception else None,
+        }
+        if checkpoint is not None:
+            update["values"] = checkpoint["values"]
+        thread.update(update)
 
     @staticmethod
     async def delete(
@@ -1266,7 +1277,7 @@ class Threads(Authenticated):
         conn.store["crons"] = [
             c for c in conn.store["crons"] if str(c.get("thread_id")) != str(thread_id)
         ]
-        _delete_checkpoints_for_thread(thread_id, conn)
+        await _delete_checkpoints_for_thread(thread_id, conn)
 
         if thread_idx is not None:
             # Remove the thread from the store
@@ -1397,10 +1408,12 @@ class Threads(Authenticated):
                 return _empty_generator()
 
             # Create new thread with copied metadata
+            now = datetime.now(tz=UTC)
             new_thread: Thread = {
                 "thread_id": new_thread_id,
-                "created_at": datetime.now(tz=UTC),
-                "updated_at": datetime.now(tz=UTC),
+                "created_at": now,
+                "updated_at": now,
+                "state_updated_at": now,
                 "metadata": copy.deepcopy(original_thread["metadata"]),
                 "status": "idle",
                 "config": {},
@@ -1409,32 +1422,44 @@ class Threads(Authenticated):
             # Add new thread to store
             conn.store["threads"].append(new_thread)
 
-            checkpointer = Checkpointer()
-            copied_storage = _replace_thread_id(
-                checkpointer.storage[str(thread_id)], new_thread_id, thread_id
-            )
-            checkpointer.storage[str(new_thread_id)] = copied_storage
-            # Copy the writes over (if any)
-            outer_keys = []
-            for k in checkpointer.writes:
-                if k[0] == str(thread_id):
-                    outer_keys.append(k)
-            for tid, checkpoint_ns, checkpoint_id in outer_keys:
-                mapped = {
-                    k: _replace_thread_id(v, new_thread_id, thread_id)
-                    for k, v in checkpointer.writes[
-                        (str(tid), checkpoint_ns, checkpoint_id)
-                    ].items()
-                }
+            from langgraph_api import config as api_config  # noqa: PLC0415
 
-                checkpointer.writes[
-                    (str(new_thread_id), checkpoint_ns, checkpoint_id)
-                ] = mapped
-            # Copy the blobs
-            for k in list(checkpointer.blobs):
-                if str(k[0]) == str(thread_id):
-                    new_key = (str(new_thread_id), *k[1:])
-                    checkpointer.blobs[new_key] = checkpointer.blobs[k]
+            if api_config.USE_CUSTOM_CHECKPOINTER:
+                from langgraph_api import (  # noqa: PLC0415
+                    _checkpointer as api_checkpointer,
+                )
+
+                checkpointer = await api_checkpointer.get_checkpointer()
+                await checkpointer.acopy_thread(str(thread_id), str(new_thread_id))
+            else:
+                checkpointer = Checkpointer()
+                copied_storage = _replace_thread_id(
+                    checkpointer.storage[str(thread_id)],
+                    new_thread_id,
+                    thread_id,
+                )
+                checkpointer.storage[str(new_thread_id)] = copied_storage
+                # Copy the writes over (if any)
+                outer_keys = []
+                for k in checkpointer.writes:
+                    if k[0] == str(thread_id):
+                        outer_keys.append(k)
+                for tid, checkpoint_ns, checkpoint_id in outer_keys:
+                    mapped = {
+                        k: _replace_thread_id(v, new_thread_id, thread_id)
+                        for k, v in checkpointer.writes[
+                            (str(tid), checkpoint_ns, checkpoint_id)
+                        ].items()
+                    }
+
+                    checkpointer.writes[
+                        (str(new_thread_id), checkpoint_ns, checkpoint_id)
+                    ] = mapped
+                # Copy the blobs
+                for k in list(checkpointer.blobs):
+                    if str(k[0]) == str(thread_id):
+                        new_key = (str(new_thread_id), *k[1:])
+                        checkpointer.blobs[new_key] = checkpointer.blobs[k]
 
             async def row_generator() -> AsyncIterator[Thread]:
                 yield new_thread
@@ -1466,15 +1491,13 @@ class Threads(Authenticated):
             from langgraph_api.graph import get_graph  # noqa: PLC0415
             from langgraph_api.store import get_store  # noqa: PLC0415
 
-            checkpointer = await asyncio.to_thread(
-                Checkpointer, conn, unpack_hook=_msgpack_ext_hook_to_json
+            checkpointer = await _get_checkpointer(
+                conn, unpack_hook=_msgpack_ext_hook_to_json
             )
             thread_id = _ensure_uuid(config["configurable"]["thread_id"])
             # Auth will be applied here so no need to use filters downstream
             thread_iter = await Threads.get(conn, thread_id, ctx=ctx)
             thread = await anext(thread_iter)
-            checkpoint = await checkpointer.aget(config)
-
             if not thread:
                 return StateSnapshot(
                     values={},
@@ -1506,8 +1529,8 @@ class Threads(Authenticated):
                         break
 
             if graph_id:
-                # format latest checkpoint for response
-                checkpointer.latest_iter = checkpoint
+                # Prefetch checkpoint to avoid redundant aget_tuple in aget_state
+                checkpointer.latest_iter = await checkpointer.aget(config)
                 async with get_graph(
                     graph_id,
                     thread_config,
@@ -1559,14 +1582,12 @@ class Threads(Authenticated):
                 Auth.types.ThreadsUpdate(thread_id=thread_id),
             )
 
-            checkpointer = Checkpointer()
+            checkpointer = await _get_checkpointer()
 
             thread_iter = await Threads.get(conn, thread_id, ctx=ctx)
             thread = await fetchone(
                 thread_iter, not_found_detail=f"Thread {thread_id} not found."
             )
-            checkpoint = await checkpointer.aget(config)
-
             if not thread:
                 raise HTTPException(status_code=404, detail="Thread not found")
             if not _check_filter_match(thread["metadata"], filters):
@@ -1605,7 +1626,8 @@ class Threads(Authenticated):
             if graph_id:
                 config["configurable"].setdefault("graph_id", graph_id)
 
-                checkpointer.latest_iter = checkpoint
+                # Prefetch checkpoint to avoid redundant aget_tuple in aupdate_state
+                checkpointer.latest_iter = await checkpointer.aget(config)
                 async with get_graph(
                     graph_id,
                     thread_config,
@@ -1632,6 +1654,7 @@ class Threads(Authenticated):
                     for thread in conn.store["threads"]:
                         if thread["thread_id"] == thread_id:
                             thread["values"] = state.values
+                            thread["state_updated_at"] = datetime.now(UTC)
                             break
 
                     # Publish state update event
@@ -1709,10 +1732,11 @@ class Threads(Authenticated):
                 config["configurable"].setdefault("graph_id", graph_id)
                 config["configurable"].setdefault("checkpoint_ns", "")
 
+                checkpointer = await _get_checkpointer()
                 async with get_graph(
                     graph_id,
                     thread_config,
-                    checkpointer=Checkpointer(),
+                    checkpointer=checkpointer,
                     store=(await get_store()),
                     access_context="threads.update",
                 ) as graph:
@@ -1742,6 +1766,7 @@ class Threads(Authenticated):
                     for thread in conn.store["threads"]:
                         if thread["thread_id"] == thread_id:
                             thread["values"] = state.values
+                            thread["state_updated_at"] = datetime.now(UTC)
                             break
 
                     # Publish state update event
@@ -1808,12 +1833,13 @@ class Threads(Authenticated):
             }
             # If graph_id exists, get state history
             if graph_id := thread_metadata.get("graph_id"):
+                checkpointer = await _get_checkpointer(
+                    conn, unpack_hook=_msgpack_ext_hook_to_json
+                )
                 async with get_graph(
                     graph_id,
                     thread_config,
-                    checkpointer=await asyncio.to_thread(
-                        Checkpointer, conn, unpack_hook=_msgpack_ext_hook_to_json
-                    ),
+                    checkpointer=checkpointer,
                     store=(await get_store()),
                     access_context="threads.read",
                 ) as graph:
@@ -2327,22 +2353,34 @@ class Runs(Authenticated):
         existing_thread = next(
             (t for t in conn.store["threads"] if t["thread_id"] == thread_id), None
         )
+        create_run_value = Auth.types.RunsCreate(
+            thread_id=None if temporary else thread_id,
+            assistant_id=assistant_id,
+            run_id=run_id,
+            status=status,
+            metadata=metadata,
+            prevent_insert_if_inflight=prevent_insert_if_inflight,
+            multitask_strategy=multitask_strategy,
+            if_not_exists=if_not_exists,
+            after_seconds=after_seconds,
+            kwargs=kwargs,
+        )
         filters = await Runs.handle_event(
             ctx,
             "create_run",
-            Auth.types.RunsCreate(
-                thread_id=None if temporary else thread_id,
-                assistant_id=assistant_id,
-                run_id=run_id,
-                status=status,
-                metadata=metadata,
-                prevent_insert_if_inflight=prevent_insert_if_inflight,
-                multitask_strategy=multitask_strategy,
-                if_not_exists=if_not_exists,
-                after_seconds=after_seconds,
-                kwargs=kwargs,
-            ),
+            create_run_value,
         )
+        # Automatically enforce assistant ownership for non-system assistants
+        # by calling the user's assistant search auth handler.
+        if assistant.get("metadata", {}).get("created_by") != "system":
+            assistant_filters = await Assistants.handle_event(
+                ctx, "search", {"metadata": {}}
+            )
+            if assistant_filters and not _check_filter_match(
+                assistant.get("metadata", {}), assistant_filters
+            ):
+                return _empty_generator()
+
         if existing_thread and filters:
             # Reject if the user doesn't own the thread
             if not _check_filter_match(existing_thread["metadata"], filters):
@@ -2540,7 +2578,7 @@ class Runs(Authenticated):
             thread = await Threads._get_with_filters(conn, thread_id, filters)
             if not thread:
                 return _empty_generator()
-        _delete_checkpoints_for_thread(thread_id, conn, run_id=run_id)
+        await _delete_checkpoints_for_thread(thread_id, conn, run_id=run_id)
 
         found = False
         for i, run in enumerate(conn.store["runs"]):
@@ -2654,17 +2692,16 @@ class Runs(Authenticated):
         candidate_runs = [r for r in conn.store["runs"] if is_run_match(r)]
 
         if filters:
-            # If a run is found but not authorized by the thread filters, skip it
-            thread = (
-                await Threads._get_with_filters(conn, thread_id, filters)
-                if thread_id
-                else None
-            )
-            # If there's no matching thread, no runs are authorized.
-            if thread_id and not thread:
-                candidate_runs = []
-            # Otherwise, we might trust that `_get_with_filters` is the only constraint
-            # on thread. If your filters also apply to runs, you might do more checks here.
+            if thread_id:
+                thread = await Threads._get_with_filters(conn, thread_id, filters)
+                if not thread:
+                    candidate_runs = []
+            else:
+                candidate_runs = [
+                    r
+                    for r in candidate_runs
+                    if await Threads._get_with_filters(conn, r["thread_id"], filters)
+                ]
 
         if not candidate_runs:
             # When cancelling by assistant_id, it's valid to have no runs
@@ -3392,7 +3429,21 @@ class Crons(Authenticated):
             ),
         )
 
+        if thread_id:
+            thread_filters = await Threads.handle_event(
+                ctx,
+                "read",
+                Auth.types.ThreadsRead(thread_id=thread_id),
+            )
+        else:
+            thread_filters = await Threads.handle_event(
+                ctx,
+                "search",
+                Auth.types.ThreadsSearch(),
+            )
+
         crons = conn.store["crons"]
+        # First pass: filter on cron-level criteria
         filtered_crons = [
             c
             for c in crons
@@ -3401,6 +3452,30 @@ class Crons(Authenticated):
             and (enabled is None or c.get("enabled") == enabled)
             and (not filters or _check_filter_match(c.get("metadata", {}), filters))
         ]
+
+        # Second pass: apply thread-level auth filters
+        # Crons without a thread_id are exempt from thread filtering.
+        if thread_filters:
+            # Build lookup only for threads referenced by matching crons
+            cron_thread_ids = {
+                str(c["thread_id"])
+                for c in filtered_crons
+                if c.get("thread_id") is not None
+            }
+            threads_by_id = {
+                str(t["thread_id"]): t
+                for t in conn.store["threads"]
+                if str(t["thread_id"]) in cron_thread_ids
+            }
+            filtered_crons = [
+                c
+                for c in filtered_crons
+                if c.get("thread_id") is None
+                or _check_filter_match(
+                    threads_by_id.get(str(c["thread_id"]), {}).get("metadata", {}),
+                    thread_filters,
+                )
+            ]
 
         # Sort
         sort_by = sort_by.lower() if sort_by else None
@@ -3469,7 +3544,21 @@ class Crons(Authenticated):
             ),
         )
 
-        count = 0
+        if thread_id:
+            thread_filters = await Threads.handle_event(
+                ctx,
+                "read",
+                Auth.types.ThreadsRead(thread_id=thread_id),
+            )
+        else:
+            thread_filters = await Threads.handle_event(
+                ctx,
+                "search",
+                Auth.types.ThreadsSearch(),
+            )
+
+        # First pass: cron-level filtering
+        filtered_crons = []
         for c in conn.store["crons"]:
             if assistant_id is not None and str(c["assistant_id"]) != str(assistant_id):
                 continue
@@ -3477,8 +3566,32 @@ class Crons(Authenticated):
                 continue
             if filters and not _check_filter_match(c.get("metadata", {}), filters):
                 continue
-            count += 1
-        return count
+            filtered_crons.append(c)
+
+        # Second pass: thread-level auth filtering
+        # Crons without a thread_id are exempt from thread filtering.
+        if thread_filters:
+            cron_thread_ids = {
+                str(c["thread_id"])
+                for c in filtered_crons
+                if c.get("thread_id") is not None
+            }
+            threads_by_id = {
+                str(t["thread_id"]): t
+                for t in conn.store["threads"]
+                if str(t["thread_id"]) in cron_thread_ids
+            }
+            filtered_crons = [
+                c
+                for c in filtered_crons
+                if c.get("thread_id") is None
+                or _check_filter_match(
+                    threads_by_id.get(str(c["thread_id"]), {}).get("metadata", {}),
+                    thread_filters,
+                )
+            ]
+
+        return len(filtered_crons)
 
 
 async def cancel_run(
@@ -3488,11 +3601,40 @@ async def cancel_run(
         await Runs.cancel(conn, [run_id], thread_id=thread_id, ctx=ctx)
 
 
-def _delete_checkpoints_for_thread(
+async def _get_checkpointer(
+    conn: InMemConnectionProto | None = None,
+    *,
+    unpack_hook=None,
+):
+    """Get the appropriate checkpointer (custom or built-in)."""
+    from langgraph_api import config as api_config  # noqa: PLC0415
+
+    if api_config.USE_CUSTOM_CHECKPOINTER:
+        from langgraph_api import _checkpointer as api_checkpointer  # noqa: PLC0415
+
+        return await api_checkpointer.get_checkpointer()
+    if conn is not None:
+        return await asyncio.to_thread(Checkpointer, conn, unpack_hook=unpack_hook)
+    return Checkpointer()
+
+
+async def _delete_checkpoints_for_thread(
     thread_id: str | UUID,
     conn: InMemConnectionProto,
     run_id: str | UUID | None = None,
 ):
+    from langgraph_api import config as api_config  # noqa: PLC0415
+
+    if api_config.USE_CUSTOM_CHECKPOINTER:
+        from langgraph_api import _checkpointer as api_checkpointer  # noqa: PLC0415
+
+        checkpointer = await api_checkpointer.get_checkpointer()
+        if run_id:
+            await checkpointer.adelete_for_runs([str(run_id)])
+        else:
+            await checkpointer.adelete_thread(str(thread_id))
+        return
+
     checkpointer = Checkpointer()
     thread_id = str(thread_id)
     if thread_id not in checkpointer.storage:

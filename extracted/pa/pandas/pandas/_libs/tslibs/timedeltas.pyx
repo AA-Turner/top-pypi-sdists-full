@@ -509,6 +509,7 @@ def array_to_timedelta64(
                     ival = _numeric_to_td64ns(item, parsed_unit, NPY_FR_ns)
 
                     item_reso = NPY_FR_ns
+                    int_reso = NPY_FR_ns
                     state.update_creso(item_reso)
                     if infer_reso:
                         creso = state.creso
@@ -1518,6 +1519,7 @@ cdef class _Timedelta(timedelta):
         self._ensure_components()
         return -999999999 <= self._d and self._d <= 999999999
 
+    @cython.critical_section
     cdef _ensure_components(_Timedelta self):
         """
         compute the components
@@ -1529,6 +1531,8 @@ cdef class _Timedelta(timedelta):
             pandas_timedeltastruct tds
 
         pandas_timedelta_to_timedeltastruct(self._value, self._creso, &tds)
+        if self._is_populated:
+            return
         self._d = tds.days
         self._h = tds.hrs
         self._m = tds.min

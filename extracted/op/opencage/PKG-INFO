@@ -1,27 +1,26 @@
 Metadata-Version: 2.4
 Name: opencage
-Version: 3.2.0
+Version: 3.3.0
 Summary: Wrapper module for the OpenCage Geocoder API
-Home-page: https://github.com/OpenCageData/python-opencage-geocoder/
-Download-URL: https://github.com/OpenCageData/python-opencage-geocoder/tarball/3.2.0
-Author: OpenCage GmbH
-Author-email: info@opencagedata.com
-License: BSD
+Author-email: OpenCage GmbH <info@opencagedata.com>
+License-Expression: BSD-3-Clause
+Project-URL: Repository, https://github.com/OpenCageData/python-opencage-geocoder
+Project-URL: Download, https://github.com/OpenCageData/python-opencage-geocoder
 Keywords: geocoding,geocoder
 Classifier: Environment :: Web Environment
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: GIS
 Classifier: Topic :: Utilities
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Requires-Dist: Requests>=2.31.0
@@ -29,18 +28,13 @@ Requires-Dist: backoff>=2.2.1
 Requires-Dist: tqdm>=4.66.4
 Requires-Dist: certifi>=2024.07.04
 Requires-Dist: aiohttp>=3.10.5
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
+Provides-Extra: dev
+Requires-Dist: responses>=0.25.7; extra == "dev"
+Requires-Dist: flake8>=7.0.0; extra == "dev"
+Requires-Dist: pytest>=7.4.0; extra == "dev"
+Requires-Dist: pytest-asyncio>=0.21.0; extra == "dev"
+Requires-Dist: pytest-cov>=4.1.0; extra == "dev"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: summary
 
 # OpenCage Geocoding Module for Python
 
@@ -66,7 +60,7 @@ The module installs an `opencage` CLI tool for geocoding files. Check `opencage 
 
 ## Usage
 
-Supports Python 3.8 or newer. Starting opencage version 3.0 depends on asyncio package.
+Supports Python 3.9 or newer. Starting opencage version 3.0 depends on asyncio package.
 
 Install the module:
 

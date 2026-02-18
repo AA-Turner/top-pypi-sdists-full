@@ -7,6 +7,7 @@ from collate_sqllineage.core.holders import SubQueryLineageHolder
 from collate_sqllineage.core.models import (
     Column,
     DataFunction,
+    Location,
     Path,
     Schema,
     SubQuery,
@@ -277,7 +278,9 @@ class SqlGlotSubQueryLineageHolder(SubQueryLineageHolder):
 
     def __init__(self) -> None:
         super().__init__()
-        self._from_join_tables: List[Union[DataFunction, Path, SubQuery, Table]] = []
+        self._from_join_tables: List[
+            Union[DataFunction, Location, Path, SubQuery, Table]
+        ] = []
 
 
 class SqlGlotStatementLineageHolder(SqlGlotSubQueryLineageHolder):

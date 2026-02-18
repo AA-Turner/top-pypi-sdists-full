@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openstacksdk
-Version: 4.9.0
+Version: 4.10.0
 Summary: An SDK for building applications to work with OpenStack
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

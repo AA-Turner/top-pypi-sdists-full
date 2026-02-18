@@ -13,17 +13,15 @@ from exponent.core.graphql.generated_client import (
     ChatResourceConfigInput,
     Chats,
     CreateCloudChatFromRepository,
+    CurrentUser,
     EnableCloudRepository,
     GithubRepositories,
     HaltChatStream,
     IndentGraphQLClient,
     PromptInput,
-    RebuildCloudRepository,
     RefreshApiKey,
-    ReportSandboxInfo,
     RepositoryInput,
     RepositoryResourceConfigInput,
-    SandboxProvider,
     SetLoginComplete,
     StartChatTurn,
 )
@@ -41,9 +39,11 @@ class GraphQLClient:
             headers={"API-KEY": self.api_key},
         )
 
-    async def get_chats(self) -> Chats:
-        """Get chats with proper typing."""
-        return await self._typed_client.chats()
+    async def get_chats(self, user_uuids: list[uuid.UUID] | None = None) -> Chats:
+        return await self._typed_client.chats(user_uuids=user_uuids)
+
+    async def get_current_user(self) -> CurrentUser:
+        return await self._typed_client.current_user()
 
     async def get_github_repositories(self) -> GithubRepositories:
         """Get GitHub repositories with proper typing."""
@@ -56,9 +56,7 @@ class GraphQLClient:
         """Refresh API key with proper typing."""
         return await self._typed_client.refresh_api_key()
 
-    async def create_cloud_chat_from_repository(
-        self, repository_uuid: str, provider: SandboxProvider | None = None
-    ) -> CreateCloudChatFromRepository:
+    async def create_cloud_chat_from_repository(self, repository_uuid: str) -> CreateCloudChatFromRepository:
         return await self._typed_client.create_cloud_chat_from_repository(
             resource_config=ChatResourceConfigInput(
                 mode=ChatMode.CLOUD,
@@ -68,32 +66,15 @@ class GraphQLClient:
                         is_primary=True,
                     )
                 ],
-                sandbox_provider=provider,
             ),
         )
 
     async def enable_cloud_repository(self, repositories: list[RepositoryInput]) -> EnableCloudRepository:
         return await self._typed_client.enable_cloud_repository(repositories=repositories)
 
-    async def rebuild_cloud_repository(self, repository_uuid: str) -> RebuildCloudRepository:
-        return await self._typed_client.rebuild_cloud_repository(repository_uuid=uuid.UUID(repository_uuid))
-
     async def set_login_complete(self) -> SetLoginComplete:
         """Set login complete with proper typing."""
         return await self._typed_client.set_login_complete()
-
-    async def report_sandbox_info(
-        self,
-        sandbox_id: str,
-        disk_usage_gb: float | None = None,
-        indent_log_file: str | None = None,
-    ) -> ReportSandboxInfo:
-        """Report sandbox info with proper typing."""
-        return await self._typed_client.report_sandbox_info(
-            sandbox_id=sandbox_id,
-            disk_usage_gb=disk_usage_gb,
-            indent_log_file=indent_log_file,
-        )
 
     async def start_chat_turn(
         self,

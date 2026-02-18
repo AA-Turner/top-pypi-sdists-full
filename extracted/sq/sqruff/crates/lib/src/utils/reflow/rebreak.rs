@@ -44,10 +44,18 @@ impl RebreakIndices {
         while (dir == 1 && newline_point_idx < limit as isize)
             || (dir == -1 && newline_point_idx >= 0)
         {
+            // Check bounds for the adjacent element access. When traversing
+            // backward (dir=-1) and reaching index 0, (idx + dir) would be -1
+            // which wraps to usize::MAX causing a panic. Break here as we've
+            // reached the boundary - there's nothing further in this direction.
+            let adjacent_idx = newline_point_idx + dir as isize;
+            if adjacent_idx < 0 || adjacent_idx >= elements.len() as isize {
+                break;
+            }
             if elements[newline_point_idx as usize]
                 .class_types()
                 .contains(SyntaxKind::Newline)
-                || elements[(newline_point_idx + dir as isize) as usize]
+                || elements[adjacent_idx as usize]
                     .segments()
                     .iter()
                     .any(|seg| seg.is_code())
@@ -57,11 +65,22 @@ impl RebreakIndices {
             newline_point_idx += 2 * dir as isize;
         }
 
+        // Clamp to the adjacent point if scanning went out of bounds
+        // (no newline or code found in this direction).
+        if newline_point_idx < 0 || newline_point_idx >= elements.len() as isize {
+            newline_point_idx = adj_point_idx;
+        }
+
         let mut pre_code_point_idx = newline_point_idx;
         while (dir == 1 && pre_code_point_idx < limit as isize)
             || (dir == -1 && pre_code_point_idx >= 0)
         {
-            if elements[(pre_code_point_idx + dir as isize) as usize]
+            // Same bounds check as above for the adjacent element access.
+            let adjacent_idx = pre_code_point_idx + dir as isize;
+            if adjacent_idx < 0 || adjacent_idx >= elements.len() as isize {
+                break;
+            }
+            if elements[adjacent_idx as usize]
                 .segments()
                 .iter()
                 .any(|seg| seg.is_code())
@@ -69,6 +88,11 @@ impl RebreakIndices {
                 break;
             }
             pre_code_point_idx += 2 * dir as isize;
+        }
+
+        // Clamp to the newline point if scanning went out of bounds.
+        if pre_code_point_idx < 0 || pre_code_point_idx >= elements.len() as isize {
+            pre_code_point_idx = newline_point_idx;
         }
 
         RebreakIndices {
@@ -160,49 +184,52 @@ pub fn identify_rebreak_spans(
                 continue;
             }
 
-            for end_idx in idx..element_buffer.len() {
-                let end_elem = &element_buffer[end_idx];
+            for (end_idx, end_elem) in element_buffer.iter().enumerate().skip(idx) {
                 let ReflowElement::Block(end_block) = end_elem else {
                     continue;
                 };
 
                 if !end_block.depth_info().stack_positions.contains_key(key) {
-                    final_idx = (end_idx - 2).into();
+                    // Left the scope. The last block inside is two positions back.
+                    if final_idx.is_none() {
+                        final_idx = (end_idx - 2).into();
+                    }
+                    break;
                 } else if matches!(
                     end_block.depth_info().stack_positions[key].type_,
                     Some(StackPositionType::End) | Some(StackPositionType::Solo)
                 ) {
+                    // Track the latest End/Solo block but keep scanning,
+                    // because multiple blocks within the last child all
+                    // have End type at the parent level.
                     final_idx = end_idx.into();
                 }
+            }
 
-                if let Some(final_idx) = final_idx {
-                    let target_depth = block
-                        .depth_info()
-                        .stack_hashes
-                        .iter()
-                        .position(|it| it == key)
-                        .unwrap();
-                    let target = root_segment.path_to(&element_buffer[idx].segments()[0])
-                        [target_depth]
-                        .segment
-                        .clone();
+            if let Some(final_idx) = final_idx {
+                let target_depth = block
+                    .depth_info()
+                    .stack_hashes
+                    .iter()
+                    .position(|it| it == key)
+                    .unwrap();
+                let target = root_segment.path_to(&element_buffer[idx].segments()[0])[target_depth]
+                    .segment
+                    .clone();
 
-                    let line_position_configs = block.line_position_configs()[key]
-                        .split(':')
-                        .next()
-                        .unwrap();
-                    let line_position = LinePosition::from_str(line_position_configs).unwrap();
+                let line_position_configs = block.line_position_configs()[key]
+                    .split(':')
+                    .next()
+                    .unwrap();
+                let line_position = LinePosition::from_str(line_position_configs).unwrap();
 
-                    spans.push(RebreakSpan {
-                        target,
-                        start_idx: idx,
-                        end_idx: final_idx,
-                        line_position,
-                        strict: block.line_position_configs()[key].ends_with("strict"),
-                    });
-
-                    break;
-                }
+                spans.push(RebreakSpan {
+                    target,
+                    start_idx: idx,
+                    end_idx: final_idx,
+                    line_position,
+                    strict: block.line_position_configs()[key].ends_with("strict"),
+                });
             }
         }
     }

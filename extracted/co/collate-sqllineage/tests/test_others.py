@@ -258,3 +258,11 @@ def test_select_from_column():
 
     sql = """create view test_view as SELECT "col1", (select count(*) from tab2)"""
     assert_table_lineage_equal(sql, {"tab2"}, {"test_view"}, test_sqlparse=False)
+
+
+def test_create_as_with_template_param():
+    assert_table_lineage_equal(
+        "CREATE TABLE tab1 AS SELECT col1 FROM tab2 WHERE col2 > {{ min_val }}",
+        {"tab2"},
+        {"tab1"},
+    )

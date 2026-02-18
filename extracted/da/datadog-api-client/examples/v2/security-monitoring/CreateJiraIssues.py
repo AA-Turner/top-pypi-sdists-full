@@ -7,7 +7,6 @@ from datadog_api_client.v2.api.security_monitoring_api import SecurityMonitoring
 from datadog_api_client.v2.model.case_management_project import CaseManagementProject
 from datadog_api_client.v2.model.case_management_project_data import CaseManagementProjectData
 from datadog_api_client.v2.model.case_management_project_data_type import CaseManagementProjectDataType
-from datadog_api_client.v2.model.case_priority import CasePriority
 from datadog_api_client.v2.model.create_jira_issue_request_array import CreateJiraIssueRequestArray
 from datadog_api_client.v2.model.create_jira_issue_request_data import CreateJiraIssueRequestData
 from datadog_api_client.v2.model.create_jira_issue_request_data_attributes import CreateJiraIssueRequestDataAttributes
@@ -23,24 +22,44 @@ body = CreateJiraIssueRequestArray(
     data=[
         CreateJiraIssueRequestData(
             attributes=CreateJiraIssueRequestDataAttributes(
-                assignee_id="f315bdaf-9ee7-4808-a9c1-99c15bf0f4d0",
-                description="A description of the Jira issue.",
-                fields=dict([("key1", "value"), ("key2", "['value']"), ("key3", "{'key4': 'value'}")]),
-                priority=CasePriority.NOT_DEFINED,
-                title="A title for the Jira issue.",
+                title="A title",
+                description="A description",
             ),
             relationships=CreateJiraIssueRequestDataRelationships(
                 findings=Findings(
                     data=[
                         FindingData(
-                            id="ZGVmLTAwcC1pZXJ-aS0wZjhjNjMyZDNmMzRlZTgzNw==",
+                            id="eWswLWJsdC1hZm5-aS0wMjRlYTgwMzVkZTU1MGIwYQ==",
                             type=FindingDataType.FINDINGS,
                         ),
                     ],
                 ),
                 project=CaseManagementProject(
                     data=CaseManagementProjectData(
-                        id="aeadc05e-98a8-11ec-ac2c-da7ad0900001",
+                        id="959a6f71-bac8-4027-b1d3-2264f569296f",
+                        type=CaseManagementProjectDataType.PROJECTS,
+                    ),
+                ),
+            ),
+            type=JiraIssuesDataType.JIRA_ISSUES,
+        ),
+        CreateJiraIssueRequestData(
+            attributes=CreateJiraIssueRequestDataAttributes(
+                title="A title",
+                description="A description",
+            ),
+            relationships=CreateJiraIssueRequestDataRelationships(
+                findings=Findings(
+                    data=[
+                        FindingData(
+                            id="a3ZoLXNjbS14eXV-aS0wNWY5MGYwMGE4NDg2ODdlOA==",
+                            type=FindingDataType.FINDINGS,
+                        ),
+                    ],
+                ),
+                project=CaseManagementProject(
+                    data=CaseManagementProjectData(
+                        id="959a6f71-bac8-4027-b1d3-2264f569296f",
                         type=CaseManagementProjectDataType.PROJECTS,
                     ),
                 ),
@@ -51,7 +70,6 @@ body = CreateJiraIssueRequestArray(
 )
 
 configuration = Configuration()
-configuration.unstable_operations["create_jira_issues"] = True
 with ApiClient(configuration) as api_client:
     api_instance = SecurityMonitoringApi(api_client)
     response = api_instance.create_jira_issues(body=body)

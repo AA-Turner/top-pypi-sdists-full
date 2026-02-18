@@ -438,8 +438,13 @@ tracing = [
     "opentelemetry-sdk>=1.29.0",
 ]
 
+torch = [
+    "torch>=1.7,<3",
+]
+
 all = [
     # "All" includes everything except for dev dependencies
+    # In addition, we choose to explicitly exclude torch, as it is magnitudes longer to import than other libraries
     # [[[cog
     # import pathlib, tomli
     # grps = tomli.loads(pathlib.Path("pyproject.toml").read_text())["project"]["optional-dependencies"]

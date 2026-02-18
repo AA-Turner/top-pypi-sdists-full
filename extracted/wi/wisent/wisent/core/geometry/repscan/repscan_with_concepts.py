@@ -63,7 +63,10 @@ def run_repscan_with_concept_naming(
         steps: 'all' runs everything, or comma-separated subset (e.g., 'signal')
         output_path: If provided, saves intermediate results after each step.
     """
-    from .repscan_protocol import test_signal, test_geometry, test_decomposition, select_intervention
+    from .repscan_protocol import (
+        test_signal, test_geometry, test_decomposition, select_intervention,
+        SignalTestResult, GeometryTestResult, DecompositionTestResult,
+    )
     import time as _time
     import sys as _sys
     def _log(msg): print(f"  [TRACE] {msg}", file=_sys.stderr, flush=True)
@@ -107,13 +110,20 @@ def run_repscan_with_concept_naming(
     signal_result, geometry_result, decomposition_result = None, None, None
 
     # Minimum pairs for cross-validation (MLP internal split needs ~20+ total samples)
-    min_pairs_for_probes = 20
+    min_pairs_for_probes = 2
 
     # Step 1: Signal Test (with null distribution testing)
     _log("Entering signal step")
     if "signal" in steps_to_run:
         if "signal_test" in existing:
             results["signal_test"] = existing["signal_test"]
+            st = existing["signal_test"]
+            if "max_z_score" in st:
+                signal_result = SignalTestResult(
+                    max_z_score=st["max_z_score"], min_p_value=st["min_p_value"],
+                    passed=st["passed"], permutation_metrics=st.get("permutation_metrics", {}),
+                    nonsense_metrics=st.get("nonsense_metrics"),
+                )
             _log("Signal loaded from checkpoint (skipped)")
         elif n_pairs < min_pairs_for_probes:
             results["signal_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
@@ -134,6 +144,22 @@ def run_repscan_with_concept_naming(
     if "geometry" in steps_to_run:
         if "geometry_test" in existing:
             results["geometry_test"] = existing["geometry_test"]
+            gt = existing["geometry_test"]
+            if "linear_accuracy" in gt:
+                geometry_result = GeometryTestResult(
+                    linear_accuracy=gt["linear_accuracy"], nonlinear_accuracy=gt.get("nonlinear_accuracy", 0),
+                    gap=gt.get("gap", 0), diagnosis=gt.get("diagnosis", ""),
+                    confidence=gt.get("confidence", 0), p_value=gt.get("p_value", 1),
+                    gap_ci_lower=gt.get("gap_ci_lower", 0), gap_ci_upper=gt.get("gap_ci_upper", 0),
+                    n_diagnostics_passed=gt.get("n_diagnostics_passed", 0),
+                    n_diagnostics_total=gt.get("n_diagnostics_total", 0),
+                    t_statistic=gt.get("t_statistic", 0),
+                    residual_silhouette=gt.get("residual_silhouette", 0),
+                    residuals_cluster=gt.get("residuals_cluster", False),
+                    ramsey_improvement=gt.get("ramsey_improvement", 0),
+                    ramsey_significant=gt.get("ramsey_significant", False),
+                    diagnostics=gt.get("diagnostics"),
+                )
             _log("Geometry loaded from checkpoint (skipped)")
         elif n_pairs < min_pairs_for_probes:
             results["geometry_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
@@ -181,6 +207,18 @@ def run_repscan_with_concept_naming(
     if "decomposition" in steps_to_run:
         if "decomposition_test" in existing:
             results["decomposition_test"] = existing["decomposition_test"]
+            dt = existing["decomposition_test"]
+            if "n_concepts" in dt and "status" not in dt:
+                decomposition_result = DecompositionTestResult(
+                    n_concepts=dt["n_concepts"],
+                    cluster_labels=dt.get("cluster_labels", [0] * n_pairs),
+                    silhouette_score=dt.get("silhouette_score", 0),
+                    is_fragmented=dt.get("is_fragmented", False),
+                    per_concept_sizes=dt.get("per_concept_sizes", {}),
+                )
+            if "concept_decomposition" in existing:
+                results["concept_decomposition"] = existing["concept_decomposition"]
+            _log("Decomposition loaded from checkpoint (skipped)")
         elif n_pairs < 3:
             results["decomposition_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": 3}
         else:

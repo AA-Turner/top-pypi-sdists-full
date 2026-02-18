@@ -73,7 +73,7 @@ class ExternalDatabaseSystemDiscoverySummary(EntityDiscovered):
 
         :param entity_type:
             The value to assign to the entity_type property of this ExternalDatabaseSystemDiscoverySummary.
-            Allowed values for this property are: "STORAGE_SERVER_DISCOVER_SUMMARY", "STORAGE_GRID_DISCOVER_SUMMARY", "DATABASE_SYSTEM_DISCOVER_SUMMARY", "INFRASTRUCTURE_DISCOVER_SUMMARY", "INFRASTRUCTURE_DISCOVER", 'UNKNOWN_ENUM_VALUE'.
+            Allowed values for this property are: "STORAGE_SERVER_DISCOVER_SUMMARY", "STORAGE_GRID_DISCOVER_SUMMARY", "DATABASE_SYSTEM_DISCOVER_SUMMARY", "INFRASTRUCTURE_DISCOVER_SUMMARY", "INFRASTRUCTURE_DISCOVER", "MANAGED_STORAGE_SERVER_DISCOVER_SUMMARY", "MANAGED_STORAGE_GRID_DISCOVER_SUMMARY", "VM_CLUSTER_DISCOVER_SUMMARY", "MANAGED_INFRASTRUCTURE_DISCOVER_SUMMARY", "CLOUD_INFRASTRUCTURE_DISCOVER", 'UNKNOWN_ENUM_VALUE'.
             Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type entity_type: str
 

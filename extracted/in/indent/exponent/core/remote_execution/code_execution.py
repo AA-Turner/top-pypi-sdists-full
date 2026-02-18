@@ -33,10 +33,7 @@ def _truncate_shell_output(content: str, chat_uuid: str) -> tuple[str, bool, str
     if newline_pos != -1 and newline_pos < 1000:
         truncated_value = truncated_value[newline_pos + 1 :]
 
-    if file_path:
-        truncation_msg = f"[Truncated to last {BASH_CHARACTER_LIMIT} characters. Full output written to: {file_path}]\n"
-    else:
-        truncation_msg = f"[Truncated to last {BASH_CHARACTER_LIMIT} characters.]\n"
+    truncation_msg = f"[Truncated to last {BASH_CHARACTER_LIMIT} characters.]\n"
 
     return truncation_msg + truncated_value, True, file_path
 
@@ -44,20 +41,9 @@ def _truncate_shell_output(content: str, chat_uuid: str) -> tuple[str, bool, str
 async def execute_code_streaming(
     request: StreamingCodeExecutionRequest,
     working_directory: str,
-    should_halt: Callable[[], bool] | None = None,
-    chat_uuid: str | None = None,
+    should_halt: Callable[[], bool],
+    chat_uuid: str,
 ) -> AsyncGenerator[StreamingCodeExecutionResponseChunk | StreamingCodeExecutionResponse, None]:
-    """Execute code and stream output.
-
-    Shell output is truncated to BASH_CHARACTER_LIMIT (8k chars) with full output
-    written to a temp file.
-
-    Args:
-        request: The streaming code execution request.
-        working_directory: The working directory for code execution.
-        should_halt: Optional callback to check if execution should halt.
-        chat_uuid: Optional chat UUID for output file storage.
-    """
     if request.language == "shell":
         async for shell_output in execute_shell_streaming(
             request.content, working_directory, request.timeout, should_halt
@@ -68,14 +54,7 @@ async def execute_code_streaming(
                 )
             else:
                 content = shell_output.output or EMPTY_OUTPUT_STRING
-                output_file: str | None = None
-                if chat_uuid:
-                    truncated_content, was_truncated, output_file = _truncate_shell_output(content, chat_uuid)
-                elif len(content) > BASH_CHARACTER_LIMIT:
-                    truncated_content = content[-BASH_CHARACTER_LIMIT:]
-                    was_truncated = True
-                else:
-                    truncated_content, was_truncated = content, False
+                truncated_content, was_truncated, output_file = _truncate_shell_output(content, chat_uuid)
                 yield StreamingCodeExecutionResponse(
                     correlation_id=request.correlation_id,
                     content=truncated_content,

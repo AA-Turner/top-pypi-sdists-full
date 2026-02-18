@@ -202,6 +202,58 @@ class _IDependableProxy:
 typing.cast(typing.Any, IDependable).__jsii_proxy_class__ = lambda : _IDependableProxy
 
 
+@jsii.interface(jsii_type="constructs.IMixin")
+class IMixin(typing_extensions.Protocol):
+    '''A mixin is a reusable piece of functionality that can be applied to constructs to add behavior, properties, or modify existing functionality without inheritance.'''
+
+    @jsii.member(jsii_name="applyTo")
+    def apply_to(self, construct: "IConstruct") -> None:
+        '''Applies the mixin functionality to the target construct.
+
+        :param construct: -
+        '''
+        ...
+
+    @jsii.member(jsii_name="supports")
+    def supports(self, construct: "IConstruct") -> builtins.bool:
+        '''Determines whether this mixin can be applied to the given construct.
+
+        :param construct: -
+        '''
+        ...
+
+
+class _IMixinProxy:
+    '''A mixin is a reusable piece of functionality that can be applied to constructs to add behavior, properties, or modify existing functionality without inheritance.'''
+
+    __jsii_type__: typing.ClassVar[str] = "constructs.IMixin"
+
+    @jsii.member(jsii_name="applyTo")
+    def apply_to(self, construct: "IConstruct") -> None:
+        '''Applies the mixin functionality to the target construct.
+
+        :param construct: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef3057d7b2239a822adb30db5073786298478cd3fa000528394c84d1aeecee1f)
+            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
+        return typing.cast(None, jsii.invoke(self, "applyTo", [construct]))
+
+    @jsii.member(jsii_name="supports")
+    def supports(self, construct: "IConstruct") -> builtins.bool:
+        '''Determines whether this mixin can be applied to the given construct.
+
+        :param construct: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__55ea6788f825fe03077ad971427d715ae61f5ac50df36f708925449c85f4b3b6)
+            check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
+        return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IMixin).__jsii_proxy_class__ = lambda : _IMixinProxy
+
+
 @jsii.interface(jsii_type="constructs.IValidation")
 class IValidation(typing_extensions.Protocol):
     '''Implement this interface in order for the construct to be able to validate itself.'''
@@ -778,6 +830,19 @@ class IConstruct(IDependable, typing_extensions.Protocol):
         '''The tree node.'''
         ...
 
+    @jsii.member(jsii_name="with")
+    def with_(self, *mixins: "IMixin") -> "IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+
+        :param mixins: The mixins to apply.
+
+        :return: This construct for chaining
+        '''
+        ...
+
 
 class _IConstructProxy(
     jsii.proxy_for(IDependable), # type: ignore[misc]
@@ -791,6 +856,22 @@ class _IConstructProxy(
     def node(self) -> "Node":
         '''The tree node.'''
         return typing.cast("Node", jsii.get(self, "node"))
+
+    @jsii.member(jsii_name="with")
+    def with_(self, *mixins: "IMixin") -> "IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+
+        :param mixins: The mixins to apply.
+
+        :return: This construct for chaining
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__46ffe71712de730652fef13db2a6a7bf3168d82f7537656ad03e0ad2b5db5b61)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IConstruct).__jsii_proxy_class__ = lambda : _IConstructProxy
@@ -849,6 +930,24 @@ class Construct(metaclass=jsii.JSIIMeta, jsii_type="constructs.Construct"):
         '''Returns a string representation of this construct.'''
         return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
 
+    @jsii.member(jsii_name="with")
+    def with_(self, *mixins: "IMixin") -> "IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+        Use multiple ``with()`` calls if subsequent mixins should apply to added
+        constructs.
+
+        :param mixins: The mixins to apply.
+
+        :return: This construct for chaining
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dcdf5ec1470924572ba805d2d121897d3ef8160905bcb57bc551eb0b9e2e35a7)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
+
     @builtins.property
     @jsii.member(jsii_name="node")
     def node(self) -> "Node":
@@ -885,6 +984,7 @@ __all__ = [
     "DependencyGroup",
     "IConstruct",
     "IDependable",
+    "IMixin",
     "IValidation",
     "MetadataEntry",
     "MetadataOptions",
@@ -909,6 +1009,18 @@ def _typecheckingstub__fccfa163f8f38b89195d804e18f7122f2b59a7ba7b57ea51cf581e4ae
 
 def _typecheckingstub__54a9441299838c86c77ad919b31ab158da6bd872c3bf8bf55f147c17abeea083(
     instance: IDependable,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef3057d7b2239a822adb30db5073786298478cd3fa000528394c84d1aeecee1f(
+    construct: IConstruct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__55ea6788f825fe03077ad971427d715ae61f5ac50df36f708925449c85f4b3b6(
+    construct: IConstruct,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1033,6 +1145,12 @@ def _typecheckingstub__b0e6908dfe4df8e9318ecca332ccd3a1a3e28fcf76f414daa5a764cba
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__46ffe71712de730652fef13db2a6a7bf3168d82f7537656ad03e0ad2b5db5b61(
+    *mixins: IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__020ca90e326a91c7b0f70a5c5df3471c78175b709d5adcbee2cb463d0367e387(
     scope: Construct,
     id: builtins.str,
@@ -1046,11 +1164,17 @@ def _typecheckingstub__fd6a4114560af835bb1c07485e906499cadbf16cf78d7e344bc100586
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__dcdf5ec1470924572ba805d2d121897d3ef8160905bcb57bc551eb0b9e2e35a7(
+    *mixins: IMixin,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__43869d89939a2770444321abd60b2fdb0daaa395e2fa7d025fe7acd93e2d4dc3(
     id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
 
-for cls in [IConstruct, IDependable, IValidation]:
+for cls in [IConstruct, IDependable, IMixin, IValidation]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

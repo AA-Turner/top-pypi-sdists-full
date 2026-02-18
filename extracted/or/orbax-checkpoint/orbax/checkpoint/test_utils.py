@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -37,6 +37,7 @@ from jax.experimental import pjit
 import jax.numpy as jnp
 import numpy as np
 from orbax.checkpoint import checkpoint_args
+from orbax.checkpoint._src import asyncio_utils
 from orbax.checkpoint._src.handlers import async_checkpoint_handler
 from orbax.checkpoint._src.handlers import pytree_checkpoint_handler
 from orbax.checkpoint._src.metadata import checkpoint as checkpoint_metadata
@@ -645,7 +646,7 @@ def ensure_atomic_save(
 ):
   """Wrapper around TemporaryPath.finalize for testing."""
   if temp_ckpt_dir == final_ckpt_dir:
-    asyncio.run(
+    asyncio_utils.run_sync(
         atomicity.CommitFileTemporaryPath(
             temp_ckpt_dir,
             final_ckpt_dir,
@@ -654,7 +655,7 @@ def ensure_atomic_save(
         )
     )
   else:
-    asyncio.run(
+    asyncio_utils.run_sync(
         atomicity.AtomicRenameTemporaryPath(
             temp_ckpt_dir,
             final_ckpt_dir,
@@ -668,44 +669,12 @@ def create_single_replica_restore_args(
     arr: jax.Array,
     mesh: jax.sharding.Mesh,
     pspec: jax.sharding.PartitionSpec,
-    replica_axis_index: int,
 ):
-  replica_devices = _replica_devices(mesh.devices, replica_axis_index)
-  replica_mesh = jax.sharding.Mesh(replica_devices, mesh.axis_names)
-  ss_sharding = jax.sharding.NamedSharding(replica_mesh, pspec)
-
   return type_handlers.SingleReplicaArrayRestoreArgs(
       sharding=jax.sharding.NamedSharding(mesh, pspec),
-      single_replica_sharding=ss_sharding,
       global_shape=arr.shape,
       dtype=arr.dtype,
   )
-
-
-def _find_idx(array: np.ndarray, replica_axis_idx: int):
-  """Returns the index along given dimension that the current host belongs to."""
-  idx = None
-  for idx, val in np.ndenumerate(array):
-    if val.process_index == multihost.process_index():
-      break
-  return idx[replica_axis_idx]
-
-
-def _replica_devices(device_array: np.ndarray, replica_axis_idx: int):
-  """Returns the devices from the replica that current host belongs to.
-
-  Replicas are assumed to be restricted to the first axis.
-
-  Args:
-    device_array: devices of the mesh that can be obtained by mesh.devices()
-    replica_axis_idx: axis dimension along which replica is taken
-
-  Returns:
-    devices inside the replica that current host is in
-  """
-  idx = _find_idx(device_array, replica_axis_idx)
-  replica_result = np.take(device_array, idx, axis=replica_axis_idx)
-  return np.expand_dims(replica_result, axis=replica_axis_idx)
 
 
 class TestLimitInFlightBytes(limits.LimitInFlightBytes):

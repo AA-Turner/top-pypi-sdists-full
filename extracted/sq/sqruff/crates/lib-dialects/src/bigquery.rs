@@ -17,8 +17,17 @@ use sqruff_lib_core::parser::types::ParseMode;
 
 use super::ansi::{self, raw_dialect};
 use super::bigquery_keywords::{BIGQUERY_RESERVED_KEYWORDS, BIGQUERY_UNRESERVED_KEYWORDS};
+use sqruff_lib_core::dialects::init::{DialectConfig, NullDialectConfig};
+use sqruff_lib_core::value::Value;
 
-pub fn dialect() -> Dialect {
+/// Configuration for the BigQuery dialect.
+pub type BigQueryDialectConfig = NullDialectConfig;
+
+pub fn dialect(config: Option<&Value>) -> Dialect {
+    // Parse and validate dialect configuration, falling back to defaults on failure
+    let _dialect_config: BigQueryDialectConfig = config
+        .map(BigQueryDialectConfig::from_value)
+        .unwrap_or_default();
     let mut dialect = raw_dialect();
     dialect.name = DialectKind::Bigquery;
 
@@ -49,6 +58,24 @@ pub fn dialect() -> Dialect {
             SyntaxKind::DoubleQuote
         ),
     ]);
+
+    // BigQuery supports CTEs with DML statements (INSERT, UPDATE, DELETE, MERGE)
+    // We add these to NonWithSelectableGrammar so WithCompoundStatementSegment can use them
+    dialect.add([(
+        "NonWithSelectableGrammar".into(),
+        one_of(vec![
+            Ref::new("SetExpressionSegment").to_matchable(),
+            optionally_bracketed(vec![Ref::new("SelectStatementSegment").to_matchable()])
+                .to_matchable(),
+            Ref::new("NonSetSelectableGrammar").to_matchable(),
+            Ref::new("UpdateStatementSegment").to_matchable(),
+            Ref::new("InsertStatementSegment").to_matchable(),
+            Ref::new("DeleteStatementSegment").to_matchable(),
+            Ref::new("MergeStatementSegment").to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
+    )]);
 
     dialect.add([
         (

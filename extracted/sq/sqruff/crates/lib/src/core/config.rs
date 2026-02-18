@@ -1,14 +1,14 @@
-use std::ops::Index;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 
-use ahash::AHashMap;
 use configparser::ini::Ini;
+use hashbrown::HashMap;
 use itertools::Itertools;
 use sqruff_lib_core::dialects::Dialect;
 use sqruff_lib_core::dialects::init::{DialectKind, dialect_readout};
 use sqruff_lib_core::errors::SQLFluffUserError;
 use sqruff_lib_core::parser::{IndentationConfig, Parser};
+pub use sqruff_lib_core::value::Value;
 use sqruff_lib_dialects::kind_to_dialect;
 
 use crate::utils::reflow::config::ReflowConfig;
@@ -31,9 +31,9 @@ pub fn split_comma_separated_string(raw_str: &str) -> Value {
 #[derive(Debug, PartialEq, Clone)]
 pub struct FluffConfig {
     pub(crate) indentation: FluffConfigIndentation,
-    pub raw: AHashMap<String, Value>,
+    pub raw: HashMap<String, Value>,
     extra_config_path: Option<String>,
-    _configs: AHashMap<String, AHashMap<String, String>>,
+    _configs: HashMap<String, HashMap<String, String>>,
     pub(crate) dialect: Dialect,
     sql_file_exts: Vec<String>,
     reflow: ReflowConfig,
@@ -47,8 +47,8 @@ impl Default for FluffConfig {
 
 impl FluffConfig {
     pub fn override_dialect(&mut self, dialect: DialectKind) -> Result<(), String> {
-        self.dialect =
-            kind_to_dialect(&dialect).ok_or(format!("Invalid dialect: {}", dialect.as_ref()))?;
+        self.dialect = kind_to_dialect(&dialect, None)
+            .ok_or(format!("Invalid dialect: {}", dialect.as_ref()))?;
         Ok(())
     }
 
@@ -64,6 +64,14 @@ impl FluffConfig {
         self.reflow = ReflowConfig::from_fluff_config(self);
     }
 
+    /// from_file creates a config object from a file path. The path is used both
+    /// to read the file content and to resolve relative `_path`/`_dir` values.
+    pub fn from_file(path: &Path) -> FluffConfig {
+        let mut configs = HashMap::new();
+        ConfigLoader::load_config_file(path, &mut configs);
+        FluffConfig::new(configs, None, None)
+    }
+
     /// from_source creates a config object from a string. This is used for testing and for
     /// loading a config from a string.
     ///
@@ -74,20 +82,20 @@ impl FluffConfig {
         FluffConfig::new(configs, None, None)
     }
 
-    pub fn get_section(&self, section: &str) -> &AHashMap<String, Value> {
+    pub fn get_section(&self, section: &str) -> &HashMap<String, Value> {
         self.raw[section].as_map().unwrap()
     }
 
     // TODO This is not a translation that is particularly accurate.
     pub fn new(
-        configs: AHashMap<String, Value>,
+        configs: HashMap<String, Value>,
         extra_config_path: Option<String>,
         indentation: Option<FluffConfigIndentation>,
     ) -> Self {
         fn nested_combine(
-            mut a: AHashMap<String, Value>,
-            b: AHashMap<String, Value>,
-        ) -> AHashMap<String, Value> {
+            mut a: HashMap<String, Value>,
+            b: HashMap<String, Value>,
+        ) -> HashMap<String, Value> {
             for (key, value_b) in b {
                 match (a.get(&key), value_b) {
                     (Some(Value::Map(map_a)), Value::Map(map_b)) => {
@@ -107,12 +115,12 @@ impl FluffConfig {
             include_str!("./default_config.cfg").into(),
         );
 
-        let mut defaults = AHashMap::new();
+        let mut defaults = HashMap::new();
         ConfigLoader::incorporate_vals(&mut defaults, values);
 
         let mut configs = nested_combine(defaults, configs);
 
-        let dialect = match configs
+        let dialect_kind = match configs
             .get("core")
             .and_then(|map| map.as_map().unwrap().get("dialect"))
         {
@@ -121,7 +129,13 @@ impl FluffConfig {
             _value => DialectKind::default(),
         };
 
-        let dialect = kind_to_dialect(&dialect);
+        // Extract dialect-specific configuration section (e.g., [sqruff:dialect:snowflake])
+        let dialect_config = configs
+            .get("dialect")
+            .and_then(|v| v.as_map())
+            .and_then(|m| m.get(dialect_kind.as_ref()));
+
+        let dialect = kind_to_dialect(&dialect_kind, dialect_config);
         for (in_key, out_key) in [
             // Deal with potential ignore & warning parameters
             ("ignore", "ignore"),
@@ -158,7 +172,7 @@ impl FluffConfig {
             dialect: dialect
                 .expect("Dialect is disabled. Please enable the corresponding feature."),
             extra_config_path,
-            _configs: AHashMap::new(),
+            _configs: HashMap::new(),
             indentation: indentation.unwrap_or_default(),
             sql_file_exts,
             reflow: ReflowConfig::default(),
@@ -177,7 +191,7 @@ impl FluffConfig {
     pub fn from_root(
         extra_config_path: Option<String>,
         ignore_local_config: bool,
-        overrides: Option<AHashMap<String, String>>,
+        overrides: Option<HashMap<String, String>>,
     ) -> Result<FluffConfig, SQLFluffUserError> {
         let loader = ConfigLoader {};
         let mut config =
@@ -188,7 +202,7 @@ impl FluffConfig {
         {
             let core = config
                 .entry("core".into())
-                .or_insert_with(|| Value::Map(AHashMap::new()));
+                .or_insert_with(|| Value::Map(HashMap::new()));
 
             core.as_map_mut()
                 .unwrap()
@@ -338,7 +352,7 @@ impl ConfigLoader {
         path: impl AsRef<Path>,
         extra_config_path: Option<String>,
         ignore_local_config: bool,
-    ) -> AHashMap<String, Value> {
+    ) -> HashMap<String, Value> {
         let path = path.as_ref();
 
         let config_stack = if ignore_local_config {
@@ -355,7 +369,7 @@ impl ConfigLoader {
         nested_combine(config_stack)
     }
 
-    pub fn load_config_at_path(&self, path: impl AsRef<Path>) -> AHashMap<String, Value> {
+    pub fn load_config_at_path(&self, path: impl AsRef<Path>) -> HashMap<String, Value> {
         let path = path.as_ref();
 
         let filename_options = [
@@ -364,7 +378,7 @@ impl ConfigLoader {
             ".sqruff", /* "pyproject.toml" */
         ];
 
-        let mut configs = AHashMap::new();
+        let mut configs = HashMap::new();
 
         if path.is_dir() {
             for fname in filename_options {
@@ -380,14 +394,14 @@ impl ConfigLoader {
         configs
     }
 
-    pub fn from_source(source: &str, path: Option<&Path>) -> AHashMap<String, Value> {
-        let mut configs = AHashMap::new();
+    pub fn from_source(source: &str, path: Option<&Path>) -> HashMap<String, Value> {
+        let mut configs = HashMap::new();
         let elems = ConfigLoader::get_config_elems_from_file(path, Some(source));
         ConfigLoader::incorporate_vals(&mut configs, elems);
         configs
     }
 
-    pub fn load_config_file(path: impl AsRef<Path>, configs: &mut AHashMap<String, Value>) {
+    pub fn load_config_file(path: impl AsRef<Path>, configs: &mut HashMap<String, Value>) {
         let elems = ConfigLoader::get_config_elems_from_file(path.as_ref().into(), None);
         ConfigLoader::incorporate_vals(configs, elems);
     }
@@ -456,13 +470,13 @@ impl ConfigLoader {
         buff
     }
 
-    fn incorporate_vals(ctx: &mut AHashMap<String, Value>, values: Vec<(Vec<String>, Value)>) {
+    fn incorporate_vals(ctx: &mut HashMap<String, Value>, values: Vec<(Vec<String>, Value)>) {
         for (path, value) in values {
             let mut current_map = &mut *ctx;
             for key in path.iter().take(path.len() - 1) {
                 match current_map
                     .entry(key.to_string())
-                    .or_insert_with(|| Value::Map(AHashMap::new()))
+                    .or_insert_with(|| Value::Map(HashMap::new()))
                     .as_map_mut()
                 {
                     Some(slot) => current_map = slot,
@@ -476,138 +490,9 @@ impl ConfigLoader {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Default, serde::Deserialize)]
-#[serde(untagged)]
-pub enum Value {
-    Int(i32),
-    Bool(bool),
-    Float(f64),
-    String(Box<str>),
-    Map(AHashMap<String, Value>),
-    Array(Vec<Value>),
-    #[default]
-    None,
-}
-
-impl Value {
-    pub fn is_none(&self) -> bool {
-        matches!(self, Value::None)
-    }
-
-    pub fn as_array(&self) -> Option<Vec<Value>> {
-        match self {
-            Self::Array(v) => Some(v.clone()),
-            Self::String(q) => {
-                let xs = q
-                    .split(',')
-                    .map(|it| Value::String(it.into()))
-                    .collect_vec();
-                Some(xs)
-            }
-            Self::Bool(b) => Some(vec![Value::String(b.to_string().into())]),
-            _ => None,
-        }
-    }
-}
-
-impl Index<&str> for Value {
-    type Output = Value;
-
-    fn index(&self, index: &str) -> &Self::Output {
-        match self {
-            Value::Map(map) => map.get(index).unwrap_or(&Value::None),
-            _ => unreachable!(),
-        }
-    }
-}
-
-impl Value {
-    pub fn to_bool(&self) -> bool {
-        match *self {
-            Value::Int(v) => v != 0,
-            Value::Bool(v) => v,
-            Value::Float(v) => v != 0.0,
-            Value::String(ref v) => !v.is_empty(),
-            Value::Map(ref v) => !v.is_empty(),
-            Value::None => false,
-            Value::Array(ref v) => !v.is_empty(),
-        }
-    }
-
-    pub fn map<T>(&self, f: impl Fn(&Self) -> T) -> Option<T> {
-        if self == &Value::None {
-            return None;
-        }
-
-        Some(f(self))
-    }
-    pub fn as_map(&self) -> Option<&AHashMap<String, Value>> {
-        if let Self::Map(map) = self {
-            Some(map)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_map_mut(&mut self) -> Option<&mut AHashMap<String, Value>> {
-        if let Self::Map(map) = self {
-            Some(map)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_int(&self) -> Option<i32> {
-        if let Self::Int(v) = self {
-            Some(*v)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_string(&self) -> Option<&str> {
-        if let Self::String(v) = self {
-            Some(v)
-        } else {
-            None
-        }
-    }
-
-    pub fn as_bool(&self) -> Option<bool> {
-        if let Self::Bool(v) = self {
-            Some(*v)
-        } else {
-            None
-        }
-    }
-}
-
-impl FromStr for Value {
-    type Err = ();
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if let Ok(value) = s.parse() {
-            return Ok(Value::Int(value));
-        }
-
-        if let Ok(value) = s.parse() {
-            return Ok(Value::Float(value));
-        }
-
-        let value = match () {
-            _ if s.eq_ignore_ascii_case("true") => Value::Bool(true),
-            _ if s.eq_ignore_ascii_case("false") => Value::Bool(false),
-            _ if s.eq_ignore_ascii_case("none") => Value::None,
-            _ => Value::String(Box::from(s)),
-        };
-
-        Ok(value)
-    }
-}
-
-fn nested_combine(config_stack: Vec<AHashMap<String, Value>>) -> AHashMap<String, Value> {
+fn nested_combine(config_stack: Vec<HashMap<String, Value>>) -> HashMap<String, Value> {
     let capacity = config_stack.len();
-    let mut result = AHashMap::with_capacity(capacity);
+    let mut result = HashMap::with_capacity(capacity);
 
     for dict in config_stack {
         for (key, value) in dict {
@@ -625,5 +510,71 @@ impl<'a> From<&'a FluffConfig> for Parser<'a> {
         let indentation_config =
             IndentationConfig::from_bool_lookup(|key| indentation_section[key].to_bool());
         Self::new(dialect, indentation_config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use sqruff_lib_core::dialects::init::DialectKind;
+
+    #[test]
+    fn test_dialect_config_section_parsing() {
+        // Test that [sqruff:dialect:snowflake] section is correctly parsed
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+dialect = snowflake
+
+[sqruff:dialect:snowflake]
+some_option = value
+"#,
+            None,
+        );
+
+        // Verify that the dialect config section is accessible
+        let dialect_section = config.raw.get("dialect");
+        assert!(dialect_section.is_some());
+
+        let snowflake_config = dialect_section.unwrap().as_map().unwrap().get("snowflake");
+        assert!(snowflake_config.is_some());
+
+        let snowflake_map = snowflake_config.unwrap().as_map().unwrap();
+        assert_eq!(
+            snowflake_map.get("some_option").unwrap().as_string(),
+            Some("value")
+        );
+    }
+
+    #[test]
+    fn test_dialect_config_empty_section() {
+        // Test that empty [sqruff:dialect:bigquery] section works
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+dialect = bigquery
+
+[sqruff:dialect:bigquery]
+"#,
+            None,
+        );
+
+        // The config should still be valid
+        assert_eq!(config.get_dialect().name, DialectKind::Bigquery);
+    }
+
+    #[test]
+    fn test_dialect_without_config_section() {
+        // Test that a dialect works without a config section
+        let config = FluffConfig::from_source(
+            r#"
+[sqruff]
+dialect = postgres
+"#,
+            None,
+        );
+
+        // The config should still be valid
+        assert_eq!(config.get_dialect().name, DialectKind::Postgres);
     }
 }

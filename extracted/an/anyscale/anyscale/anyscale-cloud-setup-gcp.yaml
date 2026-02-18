@@ -14,11 +14,11 @@ resources:
   metadata:
     dependsOn:
       - vpc-${CLOUD_ID}
-- name: firewall-policy-${CLOUD_ID}
+- name: firewall-policy-${DEPLOYMENT_NAME}
   type: gcp-types/compute-v1:networkFirewallPolicies
   properties:
     parentId: projects/${PROJECT_ID}/regions/${REGION}
-    name: firewall-policy-${CLOUD_ID}
+    name: firewall-policy-${DEPLOYMENT_NAME}
     description: "firewall policy for Anyscale cloud ${CLOUD_ID}"
 - name: storage-bucket-${CLOUD_ID}
   type: storage.v1.bucket

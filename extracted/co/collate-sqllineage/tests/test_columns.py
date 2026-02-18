@@ -596,8 +596,8 @@ FROM (
                 TestColumnQualifierTuple("col1", "tab1"),
             ),
         ],
-        # SqlGlot: Column lineage through UNION in subquery returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through UNION in subqueries
+        # SqlGlot: Column lineage through UNION in subquery doesn't align with other parsers yet
+        # TODO: Align SqlGlot graph shape for UNION inside subqueries (adds subquery column nodes)
         test_sqlglot=False,
     )
 
@@ -1081,9 +1081,6 @@ FROM tab2"""
                 TestColumnQualifierTuple("col1", "tab3"),
             ),
         ],
-        # SqlGlot: Column lineage through UNION ALL returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through UNION operations
-        test_sqlglot=False,
     )
     sql = """INSERT INTO tab3
 SELECT col1
@@ -1103,9 +1100,6 @@ FROM tab2"""
                 TestColumnQualifierTuple("col1", "tab3"),
             ),
         ],
-        # SqlGlot: Column lineage through UNION returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through UNION operations
-        test_sqlglot=False,
     )
 
 
@@ -1354,9 +1348,49 @@ SELECT col1 FROM dataset.tab2) SELECT col1 FROM temp_cte"""
                 TestColumnQualifierTuple("col1", "dataset.target"),
             ),
         ],
-        # SqlGlot: Column lineage with UNION inside CTE returns empty - no error raised
-        # TODO: Fix SqlGlot to track column lineage through UNION operations inside CTEs
+        # SqlGlot: CTE UNION lineage graph shape differs from other parsers
+        # TODO: Align SqlGlot CTE UNION node/edge structure
         test_sqlglot=False,
+    )
+
+
+def test_insert_union_all_column_lineage():
+    sql = """INSERT INTO target_table
+SELECT col1 FROM source_a
+UNION ALL
+SELECT col1 FROM source_b"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "source_a"),
+                TestColumnQualifierTuple("col1", "target_table"),
+            ),
+            (
+                TestColumnQualifierTuple("col1", "source_b"),
+                TestColumnQualifierTuple("col1", "target_table"),
+            ),
+        ],
+    )
+
+
+def test_create_view_union_all_column_lineage():
+    sql = """CREATE VIEW view_union AS
+SELECT col1 FROM tab1
+UNION ALL
+SELECT col1 FROM tab2"""
+    assert_column_lineage_equal(
+        sql,
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab1"),
+                TestColumnQualifierTuple("col1", "view_union"),
+            ),
+            (
+                TestColumnQualifierTuple("col1", "tab2"),
+                TestColumnQualifierTuple("col1", "view_union"),
+            ),
+        ],
     )
 
 
@@ -1579,4 +1613,56 @@ FROM schema1.source_table vst"""
             ),
         ],
         test_sqlparse=False,
+    )
+
+
+def test_select_column_with_template_param():
+    assert_column_lineage_equal(
+        "INSERT INTO tab1 SELECT col1 FROM tab2 WHERE col2 = {{ start_date }}",
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab2"),
+                TestColumnQualifierTuple("col1", "tab1"),
+            ),
+        ],
+    )
+
+
+def test_select_column_with_quoted_template_param():
+    assert_column_lineage_equal(
+        "INSERT INTO tab1 SELECT col1 FROM tab2 WHERE col2 = '{{ start_date }}'",
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab2"),
+                TestColumnQualifierTuple("col1", "tab1"),
+            ),
+        ],
+    )
+
+
+def test_select_column_with_join_and_template_param():
+    assert_column_lineage_equal(
+        "INSERT INTO tab1 SELECT a.col1, b.col2 FROM tab2 a JOIN tab3 b ON a.id = b.id WHERE a.dt > {{ start_date }}",
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab2"),
+                TestColumnQualifierTuple("col1", "tab1"),
+            ),
+            (
+                TestColumnQualifierTuple("col2", "tab3"),
+                TestColumnQualifierTuple("col2", "tab1"),
+            ),
+        ],
+    )
+
+
+def test_select_column_ctas_with_template_param():
+    assert_column_lineage_equal(
+        "CREATE TABLE tab1 AS SELECT col1 FROM tab2 WHERE col2 > {{ min_val }}",
+        [
+            (
+                TestColumnQualifierTuple("col1", "tab2"),
+                TestColumnQualifierTuple("col1", "tab1"),
+            ),
+        ],
     )

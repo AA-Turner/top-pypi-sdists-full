@@ -173,7 +173,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/change_fusion_environment_compartment.py.html>`__ to see an example of how to use change_fusion_environment_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/change_fusion_environment_compartment.py.html>`__ to see an example of how to use change_fusion_environment_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -301,7 +301,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/change_fusion_environment_family_compartment.py.html>`__ to see an example of how to use change_fusion_environment_family_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/change_fusion_environment_family_compartment.py.html>`__ to see an example of how to use change_fusion_environment_family_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -421,7 +421,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_data_masking_activity.py.html>`__ to see an example of how to use create_data_masking_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_data_masking_activity.py.html>`__ to see an example of how to use create_data_masking_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -536,7 +536,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_fusion_environment.py.html>`__ to see an example of how to use create_fusion_environment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_fusion_environment.py.html>`__ to see an example of how to use create_fusion_environment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -642,7 +642,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_fusion_environment_admin_user.py.html>`__ to see an example of how to use create_fusion_environment_admin_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_fusion_environment_admin_user.py.html>`__ to see an example of how to use create_fusion_environment_admin_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -757,7 +757,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_fusion_environment_family.py.html>`__ to see an example of how to use create_fusion_environment_family API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_fusion_environment_family.py.html>`__ to see an example of how to use create_fusion_environment_family API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -863,7 +863,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_refresh_activity.py.html>`__ to see an example of how to use create_refresh_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_refresh_activity.py.html>`__ to see an example of how to use create_refresh_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -981,7 +981,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/create_service_attachment.py.html>`__ to see an example of how to use create_service_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/create_service_attachment.py.html>`__ to see an example of how to use create_service_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -1096,7 +1096,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/delete_fusion_environment.py.html>`__ to see an example of how to use delete_fusion_environment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/delete_fusion_environment.py.html>`__ to see an example of how to use delete_fusion_environment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -1211,7 +1211,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/delete_fusion_environment_admin_user.py.html>`__ to see an example of how to use delete_fusion_environment_admin_user API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/delete_fusion_environment_admin_user.py.html>`__ to see an example of how to use delete_fusion_environment_admin_user API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['adminUsername', 'fusionEnvironmentId']
@@ -1324,7 +1324,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/delete_fusion_environment_family.py.html>`__ to see an example of how to use delete_fusion_environment_family API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/delete_fusion_environment_family.py.html>`__ to see an example of how to use delete_fusion_environment_family API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -1439,7 +1439,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/delete_refresh_activity.py.html>`__ to see an example of how to use delete_refresh_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/delete_refresh_activity.py.html>`__ to see an example of how to use delete_refresh_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'refreshActivityId']
@@ -1555,7 +1555,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/delete_service_attachment.py.html>`__ to see an example of how to use delete_service_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/delete_service_attachment.py.html>`__ to see an example of how to use delete_service_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'serviceAttachmentId']
@@ -1661,7 +1661,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/generate_extract_details.py.html>`__ to see an example of how to use generate_extract_details API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/generate_extract_details.py.html>`__ to see an example of how to use generate_extract_details API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -1769,7 +1769,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_data_masking_activity.py.html>`__ to see an example of how to use get_data_masking_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_data_masking_activity.py.html>`__ to see an example of how to use get_data_masking_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'dataMaskingActivityId']
@@ -1875,7 +1875,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_fusion_environment.py.html>`__ to see an example of how to use get_fusion_environment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_fusion_environment.py.html>`__ to see an example of how to use get_fusion_environment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -1980,7 +1980,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_fusion_environment_family.py.html>`__ to see an example of how to use get_fusion_environment_family API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_fusion_environment_family.py.html>`__ to see an example of how to use get_fusion_environment_family API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -2085,7 +2085,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_fusion_environment_family_limits_and_usage.py.html>`__ to see an example of how to use get_fusion_environment_family_limits_and_usage API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_fusion_environment_family_limits_and_usage.py.html>`__ to see an example of how to use get_fusion_environment_family_limits_and_usage API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -2190,7 +2190,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_fusion_environment_family_subscription_detail.py.html>`__ to see an example of how to use get_fusion_environment_family_subscription_detail API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_fusion_environment_family_subscription_detail.py.html>`__ to see an example of how to use get_fusion_environment_family_subscription_detail API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -2295,7 +2295,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_fusion_environment_status.py.html>`__ to see an example of how to use get_fusion_environment_status API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_fusion_environment_status.py.html>`__ to see an example of how to use get_fusion_environment_status API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -2403,7 +2403,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_refresh_activity.py.html>`__ to see an example of how to use get_refresh_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_refresh_activity.py.html>`__ to see an example of how to use get_refresh_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'refreshActivityId']
@@ -2512,7 +2512,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_scheduled_activity.py.html>`__ to see an example of how to use get_scheduled_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_scheduled_activity.py.html>`__ to see an example of how to use get_scheduled_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'scheduledActivityId']
@@ -2621,7 +2621,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_service_attachment.py.html>`__ to see an example of how to use get_service_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_service_attachment.py.html>`__ to see an example of how to use get_service_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'serviceAttachmentId']
@@ -2727,7 +2727,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/get_work_request.py.html>`__ to see an example of how to use get_work_request API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -2832,7 +2832,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/initiate_extract.py.html>`__ to see an example of how to use initiate_extract API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/initiate_extract.py.html>`__ to see an example of how to use initiate_extract API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -2935,7 +2935,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_admin_users.py.html>`__ to see an example of how to use list_admin_users API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_admin_users.py.html>`__ to see an example of how to use list_admin_users API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -3061,7 +3061,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_data_masking_activities.py.html>`__ to see an example of how to use list_data_masking_activities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_data_masking_activities.py.html>`__ to see an example of how to use list_data_masking_activities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -3230,7 +3230,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_fusion_environment_families.py.html>`__ to see an example of how to use list_fusion_environment_families API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_fusion_environment_families.py.html>`__ to see an example of how to use list_fusion_environment_families API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3392,7 +3392,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_fusion_environments.py.html>`__ to see an example of how to use list_fusion_environments API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_fusion_environments.py.html>`__ to see an example of how to use list_fusion_environments API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -3557,7 +3557,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_refresh_activities.py.html>`__ to see an example of how to use list_refresh_activities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_refresh_activities.py.html>`__ to see an example of how to use list_refresh_activities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -3748,7 +3748,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_scheduled_activities.py.html>`__ to see an example of how to use list_scheduled_activities API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_scheduled_activities.py.html>`__ to see an example of how to use list_scheduled_activities API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -3945,7 +3945,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_service_attachments.py.html>`__ to see an example of how to use list_service_attachments API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_service_attachments.py.html>`__ to see an example of how to use list_service_attachments API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -4114,7 +4114,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_time_available_for_refreshes.py.html>`__ to see an example of how to use list_time_available_for_refreshes API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_time_available_for_refreshes.py.html>`__ to see an example of how to use list_time_available_for_refreshes API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -4263,7 +4263,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_work_request_errors.py.html>`__ to see an example of how to use list_work_request_errors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4412,7 +4412,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_work_request_logs.py.html>`__ to see an example of how to use list_work_request_logs API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['workRequestId']
@@ -4569,7 +4569,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/list_work_requests.py.html>`__ to see an example of how to use list_work_requests API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -4722,7 +4722,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/reset_fusion_environment_password.py.html>`__ to see an example of how to use reset_fusion_environment_password API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/reset_fusion_environment_password.py.html>`__ to see an example of how to use reset_fusion_environment_password API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'adminUsername']
@@ -4843,7 +4843,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/update_fusion_environment.py.html>`__ to see an example of how to use update_fusion_environment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/update_fusion_environment.py.html>`__ to see an example of how to use update_fusion_environment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']
@@ -4960,7 +4960,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/update_fusion_environment_family.py.html>`__ to see an example of how to use update_fusion_environment_family API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/update_fusion_environment_family.py.html>`__ to see an example of how to use update_fusion_environment_family API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentFamilyId']
@@ -5080,7 +5080,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/update_refresh_activity.py.html>`__ to see an example of how to use update_refresh_activity API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/update_refresh_activity.py.html>`__ to see an example of how to use update_refresh_activity API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId', 'refreshActivityId']
@@ -5193,7 +5193,7 @@ class FusionApplicationsClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/fusionapps/verify_service_attachment.py.html>`__ to see an example of how to use verify_service_attachment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/fusionapps/verify_service_attachment.py.html>`__ to see an example of how to use verify_service_attachment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fusionEnvironmentId']

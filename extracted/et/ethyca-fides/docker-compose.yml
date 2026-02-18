@@ -1,0 +1,297 @@
+services:
+  fides:
+    container_name: fides${CONTAINER_SUFFIX:-}
+    image: ethyca/fides:local${IMAGE_SUFFIX:-}
+    command: python -m uvicorn --host 0.0.0.0 --port 8080 --reload --reload-dir src --reload-dir data --reload-include='*.yml' fides.api.main:app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      fides-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - 8080
+    env_file:
+      - .env
+    environment:
+      # Use pre-built venv at /opt/fides so "uv run" does not create/sync .venv (avoids C extension rebuilds)
+      UV_PROJECT_ENVIRONMENT: /opt/fides
+      FIDES__CONFIG_PATH: ${FIDES__CONFIG_PATH:-/fides/.fides/fides.toml}
+      FIDES__CLI__ANALYTICS_ID: ${FIDES__CLI__ANALYTICS_ID-}
+      FIDES__CLI__SERVER_HOST: "fides"
+      FIDES__CLI__SERVER_PORT: "8080"
+      FIDES__DATABASE__SERVER: "fides-db"
+      FIDES__DEV_MODE: "True"
+      FIDES__LOGGING__COLORIZE: "True"
+      FIDES__USER__ANALYTICS_OPT_OUT: "True"
+      # Default auth rate limit; override via env for tests/perf as needed
+      FIDES__SECURITY__AUTH_RATE_LIMIT: ${FIDES__SECURITY__AUTH_RATE_LIMIT:-10/minute}
+      FIDES__SECURITY__BASTION_SERVER_HOST: ${FIDES__SECURITY__BASTION_SERVER_HOST-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME: ${FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY: ${FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY-}
+      SAAS_OP_SERVICE_ACCOUNT_TOKEN: ${SAAS_OP_SERVICE_ACCOUNT_TOKEN-}
+      SAAS_SECRETS_OP_VAULT_ID: ${SAAS_SECRETS_OP_VAULT_ID-}
+    volumes:
+      - type: bind
+        source: .
+        target: /fides
+        read_only: False
+
+  fides-ui:
+    image: ethyca/fides:local-ui${IMAGE_SUFFIX:-}
+    container_name: fides-ui${CONTAINER_SUFFIX:-}
+    command: npm run dev-admin-ui
+    expose:
+      - 3000
+    ports:
+      - "${ADMIN_UI_PORT:-3000}:3000"
+    volumes:
+      - type: bind
+        source: .
+        target: /fides
+        read_only: False
+      # do not volume mount over the node_modules
+      - /fides/clients/node_modules
+      - /fides/clients/admin-ui/node_modules
+    environment:
+      - NEXT_PUBLIC_FIDESCTL_API_SERVER=http://fides:8080
+
+  fides-pc:
+    image: ethyca/fides:local-pc${IMAGE_SUFFIX:-}
+    container_name: fides-pc${CONTAINER_SUFFIX:-}
+    command: npm run dev-pc
+    expose:
+      - 3001
+    ports:
+      - "${PRIVACY_CENTER_PORT:-3001}:3001"
+    volumes:
+      - type: bind
+        source: .
+        target: /fides
+        read_only: False
+      # do not volume mount over the node_modules
+      - /fides/clients/node_modules
+      - /fides/clients/privacy-center/node_modules
+
+  fides-db:
+    image: postgres:16
+    container_name: fides-db${CONTAINER_SUFFIX:-}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    expose:
+      - 5432
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    environment:
+      POSTGRES_USER: "postgres"
+      POSTGRES_PASSWORD: "fides"
+      POSTGRES_DB: "fides"
+    deploy:
+      placement:
+        constraints:
+          - node.labels.fides.app-db-data == true
+
+  docs:
+    build:
+      context: .
+      dockerfile: docs/fides/Dockerfile
+    volumes:
+      - ./docs/fides:/docs
+      - ./:/fides
+    expose:
+      - 8000
+    ports:
+      - "8000:8000"
+    environment:
+      FIDES__DEV_MODE: True
+      FIDES__CLI__ANALYTICS_ID: ${FIDES__CLI__ANALYTICS_ID-}
+
+      # Required security env vars
+      FIDES__SECURITY__APP_ENCRYPTION_KEY: OLMkv91j8DHiDAULnK5Lxx3kSCov30b3
+      FIDES__SECURITY__OAUTH_ROOT_CLIENT_ID: fidesadmin
+      FIDES__SECURITY__OAUTH_ROOT_CLIENT_SECRET: fidesadminsecret
+      FIDES__SECURITY__DRP_JWT_SECRET: secret
+
+  worker-other:
+    image: ethyca/fides:local${IMAGE_SUFFIX:-}
+    command: fides worker --exclude-queues=fides.dsr,fides.privacy_preferences,fides.privacy_request_exports,fides.privacy_request_ingestion,fidesplus.discovery_monitors_detection,fidesplus.discovery_monitors_classification,fidesplus.discovery_monitors_promotion # exclude DSRs, privacy preferences, and discovery monitor queues
+    depends_on:
+      redis:
+        condition: service_started
+    restart: always
+    healthcheck:
+      test: ["CMD", "/opt/fides/bin/python", "-m", "celery", "-A", "fides.api.tasks", "inspect", "ping"]
+      start_period: 60s
+      interval: 20s
+      timeout: 20s
+      retries: 10
+    environment:
+      FIDES__CONFIG_PATH: ${FIDES__CONFIG_PATH:-/fides/.fides/fides.toml}
+      FIDES__LOGGING__COLORIZE: "True"
+      FIDES__USER__ANALYTICS_OPT_OUT: "True"
+      # The default HTTP health check port is 9000, override it here to ensure that
+      # the override works as expected.
+      FIDES__CELERY__HEALTHCHECK_PORT: "9001"
+    expose:
+        - 9001
+    volumes:
+      - type: bind
+        source: ./
+        target: /fides
+        read_only: False
+      - /fides/src/fides.egg-info
+
+  worker-privacy-preferences:
+    extends:
+      service: worker-other
+    command: fides worker --queues=fides.privacy_preferences,fides.privacy_request_exports,fides.privacy_request_ingestion
+
+  worker-dsr:
+    extends:
+      service: worker-other
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9001/"]
+    command: fides worker --queues=fides.dsr
+
+  redis:
+    image: "redis:8.0-alpine"
+    container_name: fides-redis${CONTAINER_SUFFIX:-}
+    # AUTH option #1: no authentication at all
+    # command: redis-server
+    # AUTH option #2: require password
+    command: redis-server --requirepass redispassword
+    # AUTH option #3: Redis ACL defined in redis.conf
+    # command: redis-server /usr/local/etc/redis/redis.conf
+    expose:
+      - 6379
+    ports:
+      - "0.0.0.0:${REDIS_PORT:-6379}:6379"
+    volumes:
+      # Mount a redis.conf file for configuration
+      # NOTE: Only used by "AUTH option #3" above!
+      - type: bind
+        source: ./docker/redis
+        target: /usr/local/etc/redis
+        read_only: False
+
+  flower:
+    image: mher/flower:2.0
+    command: celery flower --broker=redis://:redispassword@redis:6379/0
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+    environment:
+      - CELERY_BROKER_URL=redis://:redispassword@redis:6379/0
+      - CELERY_RESULT_BACKEND=redis://:redispassword@redis:6379/0
+
+  # Cluster services for nginx load balancing
+  fides-1:
+    container_name: fides-1
+    image: ethyca/fides:local${IMAGE_SUFFIX:-}
+    command: python -m uvicorn --host 0.0.0.0 --port 8080 --reload --reload-dir src --reload-dir data --reload-include='*.yml' fides.api.main:app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "8081:8080"
+    depends_on:
+      fides-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - 8080
+    env_file:
+      - .env
+    environment:
+      FIDES__CONFIG_PATH: ${FIDES__CONFIG_PATH:-/fides/.fides/fides.toml}
+      FIDES__CLI__ANALYTICS_ID: ${FIDES__CLI__ANALYTICS_ID-}
+      FIDES__CLI__SERVER_HOST: "fides"
+      FIDES__CLI__SERVER_PORT: "8080"
+      FIDES__DATABASE__SERVER: "fides-db"
+      FIDES__DEV_MODE: "True"
+      FIDES__LOGGING__COLORIZE: "True"
+      FIDES__USER__ANALYTICS_OPT_OUT: "True"
+      FIDES__SECURITY__BASTION_SERVER_HOST: ${FIDES__SECURITY__BASTION_SERVER_HOST-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME: ${FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY: ${FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY-}
+      SAAS_OP_SERVICE_ACCOUNT_TOKEN: ${SAAS_OP_SERVICE_ACCOUNT_TOKEN-}
+      SAAS_SECRETS_OP_VAULT_ID: ${SAAS_SECRETS_OP_VAULT_ID-}
+    volumes:
+      - type: bind
+        source: .
+        target: /fides
+        read_only: False
+
+  fides-2:
+    container_name: fides-2
+    image: ethyca/fides:local${IMAGE_SUFFIX:-}
+    command: python -m uvicorn --host 0.0.0.0 --port 8080 --reload --reload-dir src --reload-dir data --reload-include='*.yml' fides.api.main:app
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://0.0.0.0:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
+    ports:
+      - "8082:8080"
+    depends_on:
+      fides-db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    expose:
+      - 8080
+    env_file:
+      - .env
+    environment:
+      FIDES__CONFIG_PATH: ${FIDES__CONFIG_PATH:-/fides/.fides/fides.toml}
+      FIDES__CLI__ANALYTICS_ID: ${FIDES__CLI__ANALYTICS_ID-}
+      FIDES__CLI__SERVER_HOST: "fides"
+      FIDES__CLI__SERVER_PORT: "8080"
+      FIDES__DATABASE__SERVER: "fides-db"
+      FIDES__DEV_MODE: "True"
+      FIDES__LOGGING__COLORIZE: "True"
+      FIDES__USER__ANALYTICS_OPT_OUT: "True"
+      FIDES__SECURITY__BASTION_SERVER_HOST: ${FIDES__SECURITY__BASTION_SERVER_HOST-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME: ${FIDES__SECURITY__BASTION_SERVER_SSH_USERNAME-}
+      FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY: ${FIDES__SECURITY__BASTION_SERVER_SSH_PRIVATE_KEY-}
+      SAAS_OP_SERVICE_ACCOUNT_TOKEN: ${SAAS_OP_SERVICE_ACCOUNT_TOKEN-}
+      SAAS_SECRETS_OP_VAULT_ID: ${SAAS_SECRETS_OP_VAULT_ID-}
+    volumes:
+      - type: bind
+        source: .
+        target: /fides
+        read_only: False
+
+  fides-proxy:
+    container_name: fides-proxy
+    image: nginx:latest
+    ports:
+      - "8083:8080"
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      fides-1:
+        condition: service_healthy
+      fides-2:
+        condition: service_healthy
+
+volumes:
+  postgres: null
+
+networks:
+  fides_network:

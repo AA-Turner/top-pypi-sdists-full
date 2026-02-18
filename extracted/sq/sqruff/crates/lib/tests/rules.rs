@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use ahash::AHashMap;
 use glob::glob;
+use hashbrown::HashMap;
 use serde::Deserialize;
 use serde_with::{KeyValueMap, serde_as};
 use sqruff_lib::core::config::{FluffConfig, Value};
@@ -38,7 +38,7 @@ struct TestCase {
     #[serde(flatten)]
     kind: TestCaseKind,
     #[serde(default)]
-    configs: AHashMap<String, Value>,
+    configs: HashMap<String, Value>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -55,7 +55,7 @@ fn main() {
     args.parse_args(std::env::args().skip(1));
 
     let mut linter = Linter::new(FluffConfig::default(), None, None, true);
-    let mut core = AHashMap::new();
+    let mut core = HashMap::new();
     core.insert(
         "core".to_string(),
         linter.config_mut().raw.get("core").unwrap().clone(),
@@ -156,7 +156,7 @@ fn main() {
 
             match case.kind {
                 TestCaseKind::Pass { pass_str } => {
-                    let result = linter.lint_string_wrapped(&pass_str, false);
+                    let result = linter.lint_string_wrapped(&pass_str, false).unwrap();
                     let error_string = format!(
                         r#"
 The following test test can be used to recreate the issue:
@@ -191,7 +191,7 @@ dialect = {dialect}
                     assert_eq!(&result.violations(), &[], "{}", error_string);
                 }
                 TestCaseKind::Fail { fail_str } => {
-                    let file = linter.lint_string_wrapped(&fail_str, false);
+                    let file = linter.lint_string_wrapped(&fail_str, false).unwrap();
                     assert_ne!(&file.violations(), &[])
                 }
                 TestCaseKind::Fix { fail_str, fix_str } => {
@@ -200,7 +200,7 @@ dialect = {dialect}
                         "Fail and fix strings should not be equal"
                     );
 
-                    let linted = linter.lint_string_wrapped(&fail_str, true);
+                    let linted = linter.lint_string_wrapped(&fail_str, true).unwrap();
                     let actual = linted.fix_string();
 
                     pretty_assertions::assert_eq!(actual, fix_str);
@@ -211,6 +211,11 @@ dialect = {dialect}
                 *linter.config_mut() = FluffConfig::default();
                 linter.config_mut().raw.extend(core.clone());
                 linter.config_mut().reload_reflow();
+
+                // Recreate linter with default templater to avoid leaking
+                // the custom templater (e.g. placeholder) into subsequent tests.
+                let templater = Linter::get_templater(linter.config());
+                linter = Linter::new(linter.config().clone(), None, Some(templater), true);
             }
         }
     }

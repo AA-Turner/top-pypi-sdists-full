@@ -212,7 +212,7 @@ def convert_to_categoricals_str(
         dfs.append(pd.DataFrame(arrvals))
 
     if has_domains and has_values:
-        df = pd.concat(dfs, axis=1, copy=False)
+        df = pd.concat(dfs, axis=1)
         df.columns = pd.RangeIndex(start=0, stop=len(df.columns))
     elif has_domains or has_values:
         df = dfs[0]
@@ -245,7 +245,7 @@ def convert_to_categoricals_cat(
         dfs.append(pd.DataFrame(arrvals))
 
     if has_domains and has_values:
-        df = pd.concat(dfs, axis=1, copy=False)
+        df = pd.concat(dfs, axis=1)
         df.columns = pd.RangeIndex(start=0, stop=len(df.columns))
     elif has_domains or has_values:
         df = dfs[0]

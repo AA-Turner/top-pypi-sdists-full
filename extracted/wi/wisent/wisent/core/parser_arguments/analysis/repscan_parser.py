@@ -62,6 +62,16 @@ def setup_repscan_parser(parser):
         help="Token extraction strategy (default: last_token)"
     )
     parser.add_argument(
+        "--extraction-component",
+        type=str,
+        default="residual_stream",
+        choices=["residual_stream", "attn_output", "mlp_output", "per_head",
+                 "mlp_intermediate", "post_attn_residual", "pre_attn_layernorm",
+                 "embedding_output", "final_layernorm", "q_proj", "k_proj",
+                 "v_proj", "mlp_gate_activation", "attention_scores", "logits"],
+        help="Transformer component to extract from (default: residual_stream)"
+    )
+    parser.add_argument(
         "--limit",
         type=int,
         default=None,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.upgradecheck
-Version: 2.7.0
+Version: 2.7.1
 Summary: Common code for writing OpenStack upgrade checks
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE

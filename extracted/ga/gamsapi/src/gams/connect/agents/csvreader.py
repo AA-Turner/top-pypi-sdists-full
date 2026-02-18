@@ -325,9 +325,11 @@ class CSVReader(ConnectAgent):
         # pandas-version-check
         if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
             df.isetitem(-1, df.iloc[:, -1].replace(self._value_sub))
-        else:  # pandas >= 2.2.0
+        elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
             with pd.option_context("future.no_silent_downcasting", True):
                 df.isetitem(-1, df.iloc[:, -1].replace(self._value_sub).infer_objects())
+        else:  # pandas >= 3.0.0
+            df.isetitem(-1, df.iloc[:, -1].replace(self._value_sub).infer_objects())
 
         if self._trace > 2:
             self._cdb.print_log(f"DataFrame after value substitution:\n{df}")
@@ -426,9 +428,10 @@ class CSVReader(ConnectAgent):
         # pandas-version-check
         if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
             df = df.stack(level=df.columns.names, dropna=False)
-        else:  # pandas >= 2.2.0
+        elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
             df = df.stack(level=df.columns.names, future_stack=True)
-
+        else:  # pandas >= 3.0.0
+            df = df.stack(level=df.columns.names)
         return df
 
     def _sort_value_columns(self, df: pd.DataFrame) -> pd.DataFrame:
@@ -495,6 +498,36 @@ class CSVReader(ConnectAgent):
                 )
 
         return df
+    
+    def _create_sym(self, df, domain):
+        """Creates symbol (parameter or set) in the Connect container
+
+        Parameters
+        ----------
+        df : pd.DataFrame | None
+            Symbol records
+        domain : list
+            Symbol domains
+
+        Returns
+        -------
+        Symbol object
+            Created symbol
+        """
+        if self._sym_type == "par":
+            sym = self._cdb.container.addParameter(
+                self._name,
+                domain,
+                records=df,
+            )
+        else:
+            sym = self._cdb.container.addSet(
+                self._name,
+                domain,
+                records=df,
+            )
+
+        return sym
 
     def execute(self):
         if self._trace > 0:
@@ -543,7 +576,37 @@ class CSVReader(ConnectAgent):
                 f"Arguments for reading the CSV file:\n{self._read_csv_args}"
             )
 
-        df = pd.read_csv(self._file, **self._read_csv_args)
+        try:
+            df = pd.read_csv(self._file, **self._read_csv_args)
+
+        except pd.errors.EmptyDataError:
+            if self._trace > 1:
+                self._cdb.print_log(
+                    "Empty data after reading CSV file."
+                )
+                
+            # set dimensionality
+            dim = len(self._index_cols)
+            if self._stack:
+                if self._multiheader:
+                    dim += len(self._header)
+                else:
+                    dim += 1
+
+            sym = self._create_sym(None, ["*"] * dim)
+
+            # For symbols with None records, empty df is assigned
+            self._transform_sym_none_to_empty(sym)
+
+            if self._trace > 2:
+                self._cdb.print_log(
+                    f"Connect Container symbol={self._name}:\n {sym.records}\n"
+                )
+
+            if self._trace > 0:
+                self._describe_container(self._cdb.container, "Connect Container (after):")
+
+            return
 
         if self._trace > 2:
             self._cdb.print_log(
@@ -569,11 +632,7 @@ class CSVReader(ConnectAgent):
         if self._auto_col is not None and not df.columns.empty:
             self._generate_column_labels(df)
 
-            if self._stack:
-                dim += 1
-                domain.append("*")
-
-        elif self._stack:
+        if self._stack:
             if self._multiheader:
                 dim += len(self._header)
                 domain.extend(
@@ -596,8 +655,12 @@ class CSVReader(ConnectAgent):
                         pd.__version__, "2.2"
                     ):  # pandas < 2.2.0
                         df = df.stack(dropna=False)
-                    else:  # pandas >= 2.2.0
+                    elif self._pandas_version_before(
+                        pd.__version__, "3.0"
+                    ):  # 2.2.0 <= pandas < 3.0.0
                         df = df.stack(future_stack=True)
+                    else:  # pandas >= 3.0.0
+                        df = df.stack()
 
                 if dim == 1 or (self._multiheader and dim == columns.nlevels):
                     # drop pandas default index level
@@ -638,11 +701,6 @@ class CSVReader(ConnectAgent):
             self._substitute_values(df)
         df.dropna(inplace=True)
 
-        if self._sym_type == "par":
-            sym = gt.Parameter(self._cdb.container, self._name, domain=domain)
-        else:
-            sym = gt.Set(self._cdb.container, self._name, domain=domain)
-
         # reset the index to the default integer index
         df = df.reset_index(drop=True)
 
@@ -651,7 +709,7 @@ class CSVReader(ConnectAgent):
                 "Final DataFrame that will be processed by" f" GAMSTransfer:\n{df}"
             )
 
-        sym.setRecords(df)
+        sym = self._create_sym(df, domain)
 
         if dim > 0 and self._stack:
             if self._multiheader:

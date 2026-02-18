@@ -1,7 +1,9 @@
+import time
 import typing as t
 
 from pydantic import UUID4, BaseModel, parse_obj_as
 
+from taktile_auth._metrics import emit_metric
 from taktile_auth.entities import Permission, Role
 from taktile_auth.exceptions import InsufficientRightsException
 from taktile_auth.parser import RESOURCES, ROLES
@@ -73,15 +75,28 @@ class TaktileIdToken(BaseModel):
         return parse_obj_as(UUID4, self.sub.split(":")[-1])
 
     def assert_access(self, permission: t.Union[str, t.Sequence[str]]) -> None:
+        t0 = time.perf_counter()
         if isinstance(permission, str):
             permission = [permission]
 
-        for p in permission:
-            self._is_allowed(
-                p,
-                (
-                    self.build_role(role)
-                    for role in self.roles
-                    if role.split("/")[0] in ROLES
-                ),
+        allowed = True
+        try:
+            for p in permission:
+                self._is_allowed(
+                    p,
+                    (
+                        self.build_role(role)
+                        for role in self.roles
+                        if role.split("/")[0] in ROLES
+                    ),
+                )
+        except InsufficientRightsException:
+            allowed = False
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - t0) * 1000
+            emit_metric(
+                "AssertAccessDuration",
+                duration_ms,
+                {"Allowed": str(allowed)},
             )

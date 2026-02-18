@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "docxcompose"
-version = "2.0.1"
+version = "2.0.2"
 description = "Compose .docx documents"
 authors = ["4teamwork AG"]
 readme = "README.rst"
@@ -8,7 +8,7 @@ packages = [{include = "docxcompose"}]
 
 [tool.poetry.dependencies]
 babel = "^2"
-lxml = "^5"
+lxml = ">=5"
 python = ">=3.12, <4"
 python-docx = "^1"
 six = "^1"

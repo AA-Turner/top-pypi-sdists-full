@@ -78,7 +78,8 @@ class TestResourceListDataset(unittest.TestCase):
                                 column_id = '', 
                                 column_name = '', ), 
                             join_type = 'inner', ), 
-                        model_problem_type = 'regression', )
+                        model_problem_type = 'regression', 
+                        is_static = True, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 
@@ -131,7 +132,8 @@ class TestResourceListDataset(unittest.TestCase):
                                 column_id = '', 
                                 column_name = '', ), 
                             join_type = 'inner', ), 
-                        model_problem_type = 'regression', )
+                        model_problem_type = 'regression', 
+                        is_static = True, )
                     ],
                 pagination = arthur_client.api_bindings.models.pagination.Pagination(
                     page = 56, 

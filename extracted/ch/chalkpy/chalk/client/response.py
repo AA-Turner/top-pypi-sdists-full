@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta
-from typing import TYPE_CHECKING, Any, Dict, Mapping, Protocol, Sequence, Union
+from typing import TYPE_CHECKING, Any, Collection, Dict, Mapping, Protocol, Sequence, Union
 
 from chalk.client.models import (
     ChalkError,
@@ -23,6 +23,7 @@ if TYPE_CHECKING:
     import pandas as pd
     import polars as pl
     import pyarrow as pa
+    import torch
 
 
 class DatasetPartition(Protocol):
@@ -64,6 +65,9 @@ class DatasetRevision(Protocol):
 
     num_bytes: int | None = None
     """Number of bytes of the output, updated upon success."""
+
+    num_rows: int | None = None
+    """Total number of rows in the dataset revision output."""
 
     created_at: datetime | None = None
     """Timestamp for creation of revision job."""
@@ -594,6 +598,102 @@ class DatasetRevision(Protocol):
         ...     {"metadata": "test"}
         ... )
         """
+
+    def create_torch_map_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+    ) -> torch.utils.data.Dataset:
+        """
+        Create a Torch Dataset from the results of the Chalk dataset revision.
+
+        This dataset will immediately materialize the entire result set as a table, and is thus not appropriate for
+        larger datasets.
+
+        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
+        returned as numpy arrays.
+
+        Parameters
+        ----------
+        columns
+            Optional mapping of columns to alias dataset columns, or alternatively a subset of columns, which will
+            be used to filter and/or alias the columns included in the batch. None will return all columns in the
+            dataset with their original name. Defaults to None.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from torch.utils.data import DataLoader
+        >>> ds = ChalkClient().offline_query(
+        ...    input={
+        ...       "user.id": [i for i in range(1000)]
+        ...    },
+        ...    output="user",
+        ... )
+        >>> train_dataset = ds.create_torch_map_dataset()
+        >>> train_loader = DataLoader(
+        ...     dataset=train_dataset,
+        ...     batch_size=16,
+        ...     shuffle=True,
+        ... )
+        """
+        ...
+
+    def create_torch_iter_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+        *,
+        shuffle_chunks: bool = False,
+        shuffle_rows: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> torch.utils.data.IterableDataset:
+        """
+        Create a Torch IterableDataset from the results of the Chalk dataset revision.
+
+        Unlike the map-based dataset produced by create_torch_map_dataset(), this Dataset does not materialize the
+        entire table immediately. This makes the IterableDataset best suited for larger datasets, where individual
+        accesses need not be efficient.
+
+        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
+        returned as numpy arrays.
+
+        Parameters
+        ----------
+        columns
+            Optional mapping of columns to alias dataset columns, or alternatively a subset of columns, which will
+            be used to filter and/or alias the columns included in the batch. None will return all columns in the
+            dataset with their original name. Defaults to None.
+
+        shuffle_chunks
+            Whether to iterate over the result chunks randomly. Defaults to False.
+
+        shuffle_rows
+            Whether to iterate over the rows within a chunk randomly. Defaults to False.
+
+        generator
+            The torch generator to use when generating a shuffling of chunks and rows, if specified. Defaults to None.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from torch.utils.data import DataLoader
+        >>> def train(...):
+        ...   ...
+        >>> ds = ChalkClient().offline_query(
+        ...     input={
+        ...         "user.id": [i for i in range(1000)]
+        ...     },
+        ...     output="user",
+        ... )
+        >>> train_loader = ds.create_torch_iter_dataset(
+        ...     shuffle_chunks=True,
+        ...     shuffle_rows=True,
+        ... )
+        >>> for dataset_batch_idx, dataset_batch in enumerate(train_loader):
+        ...     train(...)
+        """
+        ...
 
 
 class Dataset(Protocol):
@@ -1295,6 +1395,102 @@ class Dataset(Protocol):
         >>> dataset.set_metadata(
         ...     {"metadata": "test"}
         ... )
+        """
+        ...
+
+    def create_torch_map_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+    ) -> torch.utils.data.Dataset:
+        """
+        Create a Torch Dataset from the results of the Chalk dataset revision.
+
+        This dataset will immediately materialize the entire result set as a table, and is thus not appropriate for
+        larger datasets.
+
+        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
+        returned as numpy arrays.
+
+        Parameters
+        ----------
+        columns
+            Optional mapping of columns to alias dataset columns, or alternatively a subset of columns, which will
+            be used to filter and/or alias the columns included in the batch. None will return all columns in the
+            dataset with their original name. Defaults to None.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from torch.utils.data import DataLoader
+        >>> ds = ChalkClient().offline_query(
+        ...    input={
+        ...       "user.id": [i for i in range(1000)]
+        ...    },
+        ...    output="user",
+        ... )
+        >>> train_dataset = ds.create_torch_map_dataset()
+        >>> train_loader = DataLoader(
+        ...     dataset=train_dataset,
+        ...     batch_size=16,
+        ...     shuffle=True,
+        ... )
+        """
+        ...
+
+    def create_torch_iter_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+        *,
+        shuffle_chunks: bool = False,
+        shuffle_rows: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> torch.utils.data.IterableDataset:
+        """
+        Create a Torch IterableDataset from the results of the Chalk dataset revision.
+
+        Unlike the map-based dataset produced by create_torch_map_dataset(), this Dataset does not materialize the
+        entire table immediately. This makes the IterableDataset best suited for larger datasets, where individual
+        accesses need not be efficient.
+
+        Items in the dataset are returned in pydict format. That is, {"column", value} for each column in the row.
+        Time-like data such as datetimes, dates, and times are returned in ISO8601 format, and list-like elements are
+        returned as numpy arrays.
+
+        Parameters
+        ----------
+        columns
+            Optional mapping of columns to alias dataset columns, or alternatively a subset of columns, which will
+            be used to filter and/or alias the columns included in the batch. None will return all columns in the
+            dataset with their original name. Defaults to None.
+
+        shuffle_chunks
+            Whether to iterate over the result chunks randomly. Defaults to False.
+
+        shuffle_rows
+            Whether to iterate over the rows within a chunk randomly. Defaults to False.
+
+        generator
+            The torch generator to use when generating a shuffling of chunks and rows, if specified. Defaults to None.
+
+        Examples
+        --------
+        >>> from chalk.client import ChalkClient
+        >>> from torch.utils.data import DataLoader
+        >>> def train(...):
+        ...   ...
+        >>> ds = ChalkClient().offline_query(
+        ...     input={
+        ...         "user.id": [i for i in range(1000)]
+        ...     },
+        ...     output="user",
+        ... )
+        >>> train_loader = ds.create_torch_iter_dataset(
+        ...     shuffle_chunks=True,
+        ...     shuffle_rows=True,
+        ... )
+        >>> for dataset_batch_idx, dataset_batch in enumerate(train_loader):
+        ...     train(...)
         """
         ...
 

@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -399,7 +399,9 @@ class _StandardNameFormat(NameFormat[Metadata]):
       return [
           epath.Path(f'gs://{bucket_name}/{folder}')
           for folder in result.prefixes
-          if folder.startswith(os.path.join(path_prefix, self.step_prefix))
+          if folder.startswith(
+              os.path.join(path_prefix, self.step_prefix or '')
+          )
       ]
     else:
       prefix = step_prefix_with_underscore(self.step_prefix)

@@ -1,8 +1,16 @@
 import logging
+import re
 from argparse import Namespace
 from typing import List
 
 logger = logging.getLogger(__name__)
+
+# Matches Mode/Jinja-style template parameters: {{ param_name }}
+# Two patterns handled:
+#   1. Already quoted: '{{ param }}' -> '__TEMPLATE_PARAM__' (keep surrounding quotes)
+#   2. Unquoted: {{ param }} -> '__TEMPLATE_PARAM__' (add quotes)
+_QUOTED_TEMPLATE_PARAM_RE = re.compile(r"'(\{\{.*?\}\})'")
+_UNQUOTED_TEMPLATE_PARAM_RE = re.compile(r"\{\{.*?\}\}")
 
 
 def escape_identifier_name(name: str):
@@ -11,6 +19,23 @@ def escape_identifier_name(name: str):
             return name.strip("[]")
         return name.strip("`").strip('"').strip("'")
     return None
+
+
+def sanitize_template_params(sql: str) -> str:
+    """Replace template parameters (e.g. {{ param }}) with a placeholder literal.
+
+    Tools like Mode Analytics use Jinja-style ``{{ param_name }}`` syntax for
+    runtime parameters.  These tokens are opaque values (dates, thresholds, …)
+    that never affect table or column lineage, but they *do* break SQL parsers
+    that don't understand template syntax.
+
+    Replacing them with a single-quoted string placeholder keeps the SQL
+    structurally valid for every parser while preserving lineage accuracy.
+    """
+    # First pass: handle already-quoted params '{{ x }}' -> keep the surrounding quotes
+    sql = _QUOTED_TEMPLATE_PARAM_RE.sub("'__TEMPLATE_PARAM__'", sql)
+    # Second pass: handle unquoted params {{ x }} -> wrap in quotes
+    return _UNQUOTED_TEMPLATE_PARAM_RE.sub("'__TEMPLATE_PARAM__'", sql)
 
 
 def extract_sql_from_args(args: Namespace) -> str:

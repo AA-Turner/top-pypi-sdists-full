@@ -44,6 +44,7 @@ from langgraph_api.grpc.ops import (
     Authenticated,
     _filters_to_proto,
     _handle_grpc_error,
+    _static_interrupt_config_from_proto,
     build_encryption_context,
     extract_encryption_context,
     grpc_error_guard,
@@ -337,29 +338,6 @@ def proto_to_run(proto_run: pb.Run) -> Run:
             proto_run.multitask_strategy
         ),
     }
-
-
-def _static_interrupt_config_from_proto(
-    config: Any,  # pb.StaticInterruptConfig from engine-common.proto
-) -> str | list[str] | None:
-    """Convert protobuf StaticInterruptConfig to Python format.
-
-    The protobuf uses a oneof with two cases:
-    - all: true means interrupt at all nodes (returns "*")
-    - node_names: list of specific node names (returns list of strings)
-    - neither set means no interrupts (returns None)
-    """
-    if not config:
-        return None
-
-    # Check which field is set in the oneof
-    which = config.WhichOneof("config")
-    if which == "all":
-        return "*"
-    elif which == "node_names":
-        return list(config.node_names.names)
-    else:
-        return None
 
 
 def _proto_kwargs_to_dict(kwargs: pb.RunKwargs) -> dict:

@@ -1,8 +1,7 @@
 Metadata-Version: 2.4
 Name: feast
-Version: 0.59.0
+Version: 0.60.0
 Summary: Python SDK for Feast
-Home-page: https://github.com/feast-dev/feast
 Author: Feast
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/feast-dev/feast
@@ -91,8 +90,6 @@ Provides-Extra: hbase
 Requires-Dist: happybase<3,>=1.2.0; extra == "hbase"
 Provides-Extra: ibis
 Requires-Dist: ibis-framework>=10.0.0; extra == "ibis"
-Requires-Dist: poetry-core<2; extra == "ibis"
-Requires-Dist: poetry-dynamic-versioning; extra == "ibis"
 Provides-Extra: ikv
 Requires-Dist: ikvpy>=0.0.36; extra == "ikv"
 Provides-Extra: k8s
@@ -114,6 +111,8 @@ Requires-Dist: types-PyMySQL; extra == "mysql"
 Provides-Extra: opentelemetry
 Requires-Dist: prometheus_client; extra == "opentelemetry"
 Requires-Dist: psutil; extra == "opentelemetry"
+Provides-Extra: openlineage
+Requires-Dist: openlineage-python>=1.40.0; extra == "openlineage"
 Provides-Extra: spark
 Requires-Dist: pyspark>=4.0.0; extra == "spark"
 Provides-Extra: trino
@@ -140,7 +139,7 @@ Requires-Dist: hiredis<3,>=2.0.0; extra == "redis"
 Provides-Extra: singlestore
 Requires-Dist: singlestoredb<1.8.0; extra == "singlestore"
 Provides-Extra: snowflake
-Requires-Dist: snowflake-connector-python[pandas]<4,>=3.7; extra == "snowflake"
+Requires-Dist: snowflake-connector-python[pandas]<5,>=3.7; extra == "snowflake"
 Provides-Extra: sqlite-vec
 Requires-Dist: sqlite-vec==v0.1.6; extra == "sqlite-vec"
 Provides-Extra: mcp
@@ -161,7 +160,7 @@ Requires-Dist: minio==7.2.11; extra == "ci"
 Requires-Dist: mock==2.0.0; extra == "ci"
 Requires-Dist: moto<5; extra == "ci"
 Requires-Dist: mypy<1.11.3,>=1.4.1; extra == "ci"
-Requires-Dist: urllib3<3,>=2.6.0; extra == "ci"
+Requires-Dist: urllib3<3,>=2.6.3; extra == "ci"
 Requires-Dist: psutil==5.9.0; extra == "ci"
 Requires-Dist: py>=1.11.0; extra == "ci"
 Requires-Dist: pytest<8,>=6.0.0; extra == "ci"
@@ -192,7 +191,7 @@ Requires-Dist: types-requests<2.31.0; extra == "ci"
 Requires-Dist: types-setuptools; extra == "ci"
 Requires-Dist: types-tabulate; extra == "ci"
 Requires-Dist: virtualenv<20.24.2; extra == "ci"
-Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,ikv,image,k8s,mcp,milvus,mssql,mysql,opentelemetry,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,trino]; extra == "ci"
+Requires-Dist: feast[aws,azure,cassandra,clickhouse,couchbase,delta,docling,duckdb,elasticsearch,faiss,gcp,ge,go,grpcio,hazelcast,hbase,ibis,ikv,image,k8s,mcp,milvus,mssql,mysql,openlineage,opentelemetry,postgres,pytorch,qdrant,rag,ray,redis,singlestore,snowflake,spark,sqlite_vec,trino]; extra == "ci"
 Provides-Extra: nlp
 Requires-Dist: feast[docling,image,milvus,pytorch,rag]; extra == "nlp"
 Provides-Extra: dev
@@ -220,9 +219,7 @@ Requires-Dist: hatchling<2,>=1.6.0; extra == "minimal-sdist-build"
 Requires-Dist: calver<2025.4.1; extra == "minimal-sdist-build"
 Provides-Extra: setuptools
 Requires-Dist: setuptools<81,>=60; extra == "setuptools"
-Dynamic: home-page
 Dynamic: license-file
-Dynamic: requires-python
 
 <!--Do not modify this file. It is auto-generated from a template (infra/templates/README.md.jinja2)-->
 
@@ -259,7 +256,7 @@ Feast allows ML platform teams to:
 
 * **Make features consistently available for training and serving** by managing an _offline store_ (to process historical data for scale-out batch scoring or model training), a low-latency _online store_ (to power real-time prediction)_,_ and a battle-tested _feature server_ (to serve pre-computed features online).
 * **Avoid data leakage** by generating point-in-time correct feature sets so data scientists can focus on feature engineering rather than debugging error-prone dataset joining logic. This ensure that future feature values do not leak to models during training.
-* **Decouple ML from data infrastructure** by providing a single data access layer that abstracts feature storage from feature retrieval, ensuring models remain portable as you move from training models to serving models, from batch models to realtime models, and from one data infra system to another.
+* **Decouple ML from data infrastructure** by providing a single data access layer that abstracts feature storage from feature retrieval, ensuring models remain portable as you move from training models to serving models, from batch models to real-time models, and from one data infra system to another.
 
 Please see our [documentation](https://docs.feast.dev/) for more information about the project.
 

@@ -40,6 +40,9 @@ class ObservabilityPipelineConfigDestinationItem(ModelComposed):
             The `strategy` field determines whether basic or AWS-based authentication is used.
         :type auth: ObservabilityPipelineAmazonOpenSearchDestinationAuth
 
+        :param buffer: Configuration for buffer settings on destination components.
+        :type buffer: ObservabilityPipelineBufferOptions, optional
+
         :param bulk_index: The index to write logs to.
         :type bulk_index: str, optional
 
@@ -63,6 +66,9 @@ class ObservabilityPipelineConfigDestinationItem(ModelComposed):
 
         :param container_name: The name of the Azure Blob Storage container to store logs in.
         :type container_name: str
+
+        :param routes: A list of routing rules that forward matching logs to Datadog using dedicated API keys.
+        :type routes: [ObservabilityPipelineDatadogLogsDestinationRoute], optional
 
         :param api_version: The Elasticsearch API version to use. Set to `auto` to auto-detect.
         :type api_version: ObservabilityPipelineElasticsearchDestinationApiVersion, optional

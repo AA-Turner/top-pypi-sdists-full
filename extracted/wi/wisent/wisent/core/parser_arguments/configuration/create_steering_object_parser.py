@@ -27,7 +27,7 @@ def setup_create_steering_object_parser(parser: argparse.ArgumentParser) -> None
     parser.add_argument(
         "--method",
         type=str,
-        choices=["caa", "hyperplane", "mlp", "prism", "pulse", "titan"],
+        choices=["caa", "hyperplane", "mlp", "prism", "pulse", "titan", "concept_flow"],
         default="caa",
         help="Steering method to use (default: caa)"
     )
@@ -190,6 +190,50 @@ def setup_create_steering_object_parser(parser: argparse.ArgumentParser) -> None
         type=float,
         default=0.5,
         help="Gate temperature (default: 0.5)"
+    )
+
+    # Concept Flow parameters
+    parser.add_argument(
+        "--concept-flow-num-dims",
+        type=int,
+        default=0,
+        help="Concept subspace dimensions (0 = auto from variance, default: 0)"
+    )
+    parser.add_argument(
+        "--concept-flow-variance-threshold",
+        type=float,
+        default=0.80,
+        help="Cumulative variance threshold for auto dim selection (default: 0.80)"
+    )
+    parser.add_argument(
+        "--concept-flow-training-epochs",
+        type=int,
+        default=300,
+        help="Training epochs for flow matching (default: 300)"
+    )
+    parser.add_argument(
+        "--concept-flow-lr",
+        type=float,
+        default=0.001,
+        help="Learning rate for flow network (default: 0.001)"
+    )
+    parser.add_argument(
+        "--concept-flow-num-integration-steps",
+        type=int,
+        default=4,
+        help="Euler integration steps at inference (default: 4)"
+    )
+    parser.add_argument(
+        "--concept-flow-t-max",
+        type=float,
+        default=1.0,
+        help="Integration endpoint / max steering strength (default: 1.0)"
+    )
+    parser.add_argument(
+        "--concept-flow-hidden-dim",
+        type=int,
+        default=0,
+        help="Velocity network hidden dim (0 = auto, default: 0)"
     )
 
     # Display options

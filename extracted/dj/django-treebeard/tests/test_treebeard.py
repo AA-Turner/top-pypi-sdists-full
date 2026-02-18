@@ -1,6 +1,7 @@
 """Unit/Functional tests"""
 
 import os
+import threading
 from unittest import mock
 from unittest.mock import patch
 
@@ -347,7 +348,7 @@ class TestClassMethods(TestNonEmptyTree):
     def test_load_and_dump_bulk_with_fk(self, related_model):
         # https://bitbucket.org/tabo/django-treebeard/issue/48/
         related_model.objects.all().delete()
-        related, created = models.RelatedModel.objects.get_or_create(desc="Test %s" % related_model.__name__)
+        related, _ = models.RelatedModel.objects.get_or_create(desc=f"Test {related_model.__name__}")
 
         related_data = [
             {"data": {"desc": "1", "related": related.pk}},
@@ -415,6 +416,37 @@ class TestClassMethods(TestNonEmptyTree):
         obj = model.objects.get(desc="4")
         with pytest.raises(NodeAlreadySaved):
             model.add_root(instance=obj)
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.skipif(
+        os.getenv("DATABASE_ENGINE", "") == "sqlite",
+        reason="SQLite doesn't support row-level locking",
+    )
+    def test_add_root_concurrent(self, model_without_data):
+        """
+        Tests adding multiple root nodes, *after* one root node already exists.
+        """
+        num_threads = 3
+        per_thread = 5
+        errors = []
+        model_without_data.add_root(desc="first")
+
+        def add_root(thread_id):
+            try:
+                for i in range(per_thread):
+                    model_without_data.add_root(desc=f"t{thread_id}-{i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=add_root, args=(t,)) for t in range(num_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        if errors:
+            raise errors[0]
+
+        assert model_without_data.get_root_nodes().count() == num_threads * per_thread + 1
 
 
 @pytest.mark.django_db
@@ -829,6 +861,37 @@ class TestAddChild(TestNonEmptyTree):
         parent.add_child(instance=child1)
         parent.add_child(instance=child2)
         assert list(parent.get_children().values_list("desc", flat=True)) == [child1.desc, child2.desc]
+
+    @pytest.mark.django_db(transaction=True)
+    @pytest.mark.skipif(
+        os.getenv("DATABASE_ENGINE", "") == "sqlite",
+        reason="SQLite doesn't support row-level locking",
+    )
+    def test_add_child_concurrent(self, model_without_data):
+        # 5 threads x 5 add_child each on same parent; no IntegrityError.
+        num_threads = 5
+        per_thread = 5
+        parent = model_without_data.add_root(desc="parent")
+        parent_pk = parent.pk
+        errors = []
+
+        def add_children(thread_id):
+            try:
+                p = model_without_data.objects.get(pk=parent_pk)
+                for i in range(per_thread):
+                    p.add_child(desc=f"t{thread_id}-{i}")
+            except Exception as e:
+                errors.append(e)
+
+        threads = [threading.Thread(target=add_children, args=(t,)) for t in range(num_threads)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+        if errors:
+            raise errors[0]
+        parent.refresh_from_db()
+        assert parent.get_children_count() == num_threads * per_thread
 
     def test_add_child_with_already_saved_instance(self, model):
         child = model.objects.get(desc="21")
@@ -2433,7 +2496,7 @@ class TestMP_TreeFix(TestTreeBase):
 @pytest.mark.django_db
 class TestMoveNodeForm(TestNonEmptyTree):
     def _get_nodes_list(self, nodes):
-        return [(str(pk), "%s%s" % ("&nbsp;" * 4 * (depth - 1), _str)) for pk, _str, depth in nodes]
+        return [(str(pk), f"{'&nbsp;' * 4 * (depth - 1)}{_str}") for pk, _str, depth in nodes]
 
     def _assert_nodes_in_choices(self, form, nodes):
         choices = list(form.fields["treebeard_ref_node"].choices)

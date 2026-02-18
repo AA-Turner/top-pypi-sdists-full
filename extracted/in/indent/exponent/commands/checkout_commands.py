@@ -33,7 +33,9 @@ async def fetch_chats(
     base_ws_url: str,
 ) -> list[ChatsOrganizationChatsPageChats]:
     graphql_client = GraphQLClient(api_key, base_api_url, base_ws_url)
-    result = await graphql_client.get_chats()
+    current_user = await graphql_client.get_current_user()
+    user_uuid = current_user.current_user.user_uuid
+    result = await graphql_client.get_chats(user_uuids=[user_uuid])
     return result.organization_chats_page.chats
 
 

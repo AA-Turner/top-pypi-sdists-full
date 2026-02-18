@@ -10,7 +10,11 @@ from google.protobuf.json_format import MessageToDict, Parse, ParseDict
 from httpx_sse import SSEError, aconnect_sse
 
 from a2a.client.card_resolver import A2ACardResolver
-from a2a.client.errors import A2AClientHTTPError, A2AClientJSONError
+from a2a.client.errors import (
+    A2AClientHTTPError,
+    A2AClientJSONError,
+    A2AClientTimeoutError,
+)
 from a2a.client.middleware import ClientCallContext, ClientCallInterceptor
 from a2a.client.transports.base import ClientTransport
 from a2a.extensions.common import update_extension_header
@@ -154,9 +158,13 @@ class RestTransport(ClientTransport):
             try:
                 event_source.response.raise_for_status()
                 async for sse in event_source.aiter_sse():
+                    if not sse.data:
+                        continue
                     event = a2a_pb2.StreamResponse()
                     Parse(sse.data, event)
                     yield proto_utils.FromProto.stream_response(event)
+            except httpx.TimeoutException as e:
+                raise A2AClientTimeoutError('Client Request timed out') from e
             except httpx.HTTPStatusError as e:
                 raise A2AClientHTTPError(e.response.status_code, str(e)) from e
             except SSEError as e:
@@ -175,6 +183,8 @@ class RestTransport(ClientTransport):
             response = await self.httpx_client.send(request)
             response.raise_for_status()
             return response.json()
+        except httpx.TimeoutException as e:
+            raise A2AClientTimeoutError('Client Request timed out') from e
         except httpx.HTTPStatusError as e:
             raise A2AClientHTTPError(e.response.status_code, str(e)) from e
         except json.JSONDecodeError as e:
@@ -355,6 +365,8 @@ class RestTransport(ClientTransport):
                     event = a2a_pb2.StreamResponse()
                     Parse(sse.data, event)
                     yield proto_utils.FromProto.stream_response(event)
+            except httpx.TimeoutException as e:
+                raise A2AClientTimeoutError('Client Request timed out') from e
             except SSEError as e:
                 raise A2AClientHTTPError(
                     400, f'Invalid SSE response or protocol error: {e}'

@@ -39,7 +39,8 @@ class ActorTableConfig(object):
         'name': 'str',
         'states': 'list[ActorState]',
         'job_id': 'str',
-        'text': 'str'
+        'text': 'str',
+        'node_id': 'str'
     }
 
     attribute_map = {
@@ -49,10 +50,11 @@ class ActorTableConfig(object):
         'name': 'name',
         'states': 'states',
         'job_id': 'job_id',
-        'text': 'text'
+        'text': 'text',
+        'node_id': 'node_id'
     }
 
-    def __init__(self, offset=None, page_size=None, actor_id=None, name=None, states=[], job_id=None, text=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, offset=None, page_size=None, actor_id=None, name=None, states=[], job_id=None, text=None, node_id=None, local_vars_configuration=None):  # noqa: E501
         """ActorTableConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -65,6 +67,7 @@ class ActorTableConfig(object):
         self._states = None
         self._job_id = None
         self._text = None
+        self._node_id = None
         self.discriminator = None
 
         if offset is not None:
@@ -81,6 +84,8 @@ class ActorTableConfig(object):
             self.job_id = job_id
         if text is not None:
             self.text = text
+        if node_id is not None:
+            self.node_id = node_id
 
     @property
     def offset(self):
@@ -228,6 +233,27 @@ class ActorTableConfig(object):
         """
 
         self._text = text
+
+    @property
+    def node_id(self):
+        """Gets the node_id of this ActorTableConfig.  # noqa: E501
+
+
+        :return: The node_id of this ActorTableConfig.  # noqa: E501
+        :rtype: str
+        """
+        return self._node_id
+
+    @node_id.setter
+    def node_id(self, node_id):
+        """Sets the node_id of this ActorTableConfig.
+
+
+        :param node_id: The node_id of this ActorTableConfig.  # noqa: E501
+        :type: str
+        """
+
+        self._node_id = node_id
 
     def to_dict(self):
         """Returns the model properties as a dict"""

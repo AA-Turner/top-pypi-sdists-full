@@ -1,50 +1,23 @@
 # Copyright (c) 2008-2015 testtools developers. See LICENSE for details.
 
-"""Compatibility support for python 2 and 3."""
+"""Compatibility support - kept for backwards compatibility."""
 
 __all__ = [
     "BytesIO",
     "StringIO",
-    "_b",
-    "advance_iterator",
-    "reraise",
+    "text_repr",
     "unicode_output_stream",
 ]
 
 import codecs
 import io
-import locale
-import os
 import sys
-import types
 import unicodedata
 from io import BytesIO, StringIO  # for backwards-compat
-from typing import Any, NoReturn
+from typing import IO
 
 
-def reraise(
-    exc_class: type[BaseException],
-    exc_obj: BaseException,
-    exc_tb: types.TracebackType,
-    _marker: Any = object(),
-) -> NoReturn:
-    """Re-raise an exception received from sys.exc_info() or similar."""
-    raise exc_obj.with_traceback(exc_tb)
-
-
-def _u(s):
-    return s
-
-
-def _b(s):
-    """A byte literal."""
-    return s.encode("latin-1")
-
-
-advance_iterator = next
-
-
-def _slow_escape(text):
+def _slow_escape(text: str) -> str:
     """Escape unicode ``text`` leaving printable characters unmodified
 
     The behaviour emulates the Python 3 implementation of repr, see
@@ -54,7 +27,7 @@ def _slow_escape(text):
     does not handle astral characters correctly on Python builds with 16 bit
     rather than 32 bit unicode type.
     """
-    output = []
+    output: list[str | bytes] = []
     for c in text:
         o = ord(c)
         if o < 256:
@@ -71,14 +44,14 @@ def _slow_escape(text):
                 output.append(c.encode("unicode-escape"))
             else:
                 output.append(c)
-    return "".join(output)
+    return "".join(output)  # type: ignore[arg-type]
 
 
-def text_repr(text, multiline=None):
+def text_repr(text: str | bytes, multiline: bool | None = None) -> str:
     """Rich repr for ``text`` returning unicode, triple quoted if ``multiline``."""
     nl = (isinstance(text, bytes) and bytes((0xA,))) or "\n"
     if multiline is None:
-        multiline = nl in text
+        multiline = nl in text  # type: ignore[operator]
     if not multiline:
         # Use normal repr for single line of unicode
         return repr(text)
@@ -88,7 +61,7 @@ def text_repr(text, multiline=None):
         # making sure that quotes are not escaped.
         offset = len(prefix) + 1
         lines = []
-        for line in text.split(nl):
+        for line in text.split(nl):  # type: ignore[arg-type]
             r = repr(line)
             q = r[-1]
             lines.append(r[offset:-1].replace("\\" + q, q))
@@ -115,7 +88,7 @@ def text_repr(text, multiline=None):
     return "".join([prefix, quote, escaped_text, quote])
 
 
-def unicode_output_stream(stream):
+def unicode_output_stream(stream: IO[str]) -> IO[str]:
     """Get wrapper for given stream that writes any unicode without exception
 
     Characters that can't be coerced to the encoding of the stream, or 'ascii'
@@ -131,33 +104,21 @@ def unicode_output_stream(stream):
         # attribute).
         return stream
     try:
-        writer = codecs.getwriter(stream.encoding or "")
+        writer = codecs.getwriter(stream.encoding or "")  # type: ignore[attr-defined]
     except (AttributeError, LookupError):
-        return codecs.getwriter("ascii")(stream, "replace")
+        return codecs.getwriter("ascii")(stream, "replace")  # type: ignore[arg-type, return-value]
     if writer.__module__.rsplit(".", 1)[1].startswith("utf"):
         # The current stream has a unicode encoding so no error handler is needed
         return stream
     # Python 3 doesn't seem to make this easy, handle a common case
     try:
-        return stream.__class__(
-            stream.buffer,
-            stream.encoding,
+        return stream.__class__(  # type: ignore[call-arg, return-value]
+            stream.buffer,  # type: ignore[attr-defined]
+            stream.encoding,  # type: ignore[attr-defined]
             "replace",
-            stream.newlines,
-            stream.line_buffering,
+            stream.newlines,  # type: ignore[attr-defined]
+            stream.line_buffering,  # type: ignore[attr-defined]
         )
     except AttributeError:
         pass
-    return writer(stream, "replace")
-
-
-def _get_exception_encoding():
-    """Return the encoding we expect messages from the OS to be encoded in"""
-    if os.name == "nt":
-        # GZ 2010-05-24: Really want the codepage number instead, the error
-        #                handling of standard codecs is more deterministic
-        return "mbcs"
-    # GZ 2010-05-23: We need this call to be after initialisation, but there's
-    #                no benefit in asking more than once as it's a global
-    #                setting that can change after the message is formatted.
-    return locale.getlocale(locale.LC_MESSAGES)[1] or "ascii"
+    return writer(stream, "replace")  # type: ignore[arg-type, return-value]

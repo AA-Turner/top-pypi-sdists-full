@@ -40,7 +40,7 @@ pub fn parse_document_header_comments(source: &str) -> Parsed<SyntaxNode> {
 
     errors.extend(errs);
 
-    Parsed::new(green_tree, errors)
+    Parsed::new(green_tree, errors, lexed.line_ending)
 }
 
 #[allow(private_bounds)]
@@ -63,7 +63,7 @@ pub fn parse_as<P: Parse>(
 
     errors.extend(errs);
 
-    Parsed::new(green_tree, errors)
+    Parsed::new(green_tree, errors, lexed.line_ending)
 }
 
 pub fn build_green_tree(
@@ -91,13 +91,27 @@ pub fn build_green_tree(
 #[macro_export]
 macro_rules! test_parser {
     {#[test] fn $name:ident($source:expr) -> Ok(_)} => {
-        test_parser! {
+        $crate::test_parser! {
             #[test]
             fn $name($source, Default::default()) -> Ok(_)
         }
     };
 
     {#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok(_)} => {
+        $crate::test_parser! {
+            #[test]
+            fn $name($source, $toml_version) -> Ok(|_root| -> true)
+        }
+    };
+
+    {#[test] fn $name:ident($source:expr) -> Ok(|$root:ident| -> $assert_expr:expr)} => {
+        $crate::test_parser! {
+            #[test]
+            fn $name($source, Default::default()) -> Ok(|$root| -> $assert_expr)
+        }
+    };
+
+    {#[test] fn $name:ident($source:expr, $toml_version:expr) -> Ok(|$root:ident| -> $assert_expr:expr)} => {
         #[test]
         fn $name() {
             tombi_test_lib::init_log();
@@ -109,7 +123,17 @@ macro_rules! test_parser {
             pretty_assertions::assert_eq!(
                 p.errors,
                 Vec::<$crate::Error>::new()
-            )
+            );
+
+            use tombi_ast::AstNode as _;
+            let $root = tombi_ast::Root::cast(p.syntax_node())
+                .expect("parse result must contain ROOT syntax node");
+
+            assert!(
+                $assert_expr,
+                "Ok(|root| -> ...) assertion failed: {}",
+                stringify!($assert_expr)
+            );
         }
     };
 

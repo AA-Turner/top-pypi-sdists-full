@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dulwich
-Version: 1.0.0
+Version: 1.1.0
 Summary: Python Git Library
 Author-email: Jelmer Vernooij <jelmer@jelmer.uk>
 License-Expression: Apache-2.0 OR GPL-2.0-or-later
@@ -36,7 +36,7 @@ Requires-Dist: paramiko; extra == "paramiko"
 Provides-Extra: colordiff
 Requires-Dist: rich; extra == "colordiff"
 Provides-Extra: dev
-Requires-Dist: ruff==0.14.10; extra == "dev"
+Requires-Dist: ruff==0.14.14; extra == "dev"
 Requires-Dist: mypy==1.19.1; extra == "dev"
 Requires-Dist: dissolve>=0.1.1; extra == "dev"
 Requires-Dist: codespell==2.4.1; extra == "dev"
@@ -130,6 +130,17 @@ And to print it using porcelain::
     Date:   Sat Apr 29 2017 23:57:34 +0000
 
     Add note about encoding.
+
+Compatibility with Git
+----------------------
+
+Dulwich aims to provide full wire-format and repository format compatibility
+with C Git, while maintaining a pure Python implementation that doesn't depend
+on git being installed. This means that Dulwich and C Git can be used
+interchangeably on the same repository.
+
+For a detailed list of which Git commands and features are supported by Dulwich,
+see `docs/c-git-compatibility.txt <docs/c-git-compatibility.txt>`_.
 
 Further documentation
 ---------------------

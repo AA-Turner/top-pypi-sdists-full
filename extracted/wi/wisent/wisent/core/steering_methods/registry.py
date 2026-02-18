@@ -80,6 +80,7 @@ class SteeringMethodType(Enum):
     PRISM = "prism"
     PULSE = "pulse"
     TITAN = "titan"
+    CONCEPT_FLOW = "concept_flow"
 
 
 @dataclass
@@ -593,6 +594,71 @@ MLP_DEFINITION = SteeringMethodDefinition(
 )
 
 
+CONCEPT_FLOW_DEFINITION = SteeringMethodDefinition(
+    name="concept_flow",
+    method_type=SteeringMethodType.CONCEPT_FLOW,
+    description="Concept Flow - Flow matching in SVD-derived concept subspace. Learns on-manifold transport between contrastive distributions.",
+    method_class_path="wisent.core.steering_methods.methods.concept_flow.ConceptFlowMethod",
+    parameters=[
+        SteeringMethodParameter(
+            name="num_dims",
+            type=int,
+            default=0,
+            help="Number of concept subspace dims (0 = auto from variance)",
+            cli_flag="--concept-flow-num-dims",
+        ),
+        SteeringMethodParameter(
+            name="variance_threshold",
+            type=float,
+            default=0.80,
+            help="Cumulative variance threshold for auto dim selection",
+            cli_flag="--concept-flow-variance-threshold",
+        ),
+        SteeringMethodParameter(
+            name="training_epochs",
+            type=int,
+            default=300,
+            help="Training epochs for flow matching",
+            cli_flag="--concept-flow-training-epochs",
+        ),
+        SteeringMethodParameter(
+            name="lr",
+            type=float,
+            default=0.001,
+            help="Learning rate for AdamW optimizer",
+            cli_flag="--concept-flow-lr",
+        ),
+        SteeringMethodParameter(
+            name="num_integration_steps",
+            type=int,
+            default=4,
+            help="Number of Euler integration steps at inference",
+            cli_flag="--concept-flow-num-integration-steps",
+        ),
+        SteeringMethodParameter(
+            name="t_max",
+            type=float,
+            default=1.0,
+            help="Integration endpoint (controls max steering strength)",
+            cli_flag="--concept-flow-t-max",
+        ),
+        SteeringMethodParameter(
+            name="flow_hidden_dim",
+            type=int,
+            default=0,
+            help="Velocity network hidden dim (0 = auto from concept_dim)",
+            cli_flag="--concept-flow-hidden-dim",
+        ),
+    ],
+    optimization_config={
+        "strength_search_range": (0.1, 3.0),
+        "default_strength": 1.0,
+    },
+    default_strength=1.0,
+    strength_range=(0.1, 3.0),
+)
+
+
 # =============================================================================
 # REGISTRY CLASS
 # =============================================================================
@@ -622,6 +688,7 @@ class SteeringMethodRegistry:
         "prism": PRISM_DEFINITION,
         "pulse": PULSE_DEFINITION,
         "titan": TITAN_DEFINITION,
+        "concept_flow": CONCEPT_FLOW_DEFINITION,
     }
     
     @classmethod

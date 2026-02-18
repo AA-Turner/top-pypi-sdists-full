@@ -10,8 +10,11 @@ columnDimension:
     min: 0
     max: 20
 clearSheet:
-  type: boolean
   default: false
+  oneof:
+  - type: string
+    allowed: [range]
+  - type: boolean
 mergedCells:
   type: boolean
   default: false
@@ -65,9 +68,12 @@ symbols:
           - type: string
             allowed: [infer]
         clearSheet:
-          type: boolean
           default: null
           nullable: true
+          oneof:
+          - type: string
+            allowed: [range]
+          - type: boolean
         mergedCells:
           type: boolean
           default: null

@@ -77,13 +77,13 @@ from reflex.environment import ExecutorType, environment
 from reflex.event import (
     _EVENT_FIELDS,
     Event,
-    EventHandler,
     EventSpec,
     EventType,
     IndividualEventType,
     get_hydrate_event,
     noop,
 )
+from reflex.istate.proxy import StateProxy
 from reflex.page import DECORATED_PAGES
 from reflex.route import (
     get_route_args,
@@ -1619,6 +1619,8 @@ class App(MiddlewareMixin, LifespanMixin):
         if not handler.is_background:
             return None
 
+        substate = StateProxy(substate)
+
         async def _coro():
             """Coroutine to process the event and emit updates inside an asyncio.Task.
 
@@ -1934,21 +1936,14 @@ def upload(app: App):
         substate_token = _substate_key(token, handler.rpartition(".")[0])
         state = await app.state_manager.get_state(substate_token)
 
-        # get the current session ID
-        # get the current state(parent state/substate)
-        path = handler.split(".")[:-1]
-        current_state = state.get_substate(path)
         handler_upload_param = ()
 
-        # get handler function
-        func = getattr(type(current_state), handler.split(".")[-1])
+        _current_state, event_handler = state._get_event_handler(handler)
 
-        # check if there exists any handler args with annotation, list[UploadFile]
-        if isinstance(func, EventHandler):
-            if func.is_background:
-                msg = f"@rx.event(background=True) is not supported for upload handler `{handler}`."
-                raise UploadTypeError(msg)
-            func = func.fn
+        if event_handler.is_background:
+            msg = f"@rx.event(background=True) is not supported for upload handler `{handler}`."
+            raise UploadTypeError(msg)
+        func = event_handler.fn
         if isinstance(func, functools.partial):
             func = func.func
         for k, v in get_type_hints(func).items():
@@ -2109,8 +2104,10 @@ class EventNamespace(AsyncNamespace):
             )
             # Don't await to avoid blocking disconnect, but handle potential errors
             task.add_done_callback(
-                lambda t: t.exception()
-                and console.error(f"Token cleanup error: {t.exception()}")
+                lambda t: (
+                    t.exception()
+                    and console.error(f"Token cleanup error: {t.exception()}")
+                )
             )
             return task
         return None
@@ -2218,7 +2215,8 @@ class EventNamespace(AsyncNamespace):
 
         # Unroll reverse proxy forwarded headers.
         client_ip = (
-            headers.get(
+            headers
+            .get(
                 "x-forwarded-for",
                 client_ip,
             )

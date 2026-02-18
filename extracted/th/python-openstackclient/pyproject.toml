@@ -744,15 +744,7 @@ follow_imports = "normal"
 incremental = true
 check_untyped_defs = true
 warn_unused_ignores = true
-# keep this in-sync with 'mypy.exclude' in '.pre-commit-config.yaml'
-exclude = '''
-(?x)(
-    doc
-    | examples
-    | hacking
-    | releasenotes
-  )
-'''
+exclude = '(?x)(doc | examples | hacking | releasenotes)'
 
 [[tool.mypy.overrides]]
 module = ["openstackclient.tests.unit.*"]
@@ -766,7 +758,7 @@ quote-style = "preserve"
 docstring-code-format = true
 
 [tool.ruff.lint]
-select = ["E4", "E5", "E7", "E9", "F", "S", "UP"]
+select = ["E4", "E5", "E7", "E9", "F", "G", "S", "UP"]
 
 [tool.ruff.lint.per-file-ignores]
 "openstackclient/tests/*" = ["E501", "S"]

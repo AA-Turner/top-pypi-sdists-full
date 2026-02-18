@@ -1,7 +1,7 @@
 from setuptools import setup
 
 
-def main_part(version):
+def main_part(_):
     return "1.0"
 
 
@@ -10,6 +10,6 @@ setup(
     setup_requires="setupmeta",
     versioning={
         "main": main_part,
-        "extra": [],
+        "extra": ("foo", "bar"),
     },
 )

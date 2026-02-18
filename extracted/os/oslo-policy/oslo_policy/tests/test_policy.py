@@ -19,7 +19,6 @@ import os
 from unittest import mock
 import yaml
 
-import fixtures
 from oslo_config import cfg
 from oslo_context import context
 from oslo_serialization import jsonutils
@@ -32,13 +31,12 @@ from oslo_policy import policy
 from oslo_policy.tests import base
 
 
-POLICY_A_CONTENTS = yaml.dump({"default": "role:fakeA"})
-POLICY_B_CONTENTS = yaml.dump({"default": "role:fakeB"})
-POLICY_FAKE_CONTENTS = yaml.dump({"default": "role:fakeC"})
-POLICY_YAML_CONTENTS = yaml.dump({
-    "default": "rule:admin",
-    "admin": "is_admin:True"
-})
+POLICY_A_CONTENTS = yaml.dump({'default': 'role:fakeA'})
+POLICY_B_CONTENTS = yaml.dump({'default': 'role:fakeB'})
+POLICY_FAKE_CONTENTS = yaml.dump({'default': 'role:fakeC'})
+POLICY_YAML_CONTENTS = yaml.dump(
+    {'default': 'rule:admin', 'admin': 'is_admin:True'}
+)
 
 
 @_checks.register('field')
@@ -51,6 +49,7 @@ class FieldCheck(_checks.Check):
     reversible so we can use it for testing to ensure that this type of check
     does not break anything.
     """
+
     def __init__(self, kind, match):
         # Process the match
         resource, field_value = match.split(':', 1)
@@ -59,7 +58,7 @@ class FieldCheck(_checks.Check):
         self.field = field
         self.value = value
 
-    def __call__(self, target_dict, cred_dict, enforcer):
+    def __call__(self, target, cred, enforcer, current_rule=None):
         return True
 
 
@@ -70,7 +69,6 @@ class MyException(Exception):
 
 
 class RulesTestCase(test_base.BaseTestCase):
-
     def test_init_basic(self):
         rules = policy.Rules()
 
@@ -78,88 +76,55 @@ class RulesTestCase(test_base.BaseTestCase):
         self.assertIsNone(rules.default_rule)
 
     def test_init(self):
-        rules = policy.Rules(dict(a=1, b=2, c=3), 'a')
+        rule_a = _checks.FalseCheck()
+        rule_b = _checks.TrueCheck()
+        rule_c = _checks.TrueCheck()
 
-        self.assertEqual(dict(a=1, b=2, c=3), rules)
+        rules = policy.Rules({'a': rule_a, 'b': rule_b, 'c': rule_c}, 'a')
+
+        self.assertEqual({'a': rule_a, 'b': rule_b, 'c': rule_c}, rules)
         self.assertEqual('a', rules.default_rule)
 
     def test_no_default(self):
-        rules = policy.Rules(dict(a=1, b=2, c=3))
+        rules = policy.Rules(
+            {
+                'a': _checks.FalseCheck(),
+                'b': _checks.FalseCheck(),
+                'c': _checks.FalseCheck(),
+            },
+        )
 
         self.assertRaises(KeyError, lambda: rules['d'])
 
     def test_missing_default(self):
-        rules = policy.Rules(dict(a=1, c=3), 'b')
+        rules = policy.Rules(
+            {'a': _checks.FalseCheck(), 'c': _checks.FalseCheck()},
+            'b',
+        )
 
         self.assertRaises(KeyError, lambda: rules['d'])
 
     def test_with_default(self):
-        rules = policy.Rules(dict(a=1, b=2, c=3), 'b')
+        rules = policy.Rules(
+            {
+                'a': _checks.FalseCheck(),
+                'b': _checks.FalseCheck(),
+                'c': _checks.FalseCheck(),
+            },
+            'b',
+        )
 
-        self.assertEqual(2, rules['d'])
+        self.assertIs(rules['b'], rules['d'])
 
     def test_retrieval(self):
-        rules = policy.Rules(dict(a=1, b=2, c=3), 'b')
+        rule_a = _checks.FalseCheck()
+        rule_b = _checks.FalseCheck()
+        rule_c = _checks.FalseCheck()
+        rules = policy.Rules({'a': rule_a, 'b': rule_b, 'c': rule_c}, 'b')
 
-        self.assertEqual(1, rules['a'])
-        self.assertEqual(2, rules['b'])
-        self.assertEqual(3, rules['c'])
-
-    @mock.patch.object(_parser, 'parse_rule', lambda x: x)
-    def test_load_json(self):
-        exemplar = jsonutils.dumps({
-            "admin_or_owner": [["role:admin"], ["project_id:%(project_id)s"]],
-            "default": []
-        })
-        rules = policy.Rules.load(exemplar, 'default')
-
-        self.assertEqual('default', rules.default_rule)
-        self.assertEqual(dict(
-            admin_or_owner=[['role:admin'], ['project_id:%(project_id)s']],
-            default=[],
-        ), rules)
-
-    @mock.patch.object(_parser, 'parse_rule', lambda x: x)
-    def test_load_json_invalid_exc(self):
-        # When the JSON isn't valid, ValueError is raised on load.
-        exemplar = """{
-    "admin_or_owner": [["role:admin"], ["project_id:%(project_id)s"]],
-    "default": [
-}"""
-        self.assertRaises(ValueError, policy.Rules.load, exemplar,
-                          'default')
-
-        # However, since change I43782d245d7652ba69613b26fe598ac79ec19929,
-        # policy.Rules.load() first tries loading with the really fast
-        # jsonutils.loads(), and if that fails, it tries loading with
-        # yaml.safe_load().  Since YAML is a superset of JSON, some strictly
-        # invalid JSON can be parsed correctly by policy.Rules.load() without
-        # raising an exception.  But that means that since 1.17.0, we've been
-        # accepting (strictly speaking) illegal JSON policy files, and for
-        # backward compatibility, we should continue to do so.  Thus the
-        # following are here to prevent regressions:
-
-        # JSON requires double quotes, but the YAML parser doesn't care
-        bad_but_acceptable = """{
-    'admin_or_owner': [["role:admin"], ["project_id:%(project_id)s"]],
-    'default': []
-}"""
-        self.assertTrue(policy.Rules.load(bad_but_acceptable, 'default'))
-
-        # JSON does not allow bare keys, but the YAML parser doesn't care
-        bad_but_acceptable = """{
-    admin_or_owner: [["role:admin"], ["project_id:%(project_id)s"]],
-    default: []
-}"""
-        self.assertTrue(policy.Rules.load(bad_but_acceptable, 'default'))
-
-        # JSON is picky about commas, but the YAML parser is more forgiving
-        # (Note the trailing , in the exemplar is invalid JSON.)
-        bad_but_acceptable = """{
-    admin_or_owner: [["role:admin"], ["project_id:%(project_id)s"]],
-    default: [],
-}"""
-        self.assertTrue(policy.Rules.load(bad_but_acceptable, 'default'))
+        self.assertIs(rule_a, rules['a'])
+        self.assertIs(rule_b, rules['b'])
+        self.assertIs(rule_c, rules['c'])
 
     @mock.patch.object(_parser, 'parse_rule', lambda x: x)
     def test_load_empty_data(self):
@@ -179,23 +144,24 @@ default: []
         rules = policy.Rules.load(exemplar, 'default')
 
         self.assertEqual('default', rules.default_rule)
-        self.assertEqual(dict(
-            admin_or_owner='role:admin or project_id:%(project_id)s',
-            default=[],
-        ), rules)
+        self.assertEqual(
+            {
+                'admin_or_owner': 'role:admin or project_id:%(project_id)s',
+                'default': [],
+            },
+            rules,
+        )
 
     @mock.patch.object(_parser, 'parse_rule', lambda x: x)
     def test_load_yaml_invalid_exc(self):
-        # When the JSON is seriously invalid, ValueError is raised on load().
-        # (See test_load_json_invalid_exc for what 'seriously invalid' means.)
+        # When the YAML is invalid, ValueError is raised on load().
         exemplar = """{
 # Define a custom rule.
 admin_or_owner: role:admin or project_id:%(project_id)s
 # The default rule is used when there's no action defined.
 default: [
 }"""
-        self.assertRaises(ValueError, policy.Rules.load, exemplar,
-                          'default')
+        self.assertRaises(ValueError, policy.Rules.load, exemplar, 'default')
 
     @mock.patch.object(_parser, 'parse_rule', lambda x: x)
     def test_from_dict(self):
@@ -206,33 +172,30 @@ default: [
         self.assertEqual(expected, rules)
 
     def test_str(self):
-        exemplar = jsonutils.dumps({
-            "admin_or_owner": "role:admin or project_id:%(project_id)s"
-        }, indent=4)
-        rules = policy.Rules(dict(
-            admin_or_owner='role:admin or project_id:%(project_id)s',
-        ))
+        exemplar = jsonutils.dumps(
+            {'admin_or_owner': '(role:admin or project_id:%(project_id)s)'},
+            indent=4,
+        )
+        rules = policy.Rules.from_dict(
+            {
+                'admin_or_owner': 'role:admin or project_id:%(project_id)s',
+            }
+        )
 
         self.assertEqual(exemplar, str(rules))
 
     def test_str_true(self):
-        exemplar = jsonutils.dumps({
-            "admin_or_owner": ""
-        }, indent=4)
-        rules = policy.Rules(dict(
-            admin_or_owner=_checks.TrueCheck(),
-        ))
+        exemplar = jsonutils.dumps({'admin_or_owner': ''}, indent=4)
+        rules = policy.Rules(
+            {
+                'admin_or_owner': _checks.TrueCheck(),
+            }
+        )
 
         self.assertEqual(exemplar, str(rules))
 
-    def test_load_json_deprecated(self):
-        with self.assertWarnsRegex(DeprecationWarning,
-                                   r'load_json\(\).*load\(\)'):
-            policy.Rules.load_json(jsonutils.dumps({'default': ''}, 'default'))
-
 
 class EnforcerTest(base.PolicyBaseTestCase):
-
     def setUp(self):
         super().setUp()
         self.create_config_file('policy.yaml', POLICY_YAML_CONTENTS)
@@ -244,11 +207,13 @@ class EnforcerTest(base.PolicyBaseTestCase):
         # be loaded on the self.enforcer object.
 
         # This should be overridden by the policy file
-        self.enforcer.register_default(policy.RuleDefault(name='admin',
-                                       check_str='is_admin:False'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='admin', check_str='is_admin:False')
+        )
         # This is not in the policy file, only registered
-        self.enforcer.register_default(policy.RuleDefault(name='owner',
-                                       check_str='role:owner'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='owner', check_str='role:owner')
+        )
 
         scenario(*args, **kwargs)
 
@@ -275,9 +240,11 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_directory(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
         self.enforcer.load_rules(True)
         self.assertIsNotNone(self.enforcer.rules)
         loaded_rules = yaml.safe_load(str(self.enforcer.rules))
@@ -286,17 +253,20 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_directory_after_file_update(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.enforcer.load_rules(True)
         self.assertIsNotNone(self.enforcer.rules)
         loaded_rules = yaml.safe_load(str(self.enforcer.rules))
         self.assertEqual('role:fakeA', loaded_rules['default'])
         self.assertEqual('is_admin:True', loaded_rules['admin'])
-        new_policy_yaml_contents = yaml.dump({
-            "default": "rule:admin",
-            "admin": "is_admin:True",
-            "foo": "rule:bar",
-        })
+        new_policy_yaml_contents = yaml.dump(
+            {
+                'default': 'rule:admin',
+                'admin': 'is_admin:True',
+                'foo': 'rule:bar',
+            }
+        )
         # Modify the policy.yaml file and then validate that the rules
         # from the policy directory are re-applied on top of the
         # new rules from the file.
@@ -305,8 +275,9 @@ class EnforcerTest(base.PolicyBaseTestCase):
         # Force the mtime change since the unit test may write to this file
         # too fast for mtime to actually change.
         stinfo = os.stat(policy_file_path)
-        os.utime(policy_file_path, (stinfo.st_atime + 42,
-                                    stinfo.st_mtime + 42))
+        os.utime(
+            policy_file_path, (stinfo.st_atime + 42, stinfo.st_mtime + 42)
+        )
 
         self.enforcer.load_rules()
 
@@ -329,8 +300,9 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
         self.enforcer.load_rules()
         main_policy_file_rules = yaml.safe_load(POLICY_YAML_CONTENTS)
-        self.assertEqual(main_policy_file_rules,
-                         dict_rules(self.enforcer.rules))
+        self.assertEqual(
+            main_policy_file_rules, dict_rules(self.enforcer.rules)
+        )
 
         folder_policy_file = os.path.join('policy.d', 'a.conf')
         self.create_config_file(folder_policy_file, POLICY_A_CONTENTS)
@@ -343,20 +315,25 @@ class EnforcerTest(base.PolicyBaseTestCase):
         # Force the mtime change since the unit test may write to this file
         # too fast for mtime to actually change.
         absolute_folder_policy_file_path = self.get_config_file_fullname(
-            folder_policy_file)
+            folder_policy_file
+        )
         stinfo = os.stat(absolute_folder_policy_file_path)
-        os.utime(absolute_folder_policy_file_path,
-                 (stinfo.st_atime + 42, stinfo.st_mtime + 42))
+        os.utime(
+            absolute_folder_policy_file_path,
+            (stinfo.st_atime + 42, stinfo.st_mtime + 42),
+        )
         self.enforcer.load_rules()
-        self.assertEqual(main_policy_file_rules,
-                         dict_rules(self.enforcer.rules))
+        self.assertEqual(
+            main_policy_file_rules, dict_rules(self.enforcer.rules)
+        )
 
     def test_load_directory_opts_registered(self):
         self._test_scenario_with_opts_registered(self.test_load_directory)
 
     def test_load_directory_caching_with_files_updated(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
 
         self.enforcer.load_rules(False)
         self.assertIsNotNone(self.enforcer.rules)
@@ -365,8 +342,9 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.assertEqual(1, len(self.enforcer._policy_dir_mtimes))
 
         # Touch the file
-        conf_path = os.path.join(self.config_dir, os.path.join(
-            'policy.d', 'a.conf'))
+        conf_path = os.path.join(
+            self.config_dir, os.path.join('policy.d', 'a.conf')
+        )
         stinfo = os.stat(conf_path)
         os.utime(conf_path, (stinfo.st_atime + 10, stinfo.st_mtime + 10))
 
@@ -379,13 +357,15 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_directory_caching_with_files_updated_opts_registered(self):
         self._test_scenario_with_opts_registered(
-            self.test_load_directory_caching_with_files_updated)
+            self.test_load_directory_caching_with_files_updated
+        )
 
     def test_load_directory_caching_with_files_same(self, overwrite=True):
         self.enforcer.overwrite = overwrite
 
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
 
         self.enforcer.load_rules(False)
         self.assertIsNotNone(self.enforcer.rules)
@@ -405,23 +385,16 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_directory_caching_with_files_same_opts_registered(self):
         self._test_scenario_with_opts_registered(
-            self.test_load_directory_caching_with_files_same)
+            self.test_load_directory_caching_with_files_same
+        )
 
     def test_load_dir_caching_with_files_same_overwrite_false_opts_reg(self):
         # Very long test name makes this difficult
-        test = getattr(self,
-            'test_load_directory_caching_with_files_same_but_overwrite_false')  # NOQA
+        test = getattr(
+            self,
+            'test_load_directory_caching_with_files_same_but_overwrite_false',
+        )  # NOQA
         self._test_scenario_with_opts_registered(test)
-
-    @mock.patch.object(policy, 'LOG')
-    def test_load_json_file_log_warning(self, mock_log):
-        rules = jsonutils.dumps({'foo': 'rule:bar'})
-        # NOTE(tkajinam): This is ugly but an easy way to make the enforcer
-        #                 load a JSON-formatted file.
-        self.create_config_file('policy.yaml', rules)
-        self.enforcer.load_rules(True)
-
-        mock_log.warning.assert_any_call(policy.WARN_JSON)
 
     @mock.patch.object(policy, 'LOG')
     def test_warning_on_redundant_file_rules(self, mock_log):
@@ -430,29 +403,35 @@ class EnforcerTest(base.PolicyBaseTestCase):
         path = self.get_config_file_fullname('policy.yaml')
         enforcer = policy.Enforcer(self.conf, policy_file=path)
         # register same rule in default as present in file.
-        enforcer.register_default(policy.RuleDefault(name='admin',
-                                  check_str='is_admin:True'))
+        enforcer.register_default(
+            policy.RuleDefault(name='admin', check_str='is_admin:True')
+        )
 
         enforcer.load_rules(True)
-        warn_msg = ("Policy Rules %(names)s specified in policy files "
-                    "are the same as the defaults provided by the service. "
-                    "You can remove these rules from policy files which "
-                    "will make maintenance easier. You can detect these "
-                    "redundant rules by ``oslopolicy-list-redundant`` tool "
-                    "also.")
+        warn_msg = (
+            'Policy Rules %(names)s specified in policy files '
+            'are the same as the defaults provided by the service. '
+            'You can remove these rules from policy files which '
+            'will make maintenance easier. You can detect these '
+            'redundant rules by ``oslopolicy-list-redundant`` tool '
+            'also.'
+        )
 
         mock_log.warning.assert_any_call(warn_msg, {'names': ['admin']})
 
     def test_load_multiple_directories(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.2.d', 'fake.conf'), POLICY_FAKE_CONTENTS)
-        self.conf.set_override('policy_dirs',
-                               ['policy.d', 'policy.2.d'],
-                               group='oslo_policy')
+            os.path.join('policy.2.d', 'fake.conf'), POLICY_FAKE_CONTENTS
+        )
+        self.conf.set_override(
+            'policy_dirs', ['policy.d', 'policy.2.d'], group='oslo_policy'
+        )
         self.enforcer.load_rules(True)
         self.assertIsNotNone(self.enforcer.rules)
         loaded_rules = yaml.safe_load(str(self.enforcer.rules))
@@ -461,14 +440,16 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_multiple_directories_opts_registered(self):
         self._test_scenario_with_opts_registered(
-            self.test_load_multiple_directories)
+            self.test_load_multiple_directories
+        )
 
     def test_load_non_existed_directory(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
-        self.conf.set_override('policy_dirs',
-                               ['policy.d', 'policy.x.d'],
-                               group='oslo_policy')
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
+        self.conf.set_override(
+            'policy_dirs', ['policy.d', 'policy.x.d'], group='oslo_policy'
+        )
         self.enforcer.load_rules(True)
         self.assertIsNotNone(self.enforcer.rules)
         self.assertIn('default', self.enforcer.rules)
@@ -476,14 +457,18 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_load_non_existed_directory_opts_registered(self):
         self._test_scenario_with_opts_registered(
-            self.test_load_non_existed_directory)
+            self.test_load_non_existed_directory
+        )
 
     def test_load_policy_dirs_with_non_directory(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
-        self.conf.set_override('policy_dirs',
-                               [os.path.join('policy.d', 'a.conf')],
-                               group='oslo_policy')
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
+        self.conf.set_override(
+            'policy_dirs',
+            [os.path.join('policy.d', 'a.conf')],
+            group='oslo_policy',
+        )
         self.assertRaises(ValueError, self.enforcer.load_rules, True)
         self.assertRaises(ValueError, self.enforcer.load_rules, False)
 
@@ -512,9 +497,11 @@ class EnforcerTest(base.PolicyBaseTestCase):
     @mock.patch('oslo_policy.policy.Enforcer.check_rules')
     def test_load_directory_twice(self, mock_check_rules):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
         self.enforcer.load_rules()
         self.enforcer.load_rules()
         self.assertEqual(1, mock_check_rules.call_count)
@@ -523,9 +510,11 @@ class EnforcerTest(base.PolicyBaseTestCase):
     @mock.patch('oslo_policy.policy.Enforcer.check_rules')
     def test_load_directory_twice_force(self, mock_check_rules):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
         self.enforcer.load_rules(True)
         self.enforcer.load_rules(True)
         self.assertEqual(2, mock_check_rules.call_count)
@@ -534,12 +523,14 @@ class EnforcerTest(base.PolicyBaseTestCase):
     @mock.patch('oslo_policy.policy.Enforcer.check_rules')
     def test_load_directory_twice_changed(self, mock_check_rules):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.enforcer.load_rules()
 
         # Touch the file
-        conf_path = os.path.join(self.config_dir, os.path.join(
-            'policy.d', 'a.conf'))
+        conf_path = os.path.join(
+            self.config_dir, os.path.join('policy.d', 'a.conf')
+        )
         stinfo = os.stat(conf_path)
         os.utime(conf_path, (stinfo.st_atime + 10, stinfo.st_mtime + 10))
 
@@ -548,14 +539,12 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.assertIsNotNone(self.enforcer.rules)
 
     def test_set_rules_type(self):
-        self.assertRaises(TypeError,
-                          self.enforcer.set_rules,
-                          'dummy')
+        self.assertRaises(TypeError, self.enforcer.set_rules, 'dummy')
 
     @mock.patch.object(_cache_handler, 'delete_cached_file', mock.Mock())
     def test_clear(self):
         # Make sure the rules are reset
-        self.enforcer.rules = 'spam'
+        self.enforcer.rules = policy.Rules({}, None)
         self.enforcer.clear()
         self.assertEqual({}, self.enforcer.rules)
         self.assertIsNone(self.enforcer.default_rule)
@@ -563,20 +552,24 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_clear_opts_registered(self):
         # This should be overridden by the policy file
-        self.enforcer.register_default(policy.RuleDefault(name='admin',
-                                       check_str='is_admin:False'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='admin', check_str='is_admin:False')
+        )
         # This is not in the policy file, only registered
-        self.enforcer.register_default(policy.RuleDefault(name='owner',
-                                       check_str='role:owner'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='owner', check_str='role:owner')
+        )
 
         self.test_clear()
         self.assertEqual({}, self.enforcer.registered_rules)
 
     def test_rule_with_check(self):
-        rules_yaml = yaml.dump({
-            "deny_stack_user": "not role:stack_user",
-            "cloudwatch:PutMetricData": ""
-        })
+        rules_yaml = yaml.dump(
+            {
+                'deny_stack_user': 'not role:stack_user',
+                'cloudwatch:PutMetricData': '',
+            }
+        )
         rules = policy.Rules.load(rules_yaml)
         self.enforcer.set_rules(rules)
         action = 'cloudwatch:PutMetricData'
@@ -584,10 +577,12 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.assertTrue(self.enforcer.enforce(action, {}, creds))
 
     def test_enforcer_with_default_rule(self):
-        rules_yaml = yaml.dump({
-            "deny_stack_user": "not role:stack_user",
-            "cloudwatch:PutMetricData": ""
-        })
+        rules_yaml = yaml.dump(
+            {
+                'deny_stack_user': 'not role:stack_user',
+                'cloudwatch:PutMetricData': '',
+            }
+        )
         rules = policy.Rules.load(rules_yaml)
         default_rule = _checks.TrueCheck()
         enforcer = policy.Enforcer(self.conf, default_rule=default_rule)
@@ -598,26 +593,33 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_enforcer_force_reload_with_overwrite(self, opts_registered=0):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
 
         # Prepare in memory fake policies.
-        self.enforcer.set_rules({'test': _parser.parse_rule('role:test')},
-                                use_conf=True)
-        self.enforcer.set_rules({'default': _parser.parse_rule('role:fakeZ')},
-                                overwrite=False,  # Keeps 'test' role.
-                                use_conf=True)
+        self.enforcer.set_rules(
+            {'test': _parser.parse_rule('role:test')}, use_conf=True
+        )
+        self.enforcer.set_rules(
+            {'default': _parser.parse_rule('role:fakeZ')},
+            overwrite=False,  # Keeps 'test' role.
+            use_conf=True,
+        )
 
         self.enforcer.overwrite = True
 
         # Call enforce(), it will load rules from
         # policy configuration files, to overwrite
         # existing fake ones.
-        self.assertFalse(self.enforcer.enforce('test', {},
-                                               {'roles': ['test']}))
-        self.assertTrue(self.enforcer.enforce('default', {},
-                                              {'roles': ['fakeB']}))
+        self.assertFalse(
+            self.enforcer.enforce('test', {}, {'roles': ['test']})
+        )
+        self.assertTrue(
+            self.enforcer.enforce('default', {}, {'roles': ['fakeB']})
+        )
 
         # Check against rule dict again from
         # enforcer object directly.
@@ -631,33 +633,39 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_enforcer_force_reload_with_overwrite_opts_registered(self):
         self._test_scenario_with_opts_registered(
-            self.test_enforcer_force_reload_with_overwrite, opts_registered=1)
+            self.test_enforcer_force_reload_with_overwrite, opts_registered=1
+        )
 
     def test_enforcer_force_reload_without_overwrite(self, opts_registered=0):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
 
         # Prepare in memory fake policies.
-        self.enforcer.set_rules({'test': _parser.parse_rule('role:test')},
-                                use_conf=True)
-        self.enforcer.set_rules({'default': _parser.parse_rule('role:fakeZ')},
-                                overwrite=False,  # Keeps 'test' role.
-                                use_conf=True)
+        self.enforcer.set_rules(
+            {'test': _parser.parse_rule('role:test')}, use_conf=True
+        )
+        self.enforcer.set_rules(
+            {'default': _parser.parse_rule('role:fakeZ')},
+            overwrite=False,  # Keeps 'test' role.
+            use_conf=True,
+        )
 
         self.enforcer.overwrite = False
-        self.enforcer._is_directory_updated = lambda x, y: True
+        self.enforcer._is_directory_updated = lambda x, y: True  # type: ignore
 
         # Call enforce(), it will load rules from
         # policy configuration files, to merge with
         # existing fake ones.
-        self.assertTrue(self.enforcer.enforce('test', {},
-                                              {'roles': ['test']}))
+        self.assertTrue(self.enforcer.enforce('test', {}, {'roles': ['test']}))
         # The existing rules have a same key with
         # new loaded ones will be overwrote.
-        self.assertFalse(self.enforcer.enforce('default', {},
-                                               {'roles': ['fakeZ']}))
+        self.assertFalse(
+            self.enforcer.enforce('default', {}, {'roles': ['fakeZ']})
+        )
 
         # Check against rule dict again from
         # enforcer object directly.
@@ -673,24 +681,32 @@ class EnforcerTest(base.PolicyBaseTestCase):
     def test_enforcer_force_reload_without_overwrite_opts_registered(self):
         self._test_scenario_with_opts_registered(
             self.test_enforcer_force_reload_without_overwrite,
-            opts_registered=1)
+            opts_registered=1,
+        )
 
     def test_enforcer_keep_use_conf_flag_after_reload(self):
         self.create_config_file(
-            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS)
+            os.path.join('policy.d', 'a.conf'), POLICY_A_CONTENTS
+        )
         self.create_config_file(
-            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS)
+            os.path.join('policy.d', 'b.conf'), POLICY_B_CONTENTS
+        )
 
         self.assertTrue(self.enforcer.use_conf)
-        self.assertTrue(self.enforcer.enforce('default', {},
-                                              {'roles': ['fakeB']}))
-        self.assertFalse(self.enforcer.enforce('test', {},
-                                               {'roles': ['test']}))
+        self.assertTrue(
+            self.enforcer.enforce('default', {}, {'roles': ['fakeB']})
+        )
+        self.assertFalse(
+            self.enforcer.enforce('test', {}, {'roles': ['test']})
+        )
         # After enforcement the flag should
         # be remained there.
         self.assertTrue(self.enforcer.use_conf)
-        self.assertFalse(self.enforcer.enforce('_dynamic_test_rule', {},
-                                               {'roles': ['test']}))
+        self.assertFalse(
+            self.enforcer.enforce(
+                '_dynamic_test_rule', {}, {'roles': ['test']}
+            )
+        )
         # Then if configure file got changed,
         # reloading will be triggered when calling
         # enforcer(), this case could happen only
@@ -698,12 +714,17 @@ class EnforcerTest(base.PolicyBaseTestCase):
         rules = yaml.safe_load(str(self.enforcer.rules))
         rules['_dynamic_test_rule'] = 'role:test'
 
+        assert self.enforcer.policy_path is not None
+
         with open(self.enforcer.policy_path, 'w') as f:
             f.write(yaml.dump(rules))
 
         self.enforcer.load_rules(force_reload=True)
-        self.assertTrue(self.enforcer.enforce('_dynamic_test_rule', {},
-                                              {'roles': ['test']}))
+        self.assertTrue(
+            self.enforcer.enforce(
+                '_dynamic_test_rule', {}, {'roles': ['test']}
+            )
+        )
 
     def test_enforcer_keep_use_conf_flag_after_reload_opts_registered(self):
         # This test does not use _test_scenario_with_opts_registered because
@@ -712,11 +733,13 @@ class EnforcerTest(base.PolicyBaseTestCase):
         # loaded policies.
 
         # This should be overridden by the policy file
-        self.enforcer.register_default(policy.RuleDefault(name='admin',
-                                       check_str='is_admin:False'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='admin', check_str='is_admin:False')
+        )
         # This is not in the policy file, only registered
-        self.enforcer.register_default(policy.RuleDefault(name='owner',
-                                       check_str='role:owner'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='owner', check_str='role:owner')
+        )
 
         self.test_enforcer_keep_use_conf_flag_after_reload()
 
@@ -725,27 +748,49 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.assertEqual('is_admin:True', str(self.enforcer.rules['admin']))
 
     def test_enforcer_force_reload_false(self):
-        self.enforcer.set_rules({'test': 'test'})
+        rules = policy.Rules.from_dict({'service_api': 'role:service'}, None)
+        self.enforcer.set_rules(rules)
         self.enforcer.load_rules(force_reload=False)
-        self.assertIn('test', self.enforcer.rules)
+
+        self.assertEqual(1, len(self.enforcer.rules))
+        self.assertIn('service_api', self.enforcer.rules)
         self.assertNotIn('default', self.enforcer.rules)
         self.assertNotIn('admin', self.enforcer.rules)
 
     def test_enforcer_overwrite_rules(self):
-        self.enforcer.set_rules({'test': 'test'})
-        self.enforcer.set_rules({'test': 'test1'}, overwrite=True)
-        self.assertEqual({'test': 'test1'}, self.enforcer.rules)
+        rules = policy.Rules.from_dict({'service_api': 'role:service'}, None)
+        self.enforcer.set_rules(rules)
+        rules = policy.Rules.from_dict({'service_api': 'role:service1'}, None)
+        self.enforcer.set_rules(rules, overwrite=True)
+
+        self.assertEqual(1, len(self.enforcer.rules))
+        assert isinstance(
+            self.enforcer.rules['service_api'], _checks.RoleCheck
+        )
+        self.assertEqual(self.enforcer.rules['service_api'].match, 'service1')
 
     def test_enforcer_update_rules(self):
-        self.enforcer.set_rules({'test': 'test'})
-        self.enforcer.set_rules({'test1': 'test1'}, overwrite=False)
-        self.assertEqual({'test': 'test', 'test1': 'test1'},
-                         self.enforcer.rules)
+        rules = policy.Rules.from_dict({'service_api': 'role:service'}, None)
+        self.enforcer.set_rules(rules)
+        rules = policy.Rules.from_dict(
+            {'service_or_admin': 'rule:service_api or rule:context_is_admin'},
+            None,
+        )
+        self.enforcer.set_rules(rules, overwrite=False)
+
+        self.assertEqual(2, len(self.enforcer.rules))
+        assert isinstance(
+            self.enforcer.rules['service_api'], _checks.RoleCheck
+        )
+        assert isinstance(
+            self.enforcer.rules['service_or_admin'], _checks.OrCheck
+        )
 
     def test_enforcer_with_default_policy_file(self):
         enforcer = policy.Enforcer(self.conf)
-        self.assertEqual(self.conf.oslo_policy.policy_file,
-                         enforcer.policy_file)
+        self.assertEqual(
+            self.conf.oslo_policy.policy_file, enforcer.policy_file
+        )
 
     def test_enforcer_with_policy_file(self):
         enforcer = policy.Enforcer(self.conf, policy_file='non-default.yaml')
@@ -753,79 +798,108 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
     def test_get_policy_path_raises_exc(self):
         enforcer = policy.Enforcer(self.conf, policy_file='raise_error.yaml')
-        e = self.assertRaises(cfg.ConfigFilesNotFoundError,
-                              enforcer._get_policy_path, enforcer.policy_file)
-        self.assertEqual(('raise_error.yaml', ), e.config_files)
+        e = self.assertRaises(
+            cfg.ConfigFilesNotFoundError,
+            enforcer._get_policy_path,
+            enforcer.policy_file,
+        )
+        self.assertEqual(('raise_error.yaml',), e.config_files)
 
     def test_enforcer_set_rules(self):
+        rules: dict[str, _checks.BaseCheck] = {'test': _checks.FalseCheck()}
         self.enforcer.load_rules()
-        self.enforcer.set_rules({'test': 'test1'})
+        self.enforcer.set_rules(rules)
         self.enforcer.load_rules()
-        self.assertEqual({'test': 'test1'}, self.enforcer.rules)
+        self.assertEqual(rules, self.enforcer.rules)
 
     def test_enforcer_default_rule_name(self):
         enforcer = policy.Enforcer(self.conf, default_rule='foo_rule')
         self.assertEqual('foo_rule', enforcer.rules.default_rule)
-        self.conf.set_override('policy_default_rule', 'bar_rule',
-                               group='oslo_policy')
+        self.conf.set_override(
+            'policy_default_rule', 'bar_rule', group='oslo_policy'
+        )
         enforcer = policy.Enforcer(self.conf, default_rule='foo_rule')
         self.assertEqual('foo_rule', enforcer.rules.default_rule)
-        enforcer = policy.Enforcer(self.conf, )
+        enforcer = policy.Enforcer(
+            self.conf,
+        )
         self.assertEqual('bar_rule', enforcer.rules.default_rule)
 
     def test_enforcer_register_twice_raises(self):
-        self.enforcer.register_default(policy.RuleDefault(name='owner',
-                                       check_str='role:owner'))
-        self.assertRaises(policy.DuplicatePolicyError,
-                          self.enforcer.register_default,
-                          policy.RuleDefault(name='owner',
-                                             check_str='role:owner'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='owner', check_str='role:owner')
+        )
+        self.assertRaises(
+            policy.DuplicatePolicyError,
+            self.enforcer.register_default,
+            policy.RuleDefault(name='owner', check_str='role:owner'),
+        )
 
     def test_enforcer_does_not_modify_original_registered_rule(self):
         rule_original = policy.RuleDefault(
             name='test',
-            check_str='role:owner',)
+            check_str='role:owner',
+        )
 
         self.enforcer.register_default(rule_original)
-        self.enforcer.registered_rules['test']._check_str = 'role:admin'
-        self.enforcer.registered_rules['test']._check = 'role:admin'
+        self.assertEqual(
+            self.enforcer.registered_rules['test'].check_str, 'role:owner'
+        )
+        assert isinstance(
+            self.enforcer.registered_rules['test'].check, _checks.RoleCheck
+        )
+        self.assertEqual(
+            self.enforcer.registered_rules['test'].check.match, 'owner'
+        )
 
+        self.enforcer.registered_rules['test']._check_str = 'role:admin'
+        self.enforcer.registered_rules['test']._check = _parser.parse_rule(
+            'role:admin'
+        )
         self.assertEqual(
-            self.enforcer.registered_rules['test'].check_str, 'role:admin')
+            self.enforcer.registered_rules['test'].check_str, 'role:admin'
+        )
         self.assertEqual(
-            self.enforcer.registered_rules['test'].check, 'role:admin')
+            self.enforcer.registered_rules['test'].check.match, 'admin'
+        )
         self.assertEqual(rule_original.check_str, 'role:owner')
         self.assertEqual(rule_original.check.__str__(), 'role:owner')
 
     def test_non_reversible_check(self):
-        self.create_config_file('policy.yaml',
-                                yaml.dump(
-                                    {'shared': 'field:networks:shared=True'}))
+        self.create_config_file(
+            'policy.yaml', yaml.dump({'shared': 'field:networks:shared=True'})
+        )
         # load_rules succeeding without error is the focus of this test
         self.enforcer.load_rules(True)
         self.assertIsNotNone(self.enforcer.rules)
         loaded_rules = yaml.safe_load(str(self.enforcer.rules))
-        self.assertNotEqual('field:networks:shared=True',
-                            loaded_rules['shared'])
+        self.assertNotEqual(
+            'field:networks:shared=True', loaded_rules['shared']
+        )
 
     def test_authorize_opt_registered(self):
-        self.enforcer.register_default(policy.RuleDefault(name='test',
-                                       check_str='role:test'))
-        self.assertTrue(self.enforcer.authorize('test', {},
-                                                {'roles': ['test']}))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='test', check_str='role:test')
+        )
+        self.assertTrue(
+            self.enforcer.authorize('test', {}, {'roles': ['test']})
+        )
 
     def test_authorize_opt_not_registered(self):
-        self.assertRaises(policy.PolicyNotRegistered,
-                          self.enforcer.authorize, 'test', {},
-                          {'roles': ['test']})
+        self.assertRaises(
+            policy.PolicyNotRegistered,
+            self.enforcer.authorize,
+            'test',
+            {},
+            {'roles': ['test']},
+        )
 
     def test_enforcer_accepts_context_objects(self):
         rule = policy.RuleDefault(name='fake_rule', check_str='role:test')
         self.enforcer.register_default(rule)
 
         request_context = context.RequestContext()
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, request_context)
+        self.enforcer.enforce('fake_rule', {}, request_context)
 
     def test_enforcer_accepts_subclassed_context_objects(self):
         rule = policy.RuleDefault(name='fake_rule', check_str='role:test')
@@ -835,8 +909,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
             pass
 
         request_context = SpecializedContext()
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, request_context)
+        self.enforcer.enforce('fake_rule', {}, request_context)
 
     def test_enforcer_rejects_non_context_objects(self):
         rule = policy.RuleDefault(name='fake_rule', check_str='role:test')
@@ -846,10 +919,12 @@ class EnforcerTest(base.PolicyBaseTestCase):
             pass
 
         request_context = InvalidContext()
-        target_dict = {}
         self.assertRaises(
-            policy.InvalidContextObject, self.enforcer.enforce, 'fake_rule',
-            target_dict, request_context
+            policy.InvalidContextObject,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            request_context,
         )
 
     @mock.patch.object(policy.Enforcer, '_map_context_attributes_into_creds')
@@ -859,8 +934,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.enforcer.register_default(rule)
 
         request_context = context.RequestContext()
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, request_context)
+        self.enforcer.enforce('fake_rule', {}, request_context)
         map_mock.assert_called_once_with(request_context)
 
     def test_enforcer_consolidates_context_attributes_with_creds(self):
@@ -884,8 +958,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
         request_context = context.RequestContext()
         policy_values = request_context.to_policy_values()
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, policy_values)
+        self.enforcer.enforce('fake_rule', {}, policy_values)
 
     def test_enforcer_understands_system_scope(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -895,8 +968,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.enforcer.register_default(rule)
 
         ctx = context.RequestContext(system_scope='all')
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, ctx)
+        self.enforcer.enforce('fake_rule', {}, ctx)
 
     def test_enforcer_understands_system_scope_creds_dict(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -909,8 +981,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
         creds = ctx.to_dict()
         creds['system_scope'] = 'all'
 
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, creds)
+        self.enforcer.enforce('fake_rule', {}, creds)
 
     def test_enforcer_raises_invalid_scope_with_system_scope_type(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -921,26 +992,33 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
         # model a domain-scoped token, which should fail enforcement
         ctx = context.RequestContext(domain_id='fake')
-        target_dict = {}
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, do_raise=True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            do_raise=True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
         # model a project-scoped token, which should fail enforcement
         ctx = context.RequestContext(project_id='fake')
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
     def test_enforcer_understands_domain_scope(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -950,8 +1028,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.enforcer.register_default(rule)
 
         ctx = context.RequestContext(domain_id='fake')
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, ctx)
+        self.enforcer.enforce('fake_rule', {}, ctx)
 
     def test_enforcer_raises_invalid_scope_with_domain_scope_type(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -962,26 +1039,33 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
         # model a system-scoped token, which should fail enforcement
         ctx = context.RequestContext(system_scope='all')
-        target_dict = {}
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
         # model a project-scoped token, which should fail enforcement
         ctx = context.RequestContext(project_id='fake')
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
     def test_enforcer_understands_project_scope(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -991,8 +1075,7 @@ class EnforcerTest(base.PolicyBaseTestCase):
         self.enforcer.register_default(rule)
 
         ctx = context.RequestContext(project_id='fake')
-        target_dict = {}
-        self.enforcer.enforce('fake_rule', target_dict, ctx)
+        self.enforcer.enforce('fake_rule', {}, ctx)
 
     def test_enforcer_raises_invalid_scope_with_project_scope_type(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -1003,26 +1086,33 @@ class EnforcerTest(base.PolicyBaseTestCase):
 
         # model a system-scoped token, which should fail enforcement
         ctx = context.RequestContext(system_scope='all')
-        target_dict = {}
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
         # model a domain-scoped token, which should fail enforcement
         ctx = context.RequestContext(domain_id='fake')
         self.assertRaises(
-            policy.InvalidScope, self.enforcer.enforce, 'fake_rule',
-            target_dict, ctx, True
+            policy.InvalidScope,
+            self.enforcer.enforce,
+            'fake_rule',
+            {},
+            ctx,
+            True,
         )
         # and the same should return False if do_raise=False
         self.assertFalse(
-            self.enforcer.enforce(
-                'fake_rule', target_dict, ctx, do_raise=False))
+            self.enforcer.enforce('fake_rule', {}, ctx, do_raise=False)
+        )
 
     def test_enforce_scope_with_subclassed_checks_when_scope_not_set(self):
         self.conf.set_override('enforce_scope', True, group='oslo_policy')
@@ -1038,10 +1128,14 @@ class EnforcerTest(base.PolicyBaseTestCase):
         ctx = context.RequestContext(system_scope='all', roles=['admin'])
         self.assertRaises(
             policy.InvalidScope,
-            self.enforcer.enforce, rule, {}, ctx, do_raise=True)
+            self.enforcer.enforce,
+            rule,
+            {},
+            ctx,
+            do_raise=True,
+        )
         # and the same should return False if do_raise=False
-        self.assertFalse(
-            self.enforcer.enforce(rule, {}, ctx, do_raise=False))
+        self.assertFalse(self.enforcer.enforce(rule, {}, ctx, do_raise=False))
 
 
 class EnforcerNoPolicyFileTest(base.PolicyBaseTestCase):
@@ -1055,10 +1149,12 @@ class EnforcerNoPolicyFileTest(base.PolicyBaseTestCase):
         self.assertEqual(0, len(self.enforcer.rules))
 
     def test_opts_registered(self):
-        self.enforcer.register_default(policy.RuleDefault(name='admin',
-                                       check_str='is_admin:False'))
-        self.enforcer.register_default(policy.RuleDefault(name='owner',
-                                       check_str='role:owner'))
+        self.enforcer.register_default(
+            policy.RuleDefault(name='admin', check_str='is_admin:False')
+        )
+        self.enforcer.register_default(
+            policy.RuleDefault(name='owner', check_str='role:owner')
+        )
         self.enforcer.load_rules(True)
 
         self.assertEqual({}, self.enforcer.file_rules)
@@ -1076,69 +1172,75 @@ class EnforcerNoPolicyFileTest(base.PolicyBaseTestCase):
 
 
 class CheckFunctionTestCase(base.PolicyBaseTestCase):
-
     def setUp(self):
         super().setUp()
         self.create_config_file('policy.yaml', POLICY_YAML_CONTENTS)
 
     def test_check_explicit(self):
         rule = base.FakeCheck()
-        creds = {}
-        result = self.enforcer.enforce(rule, 'target', creds)
-        self.assertEqual(('target', creds, self.enforcer), result)
+        result = self.enforcer.enforce(rule, {'foo': 'bar'}, {})
+        self.assertEqual(({'foo': 'bar'}, {}, self.enforcer), result)
 
     def test_check_no_rules(self):
         # Clear the policy.yaml file created in setUp()
-        self.create_config_file('policy.yaml', "{}")
+        self.create_config_file('policy.yaml', '{}')
         self.enforcer.default_rule = None
         self.enforcer.load_rules()
-        creds = {}
-        result = self.enforcer.enforce('rule', 'target', creds)
+        result = self.enforcer.enforce('rule', {'foo': 'bar'}, {})
         self.assertFalse(result)
 
     def test_check_with_rule(self):
-        self.enforcer.set_rules(dict(default=base.FakeCheck()))
-        creds = {}
-        result = self.enforcer.enforce('default', 'target', creds)
+        self.enforcer.set_rules({'default': base.FakeCheck()})
+        result = self.enforcer.enforce('default', {'foo': 'bar'}, {})
 
-        self.assertEqual(('target', creds, self.enforcer), result)
+        self.assertEqual(({'foo': 'bar'}, {}, self.enforcer), result)
 
     def test_check_rule_not_exist_not_empty_policy_file(self):
         # If the rule doesn't exist, then enforce() fails rather than KeyError.
 
         # This test needs a non-empty file otherwise the code short-circuits.
-        self.create_config_file('policy.yaml', yaml.dump({"a_rule": []}))
+        self.create_config_file('policy.yaml', yaml.dump({'a_rule': []}))
         self.enforcer.default_rule = None
         self.enforcer.load_rules()
-        creds = {}
-        result = self.enforcer.enforce('rule', 'target', creds)
+        result = self.enforcer.enforce('rule', {'foo': 'bar'}, {})
         self.assertFalse(result)
 
     def test_check_raise_default(self):
         # When do_raise=True and exc is not used then PolicyNotAuthorized is
         # raised.
-        self.enforcer.set_rules(dict(default=_checks.FalseCheck()))
+        self.enforcer.set_rules({'default': _checks.FalseCheck()})
 
-        creds = {}
-        self.assertRaisesRegex(policy.PolicyNotAuthorized,
-                               " is disallowed by policy",
-                               self.enforcer.enforce,
-                               'rule', 'target', creds, True)
+        self.assertRaisesRegex(
+            policy.PolicyNotAuthorized,
+            ' is disallowed by policy',
+            self.enforcer.enforce,
+            'rule',
+            'target',
+            {},
+            True,
+        )
 
     def test_check_raise_custom_exception(self):
-        self.enforcer.set_rules(dict(default=_checks.FalseCheck()))
+        self.enforcer.set_rules({'default': _checks.FalseCheck()})
 
-        creds = {}
         exc = self.assertRaises(
-            MyException, self.enforcer.enforce, 'rule', 'target', creds,
-            True, MyException, 'arg1', 'arg2', kw1='kwarg1',
-            kw2='kwarg2')
+            MyException,
+            self.enforcer.enforce,
+            'rule',
+            'target',
+            {},
+            True,
+            MyException,
+            'arg1',
+            'arg2',
+            kw1='kwarg1',
+            kw2='kwarg2',
+        )
         self.assertEqual(('arg1', 'arg2'), exc.args)
-        self.assertEqual(dict(kw1='kwarg1', kw2='kwarg2'), exc.kwargs)
+        self.assertEqual({'kw1': 'kwarg1', 'kw2': 'kwarg2'}, exc.kwargs)
 
 
 class RegisterCheckTestCase(base.PolicyBaseTestCase):
-
     @mock.patch.object(_checks, 'registered_checks', {})
     def test_register_check(self):
         class TestCheck(policy.Check):
@@ -1146,27 +1248,33 @@ class RegisterCheckTestCase(base.PolicyBaseTestCase):
 
         policy.register('spam', TestCheck)
 
-        self.assertEqual(dict(spam=TestCheck), _checks.registered_checks)
+        self.assertEqual({'spam': TestCheck}, _checks.registered_checks)
 
 
 class BaseCheckTypesTestCase(base.PolicyBaseTestCase):
-
     @mock.patch.object(_checks, 'registered_checks', {})
     def test_base_check_types_are_public(self):
-        '''Check that those check types are part of public API.
+        """Check that those check types are part of public API.
 
-           They are blessed to be used by library consumers.
-        '''
-        for check_type in (policy.AndCheck, policy.NotCheck,
-                           policy.OrCheck, policy.RuleCheck):
-            class TestCheck(check_type):
+        They are blessed to be used by library consumers.
+        """
+        for check_type in (
+            policy.AndCheck,
+            policy.NotCheck,
+            policy.OrCheck,
+            policy.RuleCheck,
+        ):
+
+            class TestCheck(check_type):  # type: ignore
                 pass
 
             check_str = str(check_type)
             policy.register(check_str, TestCheck)
             self.assertEqual(
-                TestCheck, _checks.registered_checks[check_str],
-                message='%s check type is not public.' % check_str)
+                TestCheck,
+                _checks.registered_checks[check_str],
+                message=f'{check_str} check type is not public.',
+            )
 
 
 class RuleDefaultTestCase(base.PolicyBaseTestCase):
@@ -1180,31 +1288,35 @@ class RuleDefaultTestCase(base.PolicyBaseTestCase):
         self.assertEqual('"foo": "rule:foo"', str(opt))
 
     def test_equality_obvious(self):
-        opt1 = policy.RuleDefault(name='foo', check_str='rule:foo',
-                                  description='foo')
-        opt2 = policy.RuleDefault(name='foo', check_str='rule:foo',
-                                  description='bar')
+        opt1 = policy.RuleDefault(
+            name='foo', check_str='rule:foo', description='foo'
+        )
+        opt2 = policy.RuleDefault(
+            name='foo', check_str='rule:foo', description='bar'
+        )
         self.assertEqual(opt1, opt2)
 
     def test_equality_less_obvious(self):
-        opt1 = policy.RuleDefault(name='foo', check_str='',
-                                  description='foo')
-        opt2 = policy.RuleDefault(name='foo', check_str='@',
-                                  description='bar')
+        opt1 = policy.RuleDefault(name='foo', check_str='', description='foo')
+        opt2 = policy.RuleDefault(name='foo', check_str='@', description='bar')
         self.assertEqual(opt1, opt2)
 
     def test_not_equal_check(self):
-        opt1 = policy.RuleDefault(name='foo', check_str='rule:foo',
-                                  description='foo')
-        opt2 = policy.RuleDefault(name='foo', check_str='rule:bar',
-                                  description='bar')
+        opt1 = policy.RuleDefault(
+            name='foo', check_str='rule:foo', description='foo'
+        )
+        opt2 = policy.RuleDefault(
+            name='foo', check_str='rule:bar', description='bar'
+        )
         self.assertNotEqual(opt1, opt2)
 
     def test_not_equal_name(self):
-        opt1 = policy.RuleDefault(name='foo', check_str='rule:foo',
-                                  description='foo')
-        opt2 = policy.RuleDefault(name='bar', check_str='rule:foo',
-                                  description='bar')
+        opt1 = policy.RuleDefault(
+            name='foo', check_str='rule:foo', description='foo'
+        )
+        opt2 = policy.RuleDefault(
+            name='bar', check_str='rule:foo', description='bar'
+        )
         self.assertNotEqual(opt1, opt2)
 
     def test_not_equal_class(self):
@@ -1236,9 +1348,7 @@ class RuleDefaultTestCase(base.PolicyBaseTestCase):
     def test_create_opt_with_scope_types(self):
         scope_types = ['project']
         opt = policy.RuleDefault(
-            name='foo',
-            check_str='role:bar',
-            scope_types=scope_types
+            name='foo', check_str='role:bar', scope_types=scope_types
         )
         self.assertEqual(opt.scope_types, scope_types)
 
@@ -1248,14 +1358,14 @@ class RuleDefaultTestCase(base.PolicyBaseTestCase):
             policy.RuleDefault,
             name='foo',
             check_str='role:bar',
-            scope_types='project'
+            scope_types='project',
         )
 
     def test_create_opt_with_multiple_scope_types(self):
         opt = policy.RuleDefault(
             name='foo',
             check_str='role:bar',
-            scope_types=['project', 'domain', 'system']
+            scope_types=['project', 'domain', 'system'],
         )
 
         self.assertEqual(opt.scope_types, ['project', 'domain', 'system'])
@@ -1266,28 +1376,29 @@ class RuleDefaultTestCase(base.PolicyBaseTestCase):
             policy.RuleDefault,
             name='foo',
             check_str='role:bar',
-            scope_types=['project', 'project']
+            scope_types=['project', 'project'],
         )
 
 
 class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
-
     def test_deprecate_a_policy_check_string(self):
         deprecated_rule = policy.DeprecatedRule(
             name='foo:create_bar',
             check_str='role:fizz',
             deprecated_reason='"role:bang" is a better default',
-            deprecated_since='N'
+            deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            scope_types=['project'],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                scope_types=['project'],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
 
@@ -1311,22 +1422,26 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            scope_types=['project'],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                scope_types=['project'],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
         enforcer.load_rules()
 
-        enforcer.enforce('foo:create_bar', {}, {'roles': ['bang']},
-                         do_raise=True)
+        enforcer.enforce(
+            'foo:create_bar', {}, {'roles': ['bang']}, do_raise=True
+        )
         self.assertFalse(
-            self.enforcer.enforce('foo:create_bar', {}, {'roles': ['fizz']}))
+            self.enforcer.enforce('foo:create_bar', {}, {'roles': ['fizz']})
+        )
 
     def test_deprecate_replace_with_empty_policy_check_string(self):
         deprecated_rule = policy.DeprecatedRule(
@@ -1336,22 +1451,26 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            scope_types=['project'],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                scope_types=['project'],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
         enforcer.load_rules()
 
-        enforcer.enforce('foo:create_bar', {}, {'roles': ['fizz']},
-                         do_raise=True)
-        enforcer.enforce('foo:create_bar', {}, {'roles': ['bang']},
-                         do_raise=True)
+        enforcer.enforce(
+            'foo:create_bar', {}, {'roles': ['fizz']}, do_raise=True
+        )
+        enforcer.enforce(
+            'foo:create_bar', {}, {'roles': ['bang']}, do_raise=True
+        )
 
     def test_deprecate_a_policy_name(self):
         deprecated_rule = policy.DeprecatedRule(
@@ -1368,14 +1487,16 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:baz',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars/', 'method': 'POST'}],
-            scope_types=['project'],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:baz',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars/', 'method': 'POST'}],
+                scope_types=['project'],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         expected_msg = (
             'Policy "foo:bar":"role:baz" was deprecated in N in favor of '
             '"foo:create_bar":"role:baz". Reason: "foo:bar" is not granular '
@@ -1399,17 +1520,19 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             mock_warn.assert_called_once_with(expected_msg)
 
     def test_deprecate_a_policy_for_removal_logs_warning_when_overridden(self):
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:bar',
-            check_str='role:baz',
-            description='Create a foo.',
-            operations=[{'path': '/v1/foos/', 'method': 'POST'}],
-            deprecated_for_removal=True,
-            deprecated_reason=(
-                '"foo:bar" is no longer a policy used by the service'
-            ),
-            deprecated_since='N'
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:bar',
+                check_str='role:baz',
+                description='Create a foo.',
+                operations=[{'path': '/v1/foos/', 'method': 'POST'}],
+                deprecated_for_removal=True,
+                deprecated_reason=(
+                    '"foo:bar" is no longer a policy used by the service'
+                ),
+                deprecated_since='N',
+            )
+        ]
         expected_msg = (
             'Policy "foo:bar":"role:baz" was deprecated for removal in N. '
             'Reason: "foo:bar" is no longer a policy used by the service. Its '
@@ -1427,17 +1550,19 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
     def test_deprecate_a_policy_for_removal_does_not_log_warning(self):
         # We should only log a warning for operators if they are supplying an
         # override for a policy that is deprecated for removal.
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:bar',
-            check_str='role:baz',
-            description='Create a foo.',
-            operations=[{'path': '/v1/foos/', 'method': 'POST'}],
-            deprecated_for_removal=True,
-            deprecated_reason=(
-                '"foo:bar" is no longer a policy used by the service'
-            ),
-            deprecated_since='N'
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:bar',
+                check_str='role:baz',
+                description='Create a foo.',
+                operations=[{'path': '/v1/foos/', 'method': 'POST'}],
+                deprecated_for_removal=True,
+                deprecated_reason=(
+                    '"foo:bar" is no longer a policy used by the service'
+                ),
+                deprecated_since='N',
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
 
@@ -1446,22 +1571,25 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             mock_warn.assert_not_called()
 
     def test_deprecate_check_str_suppress_does_not_log_warning(self):
-        self.conf.set_override('enforce_new_defaults', False,
-                               group='oslo_policy')
+        self.conf.set_override(
+            'enforce_new_defaults', False, group='oslo_policy'
+        )
         deprecated_rule = policy.DeprecatedRule(
             name='foo:create_bar',
             check_str='role:fizz',
             deprecated_reason='"role:bang" is a better default',
-            deprecated_since='N'
+            deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.suppress_deprecation_warnings = True
         enforcer.register_defaults(rule_list)
@@ -1470,8 +1598,9 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             mock_warn.assert_not_called()
 
     def test_deprecate_name_suppress_does_not_log_warning(self):
-        self.conf.set_override('enforce_new_defaults', False,
-                               group='oslo_policy')
+        self.conf.set_override(
+            'enforce_new_defaults', False, group='oslo_policy'
+        )
         deprecated_rule = policy.DeprecatedRule(
             name='foo:bar',
             check_str='role:baz',
@@ -1479,13 +1608,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:baz',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars/', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:baz',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars/', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
 
         rules = yaml.dump({'foo:bar': 'role:bang'})
         self.create_config_file('policy.yaml', rules)
@@ -1498,20 +1629,23 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             mock_warn.assert_not_called()
 
     def test_deprecate_for_removal_suppress_does_not_log_warning(self):
-        self.conf.set_override('enforce_new_defaults', False,
-                               group='oslo_policy')
+        self.conf.set_override(
+            'enforce_new_defaults', False, group='oslo_policy'
+        )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:bar',
-            check_str='role:baz',
-            description='Create a foo.',
-            operations=[{'path': '/v1/foos/', 'method': 'POST'}],
-            deprecated_for_removal=True,
-            deprecated_reason=(
-                '"foo:bar" is no longer a policy used by the service'
-            ),
-            deprecated_since='N'
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:bar',
+                check_str='role:baz',
+                description='Create a foo.',
+                operations=[{'path': '/v1/foos/', 'method': 'POST'}],
+                deprecated_for_removal=True,
+                deprecated_reason=(
+                    '"foo:bar" is no longer a policy used by the service'
+                ),
+                deprecated_since='N',
+            )
+        ]
         rules = yaml.dump({'foo:bar': 'role:bang'})
         self.create_config_file('policy.yaml', rules)
         enforcer = policy.Enforcer(self.conf)
@@ -1523,8 +1657,9 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             mock_warn.assert_not_called()
 
     def test_suppress_default_change_warnings_flag_not_log_warning(self):
-        self.conf.set_override('enforce_new_defaults', False,
-                               group='oslo_policy')
+        self.conf.set_override(
+            'enforce_new_defaults', False, group='oslo_policy'
+        )
 
         deprecated_rule = policy.DeprecatedRule(
             name='foo:create_bar',
@@ -1533,13 +1668,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.suppress_default_change_warnings = True
         enforcer.register_defaults(rule_list)
@@ -1556,14 +1693,13 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             description='Create a foo.',
             operations=[{'path': '/v1/foos/', 'method': 'POST'}],
             deprecated_for_removal=True,
-            deprecated_reason='Some reason.'
+            deprecated_reason='Some reason.',
             # no deprecated_since
         )
 
     def test_deprecated_policy_should_not_include_deprecated_meta(self):
         deprecated_rule = policy.DeprecatedRule(
-            name='foo:bar',
-            check_str='rule:baz'
+            name='foo:bar', check_str='rule:baz'
         )
 
         with mock.patch('warnings.warn') as mock_warn:
@@ -1573,7 +1709,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
                 description='Create a foo.',
                 operations=[{'path': '/v1/foos/', 'method': 'POST'}],
                 deprecated_rule=deprecated_rule,
-                deprecated_reason='Some reason.'
+                deprecated_reason='Some reason.',
             )
             mock_warn.assert_called_once()
 
@@ -1586,7 +1722,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             description='Create a foo.',
             operations=[{'path': '/v1/foos/', 'method': 'POST'}],
             deprecated_rule='foo:bar',
-            deprecated_reason='Some reason.'
+            deprecated_reason='Some reason.',
         )
 
     def test_deprecated_policy_must_include_deprecated_reason(self):
@@ -1598,7 +1734,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             description='Create a foo.',
             operations=[{'path': '/v1/foos/', 'method': 'POST'}],
             deprecated_for_removal=True,
-            deprecated_since='N'
+            deprecated_since='N',
         )
 
     @mock.patch('warnings.warn', new=mock.Mock())
@@ -1615,13 +1751,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_reason='"role:bang" is a better default',
             deprecated_since='N',
         )
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         self.enforcer.register_defaults(rule_list)
 
         # Make sure the override supplied by the operator using the old policy
@@ -1649,13 +1787,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_reason='"role:bang" is a better default',
             deprecated_since='N',
         )
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         self.enforcer.register_defaults(rule_list)
 
         # Make sure the override supplied by the operator is being used in
@@ -1676,10 +1816,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
         # old policy names. The following doesn't make a whole lot of sense
         # because the overrides are conflicting, but we want to make sure that
         # oslo.policy uses foo:create_bar instead of foo:bar.
-        rules_dict = {
-            'foo:create_bar': 'role:bazz',
-            'foo:bar': 'role:wee'
-        }
+        rules_dict = {'foo:create_bar': 'role:bazz', 'foo:bar': 'role:wee'}
         rules = yaml.dump(rules_dict)
         self.create_config_file('policy.yaml', rules)
 
@@ -1691,13 +1828,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_reason='"role:bang" is a better default',
             deprecated_since='N',
         )
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         self.enforcer.register_defaults(rule_list)
 
         # The default check string for the old policy name foo:bar should fail
@@ -1735,13 +1874,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_reason='"old_rule" is a bad name',
             deprecated_since='N',
         )
-        rule_list = [policy.DocumentedRuleDefault(
-            name='new_rule',
-            check_str='role:bang',
-            description='Replacement for old_rule.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='new_rule',
+                check_str='role:bang',
+                description='Replacement for old_rule.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         self.enforcer.register_defaults(rule_list)
 
         # Make sure the override supplied by the operator using the old policy
@@ -1753,6 +1894,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             self.enforcer.enforce('new_rule', {}, {'roles': ['bang']})
         )
         # Verify that we didn't overwrite the new rule.
+        assert isinstance(self.enforcer.rules['new_rule'], _checks.RoleCheck)
         self.assertEqual('bang', self.enforcer.rules['new_rule'].match)
 
     def test_enforce_new_defaults_no_old_check_string(self):
@@ -1763,13 +1905,15 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
 
@@ -1787,8 +1931,9 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
         )
 
     def test_disable_enforce_new_defaults_add_old_check_string(self):
-        self.conf.set_override('enforce_new_defaults', False,
-                               group='oslo_policy')
+        self.conf.set_override(
+            'enforce_new_defaults', False, group='oslo_policy'
+        )
         deprecated_rule = policy.DeprecatedRule(
             name='foo:create_bar',
             check_str='role:fizz',
@@ -1796,23 +1941,28 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             deprecated_since='N',
         )
 
-        rule_list = [policy.DocumentedRuleDefault(
-            name='foo:create_bar',
-            check_str='role:bang',
-            description='Create a bar.',
-            operations=[{'path': '/v1/bars', 'method': 'POST'}],
-            deprecated_rule=deprecated_rule,
-        )]
+        rule_list = [
+            policy.DocumentedRuleDefault(
+                name='foo:create_bar',
+                check_str='role:bang',
+                description='Create a bar.',
+                operations=[{'path': '/v1/bars', 'method': 'POST'}],
+                deprecated_rule=deprecated_rule,
+            )
+        ]
         enforcer = policy.Enforcer(self.conf)
         enforcer.register_defaults(rule_list)
         enforcer.load_rules()
 
-        expected_check = policy.OrCheck([
-            _parser.parse_rule(cs) for cs in
-            [rule_list[0].check_str, deprecated_rule.check_str]
-        ])
+        expected_check = policy.OrCheck(
+            [
+                _parser.parse_rule(cs)
+                for cs in [rule_list[0].check_str, deprecated_rule.check_str]
+            ]
+        )
         self.assertEqual(
-            str(enforcer.rules['foo:create_bar']), str(expected_check))
+            str(enforcer.rules['foo:create_bar']), str(expected_check)
+        )
         self.assertTrue(
             enforcer.enforce('foo:create_bar', {}, {'roles': ['bang']})
         )
@@ -1825,8 +1975,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
 
     def test_deprecation_logic_is_only_performed_once_per_rule(self):
         deprecated_rule = policy.DeprecatedRule(
-            name='foo:create_bar',
-            check_str='role:fizz'
+            name='foo:create_bar', check_str='role:fizz'
         )
         rule = policy.DocumentedRuleDefault(
             name='foo:create_bar',
@@ -1835,7 +1984,7 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
             operations=[{'path': '/v1/bars', 'method': 'POST'}],
             deprecated_rule=deprecated_rule,
             deprecated_reason='"role:bang" is a better default',
-            deprecated_since='N'
+            deprecated_since='N',
         )
         check = rule.check
 
@@ -1853,108 +2002,122 @@ class DocumentedRuleDefaultDeprecationTestCase(base.PolicyBaseTestCase):
         # the check string of the deprecated value. Make sure this is happening
         # and the original rule check is unchanged
         self.assertIn('foo:create_bar', enforcer.rules)
-        self.assertEqual(rule.check_str,
-                         str(enforcer.rules['foo:create_bar']))
+        self.assertEqual(rule.check_str, str(enforcer.rules['foo:create_bar']))
         self.assertEqual(check, rule.check)
         # Hacky way to check whether _handle_deprecated_rule was called again.
         # If a second call to load_rules doesn't overwrite our dummy rule then
         # we know it didn't call the deprecated rule function again.
-        enforcer.rules['foo:create_bar'] = 'foo:bar'
+        fake_check = _checks.FalseCheck()
+        enforcer.rules['foo:create_bar'] = fake_check
         enforcer.load_rules()
-        self.assertEqual('foo:bar', enforcer.rules['foo:create_bar'])
+        self.assertEqual(fake_check, enforcer.rules['foo:create_bar'])
 
 
 class DocumentedRuleDefaultTestCase(base.PolicyBaseTestCase):
-
     def test_contain_operations(self):
         opt = policy.DocumentedRuleDefault(
-            name='foo', check_str='rule:foo', description='foo_api',
-            operations=[{'path': '/foo/', 'method': 'GET'}])
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=[{'path': '/foo/', 'method': 'GET'}],
+        )
 
         self.assertEqual(1, len(opt.operations))
 
     def test_multiple_operations(self):
         opt = policy.DocumentedRuleDefault(
-            name='foo', check_str='rule:foo', description='foo_api',
-            operations=[{'path': '/foo/', 'method': 'GET'},
-                        {'path': '/foo/', 'method': 'POST'}])
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=[
+                {'path': '/foo/', 'method': 'GET'},
+                {'path': '/foo/', 'method': 'POST'},
+            ],
+        )
 
         self.assertEqual(2, len(opt.operations))
 
     def test_description_not_empty(self):
         invalid_desc = ''
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description=invalid_desc,
-                          operations=[{'path': '/foo/', 'method': 'GET'}])
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description=invalid_desc,
+            operations=[{'path': '/foo/', 'method': 'GET'}],
+        )
 
     def test_operation_not_empty_list(self):
-        invalid_op = []
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=[],
+        )
 
     def test_operation_must_be_list(self):
         invalid_op = 'invalid_op'
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=invalid_op,
+        )
 
     def test_operation_must_be_list_of_dicts(self):
         invalid_op = ['invalid_op']
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=invalid_op,
+        )
 
     def test_operation_must_have_path(self):
         invalid_op = [{'method': 'POST'}]
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=invalid_op,
+        )
 
     def test_operation_must_have_method(self):
         invalid_op = [{'path': '/foo/path/'}]
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=invalid_op,
+        )
 
     def test_operation_must_contain_method_and_path_only(self):
-        invalid_op = [{'path': '/some/path/',
-                       'method': 'GET',
-                       'break': 'me'}]
-        self.assertRaises(policy.InvalidRuleDefault,
-                          policy.DocumentedRuleDefault,
-                          name='foo',
-                          check_str='rule:foo',
-                          description='foo_api',
-                          operations=invalid_op)
+        invalid_op = [{'path': '/some/path/', 'method': 'GET', 'break': 'me'}]
+        self.assertRaises(
+            policy.InvalidRuleDefault,
+            policy.DocumentedRuleDefault,
+            name='foo',
+            check_str='rule:foo',
+            description='foo_api',
+            operations=invalid_op,
+        )
 
 
 class DeprecatedRuleTestCase(base.PolicyBaseTestCase):
-
     def test_should_include_deprecated_meta(self):
         with mock.patch('warnings.warn') as mock_warn:
-            policy.DeprecatedRule(
-                name='foo:bar',
-                check_str='rule:baz'
-            )
+            policy.DeprecatedRule(name='foo:bar', check_str='rule:baz')
 
             mock_warn.assert_called_once()
 
@@ -1993,8 +2156,11 @@ class EnforcerCheckRulesTest(base.PolicyBaseTestCase):
         self.create_config_file('policy.yaml', rules)
         self.enforcer.load_rules(True)
 
-        self.assertRaises(policy.InvalidDefinitionError,
-                          self.enforcer.check_rules, raise_on_violation=True)
+        self.assertRaises(
+            policy.InvalidDefinitionError,
+            self.enforcer.check_rules,
+            raise_on_violation=True,
+        )
         mock_log.warning.assert_called()
 
     @mock.patch.object(policy, 'LOG')
@@ -2022,15 +2188,22 @@ class EnforcerCheckRulesTest(base.PolicyBaseTestCase):
         self.create_config_file('policy.yaml', rules)
         self.enforcer.load_rules(True)
 
-        self.assertRaises(policy.InvalidDefinitionError,
-                          self.enforcer.check_rules, raise_on_violation=True)
+        self.assertRaises(
+            policy.InvalidDefinitionError,
+            self.enforcer.check_rules,
+            raise_on_violation=True,
+        )
         mock_log.warning.assert_called()
 
     @mock.patch.object(policy, 'LOG')
     def test_complex_cyclical_rules_false(self, mock_log):
-        rules = yaml.dump({'foo': 'rule:bar',
-                           'bar': 'rule:baz and role:admin',
-                           'baz': 'rule:foo or role:user'})
+        rules = yaml.dump(
+            {
+                'foo': 'rule:bar',
+                'bar': 'rule:baz and role:admin',
+                'baz': 'rule:foo or role:user',
+            }
+        )
         self.create_config_file('policy.yaml', rules)
         self.enforcer.load_rules(True)
 
@@ -2038,84 +2211,14 @@ class EnforcerCheckRulesTest(base.PolicyBaseTestCase):
         mock_log.warning.assert_called()
 
     def test_complex_cyclical_rules_true(self):
-        rules = yaml.dump({'foo': 'rule:bar or rule:baz',
-                           'bar': 'role:admin',
-                           'baz': 'rule:bar or role:user'})
+        rules = yaml.dump(
+            {
+                'foo': 'rule:bar or rule:baz',
+                'bar': 'role:admin',
+                'baz': 'rule:bar or role:user',
+            }
+        )
         self.create_config_file('policy.yaml', rules)
         self.enforcer.load_rules(True)
 
         self.assertTrue(self.enforcer.check_rules())
-
-
-class PickPolicyFileTestCase(base.PolicyBaseTestCase):
-
-    def setUp(self):
-        super().setUp()
-        self.data = {
-            'rule_admin': 'True',
-            'rule_admin2': 'is_admin:True'
-        }
-        self.tmpdir = self.useFixture(fixtures.TempDir())
-        original_search_dirs = cfg._search_dirs
-
-        def fake_search_dirs(dirs, name):
-            dirs.append(self.tmpdir.path)
-            return original_search_dirs(dirs, name)
-
-        mock_search_dir = self.useFixture(
-            fixtures.MockPatch('oslo_config.cfg._search_dirs')).mock
-        mock_search_dir.side_effect = fake_search_dirs
-
-        mock_cfg_location = self.useFixture(
-            fixtures.MockPatchObject(self.conf, 'get_location')).mock
-        mock_cfg_location.return_value = cfg.LocationInfo(
-            cfg.Locations.set_default, 'None')
-
-    def test_no_fallback_to_json_file(self):
-        tmpfilename = 'policy.yaml'
-        self.conf.set_override('policy_file', tmpfilename, group='oslo_policy')
-        jsonfile = os.path.join(self.tmpdir.path, 'policy.json')
-        with open(jsonfile, 'w') as fh:
-            jsonutils.dump(self.data, fh)
-
-        selected_policy_file = policy.pick_default_policy_file(
-            self.conf, fallback_to_json_file=False)
-        self.assertEqual(self.conf.oslo_policy.policy_file, tmpfilename)
-        self.assertEqual(selected_policy_file, tmpfilename)
-
-    def test_overridden_policy_file(self):
-        tmpfilename = 'nova-policy.yaml'
-        self.conf.set_override('policy_file', tmpfilename, group='oslo_policy')
-        selected_policy_file = policy.pick_default_policy_file(self.conf)
-        self.assertEqual(self.conf.oslo_policy.policy_file, tmpfilename)
-        self.assertEqual(selected_policy_file, tmpfilename)
-
-    def test_only_new_default_policy_file_exist(self):
-        tmpfilename = os.path.join(self.tmpdir.path, 'policy.yaml')
-        with open(tmpfilename, 'w') as fh:
-            yaml.dump(self.data, fh)
-
-        selected_policy_file = policy.pick_default_policy_file(self.conf)
-        self.assertEqual(self.conf.oslo_policy.policy_file, 'policy.yaml')
-        self.assertEqual(selected_policy_file, 'policy.yaml')
-
-    def test_only_old_default_policy_file_exist(self):
-        tmpfilename = os.path.join(self.tmpdir.path, 'policy.json')
-        with open(tmpfilename, 'w') as fh:
-            jsonutils.dump(self.data, fh)
-
-        selected_policy_file = policy.pick_default_policy_file(self.conf)
-        self.assertEqual(self.conf.oslo_policy.policy_file, 'policy.yaml')
-        self.assertEqual(selected_policy_file, 'policy.json')
-
-    def test_both_default_policy_file_exist(self):
-        tmpfilename1 = os.path.join(self.tmpdir.path, 'policy.json')
-        with open(tmpfilename1, 'w') as fh:
-            jsonutils.dump(self.data, fh)
-        tmpfilename2 = os.path.join(self.tmpdir.path, 'policy.yaml')
-        with open(tmpfilename2, 'w') as fh:
-            yaml.dump(self.data, fh)
-
-        selected_policy_file = policy.pick_default_policy_file(self.conf)
-        self.assertEqual(self.conf.oslo_policy.policy_file, 'policy.yaml')
-        self.assertEqual(selected_policy_file, 'policy.yaml')

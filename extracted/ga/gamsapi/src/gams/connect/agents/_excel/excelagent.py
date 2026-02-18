@@ -186,8 +186,8 @@ class ExcelAgent(ConnectAgent):
     def parse_range(self, sym_range, wb, clear_sheet=False, create_missing=False):
         sheet, rng = self._split_range(sym_range, wb)
         toc_range = f"'{sheet}'!{rng.split(':')[0]}"
-        sheet = self.sheet_by_name(sheet, wb, clear_sheet, create_missing)
         nw_col, nw_row, se_col, se_row = self._range_to_coords(rng)
+        sheet = self.sheet_by_name(sheet, wb, clear_sheet, create_missing, nw_col, nw_row, se_col, se_row)
         return sheet, nw_col, nw_row, se_col, se_row, toc_range
 
     def parse_index(self, index, wb, index_parameter_map):
@@ -240,12 +240,14 @@ class ExcelAgent(ConnectAgent):
                 symbols.append(sym)
         return symbols
 
-    def sheet_by_name(self, sheet, wb, clear_sheet=False, create_missing=False):
+    def sheet_by_name(self, sheet, wb, clear_sheet=False, create_missing=False, nw_col=None, nw_row=None, se_col=None, se_row=None):
         for idx, s in enumerate(wb.sheetnames):
             if sheet.lower() == s.lower():
-                if clear_sheet:
+                if clear_sheet is True:
                     wb.delete_sheet(s)
                     return wb.create_sheet(s, idx)
+                if clear_sheet == "range":
+                    wb.delete_range(s, nw_col, nw_row, se_col, se_row)
                 return wb.get_sheet(s)
         if create_missing:
             return wb.create_sheet(sheet)

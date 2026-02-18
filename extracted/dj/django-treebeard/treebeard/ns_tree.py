@@ -105,6 +105,7 @@ class NS_Node(Node):
     depth = models.PositiveIntegerField(db_index=True)
 
     TREEBEARD_IDENTIFYING_FIELD = "lft"
+    MOVENODE_FORM_EXCLUDED_FIELDS = ("depth", "lft", "rgt", "tree_id")
 
     objects = NS_NodeManager()
 
@@ -166,6 +167,8 @@ class NS_Node(Node):
     @transaction.atomic
     def add_child(self, **kwargs):
         """Adds a child to the node."""
+        # Lock parent row
+        self.tree_model().objects.filter(pk=self.pk).select_for_update().only("pk").get()
         if not self.is_leaf():
             # there are child nodes, delegate insertion to add_sibling
             if self.node_order_by:

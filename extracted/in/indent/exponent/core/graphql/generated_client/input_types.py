@@ -61,9 +61,6 @@ class ChatInput(BaseModel):
     permission_status: Optional[ToolPermissionStatus] = Field(
         alias="permissionStatus", default=None
     )
-    table_filter_config_uuid: Optional[UUID] = Field(
-        alias="tableFilterConfigUuid", default=None
-    )
     planning_required: Optional[bool] = Field(alias="planningRequired", default=None)
     timezone: Optional[str] = None
     mcp_server_configs: Optional["McpServerConfigsInput"] = Field(

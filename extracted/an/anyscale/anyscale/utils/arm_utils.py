@@ -10,8 +10,8 @@ from typing import Any, Dict, Optional, Tuple
 
 from azure.core.exceptions import HttpResponseError, ResourceNotFoundError
 from azure.identity import DefaultAzureCredential
-from azure.mgmt.resource import ResourceManagementClient
-from azure.mgmt.resource.resources.models import (
+from azure.mgmt.resource.deployments import DeploymentsMgmtClient
+from azure.mgmt.resource.deployments.models import (
     Deployment,
     DeploymentMode,
     DeploymentProperties,
@@ -43,11 +43,11 @@ class ARMTemplateUtils:
             self._credential = DefaultAzureCredential()
         return self._credential
 
-    def _get_client(self) -> ResourceManagementClient:
-        """Get or create Resource Management client."""
+    def _get_client(self) -> DeploymentsMgmtClient:
+        """Get or create Deployments Management client."""
         if self._client is None:
             credential = self._get_credential()
-            self._client = ResourceManagementClient(credential, self.subscription_id)
+            self._client = DeploymentsMgmtClient(credential, self.subscription_id)
         return self._client
 
     def deploy_template(
@@ -109,7 +109,7 @@ class ARMTemplateUtils:
 
     def _wait_for_deployment(
         self,
-        client: ResourceManagementClient,
+        client: DeploymentsMgmtClient,
         resource_group: str,
         deployment_name: str,
         deployment_operation,
@@ -182,10 +182,7 @@ class ARMTemplateUtils:
         return outputs
 
     def _get_deployment_errors(
-        self,
-        client: ResourceManagementClient,
-        resource_group: str,
-        deployment_name: str,
+        self, client: DeploymentsMgmtClient, resource_group: str, deployment_name: str,
     ) -> str:
         """Get detailed error messages from deployment operations."""
         try:

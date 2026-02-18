@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -15,6 +15,8 @@
 """Multislice utilities."""
 
 import functools
+import math
+import os
 from typing import Any, Optional, Set, Union
 
 from absl import logging
@@ -36,7 +38,8 @@ def process_replica_id(
     *,
     replica_axis_index: int = 0,
 ) -> int:
-  """Returns the slice id that the process_index belongs to."""
+  """Returns the replica id that the process_index belongs to."""
+
   for replica_id in range(
       replica_count(global_mesh, replica_axis_index=replica_axis_index)
   ):
@@ -62,6 +65,7 @@ def replica_devices(
     replica_id: int = 0,
     replica_axis_index: int = 0,
 ) -> np.ndarray:
+  """Returns devices for the replica with the given ID."""
   return np.take(
       global_mesh.devices,
       replica_id,
@@ -81,7 +85,7 @@ def replica_count(
 def local_replica_devices(
     global_mesh: jax.sharding.Mesh, *, replica_axis_index: int = 0
 ) -> np.ndarray:
-  """Get devices in the host-local slice."""
+  """Get devices for the replica that the current process is in."""
   for replica_id in range(
       replica_count(global_mesh, replica_axis_index=replica_axis_index)
   ):
@@ -139,6 +143,10 @@ def in_replica(
 def get_device_memory() -> int:
   """Returns HBM capacity of the device on which the code is running(in bytes)."""
   device = jax.devices()[0]
+  if device.platform == 'cpu':
+    page_size = os.sysconf('SC_PAGE_SIZE')
+    phys_pages = os.sysconf('SC_PHYS_PAGES')
+    return int(page_size * phys_pages)
   if device.platform not in ('tpu', 'gpu'):
     raise ValueError('Only select TPU and GPU devices are supported.')
   hbm_memory = {
@@ -153,7 +161,10 @@ def get_device_memory() -> int:
       'NVIDIA B200': int(183e9),
       'NVIDIA B300 SXM6 AC': int(275e9),
   }
-  memory = hbm_memory.get(device.device_kind, None)
+  # Remove spaces from the device kind to make the lookup robust.
+  # For example, "TPU 7x" and "TPU7x" should both map to the same value.
+  normalized_hbm_memory = {k.replace(' ', ''): v for k, v in hbm_memory.items()}
+  memory = normalized_hbm_memory.get(device.device_kind.replace(' ', ''), None)
   if memory is None:
     raise ValueError(
         f'get_device_memory is not supported for {device.device_kind}.'
@@ -163,8 +174,8 @@ def get_device_memory() -> int:
 
 def get_leaf_memory_per_device(arr: jax.Array) -> int:
   """Returns the memory usage of a sharded array per device (in bytes)."""
-  shard = arr.addressable_shards[0]
-  return shard.data.size * shard.data.itemsize
+  shard_shape = arr.sharding.shard_shape(arr.shape)
+  return math.prod(shard_shape) * arr.dtype.itemsize
 
 
 def tree_memory_per_device(tree: tuple[jax.Array, ...] | jax.Array) -> int:

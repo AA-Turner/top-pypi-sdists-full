@@ -1,7 +1,7 @@
 from enum import Enum
 
 
-class Modality(str, Enum):
+class ContentModality(str, Enum):
     """Classification of content modality"""
 
     text = "text"  # plain text
@@ -35,3 +35,14 @@ class FileStatus(str, Enum):
     failed = "failed"  # Storage failed
     pending = "pending"  # Data is still being uploaded
     not_uploaded = "not_uploaded"  # external_url / provider file IDs not uploaded
+
+
+class MultimodalCapability(str, Enum):
+    vision = "vision"
+    audio = "audio"
+
+
+MultimodalCapabilityMapping: dict[MultimodalCapability, set[ContentModality]] = {
+    MultimodalCapability.vision: {ContentModality.image, ContentModality.document},
+    MultimodalCapability.audio: {ContentModality.audio},
+}

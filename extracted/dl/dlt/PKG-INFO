@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.21.0
+Version: 1.22.0
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -46,7 +46,7 @@ Requires-Dist: rich-argparse>=1.6.0
 Requires-Dist: semver>=3.0.0
 Requires-Dist: setuptools>=65.6.0
 Requires-Dist: simplejson>=3.17.5
-Requires-Dist: sqlglot!=28.1,>=25.4.0
+Requires-Dist: sqlglot>=25.4.0
 Requires-Dist: tenacity>=8.0.2
 Requires-Dist: tomlkit>=0.11.3
 Requires-Dist: typing-extensions>=4.8.0
@@ -109,11 +109,11 @@ Requires-Dist: gcsfs>=2022.4.0; extra == 'gs'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlt-runtime<0.22,>=0.20.0; (python_version >= '3.10') and extra == 'hub'
-Requires-Dist: dlthub<0.22,>=0.20.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlt-runtime<0.23,>=0.20.0; (python_version >= '3.10') and extra == 'hub'
+Requires-Dist: dlthub<0.23,>=0.20.0; (python_version >= '3.10') and extra == 'hub'
 Provides-Extra: lancedb
 Requires-Dist: duckdb>=1.4.3; extra == 'lancedb'
-Requires-Dist: ibis-framework>=11.0.0; extra == 'lancedb'
+Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'lancedb'
 Requires-Dist: lancedb>=0.22.0; extra == 'lancedb'
 Requires-Dist: pyarrow>=16.0.0; extra == 'lancedb'
 Provides-Extra: motherduck
@@ -158,7 +158,7 @@ Provides-Extra: weaviate
 Requires-Dist: weaviate-client<5.0.0,>=4.0.0; extra == 'weaviate'
 Provides-Extra: workspace
 Requires-Dist: duckdb>=0.9; extra == 'workspace'
-Requires-Dist: ibis-framework>=10.5.0; (python_version >= '3.10') and extra == 'workspace'
+Requires-Dist: ibis-framework>=12.0.0; (python_version >= '3.10') and extra == 'workspace'
 Requires-Dist: marimo>=0.14.5; extra == 'workspace'
 Requires-Dist: mcp>=1.2.1; (python_version >= '3.10') and extra == 'workspace'
 Requires-Dist: pathspec>=0.11.2; extra == 'workspace'

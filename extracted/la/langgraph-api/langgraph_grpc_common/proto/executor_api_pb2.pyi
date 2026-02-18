@@ -414,16 +414,22 @@ class ApplyBinopReduceRequest(_message.Message):
 
     GRAPH_ID_FIELD_NUMBER: _builtins.int
     CHANNELS_FIELD_NUMBER: _builtins.int
+    CONFIG_FIELD_NUMBER: _builtins.int
     graph_id: _builtins.str
     @_builtins.property
     def channels(self) -> _containers.MessageMap[_builtins.str, Global___BinopChannel]: ...
+    @_builtins.property
+    def config(self) -> _engine_common_pb2.EngineRunnableConfig: ...
     def __init__(
         self,
         *,
         graph_id: _builtins.str = ...,
         channels: _abc.Mapping[_builtins.str, Global___BinopChannel] | None = ...,
+        config: _engine_common_pb2.EngineRunnableConfig | None = ...,
     ) -> None: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "graph_id", b"graph_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["config", b"config"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "config", b"config", "graph_id", b"graph_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
 
 Global___ApplyBinopReduceRequest: _TypeAlias = ApplyBinopReduceRequest  # noqa: Y015

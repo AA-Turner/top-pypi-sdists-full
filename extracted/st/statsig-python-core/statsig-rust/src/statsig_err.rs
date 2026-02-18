@@ -28,6 +28,7 @@ pub enum StatsigErr {
     SerializationError(String),
     JsonParseError(String, String),
     ProtobufParseError(String, String),
+    ChecksumFailure(String),
 
     // Compression
     ZstdDictCompressionError(String),
@@ -81,15 +82,16 @@ impl Display for StatsigErr {
             StatsigErr::DataStoreFailure(message) => write!(f, "DataStore Error: {message}"),
 
             StatsigErr::NetworkError(error) => write!(f, "NetworkError|{error}"),
-            StatsigErr::GrpcError(e) => write!(f, "{e}"),
+            StatsigErr::GrpcError(e) => write!(f, "gRPC failure: {e}"),
 
             StatsigErr::SerializationError(msg) => write!(f, "Serialization error: {msg}"),
             StatsigErr::JsonParseError(type_name, err_msg) => {
-                write!(f, "Failed to parse {type_name} - {err_msg}")
+                write!(f, "Failed to parse JSON {type_name} - {err_msg}")
             }
             StatsigErr::ProtobufParseError(type_name, err_msg) => {
-                write!(f, "Failed to parse {type_name} - {err_msg}")
+                write!(f, "Failed to parse Protobuf {type_name} - {err_msg}")
             }
+            StatsigErr::ChecksumFailure(msg) => write!(f, "Checksum failure: {msg}"),
 
             StatsigErr::ZstdDictCompressionError(msg) => {
                 write!(f, "Zstd dictionary compression error: {msg}")
@@ -140,6 +142,7 @@ impl StatsigErr {
             StatsigErr::SerializationError(_) => "SerializationError",
             StatsigErr::JsonParseError(_, _) => "JsonParseError",
             StatsigErr::ProtobufParseError(_, _) => "ProtobufParseError",
+            StatsigErr::ChecksumFailure(_) => "ChecksumFailure",
 
             StatsigErr::ZstdDictCompressionError(_) => "ZstdDictCompressionError",
             StatsigErr::GzipError(_) => "GzipError",

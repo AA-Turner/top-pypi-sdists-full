@@ -17,7 +17,7 @@ from __future__ import annotations
 import copy
 import dataclasses
 import itertools
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Optional, Sequence
 
 import numpy as np
 
@@ -74,6 +74,7 @@ class SegmentedPolynomial:
             assert len(opt.buffers) == stp.num_operands
             for i, operand in zip(opt.buffers, stp.operands):
                 assert operand == operands[i]
+            assert all(b < len(inputs) + len(outputs) for b in opt.buffers)
 
             bid = opt.output_buffer(len(inputs))
             perm = list(range(stp.num_operands))
@@ -648,17 +649,12 @@ class SegmentedPolynomial:
         """
 
         def f(ope: cue.Operation, stp: cue.SegmentedTensorProduct):
-            stp = (
-                stp.consolidate_modes()
-                .squeeze_modes()
-                .remove_empty_segments()
-                .consolidate_paths()
-            )
+            stp = stp.consolidate_modes().remove_empty_segments().consolidate_paths()
             if stp.num_paths == 0:
                 return None
             return ope, stp
 
-        return self.fuse_stps().apply_fn(f)
+        return self.fuse_stps().apply_fn(f).squeeze_modes()
 
     def flatten_modes(self, modes: list[str]) -> SegmentedPolynomial:
         """Flatten specified modes in the polynomial.
@@ -688,19 +684,27 @@ class SegmentedPolynomial:
         )
 
     def squeeze_modes(self, modes: str | None = None) -> SegmentedPolynomial:
-        """Squeeze specified modes in the polynomial.
+        """Squeeze modes that are always 1 in all operations.
 
         Args:
-            modes (str | None, optional): Modes to squeeze. If None, squeezes all modes.
+            modes (str, optional): The modes to squeeze. If None, squeeze all modes that are always 1.
 
         Returns:
             :class:`cue.SegmentedPolynomial <cuequivariance.SegmentedPolynomial>`: Polynomial with squeezed modes.
+
+        Note:
+            When ``modes`` is None, all operands with 1-dimensions are squeezed, including unused
+            operands. When ``modes`` is specified, unused operands (not linked to any operation) are
+            not squeezed because they don't have mode information to determine which dimensions
+            correspond to which modes.
         """
-        return SegmentedPolynomial._from_default_operands(
-            self.inputs,
-            self.outputs,
-            [(ope, stp.squeeze_modes(modes)) for ope, stp in self.operations],
-        )
+        ops = [(ope, stp.squeeze_modes(modes)) for ope, stp in self.operations]
+        if modes is not None:
+            inputs, outputs = self.inputs, self.outputs
+        else:
+            inputs = tuple(op.squeeze() for op in self.inputs)
+            outputs = tuple(op.squeeze() for op in self.outputs)
+        return SegmentedPolynomial._from_default_operands(inputs, outputs, ops)
 
     def split_mode(self, mode: str, size: int) -> SegmentedPolynomial:
         """Split specified mode in the polynomial.
@@ -905,7 +909,7 @@ class SegmentedPolynomial:
         Use this method when you want to compute only a subset of the polynomial outputs
         and have control over which inputs to keep. For keeping all inputs (even if
         not used), use filter_keep_outputs. For automatically removing unused operands,
-        use filter_drop_unsued_operands.
+        use filter_drop_unused_operands.
 
         Args:
             keep (list of bool): List indicating which operands to keep.
@@ -959,7 +963,7 @@ class SegmentedPolynomial:
         assert len(keep) == self.num_outputs
         return self.filter_keep_operands([True] * self.num_inputs + keep)
 
-    def filter_drop_unsued_operands(self) -> SegmentedPolynomial:
+    def filter_drop_unused_operands(self) -> SegmentedPolynomial:
         """Remove all unused operands from the polynomial.
 
         Returns:
@@ -998,7 +1002,10 @@ class SegmentedPolynomial:
         self, has_tangent: list[bool]
     ) -> tuple[
         SegmentedPolynomial,
-        Callable[[tuple[list[Any], list[Any]]], tuple[list[Any], list[Any]]],
+        Callable[
+            [tuple[list[Any], list[Any]], Optional[Callable[[Any], Any]]],
+            tuple[list[Any], list[Any]],
+        ],
     ]:
         """Compute the Jacobian-vector product of the polynomial.
 
@@ -1023,14 +1030,20 @@ class SegmentedPolynomial:
             ):
                 new_operations.append((ope, multiplicator * stp))
 
-        def mapping(x: tuple[list[Any], list[Any]]) -> tuple[list[Any], list[Any]]:
+        def mapping(
+            x: tuple[list[Any], list[Any]],
+            into_grad: Optional[Callable[[Any], Any]] = None,
+        ) -> tuple[list[Any], list[Any]]:
             inputs, outputs = x
             inputs, outputs = list(inputs), list(outputs)
             assert len(inputs) == self.num_inputs
             assert len(outputs) == self.num_outputs
+            into_grad = into_grad if callable(into_grad) else lambda x: x
 
-            new_inputs = inputs + [x for has, x in zip(has_tangent, inputs) if has]
-            new_outputs = outputs
+            new_inputs = inputs + [
+                into_grad(x) for has, x in zip(has_tangent, inputs) if has
+            ]
+            new_outputs = [into_grad(x) for x in outputs]
 
             return new_inputs, new_outputs
 
@@ -1088,7 +1101,10 @@ class SegmentedPolynomial:
         self, requires_gradient: list[bool], has_cotangent: list[bool]
     ) -> tuple[
         SegmentedPolynomial,
-        Callable[[tuple[list[Any], list[Any]]], tuple[list[Any], list[Any]]],
+        Callable[
+            [tuple[list[Any], list[Any]], Optional[Callable[[Any], Any]]],
+            tuple[list[Any], list[Any]],
+        ],
     ]:
         """Compute the backward pass of the polynomial for gradient computation.
 
@@ -1106,7 +1122,10 @@ class SegmentedPolynomial:
             has_cotangent,
         )
 
-        def mapping(x: tuple[list[Any], list[Any]]) -> tuple[list[Any], list[Any]]:
-            return map2(map1(x))
+        def mapping(
+            x: tuple[list[Any], list[Any]],
+            into_grad: Optional[Callable[[Any], Any]] = None,
+        ) -> tuple[list[Any], list[Any]]:
+            return map2(map1(x, into_grad))
 
         return p, mapping

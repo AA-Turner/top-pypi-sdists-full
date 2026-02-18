@@ -22,9 +22,9 @@ from .executor import (
     execute_standard_modification, execute_titan_mode, execute_pulse_mode,
     execute_prism_mode, execute_guided_modification, execute_multi_concept_modification,
 )
+from wisent.core.weight_modification.utils import get_default_components_for_extraction
 
 _LOG = setup_logger(__name__)
-
 
 def execute_modify_weights(args):
     """Execute weight modification command."""
@@ -38,6 +38,12 @@ def execute_modify_weights(args):
 
     needs_auto_selection = (args.method == "auto" or getattr(args, 'steering_method', 'auto') == "auto")
 
+    # Auto-select weight-modification components from extraction component
+    extraction_component = getattr(args, 'extraction_component', 'residual_stream')
+    if getattr(args, 'components', None) is None and extraction_component != 'residual_stream':
+        args.components = get_default_components_for_extraction(extraction_component)
+        if getattr(args, 'verbose', False):
+            print(f"Auto-selected --components {args.components} from --extraction-component {extraction_component}")
     if args.verbose:
         print("\n" + "=" * 80)
         print("WEIGHT MODIFICATION")
@@ -99,7 +105,6 @@ def execute_modify_weights(args):
     _print_timing(args, start_time)
     _print_summary(args, stats)
 
-
 def _load_or_generate_vectors(args, needs_auto_selection: bool) -> Optional[Dict[int, torch.Tensor]]:
     """Load or generate steering vectors based on arguments."""
     if needs_auto_selection and not args.steering_vectors:
@@ -133,7 +138,6 @@ def _load_or_generate_vectors(args, needs_auto_selection: bool) -> Optional[Dict
         return generate_task_vectors(args, args.verbose)
 
     return None
-
 
 def _load_harmless_vectors(args) -> Optional[Dict[int, torch.Tensor]]:
     """Load harmless vectors for biprojection if provided."""
@@ -201,7 +205,6 @@ def _load_model(args):
         print(f"Model loaded with {wisent_model.num_layers} layers\n")
 
     return wisent_model, model, tokenizer
-
 
 def _run_auto_selection(args, wisent_model, steering_vectors):
     """Run auto-selection and generate CAA vectors if needed."""
@@ -283,7 +286,6 @@ def _print_timing(args, start_time: float):
     """Print timing information if requested."""
     if args.timing:
         print(f"\nTotal time: {time.time() - start_time:.2f}s")
-
 
 def _print_summary(args, stats: Dict):
     """Print final summary."""

@@ -1,7 +1,7 @@
 [build-system]
 build-backend = "maturin"
 requires = [
-  "maturin>=1.11.5",
+  "maturin>=1.12.2",
 ]
 
 [project]
@@ -72,19 +72,18 @@ fix = [
 pkg-meta = [
   "check-wheel-contents>=0.6.3",
   "twine>=6.2",
-  "uv>=0.10.2",
+  "uv>=0.10.3",
 ]
 
 [tool.maturin]
 bindings = "pyo3"
 module-name = "pyproject_fmt._lib"
-python-source = "src"
 strip = true
 include = [
-  "rust-toolchain.toml",
-  "docs/",
-  "CHANGELOG.md",
-  "README.rst",
+  { path = "rust-toolchain.toml", format = "sdist" },
+  { path = "docs/", format = "sdist" },
+  { path = "CHANGELOG.md", format = "sdist" },
+  { path = "README.rst", format = "sdist" },
 ]
 exclude = [
   "**/__pycache__/**",
@@ -92,6 +91,7 @@ exclude = [
   "**/*.pyo",
 ]
 manifest-path = "pyproject-fmt/Cargo.toml"
+python-source = "src"
 
 [tool.cibuildwheel]
 skip = [

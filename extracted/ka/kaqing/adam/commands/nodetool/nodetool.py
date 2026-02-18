@@ -11,8 +11,8 @@ from adam.config import Config
 from adam.utils import ts
 from adam.utils_context import Context
 from adam.utils_job.job import Job
-from adam.utils_job.job_status import JobStatus, RunningJobStatus
-from adam.utils_job.utils_job_results import find_exit_codes, find_job_status
+from adam.utils_job.job_status import RunningJobStatus
+from adam.utils_job.utils_job_results import find_job_status
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_repl.repl_state import ReplState, RequiredState
@@ -37,6 +37,9 @@ class NodeTool(Command):
         return RequiredState.CLUSTER_OR_POD
 
     def backgrounable(self):
+        return True
+
+    def retriable(self):
         return True
 
     def schedulable(self):

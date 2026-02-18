@@ -647,80 +647,69 @@ class CCCMixin:
 
         if symbols is None:
             symbols = self.listSets()
-
-        if isinstance(symbols, str):
+        elif isinstance(symbols, str):
             symbols = [symbols]
 
         if any(not isinstance(i, str) for i in symbols):
             raise TypeError("Argument 'symbols' must only contain type str")
 
-        # check for isValid
-        for symobj in self.getSymbols(symbols):
-            if not symobj.isValid():
-                raise Exception(
-                    f"Cannot generate describe table because symbol `{symobj.name}` "
-                    "is currently invalid. Use `<symbol>.isValid(verbose=True)` to debug."
-                )
+        if not symbols:
+            return
 
-        dfs = []
-        cols = [
-            "name",
-            "is_singleton",
-            "domain",
-            "domain_type",
-            "dimension",
-            "number_records",
-            "sparsity",
-        ]
+        raw_data = {
+            "name": [],
+            "is_singleton": [],
+            "is_alias": [],
+            "alias_with": [],
+            "domain": [],
+            "domain_type": [],
+            "dimension": [],
+            "number_records": [],
+            "sparsity": [],
+        }
 
-        # find all sets and aliases
-        all_sets = self.listSets()
-        all_aliases = self.listAliases()
-        all_sets_aliases = all_sets + all_aliases
+        for sym in self.getSymbols(symbols):
+            if not sym.isValid():
+                raise Exception(f"Symbol '{sym.name}' is invalid.")
 
-        data = []
-        for i in symbols:
-            if i in all_sets_aliases:
-                data.append(
-                    (
-                        i,
-                        self[i].is_singleton,
-                        self[i].domain_names,
-                        self[i].domain_type,
-                        self[i].dimension,
-                        self[i].number_records,
-                        self[i].getSparsity(),
-                    )
-                )
+            # Alias Logic
+            is_alias = isinstance(sym, (abcs.ABCAlias, abcs.ABCUniverseAlias))
+            alias_with = None
+            if is_alias:
+                alias_with = sym.alias_with.name if hasattr(sym.alias_with, 'name') else sym.alias_with
 
-        # create dataframe
-        if data != []:
-            df = pd.DataFrame(data, columns=cols)
+            # Append values
+            raw_data["name"].append(sym.name)
+            raw_data["is_singleton"].append(sym.is_singleton)
+            raw_data["is_alias"].append(is_alias)
+            raw_data["alias_with"].append(alias_with)
+            raw_data["domain"].append(sym.domain_names)
+            raw_data["domain_type"].append(sym.domain_type)
+            raw_data["dimension"].append(sym.dimension)
+            raw_data["number_records"].append(sym.number_records)
+            raw_data["sparsity"].append(sym.getSparsity())
 
-            if any(i in all_aliases for i in symbols):
-                df_is_alias = []
-                df_alias_with = []
+        # lists --> pd.Series
+        cols = {
+            "name": pd.Series(raw_data["name"]),
+            "is_singleton": pd.Series(raw_data["is_singleton"]),
+            "is_alias": pd.Series(raw_data["is_alias"]),
+            "alias_with": pd.Series(raw_data["alias_with"], dtype=object),
+            "domain": pd.Series(raw_data["domain"], dtype="object"),
+            "domain_type": pd.Series(raw_data["domain_type"]),
+            "dimension": pd.Series(raw_data["dimension"]),
+            "number_records": pd.Series(raw_data["number_records"]),
+            "sparsity": pd.Series(raw_data["sparsity"]),
+        }
 
-                for i in symbols:
-                    if i in all_sets_aliases:
-                        df_is_alias.append(
-                            isinstance(self[i], (abcs.ABCAlias, abcs.ABCUniverseAlias))
-                        )
+        # make dataframe
+        df = pd.DataFrame(cols)
+    
+        # clean up
+        if not df["is_alias"].any():
+            df = df.drop(columns=["is_alias", "alias_with"])
 
-                        if isinstance(self[i], abcs.ABCAlias):
-                            df_alias_with.append(self[i].alias_with.name)
-                        elif isinstance(self[i], abcs.ABCUniverseAlias):
-                            df_alias_with.append(self[i].alias_with)
-                        else:
-                            df_alias_with.append(None)
-
-                # add in is_alias column
-                df.insert(2, "is_alias", pd.Series(df_is_alias, dtype=bool))
-                df.insert(3, "alias_with", pd.Series(df_alias_with, dtype=object))
-
-            return df.round(3).sort_values(by="name", ignore_index=True)
-        else:
-            return None
+        return df.round(3).sort_values(by="name", ignore_index=True)
 
     def describeAliases(
         self, symbols: Optional[Union[str, List[str]]] = None
@@ -759,67 +748,66 @@ class CCCMixin:
 
         if symbols is None:
             symbols = self.listAliases()
-
-        if isinstance(symbols, str):
+        elif isinstance(symbols, str):
             symbols = [symbols]
 
         if any(not isinstance(i, str) for i in symbols):
             raise TypeError("Argument 'symbols' must only contain type str")
 
-        # check for isValid
-        for symobj in self.getSymbols(symbols):
-            if not symobj.isValid():
-                raise Exception(
-                    f"Cannot generate describe table because symbol `{symobj.name}` "
-                    "is currently invalid. Use `<symbol>.isValid(verbose=True)` to debug."
-                )
-
-        dfs = []
-        cols = [
-            "name",
-            "alias_with",
-            "is_singleton",
-            "domain",
-            "domain_type",
-            "dimension",
-            "number_records",
-            "sparsity",
-        ]
-
-        # find aliases
-        all_aliases = self.listAliases()
-
-        data = []
-        for i in symbols:
-            if i in all_aliases:
-                if isinstance(self[i], abcs.ABCAlias):
-                    alias_name = self[i].alias_with.name
-                elif isinstance(self[i], abcs.ABCUniverseAlias):
-                    alias_name = self[i].alias_with
-                else:
-                    raise Exception("Encountered unknown symbol type")
-
-                data.append(
-                    (
-                        i,
-                        alias_name,
-                        self[i].is_singleton,
-                        self[i].domain_names,
-                        self[i].domain_type,
-                        self[i].dimension,
-                        self[i].number_records,
-                        self[i].getSparsity(),
-                    )
-                )
-
-        if data != []:
-            return (
-                pd.DataFrame(data, columns=cols)
-                .round(3)
-                .sort_values(by="name", ignore_index=True)
-            )
-        else:
+        if not symbols:
             return None
+
+        raw_data = {
+            "name": [],
+            "alias_with": [],
+            "is_singleton": [],
+            "domain": [],
+            "domain_type": [],
+            "dimension": [],
+            "number_records": [],
+            "sparsity": [],
+        }
+
+        for sym in self.getSymbols(symbols):
+            if not sym.isValid():
+                raise Exception(
+                    f"Cannot generate describe table because symbol '{sym.name}' "
+                    "is currently invalid. Use '<symbol>.isValid(verbose=True)' to debug."
+                )
+
+            # Alias Logic: Standardize how we get the parent set name
+            if isinstance(sym, abcs.ABCAlias):
+                alias_parent = sym.alias_with.name
+            elif isinstance(sym, abcs.ABCUniverseAlias):
+                alias_parent = sym.alias_with
+            else:
+                # skip if the user passed a non-alias symbol name
+                continue
+
+            raw_data["name"].append(sym.name)
+            raw_data["alias_with"].append(alias_parent)
+            raw_data["is_singleton"].append(sym.is_singleton)
+            raw_data["domain"].append(sym.domain_names)
+            raw_data["domain_type"].append(sym.domain_type)
+            raw_data["dimension"].append(sym.dimension)
+            raw_data["number_records"].append(sym.number_records)
+            raw_data["sparsity"].append(sym.getSparsity())
+
+        # lists --> pd.Series
+        cols = {
+            "name": pd.Series(raw_data["name"]),
+            "alias_with": pd.Series(raw_data["alias_with"], dtype=object),
+            "is_singleton": pd.Series(raw_data["is_singleton"]),
+            "domain": pd.Series(raw_data["domain"]),
+            "domain_type": pd.Series(raw_data["domain_type"]),
+            "dimension": pd.Series(raw_data["dimension"]),
+            "number_records": pd.Series(raw_data["number_records"]),
+            "sparsity": pd.Series(raw_data["sparsity"]),
+        }
+
+        df = pd.DataFrame(cols)
+
+        return df.round(3).sort_values(by="name", ignore_index=True)
 
     def describeParameters(
         self, symbols: Optional[Union[str, List[str]]] = None
@@ -865,59 +853,64 @@ class CCCMixin:
         if any(not isinstance(i, str) for i in symbols):
             raise TypeError("Argument 'symbols' must only contain type str")
 
-        # check for isValid
-        for symobj in self.getSymbols(symbols):
-            if not symobj.isValid():
-                raise Exception(
-                    f"Cannot generate describe table because symbol `{symobj.name}` "
-                    "is currently invalid. Use `<symbol>.isValid(verbose=True)` to debug."
-                )
-
-        dfs = []
-        cols = [
-            "name",
-            "domain",
-            "domain_type",
-            "dimension",
-            "number_records",
-            "min",
-            "mean",
-            "max",
-            "where_min",
-            "where_max",
-            "sparsity",
-        ]
-
-        # find all parameters
-        all_parameters = self.listParameters()
-
-        data = []
-        for i in symbols:
-            if i in all_parameters:
-                data.append(
-                    (
-                        i,
-                        self[i].domain_names,
-                        self[i].domain_type,
-                        self[i].dimension,
-                        self[i].number_records,
-                        self[i].getMinValue(),
-                        self[i].getMeanValue(),
-                        self[i].getMaxValue(),
-                        self[i].whereMin(),
-                        self[i].whereMax(),
-                        self[i].getSparsity(),
-                    )
-                )
-
-        if data != []:
-            return (
-                pd.DataFrame(data, columns=cols)
-                .round(3)
-                .sort_values(by="name", ignore_index=True)
-            )
-        else:
+        if not symbols:
             return None
+
+        raw_data = {
+            "name": [],
+            "domain": [],
+            "domain_type": [],
+            "dimension": [],
+            "number_records": [],
+            "min": [],
+            "mean": [],
+            "max": [],
+            "where_min": [],
+            "where_max": [],
+            "sparsity": [],
+        }
+
+        for sym in self.getSymbols(symbols):
+            if not sym.isValid():
+                raise Exception(
+                    f"Cannot generate describe table because symbol '{sym.name}' "
+                    "is currently invalid. Use '<symbol>.isValid(verbose=True)' to debug."
+                )
+
+            # Filtering for Parameters only
+            if not isinstance(sym, abcs.ABCParameter):
+                continue
+
+            raw_data["name"].append(sym.name)
+            raw_data["domain"].append(sym.domain_names)
+            raw_data["domain_type"].append(sym.domain_type)
+            raw_data["dimension"].append(sym.dimension)
+            raw_data["number_records"].append(sym.number_records)
+            raw_data["min"].append(sym.getMinValue())
+            raw_data["mean"].append(sym.getMeanValue())
+            raw_data["max"].append(sym.getMaxValue())
+            raw_data["where_min"].append(sym.whereMin())
+            raw_data["where_max"].append(sym.whereMax())
+            raw_data["sparsity"].append(sym.getSparsity())
+
+        # lists --> pd.Series
+        cols = {
+            "name": pd.Series(raw_data["name"]),
+            "domain": pd.Series(raw_data["domain"]),
+            "domain_type": pd.Series(raw_data["domain_type"]),
+            "dimension": pd.Series(raw_data["dimension"]),
+            "number_records": pd.Series(raw_data["number_records"]),
+            "min": pd.Series(raw_data["min"]),
+            "mean": pd.Series(raw_data["mean"]),
+            "max": pd.Series(raw_data["max"]),
+            "where_min": pd.Series(raw_data["where_min"]),
+            "where_max": pd.Series(raw_data["where_max"]),
+            "sparsity": pd.Series(raw_data["sparsity"]),
+        }
+
+        df = pd.DataFrame(cols)
+
+        return df.round(3).sort_values(by="name", ignore_index=True)
 
     def describeVariables(
         self, symbols: Optional[Union[str, List[str]]] = None
@@ -956,65 +949,71 @@ class CCCMixin:
 
         if symbols is None:
             symbols = self.listVariables()
-
-        if isinstance(symbols, str):
+        elif isinstance(symbols, str):
             symbols = [symbols]
 
         if any(not isinstance(i, str) for i in symbols):
             raise TypeError("Argument 'symbols' must only contain type str")
 
-        # check for isValid
-        for symobj in self.getSymbols(symbols):
-            if not symobj.isValid():
+        if not symbols:
+            return None
+
+        raw_data = {
+            "name": [],
+            "type": [],
+            "domain": [],
+            "domain_type": [],
+            "dimension": [],
+            "number_records": [],
+            "sparsity": [],
+            "min_level": [],
+            "mean_level": [],
+            "max_level": [],
+            "where_max_abs_level": [],
+        }
+
+        for sym in self.getSymbols(symbols):
+            if not sym.isValid():
                 raise Exception(
-                    f"Cannot generate describe table because symbol `{symobj.name}` "
+                    f"Cannot generate describe table because symbol `{sym.name}` "
                     "is currently invalid. Use `<symbol>.isValid(verbose=True)` to debug."
                 )
 
-        dfs = []
-        cols = [
-            "name",
-            "type",
-            "domain",
-            "domain_type",
-            "dimension",
-            "number_records",
-            "sparsity",
-            "min_level",
-            "mean_level",
-            "max_level",
-            "where_max_abs_level",
-        ]
+            # Filtering for Variables only
+            if not isinstance(sym, abcs.ABCVariable):
+                continue
 
-        # find all variables
-        all_variables = self.listVariables()
+            raw_data["name"].append(sym.name)
+            raw_data["type"].append(sym.type)
+            raw_data["domain"].append(sym.domain_names)
+            raw_data["domain_type"].append(sym.domain_type)
+            raw_data["dimension"].append(sym.dimension)
+            raw_data["number_records"].append(sym.number_records)
+            raw_data["sparsity"].append(sym.getSparsity())
+            raw_data["min_level"].append(sym.getMinValue("level"))
+            raw_data["mean_level"].append(sym.getMeanValue("level"))
+            raw_data["max_level"].append(sym.getMaxValue("level"))
+            raw_data["where_max_abs_level"].append(sym.whereMaxAbs("level"))
 
-        data = []
-        for i in symbols:
-            if i in all_variables:
-                data.append(
-                    (
-                        i,
-                        self[i].type,
-                        self[i].domain_names,
-                        self[i].domain_type,
-                        self[i].dimension,
-                        self[i].number_records,
-                        self[i].getSparsity(),
-                        self[i].getMinValue("level"),
-                        self[i].getMeanValue("level"),
-                        self[i].getMaxValue("level"),
-                        self[i].whereMaxAbs("level"),
-                    )
-                )
-        if data != []:
-            return (
-                pd.DataFrame(data, columns=cols)
-                .round(3)
-                .sort_values(by="name", ignore_index=True)
-            )
-        else:
-            return None
+
+        # lists --> pd.Series
+        cols = {
+            "name": pd.Series(raw_data["name"]),
+            "type": pd.Series(raw_data["type"]),
+            "domain": pd.Series(raw_data["domain"]),
+            "domain_type": pd.Series(raw_data["domain_type"]),
+            "dimension": pd.Series(raw_data["dimension"]),
+            "number_records": pd.Series(raw_data["number_records"]),
+            "sparsity": pd.Series(raw_data["sparsity"]),
+            "min_level": pd.Series(raw_data["min_level"]),
+            "mean_level": pd.Series(raw_data["mean_level"]),
+            "max_level": pd.Series(raw_data["max_level"]),
+            "where_max_abs_level": pd.Series(raw_data["where_max_abs_level"]),
+        }
+
+        df = pd.DataFrame(cols)
+
+        return df.round(3).sort_values(by="name", ignore_index=True)
 
     def describeEquations(
         self, symbols: Optional[Union[str, List[str]]] = None
@@ -1060,59 +1059,65 @@ class CCCMixin:
         if any(not isinstance(i, str) for i in symbols):
             raise TypeError("Argument 'symbols' must only contain type str")
 
-        # check for isValid
-        for symobj in self.getSymbols(symbols):
-            if not symobj.isValid():
+        if not symbols:
+            return None
+
+        raw_data = {
+            "name": [],
+            "type": [],
+            "domain": [],
+            "domain_type": [],
+            "dimension": [],
+            "number_records": [],
+            "sparsity": [],
+            "min_level": [],
+            "mean_level": [],
+            "max_level": [],
+            "where_max_abs_level": [],
+        }
+
+        for sym in self.getSymbols(symbols):
+            if not sym.isValid():
                 raise Exception(
-                    f"Cannot generate describe table because symbol `{symobj.name}` "
+                    f"Cannot generate describe table because symbol `{sym.name}` "
                     "is currently invalid. Use `<symbol>.isValid(verbose=True)` to debug."
                 )
 
-        dfs = []
-        cols = [
-            "name",
-            "type",
-            "domain",
-            "domain_type",
-            "dimension",
-            "number_records",
-            "sparsity",
-            "min_level",
-            "mean_level",
-            "max_level",
-            "where_max_abs_level",
-        ]
+            # Filtering for Variables only
+            if not isinstance(sym, abcs.ABCEquation):
+                continue
 
-        # find all equations
-        all_equations = self.listEquations()
+            raw_data["name"].append(sym.name)
+            raw_data["type"].append(sym.type)
+            raw_data["domain"].append(sym.domain_names)
+            raw_data["domain_type"].append(sym.domain_type)
+            raw_data["dimension"].append(sym.dimension)
+            raw_data["number_records"].append(sym.number_records)
+            raw_data["sparsity"].append(sym.getSparsity())
+            raw_data["min_level"].append(sym.getMinValue("level"))
+            raw_data["mean_level"].append(sym.getMeanValue("level"))
+            raw_data["max_level"].append(sym.getMaxValue("level"))
+            raw_data["where_max_abs_level"].append(sym.whereMaxAbs("level"))
 
-        data = []
-        for i in symbols:
-            if i in all_equations:
-                data.append(
-                    (
-                        i,
-                        self[i].type,
-                        self[i].domain_names,
-                        self[i].domain_type,
-                        self[i].dimension,
-                        self[i].number_records,
-                        self[i].getSparsity(),
-                        self[i].getMinValue("level"),
-                        self[i].getMeanValue("level"),
-                        self[i].getMaxValue("level"),
-                        self[i].whereMaxAbs("level"),
-                    )
-                )
 
-        if data != []:
-            return (
-                pd.DataFrame(data, columns=cols)
-                .round(3)
-                .sort_values(by="name", ignore_index=True)
-            )
-        else:
-            return None
+        # lists --> pd.Series
+        cols = {
+            "name": pd.Series(raw_data["name"]),
+            "type": pd.Series(raw_data["type"]),
+            "domain": pd.Series(raw_data["domain"]),
+            "domain_type": pd.Series(raw_data["domain_type"]),
+            "dimension": pd.Series(raw_data["dimension"]),
+            "number_records": pd.Series(raw_data["number_records"]),
+            "sparsity": pd.Series(raw_data["sparsity"]),
+            "min_level": pd.Series(raw_data["min_level"]),
+            "mean_level": pd.Series(raw_data["mean_level"]),
+            "max_level": pd.Series(raw_data["max_level"]),
+            "where_max_abs_level": pd.Series(raw_data["where_max_abs_level"]),
+        }
+
+        df = pd.DataFrame(cols)
+
+        return df.round(3).sort_values(by="name", ignore_index=True)
 
     def getSets(self, is_valid: Optional[bool] = None) -> List["abcs.ABCSet"]:
         """

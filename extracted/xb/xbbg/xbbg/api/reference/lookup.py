@@ -5,6 +5,7 @@ Provides functions for field information, field search, security lookup, and por
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 import logging
 from typing import Any
 
@@ -22,17 +23,84 @@ logger = logging.getLogger(__name__)
 
 __all__ = [
     "bfld",
+    "abfld",
     "fieldInfo",
+    "afieldInfo",
     "fieldSearch",
+    "afieldSearch",
     "blkp",
+    "ablkp",
     "lookupSecurity",
+    "alookupSecurity",
     "bport",
     "getPortfolio",
     "getBlpapiVersion",
 ]
 
 
-def fieldInfo(
+def _process_field_info_msg(msg: Any, **kwargs) -> Iterator[dict[str, Any]]:
+    field_data = msg.getElement(blpapi.Name("fieldData"))
+    for i in range(field_data.numValues()):
+        field_elem = field_data.getValueAsElement(i)
+        if field_elem.hasElement(blpapi.Name("fieldError")):
+            error_msg = field_elem.getElement(blpapi.Name("fieldError")).getElementAsString(blpapi.Name("message"))
+            raise ValueError(f"Bad field: {error_msg}")
+        field_id = field_elem.getElementAsString(blpapi.Name("id"))
+        field_info_elem = field_elem.getElement(blpapi.Name("fieldInfo"))
+        yield {
+            "id": field_id,
+            "mnemonic": field_info_elem.getElementAsString(blpapi.Name("mnemonic")),
+            "datatype": field_info_elem.getElementAsString(blpapi.Name("datatype")),
+            "ftype": field_info_elem.getElementAsString(blpapi.Name("ftype")),
+        }
+
+
+def _process_field_search_msg(msg: Any, **kwargs) -> Iterator[dict[str, Any]]:
+    field_data = msg.getElement(blpapi.Name("fieldData"))
+    for i in range(field_data.numValues()):
+        field_elem = field_data.getValueAsElement(i)
+        field_id = field_elem.getElementAsString(blpapi.Name("id"))
+        if field_elem.hasElement(blpapi.Name("fieldInfo")):
+            field_info = field_elem.getElement(blpapi.Name("fieldInfo"))
+            yield {
+                "id": field_id,
+                "mnemonic": field_info.getElementAsString(blpapi.Name("mnemonic")),
+                "description": field_info.getElementAsString(blpapi.Name("description")),
+            }
+        else:
+            field_error = field_elem.getElement(blpapi.Name("fieldError"))
+            error_msg = field_error.getElementAsString(blpapi.Name("message"))
+            raise ValueError(f"Field error for {field_id}: {error_msg}")
+
+
+def _process_lookup_msg(msg: Any, **kwargs) -> Iterator[dict[str, Any]]:
+    verbose = kwargs.get("verbose", False)
+    if msg.hasElement(blpapi.Name("responseError")):
+        error_msg = msg.getElement(blpapi.Name("responseError"))
+        logger.error("REQUEST FAILED: %s", error_msg)
+        return
+
+    response = msg.asElement()
+    if str(response.name()) != "InstrumentListResponse":
+        raise ValueError("Not a valid InstrumentListResponse")
+
+    response_results = response.getElement(blpapi.Name("results"))
+    if verbose:
+        logger.debug("Response contains %d items", response_results.numValues())
+
+    for i in range(response_results.numValues()):
+        item = response_results.getValueAsElement(i)
+        security = item.getElementAsString(blpapi.Name("security"))
+        description = item.getElementAsString(blpapi.Name("description"))
+        if verbose:
+            logger.debug("%s\t\t%s", security, description)
+        yield {
+            "security": security,
+            "description": description,
+        }
+
+
+async def afieldInfo(
     fields: str | list[str],
     *,
     backend: Backend | None = None,
@@ -54,69 +122,30 @@ def fieldInfo(
     Examples:
         >>> from xbbg import blp
         >>> # Get info for single field
-        >>> info = blp.fieldInfo('PX_LAST')  # doctest: +SKIP
+        >>> info = blp.fieldInfo("PX_LAST")  # doctest: +SKIP
         >>> # Get info for multiple fields
-        >>> info = blp.fieldInfo(['PX_LAST', 'VOLUME'])  # doctest: +SKIP
+        >>> info = blp.fieldInfo(["PX_LAST", "VOLUME"])  # doctest: +SKIP
     """
     field_list = utils.normalize_flds(fields)
-    session = conn_module.bbg_session(**kwargs)
-
-    # Open field info service
     service_name = "//blp/apiflds"
-    if not session.openService(service_name):
-        raise RuntimeError(f"Failed to open {service_name}")
-
-    field_info_service = session.getService(service_name)
+    await conn_module._session_manager.aget_session(**kwargs)
+    field_info_service = await conn_module._session_manager.aget_service(service_name, **kwargs)
 
     results = []
     for field in field_list:
-        # Create FieldInfoRequest
         request = field_info_service.createRequest("FieldInfoRequest")
         request.append(blpapi.Name("id"), field)
         request.set(blpapi.Name("returnFieldDocumentation"), False)
 
-        session.sendRequest(request)
-
-        # Process response
-        field_info = None
-        while True:
-            event = session.nextEvent()
-            if event.eventType() not in (blpapi.Event.RESPONSE, blpapi.Event.PARTIAL_RESPONSE):
-                continue
-
-            for msg in event:
-                field_data = msg.getElement(blpapi.Name("fieldData"))
-
-                if field_data.numValues() > 1:
-                    raise ValueError(f"getFieldType: too many fields returned for {field}")
-
-                field_elem = field_data.getValueAsElement(0)
-
-                if field_elem.hasElement(blpapi.Name("fieldError")):
-                    error_msg = field_elem.getElement(blpapi.Name("fieldError")).getElementAsString(
-                        blpapi.Name("message")
-                    )
-                    raise ValueError(f"Bad field {field}: {error_msg}")
-
-                # Extract field info
-                field_id = field_elem.getElementAsString(blpapi.Name("id"))
-                field_info_elem = field_elem.getElement(blpapi.Name("fieldInfo"))
-                mnemonic = field_info_elem.getElementAsString(blpapi.Name("mnemonic"))
-                datatype = field_info_elem.getElementAsString(blpapi.Name("datatype"))
-                ftype = field_info_elem.getElementAsString(blpapi.Name("ftype"))
-
-                field_info = {
-                    "id": field_id,
-                    "mnemonic": mnemonic,
-                    "datatype": datatype,
-                    "ftype": ftype,
-                }
-
-            if event.eventType() == blpapi.Event.RESPONSE:
-                break
-
-        if field_info:
-            results.append(field_info)
+        field_results = await conn_module.arequest(
+            request,
+            _process_field_info_msg,
+            service=service_name,
+            **kwargs,
+        )
+        if len(field_results) > 1:
+            raise ValueError(f"getFieldType: too many fields returned for {field}")
+        results.extend(field_results)
 
     # Convert to requested backend
     actual_backend = backend if backend is not None else get_backend()
@@ -124,7 +153,10 @@ def fieldInfo(
     return _convert_backend(nw.from_native(arrow_table), actual_backend)
 
 
-def fieldSearch(
+fieldInfo = conn_module.sync_api(afieldInfo)
+
+
+async def afieldSearch(
     searchterm: str,
     *,
     backend: Backend | None = None,
@@ -146,62 +178,25 @@ def fieldSearch(
     Examples:
         >>> from xbbg import blp
         >>> # Search for VWAP-related fields
-        >>> results = blp.fieldSearch('vwap')  # doctest: +SKIP
+        >>> results = blp.fieldSearch("vwap")  # doctest: +SKIP
         >>> # Search for volume fields
-        >>> results = blp.fieldSearch('volume')  # doctest: +SKIP
+        >>> results = blp.fieldSearch("volume")  # doctest: +SKIP
     """
-    session = conn_module.bbg_session(**kwargs)
-
-    # Open field info service
     service_name = "//blp/apiflds"
-    if not session.openService(service_name):
-        raise RuntimeError(f"Failed to open {service_name}")
-
-    field_info_service = session.getService(service_name)
+    await conn_module._session_manager.aget_session(**kwargs)
+    field_info_service = await conn_module._session_manager.aget_service(service_name, **kwargs)
 
     # Create FieldSearchRequest
     request = field_info_service.createRequest("FieldSearchRequest")
     request.set(blpapi.Name("searchSpec"), searchterm)
     request.set(blpapi.Name("returnFieldDocumentation"), False)
 
-    session.sendRequest(request)
-
-    # Process response
-    results = []
-
-    while True:
-        event = session.nextEvent()
-        if event.eventType() not in (blpapi.Event.RESPONSE, blpapi.Event.PARTIAL_RESPONSE):
-            continue
-
-        for msg in event:
-            field_data = msg.getElement(blpapi.Name("fieldData"))
-
-            num_elements = field_data.numValues()
-            for i in range(num_elements):
-                field_elem = field_data.getValueAsElement(i)
-                field_id = field_elem.getElementAsString(blpapi.Name("id"))
-
-                if field_elem.hasElement(blpapi.Name("fieldInfo")):
-                    field_info = field_elem.getElement(blpapi.Name("fieldInfo"))
-                    mnemonic = field_info.getElementAsString(blpapi.Name("mnemonic"))
-                    description = field_info.getElementAsString(blpapi.Name("description"))
-
-                    results.append(
-                        {
-                            "id": field_id,
-                            "mnemonic": mnemonic,
-                            "description": description,
-                        }
-                    )
-                else:
-                    # Field error
-                    field_error = field_elem.getElement(blpapi.Name("fieldError"))
-                    error_msg = field_error.getElementAsString(blpapi.Name("message"))
-                    raise ValueError(f"Field error for {field_id}: {error_msg}")
-
-        if event.eventType() == blpapi.Event.RESPONSE:
-            break
+    results = await conn_module.arequest(
+        request,
+        _process_field_search_msg,
+        service=service_name,
+        **kwargs,
+    )
 
     # Convert to requested backend
     actual_backend = backend if backend is not None else get_backend()
@@ -209,7 +204,10 @@ def fieldSearch(
     return _convert_backend(nw.from_native(arrow_table), actual_backend)
 
 
-def lookupSecurity(
+fieldSearch = conn_module.sync_api(afieldSearch)
+
+
+async def alookupSecurity(
     query: str,
     yellowkey: str = "none",
     language: str = "none",
@@ -243,20 +241,15 @@ def lookupSecurity(
     Examples:
         >>> from xbbg import blp
         >>> # Search for IBM
-        >>> results = blp.lookupSecurity('IBM')  # doctest: +SKIP
+        >>> results = blp.lookupSecurity("IBM")  # doctest: +SKIP
         >>> # Search with asset class filter
-        >>> results = blp.lookupSecurity('IBM', yellowkey='eqty')  # doctest: +SKIP
+        >>> results = blp.lookupSecurity("IBM", yellowkey="eqty")  # doctest: +SKIP
         >>> # Increase max results
-        >>> results = blp.lookupSecurity('Apple', max_results=100)  # doctest: +SKIP
+        >>> results = blp.lookupSecurity("Apple", max_results=100)  # doctest: +SKIP
     """
-    session = conn_module.bbg_session(**kwargs)
-
-    # Open instruments service
     service_name = "//blp/instruments"
-    if not session.openService(service_name):
-        raise RuntimeError(f"Failed to open {service_name}")
-
-    instruments_service = session.getService(service_name)
+    await conn_module._session_manager.aget_session(**kwargs)
+    instruments_service = await conn_module._session_manager.aget_service(service_name, **kwargs)
 
     # Map yellowkey to Bloomberg format
     yellowkey_map = {
@@ -305,28 +298,13 @@ def lookupSecurity(
     if verbose:
         logger.info("Sending lookup request: %s", request)
 
-    session.sendRequest(request)
-
-    # Process response
-    results = []
-
-    done = False
-    while not done:
-        event = session.nextEvent()
-
-        if event.eventType() == blpapi.Event.PARTIAL_RESPONSE:
-            if verbose:
-                logger.debug("Processing partial response")
-            _process_lookup_event(event, results, verbose)
-        elif event.eventType() == blpapi.Event.RESPONSE:
-            if verbose:
-                logger.debug("Processing response")
-            _process_lookup_event(event, results, verbose)
-            done = True
-        elif event.eventType() == blpapi.Event.SESSION_STATUS:
-            for msg in event:
-                if msg.messageType() == blpapi.Name("SessionTerminated"):
-                    done = True
+    results = await conn_module.arequest(
+        request,
+        _process_lookup_msg,
+        service=service_name,
+        verbose=verbose,
+        **kwargs,
+    )
 
     # Convert to requested backend
     actual_backend = backend if backend is not None else get_backend()
@@ -334,42 +312,7 @@ def lookupSecurity(
     return _convert_backend(nw.from_native(arrow_table), actual_backend)
 
 
-def _process_lookup_event(
-    event,
-    results: list[dict],
-    verbose: bool,
-) -> None:
-    """Process lookup response event."""
-    for msg in event:
-        if msg.hasElement(blpapi.Name("responseError")):
-            error_msg = msg.getElement(blpapi.Name("responseError"))
-            logger.error("REQUEST FAILED: %s", error_msg)
-            continue
-
-        response = msg.asElement()
-        if str(response.name()) != "InstrumentListResponse":
-            raise ValueError("Not a valid InstrumentListResponse")
-
-        response_results = response.getElement(blpapi.Name("results"))
-        num_items = response_results.numValues()
-
-        if verbose:
-            logger.debug("Response contains %d items", num_items)
-
-        for i in range(num_items):
-            item = response_results.getValueAsElement(i)
-            security = item.getElementAsString(blpapi.Name("security"))
-            description = item.getElementAsString(blpapi.Name("description"))
-
-            if verbose:
-                logger.debug("%s\t\t%s", security, description)
-
-            results.append(
-                {
-                    "security": security,
-                    "description": description,
-                }
-            )
+lookupSecurity = conn_module.sync_api(alookupSecurity)
 
 
 def getPortfolio(
@@ -405,7 +348,7 @@ def getPortfolio(
     Examples:
         >>> from xbbg import blp
         >>> # Get portfolio data
-        >>> portfolio = blp.getPortfolio('PORTFOLIO_NAME', 'PORTFOLIO_MWEIGHT')  # doctest: +SKIP
+        >>> portfolio = blp.getPortfolio("PORTFOLIO_NAME", "PORTFOLIO_MWEIGHT")  # doctest: +SKIP
     """
     from xbbg.api.reference.reference import bds
 
@@ -447,9 +390,9 @@ def bfld(
     Examples:
         >>> from xbbg import blp
         >>> # Get info for specific fields
-        >>> info = blp.bfld(fields=['PX_LAST', 'VOLUME'])  # doctest: +SKIP
+        >>> info = blp.bfld(fields=["PX_LAST", "VOLUME"])  # doctest: +SKIP
         >>> # Search for fields by keyword
-        >>> results = blp.bfld(search_spec='vwap')  # doctest: +SKIP
+        >>> results = blp.bfld(search_spec="vwap")  # doctest: +SKIP
     """
     if fields is not None and search_spec is not None:
         raise ValueError("Cannot specify both 'fields' and 'search_spec'. Use one or the other.")
@@ -463,8 +406,28 @@ def bfld(
     return fieldInfo(fields, backend=backend, **kwargs)
 
 
+async def abfld(
+    fields: str | list[str] | None = None,
+    *,
+    search_spec: str | None = None,
+    backend: Backend | None = None,
+    **kwargs,
+) -> Any:
+    """Async version of bfld()."""
+    if fields is not None and search_spec is not None:
+        raise ValueError("Cannot specify both 'fields' and 'search_spec'. Use one or the other.")
+    if fields is None and search_spec is None:
+        raise ValueError("Must specify either 'fields' or 'search_spec'.")
+
+    if search_spec is not None:
+        return await afieldSearch(search_spec, backend=backend, **kwargs)
+    assert fields is not None
+    return await afieldInfo(fields, backend=backend, **kwargs)
+
+
 # Backward compatibility aliases (v1.0 names)
 blkp = lookupSecurity
+ablkp = alookupSecurity
 bport = getPortfolio
 
 

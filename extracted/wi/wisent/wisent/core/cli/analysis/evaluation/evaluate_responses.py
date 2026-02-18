@@ -76,8 +76,14 @@ def execute_evaluate_responses(args):
                 break
 
         if not project_root:
-            raise FileNotFoundError("Could not find task-evaluator.json")
+            import wisent
+            wisent_pkg_dir = Path(wisent.__file__).resolve().parent
+            pkg_task_eval = wisent_pkg_dir / "task-evaluator.json"
+            if pkg_task_eval.exists():
+                project_root = wisent_pkg_dir
 
+        if not project_root:
+            raise FileNotFoundError("Could not find task-evaluator.json")
         with open(project_root / 'task-evaluator.json', 'r') as f:
             task_evaluator_map = json.load(f)
 

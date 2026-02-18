@@ -132,6 +132,9 @@ class Command:
     def backgrounable(self):
         return False
 
+    def retriable(self):
+        return False
+
     def schedulable(self):
         return False
 
@@ -142,7 +145,7 @@ class Command:
         return state.validate(self.required(), show_err=show_err)
 
     def context(self, args: list[str] = None, show_out = True, ignore_bg = False, job_id: str = None, ctx: Context = None):
-        return ContextHandler(self.command(), args, self.backgrounable(), show_out=show_out, ignore_bg=ignore_bg, job_id=job_id, ctx=ctx)
+        return ContextHandler(self.command(), args, self.backgrounable(), self.retriable(), show_out=show_out, ignore_bg=ignore_bg, job_id=job_id, ctx=ctx)
 
     def help(self, _: ReplState, desc: str = None, command: str = None, args: str = None):
         if not desc:
@@ -425,10 +428,19 @@ class ExtractSequenceOptionsHandler:
         return False
 
 class ContextHandler:
-    def __init__(self, command: str, args: list[str] = None, backgroundable = False, show_out = True, ignore_bg = False, job_id: str = None, ctx: Context = None):
+    def __init__(self,
+                 command: str,
+                 args: list[str] = None,
+                 backgroundable = False,
+                 retriable = False,
+                 show_out = True,
+                 ignore_bg = False,
+                 job_id: str = None,
+                 ctx: Context = None):
         self.command = command
         self.args = args
         self.backgrounable = backgroundable
+        self.retriable = retriable
         self.show_out = show_out
         self.ignore_bg = ignore_bg
         self.job_id = job_id
@@ -445,7 +457,11 @@ class ContextHandler:
 
         ctx = self.ctx
         if not ctx:
-            ctx = Context.new(self.command + ' ' + ' '.join(args), show_out=self.show_out, background=background, job_id = self.job_id)
+            ctx = Context.new(self.command + ' ' + ' '.join(args),
+                              show_out=self.show_out,
+                              background=background,
+                              retriable=self.retriable,
+                              job_id=self.job_id)
 
         return args, ctx
 

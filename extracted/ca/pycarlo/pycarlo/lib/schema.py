@@ -1999,19 +1999,6 @@ class DomainModelDomainType(pycarlo.lib.types.Enum):
     __choices__ = ("METADATA", "SAMPLING")
 
 
-class ETLAssetType(pycarlo.lib.types.Enum):
-    """Enum to distinguish between jobs and tasks
-
-    Enumeration Choices:
-
-    * `JOB`None
-    * `TASK`None
-    """
-
-    __schema__ = schema
-    __choices__ = ("JOB", "TASK")
-
-
 class EdgeType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
@@ -8407,6 +8394,43 @@ class GetExplanationRequestType(sgqlc.types.Input):
 
     end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
     """End time range. By default, current time"""
+
+
+class GetTraceOverviewInput(sgqlc.types.Input):
+    """Input parameters for GetTraceOverview query."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "agent_name",
+        "trace_table_mcon",
+        "start_time",
+        "end_time",
+        "include_previous_period_comparison",
+        "filters",
+    )
+    agent_name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="agentName")
+    """Agent name to filter by"""
+
+    trace_table_mcon = sgqlc.types.Field(
+        sgqlc.types.non_null(String), graphql_name="traceTableMcon"
+    )
+    """MCON of the trace table to query"""
+
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+    """Start of time range (inclusive)"""
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+    """End of time range (exclusive)"""
+
+    include_previous_period_comparison = sgqlc.types.Field(
+        Boolean, graphql_name="includePreviousPeriodComparison"
+    )
+    """Include comparison to previous period of equal length (default:
+    true)
+    """
+
+    filters = sgqlc.types.Field("TraceFiltersInput", graphql_name="filters")
+    """Optional filters to refine results"""
 
 
 class GetTraceTimeSeriesInput(sgqlc.types.Input):
@@ -22618,24 +22642,6 @@ class Dynamic(sgqlc.types.Type):
     """Explanation if min/max is missing"""
 
 
-class ETLJobOrTaskSearchResult(sgqlc.types.Type):
-    """Search result for ETL jobs and tasks"""
-
-    __schema__ = schema
-    __field_names__ = ("mcon", "name", "etl_type", "asset_type")
-    mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
-    """Monte Carlo full identifier for an entity"""
-
-    name = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="name")
-    """Name of the job or task"""
-
-    etl_type = sgqlc.types.Field(sgqlc.types.non_null(EtlType), graphql_name="etlType")
-    """ETL type (airflow, databricks, azure-data-factory, dbt)"""
-
-    asset_type = sgqlc.types.Field(sgqlc.types.non_null(ETLAssetType), graphql_name="assetType")
-    """Whether this is a job or task"""
-
-
 class ETLJobsConnectionTypeConnection(sgqlc.types.relay.Connection):
     """Etl Jobs"""
 
@@ -29414,12 +29420,6 @@ class Mutation(sgqlc.types.Type):
                         default=None,
                     ),
                 ),
-                (
-                    "monitor_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
-                    ),
-                ),
             )
         ),
     )
@@ -29429,9 +29429,8 @@ class Mutation(sgqlc.types.Type):
 
     * `attributes` (`[ExceptionAttributeInput!]!`): List of attribute
       updates with name and value
-    * `exception_ids` (`[UUID!]!`): List of exception UUIDs to update
-    * `monitor_uuid` (`UUID!`): UUID of the monitor (custom rule or
-      metric monitor) that the exceptions belong to.
+    * `exception_ids` (`[UUID!]!`): List of exception UUIDs to update.
+      All exceptions must belong to the same monitor.
     """
 
     bulk_create_comment_for_exceptions = sgqlc.types.Field(
@@ -29461,7 +29460,7 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `exception_ids` (`[UUID!]!`): List of exception UUIDs to add the
-      comment to
+      comment to. All exceptions must belong to the same monitor.
     * `text` (`String!`): Comment text
     """
 
@@ -49922,6 +49921,7 @@ class Query(sgqlc.types.Type):
         "get_traces_filters_data",
         "get_traces",
         "get_trace_time_series",
+        "get_trace_overview",
         "get_table_monitor_metric",
         "get_tables_for_coverage_dashboard",
         "get_monitor_counts_by_creator",
@@ -50001,7 +50001,6 @@ class Query(sgqlc.types.Type):
         "get_etl_jobs",
         "get_etl_jobs_v2",
         "get_etl_tasks",
-        "search_etl_jobs_and_tasks",
         "get_data_product",
         "get_data_product_v2",
         "get_data_products",
@@ -50727,6 +50726,32 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `input` (`GetTraceTimeSeriesInput!`)None
+    """
+
+    get_trace_overview = sgqlc.types.Field(
+        "TraceOverviewMetricsWithComparison",
+        graphql_name="getTraceOverview",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(GetTraceOverviewInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get aggregated overview metrics for agent traces.
+    Returns total counts, latency percentiles, and token usage for a
+    time range. Optionally includes comparison to the previous period
+    of equal duration.
+
+    Arguments:
+
+    * `input` (`GetTraceOverviewInput!`)None
     """
 
     get_table_monitor_metric = sgqlc.types.Field(
@@ -52843,30 +52868,6 @@ class Query(sgqlc.types.Type):
     * `offset` (`Int!`): Page offset
     * `job_mcons` (`[String]`): Filter by job mcons
     * `task_mcons` (`[String]`): Filter by task mcons
-    """
-
-    search_etl_jobs_and_tasks = sgqlc.types.Field(
-        sgqlc.types.list_of(sgqlc.types.non_null(ETLJobOrTaskSearchResult)),
-        graphql_name="searchEtlJobsAndTasks",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "search",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="search", default=None
-                    ),
-                ),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=50)),
-            )
-        ),
-    )
-    """(experimental) Search for ETL jobs and tasks by name across all
-    types
-
-    Arguments:
-
-    * `search` (`String!`): Search string to filter by name
-    * `limit` (`Int`): Maximum results to return (default: `50`)
     """
 
     get_data_product = sgqlc.types.Field(
@@ -75083,6 +75084,67 @@ class TraceNode(sgqlc.types.Type):
     end_extra_ns = sgqlc.types.Field(Int, graphql_name="endExtraNs")
 
 
+class TraceOverviewMetrics(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_traces",
+        "avg_latency",
+        "p50_latency",
+        "p95_latency",
+        "p99_latency",
+        "total_tokens",
+        "total_prompt_tokens",
+        "total_completion_tokens",
+    )
+    total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
+
+    p50_latency = sgqlc.types.Field(Float, graphql_name="p50Latency")
+
+    p95_latency = sgqlc.types.Field(Float, graphql_name="p95Latency")
+
+    p99_latency = sgqlc.types.Field(Float, graphql_name="p99Latency")
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+
+    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+
+    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+
+
+class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "total_traces",
+        "avg_latency",
+        "p50_latency",
+        "p95_latency",
+        "p99_latency",
+        "total_tokens",
+        "total_prompt_tokens",
+        "total_completion_tokens",
+        "prev_period",
+    )
+    total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
+
+    p50_latency = sgqlc.types.Field(Float, graphql_name="p50Latency")
+
+    p95_latency = sgqlc.types.Field(Float, graphql_name="p95Latency")
+
+    p99_latency = sgqlc.types.Field(Float, graphql_name="p99Latency")
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+
+    total_prompt_tokens = sgqlc.types.Field(Int, graphql_name="totalPromptTokens")
+
+    total_completion_tokens = sgqlc.types.Field(Int, graphql_name="totalCompletionTokens")
+
+    prev_period = sgqlc.types.Field(TraceOverviewMetrics, graphql_name="prevPeriod")
+
+
 class TracePageInfo(sgqlc.types.Type):
     """PageInfo for trace pagination (Relay spec compliant)."""
 
@@ -80818,7 +80880,6 @@ class CustomRule(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
-        "is_tracking_only",
         "rule_type",
         "warehouse_uuid",
         "interval_minutes",
@@ -80883,6 +80944,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "notify_rule_run_failure",
         "variables",
         "variable_definitions",
+        "is_tracking_only",
     )
     created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
 
@@ -80946,11 +81008,6 @@ class CustomRule(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(Boolean, graphql_name="isDraft")
     """True if rule is a draft"""
-
-    is_tracking_only = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
-    )
-    """Is this a tracking-only monitor?"""
 
     rule_type = sgqlc.types.Field(CustomRuleModelRuleType, graphql_name="ruleType")
 
@@ -81222,6 +81279,11 @@ class CustomRule(sgqlc.types.Type, Node):
         graphql_name="variableDefinitions",
     )
     """Variables definitions used in the query"""
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
+    """DEPRECATED"""
 
 
 class CustomRuleQuery(sgqlc.types.Type, Node):
@@ -84508,7 +84570,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "comparisons",
         "is_paused",
         "is_draft",
-        "is_tracking_only",
         "type",
         "warehouse_uuid",
         "controlled_by",
@@ -84560,6 +84621,7 @@ class MetricMonitoring(sgqlc.types.Type, Node):
         "domain_uuids",
         "is_agent_trace_aggregation",
         "time_bucketed",
+        "is_tracking_only",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -84619,11 +84681,6 @@ class MetricMonitoring(sgqlc.types.Type, Node):
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
     """Is this a draft monitor?"""
-
-    is_tracking_only = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
-    )
-    """Is this a tracking-only monitor?"""
 
     type = sgqlc.types.Field(sgqlc.types.non_null(MetricMonitoringModelType), graphql_name="type")
 
@@ -84810,6 +84867,11 @@ class MetricMonitoring(sgqlc.types.Type, Node):
     """Whether this monitor uses time-based bucketing. True if
     time_axis_field_name is set, False for ALL_ROWS monitors.
     """
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
+    """DEPRECATED"""
 
 
 class Monitor(
@@ -87367,7 +87429,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "snooze_until_time",
         "is_paused",
         "is_draft",
-        "is_tracking_only",
         "where_condition",
         "use_partition_clause",
         "namespace",
@@ -87397,6 +87458,7 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
         "has_custom_rule_name",
         "is_transitioning_data_provider",
         "notify_rule_run_failure",
+        "is_tracking_only",
     )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
 
@@ -87497,10 +87559,6 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
     is_paused = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isPaused")
 
     is_draft = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isDraft")
-
-    is_tracking_only = sgqlc.types.Field(
-        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
-    )
 
     where_condition = sgqlc.types.Field(String, graphql_name="whereCondition")
 
@@ -87603,6 +87661,11 @@ class UserDefinedMonitorV2(sgqlc.types.Type, Node):
 
     notify_rule_run_failure = sgqlc.types.Field(Boolean, graphql_name="notifyRuleRunFailure")
     """DEPRECATED: Replaced by failure audiences"""
+
+    is_tracking_only = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isTrackingOnly"
+    )
+    """DEPRECATED"""
 
 
 class UserInvite(sgqlc.types.Type, Node):

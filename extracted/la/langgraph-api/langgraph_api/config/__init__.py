@@ -278,6 +278,9 @@ SERDE: SerdeConfig | None = (
     if CHECKPOINTER_CONFIG and "serde" in CHECKPOINTER_CONFIG
     else None
 )
+USE_PICKLE_FALLBACK = (
+    SERDE["pickle_fallback"] if SERDE and "pickle_fallback" in SERDE else True
+)
 THREAD_TTL: ThreadTTLConfig | None = env(
     "LANGGRAPH_THREAD_TTL", cast=_parse.parse_thread_ttl, default=None
 )
@@ -285,7 +288,7 @@ if THREAD_TTL is None and CHECKPOINTER_CONFIG is not None:
     THREAD_TTL = CHECKPOINTER_CONFIG.get("ttl")
 
 N_JOBS_PER_WORKER = env("N_JOBS_PER_WORKER", cast=int, default=10)
-BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=3600)
+BG_JOB_TIMEOUT_SECS = env("BG_JOB_TIMEOUT_SECS", cast=float, default=86400)
 
 FF_CRONS_ENABLED = env("FF_CRONS_ENABLED", cast=bool, default=True)
 FF_LOG_DROPPED_EVENTS = env("FF_LOG_DROPPED_EVENTS", cast=bool, default=False)

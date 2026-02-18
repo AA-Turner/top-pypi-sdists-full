@@ -41,6 +41,7 @@ dependencies = [
     "marshmallow~=3.18.0",
     "marshmallow-dataclass~=8.5.8",
     "oauthlib~=3.2.1",
+    "packaging>=22.0",
     "pygitguardian~=1.28.0",
     "pyjwt~=2.6.0",
     "python-dotenv~=0.21.0",
@@ -48,10 +49,10 @@ dependencies = [
     "requests~=2.32.0",
     "rich~=12.5.1",
     "typing-extensions~=4.12.2",
-    "urllib3~=2.2.2",
+    "urllib3>=2.2.2,<3",
     "truststore>=0.10.1; python_version >= \"3.10\"",
 ]
-version = "1.47.0"
+version = "1.48.0"
 
 [project.license]
 text = "MIT"
@@ -69,12 +70,15 @@ requires = [
 build-backend = "pdm.backend"
 
 [tool.pdm.resolution.overrides]
-urllib3 = "2.2.3"
+urllib3 = ">=2.2.2,<3"
 pyinstaller = "6.7.0"
 
 [tool.pdm.version]
 source = "file"
 path = "ggshield/__init__.py"
+
+[tool.pdm.scripts.ggshield]
+call = "ggshield.__main__:main"
 
 [tool.black]
 target-version = [

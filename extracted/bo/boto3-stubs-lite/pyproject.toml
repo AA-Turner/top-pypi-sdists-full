@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.42.50"
+version = "1.42.51"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.42.50 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.42.51 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.50",
+    "boto3==1.42.51",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -220,7 +220,6 @@ all = [
     "mypy-boto3-entityresolution>=1.42.0, <1.43.0",
     "mypy-boto3-es>=1.42.0, <1.43.0",
     "mypy-boto3-events>=1.42.0, <1.43.0",
-    "mypy-boto3-evidently>=1.42.0, <1.43.0",
     "mypy-boto3-evs>=1.42.0, <1.43.0",
     "mypy-boto3-finspace>=1.42.0, <1.43.0",
     "mypy-boto3-finspace-data>=1.42.0, <1.43.0",
@@ -260,7 +259,6 @@ all = [
     "mypy-boto3-iot-data>=1.42.0, <1.43.0",
     "mypy-boto3-iot-jobs-data>=1.42.0, <1.43.0",
     "mypy-boto3-iot-managed-integrations>=1.42.0, <1.43.0",
-    "mypy-boto3-iotanalytics>=1.42.0, <1.43.0",
     "mypy-boto3-iotdeviceadvisor>=1.42.0, <1.43.0",
     "mypy-boto3-iotevents>=1.42.0, <1.43.0",
     "mypy-boto3-iotevents-data>=1.42.0, <1.43.0",
@@ -940,9 +938,6 @@ es = [
 events = [
     "mypy-boto3-events>=1.42.0, <1.43.0",
 ]
-evidently = [
-    "mypy-boto3-evidently>=1.42.0, <1.43.0",
-]
 evs = [
     "mypy-boto3-evs>=1.42.0, <1.43.0",
 ]
@@ -1059,9 +1054,6 @@ iot-jobs-data = [
 ]
 iot-managed-integrations = [
     "mypy-boto3-iot-managed-integrations>=1.42.0, <1.43.0",
-]
-iotanalytics = [
-    "mypy-boto3-iotanalytics>=1.42.0, <1.43.0",
 ]
 iotdeviceadvisor = [
     "mypy-boto3-iotdeviceadvisor>=1.42.0, <1.43.0",

@@ -2146,6 +2146,11 @@ class Proxy(proxy.Proxy):
             attempting to find a nonexistent resource.
         :returns: One :class:`~openstack.identity.v3.mapping.Mapping` or None
         """
+        warnings.warn(
+            "find_mapping is deprecated and will be removed in a future "
+            "release; please use get_mapping instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
         return self._find(
             _mapping.Mapping, name_or_id, ignore_missing=ignore_missing
         )
@@ -2235,6 +2240,11 @@ class Proxy(proxy.Proxy):
         :rtype:
             :class:`~openstack.identity.v3.identity_provider.IdentityProvider`
         """
+        warnings.warn(
+            "find_identity_provider is deprecated and will be removed in a "
+            "future release; please use get_identity_provider instead.",
+            os_warnings.RemovedInSDK60Warning,
+        )
         return self._find(
             _identity_provider.IdentityProvider,
             name_or_id,

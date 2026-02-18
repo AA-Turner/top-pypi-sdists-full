@@ -521,6 +521,7 @@ class CloudController(BaseController):
             region,
             project_id,
             cloud_id,
+            deployment_name,
             anyscale_access_service_account_name,
             workload_identity_pool_name,
             anyscale_aws_account,
@@ -585,6 +586,138 @@ class CloudController(BaseController):
             raise ClickException(
                 f"Timed out creating GCP resources. Please check your deployment for errors and delete all resources created in this deployment: {deployment_url}"
             )
+
+    def run_infrastructure_manager(  # noqa: PLR0913
+        self,
+        factory: Any,
+        deployment_name: str,
+        cloud_id: str,
+        project_id: str,
+        region: str,
+        anyscale_access_service_account: str,
+        workload_identity_pool_name: str,
+        anyscale_aws_account: str,
+        organization_id: str,
+        enable_head_node_fault_tolerance: bool,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
+    ) -> Dict[str, Any]:
+        """Create GCP resources via Infrastructure Manager. Returns TF outputs."""
+        setup_utils = try_import_gcp_managed_setup_utils()
+
+        deployment_url = f"https://console.cloud.google.com/infra-manager/deployments/details/{region}/{deployment_name}?project={project_id}"
+        self.log.info("Creating resources via Infrastructure Manager...")
+        self.log.info(f"Track progress at {deployment_url}")
+
+        with self.log.spinner(
+            "Creating cloud resources through Infrastructure Manager..."
+        ):
+            outputs = setup_utils.run_infra_manager_deployment(
+                factory=factory,
+                project_id=project_id,
+                region=region,
+                deployment_name=deployment_name,
+                cloud_id_underscore=cloud_id,
+                anyscale_access_service_account_name=anyscale_access_service_account.split(
+                    "@"
+                )[
+                    0
+                ],
+                workload_identity_pool_name=workload_identity_pool_name,
+                anyscale_aws_account=anyscale_aws_account,
+                organization_id=organization_id,
+                enable_head_node_fault_tolerance=enable_head_node_fault_tolerance,
+                enable_filestore=(shared_storage == SharedStorageType.NFS),
+            )
+            self.log.info("Infrastructure Manager deployment succeeded.")
+            return outputs
+
+    def setup_gcp_cloud_resources(  # noqa: PLR0913
+        self,
+        factory: Any,
+        deployment_name: str,
+        cloud_id: str,
+        project_id: str,
+        region: str,
+        anyscale_access_service_account: str,
+        pool_name: str,
+        anyscale_aws_account: str,
+        organization_id: str,
+        enable_head_node_fault_tolerance: bool,
+        shared_storage: SharedStorageType = SharedStorageType.OBJECT_STORAGE,
+    ):
+        """
+        Setup GCP cloud resources using either Infrastructure Manager or Deployment Manager.
+
+        This is the unified entry point for GCP resource creation that checks the
+        USE_INFRASTRUCTURE_MANAGER flag and routes to the appropriate implementation.
+        """
+        setup_utils = try_import_gcp_managed_setup_utils()
+
+        use_im = setup_utils.USE_INFRASTRUCTURE_MANAGER
+        if use_im:
+            im_outputs = self.run_infrastructure_manager(
+                factory,
+                deployment_name,
+                cloud_id,
+                project_id,
+                region,
+                anyscale_access_service_account,
+                pool_name,
+                anyscale_aws_account,
+                organization_id,
+                enable_head_node_fault_tolerance,
+                shared_storage=shared_storage,
+            )
+            self.log.info(
+                "Waiting for IAM bindings to propagate (this typically takes up to 60 seconds)..."
+            )
+            time.sleep(60)
+        else:
+            self.run_deployment_manager(
+                factory,
+                deployment_name,
+                cloud_id,
+                project_id,
+                region,
+                anyscale_access_service_account,
+                pool_name,
+                anyscale_aws_account,
+                organization_id,
+                enable_head_node_fault_tolerance,
+                shared_storage=shared_storage,
+            )
+
+        try:
+            with self.log.spinner("Updating Anyscale cloud with cloud resources..."):
+                if use_im:
+                    self.update_cloud_with_resources_gcp_infra_manager(
+                        factory,
+                        im_outputs,
+                        deployment_name,
+                        cloud_id,
+                        region,
+                        project_id,
+                        anyscale_access_service_account,
+                        provider_name=f"{pool_name}/providers/anyscale-access",
+                    )
+                else:
+                    self.update_cloud_with_resources_gcp(
+                        factory,
+                        deployment_name,
+                        cloud_id,
+                        region,
+                        project_id,
+                        anyscale_access_service_account,
+                        provider_name=f"{pool_name}/providers/anyscale-access",
+                    )
+        except Exception:
+            if use_im:
+                setup_utils.delete_infra_manager_deployment(
+                    factory, project_id, region, deployment_name
+                )
+            else:
+                setup_utils.delete_gcp_deployment(factory, project_id, deployment_name)
+            raise
 
     def get_cloud_resource_from_cfn_stack(
         self,
@@ -790,6 +923,60 @@ class CloudController(BaseController):
                 f"Error occurred when updating resources for the cloud {cloud_id}."
             )
 
+    def update_cloud_with_resources_gcp_infra_manager(  # noqa: PLR0913
+        self,
+        factory: Any,
+        outputs: Dict[str, Any],
+        deployment_name: str,
+        cloud_id: str,
+        region: str,
+        project_id: str,
+        anyscale_access_service_account: str,
+        provider_name: str,
+    ):
+        """Update cloud record with resources from Infrastructure Manager outputs."""
+        gcp_utils = try_import_gcp_utils()
+
+        gcp_vpc_id = outputs.get("vpc_name", "")
+        gcp_firewall_policy = outputs.get("firewall_policy_name", "")
+
+        # Build cloud resource record
+        memorystore_config = None
+        if outputs.get("redis_instance_name"):
+            memorystore_config = gcp_utils.get_gcp_memorystore_config(
+                factory, outputs["redis_instance_name"]
+            )
+
+        cloud_resource = CloudDeployment(
+            compute_stack=ComputeStack.VM,
+            provider=CloudProviders.GCP,
+            region=region,
+            networking_mode=NetworkingMode.PUBLIC,
+            object_storage=ObjectStorage(
+                bucket_name=GCS_STORAGE_PREFIX + outputs.get("storage_bucket_name", "")
+            ),
+            gcp_config=GCPConfig(
+                project_id=project_id,
+                provider_name=provider_name,
+                vpc_name=gcp_vpc_id,
+                subnet_names=[outputs.get("subnet_name", "")],
+                firewall_policy_names=[gcp_firewall_policy],
+                anyscale_service_account_email=anyscale_access_service_account,
+                cluster_service_account_email=outputs.get("cluster_node_sa_email", ""),
+                memorystore_instance_name=memorystore_config.name
+                if memorystore_config
+                else None,
+                memorystore_endpoint=memorystore_config.endpoint
+                if memorystore_config
+                else None,
+                infrastructure_manager_id=deployment_name,
+            ),
+        )
+
+        self.api_client.add_cloud_resource_api_v2_clouds_cloud_id_add_resource_put(
+            cloud_id=cloud_id, cloud_deployment=cloud_resource,
+        )
+
     def prepare_for_managed_cloud_setup(
         self,
         region: str,
@@ -903,10 +1090,10 @@ class CloudController(BaseController):
             if service_account is not None:
                 continue
             pool_id = f"anyscale-provider-pool-{token}"
-            wordload_identity_pool = setup_utils.get_workload_identity_pool(
+            workload_identity_pool = setup_utils.get_workload_identity_pool(
                 factory, project_id, pool_id
             )
-            if wordload_identity_pool is None:
+            if workload_identity_pool is None:
                 break
         else:
             self.cloud_event_producer.produce(
@@ -967,13 +1154,14 @@ class CloudController(BaseController):
         project_id: str,
         pool_id: str,
         anyscale_access_service_account: str,
-    ):
+    ) -> str:
+        """Create workload identity pool and provider. Returns the actual pool path with project number."""
         setup_utils = try_import_gcp_managed_setup_utils()
         # create provider pool
         pool_display_name = "Anyscale provider pool"
         pool_description = f"Workload Identity Provider Pool for Anyscale access service account {anyscale_access_service_account}"
 
-        wordload_identity_pool = setup_utils.create_workload_identity_pool(
+        workload_identity_pool = setup_utils.create_workload_identity_pool(
             factory, project_id, pool_id, self.log, pool_display_name, pool_description,
         )
         try:
@@ -987,7 +1175,7 @@ class CloudController(BaseController):
             setup_utils.create_anyscale_aws_provider(
                 factory,
                 organization_id,
-                wordload_identity_pool,
+                workload_identity_pool,
                 provider_id,
                 anyscale_aws_account,
                 provider_display_name,
@@ -996,11 +1184,12 @@ class CloudController(BaseController):
         except ClickException as e:
             # delete provider pool if there's an exception
             setup_utils.delete_workload_identity_pool(
-                factory, wordload_identity_pool, self.log
+                factory, workload_identity_pool, self.log
             )
             raise ClickException(
                 f"Error occurred when trying to set up workload identity federation: {e}"
             )
+        return workload_identity_pool
 
     def wait_for_cloud_to_be_active(
         self, cloud_id: str, cloud_provider: CloudProviders
@@ -1176,15 +1365,15 @@ class CloudController(BaseController):
 
             pool_id = pool_name.split("/")[-1]
             deployment_name = cloud_id.replace("_", "-").lower()
-            deployment_succeed = False
             try:
                 with self.log.spinner(
                     "Creating workload identity federation provider for Anyscale access..."
                 ):
-                    self.create_workload_identity_federation_provider(
+                    pool_name = self.create_workload_identity_federation_provider(
                         factory, project_id, pool_id, anyscale_access_service_account
                     )
-                deployment_succeed = self.run_deployment_manager(
+
+                self.setup_gcp_cloud_resources(
                     factory,
                     deployment_name,
                     cloud_id,
@@ -1197,21 +1386,11 @@ class CloudController(BaseController):
                     enable_head_node_fault_tolerance,
                     shared_storage=shared_storage,
                 )
+
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.RESOURCES_CREATED, succeeded=True,
                 )
-                with self.log.spinner(
-                    "Updating Anyscale cloud with cloud resources..."
-                ):
-                    self.update_cloud_with_resources_gcp(
-                        factory,
-                        deployment_name,
-                        cloud_id,
-                        region,
-                        project_id,
-                        anyscale_access_service_account,
-                        provider_name=f"{pool_name}/providers/anyscale-access",
-                    )
+
                 self.wait_for_cloud_to_be_active(cloud_id, CloudProviders.GCP)
                 self.cloud_event_producer.produce(
                     CloudAnalyticsEventName.INFRA_SETUP_COMPLETE, succeeded=True,
@@ -1227,12 +1406,6 @@ class CloudController(BaseController):
                 self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
                     cloud_id=cloud_id
                 )
-                if deployment_succeed:
-                    # only clean up deployment if it's created successfully
-                    # otherwise keep the deployment for customers to check the errors
-                    setup_utils.delete_gcp_deployment(
-                        factory, project_id, deployment_name
-                    )
                 setup_utils.delete_workload_identity_pool(factory, pool_name, self.log)
                 raise ClickException("Cloud setup failed!")
 
@@ -3122,12 +3295,12 @@ class CloudController(BaseController):
             functional_verify
         )
 
-        if not validate_aws_credentials(self.log):
+        assert cloud_resource.aws_config
+
+        if not skip_verifications and not validate_aws_credentials(self.log):
             raise ClickException(
                 "Cloud registration requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
             )
-
-        assert cloud_resource.aws_config
 
         if not (
             cloud_resource.object_storage and cloud_resource.object_storage.bucket_name
@@ -3189,45 +3362,53 @@ class CloudController(BaseController):
             )
             raise
 
-        try:
-            role, iam_role_original_policy = self._preprocess_aws(
-                cloud_id=cloud_id, deployment=cloud_resource
-            )
-            self.cloud_event_producer.produce(
-                CloudAnalyticsEventName.PREPROCESS_COMPLETE, succeeded=True
-            )
-        except Exception as e:  # noqa: BLE001
-            error = str(e)
-            self.log.error(error)
-            error_msg_for_event = str(e)
-            if isinstance(e, NoCredentialsError):
-                # If it is a credentials error, rewrite the error to be more clear
-                error = "Unable to locate AWS credentials. Cloud registration requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
-                error_msg_for_event = "Unable to locate AWS credentials."
-            self.cloud_event_producer.produce(
-                CloudAnalyticsEventName.PREPROCESS_COMPLETE,
-                succeeded=False,
-                logger=self.log,
-                internal_error=error_msg_for_event,
-            )
-            # Delete the cloud if registering the cloud fails
-            self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
-                cloud_id=cloud_id
-            )
+        # When skip_verifications is True, skip preprocessing (which requires local AWS creds).
+        # The backend will populate missing derived values using the IAM role.
+        role, iam_role_original_policy = None, None
+        if skip_verifications:
+            # Set external_id here since _preprocess_aws (which normally sets it) is skipped.
+            if cloud_resource.aws_config.external_id is None:
+                cloud_resource.aws_config.external_id = cloud_id
+        else:
             try:
-                if (
-                    iam_role_original_policy is not None
-                    and cloud_resource.aws_config.external_id is None
-                ):
-                    # Revert the assume policy back to the original policy
-                    role.AssumeRolePolicy().update(  # type: ignore
-                        PolicyDocument=json.dumps(iam_role_original_policy)
-                    )
-            except Exception as revert_error:  # noqa: BLE001
-                raise ClickException(
-                    f"Cloud registration failed! {error}. Failed to revert the trust policy back to the original policy. {revert_error}"
+                role, iam_role_original_policy = self._preprocess_aws(
+                    cloud_id=cloud_id, deployment=cloud_resource
                 )
-            raise ClickException(f"Cloud registration failed! {error}")
+                self.cloud_event_producer.produce(
+                    CloudAnalyticsEventName.PREPROCESS_COMPLETE, succeeded=True
+                )
+            except Exception as e:  # noqa: BLE001
+                error = str(e)
+                self.log.error(error)
+                error_msg_for_event = str(e)
+                if isinstance(e, NoCredentialsError):
+                    # If it is a credentials error, rewrite the error to be more clear
+                    error = "Unable to locate AWS credentials. Cloud registration requires valid AWS credentials to be set locally. Learn more: https://boto3.amazonaws.com/v1/documentation/api/latest/guide/credentials.html"
+                    error_msg_for_event = "Unable to locate AWS credentials."
+                self.cloud_event_producer.produce(
+                    CloudAnalyticsEventName.PREPROCESS_COMPLETE,
+                    succeeded=False,
+                    logger=self.log,
+                    internal_error=error_msg_for_event,
+                )
+                # Delete the cloud if registering the cloud fails
+                self.api_client.delete_cloud_api_v2_clouds_cloud_id_delete(
+                    cloud_id=cloud_id
+                )
+                try:
+                    if (
+                        iam_role_original_policy is not None
+                        and cloud_resource.aws_config.external_id is None
+                    ):
+                        # Revert the assume policy back to the original policy
+                        role.AssumeRolePolicy().update(  # type: ignore
+                            PolicyDocument=json.dumps(iam_role_original_policy)
+                        )
+                except Exception as revert_error:  # noqa: BLE001
+                    raise ClickException(
+                        f"Cloud registration failed! {error}. Failed to revert the trust policy back to the original policy. {revert_error}"
+                    )
+                raise ClickException(f"Cloud registration failed! {error}")
 
         try:
             # Verify cloud resources meet our requirement
@@ -3739,7 +3920,8 @@ class CloudController(BaseController):
                 ) and not cloud_resource.gcp_config.project_id:
                     raise ClickException("Please provide a project ID.")
 
-            self._preprocess_gcp(cloud_resource)
+            if not skip_verifications:
+                self._preprocess_gcp(cloud_resource)
 
             # Verification is only performed for VM compute stack.
             # TODO (shomilj): Add verification to the K8S compute stack as well.

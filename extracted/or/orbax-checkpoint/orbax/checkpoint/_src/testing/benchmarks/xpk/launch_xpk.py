@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -252,6 +252,11 @@ _RAMDISK_DIRECTORY = flags.DEFINE_string(
     None,
     'Directory to mount a ramdisk (e.g., /tmp/ramdisk).',
 )
+_STORAGE = flags.DEFINE_string(
+    'storage',
+    None,
+    'Storage type to use for the workload (e.g., test-service-lustre).',
+)
 _XPK_PATH = flags.DEFINE_string(
     'xpk_path', 'xpk', 'Path to xpk binary or command.'
 )
@@ -260,6 +265,14 @@ _SKIP_PREFLIGHT_CHECKS = flags.DEFINE_boolean(
 )
 _VERBOSE = flags.DEFINE_boolean(
     'verbose', False, 'If True, show logs from XPK commands.'
+)
+_V_LEVEL = flags.DEFINE_integer(
+    'v_level', None, 'Verbosity level for the benchmark binary (e.g., 1).'
+)
+_TEST_RESTART_WORKFLOW = flags.DEFINE_boolean(
+    'test_restart_workflow',
+    False,
+    'If True, run workload creation and execution twice to test restart.',
 )
 
 # --- Pathways Flags ---
@@ -272,12 +285,12 @@ _ENABLE_PATHWAYS = flags.DEFINE_boolean(
 )
 _PATHWAYS_SERVER_IMAGE = flags.DEFINE_string(
     'pathways_server_image',
-    'us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/server:2025-10-03',
+    'us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/server:latest',
     'Pathways server image (manages TPU chips).',
 )
 _PATHWAYS_PROXY_IMAGE = flags.DEFINE_string(
     'pathways_proxy_image',
-    'us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/proxy_server:2025-10-03',
+    'us-docker.pkg.dev/cloud-tpu-v2-images/pathways-colocated-python/proxy_server:latest',
     'Pathways proxy image (bridges user code to server).',
 )
 # LINT.ThenChange(README.md:launch_xpk_flags_table)
@@ -518,6 +531,23 @@ def create_cluster() -> None:
   if _TENSORBOARD_NAME.value is not None:
     cmd.append(f'--tensorboard-name={_TENSORBOARD_NAME.value}')
 
+  # MTC Args
+  # We are using MTC to enable ramdisk functionality via GCSFuse, which is
+  # required for some benchmarks. We do not use multi-tier checkpointing
+  # features of MTC in our testing. Enabling MTC requires specific addons
+  # (HighScaleCheckpointing, GcsFuseCsiDriver) and workload-pool for
+  # authentication during cluster creation. An alternative approach to enable
+  # ramdisk without MTC might be possible and could be explored later.
+  if _RAMDISK_DIRECTORY.value:
+    bucket = _OUTPUT_DIRECTORY.value.split('/')[2]
+    cmd.append('--enable-mtc')
+    cmd.append('--mtc-ramdisk-size=32G')
+    cmd.append(f'--mtc-gcs-bucket={bucket}')
+    cmd.append(
+        '--custom-cluster-arguments=--workload-pool=orbax-checkpoint.svc.id.goog'
+        ' --addons=HighScaleCheckpointing,GcsFuseCsiDriver'
+    )
+
   run_command(cmd, suppress_output=not _VERBOSE.value)
   Console.print_success(f'Cluster {_CLUSTER_NAME.value} created.')
 
@@ -529,6 +559,7 @@ def construct_workload_command(
     run_id: str,
     enable_pathways: bool,
     benchmark_binary_path: str,
+    v_level: int | None,
 ) -> str:
   """Constructs the command to run inside the workload."""
   # Environment variables
@@ -543,12 +574,24 @@ def construct_workload_command(
 
   env_cmd = ' && '.join(env_vars) + ' && ' if env_vars else ''
 
-  python_cmd = (
-      f'python3 {benchmark_binary_path} '
-      f'--config_file={config_file} '
-      f'--output_directory={os.path.join(output_directory, run_id)} '
-      '--alsologtostderr'
-  )
+  python_args = [
+      f'python3 {benchmark_binary_path}',
+      f'--config_file={config_file}',
+      f'--output_directory={os.path.join(output_directory, run_id)}',
+      '--alsologtostderr',
+  ]
+  if _RAMDISK_DIRECTORY.value is not None:
+    python_args.append(f'--local_directory={_RAMDISK_DIRECTORY.value}')
+  if v_level is not None:
+    python_args.append(f'--v={v_level}')
+
+  python_cmd = ' '.join(python_args)
+  if enable_pathways:
+    python_cmd = (
+        'python3 -c "import pathwaysutils;'
+        ' pathwaysutils.initialize()" && '
+        + python_cmd
+    )
 
   return f'{env_cmd}{python_cmd}'
 
@@ -569,6 +612,8 @@ def construct_xpk_command(
       f'--priority={_PRIORITY.value}',
   ]
 
+  if _STORAGE.value is not None:
+    base_cmd.append(f'--storage={_STORAGE.value}')
   if _TPU_TYPE.value is not None:
     base_cmd.append(f'--tpu-type={_TPU_TYPE.value}')
   if _DEVICE_TYPE.value is not None:
@@ -599,6 +644,8 @@ def construct_xpk_command(
     base_cmd.append(f'--run-name={_RUN_NAME.value}')
   if _ENABLE_OPS_AGENT.value:
     base_cmd.append('--enable-ops-agent')
+  if _RAMDISK_DIRECTORY.value is not None:
+    base_cmd.append('--mtc-enabled')
 
   if _ENABLE_PATHWAYS.value:
     if not _PATHWAYS_SERVER_IMAGE.value:
@@ -613,7 +660,7 @@ def construct_xpk_command(
     image_args = [
         f'--server-image={_PATHWAYS_SERVER_IMAGE.value}',
         f'--proxy-server-image={_PATHWAYS_PROXY_IMAGE.value}',
-        f'--colocated-python-sidecar-image={_DOCKER_IMAGE.value}',
+        f'--docker-image={_DOCKER_IMAGE.value}'
     ]
 
   else:
@@ -653,7 +700,7 @@ def print_summary(
       '',
       (
           f'  📄 {Console.BOLD}Logs:{Console.RESET}      '
-          f' https://console.cloud.google.com/logs/query;query=resource.labels.pod_name:"{workload_name}"?project={project}'
+          f' https://console.cloud.google.com/logs/query;query=resource.labels.pod_name:"{workload_name}"%0Aresource.labels.container_name:"jax-tpu"?project={project}'
       ),
       (
           f'  📦 {Console.BOLD}Artifacts:{Console.RESET} '
@@ -682,6 +729,67 @@ def upload_config_to_gcs(local_path: str, gcs_root: str, run_id: str) -> str:
   return gcs_path
 
 
+def update_bucket_csi_driver(mount_csi_driver: bool):
+  """Mounts or unmounts the Bucket CSI driver.
+
+  Args:
+    mount_csi_driver: If True, applies the CSI driver configuration. If False,
+      deletes the CSI driver configuration.
+  """
+  script_dir = os.path.dirname(os.path.realpath(__file__))
+  cpc_yaml_path = os.path.join(script_dir, 'cpc.yaml')
+  bucket = _OUTPUT_DIRECTORY.value.split('/')[2]
+  if mount_csi_driver:
+    run_command(
+        [
+            'bash',
+            '-c',
+            f'BUCKET_NAME={bucket} envsubst < {cpc_yaml_path} | kubectl apply'
+            ' -f -',
+        ],
+        suppress_output=not _VERBOSE.value,
+    )
+  else:
+    try:
+      configs_str = run_command(
+          [
+              'kubectl',
+              'get',
+              'checkpointconfiguration',
+              '-o',
+              'custom-columns=NAME:.metadata.name,BUCKET:.spec.cloudStorageBucketName',
+              '--no-headers',
+          ],
+          capture_output=True,
+          suppress_output=not _VERBOSE.value,
+      )
+      configs_to_delete = []
+      if configs_str:
+        for line in configs_str.splitlines():
+          parts = line.split()
+          if len(parts) == 2 and parts[1] == bucket:
+            configs_to_delete.append(parts[0])
+      if configs_to_delete:
+        Console.print_info(
+            f'Deleting CheckpointConfigurations: {", ".join(configs_to_delete)}'
+        )
+        run_command(
+            ['kubectl', 'delete', 'checkpointconfiguration']
+            + configs_to_delete,
+            suppress_output=not _VERBOSE.value,
+        )
+    except subprocess.CalledProcessError as e:
+      output_str = e.output.decode('utf-8') if e.output else ''
+      if 'No resources found' in output_str:
+        Console.print_info(
+            'No CheckpointConfiguration resources found to delete.'
+        )
+      else:
+        Console.print_warning(
+            f'Failed to list CheckpointConfigurations: {output_str}'
+        )
+
+
 def main(argv: Sequence[str]) -> None:
   if len(argv) > 1:
     raise app.UsageError('Too many command-line arguments.')
@@ -693,6 +801,14 @@ def main(argv: Sequence[str]) -> None:
   if not cluster_exists:
     create_cluster()
 
+  if _RAMDISK_DIRECTORY.value is not None:
+    # Delete CSI driver before running any workloads, to delete any previous
+    # checkpoint files.
+    update_bucket_csi_driver(mount_csi_driver=False)
+    # Mount CSI driver for the workload.
+    update_bucket_csi_driver(mount_csi_driver=True)
+    Console.print_success('Local bucket CSI driver mounted.')
+
   # 3. Preparation
   Console.print_step(2, 6, 'Preparing Workload')
   timestamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
@@ -701,18 +817,25 @@ def main(argv: Sequence[str]) -> None:
   )
 
   if _WORKLOAD_NAME.value is not None:
-    workload_name = _WORKLOAD_NAME.value
+    workload_name_base = _WORKLOAD_NAME.value
   else:
-    base_name, _ = os.path.splitext(os.path.basename(_CONFIG_FILE.value))
-    # XPK requires workload name < 40 chars.
-    # Format: orbax-{base_name}-{timestamp}
-    # timestamp (15) + orbax- (6) + separators (1) = 22 chars.
-    # Max base_name = 40 - 22 = 18 chars. We use 15 to be safe.
-    if len(base_name) > 15:
-      base_name = base_name[:15]
-    workload_name = f'orbax-{base_name}-{timestamp}'.replace('_', '-').lower()
+    if _ENABLE_PATHWAYS.value:
+      # XPK for pathways requires workload name < 25 chars.
+      # Format: orbax-{timestamp}
+      # timestamp (15) + orbax- (6) + separators (1) = 22 chars.
+      workload_name_base = f'orbax-{timestamp}'.replace('_', '-').lower()
+    else:
+      base_name, _ = os.path.splitext(os.path.basename(_CONFIG_FILE.value))
+      # XPK requires workload name < 40 chars.
+      # Format: orbax-{base_name}-{timestamp}
+      # timestamp (15) + orbax- (6) + separators (1) = 22 chars.
+      # Max base_name = 40 - 22 = 18 chars. We use 15 to be safe.
+      if len(base_name) > 5:
+        base_name = base_name[:5]
+      workload_name_base = (
+          f'orbax-{base_name}-{timestamp}'.replace('_', '-').lower()
+      )
 
-  Console.print_info(f'Workload: {workload_name}')
   Console.print_info(f'Run ID:   {run_id}')
 
   # 4. Upload Config
@@ -730,83 +853,117 @@ def main(argv: Sequence[str]) -> None:
       run_id=run_id,
       enable_pathways=_ENABLE_PATHWAYS.value,
       benchmark_binary_path=_BENCHMARK_BINARY_PATH.value,
-  )
-  xpk_cmd = construct_xpk_command(workload_name, workload_cmd)
-
-  # 6. Launch
-  Console.print_step(5, 6, 'Launching Workload')
-  run_command(xpk_cmd, suppress_output=not _VERBOSE.value)
-
-  print_summary(
-      workload_name=workload_name,
-      run_id=run_id,
-      project=_PROJECT.value,
-      zone=_ZONE.value,
-      cluster=_CLUSTER_NAME.value,
-      output_directory=_OUTPUT_DIRECTORY.value,
+      v_level=_V_LEVEL.value,
   )
 
-  # 7. Post-Launch (Wait / Delete)
-  should_wait = _WAIT.value or _DELETE_CLUSTER_ON_COMPLETION.value
-  if not should_wait:
-    return
+  attempts = 2 if _TEST_RESTART_WORKFLOW.value else 1
+  final_workload_failed = False
 
-  Console.print_step(6, 6, 'Post-Launch Actions')
-  Console.print_info(f'Waiting for workload {workload_name}...')
+  for i in range(attempts):
+    is_last_attempt = i == attempts - 1
+    attempt_num = i + 1
 
-  if _DELETE_CLUSTER_ON_COMPLETION.value:
-    Console.print_warning(
-        'Cluster auto-deletion is ENABLED. Do not interrupt if you want'
-        ' auto-deletion.'
+    workload_name = workload_name_base
+    if attempts > 1:
+      workload_name = f'{workload_name}-{attempt_num}'
+
+    Console.print_info(f'Workload: {workload_name}')
+
+    xpk_cmd = construct_xpk_command(workload_name, workload_cmd)
+
+    # 6. Launch
+    Console.print_step(
+        5,
+        6,
+        f'Launching Workload {workload_name} (Attempt'
+        f' {attempt_num}/{attempts})',
     )
-  else:
-    Console.print_info(
-        'You can Ctrl+C to stop waiting (workload will continue).'
+    run_command(xpk_cmd, suppress_output=not _VERBOSE.value)
+
+    print_summary(
+        workload_name=workload_name,
+        run_id=run_id,
+        project=_PROJECT.value,
+        zone=_ZONE.value,
+        cluster=_CLUSTER_NAME.value,
+        output_directory=_OUTPUT_DIRECTORY.value,
     )
 
-  try:
-    run_command(
-        [
-            _XPK_PATH.value,
-            'workload',
-            'list',
-            f'--cluster={_CLUSTER_NAME.value}',
-            f'--project={_PROJECT.value}',
-            f'--zone={_ZONE.value}',
-            f'--wait-for-job-completion={workload_name}',
-        ],
-        suppress_output=not _VERBOSE.value,
+    # 7. Post-Launch (Wait / Delete)
+    should_wait = _WAIT.value or _DELETE_CLUSTER_ON_COMPLETION.value
+    if not should_wait:
+      continue
+
+    Console.print_step(
+        6, 6, f'Post-Launch Actions (Attempt {attempt_num}/{attempts})'
     )
-  except subprocess.CalledProcessError:
-    Console.print_error('Workload FAILED or was preempted.')
-    Console.print_info(
-        'Check logs: https://console.cloud.google.com/logs/query;'
-        f'query=resource.labels.pod_name:"{workload_name}"?project={_PROJECT.value}'
-    )
-    sys.exit(1)
-  except KeyboardInterrupt:
-    Console.print_warning('\nWait interrupted by user.')
-    if _DELETE_CLUSTER_ON_COMPLETION.value:
-      Console.print_error('Skipping cluster deletion due to interruption.')
-      sys.exit(1)
-  else:
-    Console.print_success('Workload completed successfully.')
-    if _DELETE_CLUSTER_ON_COMPLETION.value:
-      Console.print_info(f'Deleting cluster {_CLUSTER_NAME.value}...')
+    Console.print_info(f'Waiting for workload {workload_name}...')
+
+    if _DELETE_CLUSTER_ON_COMPLETION.value and is_last_attempt:
+      Console.print_warning(
+          'Cluster auto-deletion is ENABLED. Do not interrupt if you want'
+          ' auto-deletion.'
+      )
+    else:
+      Console.print_info(
+          'You can Ctrl+C to stop waiting (workload will continue).'
+      )
+
+    try:
       run_command(
           [
               _XPK_PATH.value,
-              'cluster',
-              'delete',
+              'workload',
+              'list',
               f'--cluster={_CLUSTER_NAME.value}',
               f'--project={_PROJECT.value}',
               f'--zone={_ZONE.value}',
-              '--force',
+              f'--wait-for-job-completion={workload_name}',
           ],
           suppress_output=not _VERBOSE.value,
-          cwd='/tmp',
       )
-      Console.print_success('Cluster deleted.')
+    except subprocess.CalledProcessError:
+      Console.print_error(f'Workload {workload_name} FAILED or was preempted.')
+      Console.print_info(
+          'Check logs: https://console.cloud.google.com/logs/query;'
+          f'query=resource.labels.pod_name:"{workload_name}"?project={_PROJECT.value}'
+      )
+      if is_last_attempt:
+        final_workload_failed = True
+    except KeyboardInterrupt:
+      Console.print_warning('\nWait interrupted by user.')
+      if _DELETE_CLUSTER_ON_COMPLETION.value:
+        Console.print_error('Skipping cluster deletion due to interruption.')
+      sys.exit(1)
+    else:
+      Console.print_success(
+          f'Workload {workload_name} completed successfully.'
+      )
+
+  if _RAMDISK_DIRECTORY.value is not None:
+    # Unmount CSI driver after running workloads, to delete
+    # checkpoint files.
+    update_bucket_csi_driver(mount_csi_driver=False)
+
+  if final_workload_failed:
+    sys.exit(1)
+
+  if _DELETE_CLUSTER_ON_COMPLETION.value:
+    Console.print_info(f'Deleting cluster {_CLUSTER_NAME.value}...')
+    run_command(
+        [
+            _XPK_PATH.value,
+            'cluster',
+            'delete',
+            f'--cluster={_CLUSTER_NAME.value}',
+            f'--project={_PROJECT.value}',
+            f'--zone={_ZONE.value}',
+            '--force',
+        ],
+        suppress_output=not _VERBOSE.value,
+        cwd='/tmp',
+    )
+    Console.print_success('Cluster deleted.')
 
 
 if __name__ == '__main__':

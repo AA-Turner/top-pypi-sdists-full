@@ -14,7 +14,8 @@ CONVERSATION_HISTORY_FILENAME = "conversation_history.jsonl"
 
 
 def generate_bash_id() -> str:
-    return secrets.token_urlsafe(6)
+    alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(8))
 
 
 def _paths(chat_uuid: str, relative: str) -> tuple[str, str]:
@@ -56,3 +57,17 @@ def s3_key_to_local_path(s3_key: str, chat_uuid: str) -> str:
 def local_path_to_s3_key(local_path: str, chat_uuid: str) -> str:
     chat_dir = get_chat_artifacts_dir(chat_uuid)
     return os.path.relpath(local_path, chat_dir)
+
+
+_SUBDIRS = [
+    BASH_RESULTS_DIR,
+    QUERY_RESULTS_DIR,
+    USER_UPLOADS_DIR,
+    ARTIFACTS_HISTORY_DIR,
+]
+
+
+def ensure_chat_directories(chat_uuid: str) -> None:
+    chat_dir = get_chat_artifacts_dir(chat_uuid)
+    for subdir in _SUBDIRS:
+        os.makedirs(os.path.join(chat_dir, subdir), exist_ok=True)

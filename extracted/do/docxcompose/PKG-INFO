@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docxcompose
-Version: 2.0.1
+Version: 2.0.2
 Summary: Compose .docx documents
 License-File: LICENSE
 Author: 4teamwork AG
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Dist: babel (>=2,<3)
-Requires-Dist: lxml (>=5,<6)
+Requires-Dist: lxml (>=5)
 Requires-Dist: python-docx (>=1,<2)
 Requires-Dist: six (>=1,<2)
 Description-Content-Type: text/x-rst

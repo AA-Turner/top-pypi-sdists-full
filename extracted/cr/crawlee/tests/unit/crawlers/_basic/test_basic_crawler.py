@@ -1093,17 +1093,19 @@ async def test_logs_final_statistics(
     else:
         assert final_statistics.msg == 'Final request statistics:'
 
-        # ignore[attr-defined] since `extra` parameters are not defined for `LogRecord`
-        assert final_statistics.requests_finished == 4
-        assert final_statistics.requests_failed == 33
-        assert final_statistics.retry_histogram == [1, 4, 8]
-        assert final_statistics.request_avg_failed_duration == 99.0
-        assert final_statistics.request_avg_finished_duration == 0.483
-        assert final_statistics.requests_finished_per_minute == 0.33
-        assert final_statistics.requests_failed_per_minute == 0.1
-        assert final_statistics.request_total_duration == 720.0
-        assert final_statistics.requests_total == 37
-        assert final_statistics.crawler_runtime == 300.0
+        # `extra` parameters are not defined on `LogRecord`, so we cast to `Any` to access them.
+        record = cast('Any', final_statistics)
+
+        assert record.requests_finished == 4
+        assert record.requests_failed == 33
+        assert record.retry_histogram == [1, 4, 8]
+        assert record.request_avg_failed_duration == 99.0
+        assert record.request_avg_finished_duration == 0.483
+        assert record.requests_finished_per_minute == 0.33
+        assert record.requests_failed_per_minute == 0.1
+        assert record.request_total_duration == 720.0
+        assert record.requests_total == 37
+        assert record.crawler_runtime == 300.0
 
 
 async def test_crawler_manual_stop() -> None:
@@ -1373,6 +1375,7 @@ async def test_timeout_in_handler(sleep_type: str) -> None:
     # Test is skipped in older Python versions.
     from asyncio import timeout  # type:ignore[attr-defined] # noqa: PLC0415
 
+    non_realtime_system_coefficient = 2
     handler_timeout = timedelta(seconds=1)
     max_request_retries = 3
     double_handler_timeout_s = handler_timeout.total_seconds() * 2
@@ -1401,7 +1404,7 @@ async def test_timeout_in_handler(sleep_type: str) -> None:
 
     # Timeout in pytest, because previous implementation would run crawler until following:
     # "The request queue seems to be stuck for 300.0s, resetting internal state."
-    async with timeout(max_request_retries * double_handler_timeout_s):
+    async with timeout(max_request_retries * double_handler_timeout_s * non_realtime_system_coefficient):
         await crawler.run(['https://a.placeholder.com'])
 
     assert crawler.statistics.state.requests_finished == 1

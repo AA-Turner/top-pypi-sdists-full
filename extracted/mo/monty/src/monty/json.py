@@ -34,12 +34,6 @@ except ImportError:
     bson = None
     json_util = None
 
-try:
-    import orjson
-except ImportError:
-    orjson = None  # type: ignore[assignment]
-
-
 __version__ = "3.0.0"
 
 
@@ -91,8 +85,7 @@ def _check_type(obj: object, type_str: tuple[str, ...] | str) -> bool:
         assert not isinstance(a, B)
 
     Note for future developers: the type_str is not always obvious for an
-    object. For example, pandas.DataFrame is actually "pandas.core.frame.DataFrame".
-    To find out the type_str for an object, run type(obj).mro(). This will
+    object. To find out the type_str for an object, run type(obj).mro(). This will
     list all the types that an object can resolve to in order of generality
     (all objects have the "builtins.object" as the last one).
     """
@@ -603,6 +596,7 @@ class MontyEncoder(json.JSONEncoder):
                 "@module": "torch",
                 "@class": "Tensor",
                 "dtype": o.type(),
+                "size": list(o.size()),
             }
             if "Complex" in o.type():
                 d["data"] = [o.real.tolist(), o.imag.tolist()]
@@ -628,13 +622,13 @@ class MontyEncoder(json.JSONEncoder):
         if isinstance(o, np.generic):
             return o.item()
 
-        if _check_type(o, "pandas.core.frame.DataFrame"):
+        if _check_type(o, ("pandas.core.frame.DataFrame", "pandas.DataFrame")):
             return {
                 "@module": "pandas",
                 "@class": "DataFrame",
                 "data": o.to_json(default_handler=MontyEncoder().encode),
             }
-        if _check_type(o, "pandas.core.series.Series"):
+        if _check_type(o, ("pandas.core.series.Series", "pandas.Series")):
             return {
                 "@module": "pandas",
                 "@class": "Series",
@@ -826,13 +820,21 @@ class MontyDecoder(json.JSONDecoder):
                         import torch  # import torch is very expensive
 
                         if "Complex" in d["dtype"]:
+                            if "size" in d and d["data"] == [[], []]:
+                                return torch.empty(d["size"]).type(d["dtype"])
+
                             return torch.tensor(
                                 [
                                     np.array(r) + np.array(i) * 1j
                                     for r, i in zip(*d["data"])
                                 ],
                             ).type(d["dtype"])
-                        return torch.tensor(d["data"]).type(d["dtype"])
+
+                        else:
+                            if "size" in d and d["data"] == []:
+                                return torch.empty(d["size"]).type(d["dtype"])
+
+                            return torch.tensor(d["data"]).type(d["dtype"])
 
                     except ImportError:
                         pass
@@ -893,11 +895,6 @@ class MontyDecoder(json.JSONDecoder):
             # need to pass `json_options` to ensure that datetimes are not
             # converted by BSON
             d = json_util.loads(s, json_options=json_util.JSONOptions(tz_aware=True))
-        elif orjson is not None:
-            try:
-                d = orjson.loads(s)
-            except orjson.JSONDecodeError:
-                d = json.loads(s)
         else:
             d = json.loads(s)
         return self.process_decoded(d)
@@ -989,7 +986,9 @@ def jsanitize(
         obj,
         (
             "pandas.core.series.Series",
+            "pandas.Series",
             "pandas.core.frame.DataFrame",
+            "pandas.DataFrame",
             "pandas.core.base.PandasObject",
         ),
     ):

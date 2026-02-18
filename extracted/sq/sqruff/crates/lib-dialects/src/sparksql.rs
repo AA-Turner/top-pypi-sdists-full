@@ -1998,21 +1998,23 @@ pub fn raw_dialect() -> Dialect {
         hive_dialect.grammar("CreateTableStatementSegment").into(),
     )]);
 
+    // SparkSQL supports CTEs with DML statements (INSERT, UPDATE, DELETE, etc.)
+    // We add these to NonWithSelectableGrammar so WithCompoundStatementSegment can use them
     sparksql_dialect.add([(
-        "NonWithNonSelectableGrammar".into(),
-        ansi::raw_dialect()
-            .grammar("NonWithNonSelectableGrammar")
-            .copy(
-                Some(vec![
-                    Ref::new("InsertOverwriteDirectorySegment").to_matchable(),
-                ]),
-                None,
-                None,
-                None,
-                Vec::new(),
-                false,
-            )
-            .into(),
+        "NonWithSelectableGrammar".into(),
+        one_of(vec![
+            Ref::new("SetExpressionSegment").to_matchable(),
+            optionally_bracketed(vec![Ref::new("SelectStatementSegment").to_matchable()])
+                .to_matchable(),
+            Ref::new("NonSetSelectableGrammar").to_matchable(),
+            Ref::new("UpdateStatementSegment").to_matchable(),
+            Ref::new("InsertStatementSegment").to_matchable(),
+            Ref::new("DeleteStatementSegment").to_matchable(),
+            Ref::new("MergeStatementSegment").to_matchable(),
+            Ref::new("InsertOverwriteDirectorySegment").to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
     )]);
 
     sparksql_dialect.replace_grammar(
@@ -4456,6 +4458,17 @@ pub fn raw_dialect() -> Dialect {
     sparksql_dialect
 }
 
-pub fn dialect() -> Dialect {
-    raw_dialect().config(|config| config.expand())
+use sqruff_lib_core::dialects::init::{DialectConfig, NullDialectConfig};
+use sqruff_lib_core::value::Value;
+
+/// Configuration for the SparkSQL dialect.
+pub type SparkSQLDialectConfig = NullDialectConfig;
+
+pub fn dialect(config: Option<&Value>) -> Dialect {
+    // Parse and validate dialect configuration, falling back to defaults on failure
+    let _dialect_config: SparkSQLDialectConfig = config
+        .map(SparkSQLDialectConfig::from_value)
+        .unwrap_or_default();
+
+    raw_dialect().config(|c| c.expand())
 }

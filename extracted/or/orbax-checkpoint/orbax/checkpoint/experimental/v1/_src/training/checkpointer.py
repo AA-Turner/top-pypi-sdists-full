@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import typing
 from typing import Any, Iterable, Sequence
 
 from absl import logging
@@ -67,6 +68,7 @@ def _resolve_integer_step(
   return step.step
 
 
+@typing.final
 class Checkpointer(epy.ContextManager):
   """An object that manages a sequence of checkpoints in a training loop."""
 
@@ -205,13 +207,14 @@ class Checkpointer(epy.ContextManager):
   def checkpoints(self) -> Sequence[CheckpointMetadata[None]]:
     """Returns a list of :py:class:`.CheckpointMetadata`, sorted ascending by step.
 
-    The method returns a list of `CheckpointMetadata` objects, which contain
-    selected properties describing the checkpoint. Contrast this with the
-    methods `pytree_metadata` and `checkpointables_metadata`, which may perform
-    a more expensive disk read to retrieve additional information. This method
-    only returns cheap cacheable properties like step and timestamp. The return
-    value is annotated as `CheckpointMetadata[None]` because the core `metadata`
-    property is not retrieved, and is therefore `None`.
+    The method returns a list of :py:class:`.CheckpointMetadata` objects, which
+    contain selected properties describing the checkpoint. Contrast this with
+    the methods :py:func:`.pytree_metadata` and
+    :py:func:`.checkpointables_metadata`, which may perform a more expensive
+    disk read to retrieve additional information. This method only returns
+    cheap cacheable properties like step and timestamp. The return value is
+    annotated as :py:class:`.CheckpointMetadata[None]` because the core
+    `metadata` property is not retrieved, and is therefore `None`.
 
     The property is cached to avoid repeated disk reads. This is not a problem
     unless checkpoints are manually deleted, or deleted by some other job or
@@ -221,6 +224,7 @@ class Checkpointer(epy.ContextManager):
     Returns:
       A list of checkpoints, sorted ascending by step.
     """
+
     infos = sorted(self._manager._checkpoints, key=lambda info: info.step)  # pylint: disable=protected-access
     return [
         CheckpointMetadata[None](
@@ -263,7 +267,7 @@ class Checkpointer(epy.ContextManager):
       metrics: tree_types.JsonType | None = None,
       custom_metadata: tree_types.JsonType | None = None,
   ) -> bool:
-    """Saves a PyTree checkpoint at the given step.
+    """Saves a checkpoint, if dictated by :py:class:`.SaveDecisionPolicy`.
 
     This function behaves similarly to :py:func:`.save_pytree` (see
     documentation), but performs additional tasks related to managing a sequence
@@ -271,9 +275,19 @@ class Checkpointer(epy.ContextManager):
 
     It consists roughly of the following steps:
       - Check whether a checkpoint should be saved at the given step.
+      - Check whether a save is already in progress. If so, wait for it to
+        finish.
       - Save to a directory given by `root_directory / <step_format>`.
       - Perform garbage collection if necessary.
       - Return whether a checkpoint was saved or not.
+
+    It is important to note that the `Checkpointer` never allows saving more
+    than one checkpoint at a time. Depending on the
+    :py:class:`.SaveDecisionPolicy`, a checkpoint may be saved or skipped at a
+    given step, but if a save is initiated, as dictated by the policy, then it
+    will proceed as normal as long as no other save is currently in progress. If
+    a save is already in progress, the function will block until the previous
+    save has finished.
 
     Args:
       step: The step number to save.
@@ -330,11 +344,12 @@ class Checkpointer(epy.ContextManager):
       metrics: tree_types.JsonType | None = None,
       custom_metadata: tree_types.JsonType | None = None,
   ) -> async_types.AsyncResponse[bool]:
-    """Saves a PyTree checkpoint asynchronously at the given step.
+    """Saves a checkpoint asynchronously, if dictated by :py:class:`.SaveDecisionPolicy`.
 
-    See documentation for :py:func:`.save_pytree` for more details. This
-    function executes in the background, and blocks for as little time as
-    possible.
+    See documentation for :py:func:`.save_pytree` for full details. This
+    function is essentially the same, except that it executes mostly in the
+    background, and blocks for as little time as possible (primarily to
+    transfer weights from device to host).
 
     Args:
       step: The step number to save.
@@ -464,7 +479,22 @@ class Checkpointer(epy.ContextManager):
   ) -> training_metadata_types.CheckpointMetadata[
       metadata_types.PyTreeMetadata
   ]:
-    """Returns checkpoint metadata for the given step."""
+    """Returns checkpoint metadata for the given step.
+
+    Retrieves metadata describing the structure of the PyTree stored at the
+    given step. If no step is provided, the method resolves to the latest
+    available checkpoint.
+
+    Args:
+      step: The step number to retrieve metadata for. If `None`, the latest step
+        is used. Can also be a :py:class:`.CheckpointMetadata` object, from
+        which the step is extracted.
+
+    Returns:
+      A :py:class:`.CheckpointMetadata` object containing
+      :py:class:`.PyTreeMetadata`, along with checkpoint timestamp and metrics
+      information.
+    """
     checkpoint = self._resolve_existing_checkpoint(step)
     del step
     checkpoint_metadata = metadata_loading.pytree_metadata(
@@ -485,7 +515,22 @@ class Checkpointer(epy.ContextManager):
   def checkpointables_metadata(
       self, step: int | CheckpointMetadata | None = None
   ) -> training_metadata_types.CheckpointMetadata[dict[str, Any]]:
-    """Returns checkpoint metadata for the given step."""
+    """Returns checkpoint metadata for the given step.
+
+    Retrieves metadata describing the structure of the checkpointables stored at
+    the given step. If no step is provided, the method resolves to the latest
+    available checkpoint.
+
+    Args:
+      step: The step number to retrieve metadata for. If `None`, the latest step
+        is used. Can also be a :py:class:`.CheckpointMetadata` object, from
+        which the step is extracted.
+
+    Returns:
+      A :py:class:`.CheckpointMetadata` object containing a `dict[str, Any]`
+      describing the checkpointables, along with checkpoint timestamp and
+      metrics information.
+    """
     checkpoint = self._resolve_existing_checkpoint(step)
     del step
     checkpoint_metadata = metadata_loading.checkpointables_metadata(
@@ -513,19 +558,41 @@ class Checkpointer(epy.ContextManager):
     )
 
   def reload(self):
-    """Reloads internal properties from the root directory."""
+    """Reloads internal properties from the root directory.
+
+    Updates the list of available checkpoints by rescanning the storage
+    location. Use this method to sync the checkpointer with the file system
+    if checkpoints have been added or removed externally.
+    """
     self._manager.reload()
 
   def is_saving_in_progress(self) -> bool:
-    """Whether a checkpoint is currently being saved in the background."""
+    """Returns whether a checkpoint save operation is currently in progress.
+
+    Checks if there are any background persistence operations
+    currently active.
+
+    Returns:
+      `True` if a save operation is in progress, `False` otherwise.
+    """
     return self._manager.is_saving_in_progress()
 
   def wait(self):
-    """Waits for any outstanding async operations to complete."""
+    """Waits for any outstanding async operations to complete.
+
+    This method blocks until all background tasks, such as asynchronous saves,
+    have finished. Use this method to ensure that all operations are finalized
+    before proceeding with dependent actions.
+    """
     self._manager.wait_until_finished()
 
   def close(self):
-    """Ensures any outstanding async operations are completed before closing."""
+    """Waits for pending async operations to complete and releases resources.
+
+    This method blocks until all background tasks, such as asynchronous saves,
+    have finished. It also performs necessary cleanup, such as closing
+    file handles.
+    """
     self._manager.close()
 
   def __contextmanager__(

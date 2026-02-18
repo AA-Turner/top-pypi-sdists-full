@@ -159,7 +159,7 @@ post_direction_re = r"""
                         [Ss][Oo][Uu][Tt][Hh]|
                         [Ee][Aa][Ss][Tt]|
                         [Ww][Ee][Ss][Tt]
-                    )
+                    ){1,2}
                     |
                     \b(?:[Nn][Ww]|[Nn][Ee]|[Ss][Ww]|[Ss][Ee])\b
                     |
@@ -186,6 +186,8 @@ single_street_name_list = [
 
 numbered_road_re = r"""[Ss][Tt][Aa][Tt][Ee]\ [Rr][Oo][Aa][Dd]\ \d{1,4}(?!\d)"""
 
+numbered_route_re = r"""[Rr][Oo][Uu][Tt][Ee]\ \d{1,4}(?!\d)"""
+
 # Used to handle edge cases where streets don't have a street type:
 # eg. `55 HIGHPOINT`, `600 HIGHWAY 32`
 numbered_or_typeless_street_name = r"""
@@ -201,6 +203,8 @@ numbered_or_typeless_street_name = r"""
             {numbered_avenue_re}
             |
             {numbered_road_re}
+            |
+            {numbered_route_re}
         )
     )
 """.format(
@@ -211,6 +215,7 @@ numbered_or_typeless_street_name = r"""
     highway_re=highway_re,
     numbered_avenue_re=numbered_avenue_re,
     numbered_road_re=numbered_road_re,
+    numbered_route_re=numbered_route_re,
 )
 
 post_direction = r"""
@@ -784,7 +789,15 @@ street_type_list = [
     "Xrds",
 ]
 
-street_type_leading_list = ["Camino", "El\ Camino", "Avenue", "Blvd", "Ave"]
+street_type_leading_list = [
+    "Camino",
+    "El\ Camino",
+    "Avenue",
+    "Blvd",
+    "Ave",
+    "La\ Rue",
+    "Rue",
+]
 
 
 def street_type_list_to_regex(street_type_list: list[str]) -> str:
@@ -889,8 +902,11 @@ building = r"""
     ten_to_ninety=ten_to_ninety,
 )
 
-occupancy_details = r"(?:[A-Za-z\#\&\-\d]{1,7}(?:\s?[SWNE])?)"
-
+occupancy_details = (
+    r"(?:(?:\#\ )?[A-Za-z\#\&\-\d]{{1,7}}(?:\s?{post_direction_re})?)".format(
+        post_direction_re=post_direction_re
+    )
+)
 occupancy = r"""
             (?P<occupancy>
                 (?:
@@ -919,7 +935,10 @@ occupancy = r"""
                             |
                             # Space
                             [Ss][Pp][Cc]|[Ss][Pp][Aa][Cc][Ee]
-                        )\b[\ \,\.]+
+                            |
+                            # Lot
+                            [Ll][Oo][Tt]
+                        )\b[\ \,\.]*
                         {occupancy_details}? 
                         |
                         \d{{2,4}}\ [Ss][Tt][Ee](?:\ \*)?
@@ -941,6 +960,11 @@ occupancy = r"""
                         # is present because otherwise it would match stuff like
                         # the `ST.` in `ST. LOUIS`
                         [Ss][Tt][Ee]?\b[\ \,\.]+{occupancy_details}
+                    )
+                    |
+                    (?:
+                        #Block abbreviated as B
+                        [Bb]\d{{1,4}}
                     )
                 )
             )
@@ -1252,7 +1276,6 @@ def make_full_address(
     country: Optional[str] = None,
     phone_number: str = phone_number,
 ) -> str:
-
     return r"""
                 (?P<full_address>
                     {full_street}

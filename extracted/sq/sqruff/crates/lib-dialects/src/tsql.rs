@@ -19,8 +19,18 @@ use sqruff_lib_core::parser::segments::meta::MetaSegment;
 use sqruff_lib_core::parser::types::ParseMode;
 
 use crate::{ansi, tsql_keywords};
+use sqruff_lib_core::dialects::init::{DialectConfig, NullDialectConfig};
+use sqruff_lib_core::value::Value;
 
-pub fn dialect() -> Dialect {
+/// Configuration for the T-SQL dialect.
+pub type TSQLDialectConfig = NullDialectConfig;
+
+pub fn dialect(config: Option<&Value>) -> Dialect {
+    // Parse and validate dialect configuration, falling back to defaults on failure
+    let _dialect_config: TSQLDialectConfig = config
+        .map(TSQLDialectConfig::from_value)
+        .unwrap_or_default();
+
     raw_dialect().config(|dialect| dialect.expand())
 }
 
@@ -231,6 +241,24 @@ pub fn raw_dialect() -> Dialect {
         ])
         .to_matchable(),
     );
+
+    // T-SQL supports CTEs with DML statements (INSERT, UPDATE, DELETE, MERGE)
+    // We add these to NonWithSelectableGrammar so WithCompoundStatementSegment can use them
+    dialect.add([(
+        "NonWithSelectableGrammar".into(),
+        one_of(vec![
+            Ref::new("SetExpressionSegment").to_matchable(),
+            optionally_bracketed(vec![Ref::new("SelectStatementSegment").to_matchable()])
+                .to_matchable(),
+            Ref::new("NonSetSelectableGrammar").to_matchable(),
+            Ref::new("UpdateStatementSegment").to_matchable(),
+            Ref::new("InsertStatementSegment").to_matchable(),
+            Ref::new("DeleteStatementSegment").to_matchable(),
+            Ref::new("MergeStatementSegment").to_matchable(),
+        ])
+        .to_matchable()
+        .into(),
+    )]);
 
     // Add T-SQL assignment operator segment
     dialect.add([(

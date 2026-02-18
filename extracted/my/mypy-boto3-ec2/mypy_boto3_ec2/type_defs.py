@@ -10690,18 +10690,6 @@ class OutpostLagTypeDef(TypedDict):
     Tags: NotRequired[list[TagTypeDef]]
 
 
-class PlacementGroupTypeDef(TypedDict):
-    GroupName: NotRequired[str]
-    State: NotRequired[PlacementGroupStateType]
-    Strategy: NotRequired[PlacementStrategyType]
-    PartitionCount: NotRequired[int]
-    GroupId: NotRequired[str]
-    Tags: NotRequired[list[TagTypeDef]]
-    GroupArn: NotRequired[str]
-    SpreadLevel: NotRequired[SpreadLevelType]
-    LinkedGroupId: NotRequired[str]
-
-
 class RegisteredInstanceTypeDef(TypedDict):
     InstanceId: NotRequired[str]
     SqlServerLicenseUsage: NotRequired[SqlServerLicenseUsageType]
@@ -15617,6 +15605,19 @@ class LaunchTemplateTypeDef(TypedDict):
     Operator: NotRequired[OperatorResponseTypeDef]
 
 
+class PlacementGroupTypeDef(TypedDict):
+    GroupName: NotRequired[str]
+    State: NotRequired[PlacementGroupStateType]
+    Strategy: NotRequired[PlacementStrategyType]
+    PartitionCount: NotRequired[int]
+    GroupId: NotRequired[str]
+    Tags: NotRequired[list[TagTypeDef]]
+    GroupArn: NotRequired[str]
+    SpreadLevel: NotRequired[SpreadLevelType]
+    LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorResponseTypeDef]
+
+
 class VolumeRecycleBinInfoTypeDef(TypedDict):
     VolumeId: NotRequired[str]
     VolumeType: NotRequired[VolumeTypeType]
@@ -17771,16 +17772,6 @@ class DescribeOutpostLagsResultTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
-class CreatePlacementGroupResultTypeDef(TypedDict):
-    PlacementGroup: PlacementGroupTypeDef
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
-class DescribePlacementGroupsResultTypeDef(TypedDict):
-    PlacementGroups: list[PlacementGroupTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-
-
 class DescribeInstanceSqlHaHistoryStatesResultTypeDef(TypedDict):
     Instances: list[RegisteredInstanceTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -18785,6 +18776,16 @@ class DescribeLaunchTemplatesResultTypeDef(TypedDict):
 
 class ModifyLaunchTemplateResultTypeDef(TypedDict):
     LaunchTemplate: LaunchTemplateTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class CreatePlacementGroupResultTypeDef(TypedDict):
+    PlacementGroup: PlacementGroupTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class DescribePlacementGroupsResultTypeDef(TypedDict):
+    PlacementGroups: list[PlacementGroupTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -21027,6 +21028,7 @@ class CreatePlacementGroupRequestServiceResourceCreatePlacementGroupTypeDef(Type
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorRequestTypeDef]
     DryRun: NotRequired[bool]
     GroupName: NotRequired[str]
     Strategy: NotRequired[PlacementStrategyType]
@@ -21037,6 +21039,7 @@ class CreatePlacementGroupRequestTypeDef(TypedDict):
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
     SpreadLevel: NotRequired[SpreadLevelType]
     LinkedGroupId: NotRequired[str]
+    Operator: NotRequired[OperatorRequestTypeDef]
     DryRun: NotRequired[bool]
     GroupName: NotRequired[str]
     Strategy: NotRequired[PlacementStrategyType]

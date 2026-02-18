@@ -397,6 +397,7 @@ from .._impl import (
     scout_compute_api_Window as Window,
     scout_compute_api_WindowSymmetry as WindowSymmetry,
     scout_compute_api_WindowVisitor as WindowVisitor,
+    scout_compute_api_ZscoreSeries as ZscoreSeries,
 )
 
 __all__ = [
@@ -796,6 +797,7 @@ __all__ = [
     'Window',
     'WindowVisitor',
     'WindowSymmetry',
+    'ZscoreSeries',
     'ComputeService',
 ]
 

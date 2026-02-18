@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: galileo-core
-Version: 3.91.0
+Version: 3.92.1
 Summary: Shared schemas and configuration for Galileo's Python packages.
 License: Apache-2.0
 Keywords: llm,quality,language_models,galileo

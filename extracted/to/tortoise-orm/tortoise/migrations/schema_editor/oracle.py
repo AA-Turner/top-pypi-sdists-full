@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from copy import copy
+
 from tortoise.fields import CASCADE, SET_NULL
+from tortoise.fields.base import Field
 from tortoise.fields.relational import ManyToManyFieldInstance
 from tortoise.migrations.schema_editor.base import BaseSchemaEditor
 from tortoise.models import Model
@@ -32,6 +35,7 @@ class OracleSchemaEditor(BaseSchemaEditor):
     def __init__(self, connection, atomic: bool = True, collect_sql: bool = False) -> None:
         super().__init__(connection, atomic, collect_sql=collect_sql)
         self.comments_array: list[str] = []
+        self._foreign_keys: list[str] = []
 
     @classmethod
     def _get_escape_translation_table(cls) -> list[str]:
@@ -70,8 +74,23 @@ class OracleSchemaEditor(BaseSchemaEditor):
     ) -> str:
         if on_delete not in [CASCADE, SET_NULL]:
             on_delete = CASCADE
-        _ = (constraint_name, db_field, table, field, on_delete, comment)
-        return ""
+        constraint_prefix = f'CONSTRAINT "{constraint_name}" ' if constraint_name else ""
+        fk = self.FK_TEMPLATE.format(
+            constraint=constraint_prefix,
+            db_column=db_field,
+            table=table,
+            field=field,
+            on_delete=on_delete,
+        )
+        if constraint_name:
+            self._foreign_keys.append(fk)
+            return ""
+        return fk
+
+    def _get_inner_statements(self) -> list[str]:
+        extra = list(self._foreign_keys)
+        self._foreign_keys.clear()
+        return extra
 
     def _format_m2m_fk(self, table: str, column: str, target_table: str, target_field: str) -> str:
         return self.FK_TEMPLATE.format(
@@ -136,12 +155,58 @@ class OracleSchemaEditor(BaseSchemaEditor):
                     m2m_create_string = "\n".join(lines)
         return m2m_create_string
 
+    async def _alter_field(self, model: type[Model], old_field: Field, new_field: Field) -> None:
+        """Override to use Oracle MODIFY syntax instead of ALTER COLUMN.
+
+        Oracle does not support ``ALTER COLUMN``.  Nullability and default
+        changes must use ``ALTER TABLE ... MODIFY ("col" type ...)``.
+        """
+        db_field = new_field.source_field or new_field.model_field_name
+        qualified_table = self._qualify_table_name(model._meta.db_table, model._meta.schema)
+
+        # Handle nullability changes with MODIFY
+        if old_field.null != new_field.null:
+            col_type = new_field.get_for_dialect(self.DIALECT, "SQL_TYPE")
+            nullable = "NULL" if new_field.null else "NOT NULL"
+            await self._run_sql(
+                f'ALTER TABLE {qualified_table} MODIFY ("{db_field}" {col_type} {nullable})'
+            )
+            old_field = copy(old_field)
+            old_field.null = new_field.null
+
+        # Handle db_default changes with MODIFY
+        old_has_default = old_field.has_db_default()
+        new_has_default = new_field.has_db_default()
+        if old_has_default != new_has_default or (
+            old_has_default and new_has_default and old_field.db_default != new_field.db_default
+        ):
+            col_type = new_field.get_for_dialect(self.DIALECT, "SQL_TYPE")
+            if new_has_default:
+                if hasattr(new_field.db_default, "get_sql"):
+                    default_sql = new_field.db_default.get_sql(dialect=self.DIALECT)
+                else:
+                    db_val = new_field.to_db_value(new_field.db_default, model)
+                    default_sql = self._escape_default_value(db_val)
+                await self._run_sql(
+                    f'ALTER TABLE {qualified_table} MODIFY ("{db_field}" DEFAULT {default_sql})'
+                )
+            else:
+                await self._run_sql(
+                    f'ALTER TABLE {qualified_table} MODIFY ("{db_field}" DEFAULT NULL)'
+                )
+            old_field = copy(old_field)
+            old_field.db_default = new_field.db_default
+
+        # Let base handle index, unique, description, and rename
+        await super()._alter_field(model, old_field, new_field)
+
     async def _get_unique_constraint_names_from_db(
-        self, table_name: str, column_name: str, schema: str | None = None
+        self, table_name: str, column_names: list[str], schema: str | None = None
     ) -> list[str]:
-        """Query USER_CONSTRAINTS/ALL_CONSTRAINTS for unique constraint names on a column."""
+        """Query USER_CONSTRAINTS/ALL_CONSTRAINTS for unique constraint names matching exact columns."""
         upper_table = table_name.upper()
-        upper_column = column_name.upper()
+        col_count = len(column_names)
+        col_list = ",".join(f"'{c.upper()}'" for c in column_names)
         if schema:
             query = (
                 "SELECT ac.CONSTRAINT_NAME "
@@ -150,9 +215,16 @@ class OracleSchemaEditor(BaseSchemaEditor):
                 "ON ac.CONSTRAINT_NAME = acc.CONSTRAINT_NAME "
                 "AND ac.OWNER = acc.OWNER "
                 f"WHERE ac.TABLE_NAME = '{upper_table}' "  # nosec B608
-                f"AND acc.COLUMN_NAME = '{upper_column}' "
+                f"AND acc.COLUMN_NAME IN ({col_list}) "
                 "AND ac.CONSTRAINT_TYPE = 'U' "
-                f"AND ac.OWNER = '{schema.upper()}'"
+                f"AND ac.OWNER = '{schema.upper()}' "
+                "GROUP BY ac.CONSTRAINT_NAME "
+                f"HAVING COUNT(DISTINCT acc.COLUMN_NAME) = {col_count} "
+                "AND COUNT(DISTINCT acc.COLUMN_NAME) = ("
+                "  SELECT COUNT(*) FROM ALL_CONS_COLUMNS acc2 "
+                "  WHERE acc2.CONSTRAINT_NAME = ac.CONSTRAINT_NAME "
+                "  AND acc2.OWNER = ac.OWNER"
+                ")"
             )
         else:
             query = (
@@ -161,8 +233,14 @@ class OracleSchemaEditor(BaseSchemaEditor):
                 "JOIN USER_CONS_COLUMNS ucc "
                 "ON uc.CONSTRAINT_NAME = ucc.CONSTRAINT_NAME "
                 f"WHERE uc.TABLE_NAME = '{upper_table}' "  # nosec B608
-                f"AND ucc.COLUMN_NAME = '{upper_column}' "
-                "AND uc.CONSTRAINT_TYPE = 'U'"
+                f"AND ucc.COLUMN_NAME IN ({col_list}) "
+                "AND uc.CONSTRAINT_TYPE = 'U' "
+                "GROUP BY uc.CONSTRAINT_NAME "
+                f"HAVING COUNT(DISTINCT ucc.COLUMN_NAME) = {col_count} "
+                "AND COUNT(DISTINCT ucc.COLUMN_NAME) = ("
+                "  SELECT COUNT(*) FROM USER_CONS_COLUMNS ucc2 "
+                "  WHERE ucc2.CONSTRAINT_NAME = uc.CONSTRAINT_NAME"
+                ")"
             )
         _, rows = await self.client.execute_query(query)
         return [row["CONSTRAINT_NAME"] for row in rows]

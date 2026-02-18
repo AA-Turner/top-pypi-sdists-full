@@ -19,6 +19,7 @@ import os
 import re
 import sys
 import warnings
+from typing import Dict, List, Tuple, Union
 from urllib.parse import (
     parse_qs,
     ParseResult,
@@ -72,6 +73,10 @@ class NoValue:
         return f'<{self.__class__.__name__}>'
 
 
+class DefaultValueWarning(UserWarning):
+    """Warning used when returning an explicit default value."""
+
+
 class Env:
     """Provide scheme-based lookups of environment variables so that each
     caller doesn't have to pass in ``cast`` and ``default`` parameters.
@@ -107,7 +112,15 @@ class Env:
     BOOLEAN_TRUE_STRINGS = ('true', 'on', 'ok', 'y', 'yes', '1')
     URL_CLASS = ParseResult
 
-    POSTGRES_FAMILY = ['postgres', 'postgresql', 'psql', 'pgsql', 'postgis']
+    POSTGRES_FAMILY = [
+        'postgres',
+        'postgresql',
+        'psql',
+        'pgsql',
+        'postgis',
+        'prometheus_postgresql',
+        'prometheus_postgis',
+    ]
 
     DEFAULT_DATABASE_ENV = 'DATABASE_URL'
     DB_SCHEMES = {
@@ -116,17 +129,22 @@ class Env:
         'psql': DJANGO_POSTGRES,
         'pgsql': DJANGO_POSTGRES,
         'postgis': 'django.contrib.gis.db.backends.postgis',
+        'prometheus_postgresql': 'django_prometheus.db.backends.postgresql',
+        'prometheus_postgis': 'django_prometheus.db.backends.postgis',
         'cockroachdb': 'django_cockroachdb',
         'mysql': 'django.db.backends.mysql',
         'mysql2': 'django.db.backends.mysql',
         'mysql-connector': 'mysql.connector.django',
         'mysqlgis': 'django.contrib.gis.db.backends.mysql',
+        'prometheus_mysql': 'django_prometheus.db.backends.mysql',
         'mssql': 'mssql',
         'oracle': 'django.db.backends.oracle',
         'pyodbc': 'sql_server.pyodbc',
         'redshift': 'django_redshift_backend',
         'spatialite': 'django.contrib.gis.db.backends.spatialite',
+        'prometheus_spatialite': 'django_prometheus.db.backends.spatialite',
         'sqlite': 'django.db.backends.sqlite3',
+        'prometheus_sqlite': 'django_prometheus.db.backends.sqlite3',
         'ldap': 'ldapdb.backends.ldap',
     }
     _DB_BASE_OPTIONS = [
@@ -149,6 +167,8 @@ class Env:
         'rediscache': REDIS_DRIVER,
         'redis': REDIS_DRIVER,
         'rediss': REDIS_DRIVER,
+        'valkey': REDIS_DRIVER,
+        'valkeys': REDIS_DRIVER,
     }
     _CACHE_BASE_OPTIONS = [
         'TIMEOUT',
@@ -195,12 +215,15 @@ class Env:
     CHANNELS_SCHEMES = {
         "inmemory": "channels.layers.InMemoryChannelLayer",
         "redis": "channels_redis.core.RedisChannelLayer",
-        "redis+pubsub": "channels_redis.pubsub.RedisPubSubChannelLayer"
+        "rediss": "channels_redis.core.RedisChannelLayer",
+        "redis+pubsub": "channels_redis.pubsub.RedisPubSubChannelLayer",
+        "rediss+pubsub": "channels_redis.pubsub.RedisPubSubChannelLayer",
     }
 
     def __init__(self, **scheme):
         self.smart_cast = True
         self.escape_proxy = False
+        self.warn_on_default = False
         self.prefix = ""
         self.scheme = scheme
 
@@ -215,16 +238,31 @@ class Env:
     def __contains__(self, var):
         return var in self.ENVIRON
 
-    def str(self, var, default=NOTSET, multiline=False):
+    def str(
+            self,
+            var,
+            default: Union[str, NoValue] = NOTSET,
+            multiline=False,
+            choices=NOTSET) -> str:
         """
         :rtype: str
         """
         value = self.get_value(var, cast=str, default=default)
         if multiline:
             return re.sub(r'(\\r)?\\n', r'\n', value)
+        if choices is not self.NOTSET:
+            # if choices is provided, check that the value is in choices
+            if value not in choices:
+                raise ImproperlyConfigured(
+                    f"Invalid value: {value} not in {choices}"
+                )
         return value
 
-    def bytes(self, var, default=NOTSET, encoding='utf8'):
+    def bytes(
+            self,
+            var,
+            default: Union[bytes, NoValue] = NOTSET,
+            encoding='utf8') -> bytes:
         """
         :rtype: bytes
         """
@@ -233,19 +271,19 @@ class Env:
             return value.encode(encoding)
         return value
 
-    def bool(self, var, default=NOTSET):
+    def bool(self, var, default: Union[bool, NoValue] = NOTSET) -> bool:
         """
         :rtype: bool
         """
         return self.get_value(var, cast=bool, default=default)
 
-    def int(self, var, default=NOTSET):
+    def int(self, var, default: Union[int, NoValue] = NOTSET) -> int:
         """
         :rtype: int
         """
         return self.get_value(var, cast=int, default=default)
 
-    def float(self, var, default=NOTSET):
+    def float(self, var, default: Union[float, NoValue] = NOTSET) -> float:
         """
         :rtype: float
         """
@@ -257,7 +295,7 @@ class Env:
         """
         return self.get_value(var, cast=json.loads, default=default)
 
-    def list(self, var, cast=None, default=NOTSET):
+    def list(self, var, cast=None, default=NOTSET) -> List:
         """
         :rtype: list
         """
@@ -267,7 +305,7 @@ class Env:
             default=default
         )
 
-    def tuple(self, var, cast=None, default=NOTSET):
+    def tuple(self, var, cast=None, default=NOTSET) -> Tuple:
         """
         :rtype: tuple
         """
@@ -277,13 +315,13 @@ class Env:
             default=default
         )
 
-    def dict(self, var, cast=dict, default=NOTSET):
+    def dict(self, var, cast=dict, default=NOTSET) -> Dict:
         """
         :rtype: dict
         """
         return self.get_value(var, cast=cast, default=default)
 
-    def url(self, var, default=NOTSET):
+    def url(self, var, default=NOTSET) -> ParseResult:
         """
         :rtype: urllib.parse.ParseResult
         """
@@ -294,7 +332,11 @@ class Env:
             parse_default=True
         )
 
-    def db_url(self, var=DEFAULT_DATABASE_ENV, default=NOTSET, engine=None):
+    def db_url(
+            self,
+            var=DEFAULT_DATABASE_ENV,
+            default=NOTSET,
+            engine=None) -> Dict:
         """Returns a config dictionary, defaulting to DATABASE_URL.
 
         The db method is an alias for db_url.
@@ -308,7 +350,11 @@ class Env:
 
     db = db_url
 
-    def cache_url(self, var=DEFAULT_CACHE_ENV, default=NOTSET, backend=None):
+    def cache_url(
+            self,
+            var=DEFAULT_CACHE_ENV,
+            default=NOTSET,
+            backend=None) -> Dict:
         """Returns a config dictionary, defaulting to CACHE_URL.
 
         The cache method is an alias for cache_url.
@@ -322,7 +368,11 @@ class Env:
 
     cache = cache_url
 
-    def email_url(self, var=DEFAULT_EMAIL_ENV, default=NOTSET, backend=None):
+    def email_url(
+            self,
+            var=DEFAULT_EMAIL_ENV,
+            default=NOTSET,
+            backend=None) -> Dict:
         """Returns a config dictionary, defaulting to EMAIL_URL.
 
         The email method is an alias for email_url.
@@ -336,7 +386,11 @@ class Env:
 
     email = email_url
 
-    def search_url(self, var=DEFAULT_SEARCH_ENV, default=NOTSET, engine=None):
+    def search_url(
+            self,
+            var=DEFAULT_SEARCH_ENV,
+            default: Union[Dict, NoValue] = NOTSET,
+            engine=None) -> Dict:
         """Returns a config dictionary, defaulting to SEARCH_URL.
 
         :rtype: dict
@@ -346,8 +400,11 @@ class Env:
             engine=engine
         )
 
-    def channels_url(self, var=DEFAULT_CHANNELS_ENV, default=NOTSET,
-                     backend=None):
+    def channels_url(
+            self,
+            var=DEFAULT_CHANNELS_ENV,
+            default: Union[Dict, NoValue] = NOTSET,
+            backend=None) -> Dict:
         """Returns a config dictionary, defaulting to CHANNELS_URL.
 
         :rtype: dict
@@ -359,7 +416,11 @@ class Env:
 
     channels = channels_url
 
-    def path(self, var, default=NOTSET, **kwargs):
+    def path(
+            self,
+            var,
+            default: Union['Path', NoValue] = NOTSET,
+            **kwargs) -> 'Path':
         """
         :rtype: Path
         """
@@ -414,6 +475,13 @@ class Env:
                 raise ImproperlyConfigured(error_msg) from exc
 
             value = default
+            if self.warn_on_default:
+                warnings.warn(
+                    f'{var_name} environment variable not set; '
+                    'using default value',
+                    DefaultValueWarning,
+                    stacklevel=2,
+                )
 
         # Resolve any proxied values
         prefix = b'$' if isinstance(value, bytes) else '$'
@@ -699,18 +767,27 @@ class Env:
             else:
                 config['LOCATION'] = locations
 
+        if backend:
+            config['BACKEND'] = backend
+
         if url.query:
             config_options = {}
+            # Django Redis cache backend expects options in lower case
+            # while "django_redis" expects them in upper case
+            backend = config['BACKEND']
+            if backend == 'django.core.cache.backends.redis.RedisCache':
+                key_modifier = 'lower'
+            else:
+                key_modifier = 'upper'
+
             for k, v in parse_qs(url.query).items():
-                opt = {k.upper(): _cast(v[0])}
+                key = getattr(k, key_modifier)()
+                opt = {key: _cast(v[0])}
                 if k.upper() in cls._CACHE_BASE_OPTIONS:
                     config.update(opt)
                 else:
                     config_options.update(opt)
             config['OPTIONS'] = config_options
-
-        if backend:
-            config['BACKEND'] = backend
 
         return config
 
@@ -787,9 +864,10 @@ class Env:
             raise ImproperlyConfigured(f"Invalid channels schema {url.scheme}")
         else:
             config["BACKEND"] = cls.CHANNELS_SCHEMES[url.scheme]
-            if url.scheme in ("redis", "redis+pubsub"):
+            if url.scheme.startswith("redis"):
+                redis_scheme, *_ = url.scheme.split("+")
                 config["CONFIG"] = {
-                    "hosts": [url._replace(scheme="redis").geturl()]
+                    "hosts": [url._replace(scheme=redis_scheme).geturl()]
                 }
 
         return config

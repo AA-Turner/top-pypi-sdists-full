@@ -172,7 +172,6 @@ from mypy_boto3_emr_serverless.client import EMRServerlessClient
 from mypy_boto3_entityresolution.client import EntityResolutionClient
 from mypy_boto3_es.client import ElasticsearchServiceClient
 from mypy_boto3_events.client import EventBridgeClient
-from mypy_boto3_evidently.client import CloudWatchEvidentlyClient
 from mypy_boto3_evs.client import EVSClient
 from mypy_boto3_finspace.client import FinspaceClient
 from mypy_boto3_finspace_data.client import FinSpaceDataClient
@@ -216,7 +215,6 @@ from mypy_boto3_iot_jobs_data.client import IoTJobsDataPlaneClient
 from mypy_boto3_iot_managed_integrations.client import (
     ManagedintegrationsforIoTDeviceManagementClient,
 )
-from mypy_boto3_iotanalytics.client import IoTAnalyticsClient
 from mypy_boto3_iotdeviceadvisor.client import IoTDeviceAdvisorClient
 from mypy_boto3_iotevents.client import IoTEventsClient
 from mypy_boto3_iotevents_data.client import IoTEventsDataClient
@@ -3306,25 +3304,6 @@ class Session:
     @overload
     def client(
         self,
-        service_name: Literal["evidently"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: Config | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> CloudWatchEvidentlyClient:
-        """
-        Create client for CloudWatchEvidently service.
-        """
-
-    @overload
-    def client(
-        self,
         service_name: Literal["evs"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -4061,25 +4040,6 @@ class Session:
     ) -> ManagedintegrationsforIoTDeviceManagementClient:
         """
         Create client for ManagedintegrationsforIoTDeviceManagement service.
-        """
-
-    @overload
-    def client(
-        self,
-        service_name: Literal["iotanalytics"],
-        region_name: str | None = ...,
-        api_version: str | None = ...,
-        use_ssl: bool | None = ...,
-        verify: bool | str | None = ...,
-        endpoint_url: str | None = ...,
-        aws_access_key_id: str | None = ...,
-        aws_secret_access_key: str | None = ...,
-        aws_session_token: str | None = ...,
-        config: Config | None = ...,
-        aws_account_id: str | None = ...,
-    ) -> IoTAnalyticsClient:
-        """
-        Create client for IoTAnalytics service.
         """
 
     @overload

@@ -19,8 +19,12 @@ from langgraph_api.encryption.middleware import (
 from langgraph_api.encryption.shared import (
     BLOB_ENCRYPTION_CONTEXT_KEY,
     using_aes_encryption,
+    using_custom_encryption,
 )
-from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.feature_flags import (
+    FF_USE_CORE_API,
+    IS_POSTGRES_OR_GRPC_BACKEND,
+)
 from langgraph_api.graph import _validate_assistant_id
 from langgraph_api.models.run import create_valid_run
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
@@ -54,13 +58,17 @@ from langgraph_api.validation import (
 from langgraph_api.webhook import validate_webhook_url_or_raise
 from langgraph_license.validation import plus_features_enabled
 from langgraph_runtime.database import connect
-from langgraph_runtime.ops import Crons
 from langgraph_runtime.retry import retry_db
 
 if IS_POSTGRES_OR_GRPC_BACKEND:
     from langgraph_api.grpc.ops import Runs, Threads
 else:
     from langgraph_runtime.ops import Runs, Threads
+
+if FF_USE_CORE_API:
+    from langgraph_api.grpc.ops import Crons
+else:
+    from langgraph_runtime.ops import Crons
 
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -726,11 +734,14 @@ async def create_cron(request: ApiRequest):
         {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
     )
 
-    encrypted_payload = await encrypt_request(
-        payload_for_encryption,
-        "cron",
-        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-    )
+    if FF_USE_CORE_API and using_custom_encryption():
+        effective_payload = payload_for_encryption
+    else:
+        effective_payload = await encrypt_request(
+            payload_for_encryption,
+            "cron",
+            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        )
 
     enabled = payload.get("enabled", True)
 
@@ -741,12 +752,13 @@ async def create_cron(request: ApiRequest):
             on_run_completed=payload.get("on_run_completed", "delete"),
             end_time=payload.get("end_time"),
             schedule=payload.get("schedule"),
-            payload=encrypted_payload,
-            metadata=encrypted_payload.get("metadata"),
+            payload=effective_payload,
+            metadata=effective_payload.get("metadata"),
             enabled=enabled,
         )
     cron_dict = await fetchone(cron)
-    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
 
     return ApiResponse(cron_dict)
 
@@ -770,11 +782,14 @@ async def create_thread_cron(request: ApiRequest):
         {**payload, BLOB_ENCRYPTION_CONTEXT_KEY: enc_ctx} if enc_ctx else payload
     )
 
-    encrypted_payload = await encrypt_request(
-        payload_for_encryption,
-        "cron",
-        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-    )
+    if FF_USE_CORE_API and using_custom_encryption():
+        effective_payload = payload_for_encryption
+    else:
+        effective_payload = await encrypt_request(
+            payload_for_encryption,
+            "cron",
+            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        )
 
     async with connect(supports_core_api=False) as conn:
         cron = await Crons.put(
@@ -783,12 +798,13 @@ async def create_thread_cron(request: ApiRequest):
             on_run_completed=None,
             end_time=payload.get("end_time"),
             schedule=payload.get("schedule"),
-            payload=encrypted_payload,
-            metadata=encrypted_payload.get("metadata"),
+            payload=effective_payload,
+            metadata=effective_payload.get("metadata"),
             enabled=payload.get("enabled", True),
         )
     cron_dict = await fetchone(cron)
-    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
 
     return ApiResponse(cron_dict)
 
@@ -808,11 +824,14 @@ async def patch_cron(request: ApiRequest):
         await validate_webhook_url_or_raise(str(webhook))
 
     # Encrypt payload subfields before storage
-    encrypted_payload = await encrypt_request(
-        payload,
-        "cron",
-        CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
-    )
+    if FF_USE_CORE_API and using_custom_encryption():
+        effective_payload = payload
+    else:
+        effective_payload = await encrypt_request(
+            payload,
+            "cron",
+            CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
+        )
 
     async with connect(supports_core_api=False) as conn:
         cron = await Crons.update(
@@ -822,11 +841,13 @@ async def patch_cron(request: ApiRequest):
             end_time=payload.get("end_time"),
             enabled=payload.get("enabled"),
             on_run_completed=payload.get("on_run_completed"),
-            payload=encrypted_payload,
-            metadata=encrypted_payload.get("metadata"),
+            payload=effective_payload,
+            metadata=effective_payload.get("metadata"),
         )
     cron_dict = await fetchone(cron)
-    cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
+
+    if not FF_USE_CORE_API or using_aes_encryption():
+        cron_dict = await decrypt_response(cron_dict, "cron", CRON_ENCRYPTION_FIELDS)
 
     return ApiResponse(cron_dict)
 
@@ -875,7 +896,8 @@ async def search_crons(request: ApiRequest):
         crons_iter, next_offset, offset
     )
 
-    crons = await decrypt_responses(crons, "cron", CRON_ENCRYPTION_FIELDS)
+    if not FF_USE_CORE_API or using_aes_encryption():
+        crons = await decrypt_responses(crons, "cron", CRON_ENCRYPTION_FIELDS)
 
     return ApiResponse(crons, headers=response_headers)
 

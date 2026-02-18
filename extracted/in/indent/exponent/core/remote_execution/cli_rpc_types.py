@@ -256,6 +256,13 @@ class BashToolResult(ToolResult, tag=BASH_TOOL_NAME):
     output_file: str | None = None
     bash_id: str | None = None
 
+    def to_text(self) -> str:
+        d = msgspec.to_builtins(self)
+        del d["tool_name"]
+        if "shell_output" in d:
+            d["bash_result"] = d.pop("shell_output")
+        return format_as_xml(d, include_root_tag=False, item_tag="item")
+
 
 DOWNLOAD_ARTIFACT_TOOL_NAME = "download_artifact"
 
@@ -365,12 +372,6 @@ class SwitchCLIChatRequest(msgspec.Struct, tag="switch_cli_chat"):
     new_chat_uuid: str
 
 
-# This message is sent periodically from the client to keep the connection alive while the chat is turning.
-# This synergizes with CLI-side timeouts to avoid disconnecting during long operations.
-class KeepAliveCliChatRequest(msgspec.Struct, tag="keep_alive_cli_chat"):
-    pass
-
-
 class BatchToolExecutionRequest(msgspec.Struct, tag="batch_tool_execution"):
     tool_inputs: list[ToolInputType]
 
@@ -392,10 +393,6 @@ class BatchToolExecutionResponse(msgspec.Struct, tag="batch_tool_execution"):
 
 
 class SwitchCLIChatResponse(msgspec.Struct, tag="switch_cli_chat"):
-    pass
-
-
-class KeepAliveCliChatResponse(msgspec.Struct, tag="keep_alive_cli_chat"):
     pass
 
 
@@ -531,7 +528,6 @@ class CliRpcRequest(msgspec.Struct):
         | HttpRequest
         | BatchToolExecutionRequest
         | SwitchCLIChatRequest
-        | KeepAliveCliChatRequest
         | GenerateUploadUrlRequest
         | DownloadFromUrlRequest
         | StartTerminalRequest
@@ -629,7 +625,6 @@ class CliRpcResponse(msgspec.Struct):
         | BatchToolExecutionResponse
         | HttpResponse
         | SwitchCLIChatResponse
-        | KeepAliveCliChatResponse
         | GenerateUploadUrlResponse
         | DownloadFromUrlResponse
         | StartTerminalResponse

@@ -467,6 +467,27 @@ class CommitTests(PorcelainTestCase):
         self.assertEqual(commit._author_timezone, local_timezone)
         self.assertEqual(commit._commit_timezone, local_timezone)
 
+    def test_timestamp(self) -> None:
+        _c1, _c2, c3 = build_commit_graph(
+            self.repo.object_store, [[1], [2, 1], [3, 1, 2]]
+        )
+        self.repo.refs[b"refs/heads/foo"] = c3.id
+        sha = porcelain.commit(
+            self.repo.path,
+            message="Some message",
+            author="Joe <joe@example.com>",
+            author_timestamp=123456,
+            committer="Bob <bob@example.com>",
+            commit_timestamp=123456,
+        )
+        self.assertIsInstance(sha, bytes)
+        self.assertEqual(len(sha), 40)
+
+        commit = self.repo[sha]
+        assert isinstance(commit, Commit)
+        self.assertEqual(commit.author_time, 123456)
+        self.assertEqual(commit.commit_time, 123456)
+
     def test_commit_all(self) -> None:
         # Create initial commit
         filename = os.path.join(self.repo.path, "test.txt")
@@ -4526,6 +4547,60 @@ class CheckoutTests(PorcelainTestCase):
         porcelain.checkout(self.repo, self._sha)
         self.assertEqual(self._sha, self.repo.head())
 
+        # Working tree and index should be clean after checkout
+        status = list(porcelain.status(self.repo))
+        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], []], status)
+
+    def test_checkout_files_starting_with_dotgit(self) -> None:
+        # Regression test: paths starting with ".git" (like .github/, .gitignore,
+        # .gitattributes) were incorrectly skipped during checkout, leaving the
+        # index out of sync with HEAD.
+        github_dir = os.path.join(self.repo.path, ".github", "workflows")
+        os.makedirs(github_dir)
+
+        github_file = os.path.join(github_dir, "ci.yml")
+        gitignore_file = os.path.join(self.repo.path, ".gitignore")
+
+        with open(github_file, "w") as f:
+            f.write("# version 1\n")
+        with open(gitignore_file, "w") as f:
+            f.write("*.pyc\n")
+
+        porcelain.add(self.repo, paths=[github_file, gitignore_file])
+        sha1 = porcelain.commit(
+            self.repo,
+            message=b"add .github and .gitignore",
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+
+        # Update those files in a second commit
+        with open(github_file, "w") as f:
+            f.write("# version 2\n")
+        with open(gitignore_file, "w") as f:
+            f.write("*.pyc\n*.pyo\n")
+
+        porcelain.add(self.repo, paths=[github_file, gitignore_file])
+        porcelain.commit(
+            self.repo,
+            message=b"update .github and .gitignore",
+            committer=b"Jane <jane@example.com>",
+            author=b"John <john@example.com>",
+        )
+
+        # Checkout the first commit (going back to v1)
+        porcelain.checkout(self.repo, sha1)
+
+        # Working tree and index should be clean (no staged changes)
+        status = list(porcelain.status(self.repo))
+        self.assertEqual([{"add": [], "delete": [], "modify": []}, [], []], status)
+
+        # Working tree files should have v1 content
+        with open(github_file) as f:
+            self.assertEqual("# version 1\n", f.read())
+        with open(gitignore_file) as f:
+            self.assertEqual("*.pyc\n", f.read())
+
     def test_checkout_to_head(self) -> None:
         new_sha = self._commit_something_wrong()
 
@@ -6351,6 +6426,10 @@ class StatusTests(PorcelainTestCase):
         os.utime(file_path, ns=(mtime_nsec, mtime_nsec))
 
         c = self.repo.get_config()
+        # Set trustctime=false because os.utime() updates ctime, which would
+        # break stat matching. This test verifies that stat matching optimization
+        # works with mtime+size matching (ignoring ctime changes from utime).
+        c.set("core", "trustctime", "false")
         c.set("core", "autocrlf", "input")
         c.write_to_path()
 
@@ -8001,6 +8080,68 @@ class FetchTests(PorcelainTestCase):
         with Repo(target_path) as r:
             self.assertIn(self.repo[b"HEAD"].id, r)
             self.assertNotEqual(self.repo.get_refs(), target_refs)
+
+    def test_unshallow(self) -> None:
+        outstream = BytesIO()
+        errstream = BytesIO()
+
+        # Create three commits in source repo
+        for i in range(3):
+            handle, fullpath = tempfile.mkstemp(dir=self.repo.path)
+            os.close(handle)
+            porcelain.add(repo=self.repo.path, paths=fullpath)
+            porcelain.commit(
+                repo=self.repo.path,
+                message=f"commit {i}".encode(),
+                author=b"test <email>",
+                committer=b"test <email>",
+            )
+
+        # Create a shallow clone with depth=1
+        target_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_path)
+        target_repo = porcelain.clone(
+            self.repo.path, target=target_path, depth=1, errstream=errstream
+        )
+
+        # Verify the clone is shallow
+        shallow = target_repo.get_shallow()
+        self.assertTrue(len(shallow) > 0, "Repository should be shallow")
+
+        target_repo.close()
+
+        # Unshallow the repository
+        porcelain.fetch(
+            target_path,
+            "origin",
+            outstream=outstream,
+            errstream=errstream,
+            unshallow=True,
+        )
+
+        # Verify the repository is no longer shallow
+        with Repo(target_path) as r:
+            shallow_after = r.get_shallow()
+            self.assertEqual(len(shallow_after), 0, "Repository should not be shallow")
+            # Verify all commits are now present
+            self.assertIn(self.repo[b"HEAD"].id, r)
+
+    def test_unshallow_with_depth_raises(self) -> None:
+        # Verify that specifying both unshallow and depth raises an error
+        target_path = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, target_path)
+        target_repo = porcelain.clone(
+            self.repo.path, target=target_path, depth=1, errstream=BytesIO()
+        )
+        target_repo.close()
+
+        with self.assertRaises(ValueError):
+            porcelain.fetch(
+                target_path,
+                "origin",
+                depth=2,
+                unshallow=True,
+            )
 
     def assert_correct_remote_refs(
         self, local_refs, remote_refs, remote_name=b"origin"

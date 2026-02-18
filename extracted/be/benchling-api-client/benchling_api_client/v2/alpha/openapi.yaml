@@ -1,4 +1,39 @@
 paths:
+  /app-definitions/{app_def_id}/generate-oauth2-client-secret:
+    post:
+      description: Regenerate the oauth2 client key for the given app definition.
+        Note that this will invalidate the previous key, and the value returned by
+        this call can't be retrieved from Benchling.
+      operationId: regenerateBenchlingAppDefinitionClientSecret
+      parameters:
+      - example: appdef_e59sjL23Pqn30xHg
+        in: path
+        name: app_def_id
+        required: true
+        schema:
+          type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AppClientSecret'
+          description: OK
+        '403':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ForbiddenError'
+          description: Forbidden
+        '404':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/NotFoundError'
+          description: Not Found
+      summary: Regenerate the auth key for an app definition
+      tags:
+      - App Definitions
   /apps/{app_id}/manifest.yaml:
     get:
       description: Get app manifest
@@ -2763,6 +2798,13 @@ components:
             enum:
             - app_canvas
             type: string
+    AppClientSecret:
+      properties:
+        clientSecret:
+          type: string
+        id:
+          type: string
+      type: object
     AppCollaborator:
       allOf:
       - properties:
@@ -7124,6 +7166,8 @@ tags:
   name: AA Sequences
 - description: View access policies.
   name: Access Policies
+- description: Create and manage Benchling app definitions on your tenant
+  name: App Definitions
 - description: Create and manage Benchling apps on your tenant
   name: Apps
 - description: 'In Benchling, Assemblies are records of a process in which many fragment

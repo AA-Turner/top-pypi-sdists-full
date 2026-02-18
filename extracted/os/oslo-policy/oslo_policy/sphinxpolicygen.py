@@ -18,6 +18,7 @@
 import os
 
 from oslo_config import cfg
+from sphinx import application
 from sphinx.util import logging
 
 from oslo_policy import generator
@@ -25,51 +26,64 @@ from oslo_policy import generator
 LOG = logging.getLogger(__name__)
 
 
-def generate_sample(app):
+def generate_sample(app: application.Sphinx) -> None:
     """Generate a sample policy file."""
 
     if not app.config.policy_generator_config_file:
-        LOG.warning("No policy_generator_config_file is specified, "
-                    "skipping sample policy generation")
+        LOG.warning(
+            'No policy_generator_config_file is specified, '
+            'skipping sample policy generation'
+        )
         return
 
     if isinstance(app.config.policy_generator_config_file, list):
         for config_file, base_name in app.config.policy_generator_config_file:
             if base_name is None:
                 base_name = _get_default_basename(config_file)
-            _generate_sample(app, config_file, base_name,
-                             app.config.exclude_deprecated)
+            _generate_sample(
+                app, config_file, base_name, app.config.exclude_deprecated
+            )
     else:
-        _generate_sample(app,
-                         app.config.policy_generator_config_file,
-                         app.config.sample_policy_basename,
-                         app.config.exclude_deprecated)
+        _generate_sample(
+            app,
+            app.config.policy_generator_config_file,
+            app.config.sample_policy_basename,
+            app.config.exclude_deprecated,
+        )
 
 
-def _get_default_basename(config_file):
+def _get_default_basename(config_file: str) -> str:
     return os.path.splitext(os.path.basename(config_file))[0]
 
 
-def _generate_sample(app, policy_file, base_name, exclude_deprecated):
-
-    def info(msg):
+def _generate_sample(
+    app: application.Sphinx,
+    policy_file: str,
+    base_name: str,
+    exclude_deprecated: bool,
+) -> None:
+    def info(msg: str) -> None:
         LOG.info(f'[{__name__}] {msg}')
 
     # If we are given a file that isn't an absolute path, look for it
     # in the source directory if it doesn't exist.
     candidates = [
         policy_file,
-        os.path.join(app.srcdir, policy_file,),
+        os.path.join(
+            app.srcdir,
+            policy_file,
+        ),
     ]
     for c in candidates:
         if os.path.isfile(c):
-            info('reading config generator instructions from %s' % c)
+            info(f'reading config generator instructions from {c}')
             config_path = c
             break
     else:
         raise ValueError(
-            "Could not find policy_generator_config_file %r" %
-            app.config.policy_generator_config_file)
+            f'Could not find policy_generator_config_file '
+            f'{app.config.policy_generator_config_file!r}'
+        )
 
     if base_name:
         out_file = os.path.join(app.srcdir, base_name) + '.policy.yaml.sample'
@@ -79,22 +93,19 @@ def _generate_sample(app, policy_file, base_name, exclude_deprecated):
         file_name = 'sample.policy.yaml'
         out_file = os.path.join(app.srcdir, file_name)
 
-    info('writing sample policy to %s' % out_file)
+    info(f'writing sample policy to {out_file}')
     # NOTE(bnemec): We don't want to do cli parsing on the global object here
     # because that can break consumers who do cli arg registration on import
     # in their documented modules. It's not allowed to register a cli arg after
     # the args have been parsed once.
     conf = cfg.ConfigOpts()
-    arguments = ['--config-file', config_path,
-                 '--output-file', out_file]
+    arguments = ['--config-file', config_path, '--output-file', out_file]
     if exclude_deprecated:
         arguments += ['--exclude-deprecated']
-    generator.generate_sample(
-        args=arguments,
-        conf=conf)
+    generator.generate_sample(args=arguments, conf=conf)
 
 
-def setup(app):
+def setup(app: application.Sphinx) -> dict[str, bool]:
     app.add_config_value('policy_generator_config_file', None, 'env')
     app.add_config_value('sample_policy_basename', None, 'env')
     app.add_config_value('exclude_deprecated', False, 'env')

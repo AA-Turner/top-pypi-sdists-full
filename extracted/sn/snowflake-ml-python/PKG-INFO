@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-ml-python
-Version: 1.27.0
+Version: 1.28.0
 Summary: The machine learning client library that is used for interacting with Snowflake to build machine learning solutions.
 Author-email: "Snowflake, Inc" <support@snowflake.com>
 License: 
@@ -253,7 +253,7 @@ Requires-Dist: s3fs<2026,>=2024.6.1
 Requires-Dist: scikit-learn<1.8
 Requires-Dist: scipy<2,>=1.9
 Requires-Dist: shap<1,>=0.46.0
-Requires-Dist: snowflake-connector-python[pandas]<4,>=3.17.3
+Requires-Dist: snowflake-connector-python[pandas]<5,>=3.17.3
 Requires-Dist: snowflake-snowpark-python!=1.26.0,<2,>=1.17.0
 Requires-Dist: snowflake.core<2,>=1.0.2
 Requires-Dist: sqlparse<1,>=0.4
@@ -417,7 +417,17 @@ NOTE: Version 1.7.0 is used as example here. Please choose the the latest versio
 
 # Release History
 
-## 1.27.0
+## 1.28.0
+
+### New Features
+
+### Bug Fixes
+
+### Behavior Changes
+
+### Deprecations
+
+## 1.27.0 (2026-02-12)
 
 ### New Features
 

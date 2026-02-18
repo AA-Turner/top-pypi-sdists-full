@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -151,12 +151,12 @@ class CompatibilitySaveLoadTestBase:
             checkpointable_name=None,
         )
         test_utils.assert_tree_equal(self, self.pytree, loaded)
-        loaded = ocp.load_pytree(
-            step_dir,
-            self.abstract_pytree if with_abstract_pytree else None,
-            checkpointable_name=None,
-        )
-        test_utils.assert_tree_equal(self, self.pytree, loaded)
+        with self.assertRaises(InvalidLayoutError):
+          ocp.load_pytree(
+              step_dir,
+              self.abstract_pytree if with_abstract_pytree else None,
+              checkpointable_name=None,
+          )
         with self.assertRaises(InvalidLayoutError):
           ocp.load_pytree(
               self.root_directory,
@@ -215,13 +215,11 @@ class CompatibilitySaveLoadTestBase:
         test_utils.assert_tree_same_structure(
             self, self.abstract_pytree, loaded.metadata
         )
-        loaded = ocp.pytree_metadata(
-            step_dir,
-            checkpointable_name=None,
-        )
-        test_utils.assert_tree_same_structure(
-            self, self.abstract_pytree, loaded.metadata
-        )
+        with self.assertRaises(InvalidLayoutError):
+          ocp.pytree_metadata(
+              step_dir,
+              checkpointable_name=None,
+          )
         with self.assertRaises(InvalidLayoutError):
           ocp.pytree_metadata(
               self.root_directory,

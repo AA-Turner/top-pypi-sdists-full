@@ -1,7 +1,7 @@
 use std::str::FromStr;
 
-use ahash::HashSet;
 use expect_test::expect_file;
+use hashbrown::HashSet;
 use itertools::Itertools;
 use rayon::iter::ParallelIterator;
 use rayon::prelude::IntoParallelRefIterator;
@@ -71,7 +71,7 @@ fn main() {
     // Go through each of the dialects and check if the files are present
     for dialect_name in &dialects {
         let dialect_kind = DialectKind::from_str(dialect_name).unwrap();
-        let Some(dialect) = kind_to_dialect(&dialect_kind) else {
+        let Some(dialect) = kind_to_dialect(&dialect_kind, None) else {
             println!("{dialect_name} disabled");
             continue;
         };

@@ -1,11 +1,10 @@
 # This library is self-using and auto-bootstraps itself
 
 import os
-import subprocess  # nosec
+import subprocess
 import sys
 
 import setuptools
-
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 EGG = os.path.join(HERE, "setupmeta.egg-info")
@@ -13,8 +12,6 @@ EGG = os.path.join(HERE, "setupmeta.egg-info")
 ENTRY_POINTS = """
 [distutils.commands]
 check = setupmeta.commands:CheckCommand
-cleanall = setupmeta.commands:CleanCommand
-entrypoints = setupmeta.commands:EntryPointsCommand
 explain = setupmeta.commands:ExplainCommand
 version = setupmeta.commands:VersionCommand
 
@@ -27,20 +24,13 @@ versioning = setupmeta.hook:register_keyword
 """
 
 
-def decode(text):
-    if isinstance(text, bytes):
-        return text.decode("utf-8")
-
-    return text
-
-
 def run_bootstrap(message):
-    sys.stderr.write("--- Bootstrapping %s\n" % message)
-    p = subprocess.Popen([sys.executable, "setup.py", "egg_info"], stdout=subprocess.PIPE, stderr=subprocess.PIPE)  # nosec
+    sys.stderr.write(f"--- Bootstrapping {message}\n")
+    p = subprocess.Popen([sys.executable, "setup.py", "egg_info"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True)  # noqa: S603
     output, error = p.communicate()
     if p.returncode:
-        print(decode(output))
-        sys.stderr.write("%s\n" % decode(error))
+        print(output)
+        sys.stderr.write(f"{error}\n")
         sys.exit(p.returncode)
 
     if not os.path.isdir(EGG):
@@ -49,6 +39,7 @@ def run_bootstrap(message):
 
 def complete_args(args):
     args["setup_requires"] = ["setupmeta"]
+    args["install_requires"] = ["setuptools>=67"]
     args["versioning"] = "dev"
 
 
@@ -57,13 +48,13 @@ if __name__ == "__main__":
     have_egg = os.path.isdir(EGG)
 
     # Explicit on entry points due to bootstrap
-    args = dict(
-        name="setupmeta",
-        entry_points=ENTRY_POINTS,
-        packages=["setupmeta"],
-        python_requires=">=3.7",
-        zip_safe=True,
-        classifiers=[
+    args = {
+        "name": "setupmeta",
+        "entry_points": ENTRY_POINTS,
+        "packages": ["setupmeta"],
+        "python_requires": ">=3.7",
+        "zip_safe": True,
+        "classifiers": [
             "Development Status :: 5 - Production/Stable",
             "Intended Audience :: Developers",
             "Operating System :: MacOS :: MacOS X",
@@ -78,6 +69,7 @@ if __name__ == "__main__":
             "Programming Language :: Python :: 3.11",
             "Programming Language :: Python :: 3.12",
             "Programming Language :: Python :: 3.13",
+            "Programming Language :: Python :: 3.14",
             "Programming Language :: Python :: Implementation :: CPython",
             "Programming Language :: Python :: Implementation :: PyPy",
             "Topic :: Software Development :: Build Tools",
@@ -87,7 +79,7 @@ if __name__ == "__main__":
             "Topic :: System :: Software Distribution",
             "Topic :: Utilities",
         ],
-    )
+    }
     if have_egg:
         # We're bootstrapped, we can self-refer
         complete_args(args)

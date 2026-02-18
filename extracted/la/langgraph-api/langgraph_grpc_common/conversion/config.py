@@ -1,5 +1,5 @@
 import logging
-from typing import TYPE_CHECKING, Any, cast
+from typing import Any, cast
 
 import orjson
 from langchain_core.runnables import RunnableConfig
@@ -27,9 +27,6 @@ from langgraph_grpc_common.conversion._compat import (
     StreamProtocol,
 )
 from langgraph_grpc_common.proto import engine_common_pb2, enum_stream_mode_pb2
-
-if TYPE_CHECKING:
-    from langgraph.types import StreamMode
 
 CONFIG_KEY_GRAPH_ID = "graph_id"
 # DR-specific key for storing root graph stream modes, required for patched subgraph streaming.
@@ -118,14 +115,14 @@ def _configurable_from_proto(
         configurable[CONFIG_KEY_GRAPH_ID] = config_proto.graph_id
 
     if len(config_proto.root_stream_modes) > 0:
-        root_modes: set[StreamMode] = {  # type: ignore[assignment]
+        root_modes: set[str] = {
             enum_stream_mode_pb2.StreamMode.Name(mode)
             for mode in config_proto.root_stream_modes
         }
         # required for OSS custom event emission which checks CONFIG_KEY_STREAM.modes
         configurable[CONFIG_KEY_STREAM] = StreamProtocol(
             lambda _: None,
-            root_modes,
+            root_modes,  # ty: ignore[invalid-argument-type]
         )
         # preserves root modes through nested subgraph calls
         configurable[CONFIG_KEY_ROOT_STREAM_MODES] = root_modes

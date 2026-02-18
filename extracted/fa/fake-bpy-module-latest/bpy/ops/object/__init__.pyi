@@ -2104,6 +2104,8 @@ def make_links_data(
         "FONTS",
         "MODIFIERS",
         "EFFECTS",
+        "LIGHT_LINKING",
+        "SHADOW_LINKING",
     ]
     | None = "OBDATA",
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -2134,6 +2136,12 @@ def make_links_data(
 
     EFFECTS
     Copy Grease Pencil Effects -- Replace Grease Pencil Effects.
+
+    LIGHT_LINKING
+    Copy Light Linking -- Replace assigned Light Linking collection.
+
+    SHADOW_LINKING
+    Copy Shadow Linking -- Replace assigned Shadow Linking collection.
         :return: Result of the operator call.
     """
 

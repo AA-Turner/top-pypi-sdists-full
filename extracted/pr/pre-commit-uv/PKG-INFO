@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: pre-commit-uv
-Version: 4.2.0
+Version: 4.2.1
 Summary: Run pre-commit with uv
 Project-URL: Bug Tracker, https://github.com/tox-dev/pre-commit-uv/issues
 Project-URL: Changelog, https://github.com/tox-dev/pre-commit-uv/releases
-Project-URL: Documentation, https://github.com/tox-dev/pre-commit-uv/
 Project-URL: Source Code, https://github.com/tox-dev/pre-commit-uv
+Project-URL: Documentation, https://github.com/tox-dev/pre-commit-uv/
 Author-email: Bernat Gabor <gaborjbernat@gmail.com>
 License: Permission is hereby granted, free of charge, to any person obtaining a
         copy of this software and associated documentation files (the

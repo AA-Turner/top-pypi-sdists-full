@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.context
-Version: 6.2.0
+Version: 6.3.0
 Summary: Oslo Context library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -19,17 +19,35 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: pbr>=2.0.0
 Requires-Dist: typing-extensions>=4.12.0
+Dynamic: license-file
+Dynamic: requires-dist
 
 ====================
 Oslo Context Library
 ====================
 
-The Oslo context library has helpers to maintain useful information
+.. image:: https://governance.openstack.org/tc/badges/oslo.context.svg
+    :target: https://governance.openstack.org/tc/reference/projects/oslo.html
+
+.. image:: https://img.shields.io/pypi/v/oslo.context
+    :target: https://pypi.org/project/oslo.context/
+    :alt: Latest Version
+
+.. image:: https://img.shields.io/pypi/dm/oslo.context
+    :target: https://pypi.org/project/oslo.context/
+    :alt: Downloads
+
+.. image:: https://img.shields.io/pypi/types/oslo.context
+    :target: https://pypi.org/project/oslo.context/
+    :alt: Typing Status
+
+The oslo.context library has helpers to maintain useful information
 about a request context. The request context is usually populated in
 the WSGI pipeline and used by various modules such as logging.
 
@@ -38,19 +56,3 @@ the WSGI pipeline and used by various modules such as logging.
 * Source: https://opendev.org/openstack/oslo.context
 * Bugs: https://bugs.launchpad.net/oslo.context
 * Release notes:  https://docs.openstack.org/releasenotes/oslo.context/
-
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/oslo.context.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
-
-.. image:: https://img.shields.io/pypi/v/oslo.context.svg
-    :target: https://pypi.org/project/oslo.context/
-    :alt: Latest Version
-
-.. image:: https://img.shields.io/pypi/dm/oslo.context.svg
-    :target: https://pypi.org/project/oslo.context/
-    :alt: Downloads

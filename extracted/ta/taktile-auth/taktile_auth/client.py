@@ -1,5 +1,6 @@
 import datetime
 import json
+import time
 import typing as t
 from hashlib import blake2b
 from urllib.parse import urljoin
@@ -9,6 +10,7 @@ import requests
 from jwt.algorithms import RSAAlgorithm
 from pydantic import BaseModel, ValidationError
 
+from taktile_auth._metrics import emit_metric
 from taktile_auth.exceptions import InvalidAuthException, TaktileAuthException
 from taktile_auth.schemas.session import SessionState
 from taktile_auth.schemas.token import TaktileIdToken
@@ -159,63 +161,89 @@ class AuthClient:
         if not session_state.api_key and not session_state.jwt:
             raise InvalidAuthException("no-auth-proved")
 
-        if session_state.jwt:
+        method = "id_token" if session_state.jwt else "cache"
+        t0 = time.perf_counter()
+        success = True
+        try:
+            if session_state.jwt:
+                return (
+                    self.decode_id_token(
+                        token=session_state.jwt, key=key, kid=kid
+                    ),
+                    session_state,
+                )
+
+            if cache_response := self._get_from_cache(
+                session_state=session_state, key=key
+            ):
+                session_state.jwt = cache_response.token
+                should_refresh = not cache_response.is_in_speedup_window
+            else:
+                should_refresh = False
+
+            if not session_state.jwt or should_refresh:
+                tapi_response = self._refresh_jwt(session_state=session_state)
+
+                if isinstance(tapi_response, AuthClient.JWTResponseSuccess):
+                    method = "refresh"
+                    session_state.jwt = tapi_response.token
+                    if self._cache:
+                        expires = (
+                            datetime.datetime.utcnow()
+                            + self._cache_fallback_time
+                        )
+                        self._cache.put(
+                            self._get_cache_key(str(session_state.api_key)),
+                            tapi_response.token,
+                            time_to_live=int(
+                                datetime.datetime.timestamp(expires)
+                            ),
+                        )
+                elif isinstance(
+                    tapi_response,
+                    AuthClient.JWTResponseAllowedFailure,
+                ):
+                    if session_state.jwt:
+                        return (
+                            self.decode_id_token(
+                                token=session_state.jwt,
+                                key=key,
+                                kid=kid,
+                            ),
+                            session_state,
+                        )
+                    else:
+                        raise InvalidAuthException(
+                            "Invalid authentication credentials"
+                            " provided (no cached token). Check"
+                            " again your credentials."
+                        ) from tapi_response.exception
+                elif isinstance(
+                    tapi_response,
+                    AuthClient.JWTResponseForbiddenFailure,
+                ):
+                    raise InvalidAuthException(
+                        "Invalid authentication credentials"
+                        " provided. Check again your"
+                        " credentials."
+                    ) from tapi_response.exception
+
             return (
                 self.decode_id_token(
                     token=session_state.jwt, key=key, kid=kid
                 ),
                 session_state,
             )
-
-        if cache_response := self._get_from_cache(
-            session_state=session_state, key=key
-        ):
-            session_state.jwt = cache_response.token
-            should_refresh = not cache_response.is_in_speedup_window
-        else:
-            should_refresh = False
-
-        if not session_state.jwt or should_refresh:
-            tapi_response = self._refresh_jwt(session_state=session_state)
-
-            if isinstance(tapi_response, AuthClient.JWTResponseSuccess):
-                session_state.jwt = tapi_response.token
-                if self._cache:
-                    expires = (
-                        datetime.datetime.utcnow() + self._cache_fallback_time
-                    )
-                    self._cache.put(
-                        self._get_cache_key(str(session_state.api_key)),
-                        tapi_response.token,
-                        time_to_live=int(datetime.datetime.timestamp(expires)),
-                    )
-            elif isinstance(
-                tapi_response, AuthClient.JWTResponseAllowedFailure
-            ):
-                if session_state.jwt:
-                    return (
-                        self.decode_id_token(
-                            token=session_state.jwt, key=key, kid=kid
-                        ),
-                        session_state,
-                    )
-                else:
-                    raise InvalidAuthException(
-                        "Invalid authentication credentials provided "
-                        "(no cached token). Check again your credentials."
-                    ) from tapi_response.exception
-            elif isinstance(
-                tapi_response, AuthClient.JWTResponseForbiddenFailure
-            ):
-                raise InvalidAuthException(
-                    "Invalid authentication credentials provided. "
-                    "Check again your credentials."
-                ) from tapi_response.exception
-
-        return (
-            self.decode_id_token(token=session_state.jwt, key=key, kid=kid),
-            session_state,
-        )
+        except Exception:
+            success = False
+            raise
+        finally:
+            duration_ms = (time.perf_counter() - t0) * 1000
+            emit_metric(
+                "GetAccessDuration",
+                duration_ms,
+                {"Method": method, "Success": str(success)},
+            )
 
     def _get_from_cache(
         self, *, session_state: SessionState, key: t.Optional[str]

@@ -6,7 +6,7 @@ from adam.config_holder import ConfigHolder
 from adam.utils_color import Color
 from adam.utils_concurrent import offload
 from adam.directories import Directories
-from adam.utils_global import thread_local
+from adam.thread_locals import thread_local_command
 from adam.utils_job.job import Job
 from adam.utils_log import _log, log2
 from adam.utils_repl.repl_session import ReplSession
@@ -25,8 +25,9 @@ class Context:
             history = 'pods',
             debug: bool = None,
             bg_init_msg: Union[str, bool] = None,
-            job_id: str = None):
-        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug, bg_init_msg=bg_init_msg, job_id=job_id)
+            job_id: str = None,
+            retriable = False):
+        return Context(cmd, background=background, show_out=show_out, text_color=text_color, history=history, debug=debug, bg_init_msg=bg_init_msg, job_id=job_id, retriable=retriable)
 
     def copy(self,
              background: bool = None,
@@ -81,10 +82,10 @@ class Context:
                  history = 'pods',
                  debug: bool = False,
                  bg_init_msg: Union[str, bool] = None,
-                 job_id: str = None):
+                 job_id: str = None,
+                 retriable = False):
         self.cmd = cmd
-        if hasattr(thread_local, 'cmd'):
-            self.raw_cmd = thread_local.cmd
+        self.raw_cmd = thread_local_command().raw_command
         self.background = background
         self.show_out = show_out
         self.text_color = text_color
@@ -98,6 +99,7 @@ class Context:
         self._histories = set()
         self.job_id = job_id
         self._pod_log_file: str = None
+        self.retriable = retriable
 
         if background:
             self._init_backgrounded()
@@ -115,7 +117,7 @@ class Context:
                 if bg_init_msg:
                     log2(bg_init_msg)
 
-        log_file = Job.local_log_file(self.cmd, self.job_id, extra=extra)
+        log_file = Job.local_log_file(self.cmd, self.job_id, extra=extra, retriable=self.retriable)
         self.log_file = log_file
 
     def log(self, s = None, nl = True, text_color: str = None, debug = False):
@@ -144,7 +146,7 @@ class Context:
         if self._pod_log_file:
             return self._pod_log_file
 
-        pod_log_file, pod_log_cnt = Job.pod_log_file(self.cmd, job_id=self.job_id, pod_suffix='', suffix=suffix, dir=Directories.remote_log_dir())
+        pod_log_file, pod_log_cnt = Job.pod_log_file(self.cmd, job_id=self.job_id, pod_suffix='', suffix=suffix, dir=Directories.remote_log_dir(), retriable=self.retriable)
         # append only the first accessed pod log to history
         if not pod_log_cnt and pod and history and self.history in [Context.ALL, Context.PODS]:
             self.append_history(f'@{pod} tail {pod_log_file}')

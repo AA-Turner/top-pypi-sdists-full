@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -22,6 +22,55 @@ from typing import Any
 class CheckpointConfig:
   """Configuration for the test checkpoint data to be generated or loaded.
 
+  `sharding_config_path` points to a file in the following format::
+
+    {
+      "params.params.decoder.decoder_norm.scale": {
+        "shape": [
+            4096
+        ],
+        "dtype": "float32",
+        "sharding": {
+            "mesh": {
+                "shape": [
+                    8,
+                    1,
+                    2,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1,
+                    1
+                ],
+                "axes": [
+                    "data",
+                    "stage",
+                    "fsdp",
+                    "fsdp_transpose",
+                    "sequence",
+                    "context",
+                    "context_autoregressive",
+                    "tensor",
+                    "tensor_transpose",
+                    "tensor_sequence",
+                    "expert",
+                    "autoregressive"
+                ]
+            },
+            "spec": [
+                [
+                    "tensor",
+                    "tensor_transpose"
+                ]
+            ]
+        }
+      },
+    }
+
   Attributes:
       path: The path to the checkpoint data to be used in the test. If not
         provided, the checkpoint will be generated using the `spec` attribute.
@@ -30,11 +79,24 @@ class CheckpointConfig:
       spec: A dictionary defining the structure and type of the PyTree to be
         generated. Example: { 'params': { 'dtype': 'float32', 'shape': [1024,
         1024], 'sharding': ['data', 'model']  # PartitionSpec }, 'step': 'int' }
+      sharding_config_path: A path to a file containing sharding specifications,
+        used alongside `path`. See above.
   """
 
   path: str | None = None
   random_seed: int = 0
-  spec: dict[str, Any] = dataclasses.field(default_factory=dict)
+  spec: dict[str, Any] | None = None
+  sharding_config_path: str | None = None
+
+  def __post_init__(self):
+    if self.path is None and self.spec is None:
+      raise ValueError('Either path or spec must be provided.')
+    if self.path is not None and self.spec is not None:
+      raise ValueError('Only one of path or spec can be provided.')
+    if self.sharding_config_path is not None and self.path is None:
+      raise ValueError(
+          'If `sharding_config_path` is provided, `path` must also be provided.'
+      )
 
 
 @dataclasses.dataclass(frozen=True)
@@ -53,14 +115,17 @@ class MeshConfig:
       dcn_parallelism: A dictionary mapping axis names to their parallelism
         degree *across* slices (Data Center Network). This typically contains a
         single entry for the data-parallel axis.
-          Example: {'data': 2}
+          Example: {'data': 2} If None, an ordinary device mesh will be used,
+            rather than a hybrid device mesh (intended for multi-replica
+            workloads)
       allow_split_physical_axes: If True, we will split physical axes if
         necessary to produce the desired device mesh.
       process_is_granule: If True, treat processes as the units of the
         slower/outer network.
   """
+
   mesh_axes: list[str]
   ici_parallelism: dict[str, int] = dataclasses.field(default_factory=dict)
-  dcn_parallelism: dict[str, int] = dataclasses.field(default_factory=dict)
+  dcn_parallelism: dict[str, int] | None = None
   allow_split_physical_axes: bool = False
   process_is_granule: bool = False

@@ -167,18 +167,6 @@ providers: list[Provider] = [
                 ),
             ),
             ModelInfo(
-                id='claude-instant-1',
-                match=ClauseEquals(equals='claude-instant-1'),
-                description='Retired, here to match price sources',
-                prices=ModelPrice(input_mtok=Decimal('1.63'), output_mtok=Decimal('55.1')),
-            ),
-            ModelInfo(
-                id='claude-instant-1.2',
-                match=ClauseEquals(equals='claude-instant-1.2'),
-                description='Retired, here to match price sources',
-                prices=ModelPrice(input_mtok=Decimal('1.63'), output_mtok=Decimal('5.51')),
-            ),
-            ModelInfo(
                 id='claude-opus-4-0',
                 match=ClauseOr(
                     or_=[
@@ -247,7 +235,7 @@ providers: list[Provider] = [
                     ]
                 ),
                 name='Claude Opus 4.6',
-                description='Most intelligent model with adaptive thinking and 1M context beta',
+                description='Our most intelligent model for building agents and coding',
                 context_window=200000,
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('5'), tiers=[Tier(start=200000, price=Decimal('10'))]),
@@ -288,7 +276,27 @@ providers: list[Provider] = [
                     ]
                 ),
                 name='Claude Sonnet 4.5',
-                description='Most intelligent model for building agents and coding',
+                description='Our best combination of speed and intelligence',
+                context_window=1000000,
+                prices=ModelPrice(
+                    input_mtok=TieredPrices(base=Decimal('3'), tiers=[Tier(start=200000, price=Decimal('6'))]),
+                    cache_write_mtok=TieredPrices(
+                        base=Decimal('3.75'), tiers=[Tier(start=200000, price=Decimal('7.5'))]
+                    ),
+                    cache_read_mtok=TieredPrices(base=Decimal('0.3'), tiers=[Tier(start=200000, price=Decimal('0.6'))]),
+                    output_mtok=TieredPrices(base=Decimal('15'), tiers=[Tier(start=200000, price=Decimal('22.5'))]),
+                ),
+            ),
+            ModelInfo(
+                id='claude-sonnet-4-6',
+                match=ClauseOr(
+                    or_=[
+                        ClauseStartsWith(starts_with='claude-sonnet-4-6'),
+                        ClauseStartsWith(starts_with='claude-sonnet-4.6'),
+                    ]
+                ),
+                name='Claude Sonnet 4.6',
+                description='Our best combination of speed and intelligence',
                 context_window=1000000,
                 prices=ModelPrice(
                     input_mtok=TieredPrices(base=Decimal('3'), tiers=[Tier(start=200000, price=Decimal('6'))]),
@@ -1747,6 +1755,7 @@ providers: list[Provider] = [
                 name='Gemini 2.5 Flash Preview 05-20',
                 description='Gemini 2.5 Flash May 20th Checkpoint is Google\'s state-of-the-art workhorse model, specifically designed for advanced reasoning, coding, mathematics, and scientific tasks. It includes built-in "thinking" capabilities, enabling it to provide responses with greater accuracy and nuanced context handling.',
                 price_comments='from https://cloud.google.com/vertex-ai/generative-ai/pricing should be retired 2025-07-15',
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6')),
             ),
             ModelInfo(
@@ -2240,6 +2249,18 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6')),
             ),
             ModelInfo(
+                id='Qwen/Qwen3-Coder-480B-A35B-Instruct',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='qwen/qwen3-coder-480b-a35b-instruct'),
+                        ClauseEquals(equals='qwen/qwen3-coder-480b-a35b-instruct-fast'),
+                    ]
+                ),
+                name='Qwen3-Coder-480B-A35B-Instruct',
+                context_window=262144,
+                prices=ModelPrice(input_mtok=Decimal('0.45'), output_mtok=Decimal('1.8')),
+            ),
+            ModelInfo(
                 id='deepseek-ai/DeepSeek-R1-0528',
                 match=ClauseOr(
                     or_=[
@@ -2283,15 +2304,6 @@ providers: list[Provider] = [
                 name='gpt-oss-120b',
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6')),
-            ),
-            ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.05'), output_mtok=Decimal('0.2')),
             ),
             ModelInfo(
                 id='zai-org/GLM-4.5',
@@ -2358,15 +2370,6 @@ providers: list[Provider] = [
                 name='gpt-oss-120b',
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.75')),
-            ),
-            ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.1'), output_mtok=Decimal('0.5')),
             ),
         ],
     ),
@@ -2592,15 +2595,6 @@ providers: list[Provider] = [
                 name='gpt-oss-120b',
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.3'), output_mtok=Decimal('0.3')),
-            ),
-            ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.1'), output_mtok=Decimal('0.1')),
             ),
         ],
     ),
@@ -2906,15 +2900,6 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6')),
             ),
             ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.05'), output_mtok=Decimal('0.2')),
-            ),
-            ModelInfo(
                 id='zai-org/GLM-4.5',
                 match=ClauseOr(
                     or_=[ClauseEquals(equals='zai-org/glm-4.5'), ClauseEquals(equals='zai-org/glm-4.5-fast')]
@@ -3188,6 +3173,18 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.05'), output_mtok=Decimal('0.05')),
             ),
             ModelInfo(
+                id='XiaomiMiMo/MiMo-V2-Flash',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='xiaomimimo/mimo-v2-flash'),
+                        ClauseEquals(equals='xiaomimimo/mimo-v2-flash-fast'),
+                    ]
+                ),
+                name='MiMo-V2-Flash',
+                context_window=262144,
+                prices=ModelPrice(input_mtok=Decimal('0.098'), output_mtok=Decimal('0.293')),
+            ),
+            ModelInfo(
                 id='alpindale/WizardLM-2-8x22B',
                 match=ClauseOr(
                     or_=[
@@ -3296,6 +3293,18 @@ providers: list[Provider] = [
                 name='DeepSeek-R1-0528-Qwen3-8B',
                 context_window=128000,
                 prices=ModelPrice(input_mtok=Decimal('0.048'), output_mtok=Decimal('0.072')),
+            ),
+            ModelInfo(
+                id='deepseek-ai/DeepSeek-R1-Distill-Llama-70B',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='deepseek-ai/deepseek-r1-distill-llama-70b'),
+                        ClauseEquals(equals='deepseek-ai/deepseek-r1-distill-llama-70b-fast'),
+                    ]
+                ),
+                name='DeepSeek-R1-Distill-Llama-70B',
+                context_window=8192,
+                prices=ModelPrice(input_mtok=Decimal('0.64'), output_mtok=Decimal('0.64')),
             ),
             ModelInfo(
                 id='deepseek-ai/DeepSeek-R1-Distill-Qwen-14B',
@@ -3456,18 +3465,6 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.456'), output_mtok=Decimal('1.84')),
             ),
             ModelInfo(
-                id='moonshotai/Kimi-K2-Instruct-0905',
-                match=ClauseOr(
-                    or_=[
-                        ClauseEquals(equals='moonshotai/kimi-k2-instruct-0905'),
-                        ClauseEquals(equals='moonshotai/kimi-k2-instruct-0905-fast'),
-                    ]
-                ),
-                name='Kimi-K2-Instruct-0905',
-                context_window=262144,
-                prices=ModelPrice(input_mtok=Decimal('0.48'), output_mtok=Decimal('2')),
-            ),
-            ModelInfo(
                 id='moonshotai/Kimi-K2-Thinking',
                 match=ClauseOr(
                     or_=[
@@ -3487,15 +3484,6 @@ providers: list[Provider] = [
                 name='gpt-oss-120b',
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.04'), output_mtok=Decimal('0.2')),
-            ),
-            ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.032'), output_mtok=Decimal('0.12')),
             ),
             ModelInfo(
                 id='zai-org/AutoGLM-Phone-9B-Multilingual',
@@ -3805,15 +3793,6 @@ providers: list[Provider] = [
                 context_window=131072,
                 prices=ModelPrice(input_mtok=Decimal('0.1'), output_mtok=Decimal('0.4')),
             ),
-            ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.05'), output_mtok=Decimal('0.2')),
-            ),
         ],
     ),
     Provider(
@@ -3856,6 +3835,13 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('1.01'), output_mtok=Decimal('1.01')),
             ),
             ModelInfo(
+                id='Qwen/Qwen3-32B',
+                match=ClauseOr(or_=[ClauseEquals(equals='qwen/qwen3-32b'), ClauseEquals(equals='qwen/qwen3-32b-fast')]),
+                name='Qwen3-32B',
+                context_window=32768,
+                prices=ModelPrice(input_mtok=Decimal('0.09'), output_mtok=Decimal('0.25')),
+            ),
+            ModelInfo(
                 id='Qwen/Qwen3-Coder-30B-A3B-Instruct',
                 match=ClauseOr(
                     or_=[
@@ -3866,6 +3852,51 @@ providers: list[Provider] = [
                 name='Qwen3-Coder-30B-A3B-Instruct',
                 context_window=262144,
                 prices=ModelPrice(input_mtok=Decimal('0.07'), output_mtok=Decimal('0.26')),
+            ),
+            ModelInfo(
+                id='deepseek-ai/DeepSeek-R1-Distill-Llama-70B',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='deepseek-ai/deepseek-r1-distill-llama-70b'),
+                        ClauseEquals(equals='deepseek-ai/deepseek-r1-distill-llama-70b-fast'),
+                    ]
+                ),
+                name='DeepSeek-R1-Distill-Llama-70B',
+                context_window=131072,
+                prices=ModelPrice(input_mtok=Decimal('0.74'), output_mtok=Decimal('0.74')),
+            ),
+            ModelInfo(
+                id='meta-llama/Llama-3.1-8B-Instruct',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='meta-llama/llama-3.1-8b-instruct'),
+                        ClauseEquals(equals='meta-llama/llama-3.1-8b-instruct-fast'),
+                    ]
+                ),
+                name='Llama-3.1-8B-Instruct',
+                context_window=131072,
+                prices=ModelPrice(input_mtok=Decimal('0.11'), output_mtok=Decimal('0.11')),
+            ),
+            ModelInfo(
+                id='meta-llama/Llama-3.3-70B-Instruct',
+                match=ClauseOr(
+                    or_=[
+                        ClauseEquals(equals='meta-llama/llama-3.3-70b-instruct'),
+                        ClauseEquals(equals='meta-llama/llama-3.3-70b-instruct-fast'),
+                    ]
+                ),
+                name='Llama-3.3-70B-Instruct',
+                context_window=131072,
+                prices=ModelPrice(input_mtok=Decimal('0.74'), output_mtok=Decimal('0.74')),
+            ),
+            ModelInfo(
+                id='openai/gpt-oss-120b',
+                match=ClauseOr(
+                    or_=[ClauseEquals(equals='openai/gpt-oss-120b'), ClauseEquals(equals='openai/gpt-oss-120b-fast')]
+                ),
+                name='gpt-oss-120b',
+                context_window=131072,
+                prices=ModelPrice(input_mtok=Decimal('0.09'), output_mtok=Decimal('0.47')),
             ),
         ],
     ),
@@ -4432,15 +4463,6 @@ providers: list[Provider] = [
                 prices=ModelPrice(input_mtok=Decimal('0.15'), output_mtok=Decimal('0.6')),
             ),
             ModelInfo(
-                id='openai/gpt-oss-20b',
-                match=ClauseOr(
-                    or_=[ClauseEquals(equals='openai/gpt-oss-20b'), ClauseEquals(equals='openai/gpt-oss-20b-fast')]
-                ),
-                name='gpt-oss-20b',
-                context_window=131072,
-                prices=ModelPrice(input_mtok=Decimal('0.05'), output_mtok=Decimal('0.2')),
-            ),
-            ModelInfo(
                 id='zai-org/GLM-4.5-Air-FP8',
                 match=ClauseOr(
                     or_=[
@@ -4602,6 +4624,7 @@ providers: list[Provider] = [
                 match=ClauseEquals(equals='mistral-tiny'),
                 name='Mistral Tiny',
                 description='Note: This model is being deprecated. Recommended replacement is the newer Ministral 8B',
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('0.25'), output_mtok=Decimal('0.25')),
             ),
             ModelInfo(
@@ -9122,13 +9145,6 @@ providers: list[Provider] = [
         ],
         models=[
             ModelInfo(
-                id='BGE-M3',
-                match=ClauseOr(or_=[ClauseEquals(equals='BGE-M3'), ClauseEquals(equals='bge-m3')]),
-                name='BGE-M3',
-                context_window=8192,
-                prices=ModelPrice(input_mtok=Decimal('0.01')),
-            ),
-            ModelInfo(
                 id='DeepSeek-R1-Distill-Llama-70B',
                 match=ClauseOr(
                     or_=[
@@ -9266,6 +9282,13 @@ providers: list[Provider] = [
                 match=ClauseEquals(equals='bge-base-en-v1.5'),
                 name='bge-base-en-v1.5',
                 context_window=512,
+                prices=ModelPrice(input_mtok=Decimal('0.01')),
+            ),
+            ModelInfo(
+                id='bge-m3',
+                match=ClauseEquals(equals='bge-m3'),
+                name='bge-m3',
+                context_window=8192,
                 prices=ModelPrice(input_mtok=Decimal('0.01')),
             ),
             ModelInfo(
@@ -9785,6 +9808,7 @@ providers: list[Provider] = [
                 name='Grok 2 1212',
                 description='(deprecated) Grok 2 1212 introduces significant enhancements to accuracy, instruction adherence, and multilingual support, making it a powerful and flexible choice for developers seeking a highly steerable, intelligent model.',
                 context_window=32768,
+                deprecated=True,
                 prices=ModelPrice(input_mtok=Decimal('2'), output_mtok=Decimal('10')),
             ),
             ModelInfo(

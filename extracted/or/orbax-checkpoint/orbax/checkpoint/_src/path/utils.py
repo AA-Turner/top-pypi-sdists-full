@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@
 
 import asyncio
 from collections.abc import AsyncIterable
+import functools
 import os
 import time
+
 from typing import Iterable, Optional
 
 from absl import logging
@@ -27,11 +29,11 @@ from orbax.checkpoint._src.path import gcs_utils
 
 
 
+@functools.lru_cache(maxsize=32)
 def get_storage_type(path: epath.Path | str) -> str:
   """Returns the storage type of the given path."""
   if isinstance(path, str):
     path = epath.Path(path)
-  path_str = os.fspath(path)
 
 
   if gcs_utils.is_gcs_path(path):

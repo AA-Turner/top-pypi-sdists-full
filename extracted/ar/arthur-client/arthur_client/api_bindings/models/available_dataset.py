@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.dataset_join_spec import DatasetJoinSpec
 from arthur_client.api_bindings.models.dataset_locator import DatasetLocator
@@ -42,7 +42,8 @@ class AvailableDataset(BaseModel):
     dataset_schema: Optional[DatasetSchema] = None
     model_problem_type: Optional[ModelProblemType] = None
     join_spec: Optional[DatasetJoinSpec] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "connector_id", "project_id", "name", "data_plane_id", "dataset_locator", "dataset_schema", "model_problem_type", "join_spec"]
+    is_static: Optional[StrictBool] = Field(default=False, description="Whether this dataset has no time dimension. Static datasets are fully loaded on each metrics run.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "connector_id", "project_id", "name", "data_plane_id", "dataset_locator", "dataset_schema", "model_problem_type", "join_spec", "is_static"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -144,7 +145,8 @@ class AvailableDataset(BaseModel):
             "dataset_locator": DatasetLocator.from_dict(obj["dataset_locator"]) if obj.get("dataset_locator") is not None else None,
             "dataset_schema": DatasetSchema.from_dict(obj["dataset_schema"]) if obj.get("dataset_schema") is not None else None,
             "model_problem_type": obj.get("model_problem_type"),
-            "join_spec": DatasetJoinSpec.from_dict(obj["join_spec"]) if obj.get("join_spec") is not None else None
+            "join_spec": DatasetJoinSpec.from_dict(obj["join_spec"]) if obj.get("join_spec") is not None else None,
+            "is_static": obj.get("is_static") if obj.get("is_static") is not None else False
         })
         return _obj
 

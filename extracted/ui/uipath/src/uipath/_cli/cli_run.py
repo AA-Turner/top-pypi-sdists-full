@@ -14,7 +14,7 @@ from uipath.runtime.chat import UiPathChatProtocol, UiPathChatRuntime
 from uipath.runtime.context import UiPathRuntimeContext
 from uipath.runtime.debug import UiPathDebugProtocol
 from uipath.runtime.errors import UiPathRuntimeError
-from uipath.runtime.events import UiPathRuntimeStateEvent
+from uipath.runtime.events import UiPathRuntimeStateEvent, UiPathRuntimeStatePhase
 
 from uipath._cli._chat._bridge import get_chat_bridge
 from uipath._cli._debug._bridge import ConsoleDebugBridge
@@ -152,7 +152,8 @@ def run(
                         await debug_bridge.emit_execution_completed(event)
                         ctx.result = event
                     elif isinstance(event, UiPathRuntimeStateEvent):
-                        await debug_bridge.emit_state_update(event)
+                        if event.phase == UiPathRuntimeStatePhase.UPDATED:
+                            await debug_bridge.emit_state_update(event)
                 return ctx.result
 
             async def execute() -> None:
@@ -196,13 +197,14 @@ def run(
                                 ctx.conversation_id or ctx.job_id or "default",
                             )
 
-                            if ctx.job_id and UiPathConfig.is_tracing_enabled:
-                                trace_manager.add_span_processor(
-                                    LiveTrackingSpanProcessor(
-                                        LlmOpsHttpExporter(),
-                                        settings=trace_settings,
+                            if ctx.job_id:
+                                if UiPathConfig.is_tracing_enabled:
+                                    trace_manager.add_span_processor(
+                                        LiveTrackingSpanProcessor(
+                                            LlmOpsHttpExporter(),
+                                            settings=trace_settings,
+                                        )
                                     )
-                                )
 
                                 if ctx.conversation_id and ctx.exchange_id:
                                     chat_bridge: UiPathChatProtocol = get_chat_bridge(

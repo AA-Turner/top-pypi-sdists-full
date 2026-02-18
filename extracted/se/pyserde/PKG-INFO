@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyserde
-Version: 0.30.0
+Version: 0.30.1
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -87,7 +87,7 @@ Description-Content-Type: text/markdown
   </a>
 </p>
 <p align="center">
-  <a href="https://yukinarit.github.io/pyserde">Guide🇬🇧</a> | <a href="https://yukinarit.github.io/pyserde">ガイド🇯🇵</a> | <a href="https://yukinarit.github.io/pyserde/api/serde.html">API Reference</a> | <a href="https://github.com/yukinarit/pyserde/tree/main/examples">Examples</a>
+  <a href="https://yukinarit.github.io/pyserde">Guide🇬🇧</a> | <a href="https://yukinarit.github.io/pyserde/latest/ja">ガイド🇯🇵</a> | <a href="https://yukinarit.github.io/pyserde/api/serde.html">API Reference</a> | <a href="https://github.com/yukinarit/pyserde/tree/main/examples">Examples</a>
 </p>
 
 ## Overview

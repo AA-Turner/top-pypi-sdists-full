@@ -1,0 +1,103 @@
+# Site Configuration
+site_name: Fides
+site_url: https://ethyca.github.io/fides/
+
+# GitHub Configuration
+repo_url: https://github.com/ethyca/fides
+edit_uri: blob/main/docs/fides/docs/
+
+# Navigation
+nav:
+  - Fides:
+      - What is Fides?: index.md
+      - API: api/index.md
+      - CLI: cli/index.md
+      - Configuration: config/index.md
+      - Contributing:
+          - Overview: development/overview.md
+          - Developing Fides: development/developing_fides.md
+          - Development Tips: development/development_tips.md
+          - Testing: development/testing.md
+          - Code Style: development/code_style.md
+          - UI Development:
+            - Overview: development/ui/overview.md
+            - Privacy Center: development/ui/privacy_center.md
+            - Admin UI: development/ui/admin_ui.md
+          - Documentation: development/documentation.md
+          - Pull Requests: development/pull_requests.md
+          - Releases: development/releases.md
+          - Using Postman: development/postman/using_postman.md
+          - Updating the Database Diagram: development/update_erd_diagram.md
+          - User Analytics: development/fideslog.md
+      - Community:
+          - Github, Slack, and Discord: community/overview.md
+          - Community Hints and Tips: community/hints_tips.md
+          - Code of Conduct: community/code_of_conduct.md
+  - About Ethyca:
+      - About Ethyca: ethyca.md
+      - License: license.md
+
+# Theme
+theme:
+  palette:
+    - scheme: default
+      toggle:
+        icon: material/toggle-switch-off-outline
+        name: Switch to dark mode
+    - scheme: slate
+      toggle:
+        icon: material/toggle-switch
+        name: Switch to light mode
+  name: material
+  # GitHub Icon
+  icon:
+    repo: fontawesome/brands/github
+  favicon: img/favicon.ico
+  logo: img/fides-logo.svg
+  font:
+    text: Source Sans Pro
+  features:
+    - navigation.top
+    - navigation.instant
+    - navigation.tabs
+  custom_dir: overrides
+
+markdown_extensions:
+  - attr_list
+  - pymdownx.superfences
+  - pymdownx.snippets:
+      base_path: ["docs/fides/docs/config/", "docs/fides/config/","docs/fides/dev/config/"]
+  - pymdownx.inlinehilite
+  - pymdownx.tabbed
+  - admonition
+  - mkdocs-click
+  - pymdownx.highlight:
+      linenums: true
+      linenums_style: table
+
+extra_javascript:
+  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/highlight.min.js
+  - js/matomo.js
+
+extra_css:
+  - https://cdnjs.cloudflare.com/ajax/libs/highlight.js/10.7.2/styles/default.min.css
+  - css/fides.css
+  - css/api.css
+  - css/cli.css
+  - css/taxonomy.css
+
+extra:
+  version:
+    provider: mike
+    default: stable
+
+watch:
+  - docs
+  - overrides
+
+plugins:
+  # The "Last Update" footer only shows in production
+  - git-revision-date:
+      enabled_if_env: PROD_PUBLISH
+  - render_swagger
+  - search

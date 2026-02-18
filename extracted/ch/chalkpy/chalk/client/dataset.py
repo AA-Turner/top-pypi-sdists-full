@@ -15,7 +15,20 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from enum import IntEnum
 from sys import stderr
-from typing import TYPE_CHECKING, Any, Dict, List, Literal, Mapping, Optional, Sequence, Union, cast, overload
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Collection,
+    Dict,
+    List,
+    Literal,
+    Mapping,
+    Optional,
+    Sequence,
+    Union,
+    cast,
+    overload,
+)
 from urllib.parse import urlparse
 
 import pandas as pd
@@ -54,6 +67,7 @@ from chalk.utils.threading import DEFAULT_IO_EXECUTOR
 if TYPE_CHECKING:
     import polars as pl
     import pyarrow as pa
+    import torch
 
     from chalk.client.client_impl import ChalkAPIClientImpl
 
@@ -808,6 +822,7 @@ class DatasetRevisionImpl(DatasetRevision):
         errors: list[ChalkError] | None = None,
         query_has_errors: bool = False,
         metadata: Mapping[str, Any] | None = None,
+        num_rows: Optional[int] = None,
     ):
         super().__init__()
         self.revision_id = revision_id
@@ -822,6 +837,7 @@ class DatasetRevisionImpl(DatasetRevision):
         self.output_uris = output_uris
         self.output_version = output_version
         self.num_bytes = num_bytes
+        self.num_rows = num_rows
         self.created_at = created_at
         self.started_at = started_at
         self.terminated_at = terminated_at
@@ -1313,6 +1329,48 @@ class DatasetRevisionImpl(DatasetRevision):
             environment=self.environment,
         )
 
+    def create_torch_map_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+    ) -> torch.utils.data.Dataset:
+        try:
+            import torch
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[torch]")
+        del torch  # unused
+
+        from chalk.torch.dataset import ChalkTorchMapDatasetFromRevision
+
+        return ChalkTorchMapDatasetFromRevision(
+            revision=self,
+            columns=columns,
+        )
+
+    def create_torch_iter_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+        *,
+        shuffle_chunks: bool = False,
+        shuffle_rows: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> torch.utils.data.IterableDataset:
+
+        try:
+            import torch
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[torch]")
+        del torch  # unused
+
+        from chalk.torch.dataset import ChalkTorchIterDatasetFromRevision
+
+        return ChalkTorchIterDatasetFromRevision(
+            revision=self,
+            columns=columns,
+            shuffle_chunks=shuffle_chunks,
+            shuffle_rows=shuffle_rows,
+            generator=generator,
+        )
+
     def _resolver_replay(self, resolver: Resolver, raw_input_df: pl.DataFrame):
         def truncate_output(output: str, prefix: int = 50, suffix: int = 10) -> str:
             if len(output) <= prefix + suffix:
@@ -1445,6 +1503,7 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         self.started_at = completed_revision.started_at
         self.created_at = completed_revision.created_at
         self.num_bytes = completed_revision.num_bytes
+        self.num_rows = completed_revision.num_rows
         self.output_version = completed_revision.output_version
         self.output_uris = completed_revision.output_uris
         self.num_partitions = completed_revision.num_partitions
@@ -1832,6 +1891,33 @@ class DatasetImpl(Dataset):
             caller_method=caller_method,
         )
 
+    def create_torch_map_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+    ) -> torch.utils.data.Dataset:
+        if len(self.revisions) == 0:
+            raise IndexError("No revisions exist for dataset")
+        return self.revisions[-1].create_torch_map_dataset(
+            columns=columns,
+        )
+
+    def create_torch_iter_dataset(
+        self,
+        columns: Mapping[str, str] | Collection[str] | None = None,
+        *,
+        shuffle_chunks: bool = False,
+        shuffle_rows: bool = False,
+        generator: torch.Generator | None = None,
+    ) -> torch.utils.data.IterableDataset:
+        if len(self.revisions) == 0:
+            raise IndexError("No revisions exist for dataset")
+        return self.revisions[-1].create_torch_iter_dataset(
+            columns=columns,
+            shuffle_chunks=shuffle_chunks,
+            shuffle_rows=shuffle_rows,
+            generator=generator,
+        )
+
     def __repr__(self) -> str:
         if self.errors and self.dataset_name:
             return f"Dataset(name='{self.dataset_name}', version='{self.version}', errors='{self.errors}')"
@@ -1871,6 +1957,7 @@ def dataset_revision_from_response(
         output_uris=revision.output_uris,
         output_version=revision.output_version,
         num_bytes=revision.num_bytes,
+        num_rows=revision.num_rows,
         client=client,
         created_at=revision.created_at,
         started_at=revision.started_at,

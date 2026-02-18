@@ -41,16 +41,18 @@ class RestartCluster(Command):
         with self.validate(args, state) as (args, state):
             with self.context(args) as (args, ctx):
                 with extract_options(args, '--force') as (args, forced):
-                    log2(f'Restarting all pods from {state.sts}...')
-
                     pods = StatefulSets.pod_names(state.sts, state.namespace)
                     if ctx.background:
+                        ctx.copy(background=False).log2(f'Scheduling restart of all pods from {state.sts}...')
+
                         # start with foreground, it become background if the node restart thread is not yet runnig during scheduling
                         for pod_name in pods:
                             NodeRestartScheduler.schedule(state, pod_name, ctx.copy(background=False))
 
                         return NULL_JOB_STATUS
                     else:
+                        ctx.log2(f'Restarting all pods from {state.sts}...')
+
                         if not forced:
                             for pod_name in pods:
                                 ctx.log(f'[{pod_name}] Checking...')

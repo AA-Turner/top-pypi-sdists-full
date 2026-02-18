@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -42,7 +42,19 @@ def create_mesh(config: configs.MeshConfig) -> jax.sharding.Mesh:
   num_devices = len(devices)
   # Convert the user-friendly dict maps into ordered lists based on mesh_axes
   ici_shape = [config.ici_parallelism.get(axis, 1) for axis in config.mesh_axes]
-  dcn_shape = [config.dcn_parallelism.get(axis, 1) for axis in config.mesh_axes]
+
+  dcn_parallelism = config.dcn_parallelism
+  if dcn_parallelism is None:
+    logging.info('Creating ICI-only mesh.')
+    devices_array = mesh_utils.create_device_mesh(ici_shape, devices)
+    logging.info(
+        'Creating mesh with axes: %s',
+        {axis: dim for axis, dim in zip(config.mesh_axes, devices_array.shape)},
+    )
+    return jax.sharding.Mesh(devices_array, config.mesh_axes)
+  else:
+    logging.info('Creating hybrid mesh.')
+    dcn_shape = [dcn_parallelism.get(axis, 1) for axis in config.mesh_axes]
 
   # --- Validation ---
   if config.process_is_granule:

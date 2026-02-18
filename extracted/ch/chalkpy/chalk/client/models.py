@@ -1189,6 +1189,7 @@ class DatasetRevisionResponse(BaseModel):
     num_partitions: Optional[int] = None
     partitions: Optional[List[DatasetPartitionResponse]] = None
     num_bytes: Optional[int] = None
+    num_rows: Optional[int] = None
     output_uris: str
     output_version: int
     branch: Optional[str] = None
@@ -1227,6 +1228,7 @@ class DatasetRecomputeResponse(DatasetRevisionResponse):
             output_uris=revision.output_uris,
             output_version=revision.output_version,
             num_bytes=revision.num_bytes,
+            num_rows=revision.num_rows,
             created_at=revision.created_at,
             started_at=revision.started_at,
             terminated_at=revision.terminated_at,

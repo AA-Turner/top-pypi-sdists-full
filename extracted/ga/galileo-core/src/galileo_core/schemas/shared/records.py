@@ -9,8 +9,8 @@ from galileo_core.schemas.logging.session import BaseSession
 from galileo_core.schemas.logging.span import BaseAgentSpan, BaseRetrieverSpan, BaseToolSpan, BaseWorkflowSpan, LlmSpan
 from galileo_core.schemas.logging.step import BaseStep, StepAllowedInputType
 from galileo_core.schemas.logging.trace import BaseTrace
-from galileo_core.schemas.shared.feedback import FeedbackAggregate, FeedbackRatingInfo
-from galileo_core.schemas.shared.multimodal import Modality
+from galileo_core.schemas.shared.annotation import AnnotationAggregate, AnnotationRatingInfo
+from galileo_core.schemas.shared.multimodal import ContentModality
 
 
 class RecordIdsWithMetrics(BaseModel):
@@ -47,18 +47,18 @@ class BaseRecord(PartialModelMixin, BaseStep):
     session_batch_id: Optional[UUID4] = Field(
         default=None, description="Galileo ID of the metrics batch associated with this trace or span"
     )
-    feedback_rating_info: Dict[str, FeedbackRatingInfo] = Field(
+    feedback_rating_info: Dict[str, AnnotationRatingInfo] = Field(
         default_factory=dict, description="Feedback information related to the record"
     )
-    annotations: Dict[UUID4, Dict[UUID4, FeedbackRatingInfo]] = Field(
+    annotations: Dict[UUID4, Dict[UUID4, AnnotationRatingInfo]] = Field(
         default_factory=dict, description="Annotations keyed by template ID and annotator ID"
     )
     file_ids: List[UUID4] = Field(default_factory=list, description="IDs of files associated with this record")
-    file_modalities: List[Modality] = Field(
+    file_modalities: List[ContentModality] = Field(
         default_factory=list,
         description="Modalities of files associated with this record",
     )
-    annotation_aggregates: Dict[UUID4, FeedbackAggregate] = Field(
+    annotation_aggregates: Dict[UUID4, AnnotationAggregate] = Field(
         default_factory=dict, description="Annotation aggregate information keyed by template ID"
     )
 

@@ -76,7 +76,8 @@ class TestDataset(unittest.TestCase):
                         column_id = '', 
                         column_name = '', ), 
                     join_type = 'inner', ),
-                model_problem_type = 'regression'
+                model_problem_type = 'regression',
+                is_static = True
             )
         else:
             return Dataset(

@@ -9,7 +9,46 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           version
           createdAt
           sidechainRootUuid
-          synthetic
+          messageData: message {
+            ... on TextMessage {
+              text
+            }
+            ... on ToolCallMessage {
+              messageId
+              toolUseId
+              toolName
+              toolInput {
+                ... on BashToolInput {
+                  command
+                }
+                ... on ReadToolInput {
+                  filePath
+                }
+              }
+            }
+            ... on ToolResultMessage {
+              messageId
+              toolUseId
+              text
+              resultData {
+                ... on BashToolResult {
+                  shellOutput
+                  exitCode
+                }
+                ... on ReadToolResult {
+                  content
+                }
+              }
+            }
+          }
+        }
+        ... on SyntheticUserEvent {
+          uuid: eventUuid
+          parentUuid
+          isSidechain
+          version
+          createdAt
+          sidechainRootUuid
           messageData: message {
             ... on TextMessage {
               text
@@ -50,7 +89,6 @@ EVENTS_FOR_CHAT_QUERY: str = """query EventsForChat($chatUuid: UUID!) {
           version
           createdAt
           sidechainRootUuid
-          synthetic
           messageData: message {
             ... on TextMessage {
               text

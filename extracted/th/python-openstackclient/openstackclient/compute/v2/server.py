@@ -4267,7 +4267,7 @@ release the new server and restart the old one."""
             metavar='<server>',
             help=_('Server (name or ID)'),
         )
-        phase_group = parser.add_mutually_exclusive_group()
+        phase_group = parser.add_mutually_exclusive_group(required=True)
         phase_group.add_argument(
             '--flavor',
             metavar='<flavor>',
@@ -5018,7 +5018,7 @@ class SshServer(command.Command):
         )
 
         cmd = ' '.join(['ssh', ip_address] + args)
-        LOG.debug(f"ssh command: {cmd}")
+        LOG.debug('ssh command: %s', cmd)
         # we intentionally pass through user-provided arguments and run this in
         # the user's shell
         os.system(cmd)  # noqa: S605

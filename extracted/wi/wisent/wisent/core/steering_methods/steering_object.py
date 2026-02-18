@@ -40,6 +40,7 @@ class SteeringObjectMetadata:
     extra: Dict[str, Any] = field(default_factory=dict)
     # Calibration data: average hidden state norm per layer
     calibration_norms: Dict[int, float] = field(default_factory=dict)
+    extraction_component: str = "residual_stream"
     
     def get_calibrated_strength(self, layer: int, target_percentage: float = 1.0) -> float:
         """
@@ -257,6 +258,9 @@ class BaseSteeringObject(ABC):
             return PULSESteeringObject.from_dict(data)
         elif method == 'titan':
             return TITANSteeringObject.from_dict(data)
+        elif method == 'concept_flow':
+            from wisent.core.steering_methods.methods.concept_flow import ConceptFlowSteeringObject
+            return ConceptFlowSteeringObject.from_dict(data)
         else:
             raise ValueError(f"Unknown steering method: {method}")
 
@@ -308,6 +312,7 @@ class SimpleSteeringObject(BaseSteeringObject):
                 'created_at': self.metadata.created_at,
                 'extra': self.metadata.extra,
                 'calibration_norms': {str(k): v for k, v in self.metadata.calibration_norms.items()},
+                'extraction_component': self.metadata.extraction_component,
             },
             'vectors': {str(k): v for k, v in self.vectors.items()},
             'default_intensity': self.default_intensity,
@@ -330,6 +335,7 @@ class SimpleSteeringObject(BaseSteeringObject):
             created_at=meta_data.get('created_at', ''),
             extra=meta_data.get('extra', {}),
             calibration_norms=calibration_norms,
+            extraction_component=meta_data.get('extraction_component', 'residual_stream'),
         )
         
         vectors = {}
@@ -420,6 +426,7 @@ class PRISMSteeringObject(BaseSteeringObject):
                 'hidden_dim': self.metadata.hidden_dim,
                 'created_at': self.metadata.created_at,
                 'extra': self.metadata.extra,
+                'extraction_component': self.metadata.extraction_component,
             },
             'directions': {str(k): v for k, v in self.directions.items()},
             'direction_weights': {str(k): v for k, v in self.direction_weights.items()},
@@ -440,6 +447,7 @@ class PRISMSteeringObject(BaseSteeringObject):
             hidden_dim=meta_data['hidden_dim'],
             created_at=meta_data.get('created_at', ''),
             extra=meta_data.get('extra', {}),
+            extraction_component=meta_data.get('extraction_component', 'residual_stream'),
         )
         
         def to_tensor(v):
@@ -525,6 +533,7 @@ class PULSESteeringObject(BaseSteeringObject):
                 'hidden_dim': self.metadata.hidden_dim,
                 'created_at': self.metadata.created_at,
                 'extra': self.metadata.extra,
+                'extraction_component': self.metadata.extraction_component,
             },
             'behavior_vectors': {str(k): v for k, v in self.behavior_vectors.items()},
             'condition_vector': self.condition_vector,
@@ -548,6 +557,7 @@ class PULSESteeringObject(BaseSteeringObject):
             hidden_dim=meta_data['hidden_dim'],
             created_at=meta_data.get('created_at', ''),
             extra=meta_data.get('extra', {}),
+            extraction_component=meta_data.get('extraction_component', 'residual_stream'),
         )
         
         def to_tensor(v):
@@ -699,6 +709,7 @@ class TITANSteeringObject(BaseSteeringObject):
                 'hidden_dim': self.metadata.hidden_dim,
                 'created_at': self.metadata.created_at,
                 'extra': self.metadata.extra,
+                'extraction_component': self.metadata.extraction_component,
             },
             'directions': {str(k): v for k, v in self.directions.items()},
             'direction_weights': {str(k): v for k, v in self.direction_weights.items()},
@@ -733,6 +744,7 @@ class TITANSteeringObject(BaseSteeringObject):
             hidden_dim=meta_data['hidden_dim'],
             created_at=meta_data.get('created_at', ''),
             extra=meta_data.get('extra', {}),
+            extraction_component=meta_data.get('extraction_component', 'residual_stream'),
         )
         
         def to_tensor(v):
@@ -793,6 +805,9 @@ def create_steering_object(
         return PULSESteeringObject(metadata, **kwargs)
     elif method == 'titan':
         return TITANSteeringObject(metadata, **kwargs)
+    elif method == 'concept_flow':
+        from wisent.core.steering_methods.methods.concept_flow import ConceptFlowSteeringObject
+        return ConceptFlowSteeringObject(metadata, **kwargs)
     else:
         raise ValueError(f"Unknown steering method: {method}")
 

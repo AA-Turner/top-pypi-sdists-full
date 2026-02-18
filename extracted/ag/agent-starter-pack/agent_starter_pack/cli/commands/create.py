@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import datetime
 import logging
 import os
 import pathlib
@@ -125,13 +124,7 @@ def shared_template_options(f: Callable) -> Callable:
         "--datastore",
         "-ds",
         type=click.Choice(DATASTORE_TYPES),
-        help="Type of datastore to use for data ingestion (requires --include-data-ingestion)",
-    )(f)
-    f = click.option(
-        "--include-data-ingestion",
-        "-i",
-        is_flag=True,
-        help="Include data ingestion pipeline in the project",
+        help="Type of datastore to use for data ingestion",
     )(f)
     f = click.option(
         "--prototype",
@@ -166,6 +159,11 @@ def shared_template_options(f: Callable) -> Callable:
         "--base-template",
         "-bt",
         help="Base template to use (overrides template default, only for remote templates)",
+    )(f)
+    f = click.option(
+        "--agent-guidance-filename",
+        default="GEMINI.md",
+        help="Filename for agent guidance (e.g., GEMINI.md, CLAUDE.md, AGENTS.md)",
     )(f)
     return f
 
@@ -222,7 +220,7 @@ def get_standard_ignore_patterns() -> Callable[[str, list[str]], list[str]]:
     }
 
     def ignore_patterns(dir: str, files: list[str]) -> list[str]:
-        return [f for f in files if f in exclude_dirs or f.startswith(".backup_")]
+        return [f for f in files if f in exclude_dirs]
 
     return ignore_patterns
 
@@ -312,7 +310,6 @@ def create(
     cicd_runner: str | None,
     adk: bool,
     prototype: bool,
-    include_data_ingestion: bool,
     datastore: str | None,
     session_type: str | None,
     debug: bool,
@@ -330,6 +327,7 @@ def create(
     cli_overrides: dict | None = None,
     google_api_key: str | None = None,
     bq_analytics: bool = False,
+    agent_guidance_filename: str = "GEMINI.md",
 ) -> None:
     """Create GCP-based AI agent projects from templates."""
     try:
@@ -431,24 +429,15 @@ def create(
             # In-folder mode is permissive - we assume the user wants to enhance their existing repo
 
             # Create backup of entire directory before in-folder templating
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_dir = project_path / f".backup_{project_path.name}_{timestamp}"
-
-            console.print("📦 [blue]Creating backup before modification...[/blue]")
+            from ..utils.backup import create_project_backup
 
             try:
-                shutil.copytree(
-                    project_path, backup_dir, ignore=get_standard_ignore_patterns()
+                create_project_backup(
+                    project_path, console=console, auto_approve=auto_approve
                 )
-                console.print(f"Backup created: [cyan]{backup_dir.name}[/cyan]")
-            except Exception as e:
-                console.print(
-                    f"⚠️  [yellow]Warning: Could not create backup: {e}[/yellow]"
-                )
-                if not auto_approve:
-                    if not click.confirm("Continue without backup?", default=True):
-                        console.print("✋ [red]Operation cancelled.[/red]")
-                        return
+            except click.Abort:
+                console.print("✋ [red]Operation cancelled.[/red]")
+                return
 
             console.print()
         else:
@@ -699,49 +688,32 @@ def create(
 
         # Go agents don't support data ingestion
         if early_agent_language == "go":
-            if include_data_ingestion or datastore:
+            if datastore:
                 console.print(
                     "Warning: Go agents do not support data ingestion. "
-                    "Ignoring --include-data-ingestion and --datastore flags.",
+                    "Ignoring --datastore flag.",
                     style="yellow",
                 )
-                include_data_ingestion = False
                 datastore = None
-        elif include_data_ingestion or datastore:
-            include_data_ingestion = True
-            if not datastore:
-                if auto_approve:
-                    # Default to the first available datastore in non-interactive mode
-                    datastore = next(iter(DATASTORES.keys()))
-                    console.print(
-                        f"Info: --datastore not specified. Defaulting to '{datastore}' in auto-approve mode.",
-                        style="yellow",
-                    )
-                else:
-                    datastore = prompt_datastore_selection(
-                        final_agent, from_cli_flag=True
-                    )
-            if debug:
-                logging.debug(f"Data ingestion enabled: {include_data_ingestion}")
-                logging.debug(f"Selected datastore type: {datastore}")
-        else:
-            # Check if the agent requires data ingestion
-            if config and config.get("settings", {}).get("requires_data_ingestion"):
-                include_data_ingestion = True
-                if not datastore:
-                    if auto_approve:
-                        datastore = next(iter(DATASTORES.keys()))
-                        console.print(
-                            f"Info: --datastore not specified. Defaulting to '{datastore}' in auto-approve mode.",
-                            style="yellow",
-                        )
-                    else:
-                        datastore = prompt_datastore_selection(final_agent)
-                if debug:
-                    logging.debug(
-                        f"Data ingestion required by agent: {include_data_ingestion}"
-                    )
-                    logging.debug(f"Selected datastore type: {datastore}")
+
+        # Auto-enable data ingestion when agent requires it or --datastore is provided
+        requires_data_ingestion = config and config.get("settings", {}).get(
+            "requires_data_ingestion"
+        )
+        include_data_ingestion = bool(datastore) or bool(requires_data_ingestion)
+
+        if include_data_ingestion and not datastore and early_agent_language != "go":
+            if auto_approve:
+                datastore = next(iter(DATASTORES.keys()))
+                console.print(
+                    f"Info: --datastore not specified. Defaulting to '{datastore}' in auto-approve mode.",
+                    style="yellow",
+                )
+            else:
+                datastore = prompt_datastore_selection(final_agent)
+        if debug and include_data_ingestion:
+            logging.debug(f"Data ingestion enabled: {include_data_ingestion}")
+            logging.debug(f"Selected datastore type: {datastore}")
 
         # Deployment target selection
         # For remote templates, we need to use the base template name for deployment target selection
@@ -986,6 +958,7 @@ def create(
                 google_api_key=google_api_key,
                 google_cloud_project=creds_info.get("project"),
                 bq_analytics=bq_analytics,
+                agent_guidance_filename=agent_guidance_filename,
             )
 
             # Replace region in all files if a different region was specified
@@ -1062,20 +1035,6 @@ def create(
             project_path = destination_dir
             cd_path = "."
 
-        if include_data_ingestion:
-            project_id = creds_info.get("project", "")
-            console.print(
-                f"\n[bold white]===== DATA INGESTION SETUP =====[/bold white]\n"
-                f"This agent uses a datastore for grounded responses.\n"
-                f"The agent will work without data, but for optimal results:\n"
-                f"1. Set up dev environment:\n"
-                f"   [white italic]export PROJECT_ID={project_id} && cd {cd_path} && make setup-dev-env[/white italic]\n\n"
-                f"   See deployment/README.md for more info\n"
-                f"2. Run the data ingestion pipeline:\n"
-                f"   [white italic]export PROJECT_ID={project_id} && cd {cd_path} && make data-ingestion[/white italic]\n\n"
-                f"   See data_ingestion/README.md for more info\n"
-                f"[bold white]=================================[/bold white]\n"
-            )
         console.print("\n[bold green]✅ Success![/] Your agent project is ready.\n")
 
         console.print("[bold cyan]📖 Documentation[/]")
@@ -1101,10 +1060,32 @@ def create(
         interactive_command = config.get("settings", {}).get(
             "interactive_command", "playground"
         )
+        if include_data_ingestion and datastore:
+            datastore_name = DATASTORES[datastore]["name"]
+            banner_lines = (
+                f"\n[bold yellow]{'=' * 35}[/]"
+                f"\n[bold yellow]  {datastore_name.upper()} SETUP[/]"
+                f"\n[bold yellow]{'=' * 35}[/]"
+                f"\n  This agent uses [bold]{datastore_name}[/] for grounded responses."
+                "\n  Data must be ingested before the agent can answer questions."
+            )
+            if datastore == "vertex_ai_vector_search":
+                banner_lines += (
+                    "\n\n  See [cyan]data_ingestion/README.md[/] for more info."
+                )
+            banner_lines += f"\n[bold yellow]{'=' * 35}[/]"
+            console.print(banner_lines)
+
         console.print("\n[bold cyan]🚀 Get Started[/]")
-        console.print(
-            f"   [bold bright_green]cd {cd_path} && make install && make {interactive_command}[/]"
-        )
+        if include_data_ingestion:
+            console.print(f"   [bold bright_green]cd {cd_path} && make install[/]")
+            console.print("   [bold bright_green]make setup-datastore[/]")
+            console.print("   [bold bright_green]make data-ingestion[/]")
+            console.print(f"   [bold bright_green]make {interactive_command}[/]")
+        else:
+            console.print(
+                f"   [bold bright_green]cd {cd_path} && make install && make {interactive_command}[/]"
+            )
     except Exception:
         if debug:
             logging.exception(
@@ -1148,23 +1129,20 @@ def display_agent_selection(
             )
         raise click.ClickException("No valid agents found")
 
-    # Group headers for display
-    GROUP_HEADERS = {
-        "python": "\U0001f40d Python",
-        "go": "\U0001f535 Go",
-        "java": "\u2615\ufe0f Java",
-    }
-
     console.print("\n> Please select an agent to get started:")
 
-    current_group = None
+    current_display_group = None
     for num, agent in agents.items():
-        agent_group = agent["language"]
+        agent_language = agent["language"]
+        display_group = agent_language if agent_language == "python" else "other"
 
         # Print group header when transitioning to a new group
-        if agent_group != current_group:
-            current_group = agent_group
-            header = GROUP_HEADERS.get(agent_group, "\U0001f527 Other")
+        if display_group != current_display_group:
+            current_display_group = display_group
+            if display_group == "python":
+                header = "\U0001f40d Python"
+            else:
+                header = "\U0001f310 Other Languages"
             console.print(f"\n  [bold cyan]{header}[/]")
 
         # Align agent names for cleaner display (use display_name if available)
@@ -1509,14 +1487,6 @@ def replace_region_in_files(
     # Skip directories that shouldn't be modified
     skip_dirs = {".git", "__pycache__", "venv", ".venv", "node_modules"}
 
-    # Determine data_store_region region value
-    if new_region.startswith("us"):
-        data_store_region = "us"
-    elif new_region.startswith("europe"):
-        data_store_region = "eu"
-    else:
-        data_store_region = "global"
-
     for file_path in project_path.rglob("*"):
         # Skip directories and files with unwanted extensions
         if (
@@ -1538,45 +1508,6 @@ def replace_region_in_files(
                 if debug:
                     logging.debug(f"Replacing region in {file_path}")
                 content = content.replace("us-central1", new_region)
-                modified = True
-
-            # Replace data_store_region region if present (all variants)
-            if 'data_store_region = "us"' in content:
-                if debug:
-                    logging.debug(f"Replacing vertex_ai_search region in {file_path}")
-                content = content.replace(
-                    'data_store_region = "us"',
-                    f'data_store_region = "{data_store_region}"',
-                )
-                modified = True
-            elif 'data_store_region="us"' in content:
-                if debug:
-                    logging.debug(f"Replacing data_store_region in {file_path}")
-                content = content.replace(
-                    'data_store_region="us"', f'data_store_region="{data_store_region}"'
-                )
-                modified = True
-            elif 'data-store-region="us"' in content:
-                if debug:
-                    logging.debug(f"Replacing data-store-region in {file_path}")
-                content = content.replace(
-                    'data-store-region="us"', f'data-store-region="{data_store_region}"'
-                )
-                modified = True
-            elif "_DATA_STORE_REGION: us" in content:
-                if debug:
-                    logging.debug(f"Replacing _DATA_STORE_REGION in {file_path}")
-                content = content.replace(
-                    "_DATA_STORE_REGION: us", f"_DATA_STORE_REGION: {data_store_region}"
-                )
-                modified = True
-            elif '"DATA_STORE_REGION", "us"' in content:
-                if debug:
-                    logging.debug(f"Replacing DATA_STORE_REGION in {file_path}")
-                content = content.replace(
-                    '"DATA_STORE_REGION", "us"',
-                    f'"DATA_STORE_REGION", "{data_store_region}"',
-                )
                 modified = True
 
             if modified:

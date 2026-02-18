@@ -307,6 +307,18 @@ class WisentModel:
             else:
                 return 1.0
         
+        # Component-targeted steering: dispatch to submodule hooks
+        component = getattr(steering_obj.metadata, "extraction_component", "residual_stream")
+        if component != "residual_stream":
+            from wisent.core.models.component_steering import register_component_steering_hooks
+            def _strategy_fn(token_pos: int) -> float:
+                return get_steering_weight(steering_strategy, token_pos, max_new_tokens)
+            register_component_steering_hooks(
+                self.hf_model, steering_obj, self._hook_group,
+                base_strength, _strategy_fn,
+            )
+            return
+
         name_to_index = {str(i + 1): i for i in range(len(self._layers))}
         
         for layer_idx in steering_obj.metadata.layers:

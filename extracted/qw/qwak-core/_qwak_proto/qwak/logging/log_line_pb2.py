@@ -13,7 +13,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bqwak/logging/log_line.proto\x12\x14qwak.logging.service\"\xc3\x01\n\x07LogLine\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\x1a\n\x12source_instance_id\x18\x02 \x01(\t\x12\x1e\n\x16ingested_iso_timestamp\x18\x03 \x01(\t\x12=\n\x08metadata\x18\x04 \x03(\x0b\x32+.qwak.logging.service.LogLine.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42\"\n\x1e\x63om.qwak.ai.logging.reader.apiP\x01\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x1bqwak/logging/log_line.proto\x12\x14qwak.logging.service\"\xc3\x01\n\x07LogLine\x12\x0c\n\x04text\x18\x01 \x01(\t\x12\x1a\n\x12source_instance_id\x18\x02 \x01(\t\x12\x1e\n\x16ingested_iso_timestamp\x18\x03 \x01(\t\x12=\n\x08metadata\x18\x04 \x03(\x0b\x32+.qwak.logging.service.LogLine.MetadataEntry\x1a/\n\rMetadataEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\x42,\n\x1e\x63om.qwak.ai.logging.reader.apiP\x01Z\x08/loggingb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -21,7 +21,7 @@ _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'qwak.logging.log_line_pb2',
 if _descriptor._USE_C_DESCRIPTORS == False:
 
   DESCRIPTOR._options = None
-  DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.logging.reader.apiP\001'
+  DESCRIPTOR._serialized_options = b'\n\036com.qwak.ai.logging.reader.apiP\001Z\010/logging'
   _LOGLINE_METADATAENTRY._options = None
   _LOGLINE_METADATAENTRY._serialized_options = b'8\001'
   _globals['_LOGLINE']._serialized_start=54

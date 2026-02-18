@@ -78,6 +78,7 @@ THREAD_SORT_BY_MAP = {
     "created_at": pb.ThreadsSortBy.THREADS_SORT_BY_CREATED_AT,
     "updated_at": pb.ThreadsSortBy.THREADS_SORT_BY_UPDATED_AT,
     "status": pb.ThreadsSortBy.THREADS_SORT_BY_STATUS,
+    "state_updated_at": pb.ThreadsSortBy.THREADS_SORT_BY_STATE_UPDATED_AT,
 }
 
 THREAD_TTL_STRATEGY_MAP = {
@@ -220,12 +221,18 @@ def proto_to_thread(proto_thread: pb.Thread) -> Thread:
         if proto_thread.HasField("updated_at")
         else None
     )
+    state_updated_at = (
+        proto_thread.state_updated_at.ToDatetime(tzinfo=UTC)
+        if proto_thread.HasField("state_updated_at")
+        else None
+    )
     status = THREAD_STATUS_FROM_PB.get(proto_thread.status, "idle")
 
     return {
         "thread_id": thread_id,
         "created_at": created_at,
         "updated_at": updated_at,
+        "state_updated_at": state_updated_at,
         # Unlike other fields, metadata should never be `None`.
         "metadata": fragment_to_value(proto_thread.metadata) or {},
         "config": fragment_to_value(proto_thread.config) or {},

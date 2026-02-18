@@ -11,7 +11,7 @@ import click
 from adam.config_holder import ConfigHolder
 from adam.utils_color import Color, colored_print
 from adam.directories import local_log_dir
-from adam.utils_global import thread_local
+from adam.thread_locals import Timable, thread_local_logging
 
 T = TypeVar('T')
 
@@ -69,24 +69,21 @@ class Ing:
         if not self.condition:
             return None
 
-        if not hasattr(thread_local, 'ing_cnt'):
-            thread_local.ing_cnt = 0
-
         try:
-            if not thread_local.ing_cnt:
+            if not thread_local_logging().ing_cnt:
                 if not self.suppress_log and not ConfigHolder().config.is_debug():
                     log2(f'{self.msg}...', nl=False, file=self.job_log)
 
             return None
         finally:
-            thread_local.ing_cnt += 1
+            thread_local_logging().ing_cnt += 1
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if not self.condition:
             return False
 
-        thread_local.ing_cnt -= 1
-        if not thread_local.ing_cnt:
+        thread_local_logging().ing_cnt -= 1
+        if not thread_local_logging().ing_cnt:
             if not self.suppress_log and not ConfigHolder().config.is_debug():
                 log2(' OK', file=self.job_log)
 
@@ -108,42 +105,49 @@ def ing(msg: str, body: Callable[[], None]=None, suppress_log=False, job_log: st
     return r
 
 def loggable():
-    return ConfigHolder().config and ConfigHolder().config.is_debug() or not hasattr(thread_local, 'ing_cnt') or not thread_local.ing_cnt
+    return ConfigHolder().config and ConfigHolder().config.is_debug() or not thread_local_logging().ing_cnt
 
-class TimingNode:
+class TimingNode(Timable):
     def __init__(self, depth: int, s0: time.time = time.time(), line: str = None):
         self.depth = depth
         self.s0 = s0
-        self.line = line
-        self.children = []
+        self._line = line
+        self.children: list[TimingNode] = []
 
     def __str__(self):
-        return f'[{self.depth}: {self.line}, children={len(self.children)}]'
+        return f'[{self.depth}: {self._line}, children={len(self.children)}]'
 
     def tree(self):
         lines = []
-        if self.line:
-            lines.append(self.line)
+        if self._line:
+            lines.append(self._line)
 
         for child in self.children:
-            if child.line:
+            if child._line:
                 lines.append(child.tree())
         return '\n'.join(lines)
+
+    def line(self):
+        return self._line
+
+    def set_line(self, line: str):
+        self._line = line
 
 class LogTiming:
     def __init__(self, msg: str, s0: time.time = None):
         self.msg = msg
         self.s0 = s0
+        self.me: TimingNode = None
 
     def __enter__(self):
         if (config := ConfigHolder().config.get('debugs.timings', 'off')) not in ['on', 'file']:
             return
 
-        if not hasattr(thread_local, 'timings'):
-            thread_local.timings = TimingNode(0)
+        if not thread_local_logging().timings:
+            thread_local_logging().timings = TimingNode(0)
 
-        self.me = thread_local.timings
-        thread_local.timings = TimingNode(self.me.depth+1)
+        self.me = thread_local_logging().timings
+        thread_local_logging().timings = TimingNode(self.me.depth+1)
         if not self.s0:
             self.s0 = time.time()
 
@@ -151,19 +155,19 @@ class LogTiming:
         if (config := ConfigHolder().config.get('debugs.timings', 'off')) not in ['on', 'file']:
             return False
 
-        if hasattr(thread_local, 'timings'):
-            child = thread_local.timings
-            thread_local.timings.line = timing_log_line(self.me.depth, self.msg, self.s0)
+        if thread_local_logging().timings:
+            child = thread_local_logging().timings
+            thread_local_logging().timings.set_line(timing_log_line(self.me.depth, self.msg, self.s0))
 
-            if child and child.line:
+            if child and child.line():
                 self.me.children.append(child)
-            thread_local.timings = self.me
+            thread_local_logging().timings = self.me
 
             if not self.me.depth:
                 # log timings finally
                 CommandLog.log(self.me.tree(), config)
 
-                thread_local.timings = TimingNode(0)
+                thread_local_logging().timings = TimingNode(0)
 
         return False
 

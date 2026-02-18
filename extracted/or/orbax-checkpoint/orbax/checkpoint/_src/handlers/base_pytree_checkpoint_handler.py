@@ -1,4 +1,4 @@
-# Copyright 2025 The Orbax Authors.
+# Copyright 2026 The Orbax Authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -125,13 +125,15 @@ def _log_io_metrics(
   bytes_per_sec = (
       float('nan') if time_elapsed == 0 else float(size) / time_elapsed
   )
+  note = 'per-host'
   logging.info(
-      '[process=%d] %s: %s/s (total gbytes: %s) (time elapsed: %s) (per-host)',
+      '[process=%d] %s: %s/s (total gbytes: %s) (time elapsed: %s s) (%s)',
       multihost.process_index(),
       gbytes_per_sec_metric,
       humanize.naturalsize(bytes_per_sec, binary=True, format='%.3f'),
       humanize.naturalsize(size, binary=True),
-      humanize.naturaldelta(time_elapsed, minimum_unit='microseconds'),
+      time_elapsed,
+      note,
   )
   jax.monitoring.record_scalar(
       gbytes_per_sec_metric, value=bytes_per_sec / (1024**3)
@@ -402,6 +404,10 @@ class BasePyTreeCheckpointHandler(
       enable_pinned_host_transfer = jax.default_backend() == 'gpu'
     self._enable_pinned_host_transfer = enable_pinned_host_transfer
     self._is_prioritized_key_fn = is_prioritized_key_fn
+    if self._is_prioritized_key_fn:
+      jax.monitoring.record_event(
+          '/jax/orbax/pytree_checkpoint_handler/init/prioritized_key_fn'
+      )
 
     jax.monitoring.record_event(
         '/jax/orbax/pytree_checkpoint_handler/init/ocdbt'
@@ -708,6 +714,7 @@ class BasePyTreeCheckpointHandler(
       )
     else:
       save_futures += commit_futures
+
 
     _log_io_metrics(
         tree_memory_size,
@@ -1073,11 +1080,12 @@ class BasePyTreeCheckpointHandler(
           json.dumps(ts.experimental_collect_matching_metrics('/tensorstore/')),
       )
 
+
     _log_io_metrics(
         tree_memory_size,
         start_time,
         '/jax/checkpoint/read/gbytes_per_sec',
-        '/jax/checkpoint/read/gbytes',
+        '/jax/checkpoint/read/gbytes',  # device memory usage
     )
     return restored_item
 

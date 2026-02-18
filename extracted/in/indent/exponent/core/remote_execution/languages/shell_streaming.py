@@ -82,7 +82,7 @@ async def execute_shell_streaming(
     code: str,
     working_directory: str,
     timeout: int,
-    should_halt: Callable[[], bool] | None = None,
+    should_halt: Callable[[], bool],
     env: dict[str, str] | None = None,
 ) -> AsyncGenerator[StreamedOutputPiece | ShellExecutionResult, None]:
     timeout_seconds = min(timeout, MAX_TIMEOUT)
@@ -132,7 +132,7 @@ async def execute_shell_streaming(
         nonlocal halted
 
         while True:
-            if should_halt and should_halt():
+            if should_halt():
                 # Set halted flag BEFORE killing so main loop sees it
                 halted = True
                 # Send signal to process group for proper interrupt propagation
@@ -191,7 +191,7 @@ async def execute_shell_streaming(
             pass
 
     try:
-        halt_task = asyncio.create_task(monitor_halt()) if should_halt else None
+        halt_task = asyncio.create_task(monitor_halt())
         timeout_handle = asyncio.get_running_loop().call_later(timeout_seconds, on_timeout)
 
         # Create decoders for each stream
@@ -376,8 +376,7 @@ async def execute_shell_streaming(
             tasks_to_cancel.append(stdout_task)
         if stderr_task is not None:
             tasks_to_cancel.append(stderr_task)
-        if halt_task:
-            tasks_to_cancel.append(halt_task)
+        tasks_to_cancel.append(halt_task)
 
         for task in tasks_to_cancel:
             task.cancel()

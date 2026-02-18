@@ -14,19 +14,23 @@ from datadog_api_client.model_utils import (
 
 
 if TYPE_CHECKING:
-    from datadog_api_client.v2.model.budget_entry import BudgetEntry
+    from datadog_api_client.v2.model.budget_with_entries_data_attributes_entries_items import (
+        BudgetWithEntriesDataAttributesEntriesItems,
+    )
 
 
 class BudgetAttributes(ModelNormal):
     @cached_property
     def openapi_types(_):
-        from datadog_api_client.v2.model.budget_entry import BudgetEntry
+        from datadog_api_client.v2.model.budget_with_entries_data_attributes_entries_items import (
+            BudgetWithEntriesDataAttributesEntriesItems,
+        )
 
         return {
             "created_at": (int,),
             "created_by": (str,),
             "end_month": (int,),
-            "entries": ([BudgetEntry],),
+            "entries": ([BudgetWithEntriesDataAttributesEntriesItems],),
             "metrics_query": (str,),
             "name": (str,),
             "org_id": (int,),
@@ -55,7 +59,7 @@ class BudgetAttributes(ModelNormal):
         created_at: Union[int, UnsetType] = unset,
         created_by: Union[str, UnsetType] = unset,
         end_month: Union[int, UnsetType] = unset,
-        entries: Union[List[BudgetEntry], UnsetType] = unset,
+        entries: Union[List[BudgetWithEntriesDataAttributesEntriesItems], UnsetType] = unset,
         metrics_query: Union[str, UnsetType] = unset,
         name: Union[str, UnsetType] = unset,
         org_id: Union[int, UnsetType] = unset,
@@ -77,8 +81,8 @@ class BudgetAttributes(ModelNormal):
         :param end_month: The month when the budget ends.
         :type end_month: int, optional
 
-        :param entries: The entries of the budget.
-        :type entries: [BudgetEntry], optional
+        :param entries:
+        :type entries: [BudgetWithEntriesDataAttributesEntriesItems], optional
 
         :param metrics_query: The cost query used to track against the budget.
         :type metrics_query: str, optional

@@ -14,6 +14,8 @@ from datadog_api_client.model_utils import (
     UnsetType,
     unset,
 )
+from datadog_api_client.v2.model.update_flaky_tests_response import UpdateFlakyTestsResponse
+from datadog_api_client.v2.model.update_flaky_tests_request import UpdateFlakyTestsRequest
 from datadog_api_client.v2.model.flaky_tests_search_response import FlakyTestsSearchResponse
 from datadog_api_client.v2.model.flaky_tests_search_request import FlakyTestsSearchRequest
 from datadog_api_client.v2.model.flaky_test import FlakyTest
@@ -48,6 +50,26 @@ class TestOptimizationApi:
             api_client=api_client,
         )
 
+        self._update_flaky_tests_endpoint = _Endpoint(
+            settings={
+                "response_type": (UpdateFlakyTestsResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/test/flaky-test-management/tests",
+                "operation_id": "update_flaky_tests",
+                "http_method": "PATCH",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (UpdateFlakyTestsRequest,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
     def search_flaky_tests(
         self,
         *,
@@ -56,6 +78,20 @@ class TestOptimizationApi:
         """Search flaky tests.
 
         List endpoint returning flaky tests from Flaky Test Management. Results are paginated.
+
+        The response includes comprehensive test information including:
+
+        * Test identification and metadata (module, suite, name)
+        * Flaky state and categorization
+        * First and last flake occurrences (timestamp, branch, commit SHA)
+        * Test execution statistics from the last 7 days (failure rate)
+        * Pipeline impact metrics (failed pipelines count, total lost time)
+        * Complete status change history (optional, ordered from most recent to oldest)
+
+        Set ``include_history`` to ``true`` in the request to receive the status change history for each test.
+        History is disabled by default for better performance.
+
+        Results support filtering by various facets including service, environment, repository, branch, and test state.
 
         :type body: FlakyTestsSearchRequest, optional
         :rtype: FlakyTestsSearchResponse
@@ -96,3 +132,19 @@ class TestOptimizationApi:
             "kwargs": kwargs,
         }
         return endpoint.call_with_http_info_paginated(pagination)
+
+    def update_flaky_tests(
+        self,
+        body: UpdateFlakyTestsRequest,
+    ) -> UpdateFlakyTestsResponse:
+        """Update flaky test states.
+
+        Update the state of multiple flaky tests in Flaky Test Management.
+
+        :type body: UpdateFlakyTestsRequest
+        :rtype: UpdateFlakyTestsResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._update_flaky_tests_endpoint.call_with_http_info(**kwargs)

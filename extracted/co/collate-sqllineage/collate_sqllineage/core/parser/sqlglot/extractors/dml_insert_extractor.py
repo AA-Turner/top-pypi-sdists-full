@@ -8,6 +8,7 @@ from collate_sqllineage.core.models import (
     AnalyzerContext,
     Column,
     DataFunction,
+    Location,
     Path,
     SubQuery,
     Table,
@@ -43,7 +44,7 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
     def __init__(self, dialect: str):
         super().__init__(dialect)
         self.columns: List[Column] = []
-        self.tables: List[Union[DataFunction, Path, SubQuery, Table]] = []
+        self.tables: List[Union[DataFunction, Location, Path, SubQuery, Table]] = []
         self.union_barriers: List[Tuple[int, int]] = []
 
     def _find_column_in_graph(
@@ -205,6 +206,9 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 if isinstance(
                     select_exp, (exp.Select, exp.Union, exp.Intersect, exp.Except)
                 ):
+                    is_set_expression = isinstance(
+                        select_exp, (exp.Union, exp.Intersect, exp.Except)
+                    )
                     if isinstance(select_exp, exp.Select) and select_exp.args.get(
                         "expressions"
                     ):
@@ -220,13 +224,23 @@ class DmlInsertExtractor(LineageHolderExtractor, SourceHandlerMixin):
                         select_exp,
                         AnalyzerContext(prev_cte=holder.cte),
                         is_sub_query=True,
+                        link_columns=not is_set_expression,
+                        preserve_state=is_set_expression,
                     )
+
+                    if is_set_expression:
+                        self.columns = select_extractor.columns
+                        self.tables = select_extractor.tables
+                        self.union_barriers = select_extractor.union_barriers
 
                     for table in select_holder.read:
                         holder.add_read(table)
 
-                    # Use FROM/JOIN tables only for alias resolution to avoid scalar subquery pollution
-                    self.tables.extend(select_holder._from_join_tables)
+                    # Use FROM/JOIN tables only for alias resolution to avoid scalar subquery pollution.
+                    # For set expressions, the select extractor already tracked per-branch tables with
+                    # union barriers; avoid duplicating them here to keep group alignment.
+                    if not is_set_expression:
+                        self.tables.extend(select_holder._from_join_tables)
 
                     for cte in select_holder.cte:
                         holder.add_cte(cte)

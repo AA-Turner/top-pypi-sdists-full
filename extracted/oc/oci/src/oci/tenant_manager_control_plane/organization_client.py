@@ -172,7 +172,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/approve_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use approve_organization_tenancy_for_transfer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/approve_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use approve_organization_tenancy_for_transfer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId', 'compartmentId']
@@ -294,7 +294,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/create_child_tenancy.py.html>`__ to see an example of how to use create_child_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/create_child_tenancy.py.html>`__ to see an example of how to use create_child_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -402,7 +402,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/delete_organization_tenancy.py.html>`__ to see an example of how to use delete_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/delete_organization_tenancy.py.html>`__ to see an example of how to use delete_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId']
@@ -508,7 +508,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/get_organization.py.html>`__ to see an example of how to use get_organization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/get_organization.py.html>`__ to see an example of how to use get_organization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']
@@ -614,7 +614,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/get_organization_tenancy.py.html>`__ to see an example of how to use get_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/get_organization_tenancy.py.html>`__ to see an example of how to use get_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId', 'tenancyId']
@@ -724,7 +724,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/list_organization_tenancies.py.html>`__ to see an example of how to use list_organization_tenancies API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/list_organization_tenancies.py.html>`__ to see an example of how to use list_organization_tenancies API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']
@@ -843,7 +843,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/list_organizations.py.html>`__ to see an example of how to use list_organizations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/list_organizations.py.html>`__ to see an example of how to use list_organizations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -952,7 +952,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/restore_organization_tenancy.py.html>`__ to see an example of how to use restore_organization_tenancy API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/restore_organization_tenancy.py.html>`__ to see an example of how to use restore_organization_tenancy API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId']
@@ -1072,7 +1072,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/unapprove_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use unapprove_organization_tenancy_for_transfer API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/unapprove_organization_tenancy_for_transfer.py.html>`__ to see an example of how to use unapprove_organization_tenancy_for_transfer API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationTenancyId', 'compartmentId']
@@ -1204,7 +1204,7 @@ class OrganizationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.1/tenantmanagercontrolplane/update_organization.py.html>`__ to see an example of how to use update_organization API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.167.2/tenantmanagercontrolplane/update_organization.py.html>`__ to see an example of how to use update_organization API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['organizationId']

@@ -12,6 +12,7 @@ from datadog_api_client.model_utils import (
     datetime,
     set_attribute_from_path,
     get_attribute_from_path,
+    file_type,
     UnsetType,
     unset,
 )
@@ -80,11 +81,15 @@ from datadog_api_client.v2.model.security_filters_response import SecurityFilter
 from datadog_api_client.v2.model.security_filter_response import SecurityFilterResponse
 from datadog_api_client.v2.model.security_filter_create_request import SecurityFilterCreateRequest
 from datadog_api_client.v2.model.security_filter_update_request import SecurityFilterUpdateRequest
-from datadog_api_client.v2.model.security_monitoring_suppressions_response import SecurityMonitoringSuppressionsResponse
+from datadog_api_client.v2.model.security_monitoring_paginated_suppressions_response import (
+    SecurityMonitoringPaginatedSuppressionsResponse,
+)
+from datadog_api_client.v2.model.security_monitoring_suppression_sort import SecurityMonitoringSuppressionSort
 from datadog_api_client.v2.model.security_monitoring_suppression_response import SecurityMonitoringSuppressionResponse
 from datadog_api_client.v2.model.security_monitoring_suppression_create_request import (
     SecurityMonitoringSuppressionCreateRequest,
 )
+from datadog_api_client.v2.model.security_monitoring_suppressions_response import SecurityMonitoringSuppressionsResponse
 from datadog_api_client.v2.model.security_monitoring_rule_create_payload import SecurityMonitoringRuleCreatePayload
 from datadog_api_client.v2.model.security_monitoring_standard_rule_create_payload import (
     SecurityMonitoringStandardRuleCreatePayload,
@@ -97,8 +102,14 @@ from datadog_api_client.v2.model.security_monitoring_suppression_update_request 
     SecurityMonitoringSuppressionUpdateRequest,
 )
 from datadog_api_client.v2.model.get_suppression_version_history_response import GetSuppressionVersionHistoryResponse
+from datadog_api_client.v2.model.security_monitoring_content_pack_states_response import (
+    SecurityMonitoringContentPackStatesResponse,
+)
 from datadog_api_client.v2.model.security_monitoring_list_rules_response import SecurityMonitoringListRulesResponse
 from datadog_api_client.v2.model.security_monitoring_rule_response import SecurityMonitoringRuleResponse
+from datadog_api_client.v2.model.security_monitoring_rule_bulk_export_payload import (
+    SecurityMonitoringRuleBulkExportPayload,
+)
 from datadog_api_client.v2.model.security_monitoring_rule_convert_response import SecurityMonitoringRuleConvertResponse
 from datadog_api_client.v2.model.security_monitoring_rule_convert_payload import SecurityMonitoringRuleConvertPayload
 from datadog_api_client.v2.model.security_monitoring_standard_rule_payload import SecurityMonitoringStandardRulePayload
@@ -146,6 +157,29 @@ class SecurityMonitoringApi:
             api_client = ApiClient(Configuration())
         self.api_client = api_client
 
+        self._activate_content_pack_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security_monitoring/content_packs/{content_pack_id}/activate",
+                "operation_id": "activate_content_pack",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "content_pack_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "content_pack_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
+            api_client=api_client,
+        )
+
         self._attach_case_endpoint = _Endpoint(
             settings={
                 "response_type": (FindingCaseResponse,),
@@ -189,6 +223,26 @@ class SecurityMonitoringApi:
                 },
             },
             headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._bulk_export_security_monitoring_rules_endpoint = _Endpoint(
+            settings={
+                "response_type": (file_type,),
+                "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
+                "endpoint_path": "/api/v2/security_monitoring/rules/bulk_export",
+                "operation_id": "bulk_export_security_monitoring_rules",
+                "http_method": "POST",
+                "version": "v2",
+            },
+            params_map={
+                "body": {
+                    "required": True,
+                    "openapi_types": (SecurityMonitoringRuleBulkExportPayload,),
+                    "location": "body",
+                },
+            },
+            headers_map={"accept": ["application/zip", "application/json"], "content_type": ["application/json"]},
             api_client=api_client,
         )
 
@@ -455,6 +509,29 @@ class SecurityMonitoringApi:
                 },
             },
             headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._deactivate_content_pack_endpoint = _Endpoint(
+            settings={
+                "response_type": None,
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security_monitoring/content_packs/{content_pack_id}/deactivate",
+                "operation_id": "deactivate_content_pack",
+                "http_method": "PUT",
+                "version": "v2",
+            },
+            params_map={
+                "content_pack_id": {
+                    "required": True,
+                    "openapi_types": (str,),
+                    "attribute": "content_pack_id",
+                    "location": "path",
+                },
+            },
+            headers_map={
+                "accept": ["*/*"],
+            },
             api_client=api_client,
         )
 
@@ -743,6 +820,22 @@ class SecurityMonitoringApi:
                 },
             },
             headers_map={"accept": ["application/json"], "content_type": ["application/json"]},
+            api_client=api_client,
+        )
+
+        self._get_content_packs_states_endpoint = _Endpoint(
+            settings={
+                "response_type": (SecurityMonitoringContentPackStatesResponse,),
+                "auth": ["apiKeyAuth", "appKeyAuth"],
+                "endpoint_path": "/api/v2/security_monitoring/content_packs/states",
+                "operation_id": "get_content_packs_states",
+                "http_method": "GET",
+                "version": "v2",
+            },
+            params_map={},
+            headers_map={
+                "accept": ["application/json"],
+            },
             api_client=api_client,
         )
 
@@ -1763,7 +1856,7 @@ class SecurityMonitoringApi:
 
         self._list_security_monitoring_suppressions_endpoint = _Endpoint(
             settings={
-                "response_type": (SecurityMonitoringSuppressionsResponse,),
+                "response_type": (SecurityMonitoringPaginatedSuppressionsResponse,),
                 "auth": ["apiKeyAuth", "appKeyAuth", "AuthZ"],
                 "endpoint_path": "/api/v2/security_monitoring/configuration/suppressions",
                 "operation_id": "list_security_monitoring_suppressions",
@@ -1774,6 +1867,21 @@ class SecurityMonitoringApi:
                 "query": {
                     "openapi_types": (str,),
                     "attribute": "query",
+                    "location": "query",
+                },
+                "sort": {
+                    "openapi_types": (SecurityMonitoringSuppressionSort,),
+                    "attribute": "sort",
+                    "location": "query",
+                },
+                "page_size": {
+                    "openapi_types": (int,),
+                    "attribute": "page[size]",
+                    "location": "query",
+                },
+                "page_number": {
+                    "openapi_types": (int,),
+                    "attribute": "page[number]",
                     "location": "query",
                 },
             },
@@ -2564,6 +2672,25 @@ class SecurityMonitoringApi:
             api_client=api_client,
         )
 
+    def activate_content_pack(
+        self,
+        content_pack_id: str,
+    ) -> None:
+        """Activate content pack.
+
+        Activate a security monitoring content pack. This operation configures the necessary
+        log filters or security filters depending on the pricing model and updates the content
+        pack activation state.
+
+        :param content_pack_id: The ID of the content pack to activate.
+        :type content_pack_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["content_pack_id"] = content_pack_id
+
+        return self._activate_content_pack_endpoint.call_with_http_info(**kwargs)
+
     def attach_case(
         self,
         case_id: str,
@@ -2602,6 +2729,24 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._attach_jira_issue_endpoint.call_with_http_info(**kwargs)
+
+    def bulk_export_security_monitoring_rules(
+        self,
+        body: SecurityMonitoringRuleBulkExportPayload,
+    ) -> file_type:
+        """Bulk export security monitoring rules.
+
+        Export a list of security monitoring rules as a ZIP file containing JSON rule definitions.
+        The endpoint accepts a list of rule IDs and returns a ZIP archive where each rule is
+        saved as a separate JSON file named after the rule.
+
+        :type body: SecurityMonitoringRuleBulkExportPayload
+        :rtype: file_type
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["body"] = body
+
+        return self._bulk_export_security_monitoring_rules_endpoint.call_with_http_info(**kwargs)
 
     def cancel_threat_hunting_job(
         self,
@@ -2848,6 +2993,24 @@ class SecurityMonitoringApi:
 
         return self._create_vulnerability_notification_rule_endpoint.call_with_http_info(**kwargs)
 
+    def deactivate_content_pack(
+        self,
+        content_pack_id: str,
+    ) -> None:
+        """Deactivate content pack.
+
+        Deactivate a security monitoring content pack. This operation removes the content pack's
+        configuration from log filters or security filters and updates the content pack activation state.
+
+        :param content_pack_id: The ID of the content pack to deactivate.
+        :type content_pack_id: str
+        :rtype: None
+        """
+        kwargs: Dict[str, Any] = {}
+        kwargs["content_pack_id"] = content_pack_id
+
+        return self._deactivate_content_pack_endpoint.call_with_http_info(**kwargs)
+
     def delete_custom_framework(
         self,
         handle: str,
@@ -3071,6 +3234,20 @@ class SecurityMonitoringApi:
         kwargs["body"] = body
 
         return self._edit_security_monitoring_signal_state_endpoint.call_with_http_info(**kwargs)
+
+    def get_content_packs_states(
+        self,
+    ) -> SecurityMonitoringContentPackStatesResponse:
+        """Get content pack states.
+
+        Get the activation and configuration states for all security monitoring content packs.
+        This endpoint returns status information about each content pack including activation state,
+        integration status, and log collection status.
+
+        :rtype: SecurityMonitoringContentPackStatesResponse
+        """
+        kwargs: Dict[str, Any] = {}
+        return self._get_content_packs_states_endpoint.call_with_http_info(**kwargs)
 
     def get_critical_assets_affecting_rule(
         self,
@@ -4335,18 +4512,36 @@ class SecurityMonitoringApi:
         self,
         *,
         query: Union[str, UnsetType] = unset,
-    ) -> SecurityMonitoringSuppressionsResponse:
+        sort: Union[SecurityMonitoringSuppressionSort, UnsetType] = unset,
+        page_size: Union[int, UnsetType] = unset,
+        page_number: Union[int, UnsetType] = unset,
+    ) -> SecurityMonitoringPaginatedSuppressionsResponse:
         """Get all suppression rules.
 
         Get the list of all suppression rules.
 
         :param query: Query string.
         :type query: str, optional
-        :rtype: SecurityMonitoringSuppressionsResponse
+        :param sort: Attribute used to sort the list of suppression rules. Prefix with ``-`` to sort in descending order.
+        :type sort: SecurityMonitoringSuppressionSort, optional
+        :param page_size: Size for a given page. Use ``-1`` to return all items.
+        :type page_size: int, optional
+        :param page_number: Specific page number to return.
+        :type page_number: int, optional
+        :rtype: SecurityMonitoringPaginatedSuppressionsResponse
         """
         kwargs: Dict[str, Any] = {}
         if query is not unset:
             kwargs["query"] = query
+
+        if sort is not unset:
+            kwargs["sort"] = sort
+
+        if page_size is not unset:
+            kwargs["page_size"] = page_size
+
+        if page_number is not unset:
+            kwargs["page_number"] = page_number
 
         return self._list_security_monitoring_suppressions_endpoint.call_with_http_info(**kwargs)
 

@@ -16,13 +16,24 @@
 import errno
 import logging
 import os
+from typing import TypeAlias, TypedDict
 
 from oslo_config import cfg
 
 LOG = logging.getLogger(__name__)
 
 
-def read_cached_file(cache, filename, force_reload=False):
+class CacheEntry(TypedDict):
+    data: str
+    mtime: float
+
+
+CacheT: TypeAlias = dict[str, CacheEntry]
+
+
+def read_cached_file(
+    cache: CacheT, filename: str, force_reload: bool = False
+) -> tuple[bool, str]:
     """Read from a file if it has been modified.
 
     :param cache: dictionary to hold opaque cache.
@@ -40,41 +51,46 @@ def read_cached_file(cache, filename, force_reload=False):
         mtime = os.path.getmtime(filename)
     except OSError as err:
         msg = err.strerror
-        LOG.error('Config file not found %(filename)s: %(msg)s',
-                  {'filename': filename, 'msg': msg})
-        return True, {}
+        LOG.error(
+            'Config file not found %(filename)s: %(msg)s',
+            {'filename': filename, 'msg': msg},
+        )
+        return True, ''
 
-    cache_info = cache.setdefault(filename, {})
+    cache_info = cache.setdefault(filename, {'data': '', 'mtime': 0})
 
     if not cache_info or mtime > cache_info.get('mtime', 0):
-        LOG.debug("Reloading cached file %s", filename)
+        LOG.debug('Reloading cached file %s', filename)
         try:
             with open(filename) as fap:
                 cache_info['data'] = fap.read()
         except OSError as err:
             msg = err.strerror
             err_code = err.errno
-            LOG.error('IO error loading %(filename)s: %(msg)s',
-                      {'filename': filename, 'msg': msg})
+            LOG.error(
+                'IO error loading %(filename)s: %(msg)s',
+                {'filename': filename, 'msg': msg},
+            )
             if err_code == errno.EACCES:
                 raise cfg.ConfigFilesPermissionDeniedError((filename,))
         except OSError as err:
             msg = err.strerror
-            LOG.error('Config file not found %(filename)s: %(msg)s',
-                      {'filename': filename, 'msg': msg})
+            LOG.error(
+                'Config file not found %(filename)s: %(msg)s',
+                {'filename': filename, 'msg': msg},
+            )
             raise cfg.ConfigFilesNotFoundError((filename,))
         cache_info['mtime'] = mtime
         reloaded = True
     return (reloaded, cache_info['data'])
 
 
-def delete_cached_file(cache, filename):
+def delete_cached_file(cache: CacheT, filename: str) -> None:
     """Delete cached file if present.
 
     :param cache: dictionary to hold opaque cache.
     :param filename: filename to delete
     """
-
     try:
         del cache[filename]
     except KeyError:

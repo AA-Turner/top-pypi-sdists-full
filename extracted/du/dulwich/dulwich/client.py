@@ -47,6 +47,8 @@ __all__ = [
     "UPLOAD_CAPABILITIES",
     "AbstractHttpGitClient",
     "BundleClient",
+    "BundleList",
+    "BundleURIError",
     "FetchPackResult",
     "GitClient",
     "HTTPProxyUnauthorized",
@@ -66,16 +68,19 @@ __all__ = [
     "TCPGitClient",
     "TraditionalGitClient",
     "Urllib3HttpGitClient",
+    "apply_bundle_uri",
     "check_for_proxy_bypass",
     "check_wants",
     "default_urllib3_manager",
     "default_user_agent_string",
+    "fetch_bundle_uri",
     "find_capability",
     "find_git_command",
     "get_credentials_from_store",
     "get_transport_and_path",
     "get_transport_and_path_from_url",
     "negotiate_protocol_version",
+    "parse_bundle_list",
     "parse_rsync_url",
     "read_pkt_refs_v1",
     "read_pkt_refs_v2",
@@ -90,9 +95,11 @@ import select
 import socket
 import subprocess
 import sys
+import time
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence, Set
 from contextlib import closing
 from io import BufferedReader, BytesIO
+from struct import unpack_from
 from typing import (
     IO,
     TYPE_CHECKING,
@@ -156,6 +163,13 @@ if TYPE_CHECKING:
 
 
 from .bundle import Bundle
+from .bundle_uri import (
+    BundleList,
+    BundleURIError,
+    apply_bundle_uri,
+    fetch_bundle_uri,
+    parse_bundle_list,
+)
 from .config import Config, apply_instead_of, get_xdg_config_home_path
 from .credentials import match_partial_url, match_urls
 from .errors import GitProtocolError, HangupException, NotGitRepository, SendPackError
@@ -166,6 +180,7 @@ from .pack import (
     PACK_SPOOL_FILE_MAX_SIZE,
     PackChunkGenerator,
     PackData,
+    verify_and_read,
     write_pack_from_container,
 )
 from .protocol import (
@@ -179,6 +194,7 @@ from .protocol import (
     CAPABILITY_MULTI_ACK,
     CAPABILITY_MULTI_ACK_DETAILED,
     CAPABILITY_OFS_DELTA,
+    CAPABILITY_PACKFILE_URIS,
     CAPABILITY_QUIET,
     CAPABILITY_REPORT_STATUS,
     CAPABILITY_SHALLOW,
@@ -212,7 +228,6 @@ from .protocol import (
     extract_capability_names,
     parse_capability,
     pkt_line,
-    pkt_seq,
     split_peeled_refs,
 )
 from .refs import (
@@ -415,6 +430,63 @@ def extract_object_format_from_capabilities(
         if k == b"object-format" and v is not None:
             return v.decode("ascii").strip()
     return None
+
+
+def build_ls_refs_request_v2(
+    server_capabilities: set[bytes],
+    object_format: str | None,
+    ref_prefix: Sequence[bytes] | None = None,
+) -> tuple[list[bytes], list[bytes]]:
+    """Build ls-refs command packet lists for protocol v2.
+
+    Args:
+        server_capabilities: Capabilities advertised by the server
+        object_format: Object format to use (e.g., "sha1", "sha256"), or None
+        ref_prefix: List of ref prefixes to request, or None for default
+
+    Returns:
+        Tuple of (command packets before delimiter, argument packets after delimiter)
+    """
+    if ref_prefix is None:
+        ref_prefix = DEFAULT_REF_PREFIX
+
+    # Check if server supports unborn refs
+    supports_unborn = any(
+        b"ls-refs=unborn" in cap or b"ls-refs" in cap for cap in server_capabilities
+    )
+
+    # Command packets (before delimiter)
+    cmd_packets = [b"command=ls-refs\n", b"agent=" + agent_string()]
+    if object_format is not None:
+        cmd_packets.append(f"object-format={object_format}".encode("ascii"))
+
+    # Argument packets (after delimiter)
+    arg_packets = [b"peel", b"symrefs"]
+    if supports_unborn:
+        arg_packets.append(b"unborn")
+    for prefix in ref_prefix:
+        arg_packets.append(b"ref-prefix " + prefix)
+
+    return cmd_packets, arg_packets
+
+
+def build_fetch_request_v2(
+    object_format: str | None,
+) -> list[bytes]:
+    """Build fetch command packet list for protocol v2 (before delimiter).
+
+    Args:
+        object_format: Object format to use (e.g., "sha1", "sha256"), or None
+
+    Returns:
+        List of command packets to send before the delimiter
+    """
+    # Build packet list (before delimiter)
+    packets = [b"command=fetch\n", b"agent=" + agent_string()]
+    if object_format is not None:
+        packets.append(f"object-format={object_format}".encode("ascii"))
+
+    return packets
 
 
 def read_pkt_refs_v2(
@@ -901,6 +973,190 @@ def _handle_upload_pack_head(
     return (new_shallow, new_unshallow)
 
 
+def _download_packfile_from_uri(
+    uri: str,
+    expected_hash: bytes,
+    hash_algo: str,
+    pack_data: Callable[[bytes], int],
+    progress: Callable[[bytes], None] | None,
+    http_request: Callable[[str], tuple["HTTPResponse", Callable[[int], bytes]]],
+) -> None:
+    """Download a packfile from a URI and verify its hash.
+
+    This function downloads data, verifies the hash matches expected_hash,
+    and only then writes data to the repository. This prevents corrupted
+    or malicious data from being written.
+
+    Args:
+        uri: URI to download packfile from
+        expected_hash: Expected hash of the packfile
+        hash_algo: Hash algorithm to use (e.g., 'sha1', 'sha256')
+        pack_data: Callback to send pack data to
+        progress: Optional progress callback
+        http_request: Function to perform HTTP requests
+
+    Raises:
+        GitProtocolError: If URI scheme is not HTTPS, hash doesn't match,
+            or download fails
+    """
+    if progress:
+        progress(f"Downloading packfile from {uri}\n".encode())
+
+    # Only support HTTPS URIs for security
+    if not uri.startswith("https://"):
+        raise GitProtocolError(f"Only HTTPS URIs are supported, got: {uri}")
+
+    # Download and verify packfile
+    resp, read = http_request(uri)
+    try:
+        # Use verify_and_read to ensure hash verification before writing
+        try:
+            for chunk in verify_and_read(read, expected_hash, hash_algo, progress):
+                pack_data(chunk)
+        except ValueError as e:
+            # Convert pack module ValueError to GitProtocolError
+            raise GitProtocolError(f"Packfile verification failed for {uri}: {e}")
+
+        if progress:
+            progress(
+                f"Successfully downloaded and verified packfile from {uri}\n".encode()
+            )
+    finally:
+        resp.close()
+
+
+class PackDataProgressWrapper:
+    """Wrapper that reports progress during pack data reception.
+
+    This wrapper tracks bytes received during pack file download and periodically
+    reports progress to match Git's behavior of showing:
+    "Receiving objects: X% (current/total), Y MiB | Z MiB/s"
+
+    Args:
+        file_write: The underlying write function to call with received data
+        progress: Optional progress callback to report progress messages to
+        report_interval: Minimum time between progress reports in seconds (default 0.5)
+        report_byte_threshold: Minimum bytes between progress reports (default 1 MiB)
+    """
+
+    def __init__(
+        self,
+        file_write: Callable[[bytes], int],
+        progress: Callable[[bytes], None] | None,
+        report_interval: float = 0.5,
+        report_byte_threshold: int = 1024 * 1024,
+    ) -> None:
+        self.file_write = file_write
+        self.progress = progress
+        self.report_interval = report_interval
+        self.report_byte_threshold = report_byte_threshold
+
+        self.bytes_received = 0
+        self.total_objects: int | None = None
+        self.start_time = time.time()
+        self.last_report_time = self.start_time
+        self.last_report_bytes = 0
+        self.header_buffer = b""
+        self.header_parsed = False
+
+    def __call__(self, data: bytes) -> int:
+        """Called with each chunk of pack data."""
+        # Write the data to the file
+        result = self.file_write(data)
+        self.bytes_received += len(data)
+
+        # Try to parse the header if we haven't yet
+        if not self.header_parsed and len(self.header_buffer) < 12:
+            self.header_buffer += data
+            if len(self.header_buffer) >= 12:
+                self._parse_header()
+
+        # Report progress periodically if progress callback is set
+        if self.progress and self.header_parsed:
+            current_time = time.time()
+            bytes_since_last_report = self.bytes_received - self.last_report_bytes
+            time_since_last_report = current_time - self.last_report_time
+
+            # Report if enough time has passed or enough bytes have been received
+            if (
+                time_since_last_report >= self.report_interval
+                or bytes_since_last_report >= self.report_byte_threshold
+            ):
+                self._report_progress()
+                self.last_report_time = current_time
+                self.last_report_bytes = self.bytes_received
+
+        return result
+
+    def _parse_header(self) -> None:
+        """Parse the pack file header to extract the total object count."""
+        try:
+            header = self.header_buffer[:12]
+            if header[:4] != b"PACK":
+                # Not a valid pack header, skip progress reporting
+                return
+
+            # Extract the number of objects from the header
+            (self.total_objects,) = unpack_from(b">L", header, 8)
+            self.header_parsed = True
+        except Exception:
+            # If we can't parse the header, just skip progress reporting
+            pass
+
+    def _report_progress(self) -> None:
+        """Generate and send a progress message."""
+        if not self.progress:
+            return
+
+        elapsed = time.time() - self.start_time
+        mb_received = self.bytes_received / (1024 * 1024)
+
+        # Calculate transfer speed, handling case where elapsed time is 0
+        if elapsed > 0:
+            speed = self.bytes_received / elapsed
+            mb_per_sec = speed / (1024 * 1024)
+        else:
+            mb_per_sec = 0.0
+
+        # Format the progress message
+        # Note: We can't easily count objects as they arrive since the pack is compressed
+        # and deltified, so we just report bytes. Git counts objects during indexing phase.
+        if self.total_objects:
+            message = (
+                f"Receiving objects:   {self.total_objects} (delta 0), "
+                f"{mb_received:.2f} MiB | {mb_per_sec:.2f} MiB/s\r"
+            )
+        else:
+            message = (
+                f"Receiving objects: {mb_received:.2f} MiB | {mb_per_sec:.2f} MiB/s\r"
+            )
+
+        self.progress(message.encode())
+
+    def finalize(self) -> None:
+        """Report final progress with a newline."""
+        if self.progress and self.header_parsed and self.bytes_received > 0:
+            elapsed = time.time() - self.start_time
+            mb_received = self.bytes_received / (1024 * 1024)
+
+            # Calculate speed, handling case where elapsed time is 0
+            if elapsed > 0:
+                speed = self.bytes_received / elapsed
+                mb_per_sec = speed / (1024 * 1024)
+            else:
+                mb_per_sec = 0.0
+
+            if self.total_objects:
+                message = (
+                    f"Receiving objects: 100% ({self.total_objects}/{self.total_objects}), "
+                    f"{mb_received:.2f} MiB | {mb_per_sec:.2f} MiB/s, done.\n"
+                )
+            else:
+                message = f"Receiving objects: {mb_received:.2f} MiB | {mb_per_sec:.2f} MiB/s, done.\n"
+
+            self.progress(message.encode())
+
+
 def _handle_upload_pack_tail(
     proto: "Protocol",
     capabilities: Set[bytes],
@@ -909,6 +1165,8 @@ def _handle_upload_pack_tail(
     progress: Callable[[bytes], None] | None = None,
     rbufsize: int = _RBUFSIZE,
     protocol_version: int = 0,
+    http_request: Callable[[str], tuple["HTTPResponse", Callable[[int], bytes]]]
+    | None = None,
 ) -> None:
     """Handle the tail of a 'git-upload-pack' request.
 
@@ -920,11 +1178,40 @@ def _handle_upload_pack_tail(
       progress: Optional progress reporting function
       rbufsize: Read buffer size
       protocol_version: Neogiated Git protocol version.
+      http_request: Optional HTTP request function for downloading packfile URIs
     """
     pkt = proto.read_pkt_line()
     while pkt:
         parts = pkt.rstrip(b"\n").split(b" ")
-        if protocol_version == 2 and parts[0] != b"packfile":
+        if protocol_version == 2:
+            # Check for packfile-uris response
+            if parts[0] == b"packfile-uris":
+                if http_request is None:
+                    raise GitProtocolError(
+                        "Server sent packfile-uris but client does not support URI downloads"
+                    )
+
+                # Parse packfile URIs
+                packfile_uris = []
+                pkt = proto.read_pkt_line()
+                while pkt and pkt.rstrip(b"\n") != b"packfile":
+                    uri_parts = pkt.rstrip(b"\n").split(b" ")
+                    if len(uri_parts) >= 3:
+                        uri = uri_parts[0].decode("utf-8")
+                        hash_algo = uri_parts[1].decode("utf-8")
+                        expected_hash = uri_parts[2]
+                        packfile_uris.append((uri, hash_algo, expected_hash))
+                    pkt = proto.read_pkt_line()
+
+                # Download packfiles from URIs
+                # Like Git, we fail completely if any URI download fails
+                for uri, hash_algo, expected_hash in packfile_uris:
+                    _download_packfile_from_uri(
+                        uri, expected_hash, hash_algo, pack_data, progress, http_request
+                    )
+
+            # In protocol v2, break after handling first response packet
+            # (either packfile-uris or packfile)
             break
         else:
             if parts[0] == b"ACK":
@@ -1112,17 +1399,40 @@ class GitClient:
         ref_prefix: Sequence[bytes] | None = None,
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
+        bundle_uri: str | None = None,
     ) -> Repo:
-        """Clone a repository."""
+        """Clone a repository.
+
+        Args:
+          path: Path to clone from
+          target_path: Local path to clone to
+          mkdir: Whether to create the target directory
+          bare: Whether to create a bare repository
+          origin: Name for the origin remote (default: "origin")
+          checkout: Whether to checkout HEAD after cloning
+          branch: Branch to checkout (default: remote HEAD)
+          progress: Optional callback for progress reporting
+          depth: Shallow clone depth
+          ref_prefix: List of ref prefixes to fetch
+          filter_spec: Partial clone filter specification
+          protocol_version: Git protocol version to use
+          bundle_uri: Optional bundle URI to bootstrap the clone from.
+            This can be a URL to a bundle file or a bundle list.
+            Using a bundle URI can speed up the clone by downloading
+            pre-computed pack data.
+
+        Returns:
+          The newly created Repo object
+        """
         if mkdir:
             os.mkdir(target_path)
 
+        target: Repo | None = None
         try:
             # For network clones, create repository with default SHA-1 format initially.
             # If remote uses a different format, fetch() will auto-change the repo's format
             # (since repo is empty at this point).
             # Subclasses (e.g., LocalGitClient) override to detect format first for efficiency.
-            target = None
             if not bare:
                 target = Repo.init(target_path)
                 if checkout is None:
@@ -1150,6 +1460,38 @@ class GitClient:
                     b"+refs/heads/*:refs/remotes/" + origin.encode("utf-8") + b"/*",
                 )
                 target_config.write_to_path()
+
+            # Apply bundle URI if provided (bootstrap before fetch)
+            if bundle_uri is not None:
+                from urllib.parse import urlparse
+
+                parsed = urlparse(bundle_uri)
+                if not parsed.scheme or parsed.scheme not in ("http", "https"):
+                    raise BundleURIError(
+                        f"Invalid bundle URI: {bundle_uri} "
+                        f"(must be http:// or https:// URL)"
+                    )
+
+                try:
+                    filter_str = filter_spec.decode("utf-8") if filter_spec else None
+                    _, bundle_refs = apply_bundle_uri(
+                        target,
+                        bundle_uri,
+                        filter_spec=filter_str,
+                        progress=progress,
+                    )
+                    if progress and bundle_refs:
+                        progress(
+                            f"Bundle URI applied {len(bundle_refs)} refs, "
+                            f"fetching remaining objects...".encode()
+                        )
+                    elif progress:
+                        progress(b"Bundle URI applied, fetching remaining objects...")
+                except BundleURIError as e:
+                    if progress:
+                        progress(
+                            f"Bundle URI failed: {e}, continuing with regular fetch".encode()
+                        )
 
             ref_message = b"clone: from " + encoded_path
             result = self.fetch(
@@ -1281,12 +1623,16 @@ class GitClient:
 
         else:
             f, commit, abort = target.object_store.add_pack()
+
+        # Wrap the write function with progress tracking
+        progress_wrapper = PackDataProgressWrapper(f.write, progress)
+
         try:
             result = self.fetch_pack(
                 path,
                 determine_wants,
                 target.get_graph_walker(),
-                f.write,
+                progress_wrapper,
                 progress=progress,
                 depth=depth,
                 ref_prefix=ref_prefix,
@@ -1295,6 +1641,9 @@ class GitClient:
                 shallow_since=shallow_since,
                 shallow_exclude=shallow_exclude,
             )
+
+            # Report final progress
+            progress_wrapper.finalize()
 
             # Fix object format if needed
             if (
@@ -1310,6 +1659,89 @@ class GitClient:
             commit()
         target.update_shallow(result.new_shallow, result.new_unshallow)
         return result
+
+    def fetch_with_bundle_uri(
+        self,
+        path: bytes | str,
+        target: "BaseRepo",
+        bundle_uri: str,
+        determine_wants: "DetermineWantsFunc | None" = None,
+        progress: Callable[[bytes], None] | None = None,
+        depth: int | None = None,
+        ref_prefix: Sequence[bytes] | None = None,
+        filter_spec: bytes | None = None,
+        protocol_version: int | None = None,
+        shallow_since: str | None = None,
+        shallow_exclude: list[str] | None = None,
+        stored_creation_token: int | None = None,
+    ) -> tuple[FetchPackResult, int | None]:
+        """Fetch into a target repository, using bundle URIs for bootstrap.
+
+        This method first applies any available bundles from the bundle URI,
+        then fetches remaining objects from the remote server. This can
+        significantly speed up clones and fetches for large repositories.
+
+        If bundle URI fetch fails (e.g., network error, invalid bundle), the
+        error is reported via the progress callback and the method continues
+        with a regular fetch from the remote. The fetch will still succeed
+        as long as the remote fetch completes successfully.
+
+        Args:
+          path: Path to fetch from (as bytestring)
+          target: Target repository to fetch into
+          bundle_uri: Bundle URI to fetch from (URL to bundle or bundle list)
+          determine_wants: Optional function to determine what refs to fetch.
+            Receives dictionary of name->sha, should return
+            list of shas to fetch. Defaults to all shas.
+          progress: Optional progress function
+          depth: Depth to fetch at
+          ref_prefix: List of prefixes of desired references
+          filter_spec: A git-rev-list-style object filter spec
+          protocol_version: Desired Git protocol version
+          shallow_since: Deepen the history to include commits after this date
+          shallow_exclude: Deepen the history to exclude commits reachable from these refs
+          stored_creation_token: Previously stored creation token to skip
+            already-applied bundles (for incremental fetches)
+
+        Returns:
+          A tuple of (``FetchPackResult``, ``creation_token``) where:
+          - ``FetchPackResult`` contains refs and other fetch metadata
+          - ``creation_token`` is the highest creation token seen (for
+            storing and skipping in future fetches), or None if not available
+            or if bundle fetch failed
+        """
+        # First, try to apply bundles from the bundle URI
+        latest_token = stored_creation_token
+        try:
+            filter_str = filter_spec.decode("utf-8") if filter_spec else None
+            latest_token, bundle_refs = apply_bundle_uri(
+                target,
+                bundle_uri,
+                filter_spec=filter_str,
+                stored_creation_token=stored_creation_token,
+                progress=progress,
+            )
+            if progress and bundle_refs:
+                progress(f"Applied {len(bundle_refs)} refs from bundle URI".encode())
+        except BundleURIError as e:
+            if progress:
+                progress(f"Bundle URI fetch failed: {e}".encode())
+
+        # Then fetch remaining objects from the remote
+        result = self.fetch(
+            path,
+            target,
+            determine_wants=determine_wants,
+            progress=progress,
+            depth=depth,
+            ref_prefix=ref_prefix,
+            filter_spec=filter_spec,
+            protocol_version=protocol_version,
+            shallow_since=shallow_since,
+            shallow_exclude=shallow_exclude,
+        )
+
+        return result, latest_token
 
     def fetch_pack(
         self,
@@ -1410,12 +1842,16 @@ class GitClient:
                 def progress(x: bytes) -> None:
                     pass
 
+            pktline_parser: PktLineParser | None
             if CAPABILITY_REPORT_STATUS in capabilities:
                 assert self._report_status_parser is not None
                 pktline_parser = PktLineParser(self._report_status_parser.handle_packet)
+            else:
+                pktline_parser = None
             for chan, data in _read_side_band64k_data(proto.read_pkt_seq()):
                 if chan == SIDE_BAND_CHANNEL_DATA:
                     if CAPABILITY_REPORT_STATUS in capabilities:
+                        assert pktline_parser is not None
                         pktline_parser.parse(data)
                 elif chan == SIDE_BAND_CHANNEL_PROGRESS:
                     progress(data)
@@ -1745,14 +2181,15 @@ class TraditionalGitClient(GitClient):
                     server_capabilities
                 )
 
-                proto.write_pkt_line(b"command=ls-refs\n")
+                # Send ls-refs command with protocol v2 structure
+                cmd_packets, arg_packets = build_ls_refs_request_v2(
+                    server_capabilities, object_format, ref_prefix
+                )
+                for pkt in cmd_packets:
+                    proto.write_pkt_line(pkt)
                 proto.write(b"0001")  # delim-pkt
-                proto.write_pkt_line(b"symrefs")
-                proto.write_pkt_line(b"peel")
-                if ref_prefix is None:
-                    ref_prefix = DEFAULT_REF_PREFIX
-                for prefix in ref_prefix:
-                    proto.write_pkt_line(b"ref-prefix " + prefix)
+                for pkt in arg_packets:
+                    proto.write_pkt_line(pkt)
                 proto.write_pkt_line(None)
                 refs, symrefs, _peeled = read_pkt_refs_v2(proto.read_pkt_seq())
             else:
@@ -1802,7 +2239,10 @@ class TraditionalGitClient(GitClient):
                     refs, symrefs, agent, object_format=object_format
                 )
             if self.protocol_version == 2:
-                proto.write_pkt_line(b"command=fetch\n")
+                # Send fetch command with protocol v2 structure
+                cmd_packets = build_fetch_request_v2(object_format)
+                for pkt in cmd_packets:
+                    proto.write_pkt_line(pkt)
                 proto.write(b"0001")  # delim-pkt
                 if CAPABILITY_THIN_PACK in self._fetch_capabilities:
                     proto.write(pkt_line(b"thin-pack\n"))
@@ -1869,14 +2309,16 @@ class TraditionalGitClient(GitClient):
         if self.protocol_version == 2:
             server_capabilities = read_server_capabilities(proto.read_pkt_seq())
             object_format = extract_object_format_from_capabilities(server_capabilities)
-            proto.write_pkt_line(b"command=ls-refs\n")
+
+            # Send ls-refs command with protocol v2 structure
+            cmd_packets, arg_packets = build_ls_refs_request_v2(
+                server_capabilities, object_format, ref_prefix
+            )
+            for pkt in cmd_packets:
+                proto.write_pkt_line(pkt)
             proto.write(b"0001")  # delim-pkt
-            proto.write_pkt_line(b"symrefs")
-            proto.write_pkt_line(b"peel")
-            if ref_prefix is None:
-                ref_prefix = DEFAULT_REF_PREFIX
-            for prefix in ref_prefix:
-                proto.write_pkt_line(b"ref-prefix " + prefix)
+            for pkt in arg_packets:
+                proto.write_pkt_line(pkt)
             proto.write_pkt_line(None)
             with proto:
                 try:
@@ -2245,7 +2687,7 @@ class SubprocessGitClient(TraditionalGitClient):
             include_tags=include_tags,
         )
 
-    git_command: str | None = None
+    git_command: list[str] | None = None
 
     def _connect(
         self,
@@ -2259,6 +2701,8 @@ class SubprocessGitClient(TraditionalGitClient):
             path = path.decode(self._remote_path_encoding)
         if self.git_command is None:
             git_command = find_git_command()
+        else:
+            git_command = self.git_command
         argv = [*git_command, service.decode("ascii"), path]
         p = subprocess.Popen(
             argv,
@@ -2604,12 +3048,17 @@ class LocalGitClient(GitClient):
         ref_prefix: Sequence[bytes] | None = None,
         filter_spec: bytes | None = None,
         protocol_version: int | None = None,
+        bundle_uri: str | None = None,
     ) -> Repo:
         """Clone a local repository.
 
         For local clones, we can detect the object format before creating
         the target repository.
+
+        Note: bundle_uri is accepted for API compatibility but ignored for
+        local clones since there's no benefit to using bundles for local operations.
         """
+        del bundle_uri  # unused for local clones
         # Detect the object format from the source repository
         with self._open_repo(path) as source_repo:
             object_format_name = source_repo.object_format.name
@@ -2617,9 +3066,9 @@ class LocalGitClient(GitClient):
         if mkdir:
             os.mkdir(target_path)
 
+        target: Repo | None = None
         try:
             # Create repository with the correct object format from the start
-            target = None
             if not bare:
                 target = Repo.init(target_path, object_format=object_format_name)
                 if checkout is None:
@@ -3501,6 +3950,7 @@ class AuthCallbackPoolManager:
         max_attempts = 3
         attempts = self._auth_attempts.get(url, 0)
 
+        response = None  # Will be set in the loop
         while attempts < max_attempts:
             response = self._pool_manager.request(method, url, *args, **kwargs)
 
@@ -3944,15 +4394,21 @@ class AbstractHttpGitClient(GitClient):
                     if ref_prefix is None:
                         ref_prefix = DEFAULT_REF_PREFIX
 
-                    pkts = [
-                        b"symrefs",
-                        b"peel",
-                    ]
-                    for prefix in ref_prefix:
-                        pkts.append(b"ref-prefix " + prefix)
+                    # Extract object format from server capabilities
+                    object_format = extract_object_format_from_capabilities(
+                        server_capabilities
+                    )
+
+                    # Build ls-refs command with protocol v2 structure
+                    cmd_packets, arg_packets = build_ls_refs_request_v2(
+                        server_capabilities, object_format, ref_prefix
+                    )
 
                     body = b"".join(
-                        [pkt_line(b"command=ls-refs\n"), b"0001", pkt_seq(*pkts)]
+                        [pkt_line(pkt) for pkt in cmd_packets]
+                        + [b"0001"]
+                        + [pkt_line(pkt) for pkt in arg_packets]
+                        + [b"0000"]  # flush packet
                     )
 
                     resp, read = self._smart_request(
@@ -4280,7 +4736,14 @@ class AbstractHttpGitClient(GitClient):
             shallow_exclude=shallow_exclude,
         )
         if self.protocol_version == 2:
-            data = pkt_line(b"command=fetch\n") + b"0001"
+            # Build protocol v2 fetch command
+            cmd_packets = build_fetch_request_v2(object_format)
+            data = b"".join(pkt_line(pkt) for pkt in cmd_packets)
+
+            # Delimiter
+            data += b"0001"
+
+            # Command arguments (after delimiter)
             if CAPABILITY_THIN_PACK in self._fetch_capabilities:
                 data += pkt_line(b"thin-pack\n")
             if (
@@ -4292,6 +4755,8 @@ class AbstractHttpGitClient(GitClient):
                 data += pkt_line(b"filter %s\n" % filter_spec)
             elif filter_spec:
                 self._warn_filter_objects()
+            if CAPABILITY_PACKFILE_URIS in negotiated_capabilities:
+                data += pkt_line(b"packfile-uris https\n")
             data += req_data.getvalue()
         else:
             if filter_spec:
@@ -4311,6 +4776,7 @@ class AbstractHttpGitClient(GitClient):
                 pack_data,
                 progress,
                 protocol_version=self.protocol_version,
+                http_request=self._http_request,
             )
             return FetchPackResult(
                 refs, symrefs, agent, new_shallow, new_unshallow, object_format

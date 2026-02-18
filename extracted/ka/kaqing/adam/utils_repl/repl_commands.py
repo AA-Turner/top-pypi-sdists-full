@@ -19,6 +19,7 @@ from adam.commands.cli.clipboard_copy import ClipboardCopy
 from adam.commands.command_filter import CommandFilter
 from adam.commands.config.param_get import GetParam
 from adam.commands.config.param_set import SetParam
+from adam.commands.cql.show_gc_grace import ShowGcGrace
 from adam.commands.deploy.upgrade import Upgrade
 from adam.commands.filters.debug_filter import DebugFilter
 from adam.commands.filters.push_pod_filter import PushPodFilter
@@ -144,7 +145,7 @@ class ReplCommands:
                 RestartNodes(), RestartCluster(), RollOut(),
                 ShowTokens(), ShowStatus(), ShowCassandraVersion(),
                 ShowCassandraRepairs(), ShowColumnCounts(), ShowNodeRestartSchedules(), ShowStorage(), ShowExportDatabases(),
-                ShowExportSessions(), ShowExportSession(), ShowJobSchedules(), ShowProcesses(), Upgrade(),
+                ShowExportSessions(), ShowExportSession(), ShowGcGrace(), ShowJobSchedules(), ShowProcesses(), Upgrade(),
                 Watch()] + \
                 Medusa().cmd_list() + \
                 Reaper().cmd_list() + \

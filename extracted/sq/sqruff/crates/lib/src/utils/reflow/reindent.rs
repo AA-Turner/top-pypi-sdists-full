@@ -1,7 +1,7 @@
 use std::borrow::Cow;
 use std::mem::take;
 
-use ahash::{AHashMap, AHashSet};
+use hashbrown::{HashMap, HashSet};
 use itertools::{Itertools, chain, enumerate};
 use smol_str::SmolStr;
 use sqruff_lib_core::dialects::syntax::{SyntaxKind, SyntaxSet};
@@ -423,8 +423,8 @@ fn map_line_buffers(
 ) -> (Vec<IndentLine>, Vec<usize>) {
     let mut lines = Vec::new();
     let mut point_buffer = Vec::new();
-    let mut previous_points = AHashMap::new();
-    let mut untaken_indent_locs = AHashMap::new();
+    let mut previous_points = HashMap::new();
+    let mut untaken_indent_locs = HashMap::new();
     let mut imbalanced_locs = Vec::new();
 
     for indent_point in crawl_indent_points(elements, allow_implicit_indents) {
@@ -674,8 +674,9 @@ fn lint_line_untaken_positive_indents(
     for ip in &indent_line.indent_points {
         if imbalanced_indent_locs.contains(&ip.idx) {
             // Force it at the relevant position.
-            let desired_indent = single_indent
-                .repeat((ip.closing_indent_balance() - ip.untaken_indents.len() as isize) as usize);
+            let desired_indent = single_indent.repeat(
+                (ip.closing_indent_balance() - ip.untaken_indents.len() as isize).max(0) as usize,
+            );
             let target_point = elements[ip.idx].as_point().unwrap();
 
             let (results, new_point) = target_point.indent_to(
@@ -756,8 +757,9 @@ fn lint_line_untaken_positive_indents(
     for ip in &indent_line.indent_points {
         if ip.closing_indent_balance() == closing_trough {
             target_point_idx = ip.idx;
-            desired_indent = single_indent
-                .repeat((ip.closing_indent_balance() - ip.untaken_indents.len() as isize) as usize);
+            desired_indent = single_indent.repeat(
+                (ip.closing_indent_balance() - ip.untaken_indents.len() as isize).max(0) as usize,
+            );
             break;
         }
     }
@@ -800,18 +802,18 @@ fn lint_line_untaken_negative_indents(
             continue;
         }
 
-        let covered_indents: AHashSet<isize> = Range::new(
+        let covered_indents: HashSet<isize> = Range::new(
             ip.initial_indent_balance,
             ip.initial_indent_balance + ip.indent_trough,
             -1,
         )
         .collect();
 
-        let untaken_indents: AHashSet<_> = ip
+        let untaken_indents: HashSet<_> = ip
             .untaken_indents
             .iter()
             .copied()
-            .collect::<AHashSet<_>>()
+            .collect::<HashSet<_>>()
             .difference(&forced_indents.iter().map(|it| *it as isize).collect())
             .copied()
             .collect();
@@ -900,7 +902,7 @@ pub fn lint_indent_points(
     tables: &Tables,
     elements: ReflowSequenceType,
     single_indent: &str,
-    _skip_indentation_in: AHashSet<String>,
+    _skip_indentation_in: HashSet<String>,
     allow_implicit_indents: bool,
 ) -> (ReflowSequenceType, Vec<LintResult>) {
     let (mut lines, imbalanced_indent_locs) = map_line_buffers(&elements, allow_implicit_indents);
@@ -968,14 +970,32 @@ fn source_char_len(elements: &[ReflowElement]) -> usize {
     char_len
 }
 
-fn rebreak_priorities(spans: Vec<RebreakSpan>) -> AHashMap<usize, usize> {
-    let mut rebreak_priority = AHashMap::with_capacity(spans.len());
+/// Wraps an index like Python does: negative indices wrap from the end.
+fn wrap_index(idx: isize, len: usize) -> usize {
+    if idx < 0 {
+        (len as isize + idx) as usize
+    } else {
+        idx as usize
+    }
+}
+
+fn rebreak_priorities(spans: Vec<RebreakSpan>, buffer_len: usize) -> HashMap<usize, usize> {
+    let mut rebreak_priority = HashMap::with_capacity(spans.len());
 
     for span in spans {
-        let rebreak_indices: &[usize] = match span.line_position {
-            LinePosition::Leading => &[span.start_idx - 1],
-            LinePosition::Trailing => &[span.end_idx + 1],
-            LinePosition::Alone => &[span.start_idx - 1, span.end_idx + 1],
+        // Use isize arithmetic to handle potential negative indices,
+        // then wrap like Python does (negative indices count from the end).
+        let rebreak_indices: Vec<usize> = match span.line_position {
+            LinePosition::Leading => {
+                vec![wrap_index(span.start_idx as isize - 1, buffer_len)]
+            }
+            LinePosition::Trailing => {
+                vec![wrap_index(span.end_idx as isize + 1, buffer_len)]
+            }
+            LinePosition::Alone => vec![
+                wrap_index(span.start_idx as isize - 1, buffer_len),
+                wrap_index(span.end_idx as isize + 1, buffer_len),
+            ],
             _ => {
                 unimplemented!()
             }
@@ -999,14 +1019,14 @@ fn rebreak_priorities(spans: Vec<RebreakSpan>) -> AHashMap<usize, usize> {
         }
 
         for rebreak_idx in rebreak_indices {
-            rebreak_priority.insert(*rebreak_idx, priority);
+            rebreak_priority.insert(rebreak_idx, priority);
         }
     }
 
     rebreak_priority
 }
 
-type MatchedIndentsType = AHashMap<FloatTypeWrapper, Vec<usize>>;
+type MatchedIndentsType = HashMap<FloatTypeWrapper, Vec<usize>>;
 
 fn increment_balance(
     input_balance: isize,
@@ -1014,7 +1034,7 @@ fn increment_balance(
     elem_idx: usize,
 ) -> (isize, MatchedIndentsType) {
     let mut balance = input_balance;
-    let mut matched_indents = AHashMap::new();
+    let mut matched_indents = HashMap::new();
 
     if indent_stats.trough < 0 {
         for b in 0..indent_stats.trough.abs() {
@@ -1041,13 +1061,13 @@ fn increment_balance(
 
 fn match_indents(
     line_elements: ReflowSequenceType,
-    rebreak_priorities: AHashMap<usize, usize>,
+    rebreak_priorities: HashMap<usize, usize>,
     newline_idx: usize,
     allow_implicit_indents: bool,
 ) -> MatchedIndentsType {
     let mut balance = 0;
-    let mut matched_indents: MatchedIndentsType = AHashMap::new();
-    let mut implicit_indents = AHashMap::new();
+    let mut matched_indents: MatchedIndentsType = HashMap::new();
+    let mut implicit_indents = HashMap::new();
 
     for (idx, e) in enumerate(&line_elements) {
         let ReflowElement::Point(point) = e else {
@@ -1082,14 +1102,14 @@ fn match_indents(
     if allow_implicit_indents {
         let keys: Vec<_> = matched_indents.keys().copied().collect();
         for indent_level in keys {
-            let major_points: AHashSet<_> = matched_indents[&indent_level]
+            let major_points: HashSet<_> = matched_indents[&indent_level]
                 .iter()
                 .copied()
-                .collect::<AHashSet<_>>()
-                .difference(&AHashSet::from([newline_idx]))
+                .collect::<HashSet<_>>()
+                .difference(&HashSet::from([newline_idx]))
                 .copied()
-                .collect::<AHashSet<_>>()
-                .difference(&implicit_indents.keys().copied().collect::<AHashSet<_>>())
+                .collect::<HashSet<_>>()
+                .difference(&implicit_indents.keys().copied().collect::<HashSet<_>>())
                 .copied()
                 .collect();
 
@@ -1370,7 +1390,7 @@ pub fn lint_line_length(
             combined_elements.push(elements[i + 1].clone());
 
             let spans = identify_rebreak_spans(&combined_elements, root_segment);
-            let rebreak_priorities = rebreak_priorities(spans);
+            let rebreak_priorities = rebreak_priorities(spans, combined_elements.len());
 
             let matched_indents =
                 match_indents(line_elements, rebreak_priorities, i, allow_implicit_indents);
@@ -1678,6 +1698,28 @@ mod tests {
             assert_eq!(
                 indent_line.desired_indent_units(forced_indents),
                 expected_units
+            );
+        }
+    }
+
+    #[test]
+    fn test_reindent_cte_with_aliased_join_no_panic() {
+        // Regression test for https://github.com/quarylabs/sqruff/issues/2289
+        // A CTE with select on the same line as `as (`, an aliased join, and
+        // the ON condition on a new line caused a capacity overflow panic in
+        // lint_line_untaken_positive_indents due to a negative repeat count.
+        use crate::core::linter::core::Linter;
+
+        let sql = "with a as (select 1\nfrom t join u v on\n1=1\n)\nselect * from a\n";
+        let linter = Linter::new(<_>::default(), None, None, false);
+        let result = linter.lint_string(sql, None, false).unwrap();
+        // The panic is caught by catch_unwind and surfaced as an
+        // "Unexpected exception" violation. Assert none are present.
+        for v in result.violations() {
+            assert!(
+                !v.desc().contains("Unexpected exception"),
+                "Rule evaluation panicked: {}",
+                v.desc()
             );
         }
     }

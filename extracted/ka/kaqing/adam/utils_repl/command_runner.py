@@ -13,7 +13,7 @@ from adam.utils_repl.repl_state import ReplState
 from adam.sql.async_executor import AsyncExecutor
 from adam.commands.audit.utils_audits import Audits, audit
 from adam.utils_context import NULL, Context
-from adam.utils_global import thread_local
+from adam.thread_locals import thread_local_command
 from adam.utils_job.job import Job
 from adam.utils_log import CommandLog, clear_wait_log_flag, debug_trace, log2, log_exc, log_timing
 from adam.utils_tabulize import tabulize
@@ -27,15 +27,15 @@ def run_command(state: ReplState,
                 cmd: str,
                 session: ReplSession = None,
                 cmd_list: list[Command] = None,
-                cmds: Command = None,
+                chain: Command = None,
                 audit_submit: callable = None,
                 job: Job = None,
                 ctx: Context = None) -> Union[ReplState, JobStatus]:
     if not session:
         session = ReplSession().prompt_session
 
-    if not cmd_list or not cmds:
-        cmd_list, cmds = cmd_list_n_chain(run_command)
+    if not cmd_list or not chain:
+        cmd_list, chain = cmd_list_n_chain(run_command)
 
     AsyncExecutor.reset()
 
@@ -47,7 +47,8 @@ def run_command(state: ReplState,
             cmd = cmd()
 
         # store command as is including filters and pod-targetting
-        thread_local.cmd = cmd
+        thread_local_command().raw_command = cmd
+        s0 = time.time()
 
         if state.bash_session:
             if cmd.strip(' ') == 'exit':
@@ -59,8 +60,8 @@ def run_command(state: ReplState,
             finalizers, targetted_state, cmd = filtered(state, cmd)
 
         try:
-            if cmd and cmd.strip(' ') and not (result := cmds.retry(cmd, job, targetted_state, ctx=ctx) if job else cmds.run(cmd, targetted_state)):
-                result = try_device_default_action(targetted_state, cmds, cmd_list, cmd, job=job)
+            if cmd and cmd.strip(' ') and not (result := chain.retry(cmd, job, targetted_state, ctx=ctx) if job else chain.run(cmd, targetted_state)):
+                result = try_device_default_action(targetted_state, chain, cmd_list, cmd, job=job)
         except InvalidStateException:
             pass
         except InvalidArgumentsException:
@@ -89,8 +90,7 @@ def run_command(state: ReplState,
                 with log_exc():
                     finalizer(result)
 
-        if hasattr(thread_local, 'cmd'):
-            thread_local.cmd = None
+        thread_local_command().raw_command = None
 
         # offload audit logging
         if cmd and (state.device != ReplState.L or Config().get('audit.log-audit-queries', False)):
@@ -101,6 +101,9 @@ def run_command(state: ReplState,
                     submit(Audits.log, cmd, state.namespace, state.device, time.time() - s0, get_audit_extra(result))
 
         CommandLog.close_log_file()
+
+    if job:
+        return result
 
     return result or state
 
@@ -137,9 +140,9 @@ def process_config_filter(state: ReplState, cmd: str, word: str, key: str, value
 def cmd_list_n_chain(run_command: callable = None) -> tuple[list[Command], Command]:
     cmd_list: list[Command] = ReplCommands.repl_cmd_list() + [Help()]
     # head with the Chain of Responsibility pattern
-    cmds: Command = Command.chain(cmd_list, run_command=run_command)
+    chain: Command = Command.chain(cmd_list, run_command=run_command)
 
-    return cmd_list, cmds
+    return cmd_list, chain
 
 def try_device_default_action(state: ReplState, cmds: Command, cmd_list: list[Command], cmd: str, job: Job = None, ctx = NULL):
     action_taken, result = device(state).try_fallback_action(cmds, state, cmd, job=job, ctx=ctx)

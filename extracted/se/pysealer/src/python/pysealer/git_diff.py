@@ -1,9 +1,11 @@
 """Git-based diff functionality for comparing function/class changes."""
 
 import ast
+import json
+import os
 import subprocess
 from pathlib import Path
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Dict, Any
 import difflib
 
 
@@ -27,13 +29,13 @@ def get_file_from_git(file_path: str, ref: str = "HEAD") -> Optional[str]:
             text=True,
             timeout=5
         )
-        
+
         if result.returncode != 0:
             return None
-            
+
         git_root = result.stdout.strip()
         relative_path = Path(file_path).relative_to(git_root)
-        
+
         # Get file content from git
         result = subprocess.run(
             ["git", "show", f"{ref}:{relative_path}"],
@@ -42,16 +44,91 @@ def get_file_from_git(file_path: str, ref: str = "HEAD") -> Optional[str]:
             text=True,
             timeout=5
         )
-        
+
         if result.returncode == 0:
             return result.stdout
         return None
-        
+
     except FileNotFoundError:
         # Git command not found
         return None
     except (subprocess.TimeoutExpired, subprocess.SubprocessError, ValueError, OSError):
         return None
+
+
+def _load_github_event_data() -> Optional[Dict[str, Any]]:
+    """
+    Load GitHub Actions event payload if available.
+
+    Returns:
+        Parsed event payload dictionary or None if unavailable/invalid
+    """
+    event_path = os.environ.get("GITHUB_EVENT_PATH")
+    if not event_path:
+        return None
+
+    try:
+        with open(event_path, "r", encoding="utf-8") as f:
+            payload = json.load(f)
+            if isinstance(payload, dict):
+                return payload
+    except (OSError, json.JSONDecodeError):
+        return None
+
+    return None
+
+
+def get_candidate_git_refs() -> List[str]:
+    """
+    Determine git references to compare against, preferring CI-aware refs.
+
+    Priority:
+      1. Explicit override via PYSEALER_GIT_REF
+      2. GitHub Actions PR base SHA (pull_request base.sha)
+      3. GitHub Actions push "before" SHA
+      4. HEAD~1 as a local heuristic
+      5. HEAD fallback
+
+    Returns:
+        Ordered list of git refs to try
+    """
+    refs: List[str] = []
+
+    explicit_ref = os.environ.get("PYSEALER_GIT_REF")
+    if explicit_ref:
+        refs.append(explicit_ref)
+
+    if os.environ.get("GITHUB_ACTIONS", "").lower() == "true":
+        event_name = os.environ.get("GITHUB_EVENT_NAME", "")
+        event_payload = _load_github_event_data()
+
+        if event_name == "pull_request" and event_payload:
+            base_sha = (
+                event_payload.get("pull_request", {})
+                .get("base", {})
+                .get("sha")
+            )
+            if isinstance(base_sha, str) and base_sha:
+                refs.append(base_sha)
+        elif event_name == "push" and event_payload:
+            before_sha = event_payload.get("before")
+            if (
+                isinstance(before_sha, str)
+                and before_sha
+                and before_sha != "0000000000000000000000000000000000000000"
+            ):
+                refs.append(before_sha)
+
+    refs.extend(["HEAD~1", "HEAD"])
+
+    deduped: List[str] = []
+    seen = set()
+    for ref in refs:
+        if ref not in seen:
+            seen.add(ref)
+            deduped.append(ref)
+
+    return deduped
 
 
 def extract_function_from_source(source_code: str, function_name: str) -> Optional[Tuple[str, int]]:
@@ -68,19 +145,19 @@ def extract_function_from_source(source_code: str, function_name: str) -> Option
     try:
         tree = ast.parse(source_code)
         lines = source_code.splitlines(keepends=True)
-        
+
         for node in ast.walk(tree):
             if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
                 if node.name == function_name:
                     # Get the source lines for this node
                     start_line = node.lineno
                     end_line = node.end_lineno if node.end_lineno else start_line
-                    
+
                     function_lines = lines[start_line - 1:end_line]
                     function_source = ''.join(function_lines)
-                    
+
                     return function_source, start_line
-        
+
         return None
     except (SyntaxError, AttributeError):
         return None
@@ -111,7 +188,7 @@ def generate_function_diff(
     """
     old_lines = old_source.splitlines(keepends=False)
     new_lines = new_source.splitlines(keepends=False)
-    
+
     # Generate unified diff
     diff = list(difflib.unified_diff(
         old_lines,
@@ -119,22 +196,22 @@ def generate_function_diff(
         lineterm='',
         n=context_lines
     ))
-    
+
     # Skip the header lines (first 3 lines of unified diff)
     if len(diff) > 3:
         diff = diff[3:]
-    
+
     result = []
     current_old_line = old_start_line
     current_new_line = new_start_line
-    
+
     for line in diff:
         if not line:
             continue
-            
+
         prefix = line[0]
         content = line[1:] if len(line) > 1 else ''
-        
+
         if prefix == '-':
             result.append(('-', content, current_old_line))
             current_old_line += 1
@@ -152,19 +229,19 @@ def generate_function_diff(
                 if len(parts) >= 3:
                     old_part = parts[1].lstrip('-')
                     new_part = parts[2].lstrip('+')
-                    
+
                     if ',' in old_part:
                         current_old_line = int(old_part.split(',')[0])
                     else:
                         current_old_line = int(old_part)
-                        
+
                     if ',' in new_part:
                         current_new_line = int(new_part.split(',')[0])
                     else:
                         current_new_line = int(new_part)
             except (ValueError, IndexError):
                 pass
-    
+
     return result
 
 
@@ -190,7 +267,7 @@ def get_function_diff(
     new_start_line: int
 ) -> Optional[List[Tuple[str, str, int]]]:
     """
-    Get the diff for a specific function comparing current version to git HEAD.
+    Get diff for a specific function comparing current version to git history.
     
     Args:
         file_path: Absolute path to the Python file
@@ -201,28 +278,27 @@ def get_function_diff(
     Returns:
         List of diff tuples or None if git history unavailable
     """
-    # Get the file from git
-    old_file_content = get_file_from_git(file_path)
-    
-    if not old_file_content:
-        return None
-    
-    # Extract the old version of the function
-    old_function = extract_function_from_source(old_file_content, function_name)
-    
-    if not old_function:
-        return None
-    
-    old_source, old_start_line = old_function
-    
-    # Generate the diff
-    diff = generate_function_diff(
-        old_source,
-        new_source,
-        function_name,
-        old_start_line,
-        new_start_line,
-        context_lines=2
-    )
-    
-    return diff if diff else None
+    for ref in get_candidate_git_refs():
+        old_file_content = get_file_from_git(file_path, ref=ref)
+        if not old_file_content:
+            continue
+
+        old_function = extract_function_from_source(old_file_content, function_name)
+        if not old_function:
+            continue
+
+        old_source, old_start_line = old_function
+
+        diff = generate_function_diff(
+            old_source,
+            new_source,
+            function_name,
+            old_start_line,
+            new_start_line,
+            context_lines=2
+        )
+
+        if diff:
+            return diff
+
+    return None

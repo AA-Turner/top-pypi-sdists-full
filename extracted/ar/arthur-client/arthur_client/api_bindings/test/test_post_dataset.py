@@ -58,7 +58,8 @@ class TestPostDataset(unittest.TestCase):
                     left_dataset_join_key = '', 
                     right_dataset_join_key = '', 
                     join_type = 'inner', ),
-                model_problem_type = 'regression'
+                model_problem_type = 'regression',
+                is_static = True
             )
         else:
             return PostDataset(

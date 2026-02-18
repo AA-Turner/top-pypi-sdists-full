@@ -24,6 +24,9 @@
     clippy::match_wildcard_for_single_variants,
     clippy::similar_names,
     clippy::items_after_statements,
+    clippy::use_self,
+    clippy::missing_fields_in_debug,
+    clippy::semicolon_if_nothing_returned,
     missing_docs
 )]
 

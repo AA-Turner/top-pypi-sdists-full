@@ -655,7 +655,7 @@ class TestVolumeDelete(volume_fakes.TestVolume):
         arglist = [self.volumes[0].id]
         verifylist = [
             ("force", False),
-            ("purge", False),
+            ("cascade", False),
             ("volumes", [self.volumes[0].id]),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -674,7 +674,7 @@ class TestVolumeDelete(volume_fakes.TestVolume):
         arglist = [v.id for v in self.volumes]
         verifylist = [
             ('force', False),
-            ('purge', False),
+            ('cascade', False),
             ('volumes', arglist),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -701,7 +701,7 @@ class TestVolumeDelete(volume_fakes.TestVolume):
         ]
         verifylist = [
             ('force', False),
-            ('purge', False),
+            ('cascade', False),
             ('volumes', [self.volumes[0].id, 'unexist_volume']),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -732,7 +732,7 @@ class TestVolumeDelete(volume_fakes.TestVolume):
         ]
         verifylist = [
             ('force', False),
-            ('purge', True),
+            ('cascade', True),
             ('volumes', [self.volumes[0].id]),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -754,7 +754,7 @@ class TestVolumeDelete(volume_fakes.TestVolume):
         ]
         verifylist = [
             ('force', True),
-            ('purge', False),
+            ('cascade', False),
             ('volumes', [self.volumes[0].id]),
         ]
         parsed_args = self.check_parser(self.cmd, arglist, verifylist)
@@ -1618,7 +1618,8 @@ class TestVolumeSet(TestVolume):
         result = self.cmd.take_action(parsed_args)
         self.volumes_mock.retype.assert_not_called()
         mock_warning.assert_called_with(
-            "'--retype-policy' option will not work without '--type' option"
+            "'%s' option will not work without '--type' option",
+            '--retype-policy',
         )
         self.assertIsNone(result)
 

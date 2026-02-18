@@ -127,6 +127,7 @@ def execute_repscan(args):
         print(f"  Layers: {args.layers or 'all available'}")
         print(f"  Prompt format: {args.prompt_format}")
         print(f"  Extraction strategy: {args.extraction_strategy}")
+        print(f"  Extraction component: {args.extraction_component}")
 
         # Parse layers
         if args.layers:
@@ -147,7 +148,7 @@ def execute_repscan(args):
                 layers = load_available_layers_from_database(
                     model_name=args.model,
                     task_name=args.task,
-                    extraction_strategy=args.extraction_strategy,
+                    extraction_strategy=args.extraction_strategy, component=args.extraction_component,
                     database_url=args.database_url,
                 )
                 print(f"  Found {len(layers)} layers: {layers[0]}-{layers[-1]}" if layers else "  No layers found")
@@ -161,7 +162,7 @@ def execute_repscan(args):
                     task_name=args.task,
                     layer=layer,
                     prompt_format=args.prompt_format,
-                    extraction_strategy=args.extraction_strategy,
+                    extraction_strategy=args.extraction_strategy, component=args.extraction_component,
                     limit=args.limit,
                     database_url=args.database_url,
                 )
@@ -273,6 +274,8 @@ def execute_repscan(args):
         if saved_count > 0:
             print(f"\nSaved {saved_count} visualizations to: {viz_dir}/")
 
+    results["extraction_component"] = getattr(args, "extraction_component", "residual_stream")
+
     # Save results
     if args.output:
         output_path = Path(args.output)
@@ -293,7 +296,5 @@ def execute_repscan(args):
             json.dump(serialized, f, indent=2)
         print(f"\nResults saved to: {output_path}")
 
-    print(f"\n{'='*60}")
-    print("REPSCAN COMPLETE")
-    print(f"{'='*60}")
+    print("\n" + "="*60 + "\nREPSCAN COMPLETE\n" + "="*60)
     return results

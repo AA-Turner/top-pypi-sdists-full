@@ -24,6 +24,14 @@ from .advanced import (
     PULSEResult,
 )
 
+from .concept_flow import (
+    ConceptFlowMethod,
+    ConceptFlowConfig,
+    ConceptFlowResult,
+    FlowVelocityNetwork,
+    ConceptFlowSteeringObject,
+)
+
 __all__ = [
     # Simple methods
     "CAAMethod",
@@ -45,4 +53,10 @@ __all__ = [
     "PULSEMethod",
     "PULSEConfig",
     "PULSEResult",
+    # Concept Flow method
+    "ConceptFlowMethod",
+    "ConceptFlowConfig",
+    "ConceptFlowResult",
+    "FlowVelocityNetwork",
+    "ConceptFlowSteeringObject",
 ]

@@ -7,10 +7,7 @@ use pyo3::{
 };
 use toml::{Spanned, de::DeValue, value::Offset};
 
-use crate::{
-    create_py_datetime, error::TomlError, parse_int, recursion_guard::RecursionGuard,
-    toml_rs::TOMLDecodeError,
-};
+use crate::{create_py_datetime, error::TomlError, parse_int, toml_rs::TOMLDecodeError};
 
 pub(crate) fn toml_to_python<'py>(
     py: Python<'py>,
@@ -18,14 +15,13 @@ pub(crate) fn toml_to_python<'py>(
     parse_float: &Bound<'py, PyAny>,
     doc: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
-    to_python(py, value, parse_float, &mut RecursionGuard::default(), doc)
+    to_python(py, value, parse_float, doc)
 }
 
 fn to_python<'py>(
     py: Python<'py>,
     de_value: &Spanned<DeValue<'_>>,
     parse_float: &Bound<'py, PyAny>,
-    recursion: &mut RecursionGuard,
     doc: &str,
 ) -> PyResult<Bound<'py, PyAny>> {
     let value = de_value.get_ref();
@@ -41,10 +37,6 @@ fn to_python<'py>(
 
             if let Ok(i_64) = parse_int!(i64, bytes, &options, radix) {
                 return i_64.into_bound_py_any(py);
-            }
-
-            if let Ok(i_128) = parse_int!(i128, bytes, &options, radix) {
-                return i_128.into_bound_py_any(py);
             }
 
             if let Some(bigint) = num_bigint::BigInt::parse_bytes(bytes, radix) {
@@ -111,12 +103,11 @@ fn to_python<'py>(
                 return Ok(PyList::empty(py).into_any());
             }
 
-            recursion.enter()?;
             let py_list = PyList::empty(py);
             for item in array {
-                py_list.append(to_python(py, item, parse_float, recursion, doc)?)?;
+                py_list.append(to_python(py, item, parse_float, doc)?)?;
             }
-            recursion.exit();
+
             Ok(py_list.into_any())
         }
         DeValue::Table(table) => {
@@ -124,14 +115,13 @@ fn to_python<'py>(
                 return Ok(PyDict::new(py).into_any());
             }
 
-            recursion.enter()?;
             let py_dict = PyDict::new(py);
             for (k, v) in table {
                 let key = k.get_ref().clone().into_owned();
-                let value = to_python(py, v, parse_float, recursion, doc)?;
+                let value = to_python(py, v, parse_float, doc)?;
                 py_dict.set_item(key, value)?;
             }
-            recursion.exit();
+
             Ok(py_dict.into_any())
         }
     }

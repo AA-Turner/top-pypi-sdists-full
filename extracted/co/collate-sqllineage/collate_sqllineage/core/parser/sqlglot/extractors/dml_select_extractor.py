@@ -7,6 +7,7 @@ from collate_sqllineage.core.models import (
     AnalyzerContext,
     Column,
     DataFunction,
+    Location,
     Path,
     SubQuery,
     Table,
@@ -37,7 +38,7 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
     def __init__(self, dialect: str):
         super().__init__(dialect)
         self.columns: List[Column] = []
-        self.tables: List[Union[DataFunction, Path, SubQuery, Table]] = []
+        self.tables: List[Union[DataFunction, Location, Path, SubQuery, Table]] = []
         self.union_barriers: List[Tuple[int, int]] = []
         self.should_link_columns = False
 
@@ -46,6 +47,8 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
         statement: Expression,
         context: AnalyzerContext,
         is_sub_query: bool = False,
+        link_columns: bool = True,
+        preserve_state: bool = False,
     ) -> SqlGlotSubQueryLineageHolder:
         """
         Extract lineage for a given SELECT statement.
@@ -59,10 +62,13 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
         saved_union_barriers = self.union_barriers
         saved_should_link = self.should_link_columns
 
-        self.columns = []
-        self.tables = []
-        self.union_barriers = []
-        self.should_link_columns = False
+        # Preserve shared column/table state when traversing set expressions (UNION/INTERSECT/EXCEPT)
+        # so column lineage can be linked once at the top-level.
+        if not preserve_state:
+            self.columns = []
+            self.tables = []
+            self.union_barriers = []
+            self.should_link_columns = False
 
         try:
             holder = self._init_holder(context)
@@ -130,15 +136,22 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
                 self._extract_subqueries_from_expression(where_exp, subqueries)
 
             elif isinstance(statement, (exp.Union, exp.Intersect, exp.Except)):
-                self.union_barriers.append((len(self.columns), len(self.tables)))
-
+                # Extract each branch without linking columns yet, then link once using barriers.
                 if statement.left:
                     holder |= self.extract(
-                        statement.left, AnalyzerContext(prev_cte=holder.cte)
+                        statement.left,
+                        AnalyzerContext(prev_cte=holder.cte),
+                        link_columns=False,
+                        preserve_state=True,
                     )
+                    self.union_barriers.append((len(self.columns), len(self.tables)))
+
                 if statement.right:
                     holder |= self.extract(
-                        statement.right, AnalyzerContext(prev_cte=holder.cte)
+                        statement.right,
+                        AnalyzerContext(prev_cte=holder.cte),
+                        link_columns=False,
+                        preserve_state=True,
                     )
 
             seen_subqueries = set()
@@ -171,16 +184,18 @@ class DmlSelectExtractor(LineageHolderExtractor, SourceHandlerMixin):
             # Track FROM/JOIN clause tables for accurate alias resolution in parent extractors
             holder._from_join_tables.extend(self.tables)
 
-            if self.should_link_columns and self.columns:
+            # Link column lineage only when this extractor owns the write target.
+            if link_columns and self.should_link_columns and self.columns:
                 self._create_column_edges(holder)
                 self._link_column_lineage(holder)
 
             return holder
         finally:
-            self.columns = saved_columns
-            self.tables = saved_tables
-            self.union_barriers = saved_union_barriers
-            self.should_link_columns = saved_should_link
+            if not preserve_state:
+                self.columns = saved_columns
+                self.tables = saved_tables
+                self.union_barriers = saved_union_barriers
+                self.should_link_columns = saved_should_link
 
     def _extract_column(self, expression: Expression) -> None:
         """

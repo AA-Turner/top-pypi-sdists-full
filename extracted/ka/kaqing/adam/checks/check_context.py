@@ -45,5 +45,6 @@ class CheckContext(Context):
         ctx1._histories=ctx._histories
         ctx1.job_id=ctx.job_id
         ctx1._pod_log_file=ctx._pod_log_file
+        ctx1.retriable=ctx.retriable
 
         return ctx1

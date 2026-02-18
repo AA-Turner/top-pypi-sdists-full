@@ -11,18 +11,12 @@ from .base_model import BaseModel
 class EnableCloudRepository(BaseModel):
     enable_cloud_repository: Union[
         "EnableCloudRepositoryEnableCloudRepositoryInputValidationError",
-        "EnableCloudRepositoryEnableCloudRepositoryCloudSessionError",
         "EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult",
     ] = Field(alias="enableCloudRepository", discriminator="typename__")
 
 
 class EnableCloudRepositoryEnableCloudRepositoryInputValidationError(BaseModel):
     typename__: Literal["InputValidationError"] = Field(alias="__typename")
-
-
-class EnableCloudRepositoryEnableCloudRepositoryCloudSessionError(BaseModel):
-    typename__: Literal["CloudSessionError"] = Field(alias="__typename")
-    message: str
 
 
 class EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult(

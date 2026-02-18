@@ -25,6 +25,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
 ]
 dynamic = ["version"]
 requires-python = ">=3.10"
@@ -36,7 +37,7 @@ Homepage = "https://github.com/testing-cabal/testtools"
 test = ["testscenarios", "testresources"]
 twisted = ["Twisted", "fixtures"]
 dev = [
-    "ruff==0.14.9",
+    "ruff==0.14.11",
     "mypy>=1.0.0",
 ]
 
@@ -79,17 +80,6 @@ ignore_missing_imports = true
 module = [
     # FIXME(stephenfin): We would like to remove all modules from this list
     # except tests (we're not sadists)
-    "testtools.assertions",
-    "testtools.compat",
-    "testtools.content",
-    "testtools.content_type",
-    "testtools.matchers.*",
-    "testtools.monkey",
-    "testtools.run",
-    "testtools.runtest",
-    "testtools.testcase",
-    "testtools.testresult.*",
-    "testtools.testsuite",
     "testtools.twistedsupport.*",
     "tests.*",
 ]

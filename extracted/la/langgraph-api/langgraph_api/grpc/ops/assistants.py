@@ -179,6 +179,8 @@ class Assistants(Authenticated):
         system: bool = False,
     ) -> AsyncIterator[Assistant]:  # type: ignore[return-value]
         """Create/update assistant via gRPC."""
+        metadata = metadata if metadata is not None else {}
+        config = config if config is not None else Config()
         context = context or {}
         # Handle auth filters
         auth_filters = await Assistants.handle_event(

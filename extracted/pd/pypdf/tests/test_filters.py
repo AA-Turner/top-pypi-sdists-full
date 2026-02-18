@@ -83,7 +83,7 @@ def test_flatedecode_unsupported_predictor():
     for predictor, s in cartesian_product(predictors, filter_inputs):
         s = s.encode()
         with pytest.raises(PdfReadError):
-            codec.decode(codec.encode(s), DictionaryObject({"/Predictor": predictor}))
+            codec.decode(codec.encode(s), DictionaryObject({NameObject("/Predictor"): NumberObject(predictor)}))
 
 
 @pytest.mark.parametrize(
@@ -876,11 +876,11 @@ def test_decompress():
     data = string.printable.encode("utf-8") + string.printable[::-1].encode("utf-8")
     compressed = FlateDecode.encode(data)
 
-    # # Decompress regularly.
+    # Decompress regularly.
     decompressed = decompress(compressed)
     assert decompressed == data
 
-    # # Decompress byte-wise.
+    # Decompress byte-wise.
     with mock.patch("pypdf.filters._decompress_with_limit", side_effect=zlib.error):
         decompressed = decompress(compressed)
         assert decompressed == data
@@ -889,9 +889,16 @@ def test_decompress():
     with mock.patch("pypdf.filters._decompress_with_limit", side_effect=zlib.error), \
             mock.patch("pypdf.filters.ZLIB_MAX_OUTPUT_LENGTH", len(compressed) - 13), \
             pytest.raises(
-                LimitReachedError, match=r"^Limit reached while decompressing\. 12 bytes remaining\."
+                LimitReachedError, match=r"^Limit reached while decompressing\. 12 bytes remaining\.$"
             ):
         decompress(compressed)
+
+    # Decompress byte-wise with input limit.
+    with mock.patch("pypdf.filters.ZLIB_MAX_RECOVERY_INPUT_LENGTH", 1000), \
+            pytest.raises(
+                LimitReachedError, match=r"^Recovery limit reached while decompressing\. 336 bytes remaining\.$"
+            ):
+        decompress(b"A" * 1337)
 
 
 def test_decompress__logging_on_invalid_data(caplog):
@@ -1010,3 +1017,15 @@ def test_deprecate_inline_image_filters():
 
     stream[NameObject("/Filter")] = NameObject("/CCITTFaxDecode")
     assert decode_stream_data(stream).startswith(b"II*")
+
+
+def test_flatedecode__columns_is_zero():
+    codec = FlateDecode()
+    data = b"Hello World!"
+    parameters = DictionaryObject({
+        NameObject("/Predictor"): NumberObject(13),
+        NameObject("/Columns"): NumberObject(0)
+    })
+
+    with pytest.raises(expected_exception=PdfReadError, match=r"^Expected positive number for /Columns, got 0!$"):
+        codec.decode(codec.encode(data), parameters)

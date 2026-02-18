@@ -174,6 +174,7 @@ from .._impl import (
     scout_compute_resolved_api_ValueDifferenceSeriesNode as ValueDifferenceSeriesNode,
     scout_compute_resolved_api_ValueMapSeriesNode as ValueMapSeriesNode,
     scout_compute_resolved_api_Window as Window,
+    scout_compute_resolved_api_ZscoreSeriesNode as ZscoreSeriesNode,
 )
 
 __all__ = [
@@ -351,5 +352,6 @@ __all__ = [
     'ValueDifferenceSeriesNode',
     'ValueMapSeriesNode',
     'Window',
+    'ZscoreSeriesNode',
 ]
 

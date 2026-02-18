@@ -58,6 +58,7 @@ class DatasetRevisionResponse(_message.Message):
         "output_version",
         "branch",
         "dashboard_url",
+        "num_rows",
         "created_at",
         "started_at",
         "terminated_at",
@@ -77,6 +78,7 @@ class DatasetRevisionResponse(_message.Message):
     OUTPUT_VERSION_FIELD_NUMBER: _ClassVar[int]
     BRANCH_FIELD_NUMBER: _ClassVar[int]
     DASHBOARD_URL_FIELD_NUMBER: _ClassVar[int]
+    NUM_ROWS_FIELD_NUMBER: _ClassVar[int]
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     STARTED_AT_FIELD_NUMBER: _ClassVar[int]
     TERMINATED_AT_FIELD_NUMBER: _ClassVar[int]
@@ -95,6 +97,7 @@ class DatasetRevisionResponse(_message.Message):
     output_version: int
     branch: str
     dashboard_url: str
+    num_rows: int
     created_at: _timestamp_pb2.Timestamp
     started_at: _timestamp_pb2.Timestamp
     terminated_at: _timestamp_pb2.Timestamp
@@ -115,6 +118,7 @@ class DatasetRevisionResponse(_message.Message):
         output_version: _Optional[int] = ...,
         branch: _Optional[str] = ...,
         dashboard_url: _Optional[str] = ...,
+        num_rows: _Optional[int] = ...,
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         started_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         terminated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,

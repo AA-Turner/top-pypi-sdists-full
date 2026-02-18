@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chalkpy
-Version: 2.103.2
+Version: 2.103.6
 Summary: Python SDK for Chalk
 Author: Chalk AI, Inc.
 Project-URL: Homepage, https://chalk.ai
@@ -282,6 +282,8 @@ Requires-Dist: sqlglot<21.2.0,>=19.0.0; extra == "dynamodb"
 Provides-Extra: tracing
 Requires-Dist: opentelemetry-api>=1.29.0; extra == "tracing"
 Requires-Dist: opentelemetry-sdk>=1.29.0; extra == "tracing"
+Provides-Extra: torch
+Requires-Dist: torch<3,>=1.7; extra == "torch"
 Provides-Extra: all
 Requires-Dist: PyAthena>=3.0.0; extra == "all"
 Requires-Dist: adlfs; extra == "all"

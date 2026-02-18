@@ -4,7 +4,10 @@ from ably.realtime.realtime import AblyRealtime
 from ably.rest.auth import Auth
 from ably.rest.push import Push
 from ably.rest.rest import AblyRest
+from ably.types.annotation import Annotation, AnnotationAction
 from ably.types.capability import Capability
+from ably.types.channelmode import ChannelMode
+from ably.types.channeloptions import ChannelOptions
 from ably.types.channelsubscription import PushChannelSubscription
 from ably.types.device import DeviceDetails
 from ably.types.message import MessageAction, MessageVersion
@@ -18,4 +21,4 @@ logger = logging.getLogger(__name__)
 logger.addHandler(logging.NullHandler())
 
 api_version = '5'
-lib_version = '3.0.0'
+lib_version = '3.1.0'

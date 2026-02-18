@@ -45,10 +45,20 @@ class ConnectionType(Enum):
     SQLSERVER = "sqlserver"
     ACCESS = "access"
 
+CONNECTOR = {
+    "SQLiteConnector": ConnectionType.SQLITE.value,
+    "SQLAlchemyConnector": ConnectionType.SQLALCHEMY.value,
+    "PyodbcConnector": ConnectionType.PYODBC.value,
+    "MySQLConnector": ConnectionType.MYSQL.value,
+    "PostgresConnector": ConnectionType.POSTGRES.value,
+    "SQLServerConnector": ConnectionType.SQLSERVER.value,
+    "AccessConnector": ConnectionType.ACCESS.value,
+}
 
 class DatabaseConnector(ABC):
     SUPPORTED_INSERT_METHODS = []
     QUOTE_CHAR = []
+    SCHEMA_SUPPORT = True
 
     def __init__(
         self,
@@ -68,6 +78,13 @@ class DatabaseConnector(ABC):
             self._raise_error(
                 f"insertMethod >{method}< is not valid for this connection type. "
                 f"Valid methods are >{self.SUPPORTED_INSERT_METHODS}<"
+            )
+
+    def is_schema_available(self, schema: str | None):
+        """Checks if the connectionType allows schema"""
+        if (not self.SCHEMA_SUPPORT) and (schema is not None):
+            self._raise_error(
+                f"connectionType >{CONNECTOR[type(self).__name__]}< does not support schema but schemaName is set to >{schema}<."
             )
 
     def read_table(self, sql_query: str, read_sql_args: dict) -> pd.DataFrame:

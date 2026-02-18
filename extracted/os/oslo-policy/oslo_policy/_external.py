@@ -17,12 +17,17 @@
 import contextlib
 import copy
 import os
+from typing import Any, TYPE_CHECKING
+
 import requests
 from requests.exceptions import Timeout
 
 from oslo_policy import _checks
 from oslo_policy._i18n import _
 from oslo_serialization import jsonutils
+
+if TYPE_CHECKING:
+    from oslo_policy.policy import Enforcer
 
 
 class HttpCheck(_checks.Check):
@@ -32,22 +37,34 @@ class HttpCheck(_checks.Check):
     is exactly ``True``.
     """
 
-    def __call__(self, target, creds, enforcer, current_rule=None):
+    def __call__(
+        self,
+        target: _checks.TargetT,
+        creds: _checks.CredsT,
+        enforcer: 'Enforcer',
+        current_rule: str | None = None,
+    ) -> bool:
         timeout = enforcer.conf.oslo_policy.remote_timeout
 
         url = ('http:' + self.match) % target
-        data, json = self._construct_payload(creds, current_rule,
-                                             enforcer, target)
+        data, json = self._construct_payload(
+            creds, current_rule, enforcer, target
+        )
         try:
             with contextlib.closing(
-                    requests.post(url, json=json, data=data, timeout=timeout)
+                requests.post(url, json=json, data=data, timeout=timeout)
             ) as r:
-                return r.text.lstrip('"').rstrip('"') == 'True'
+                return bool(r.text.lstrip('"').rstrip('"') == 'True')
         except Timeout:
-            raise RuntimeError("Timeout in REST API call")
+            raise RuntimeError('Timeout in REST API call')
 
     @staticmethod
-    def _construct_payload(creds, current_rule, enforcer, target):
+    def _construct_payload(
+        creds: _checks.CredsT,
+        current_rule: str | None,
+        enforcer: 'Enforcer',
+        target: _checks.TargetT,
+    ) -> tuple[dict[str, Any], None] | tuple[None, dict[str, Any]]:
         # Convert instances of object() in target temporarily to
         # empty dict to avoid circular reference detection
         # errors in jsonutils.dumps().
@@ -55,18 +72,26 @@ class HttpCheck(_checks.Check):
         for key in target.keys():
             element = target.get(key)
             if type(element) is object:
-                temp_target[key] = {}
-        data = json = None
-        if (enforcer.conf.oslo_policy.remote_content_type ==
-                'application/x-www-form-urlencoded'):
-            data = {'rule': jsonutils.dumps(current_rule),
-                    'target': jsonutils.dumps(temp_target),
-                    'credentials': jsonutils.dumps(creds)}
+                temp_target[key] = {}  # type: ignore
+        if (
+            enforcer.conf.oslo_policy.remote_content_type
+            == 'application/x-www-form-urlencoded'
+        ):
+            data = {
+                'rule': jsonutils.dumps(current_rule),
+                'target': jsonutils.dumps(temp_target),
+                'credentials': jsonutils.dumps(creds),
+            }
+            json = None
+            return data, json
         else:
-            json = {'rule': current_rule,
-                    'target': temp_target,
-                    'credentials': creds}
-        return data, json
+            data = None
+            json = {
+                'rule': current_rule,
+                'target': temp_target,
+                'credentials': creds,
+            }
+            return data, json
 
 
 class HttpsCheck(HttpCheck):
@@ -76,7 +101,13 @@ class HttpsCheck(HttpCheck):
     is exactly ``True``.
     """
 
-    def __call__(self, target, creds, enforcer, current_rule=None):
+    def __call__(
+        self,
+        target: _checks.TargetT,
+        creds: _checks.CredsT,
+        enforcer: 'Enforcer',
+        current_rule: str | None = None,
+    ) -> bool:
         url = ('https:' + self.match) % target
 
         cert_file = enforcer.conf.oslo_policy.remote_ssl_client_crt_file
@@ -88,34 +119,44 @@ class HttpsCheck(HttpCheck):
         if cert_file:
             if not os.path.exists(cert_file):
                 raise RuntimeError(
-                    _("Unable to find ssl cert_file  : %s") % cert_file)
+                    _('Unable to find ssl cert_file  : %s') % cert_file
+                )
             if not os.access(cert_file, os.R_OK):
                 raise RuntimeError(
-                    _("Unable to access ssl cert_file  : %s") % cert_file)
+                    _('Unable to access ssl cert_file  : %s') % cert_file
+                )
         if key_file:
             if not os.path.exists(key_file):
                 raise RuntimeError(
-                    _("Unable to find ssl key_file : %s") % key_file)
+                    _('Unable to find ssl key_file : %s') % key_file
+                )
             if not os.access(key_file, os.R_OK):
                 raise RuntimeError(
-                    _("Unable to access ssl key_file  : %s") % key_file)
+                    _('Unable to access ssl key_file  : %s') % key_file
+                )
         cert = (cert_file, key_file)
         if verify_server:
             if ca_crt_file:
                 if not os.path.exists(ca_crt_file):
                     raise RuntimeError(
-                        _("Unable to find ca cert_file  : %s") % ca_crt_file)
+                        _('Unable to find ca cert_file  : %s') % ca_crt_file
+                    )
                 verify_server = ca_crt_file
 
-        data, json = self._construct_payload(creds, current_rule,
-                                             enforcer, target)
+        data, json = self._construct_payload(
+            creds, current_rule, enforcer, target
+        )
         try:
             with contextlib.closing(
-                    requests.post(url, json=json,
-                                  data=data, cert=cert,
-                                  verify=verify_server,
-                                  timeout=timeout)
+                requests.post(
+                    url,
+                    json=json,
+                    data=data,
+                    cert=cert,
+                    verify=verify_server,
+                    timeout=timeout,
+                )
             ) as r:
-                return r.text.lstrip('"').rstrip('"') == 'True'
+                return bool(r.text.lstrip('"').rstrip('"') == 'True')
         except Timeout:
-            raise RuntimeError("Timeout in REST API call")
+            raise RuntimeError('Timeout in REST API call')

@@ -28,18 +28,18 @@ class ArtifactDistributionResponse(BaseModel):
     """
     A serializer for ArtifactDistribution.
     """ # noqa: E501
-    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
-    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
-    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
-    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
-    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
-    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
-    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
-    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
-    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
     pulp_href: Optional[StrictStr] = None
+    no_content_change_since: Optional[StrictStr] = Field(default=None, description="Timestamp since when the distributed content served by this distribution has not changed. If equals to `null`, no guarantee is provided about content changes.")
+    pulp_created: Optional[datetime] = Field(default=None, description="Timestamp of creation.")
+    base_url: Optional[StrictStr] = Field(default=None, description="The URL for accessing the publication as defined by this distribution.")
+    content_guard: Optional[StrictStr] = Field(default=None, description="An optional content-guard.")
+    pulp_labels: Optional[Dict[str, Optional[StrictStr]]] = None
+    name: StrictStr = Field(description="A unique name. Ex, `rawhide` and `stable`.")
+    hidden: Optional[StrictBool] = Field(default=False, description="Whether this distribution should be shown in the content app.")
+    prn: Optional[StrictStr] = Field(default=None, description="The Pulp Resource Name (PRN).")
+    pulp_last_updated: Optional[datetime] = Field(default=None, description="Timestamp of the last time this resource was updated. Note: for immutable resources - like content, repository versions, and publication - pulp_created and pulp_last_updated dates will be the same.")
     base_path: StrictStr = Field(description="The base (relative) path component of the published url. Avoid paths that                     overlap with other distribution base paths (e.g. \"foo\" and \"foo/bar\")")
-    __properties: ClassVar[List[str]] = ["no_content_change_since", "name", "content_guard", "pulp_created", "pulp_labels", "hidden", "pulp_last_updated", "prn", "base_url", "pulp_href", "base_path"]
+    __properties: ClassVar[List[str]] = ["pulp_href", "no_content_change_since", "pulp_created", "base_url", "content_guard", "pulp_labels", "name", "hidden", "prn", "pulp_last_updated", "base_path"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -79,12 +79,12 @@ class ArtifactDistributionResponse(BaseModel):
         * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "pulp_href",
             "no_content_change_since",
             "pulp_created",
-            "pulp_last_updated",
-            "prn",
             "base_url",
-            "pulp_href",
+            "prn",
+            "pulp_last_updated",
         ])
 
         _dict = self.model_dump(

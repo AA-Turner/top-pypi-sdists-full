@@ -1,0 +1,19 @@
+data_use:
+  - fides_key: marketing.advertising.third_party.targeted.direct_marketing
+    name: Direct Marketing
+    description: User information for direct marketing purposes
+    parent_key: marketing.advertising.third_party.targeted
+
+data_subject:
+  - fides_key: potential_customer
+    name: Potential Customer
+    description: A prospective individual or other organization that purchases goods or services from the organization.
+    rights:
+      strategy: INCLUDE
+      values:
+      - Informed
+      - Access
+      - Rectification
+      - Erasure
+      - Object
+    automated_decisions_or_profiling: true

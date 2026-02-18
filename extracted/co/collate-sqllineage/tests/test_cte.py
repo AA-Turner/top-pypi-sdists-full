@@ -90,3 +90,11 @@ def test_with_compound_statement_union_all():
         sql,
         {"users", "cases"},
     )
+
+
+def test_with_template_param():
+    assert_table_lineage_equal(
+        "WITH cte AS (SELECT col1 FROM tab1 WHERE col2 = {{ param1 }}) INSERT INTO tab2 SELECT col1 FROM cte",
+        {"tab1"},
+        {"tab2"},
+    )

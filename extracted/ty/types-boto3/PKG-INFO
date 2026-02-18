@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.42.50
-Summary: Type annotations for boto3 1.42.50 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.51
+Summary: Type annotations for boto3 1.42.51 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.50; extra == "boto3"
+Requires-Dist: boto3==1.42.51; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -184,7 +184,6 @@ Requires-Dist: types-boto3-emr-serverless<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-entityresolution<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-es<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-events<1.43.0,>=1.42.0; extra == "all"
-Requires-Dist: types-boto3-evidently<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-evs<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-finspace<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-finspace-data<1.43.0,>=1.42.0; extra == "all"
@@ -224,7 +223,6 @@ Requires-Dist: types-boto3-iot<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iot-data<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iot-jobs-data<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iot-managed-integrations<1.43.0,>=1.42.0; extra == "all"
-Requires-Dist: types-boto3-iotanalytics<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iotdeviceadvisor<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iotevents<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-iotevents-data<1.43.0,>=1.42.0; extra == "all"
@@ -754,8 +752,6 @@ Provides-Extra: es
 Requires-Dist: types-boto3-es<1.43.0,>=1.42.0; extra == "es"
 Provides-Extra: events
 Requires-Dist: types-boto3-events<1.43.0,>=1.42.0; extra == "events"
-Provides-Extra: evidently
-Requires-Dist: types-boto3-evidently<1.43.0,>=1.42.0; extra == "evidently"
 Provides-Extra: evs
 Requires-Dist: types-boto3-evs<1.43.0,>=1.42.0; extra == "evs"
 Provides-Extra: finspace
@@ -834,8 +830,6 @@ Provides-Extra: iot-jobs-data
 Requires-Dist: types-boto3-iot-jobs-data<1.43.0,>=1.42.0; extra == "iot-jobs-data"
 Provides-Extra: iot-managed-integrations
 Requires-Dist: types-boto3-iot-managed-integrations<1.43.0,>=1.42.0; extra == "iot-managed-integrations"
-Provides-Extra: iotanalytics
-Requires-Dist: types-boto3-iotanalytics<1.43.0,>=1.42.0; extra == "iotanalytics"
 Provides-Extra: iotdeviceadvisor
 Requires-Dist: types-boto3-iotdeviceadvisor<1.43.0,>=1.42.0; extra == "iotdeviceadvisor"
 Provides-Extra: iotevents
@@ -1299,7 +1293,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.50](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.51](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1357,7 +1351,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.50' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.51' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1685,9 +1679,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 414 services in one package
+- `types-boto3[full]` - Type annotations for all 412 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 414 services in separate
+- `types-boto3[all]` - Type annotations for all 412 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2130,9 +2124,6 @@ repository.
 - `types-boto3[events]` - Type annotations for
   [EventBridge](https://youtype.github.io/types_boto3_docs/types_boto3_events/)
   service.
-- `types-boto3[evidently]` - Type annotations for
-  [CloudWatchEvidently](https://youtype.github.io/types_boto3_docs/types_boto3_evidently/)
-  service.
 - `types-boto3[evs]` - Type annotations for
   [EVS](https://youtype.github.io/types_boto3_docs/types_boto3_evs/) service.
 - `types-boto3[finspace]` - Type annotations for
@@ -2242,9 +2233,6 @@ repository.
   service.
 - `types-boto3[iot-managed-integrations]` - Type annotations for
   [ManagedintegrationsforIoTDeviceManagement](https://youtype.github.io/types_boto3_docs/types_boto3_iot_managed_integrations/)
-  service.
-- `types-boto3[iotanalytics]` - Type annotations for
-  [IoTAnalytics](https://youtype.github.io/types_boto3_docs/types_boto3_iotanalytics/)
   service.
 - `types-boto3[iotdeviceadvisor]` - Type annotations for
   [IoTDeviceAdvisor](https://youtype.github.io/types_boto3_docs/types_boto3_iotdeviceadvisor/)

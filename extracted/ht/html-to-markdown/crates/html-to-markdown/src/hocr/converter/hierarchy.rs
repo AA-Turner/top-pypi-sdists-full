@@ -57,17 +57,30 @@ pub fn detect_heading_paragraph(element: &HocrElement, text: &str) -> Option<Str
         return None;
     }
 
-    let line_count = element
+    let line_children: Vec<&HocrElement> = element
         .children
         .iter()
         .filter(|child| matches!(child.element_type, HocrElementType::OcrLine | HocrElementType::OcrxLine))
-        .count();
+        .collect();
 
-    if line_count != 1 {
+    if line_children.len() != 1 {
         return None;
     }
 
-    if text.is_empty() || text.len() > 60 || text.contains(':') || text.contains('\n') {
+    // Determine effective font size from child line elements.
+    // First check x_fsize, then fall back to bbox height as a proxy.
+    let font_size = line_children.iter().find_map(|child| {
+        child
+            .properties
+            .x_fsize
+            .or_else(|| child.properties.bbox.map(|b| b.height()))
+    });
+
+    let has_large_font = font_size.is_some_and(|size| size >= 14);
+
+    let char_limit = if has_large_font { 80 } else { 60 };
+
+    if text.is_empty() || text.len() > char_limit || text.contains(':') || text.contains('\n') {
         return None;
     }
 
@@ -83,7 +96,9 @@ pub fn detect_heading_paragraph(element: &HocrElement, text: &str) -> Option<Str
         }
     }
 
-    if word_count < 2 {
+    // Allow single-word headings when font size is large
+    let min_words = if has_large_font { 1 } else { 2 };
+    if word_count < min_words {
         return None;
     }
 

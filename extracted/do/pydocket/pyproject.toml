@@ -36,6 +36,7 @@ dependencies = [
     "rich>=13.9.4",
     "typer>=0.15.1",
     "typing_extensions>=4.12.0",
+    "tzdata>=2025.2; sys_platform == 'win32'",
 ]
 
 [project.optional-dependencies]
@@ -74,9 +75,8 @@ dev = [
 ]
 
 docs = [
-    "mkdocs>=1.5.3",
-    "mkdocs-material>=9.7.1",
-    "mkdocstrings>=0.24.1",
+    "zensical",
+    "mkdocstrings>=1.0.2",
     "mkdocstrings-python>=2.0.1",
 ]
 examples = [
@@ -115,13 +115,19 @@ addopts = [
     "--cov=tests",
     "--cov-report=term-missing:skip-covered",
     "--cov-branch",
+    "--cov-fail-under=100",
     "--timeout=30",
     "--import-mode=importlib",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_default_test_loop_scope = "function"
-filterwarnings = ["error"]
+filterwarnings = [
+    "error",
+    # redis-py 7.2.0 deprecated lib_name/lib_version on Connection.__init__,
+    # but RedisCluster still passes lib_name="redis-py" internally (#341)
+    "ignore:Call to.*lib_name.*:DeprecationWarning",
+]
 
 [tool.coverage.run]
 omit = [
@@ -138,6 +144,8 @@ omit = [
     # Test infrastructure with conditional branches for cluster/standalone
     "tests/_key_leak_checker.py",
     "tests/_container.py",
+    # Subprocess coverage hook, exercised by CLI tests only
+    "tests/sitecustomize.py",
 ]
 branch = true
 parallel = true

@@ -276,9 +276,11 @@ class ExcelReader(ExcelAgent):
             # pandas-version-check
             if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
                 df.replace(value_sub, inplace=True)
-            else:  # pandas >= 2.2.0
+            elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
                 with pd.option_context("future.no_silent_downcasting", True):
                     df = df.replace(value_sub).infer_objects()
+            else:  # pandas >= 3.0.0
+                df = df.replace(value_sub).infer_objects()
         return df
 
     def _write(self, df, sym_name, sym_type, rdim, cdim):
@@ -654,9 +656,11 @@ class ExcelReader(ExcelAgent):
             # pandas-version-check
             if self._pandas_version_before(pd.__version__, "2.2"):  # pandas < 2.2.0
                 df.replace(regex=pattern, value=GMS_SV_UNDEF, inplace=True)
-            else:  # pandas >= 2.2.0
+            elif self._pandas_version_before(pd.__version__, "3.0"):  # 2.2.0 <= pandas < 3.0.0
                 with pd.option_context("future.no_silent_downcasting", True):
                     df = df.replace(regex=pattern, value=GMS_SV_UNDEF).infer_objects()
+            else:  # pandas >= 3.0.0
+                df = df.replace(regex=pattern, value=GMS_SV_UNDEF).infer_objects()
         self._write(df, sym_name, sym_type, rdim, cdim)
 
     def _open(self):

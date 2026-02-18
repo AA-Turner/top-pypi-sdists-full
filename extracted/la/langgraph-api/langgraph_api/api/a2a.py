@@ -1995,7 +1995,7 @@ async def generate_agent_card(request: ApiRequest, assistant_id: str) -> dict[st
         base_url = USER_API_URL.rstrip("/")
     else:
         # Fallback to constructing from request
-        scheme = request.url.scheme
+        scheme = request.headers.get("x-forwarded-proto") or request.url.scheme
         host = request.url.hostname or "localhost"
         port = request.url.port
         path = request.url.path.removesuffix("/.well-known/agent-card.json")

@@ -8,7 +8,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "2.25.0"
+version = "2.25.1"
 edition = "2024"
 authors = ["Na'aman Hirschfeld <nhirschfeld@gmail.com>"]
 license = "MIT"
@@ -19,7 +19,7 @@ readme = "README.md"
 rust-version = "1.85"
 
 [workspace.dependencies]
-html-to-markdown-rs = { version = "2.25.0", path = "crates/html-to-markdown" }
+html-to-markdown-rs = { version = "2.25.1", path = "crates/html-to-markdown" }
 
 ahash = { version = "0.8", default-features = false, features = ["std", "compile-time-rng"] }
 

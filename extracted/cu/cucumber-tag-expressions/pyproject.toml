@@ -1,6 +1,6 @@
 [build-system]
 build-backend = "uv_build"
-requires = ["uv_build>=0.9.0,<0.10.0"]
+requires = ["uv_build>=0.10.0,<0.11.0"]
 
 [project]
 name = "cucumber-tag-expressions"
@@ -8,7 +8,7 @@ authors = [
     {name = "Jens Engel", email = "jenisys@noreply.github.com"},
 ]
 description = "Provides a tag-expression parser and evaluation logic for cucumber/behave"
-version = "9.0.0"
+version = "9.1.0"
 keywords= ["BDD", "testing", "cucumber", "tag-expressions", "behave"]
 license = "MIT"
 license-files = [

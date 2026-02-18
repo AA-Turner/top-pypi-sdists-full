@@ -54,7 +54,8 @@ class ExadataInfrastructureLifecycleStateValues(object):
 
         :param state:
             The value to assign to the state property of this ExadataInfrastructureLifecycleStateValues.
-            Allowed values for this property are: "CREATING", "ACTIVE", "INACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED", "UNKNOWN"
+            Allowed values for this property are: "CREATING", "ACTIVE", "INACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED", "UNKNOWN", 'UNKNOWN_ENUM_VALUE'.
+            Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
         :type state: str
 
         """
@@ -72,7 +73,8 @@ class ExadataInfrastructureLifecycleStateValues(object):
         Gets the state of this ExadataInfrastructureLifecycleStateValues.
         The current lifecycle state of the Exadata infrastructure resource.
 
-        Allowed values for this property are: "CREATING", "ACTIVE", "INACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED", "UNKNOWN"
+        Allowed values for this property are: "CREATING", "ACTIVE", "INACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED", "UNKNOWN", 'UNKNOWN_ENUM_VALUE'.
+        Any unrecognized values returned by a service will be mapped to 'UNKNOWN_ENUM_VALUE'.
 
 
         :return: The state of this ExadataInfrastructureLifecycleStateValues.
@@ -92,9 +94,7 @@ class ExadataInfrastructureLifecycleStateValues(object):
         """
         allowed_values = ["CREATING", "ACTIVE", "INACTIVE", "UPDATING", "DELETING", "DELETED", "FAILED", "UNKNOWN"]
         if not value_allowed_none_or_none_sentinel(state, allowed_values):
-            raise ValueError(
-                f"Invalid value for `state`, must be None or one of {allowed_values}"
-            )
+            state = 'UNKNOWN_ENUM_VALUE'
         self._state = state
 
     def __repr__(self):
