@@ -37,6 +37,7 @@ class DatabaseSourceType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DATABASE_SOURCE_TYPE_DYNAMODB: _ClassVar[DatabaseSourceType]
     DATABASE_SOURCE_TYPE_ATHENA: _ClassVar[DatabaseSourceType]
     DATABASE_SOURCE_TYPE_MSSQL: _ClassVar[DatabaseSourceType]
+    DATABASE_SOURCE_TYPE_CLICKHOUSE: _ClassVar[DatabaseSourceType]
 
 STREAM_SOURCE_TYPE_UNSPECIFIED: StreamSourceType
 STREAM_SOURCE_TYPE_KAFKA: StreamSourceType
@@ -56,6 +57,7 @@ DATABASE_SOURCE_TYPE_TRINO: DatabaseSourceType
 DATABASE_SOURCE_TYPE_DYNAMODB: DatabaseSourceType
 DATABASE_SOURCE_TYPE_ATHENA: DatabaseSourceType
 DATABASE_SOURCE_TYPE_MSSQL: DatabaseSourceType
+DATABASE_SOURCE_TYPE_CLICKHOUSE: DatabaseSourceType
 
 class StreamSourceReference(_message.Message):
     __slots__ = ("type", "name")

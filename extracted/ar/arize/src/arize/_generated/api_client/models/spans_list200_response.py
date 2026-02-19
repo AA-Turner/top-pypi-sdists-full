@@ -28,9 +28,9 @@ class SpansList200Response(BaseModel):
     """
     SpansList200Response
     """ # noqa: E501
-    data: List[Span] = Field(description="A list of spans")
+    spans: List[Span] = Field(description="A list of spans")
     pagination: PaginationMetadata
-    __properties: ClassVar[List[str]] = ["data", "pagination"]
+    __properties: ClassVar[List[str]] = ["spans", "pagination"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -71,13 +71,13 @@ class SpansList200Response(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of each item in data (list)
+        # override the default output from pydantic by calling `to_dict()` of each item in spans (list)
         _items = []
-        if self.data:
-            for _item_data in self.data:
-                if _item_data:
-                    _items.append(_item_data.to_dict())
-            _dict['data'] = _items
+        if self.spans:
+            for _item_spans in self.spans:
+                if _item_spans:
+                    _items.append(_item_spans.to_dict())
+            _dict['spans'] = _items
         # override the default output from pydantic by calling `to_dict()` of pagination
         if self.pagination:
             _dict['pagination'] = self.pagination.to_dict()
@@ -98,7 +98,7 @@ class SpansList200Response(BaseModel):
                 raise ValueError("Error due to additional fields (not defined in SpansList200Response) in the input: " + _key)
 
         _obj = cls.model_validate({
-            "data": [Span.from_dict(_item) for _item in obj["data"]] if obj.get("data") is not None else None,
+            "spans": [Span.from_dict(_item) for _item in obj["spans"]] if obj.get("spans") is not None else None,
             "pagination": PaginationMetadata.from_dict(obj["pagination"]) if obj.get("pagination") is not None else None
         })
         return _obj

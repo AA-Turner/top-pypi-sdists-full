@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyap2
-Version: 0.2.7
+Version: 0.2.8
 Summary: Pyap2 is a maintained fork of pyap, a regex-based library for parsing US, CA, and UK addresses. The fork adds typing support, handles more address formats and edge cases.
 Home-page: https://github.com/argyle-engineering/pyap
 License: MIT

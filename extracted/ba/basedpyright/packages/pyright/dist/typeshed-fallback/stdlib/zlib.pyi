@@ -100,7 +100,16 @@ if sys.version_info >= (3, 11):
         ...
 
 else:
-    def compress(data: ReadableBuffer, /, level: int = -1) -> bytes: ...
+    def compress(data: ReadableBuffer, /, level: int = -1) -> bytes:
+        """
+        Returns a bytes object containing compressed data.
+
+        data
+          Binary data to be compressed.
+        level
+          Compression level, in 0-9 or -1.
+        """
+        ...
 
 def compressobj(
     level: int = -1, method: int = 8, wbits: int = 15, memLevel: int = 8, strategy: int = 0, zdict: ReadableBuffer | None = None

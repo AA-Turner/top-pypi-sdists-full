@@ -12,7 +12,8 @@ from typing import Any, BinaryIO, cast
 import regex
 from lxml import etree
 
-from arelle import ModelDocument, XbrlConst, XmlUtil
+from arelle import XbrlConst, XmlUtil
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle.FileSource import openXmlFileStream
 from arelle.ModelObject import ModelObject, ModelComment
 from arelle.ModelValue import QName, qname
@@ -21,7 +22,9 @@ from arelle.typing import TypeGetText
 from arelle.utils.Contexts import partitionModelXbrlContexts
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
+from arelle.utils.validate.Document import checkDocumentEncoding
 from arelle.utils.validate.Validation import Validation
+from ..Constants import STANDARD_TAXONOMY_URL_PREFIXES
 from ..DisclosureSystems import NT_DISCLOSURE_SYSTEMS
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
@@ -86,7 +89,7 @@ def rule_fr_nl_1_02(
     errorObjects: list[ModelObject] = []
     foundChars = set()
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             for elt in doc.xmlRootElement.iter():
                 if isinstance(elt, ModelComment):
                     texts = [getattr(elt, 'text')]
@@ -125,7 +128,7 @@ def rule_fr_nl_1_03(
     FR-NL-1.03: A DOCTYPE declaration MUST NOT be used in the filing instance document
     """
     for doc in val.modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             if doc.xmlDocument.docinfo.doctype:
                 yield Validation.error(
                     codes='NL.FR-NL-1.03',
@@ -158,7 +161,7 @@ def rule_fr_nl_1_04(
     foundChars = set()
     sourceFileLines = []
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             with modelXbrl.fileSource.file(doc.filepath)[0] as file:
                 for i, line in enumerate(file):
                     for match in regex.finditer(pattern, line):
@@ -202,14 +205,13 @@ def rule_fr_nl_1_05(
     """
     FR-NL-1.05: The character encoding UTF-8 MUST be used in the filing instance document
     """
-    for doc in val.modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
-            if 'UTF-8' != doc.documentEncoding.upper():
-                yield Validation.error(
-                    codes='NL.FR-NL-1.05',
-                    msg=_('The XML character encoding \'UTF-8\' MUST be used in the filing instance document'),
-                    modelObject=val.modelXbrl.modelDocument
-                )
+    invalidEncodings = checkDocumentEncoding(val, ['utf-8'], STANDARD_TAXONOMY_URL_PREFIXES, cast(ModelDocumentType, ModelDocumentType.INSTANCE))
+    for doc in invalidEncodings:
+        yield Validation.error(
+            codes='NL.FR-NL-1.05',
+            msg=_('The XML character encoding \'UTF-8\' MUST be used in the filing instance document'),
+            modelObject=doc
+        )
 
 
 @validation(
@@ -229,7 +231,7 @@ def rule_fr_nl_1_06(
     pattern = regex.compile(r"^[0-9a-zA-Z_-]*$")
     modelXbrl = val.modelXbrl
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             stem = Path(doc.basename).stem
             match = pattern.match(stem)
             if not match:
@@ -256,7 +258,7 @@ def rule_fr_nl_1_01(
     """
     modelXbrl = val.modelXbrl
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             with cast(BinaryIO, modelXbrl.fileSource.file(doc.filepath, binary=True)[0]) as file:
                 initialBytes = file.read(4)
                 for bom in BOM_BYTES:
@@ -285,7 +287,7 @@ def rule_fr_nl_2_03(
     """
     modelXbrl = val.modelXbrl
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             lang = doc.xmlRootElement.get('{http://www.w3.org/XML/1998/namespace}lang')
             if not lang:
                 yield Validation.error(
@@ -310,7 +312,7 @@ def rule_fr_nl_2_04(
     """
     schema_ref_model_objects = []
     for doc in val.modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             for refDoc, docRef in doc.referencesDocument.items():
                 if docRef.referringModelObject.localName == "schemaRef":
                     schema_ref_model_objects.append(docRef.referringModelObject)
@@ -337,7 +339,7 @@ def rule_fr_nl_2_05(
     """
     linkbase_ref_model_objects = []
     for doc in val.modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             for refDoc, docRef in doc.referencesDocument.items():
                 if docRef.referringModelObject.localName == "linkbaseRef":
                     linkbase_ref_model_objects.append(docRef.referringModelObject)
@@ -371,7 +373,7 @@ def rule_fr_nl_2_06(
     modelXbrl = val.modelXbrl
     sourceFileLines = []
     for doc in modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             # By default, etree parsing replaces CDATA sections with their text content,
             # effectively removing the CDATA start/end sequences. Even when a parser has
             # strip_cdata=False, the sequences will not appear depending on how the text
@@ -742,7 +744,7 @@ def rule_fr_nl_6_01(
     FR-NL-6.01: Footnotes MUST NOT appear in an XBRL instance document
     """
     for doc in val.modelXbrl.urlDocs.values():
-        if doc.type == ModelDocument.Type.INSTANCE:
+        if doc.type == ModelDocumentType.INSTANCE:
             for elt in doc.xmlRootElement.iter():
                 if elt is not None and hasattr(elt, 'qname') and elt.qname == XbrlConst.qnLinkFootnote:
                     yield Validation.error(

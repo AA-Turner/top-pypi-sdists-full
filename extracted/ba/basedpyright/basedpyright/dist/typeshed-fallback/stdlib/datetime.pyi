@@ -128,7 +128,9 @@ class date:
             """format -> strftime() style string."""
             ...
     else:
-        def strftime(self, format: str, /) -> str: ...
+        def strftime(self, format: str, /) -> str:
+            """format -> strftime() style string."""
+            ...
 
     def __format__(self, fmt: str, /) -> str:
         """Formats self with strftime."""
@@ -275,7 +277,9 @@ class time:
             """format -> strftime() style string."""
             ...
     else:
-        def strftime(self, format: str, /) -> str: ...
+        def strftime(self, format: str, /) -> str:
+            """format -> strftime() style string."""
+            ...
 
     def __format__(self, fmt: str, /) -> str:
         """Formats self with strftime."""
@@ -460,7 +464,9 @@ class datetime(date):
             ...
     else:
         @classmethod
-        def fromtimestamp(cls, timestamp: float, /, tz: _TzInfo | None = None) -> Self: ...
+        def fromtimestamp(cls, timestamp: float, /, tz: _TzInfo | None = None) -> Self:
+            """timestamp[, tz] -> tz's local time from POSIX timestamp."""
+            ...
 
     @classmethod
     @deprecated("Use timezone-aware objects to represent datetimes in UTC; e.g. by calling .fromtimestamp(datetime.timezone.utc)")

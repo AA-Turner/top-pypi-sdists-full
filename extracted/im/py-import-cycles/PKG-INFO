@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: py_import_cycles
-Version: 0.5.0
+Version: 0.5.1
 Summary: Detect import cycles in Python projects
 Home-page: https://github.com/si-23/py-import-cycles
 Author: Simon Jess

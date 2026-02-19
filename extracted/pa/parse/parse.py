@@ -11,7 +11,7 @@ from decimal import Decimal
 from functools import partial
 
 
-__version__ = "1.21.0"
+__version__ = "1.21.1"
 __all__ = ["parse", "search", "findall", "with_pattern"]
 
 log = logging.getLogger(__name__)
@@ -219,7 +219,7 @@ def date_convert(
             H, M, S = t
             if "." in S:
                 S, u = S.split(".")
-                u = int(float("." + u) * 1000000)
+                u = int(u.ljust(6, "0")[:6])
             S = int(S)
         H = int(H)
         M = int(M)

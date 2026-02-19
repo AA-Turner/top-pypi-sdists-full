@@ -42,20 +42,18 @@ check_untyped_defs = true
 namespace_packages = true
 ignore_missing_imports = true
 
-[[tool.mypy.overrides]]  
-# https://github.com/scikit-learn/scikit-learn/issues/16705  
-module = ["sklearn.*"]  
-ignore_missing_imports = true  
+[[tool.mypy.overrides]]
+# https://github.com/scikit-learn/scikit-learn/issues/16705
+module = ["sklearn.*"]
+ignore_missing_imports = true
 
 [tool.cibuildwheel]
 skip = [
   "*-win32",
   "*-manylinux_i686",
-  "pp*",
   "*-musllinux_*",
-  "cp36*",
-  "cp37*",
   "cp38*",
+  "cp314t-win*"
 ]
 test-requires = ["pytest", "pytest-xdist"]
 

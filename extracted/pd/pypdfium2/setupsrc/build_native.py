@@ -13,9 +13,9 @@ from pathlib import Path
 
 from base import *  # local
 
-PDFIUM_URL = "https://pdfium.googlesource.com/pdfium"
 _CR_PREFIX = "https://chromium.googlesource.com/"
 DEPS_URLS = dict(
+    pdfium     = "https://pdfium.googlesource.com/pdfium",
     build      = _CR_PREFIX + "chromium/src/build",
     abseil     = _CR_PREFIX + "chromium/src/third_party/abseil-cpp",
     fast_float = _CR_PREFIX + "external/github.com/fastfloat/fast_float",
@@ -84,27 +84,30 @@ if IS_ANDROID:
         log(f"Warning: Unknown Android CPU {raw_cpu}")
 
 
-def _get_repo(url, rev, target_dir, reset=False, depth=1):
+class DepsFetcher:
     
-    if target_dir.exists():
-        if reset:
-            log(f"Resetting {target_dir.name} as per --reset option.")
-            run_cmd(["git", "reset", "--hard"], cwd=target_dir)
-            return True
-        else:
-            return False
-    
-    if callable(rev):
-        rev = rev()  # resolve deferred
-    
-    git_clone_rev(url, rev, target_dir)
-    
-    return True
+    def __init__(self, deps_info):
+        self.deps_info = deps_info
+
+    def fetch(self, name, target_dir, reset=False, depth=1):
+        
+        if target_dir.exists():
+            if reset:
+                log(f"Discarding unstaged changes on {target_dir.name!r} as per --reset option.")
+                run_cmd(["git", "restore", "."], cwd=target_dir)
+                return True
+            else:
+                return False
+        
+        rev = self.deps_info[name]
+        git_clone_rev(DEPS_URLS[name], rev, target_dir, depth)
+        
+        return True
 
 
 DEPS_RE = r"\s*'{key}': '(\w+)'"
 
-class _DeferredInfo:
+class _DeferredDeps:
     
     def __init__(self, deps_fields):
         self.deps_fields = deps_fields
@@ -121,6 +124,9 @@ class _DeferredInfo:
             result[field] = match.group(1)
         log(f"Found DEPS revisions:\n{result}")
         return result
+    
+    def __getitem__(self, key):
+        return self.deps[key]
 
 
 def handle_deps(config, vendor_deps, with_tests):
@@ -169,14 +175,9 @@ def handle_deps(config, vendor_deps, with_tests):
     if with_tests:
         deps_fields += ("gtest", "test_fonts")
     
-    return _DeferredInfo(deps_fields)
+    return _DeferredDeps(deps_fields)
 
 VendorableDeps = ("libc++", "icu", "freetype", "libjpeg", "libpng", "zlib", "lcms2", "openjpeg", "libtiff")
-
-
-def _fetch_dep(info, name, target_dir, reset=False):
-    # parse out DEPS revisions only when we actually need them
-    return _get_repo(DEPS_URLS[name], lambda: info.deps[name], target_dir, reset=reset)
 
 
 def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_path, no_libclang_rt, reset, vendor_deps, compat):
@@ -185,7 +186,8 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
     full_ver, pdfium_rev, chromium_rev = handle_sbuild_vers(short_ver)
     
     # pass through reset only for the repositories we actually patch
-    do_patches = _get_repo(PDFIUM_URL, pdfium_rev, PDFIUM_DIR, reset=reset)
+    df = DepsFetcher({"pdfium": pdfium_rev})
+    do_patches = df.fetch("pdfium", PDFIUM_DIR, reset=reset)
     if do_patches:
         shared_autopatches(PDFIUM_DIR)
         autopatch(
@@ -201,7 +203,8 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
             if with_tests:
                 git_apply_patch(PatchDir/"bigendian_test.patch", cwd=PDFIUM_DIR)
     
-    do_patches = _fetch_dep(deps_info, "build", PDFIUM_DIR_build, reset=reset)
+    df = DepsFetcher(deps_info)
+    do_patches = df.fetch("build", PDFIUM_DIR_build, reset=reset)
     if do_patches:
         # legacy_gn.patch: Work around error about path_exists() being undefined. This happens with older versions of GN.
         # Recent GN binaries can be obtained from https://chrome-infra-packages.appspot.com/p/gn/gn
@@ -230,43 +233,47 @@ def get_sources(deps_info, short_ver, with_tests, compiler, clang_ver, clang_pat
             )
             if no_libclang_rt:
                 git_apply_patch(PatchDir/"no_libclang_rt.patch", cwd=PDFIUM_DIR_build)
+            if Host._libc_name == "musl":
+                # For "our" builds, we only need the powerpc64le,riscv64,loongarch64 (and s390x) bits, but handling the others as well makes sense for users who want to build natively on musl with clang.
+                # Also, this might only be needed if we want to run unittests.
+                git_apply_patch(PatchDir/"clang_on_musl.patch", cwd=PDFIUM_DIR_build)
         # Create an empty gclient config
         (PDFIUM_DIR_build/"config"/"gclient_args.gni").touch(exist_ok=True)
     
-    do_patches = _fetch_dep(deps_info, "abseil", PDFIUM_3RDPARTY/"abseil-cpp", reset=reset)
+    do_patches = df.fetch("abseil", PDFIUM_3RDPARTY/"abseil-cpp", reset=reset)
     if do_patches and (Host._raw_machine, Host._libc_name) == ("ppc64le", "musl"):
         git_apply_patch(PatchDir/"abseil_ppc64le_musl.patch", cwd=PDFIUM_3RDPARTY/"abseil-cpp")
     
-    _fetch_dep(deps_info, "fast_float", PDFIUM_3RDPARTY/"fast_float"/"src")
+    df.fetch("fast_float", PDFIUM_3RDPARTY/"fast_float"/"src")
     if IS_ANDROID:
-        _fetch_dep(deps_info, "catapult", PDFIUM_3RDPARTY/"catapult")
+        df.fetch("catapult", PDFIUM_3RDPARTY/"catapult")
     
     if "libc++" in vendor_deps:
-        _fetch_dep(deps_info, "buildtools", PDFIUM_DIR/"buildtools")
-        _fetch_dep(deps_info, "libcxx", PDFIUM_3RDPARTY/"libc++"/"src")
-        _fetch_dep(deps_info, "libcxxabi", PDFIUM_3RDPARTY/"libc++abi"/"src")
-        _fetch_dep(deps_info, "llvm_libc", PDFIUM_3RDPARTY/"llvm-libc"/"src")
+        df.fetch("buildtools", PDFIUM_DIR/"buildtools")
+        df.fetch("libcxx", PDFIUM_3RDPARTY/"libc++"/"src")
+        df.fetch("libcxxabi", PDFIUM_3RDPARTY/"libc++abi"/"src")
+        df.fetch("llvm_libc", PDFIUM_3RDPARTY/"llvm-libc"/"src")
     
     if "icu" in vendor_deps:
-        _fetch_dep(deps_info, "icu", PDFIUM_3RDPARTY/"icu")
+        df.fetch("icu", PDFIUM_3RDPARTY/"icu")
     else:
         # unbundle (alternatively, we could call build/linux/unbundle/replace_gn_files.py --system-libraries icu)
         (PDFIUM_3RDPARTY/"icu").mkdir(exist_ok=True)
         shutil.copyfile(PDFIUM_DIR_build/"linux"/"unbundle"/"icu.gn", PDFIUM_3RDPARTY/"icu"/"BUILD.gn")
     
     if "freetype" in vendor_deps:
-        _fetch_dep(deps_info, "freetype", PDFIUM_3RDPARTY/"freetype"/"src")
+        df.fetch("freetype", PDFIUM_3RDPARTY/"freetype"/"src")
     if "libjpeg" in vendor_deps:
-        _fetch_dep(deps_info, "jpeg_turbo", PDFIUM_3RDPARTY/"libjpeg_turbo")
-        _fetch_dep(deps_info, "nasm_source", PDFIUM_3RDPARTY/"nasm")
+        df.fetch("jpeg_turbo", PDFIUM_3RDPARTY/"libjpeg_turbo")
+        df.fetch("nasm_source", PDFIUM_3RDPARTY/"nasm")
     if "libpng" in vendor_deps:
-        _fetch_dep(deps_info, "libpng", PDFIUM_3RDPARTY/"libpng")
+        df.fetch("libpng", PDFIUM_3RDPARTY/"libpng")
     if "zlib" in vendor_deps:
-        _fetch_dep(deps_info, "zlib", PDFIUM_3RDPARTY/"zlib")
+        df.fetch("zlib", PDFIUM_3RDPARTY/"zlib")
     
     if with_tests:
-        _fetch_dep(deps_info, "gtest", PDFIUM_3RDPARTY/"googletest"/"src")
-        _fetch_dep(deps_info, "test_fonts", PDFIUM_3RDPARTY/"test_fonts")
+        df.fetch("gtest", PDFIUM_3RDPARTY/"googletest"/"src")
+        df.fetch("test_fonts", PDFIUM_3RDPARTY/"test_fonts")
     
     get_shimheaders_tool(PDFIUM_DIR, rev=chromium_rev)
     
@@ -281,6 +288,29 @@ def _get_clang_ver(clang_path):
     version = Version(version).major
     log(f"Determined clang version {version!r}")
     return version
+
+def _clang_as_gcc(clang_path):
+    symlinks_dir = SOURCES_DIR / "clang_as_gcc"
+    mkdir(symlinks_dir)
+    nmap = (
+        ("clang", "gcc"),
+        ("clang", "cc"),
+        ("clang++", "g++"),
+        ("llvm-ar", "ar"),
+        ("llvm-nm", "nm"),
+        ("llvm-objcopy", "objcopy"),
+        ("llvm-objdump", "objdump"),
+        ("llvm-readelf", "readelf"),
+        ("lld", "ld"),
+    )
+    for src_name, dst_name in nmap:
+        src = clang_path/"bin"/src_name
+        dst = symlinks_dir/dst_name
+        if dst.is_symlink():
+            dst.unlink()
+        dst.symlink_to(src)
+    os.environ["PATH"] = f"{symlinks_dir}:" + os.environ["PATH"]
+
 
 def setup_compiler(config, compiler, clang_ver, clang_path):
     if compiler is Compiler.gcc:
@@ -324,13 +354,21 @@ def build(build_dir, config_dict, with_tests, n_jobs):
 
 
 def test(build_dir, vendor_deps):
+    gtest_filter = []
     # FlateModule.Encode may fail with older zlib (generates different results)
     if "zlib" not in vendor_deps:
-        os.environ["GTEST_FILTER"] = "*-FlateModule.Encode"
-    run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR, check=False)
+        gtest_filter.append("FlateModule.Encode")
+    if Host._libc_name == "musl":
+        gtest_filter.append("WideString.FormatString")  # XXX?
+    if Host._raw_machine == "s390x":
+        # XXX actually crashes
+        gtest_filter.append("CPDFPageImageCache.RenderBug1924")
+    if gtest_filter:
+        os.environ["GTEST_FILTER"] = "*:-" + ":".join(gtest_filter)
+    run_cmd([build_dir/"pdfium_unittests"], cwd=PDFIUM_DIR)
 
 
-def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, reset=False, vendor_deps=None, compat=False):
+def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_path=None, no_libclang_rt=False, clang_as_gcc=False, reset=False, vendor_deps=None, compat=False):
     
     if build_ver is None:
         build_ver = SBUILD_NATIVE_PIN
@@ -344,12 +382,16 @@ def main(build_ver=None, with_tests=False, n_jobs=None, compiler=None, clang_pat
             compiler = Compiler.clang
         else:
             raise RuntimeError("Neither gcc nor clang installed.")
+    
+    clang_ver = None
     if compiler is Compiler.clang:
         if clang_path is None:
             clang_path = Host.usr
-        clang_ver = _get_clang_ver(clang_path)
-    else:
-        clang_ver = None
+        if clang_as_gcc:
+            _clang_as_gcc(clang_path)
+            compiler = Compiler.gcc
+        else:
+            clang_ver = _get_clang_ver(clang_path)
     
     build_dir = PDFIUM_DIR/"out"/"Default"
     config = DefaultConfig.copy()
@@ -407,7 +449,7 @@ For instance, it should also work on Android (Termux) natively. See the notes in
     parser.add_argument(
         "--reset",
         action = "store_true",
-        help = "Reset those git repos that we patch, and re-apply the patches. This is necessary when making a rebuild with different patch configuration (e.g. when switching between gcc <-> clang), but is not enabled by default to avoid unintentional loss of manual changes.",
+        help = "Discard unstaged changes on those git repos that we patch, and re-apply the patches. Uses `git restore` under the hood. This is necessary when making a rebuild with different patch configuration (e.g. when switching between gcc <-> clang), but is not enabled by default to avoid unintentional loss of manual changes.",
     )
     # Hint: If you have a simultaneous toolchained checkout, you could use e.g. './sbuild/toolchained/pdfium/third_party/llvm-build/Release+Asserts'
     parser.add_argument(
@@ -419,6 +461,11 @@ For instance, it should also work on Android (Termux) natively. See the notes in
         "--no-libclang-rt",
         action = "store_true",
         help = "If using clang, whether to patch pdfium so that it does not insist on libclang_rt.builtins.a, and will use the compiler's default instead (commonly libgcc).",
+    )
+    parser.add_argument(
+        "--clang-as-gcc",
+        action = "store_true",
+        help = "Use clang, but pretend to pdfium's build system that it were gcc. Passing --compiler clang is a prerequisite. This is implemented by creating symlinks and prepending them to $PATH.",
     )
     # - libicudata pulled in from the system via `auditwheel repair` is quite big. Using vendored ICU reduces wheel size by about 10 MB (compressed).
     # - With clang, using the vendored libc++ may be desirable. Also, there is some uncertainty whether using system libc++ might be ABI-unsafe. Actually, options to use system libc++ appear to be deprecated upstream.

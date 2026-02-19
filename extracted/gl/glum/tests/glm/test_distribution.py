@@ -15,8 +15,8 @@ from glum._distribution import (
     TweedieDistribution,
 )
 from glum._glm import GeneralizedLinearRegressor, get_family
+from glum._linalg import _safe_sandwich_dot
 from glum._link import IdentityLink, LogitLink, LogLink, TweedieLink
-from glum._util import _safe_sandwich_dot
 
 
 @pytest.mark.parametrize(
@@ -96,6 +96,17 @@ def test_negative_binomial_distribution_alpha():
     with pytest.raises(TypeError, match="must be numeric"):
         dist = NegativeBinomialDistribution()
         dist.theta = 1j
+
+
+def test_distribution_parameter_reassignment():
+    """Test that distribution parameters can be reassigned to themselves."""
+    dist = NegativeBinomialDistribution(theta=1.5)
+    dist.theta = dist.theta
+    assert dist.theta == 1.5
+
+    dist2 = TweedieDistribution(power=1.5)
+    dist2.power = dist2.power
+    assert dist2.power == 1.5
 
 
 def test_negative_binomial_distribution_parsing():

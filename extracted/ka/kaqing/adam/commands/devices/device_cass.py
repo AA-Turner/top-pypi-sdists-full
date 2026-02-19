@@ -1,15 +1,15 @@
 from adam.commands.bash.bash_completer import BashCompleter
 from adam.commands.command import Command
-from adam.commands.utils_table_render import show_pods, show_pods_simple, show_rollout
+from adam.presentation.utils_table_render import show_pods_simple
 from adam.commands.cql.utils_cql import cassandra_table_names
 from adam.commands.devices.device import Device
 from adam.config import Config
+from adam.presentation.tabulize import tabulize
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import log2, log_timing, wait_log
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.kube_context import KubeContext

@@ -15,7 +15,8 @@ from typing import TYPE_CHECKING, Any, cast
 import regex
 from lxml.etree import Element
 
-from arelle import ModelDocument, XbrlConst, XmlUtil
+from arelle import XbrlConst, XmlUtil
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle.LinkbaseType import LinkbaseType
 from arelle.ModelDtsObject import ModelConcept, ModelLink, ModelResource, ModelType
 from arelle.ModelInstanceObject import ModelInlineFact
@@ -23,7 +24,8 @@ from arelle.ModelObject import ModelObject
 from arelle.PrototypeDtsObject import PrototypeObject
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
-from arelle.utils.validate.Concepts import isExtensionUri, getExtensionConcepts
+from arelle.utils.validate.Concepts import getExtensionConcepts
+from arelle.utils.validate.Common import isExtensionUri
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.DetectScriptsInXhtml import containsScriptMarkers
 from arelle.utils.validate.ESEFImage import ImageValidationParameters, validateImage
@@ -62,6 +64,7 @@ from ..DisclosureSystems import (
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
 if TYPE_CHECKING:
+    from arelle.ModelDocument import ModelDocument
     from arelle.ModelValue import QName
     from arelle.ModelXbrl import ModelXbrl
 
@@ -956,7 +959,7 @@ def rule_nl_kvk_3_6_3_4(
     linkrole = 'https://www.nltaxonomie.nl/kvk/role/annual-report-filing-information'
     filingInformationQNames = {o.qname for o in val.modelXbrl.relationshipSet(XbrlConst.parentChild, linkrole).toModelObjects()}
     # [filing information facts] - [non-filing information facts]
-    filingInformationScoreByDocument: Counter[ModelDocument.ModelDocument] = Counter()
+    filingInformationScoreByDocument: Counter[ModelDocument] = Counter()
     for qname, facts in val.modelXbrl.factsByQname.items():
         points = 1 if qname in filingInformationQNames else -1
         for fact in facts:
@@ -1773,6 +1776,8 @@ def rule_nl_kvk_4_4_3_1(
                     and linkChild.get(XbrlConst.qnXlinkArcRole.clarkNotation) == XbrlConst.dimensionDefault
             ):
                 fromLabel = linkChild.get(XbrlConst.qnXlinkFrom.clarkNotation)
+                if fromLabel is None:
+                    continue
                 for fromResource in modelLink.labeledResources[fromLabel]:
                     if not isExtensionUri(fromResource.modelDocument.uri, val.modelXbrl, STANDARD_TAXONOMY_URL_PREFIXES):
                         yield Validation.error(
@@ -2545,7 +2550,7 @@ def rule_nl_kvk_RTS_Art_6_a(
     inlineDocs = {
         doc
         for doc in val.modelXbrl.urlDocs.values()
-        if doc.type == ModelDocument.Type.INLINEXBRL
+        if doc.type == ModelDocumentType.INLINEXBRL
     }
     if len(inlineDocs) == 0:
         return

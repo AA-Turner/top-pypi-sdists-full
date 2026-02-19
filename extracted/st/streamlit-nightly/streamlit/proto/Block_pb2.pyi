@@ -335,6 +335,7 @@ class Block(_message.Message):
         ICON_FIELD_NUMBER: _builtins.int
         TYPE_FIELD_NUMBER: _builtins.int
         OPEN_FIELD_NUMBER: _builtins.int
+        ID_FIELD_NUMBER: _builtins.int
         label: _builtins.str
         help: _builtins.str
         disabled: _builtins.bool
@@ -342,6 +343,12 @@ class Block(_message.Message):
         type: _builtins.str
         open: _builtins.bool
         """Initial open state (used with on_change)."""
+        id: _builtins.str
+        """Widget ID for dynamic popovers. Only set when on_change="rerun",
+        signaling the frontend to treat this as a stateful widget.
+        When absent, the popover may still have a block-level id for CSS
+        key styling but should not trigger reruns on toggle.
+        """
         def __init__(
             self,
             *,
@@ -351,13 +358,19 @@ class Block(_message.Message):
             icon: _builtins.str = ...,
             type: _builtins.str = ...,
             open: _builtins.bool | None = ...,
+            id: _builtins.str | None = ...,
         ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["_open", b"_open", "open", b"open"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "id", b"id", "open", b"open"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_open", b"_open", "disabled", b"disabled", "help", b"help", "icon", b"icon", "label", b"label", "open", b"open", "type", b"type"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "_open", b"_open", "disabled", b"disabled", "help", b"help", "icon", b"icon", "id", b"id", "label", b"label", "open", b"open", "type", b"type"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
+        _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
         _WhichOneofReturnType__open: _TypeAlias = _typing.Literal["open"]  # noqa: Y015
         _WhichOneofArgType__open: _TypeAlias = _typing.Literal["_open", b"_open"]  # noqa: Y015
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__id) -> _WhichOneofReturnType__id | None: ...
+        @_typing.overload
         def WhichOneof(self, oneof_group: _WhichOneofArgType__open) -> _WhichOneofReturnType__open | None: ...
 
     @_typing.final

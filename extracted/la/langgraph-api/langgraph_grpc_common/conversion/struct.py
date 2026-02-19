@@ -12,6 +12,8 @@ def struct_from_dict(d: Mapping[str, Any]) -> struct_pb2.Struct:
 
 
 def _default_serializer(obj: Any) -> Any:
+    if hasattr(obj, "dict") and callable(obj.dict):
+        return obj.dict()
     if hasattr(obj, "__dict__"):
         return obj.__dict__
     raise TypeError(f"Type is not JSON serializable: {type(obj).__name__}")

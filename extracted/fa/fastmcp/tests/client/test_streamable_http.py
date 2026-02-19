@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, call
 
 import pytest
 from mcp import McpError
+from mcp.types import TextResourceContents
 
 from fastmcp import Context
 from fastmcp.client import Client
@@ -30,7 +31,7 @@ def create_test_server() -> FastMCP:
         result = await ctx.elicit("What is your name?", response_type=str)
 
         if result.action == "accept":
-            return f"You said your name was: {result.data}!"  # ty: ignore[possibly-missing-attribute]
+            return f"You said your name was: {result.data}!"  # ty: ignore[unresolved-attribute]
         else:
             return "No name provided"
 
@@ -53,17 +54,23 @@ def create_test_server() -> FastMCP:
         return f"Hello, {name}!"
 
     @server.resource(uri="data://users")
-    async def get_users():
-        return ["Alice", "Bob", "Charlie"]
+    async def get_users() -> str:
+        import json
+
+        return json.dumps(["Alice", "Bob", "Charlie"])
 
     @server.resource(uri="data://user/{user_id}")
-    async def get_user(user_id: str):
-        return {"id": user_id, "name": f"User {user_id}", "active": True}
+    async def get_user(user_id: str) -> str:
+        import json
+
+        return json.dumps({"id": user_id, "name": f"User {user_id}", "active": True})
 
     @server.resource(uri="request://headers")
-    async def get_headers() -> dict[str, str]:
+    async def get_headers() -> str:
+        import json
+
         request = get_http_request()
-        return dict(request.headers)
+        return json.dumps(dict(request.headers))
 
     @server.prompt
     def welcome(name: str) -> str:
@@ -134,7 +141,7 @@ async def nested_server():
 
     yield f"http://127.0.0.1:{port}/nest-outer/nest-inner/final/mcp"
 
-    # Cleanup: signal uvicorn to shutdown, then cancel the task
+    # Graceful shutdown - required for uvicorn 0.39+ due to context isolation
     uvicorn_server.should_exit = True
     with suppress(asyncio.CancelledError, asyncio.TimeoutError):
         await asyncio.wait_for(server_task, timeout=2.0)
@@ -170,7 +177,8 @@ async def test_http_headers(streamable_http_server: str):
         )
     ) as client:
         raw_result = await client.read_resource("request://headers")
-        json_result = json.loads(raw_result[0].text)  # type: ignore[attr-defined]
+        assert isinstance(raw_result[0], TextResourceContents)
+        json_result = json.loads(raw_result[0].text)
         assert "x-demo-header" in json_result
         assert json_result["x-demo-header"] == "ABC"
 
@@ -221,6 +229,26 @@ async def test_elicitation_tool(streamable_http_server: str, request):
     ) as client:
         result = await client.call_tool("elicit")
         assert result.data == "You said your name was: Alice!"
+
+
+@pytest.mark.parametrize("streamable_http_server", [True], indirect=True)
+async def test_stateless_http_rejects_get_sse(streamable_http_server: str):
+    """Stateless servers should reject GET SSE requests with 405."""
+    import httpx
+
+    async with httpx.AsyncClient() as http_client:
+        response = await http_client.get(streamable_http_server)
+        assert response.status_code == 405
+
+
+@pytest.mark.parametrize("streamable_http_server", [True], indirect=True)
+async def test_stateless_http_still_accepts_post(streamable_http_server: str):
+    """Stateless servers should still handle POST requests normally."""
+    async with Client(
+        transport=StreamableHttpTransport(streamable_http_server)
+    ) as client:
+        result = await client.call_tool("greet", {"name": "World"})
+        assert result.data == "Hello, World!"
 
 
 async def test_nested_streamable_http_server_resolves_correctly(nested_server: str):

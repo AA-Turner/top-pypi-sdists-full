@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.199"]
+requires = ["setuptools>=77.0.0", "setuptools-rust", "pyvex==9.2.201"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -19,12 +19,12 @@ requires-python = ">=3.10"
 dependencies = [
     "cxxheaderparser",
     "GitPython",
-    "archinfo==9.2.199",
+    "archinfo==9.2.201",
     "cachetools",
     "capstone==5.0.6",
     "cffi>=1.14.0",
-    "claripy==9.2.199",
-    "cle==9.2.199",
+    "claripy==9.2.201",
+    "cle==9.2.201",
     "lmdb",
     "msgspec",
     "mulpyplexer",
@@ -34,7 +34,7 @@ dependencies = [
     "pycparser~=3.0",
     "pydemumble",
     "pypcode>=3.2.1,<4.0",
-    "pyvex==9.2.199",
+    "pyvex==9.2.201",
     "rich>=13.1.0",
     "sortedcontainers",
     "sympy",
@@ -76,7 +76,7 @@ dev = [
     "ruff>=0.11.7",
 ]
 docs = ["furo", "myst-parser", "sphinx", "sphinx-autodoc-typehints"]
-extras = ["angr[angrdb,keystone,unicorn,llm]"]
+extras = ["angr[angrdb,keystone,unicorn,llm]", "pysoot"]
 
 [tool.setuptools]
 include-package-data = true
@@ -104,6 +104,7 @@ archinfo = { git = "https://github.com/angr/archinfo.git", branch = "master" }
 pyvex = { git = "https://github.com/angr/pyvex.git", branch = "master" }
 cle = { git = "https://github.com/angr/cle.git", branch = "master" }
 claripy = { git = "https://github.com/angr/claripy.git", branch = "master" }
+pysoot = { git = "https://github.com/angr/pysoot.git", branch = "master" }
 
 [tool.ruff]
 line-length = 120

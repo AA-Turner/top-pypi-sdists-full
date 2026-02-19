@@ -3,7 +3,7 @@ name = "temporalio-sdk-core"
 version = "0.1.0"
 authors = ["Temporal Technologies Inc. <sdk@temporal.io>"]
 edition = "2024"
-license-file = { workspace = true }
+license-file = "LICENSE.txt"
 description = "Library for building new Temporal SDKs"
 homepage = "https://temporal.io/"
 repository = "https://github.com/temporalio/sdk-core"
@@ -33,6 +33,7 @@ antithesis_assertions = ["dep:antithesis_sdk"]
 anyhow = "1.0"
 antithesis_sdk = { version = "0.2.1", optional = true, default-features = false, features = ["full"] }
 assert_matches = { version = "1.5", optional = true }
+backoff = "0.4"
 bimap = { version = "0.6.3", optional = true }
 async-trait = "0.1"
 bon = { workspace = true }

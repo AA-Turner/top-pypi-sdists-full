@@ -1,3 +1,5 @@
+"""Documentation"""
+
 import sys
 from typing import Final, type_check_only
 

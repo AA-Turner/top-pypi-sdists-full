@@ -603,4 +603,7 @@ def _convert_asset_object(
                     image_bytes,
                     media_type,
                 )
+    if name and isinstance(asset_object, (bytes, io.BytesIO)):
+        content = asset_object.read() if isinstance(asset_object, io.BytesIO) else asset_object
+        return (name, content)
     return asset_object  # type: ignore[return-value]

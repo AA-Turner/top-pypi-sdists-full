@@ -311,7 +311,9 @@ class CodeType:
             co_filename: str = ...,
             co_name: str = ...,
             co_linetable: bytes = ...,
-        ) -> Self: ...
+        ) -> Self:
+            """Return a copy of the code object with new values for the specified fields."""
+            ...
     else:
         def replace(
             self,
@@ -332,7 +334,9 @@ class CodeType:
             co_filename: str = ...,
             co_name: str = ...,
             co_lnotab: bytes = ...,
-        ) -> Self: ...
+        ) -> Self:
+            """Return a copy of the code object with new values for the specified fields."""
+            ...
 
     if sys.version_info >= (3, 13):
         __replace__ = replace
@@ -423,10 +427,18 @@ else:
     class SimpleNamespace:
         __hash__: ClassVar[None]  # type: ignore[assignment]
         def __init__(self, **kwargs: Any) -> None: ...
-        def __eq__(self, value: object, /) -> bool: ...
-        def __getattribute__(self, name: str, /) -> Any: ...
-        def __setattr__(self, name: str, value: Any, /) -> None: ...
-        def __delattr__(self, name: str, /) -> None: ...
+        def __eq__(self, value: object, /) -> bool:
+            """Return self==value."""
+            ...
+        def __getattribute__(self, name: str, /) -> Any:
+            """Return getattr(self, name)."""
+            ...
+        def __setattr__(self, name: str, value: Any, /) -> None:
+            """Implement setattr(self, name, value)."""
+            ...
+        def __delattr__(self, name: str, /) -> None:
+            """Implement delattr(self, name)."""
+            ...
 
 @disjoint_base
 class ModuleType:
@@ -504,7 +516,7 @@ class GeneratorType(Generator[_YieldT_co, _SendT_contra, _ReturnT_co]):
         ...
     def send(self, arg: _SendT_contra, /) -> _YieldT_co:
         """
-        send(arg) -> send 'arg' into generator,
+        send(value) -> send 'value' into generator,
         return next yielded value or raise StopIteration.
         """
         ...

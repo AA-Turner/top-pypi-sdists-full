@@ -49,6 +49,7 @@ class ImageResolution(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     IMG_RESOLUTION_INVALID: _ClassVar[ImageResolution]
     IMG_RESOLUTION_1K: _ClassVar[ImageResolution]
+    IMG_RESOLUTION_2K: _ClassVar[ImageResolution]
 DETAIL_INVALID: ImageDetail
 DETAIL_AUTO: ImageDetail
 DETAIL_LOW: ImageDetail
@@ -77,9 +78,10 @@ IMG_ASPECT_RATIO_1_2: ImageAspectRatio
 IMG_ASPECT_RATIO_2_1: ImageAspectRatio
 IMG_RESOLUTION_INVALID: ImageResolution
 IMG_RESOLUTION_1K: ImageResolution
+IMG_RESOLUTION_2K: ImageResolution
 
 class GenerateImageRequest(_message.Message):
-    __slots__ = ("prompt", "image", "model", "n", "user", "format", "aspect_ratio", "resolution")
+    __slots__ = ("prompt", "image", "model", "n", "user", "format", "aspect_ratio", "resolution", "images")
     PROMPT_FIELD_NUMBER: _ClassVar[int]
     IMAGE_FIELD_NUMBER: _ClassVar[int]
     MODEL_FIELD_NUMBER: _ClassVar[int]
@@ -88,6 +90,7 @@ class GenerateImageRequest(_message.Message):
     FORMAT_FIELD_NUMBER: _ClassVar[int]
     ASPECT_RATIO_FIELD_NUMBER: _ClassVar[int]
     RESOLUTION_FIELD_NUMBER: _ClassVar[int]
+    IMAGES_FIELD_NUMBER: _ClassVar[int]
     prompt: str
     image: ImageUrlContent
     model: str
@@ -96,7 +99,8 @@ class GenerateImageRequest(_message.Message):
     format: ImageFormat
     aspect_ratio: ImageAspectRatio
     resolution: ImageResolution
-    def __init__(self, prompt: _Optional[str] = ..., image: _Optional[_Union[ImageUrlContent, _Mapping]] = ..., model: _Optional[str] = ..., n: _Optional[int] = ..., user: _Optional[str] = ..., format: _Optional[_Union[ImageFormat, str]] = ..., aspect_ratio: _Optional[_Union[ImageAspectRatio, str]] = ..., resolution: _Optional[_Union[ImageResolution, str]] = ...) -> None: ...
+    images: _containers.RepeatedCompositeFieldContainer[ImageUrlContent]
+    def __init__(self, prompt: _Optional[str] = ..., image: _Optional[_Union[ImageUrlContent, _Mapping]] = ..., model: _Optional[str] = ..., n: _Optional[int] = ..., user: _Optional[str] = ..., format: _Optional[_Union[ImageFormat, str]] = ..., aspect_ratio: _Optional[_Union[ImageAspectRatio, str]] = ..., resolution: _Optional[_Union[ImageResolution, str]] = ..., images: _Optional[_Iterable[_Union[ImageUrlContent, _Mapping]]] = ...) -> None: ...
 
 class ImageResponse(_message.Message):
     __slots__ = ("images", "model", "usage")
@@ -109,16 +113,14 @@ class ImageResponse(_message.Message):
     def __init__(self, images: _Optional[_Iterable[_Union[GeneratedImage, _Mapping]]] = ..., model: _Optional[str] = ..., usage: _Optional[_Union[_usage_pb2.SamplingUsage, _Mapping]] = ...) -> None: ...
 
 class GeneratedImage(_message.Message):
-    __slots__ = ("base64", "url", "up_sampled_prompt", "respect_moderation")
+    __slots__ = ("base64", "url", "respect_moderation")
     BASE64_FIELD_NUMBER: _ClassVar[int]
     URL_FIELD_NUMBER: _ClassVar[int]
-    UP_SAMPLED_PROMPT_FIELD_NUMBER: _ClassVar[int]
     RESPECT_MODERATION_FIELD_NUMBER: _ClassVar[int]
     base64: str
     url: str
-    up_sampled_prompt: str
     respect_moderation: bool
-    def __init__(self, base64: _Optional[str] = ..., url: _Optional[str] = ..., up_sampled_prompt: _Optional[str] = ..., respect_moderation: bool = ...) -> None: ...
+    def __init__(self, base64: _Optional[str] = ..., url: _Optional[str] = ..., respect_moderation: bool = ...) -> None: ...
 
 class ImageUrlContent(_message.Message):
     __slots__ = ("image_url", "detail")

@@ -60,9 +60,7 @@ class Describe:
 
     def _calc_config_vars(self, to):
         sys_vars = self.interpreter.sysconfig_vars
-        return {
-            k: (to if isinstance(v, str) and v.startswith(self.interpreter.prefix) else v) for k, v in sys_vars.items()
-        }
+        return {k: (to if v is not None and v.startswith(self.interpreter.prefix) else v) for k, v in sys_vars.items()}
 
     @classmethod
     def can_describe(cls, interpreter):  # noqa: ARG003
@@ -87,7 +85,9 @@ class Describe:
 
 
 class Python3Supports(Describe, ABC):
-    pass
+    @classmethod
+    def can_describe(cls, interpreter):
+        return interpreter.version_info.major == 3 and super().can_describe(interpreter)  # noqa: PLR2004
 
 
 class PosixSupports(Describe, ABC):

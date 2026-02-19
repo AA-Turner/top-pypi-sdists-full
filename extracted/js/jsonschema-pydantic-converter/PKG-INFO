@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema-pydantic-converter
-Version: 0.1.8
+Version: 0.1.9
 Summary: Convert JSON Schema definitions to Pydantic models dynamically at runtime
 Project-URL: Homepage, https://github.com/akshaylive/jsonschema-pydantic-converter
 Project-URL: Repository, https://github.com/akshaylive/jsonschema-pydantic-converter

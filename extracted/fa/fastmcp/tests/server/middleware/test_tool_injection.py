@@ -16,7 +16,8 @@ from fastmcp.server.middleware.tool_injection import (
     ResourceToolMiddleware,
     ToolInjectionMiddleware,
 )
-from fastmcp.tools.tool import FunctionTool, Tool
+from fastmcp.tools.function_tool import FunctionTool
+from fastmcp.tools.tool import Tool
 
 
 def multiply_fn(a: int, b: int) -> int:
@@ -93,7 +94,8 @@ class TestToolInjectionMiddleware:
             )
 
         assert result.structured_content is not None
-        assert result.structured_content["result"] == 42  # type: ignore[attr-defined]
+        assert isinstance(result.structured_content, dict)
+        assert result.structured_content["result"] == 42
 
     async def test_call_base_tool_still_works(self, base_server: FastMCP):
         """Test that base server tools still work after injecting tools."""
@@ -110,7 +112,8 @@ class TestToolInjectionMiddleware:
             )
 
         assert result.structured_content is not None
-        assert result.structured_content["result"] == 15  # type: ignore[attr-defined]
+        assert isinstance(result.structured_content, dict)
+        assert result.structured_content["result"] == 15
 
     async def test_injected_tool_error_handling(self, base_server: FastMCP):
         """Test that errors in injected tools are properly handled."""
@@ -161,11 +164,13 @@ class TestToolInjectionMiddleware:
         async with Client(base_server) as client:
             power_result = await client.call_tool("power", {"a": 2, "b": 3})
             assert power_result.structured_content is not None
-            assert power_result.structured_content["result"] == 8  # type: ignore[attr-defined]
+            assert isinstance(power_result.structured_content, dict)
+            assert power_result.structured_content["result"] == 8
 
             modulo_result = await client.call_tool("modulo", {"a": 10, "b": 3})
             assert modulo_result.structured_content is not None
-            assert modulo_result.structured_content["result"] == 1  # type: ignore[attr-defined]
+            assert isinstance(modulo_result.structured_content, dict)
+            assert modulo_result.structured_content["result"] == 1
 
     async def test_injected_tool_with_complex_return_type(self, base_server: FastMCP):
         """Test injected tools with complex return types."""
@@ -246,7 +251,7 @@ class TestToolInjectionMiddleware:
             tools=[multiply_tool]
         )
         base_server.add_middleware(middleware)
-        base_server.exclude_tags = {"math"}
+        base_server.disable(tags={"math"})
 
         async with Client[FastMCPTransport](base_server) as client:
             tools: list[SDKTool] = await client.list_tools()
@@ -270,7 +275,8 @@ class TestToolInjectionMiddleware:
         assert "add" in tool_names
         assert "subtract" in tool_names
         assert result.structured_content is not None
-        assert result.structured_content["result"] == 7  # type: ignore[attr-defined]
+        assert isinstance(result.structured_content, dict)
+        assert result.structured_content["result"] == 7
 
 
 class TestPromptToolMiddleware:
@@ -327,7 +333,7 @@ class TestPromptToolMiddleware:
             [
                 TextContent(
                     type="text",
-                    text='[{"name":"greeting","title":null,"description":"Generate a greeting message.","arguments":[{"name":"name","description":null,"required":true}],"icons":null,"_meta":{"_fastmcp":{"tags":[]}}},{"name":"farewell","title":null,"description":"Generate a farewell message.","arguments":[{"name":"name","description":null,"required":true}],"icons":null,"_meta":{"_fastmcp":{"tags":[]}}}]',
+                    text='[{"name":"greeting","title":null,"description":"Generate a greeting message.","arguments":[{"name":"name","description":null,"required":true}],"icons":null,"_meta":{"fastmcp":{"tags":[]}}},{"name":"farewell","title":null,"description":"Generate a farewell message.","arguments":[{"name":"name","description":null,"required":true}],"icons":null,"_meta":{"fastmcp":{"tags":[]}}}]',
                 )
             ]
         )
@@ -342,7 +348,7 @@ class TestPromptToolMiddleware:
                         {"name": "name", "description": None, "required": True}
                     ],
                     "icons": None,
-                    "_meta": {"_fastmcp": {"tags": []}},
+                    "_meta": {"fastmcp": {"tags": []}},
                 },
                 {
                     "name": "farewell",
@@ -352,7 +358,7 @@ class TestPromptToolMiddleware:
                         {"name": "name", "description": None, "required": True}
                     ],
                     "icons": None,
-                    "_meta": {"_fastmcp": {"tags": []}},
+                    "_meta": {"fastmcp": {"tags": []}},
                 },
             ]
         )
@@ -459,7 +465,7 @@ class TestResourceToolMiddleware:
                     "size": None,
                     "icons": None,
                     "annotations": None,
-                    "_meta": {"_fastmcp": {"tags": []}},
+                    "_meta": {"fastmcp": {"tags": []}},
                 },
                 {
                     "name": "data_resource",
@@ -470,15 +476,13 @@ class TestResourceToolMiddleware:
                     "size": None,
                     "icons": None,
                     "annotations": None,
-                    "_meta": {"_fastmcp": {"tags": []}},
+                    "_meta": {"fastmcp": {"tags": []}},
                 },
             ]
         )
 
     async def test_read_resource_tool_works(self, server_with_resources: FastMCP):
         """Test that the read_resource tool can be called."""
-        import json
-
         middleware = ResourceToolMiddleware()
         server_with_resources.add_middleware(middleware)
 
@@ -487,18 +491,19 @@ class TestResourceToolMiddleware:
                 name="read_resource", arguments={"uri": "file://config.txt"}
             )
 
-        # Parse the JSON text content to check the actual values
-        # (MCP 1.26+ includes "meta":null in serialization, earlier versions don't)
-        assert len(result.content) == 1
-        assert result.content[0].type == "text"
-        parsed = json.loads(result.content[0].text)  # type: ignore[attr-defined]
-        assert len(parsed) == 1
-        assert parsed[0]["content"] == "debug=true"
-        assert parsed[0]["mime_type"] == "text/plain"
-
-        # Check structured content similarly
-        assert result.structured_content is not None
-        assert "result" in result.structured_content
-        assert len(result.structured_content["result"]) == 1
-        assert result.structured_content["result"][0]["content"] == "debug=true"
-        assert result.structured_content["result"][0]["mime_type"] == "text/plain"
+        assert result.content == snapshot(
+            [
+                TextContent(
+                    type="text",
+                    text='{"contents":[{"content":"debug=true","mime_type":"text/plain","meta":null}],"meta":null}',
+                )
+            ]
+        )
+        assert result.structured_content == snapshot(
+            {
+                "contents": [
+                    {"content": "debug=true", "mime_type": "text/plain", "meta": None}
+                ],
+                "meta": None,
+            }
+        )

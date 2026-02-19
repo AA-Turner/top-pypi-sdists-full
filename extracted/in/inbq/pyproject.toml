@@ -30,9 +30,9 @@ build-backend = "maturin"
 
 [tool.maturin]
 features = ["pyo3/extension-module"]
-python-source = "python"
 module-name = "inbq._inbq"
 manifest-path = "crates/py_inbq/Cargo.toml"
+python-source = "python"
 
 [dependency-groups]
 dev = [

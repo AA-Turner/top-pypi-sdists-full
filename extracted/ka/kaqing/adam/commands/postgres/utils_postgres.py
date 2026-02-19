@@ -4,7 +4,7 @@ from typing import Union
 from adam.commands.postgres.postgres_databases import PostgresDatabases, pg_path
 from adam.utils_repl.repl_state import ReplState
 from adam.utils import ExecResult
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_k8s.pods import Pods

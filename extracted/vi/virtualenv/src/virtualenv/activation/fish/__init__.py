@@ -7,8 +7,8 @@ class FishActivator(ViaTemplateActivator):
     def templates(self):
         yield "activate.fish"
 
-    def replacements(self, creator, dest_folder):
-        data = super().replacements(creator, dest_folder)
+    def replacements(self, creator, dest):
+        data = super().replacements(creator, dest)
         data.update({
             "__TCL_LIBRARY__": getattr(creator.interpreter, "tcl_lib", None) or "",
             "__TK_LIBRARY__": getattr(creator.interpreter, "tk_lib", None) or "",

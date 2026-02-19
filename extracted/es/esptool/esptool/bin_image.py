@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2014-2025 Fredrik Ahlberg, Angus Gratton,
+# SPDX-FileCopyrightText: 2014-2026 Fredrik Ahlberg, Angus Gratton,
 # Espressif Systems (Shanghai) CO LTD, other contributors as noted.
 #
 # SPDX-License-Identifier: GPL-2.0-or-later
@@ -23,6 +23,7 @@ from .targets import (
     ESP32C5ROM,
     ESP32C6ROM,
     ESP32C61ROM,
+    ESP32E22ROM,
     ESP32H2ROM,
     ESP32H21ROM,
     ESP32H4ROM,
@@ -30,6 +31,7 @@ from .targets import (
     ESP32ROM,
     ESP32S2ROM,
     ESP32S3ROM,
+    ESP32S31ROM,
     ESP8266ROM,
 )
 from .util import FatalError, byte, ImageSource, get_bytes, pad_to
@@ -129,10 +131,12 @@ def LoadFirmwareImage(chip: str, image_data: ImageSource):
             "esp32c6": ESP32C6FirmwareImage,
             "esp32c61": ESP32C61FirmwareImage,
             "esp32c5": ESP32C5FirmwareImage,
+            "esp32e22": ESP32E22FirmwareImage,
             "esp32h2": ESP32H2FirmwareImage,
             "esp32h21": ESP32H21FirmwareImage,
             "esp32p4": ESP32P4FirmwareImage,
             "esp32h4": ESP32H4FirmwareImage,
+            "esp32s31": ESP32S31FirmwareImage,
         }[chip](f)
 
 
@@ -1266,6 +1270,24 @@ class ESP32H21FirmwareImage(ESP32C6FirmwareImage):
 
 
 ESP32H21ROM.BOOTLOADER_IMAGE = ESP32H21FirmwareImage
+
+
+class ESP32S31FirmwareImage(ESP32C5FirmwareImage):
+    """ESP32S31 Firmware Image almost exactly the same as ESP32C5FirmwareImage"""
+
+    ROM_LOADER = ESP32S31ROM
+
+
+ESP32S31ROM.BOOTLOADER_IMAGE = ESP32S31FirmwareImage
+
+
+class ESP32E22FirmwareImage(ESP32FirmwareImage):
+    """ESP32E22 Firmware Image almost exactly the same as ESP32FirmwareImage"""
+
+    ROM_LOADER = ESP32E22ROM
+
+
+ESP32E22ROM.BOOTLOADER_IMAGE = ESP32E22FirmwareImage
 
 
 class ELFFile:

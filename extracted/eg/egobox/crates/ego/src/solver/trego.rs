@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 use crate::CstrFn;
 use crate::EgorSolver;
 use crate::EgorState;
@@ -6,10 +5,10 @@ use crate::FailsafeStrategy;
 use crate::InfillObjData;
 use crate::SurrogateBuilder;
 use crate::solver::solver_infill_optim::InfillOptProblem;
-use crate::types::DomainConstraints;
+use crate::types::Constraints;
 use crate::utils::{find_best_result_index_from, is_feasible, is_update_ok, update_data};
 
-use argmin::core::{CostFunction, Problem, State};
+use argmin::core::{CostFunction, Problem};
 
 use egobox_doe::Lhs;
 use egobox_doe::SamplingMethod;
@@ -21,7 +20,7 @@ use ndarray_stats::DeviationExt;
 
 use ndarray_rand::rand::{Rng, SeedableRng};
 use rand_xoshiro::Xoshiro256Plus;
-use serde::de::DeserializeOwned;
+use serde::{Serialize, de::DeserializeOwned};
 
 use super::coego;
 use super::solver_infill_optim::MultiStarter;
@@ -78,121 +77,40 @@ impl<R: Rng + Clone> MultiStarter for LocalLhsMultiStarter<R> {
 
 impl<SB, C> EgorSolver<SB, C>
 where
-    SB: SurrogateBuilder + DeserializeOwned,
+    SB: SurrogateBuilder + Serialize + DeserializeOwned,
     C: CstrFn,
 {
-    pub(crate) fn update_trego_state(&mut self, state: &EgorState<f64>) -> (Phase, EgorState<f64>) {
-        let rho = |sigma| sigma * sigma;
-        let (_, y_data, _) = state.data.as_ref().unwrap();
-        // initialized in init
-        let best = state.best_index.unwrap();
-        // initialized in init
-        let prev_best = state.prev_best_index.unwrap();
-        // initialized in init
-
-        let mut new_state = state.clone();
-
-        // Update cumulative decrease over the trego phase
-        let decrease = y_data[[prev_best, 0]] - y_data[[best, 0]];
-        new_state.best_decrease += decrease.max(0.0);
-        let sufficient_decrease = new_state.best_decrease >= rho(state.sigma);
-
-        if state.global_trego_iter == self.config.trego_config.n_gl_steps.0
-            || state.local_trego_iter == self.config.trego_config.n_gl_steps.1
-        {
-            log::info!(
-                "Cumulative decrease: {}, required {}",
-                new_state.best_decrease,
-                rho(state.sigma)
-            );
-        }
-
-        log::debug!(
-            "TREGO update: iter={}, global_ego_iter = {}, local_trego_iter = {}",
-            state.get_iter(),
-            state.global_trego_iter,
-            state.local_trego_iter
-        );
-
-        // Check step success and update trust region
-        if state.get_iter() > 0 {
-            // Check end global or local phase
-            if state.global_trego_iter == self.config.trego_config.n_gl_steps.0 {
-                // Adjust trust region wrt global step success
-                if sufficient_decrease {
-                    let old = state.sigma;
-                    new_state.sigma *= 1. / self.config.trego_config.beta;
-                    info!(
-                        "Previous EGO global step successful: sigma {} -> {}",
-                        old, new_state.sigma
-                    );
-                } else {
-                    info!("Previous EGO global step progress fail");
-                }
-                // Reset cumulative decrease
-                new_state.best_decrease = 0.0;
-            } else if state.local_trego_iter == self.config.trego_config.n_gl_steps.1 {
-                // Adjust trust region wrt local step success
-                if sufficient_decrease {
-                    let old = state.sigma;
-                    new_state.sigma *= 1. / self.config.trego_config.beta;
-                    info!(
-                        "Previous TREGO local step successful: sigma {} -> {}",
-                        old, new_state.sigma
-                    );
-                } else {
-                    let old = state.sigma;
-                    new_state.sigma *= self.config.trego_config.beta;
-                    info!(
-                        "Previous TREGO local step progress fail: sigma {} -> {}",
-                        old, new_state.sigma
-                    );
-                }
-                // Reset cumulative decrease
-                new_state.best_decrease = 0.0;
-            }
-        }
-        let phase = self.next_phase(sufficient_decrease, &mut new_state);
-        (phase, new_state)
-    }
-
     /// Local step where infill criterion is optimized within trust region
     pub fn trego_step<
-        O: CostFunction<Param = Array2<f64>, Output = Array2<f64>> + DomainConstraints<C>,
+        O: CostFunction<Param = Array2<f64>, Output = Array2<f64>> + Constraints<C>,
     >(
         &mut self,
         problem: &mut Problem<O>,
         state: EgorState<f64>,
         models: Vec<Box<dyn MixtureGpSurrogate>>,
         infill_data: &InfillObjData<f64>,
+        max_dist: f64,
+        min_acceptance_distance: f64,
     ) -> EgorState<f64> {
         let mut new_state = state.clone();
         let (mut x_data, mut y_data, mut c_data) = new_state.take_data().expect("DOE data");
 
-        let best_index = new_state.best_index.unwrap();
+        let best_index = new_state.surrogate.best_index.unwrap();
         let y_old = y_data[[best_index, 0]];
-        let rho = |sigma| self.config.trego_config.alpha * sigma * sigma;
         let (obj_model, cstr_models) = models.split_first().unwrap();
-        let cstr_tols = new_state.cstr_tol.clone();
+        let cstr_tols = new_state.doe.cstr_tol.clone();
 
         let ybest = y_data.row(best_index).to_owned();
         let xbest = x_data.row(best_index).to_owned();
         let cbest = c_data.row(best_index).to_owned();
 
         let pb = problem.take_problem().unwrap();
-        let fcstrs = pb.fn_constraints();
+        let fcstrs = pb.constraints();
         // Optimize infill criterion
-        let activity = new_state.activity.clone();
-        let actives = activity.unwrap_or(self.full_activity()).to_owned();
-
         let mut rng = new_state.take_rng().unwrap();
         let sub_rng = Xoshiro256Plus::seed_from_u64(rng.r#gen());
-        let multistarter = LocalLhsMultiStarter::new(
-            self.xlimits.clone(),
-            xbest.to_owned(),
-            self.config.trego_config.d.1 * new_state.sigma,
-            sub_rng,
-        );
+        let multistarter =
+            LocalLhsMultiStarter::new(self.xlimits.clone(), xbest.to_owned(), max_dist, sub_rng);
 
         let infill_optpb = InfillOptProblem {
             obj_model: obj_model.as_ref(),
@@ -201,7 +119,7 @@ where
             cstr_tols: &cstr_tols,
             viability_model: None,
             infill_data,
-            actives: &actives,
+            actives: &state.coego.activity,
         };
 
         let (infill_obj, x_opt) = self.optimize_infill_criterion(
@@ -228,16 +146,12 @@ where
         debug!("x_old={} x_new={}", x_data.row(best_index), x_new.row(0));
 
         let (add_count, x_fail_points) = if xbest.l1_dist(&x_new.row(0)).unwrap()
-            > self.config.trego_config.d.0 * new_state.sigma
+            > min_acceptance_distance
             && is_update_ok(&x_data, &x_new.row(0))
         {
             let y_new = self.eval_obj(problem, &x_new);
 
-            debug!(
-                "y_old-y_new={}, rho={}",
-                y_old - y_new[[0, 0]],
-                rho(new_state.sigma)
-            );
+            debug!("y_old-y_new={}", y_old - y_new[[0, 0]],);
             let c_new = self.eval_problem_fcstrs(problem, &x_new);
 
             let y_penalized = match self.config.failsafe_strategy {
@@ -275,7 +189,10 @@ where
         new_state = new_state
             .store_failed_points(x_fail_points.clone())
             .count_added_points(add_count);
-        info!("+{} point, total: {} points", add_count, new_state.added);
+        info!(
+            "+{} point, total: {} points",
+            add_count, new_state.doe.added
+        );
 
         let new_best_index = if add_count == 0 {
             best_index
@@ -285,7 +202,7 @@ where
                 y_data.nrows() - 1,
                 &y_data,
                 &c_data,
-                &new_state.cstr_tol,
+                &new_state.doe.cstr_tol,
             )
         };
 
@@ -293,26 +210,13 @@ where
             || is_feasible(
                 &y_data.row(new_best_index),
                 &c_data.row(new_best_index),
-                &new_state.cstr_tol,
+                &new_state.doe.cstr_tol,
             );
 
         new_state = new_state.data((x_data, y_data, c_data)).rng(rng);
-        new_state.prev_best_index = new_state.best_index;
-        new_state.best_index = Some(new_best_index);
+        new_state.surrogate.prev_best_index = new_state.surrogate.best_index;
+        new_state.surrogate.best_index = Some(new_best_index);
         new_state
-    }
-
-    fn next_phase(&self, sufficient_decrease: bool, state: &mut EgorState<f64>) -> Phase {
-        let (phase, global_iter, local_iter) = next_phase(
-            sufficient_decrease,
-            state.global_trego_iter,
-            state.local_trego_iter,
-            self.config.trego_config.n_gl_steps.0,
-            self.config.trego_config.n_gl_steps.1,
-        );
-        state.global_trego_iter = global_iter;
-        state.local_trego_iter = local_iter;
-        phase
     }
 }
 

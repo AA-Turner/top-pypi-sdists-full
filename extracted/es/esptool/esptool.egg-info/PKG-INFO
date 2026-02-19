@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esptool
-Version: 5.1.0
+Version: 5.2.0
 Summary: A serial utility for flashing, provisioning, and interacting with Espressif SoCs.
 Author: Fredrik Ahlberg (themadinventor), Angus Gratton (projectgus), Espressif Systems
 License: GPLv2+
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -31,7 +32,7 @@ Requires-Dist: pyserial>=3.3
 Requires-Dist: reedsolo<1.8,>=1.5.3
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: intelhex
-Requires-Dist: rich_click
+Requires-Dist: rich_click<2
 Requires-Dist: click<9
 Provides-Extra: dev
 Requires-Dist: pyelftools; extra == "dev"

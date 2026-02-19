@@ -26,15 +26,11 @@ class PoolConfig:
     )
     max_conn_requests: Optional[int] = field(
         default=1000,
-        metadata={
-            "description": "Maximum requests per connection before recycling (None = no limit)"
-        },
+        metadata={"description": "Maximum requests per connection before recycling (None = no limit)"},
     )
     max_conn_idle_ms: int = field(
         default=60000,  # 1min
-        metadata={
-            "description": "Max idle time in ms before closing connection (None = no limit)"
-        },
+        metadata={"description": "Max idle time in ms before closing connection (None = no limit)"},
     )
 
     def __hash__(self):
@@ -100,10 +96,7 @@ class BasePool(ABC):
         Returns:
             bool: True if the connection is idle and should be closed
         """
-        if (
-            self.conf.max_conn_idle_ms is not None
-            and conn.last_released_time is not None
-        ):
+        if self.conf.max_conn_idle_ms is not None and conn.last_released_time is not None:
             idle_time_ms = (time.monotonic() - conn.last_released_time) * 1000
             if idle_time_ms > self.conf.max_conn_idle_ms:
                 return True
@@ -255,3 +248,48 @@ class WsPool(BasePool):
     async def cleanup(self) -> None:
         """Get all conn and close them, this method let this pool unusable."""
         pass
+
+
+class Http2MultiplexPool(BasePool):
+    """Host-aware shared connection factory for HTTP/2 multiplexing.
+
+    Keeps one shared connection per target host and returns that same
+    connection for concurrent acquire calls. This allows HTTP/2 multiplexing
+    while remaining safe for workloads that target multiple hosts.
+    """
+
+    def _init_pool(self, connection_cls):
+        self.conn_cls = connection_cls
+        self.connections = {}
+
+    def _host_key(self, urlparsed: Optional[ParseResult]) -> str:
+        if not urlparsed or not urlparsed.hostname:
+            return ":default"
+        port = urlparsed.port or (443 if urlparsed.scheme in ["https", "wss"] else 80)
+        return f"{urlparsed.scheme}://{urlparsed.hostname}:{port}"
+
+    async def acquire(self, urlparsed: Optional[ParseResult] = None):
+        """Acquire a shared connection for the target host."""
+        key = self._host_key(urlparsed)
+        conn = self.connections.get(key)
+        if conn is None:
+            conn = self.conn_cls(self)
+            self.connections[key] = conn
+        return conn
+
+    def release(self, conn) -> None:
+        """Release shared connection."""
+        return None
+
+    def free_conns(self) -> int:
+        return len(self.connections)
+
+    def is_all_free(self):
+        """Indicates if all pool is free."""
+        return True
+
+    async def cleanup(self) -> None:
+        """Close all shared host connections."""
+        for conn in self.connections.values():
+            conn.close()
+        self.connections.clear()

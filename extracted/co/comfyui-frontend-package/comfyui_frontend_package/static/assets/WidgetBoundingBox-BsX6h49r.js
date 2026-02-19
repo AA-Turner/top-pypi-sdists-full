@@ -1,1 +1,0 @@
-import{t as e}from"./WidgetBoundingBox-PoKemEFz.js";export{e as default};

@@ -26,7 +26,8 @@ def image_asset():
 async def test_base64(client: AsyncClient, image_asset: bytes):
     response = await client.image.sample(prompt="foo", model="grok-2-image", image_format="base64")
 
-    assert response.prompt == "foo"
+    with pytest.warns(DeprecationWarning, match="BaseImageResponse.prompt is deprecated"):
+        assert response.prompt == ""
     assert image_asset == await response.image
 
 
@@ -34,7 +35,8 @@ async def test_base64(client: AsyncClient, image_asset: bytes):
 async def test_url(client: AsyncClient, image_asset: bytes):
     response = await client.image.sample(prompt="foo", model="grok-2-image", image_format="url")
 
-    assert response.prompt == "foo"
+    with pytest.warns(DeprecationWarning, match="BaseImageResponse.prompt is deprecated"):
+        assert response.prompt == ""
     assert image_asset == await response.image
 
 
@@ -45,7 +47,8 @@ async def test_batch(client: AsyncClient, image_asset: bytes):
     assert len(responses) == 2
 
     for r in responses:
-        assert r.prompt == "foo"
+        with pytest.warns(DeprecationWarning, match="BaseImageResponse.prompt is deprecated"):
+            assert r.prompt == ""
         assert image_asset == await r.image
 
 
@@ -102,6 +105,72 @@ async def test_sample_passes_image_url(client: AsyncClient):
     assert request.image.detail == image_pb2.ImageDetail.DETAIL_AUTO
 
 
+@pytest.mark.asyncio(loop_scope="session")
+async def test_sample_passes_image_urls(client: AsyncClient):
+    server.clear_last_image_request()
+
+    input_image_urls = [
+        "https://example.com/image1.jpg",
+        "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    ]
+    await client.image.sample(prompt="foo", model="grok-imagine-image", image_urls=input_image_urls)
+
+    request = server.get_last_image_request()
+    assert request is not None
+    assert [image.image_url for image in request.images] == input_image_urls
+    assert all(image.detail == image_pb2.ImageDetail.DETAIL_AUTO for image in request.images)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_sample_batch_passes_image_urls(client: AsyncClient):
+    server.clear_last_image_request()
+
+    input_image_urls = [
+        "https://example.com/image1.jpg",
+        "data:image/jpeg;base64,/9j/4AAQSkZJRg==",
+    ]
+    await client.image.sample_batch(
+        prompt="foo",
+        model="grok-imagine-image",
+        n=2,
+        image_urls=input_image_urls,
+    )
+
+    request = server.get_last_image_request()
+    assert request is not None
+    assert [image.image_url for image in request.images] == input_image_urls
+    assert all(image.detail == image_pb2.ImageDetail.DETAIL_AUTO for image in request.images)
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_sample_rejects_both_image_fields(client: AsyncClient):
+    input_image_url = "https://example.com/image.jpg"
+    input_image_urls = ["https://example.com/image1.jpg"]
+
+    with pytest.raises(ValueError, match="Only one of image_url or image_urls can be set"):
+        await client.image.sample(
+            prompt="foo",
+            model="grok-imagine-image",
+            image_url=input_image_url,
+            image_urls=input_image_urls,
+        )
+
+
+@pytest.mark.asyncio(loop_scope="session")
+async def test_sample_batch_rejects_both_image_fields(client: AsyncClient):
+    input_image_url = "https://example.com/image.jpg"
+    input_image_urls = ["https://example.com/image1.jpg"]
+
+    with pytest.raises(ValueError, match="Only one of image_url or image_urls can be set"):
+        await client.image.sample_batch(
+            prompt="foo",
+            model="grok-imagine-image",
+            n=2,
+            image_url=input_image_url,
+            image_urls=input_image_urls,
+        )
+
+
 @mock.patch("xai_sdk.aio.image.tracer")
 @pytest.mark.asyncio(loop_scope="session")
 @pytest.mark.parametrize("image_format", ["url", "base64"])
@@ -143,7 +212,7 @@ async def test_sample_creates_span_with_correct_attributes(
         "gen_ai.usage.cached_prompt_text_tokens": response.usage.cached_prompt_text_tokens,
         "gen_ai.usage.prompt_text_tokens": response.usage.prompt_text_tokens,
         "gen_ai.usage.prompt_image_tokens": response.usage.prompt_image_tokens,
-        "gen_ai.response.0.image.up_sampled_prompt": response.prompt,
+        "gen_ai.response.0.image.up_sampled_prompt": "",
         "gen_ai.response.0.image.respect_moderation": response.respect_moderation,
     }
 
@@ -234,9 +303,9 @@ async def test_sample_batch_creates_span_with_correct_attributes(
         "gen_ai.usage.cached_prompt_text_tokens": responses[0].usage.cached_prompt_text_tokens,
         "gen_ai.usage.prompt_text_tokens": responses[0].usage.prompt_text_tokens,
         "gen_ai.usage.prompt_image_tokens": responses[0].usage.prompt_image_tokens,
-        "gen_ai.response.0.image.up_sampled_prompt": responses[0].prompt,
-        "gen_ai.response.1.image.up_sampled_prompt": responses[1].prompt,
-        "gen_ai.response.2.image.up_sampled_prompt": responses[2].prompt,
+        "gen_ai.response.0.image.up_sampled_prompt": "",
+        "gen_ai.response.1.image.up_sampled_prompt": "",
+        "gen_ai.response.2.image.up_sampled_prompt": "",
         "gen_ai.response.0.image.respect_moderation": responses[0].respect_moderation,
         "gen_ai.response.1.image.respect_moderation": responses[1].respect_moderation,
         "gen_ai.response.2.image.respect_moderation": responses[2].respect_moderation,

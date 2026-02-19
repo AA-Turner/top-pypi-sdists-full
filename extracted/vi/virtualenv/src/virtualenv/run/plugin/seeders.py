@@ -32,7 +32,6 @@ class SeederSelector(ComponentBuilder):
         return super().handle_selected_arg_parse(options)
 
     def create(self, options):
-        assert self._impl_class is not None  # noqa: S101  # Set by handle_selected_arg_parse
         return self._impl_class(options)
 
 

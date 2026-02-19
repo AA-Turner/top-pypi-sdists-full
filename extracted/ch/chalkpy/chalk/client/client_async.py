@@ -1030,11 +1030,12 @@ class AsyncChalkClient:
             If specified, the query will be run asynchronously across a maximum `num_workers` pod workers at any time.
             This parameter is useful if you have a large number of shards and would like to limit the number of pods running at once.
         completion_deadline
-            If specified, shards must complete within 'completion_deadline' duration, or they will be terminated.
-            Terminated shards can be tried.
+            If specified as a timedelta, applies a completion deadline to each shard; each shard of the query will fail (allowing retries) if not completed within the duration.
+            If specified as an OfflineQueryDeadlineOptions, allows more fine-grained control of shard- or query-level deadlines, with options to retry on shard failure or not.
         max_retries
-            If specified, failed offline query shards will be retried. The retry budget is shared across all shards.
-            By default, max_retries=num_shards/
+            Number of times failed offline query shards can be retried. The maximum number of attempts is 1 higher than this number and each shard has an independent retry budget.
+            Errors that appear to be deterministic will not provoke retries.
+            By default, this is set to 2, which is at most 3 attempts.
 
         Other Parameters
         ----------------

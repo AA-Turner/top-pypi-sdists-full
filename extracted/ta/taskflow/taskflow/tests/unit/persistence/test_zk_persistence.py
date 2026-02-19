@@ -17,7 +17,6 @@ import contextlib
 from kazoo import exceptions as kazoo_exceptions
 from oslo_utils import uuidutils
 import testtools
-from zake import fake_client
 
 from taskflow import exceptions as exc
 from taskflow.persistence import backends
@@ -59,38 +58,11 @@ class ZkPersistenceTest(test.TestCase, base.PersistenceTestMixin):
         # Create a unique path just for this test (so that we don't overwrite
         # what other tests are doing).
         conf['path'] = TEST_PATH_TPL % (uuidutils.generate_uuid())
-        try:
-            self.backend = impl_zookeeper.ZkBackend(conf)
-        except Exception as e:
-            self.skipTest("Failed creating backend created from configuration"
-                          " %s due to %s" % (conf, e))
-        else:
-            self.addCleanup(self.backend.close)
-            self.addCleanup(clean_backend, self.backend, conf)
-            with contextlib.closing(self.backend.get_connection()) as conn:
-                conn.upgrade()
-
-    def test_zk_persistence_entry_point(self):
-        conf = {'connection': 'zookeeper:'}
-        with contextlib.closing(backends.fetch(conf)) as be:
-            self.assertIsInstance(be, impl_zookeeper.ZkBackend)
-
-
-@testtools.skipIf(_ZOOKEEPER_AVAILABLE, 'zookeeper is available')
-class ZakePersistenceTest(test.TestCase, base.PersistenceTestMixin):
-    def _get_connection(self):
-        return self._backend.get_connection()
-
-    def setUp(self):
-        super().setUp()
-        conf = {
-            "path": "/taskflow",
-        }
-        self.client = fake_client.FakeClient()
-        self.client.start()
-        self._backend = impl_zookeeper.ZkBackend(conf, client=self.client)
-        conn = self._backend.get_connection()
-        conn.upgrade()
+        self.backend = impl_zookeeper.ZkBackend(conf)
+        self.addCleanup(self.backend.close)
+        self.addCleanup(clean_backend, self.backend, conf)
+        with contextlib.closing(self.backend.get_connection()) as conn:
+            conn.upgrade()
 
     def test_zk_persistence_entry_point(self):
         conf = {'connection': 'zookeeper:'}

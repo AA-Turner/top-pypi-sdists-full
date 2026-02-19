@@ -21,6 +21,7 @@ class ImportAnalyzer(ast.NodeVisitor):
         "any_import_error",
         "if_names",
         "orelse_names",
+        "_in_type_checking",
     )
 
     IGNORE_MODULES_IMPORTS = ("__future__",)
@@ -37,6 +38,7 @@ class ImportAnalyzer(ast.NodeVisitor):
 
         self.if_names: set[str] = set()
         self.orelse_names: set[str] = set()
+        self._in_type_checking: bool = False
 
     def traverse(self, tree) -> None:
         self.visit(tree)
@@ -58,7 +60,14 @@ class ImportAnalyzer(ast.NodeVisitor):
             if name in self.IGNORE_IMPORT_NAMES or (name in self.if_names and name in self.orelse_names):
                 continue
 
-            Import.register(lineno=node.lineno, column=column + 1, name=name, package=alias.name, node=node)
+            Import.register(
+                lineno=node.lineno,
+                column=column + 1,
+                name=name,
+                package=alias.name,
+                node=node,
+                is_type_checking=self._in_type_checking,
+            )
 
     @generic_visit
     @skip_import
@@ -82,20 +91,43 @@ class ImportAnalyzer(ast.NodeVisitor):
                 star=is_star,
                 suggestions=self.get_suggestions(package) if is_star else [],
                 node=node,
+                is_type_checking=self._in_type_checking,
             )
 
-    def visit_If(self, if_node: ast.If) -> None:
-        self.if_names = {
-            name.asname or name.name
-            for n in filter(lambda node: isinstance(node, (ast.Import, ast.ImportFrom)), if_node.body)
-            for name in n.names  # type: ignore
-        }
+    @staticmethod
+    def _is_type_checking_block(if_node: ast.If) -> bool:
+        test = if_node.test
+        if isinstance(test, ast.Name) and test.id == "TYPE_CHECKING":
+            return True
+        if isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING":
+            return True
+        return False
 
-        self.orelse_names = {
-            name.asname or name.name
-            for n in filter(lambda node: isinstance(node, (ast.Import, ast.ImportFrom)), if_node.orelse)
-            for name in n.names  # type: ignore
-        }
+    @staticmethod
+    def _collect_import_names(nodes: list[ast.stmt], *, recursive: bool = True) -> set[str]:
+        names: set[str] = set()
+        for node in nodes:
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                for alias in node.names:
+                    names.add(alias.asname or alias.name)
+            elif recursive and isinstance(node, ast.If):
+                names |= ImportAnalyzer._collect_import_names(node.body)
+                names |= ImportAnalyzer._collect_import_names(node.orelse)
+        return names
+
+    def visit_If(self, if_node: ast.If) -> None:
+        if self._is_type_checking_block(if_node):
+            self._in_type_checking = True
+            for node in if_node.body:
+                self.visit(node)
+            self._in_type_checking = False
+            for node in if_node.orelse:
+                self.visit(node)
+            return
+
+        self.if_names = self._collect_import_names(if_node.body)
+
+        self.orelse_names = self._collect_import_names(if_node.orelse, recursive=False)
 
         self.generic_visit(if_node)
 

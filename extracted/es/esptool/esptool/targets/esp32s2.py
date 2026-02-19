@@ -37,8 +37,6 @@ class ESP32S2ROM(ESP32ROM):
 
     UART_CLKDIV_REG = 0x3F400014
 
-    SUPPORTS_ENCRYPTED_FLASH = True
-
     FLASH_ENCRYPTED_WRITE_ALIGN = 16
 
     # todo: use espefuse APIs to get this info
@@ -240,6 +238,10 @@ class ESP32S2ROM(ESP32ROM):
             self.read_reg(self.EFUSE_SECURE_BOOT_EN_REG)
             & self.EFUSE_SECURE_BOOT_EN_MASK
         )
+
+    def get_secure_boot_v1_enabled(self):
+        # Secure Boot V1 is only supported on ESP32, not on ESP32-S2
+        return False
 
     def get_key_block_purpose(self, key_block):
         if key_block < 0 or key_block > self.EFUSE_MAX_KEY:

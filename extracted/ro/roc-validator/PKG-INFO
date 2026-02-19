@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roc-validator
-Version: 0.8.0
+Version: 0.8.1
 Summary: A Python package to validate RO-Crates
 License: Apache-2.0
 License-File: LICENSE
@@ -32,7 +32,7 @@ Requires-Dist: click (>=8.2,<9.0)
 Requires-Dist: colorlog (>=6.9,<7.0)
 Requires-Dist: enum-tools (>=0.12,<0.13)
 Requires-Dist: inquirerpy (>=0.3.4,<0.4.0)
-Requires-Dist: pyshacl (>=0.26,<0.31)
+Requires-Dist: pyshacl (>=0.26)
 Requires-Dist: rdflib (>=7.1,<8.0)
 Requires-Dist: requests (>=2.32,<3.0)
 Requires-Dist: requests-cache (>=1.2,<2.0)

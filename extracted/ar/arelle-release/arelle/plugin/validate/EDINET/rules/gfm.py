@@ -10,12 +10,13 @@ from typing import Any, cast, Iterable
 
 import regex
 
-from arelle import ModelDocument, UrlUtil, XbrlConst, XmlUtil
+from arelle import UrlUtil, XbrlConst, XmlUtil
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle.HtmlUtil import attrValue
 from arelle.LinkbaseType import LinkbaseType
-from arelle.ModelDtsObject import ModelConcept, ModelResource
+from arelle.ModelDtsObject import ModelConcept
 from arelle.ModelInstanceObject import ModelFact, ModelInlineFootnote
-from arelle.ModelObject import ModelObject, ModelComment
+from arelle.ModelObject import ModelObject
 from arelle.ModelValue import QName
 from arelle.PrototypeDtsObject import LocPrototype, ArcPrototype
 from arelle.UrlUtil import isHttpUrl, splitDecodeFragment
@@ -30,7 +31,7 @@ from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.Units import getDuplicateUnitGroups
 from arelle.utils.validate.Decorator import validation
 from arelle.utils.validate.Validation import Validation
-from ..Constants import domainItemTypeQname, HALF_KANA, JAPAN_LANGUAGE_CODES, NUMERIC_LABEL_ROLES, LC3_NAME_PATTERN, STANDARD_TAXONOMY_URL_PREFIXES
+from ..Constants import domainItemTypeQname, JAPAN_LANGUAGE_CODES, NUMERIC_LABEL_ROLES, LC3_NAME_PATTERN, STANDARD_TAXONOMY_URL_PREFIXES
 from ..DisclosureSystems import (DISCLOSURE_SYSTEM_EDINET)
 from ..PluginValidationDataExtension import PluginValidationDataExtension
 
@@ -135,7 +136,7 @@ def rule_gfm_1_1_6(
     if not hasattr(val, 'hasExtensionSchema'):
         val.hasExtensionSchema = False
     for modelDocument in val.modelXbrl.urlDocs.values():
-        if pluginData.isExtensionUri(modelDocument.uri, val.modelXbrl) and modelDocument.type == ModelDocument.Type.SCHEMA:
+        if pluginData.isExtensionUri(modelDocument.uri, val.modelXbrl) and modelDocument.type == ModelDocumentType.SCHEMA:
             val.hasExtensionSchema = True
             break
     if not val.hasExtensionSchema:
@@ -747,7 +748,7 @@ def rule_gfm_1_3_2(
     to that namespace.
     """
     for document in val.modelXbrl.urlDocs.values():
-        if not pluginData.isExtensionUri(document.uri, val.modelXbrl) or not document.type == ModelDocument.Type.SCHEMA:
+        if not pluginData.isExtensionUri(document.uri, val.modelXbrl) or not document.type == ModelDocumentType.SCHEMA:
             continue
         for refDoc in document.referencesDocument.values():
             if 'import' not in refDoc.referenceTypes:
@@ -2213,8 +2214,6 @@ def rule_charsets(
 ) -> Iterable[Validation]:
     """
     EDINET.EC1010E: The charset specification in the content attribute of the HTML <meta> tag must be UTF-8.
-    EDINET.EC5000E: The encoding of the file must be UTF-8.
-    EDINET.EC5003E: Prohibited characters must not be used.
     EDINET.EC5700W: [GFM 1.10.4] The document encoding must be set in both the XML document declaration and the HTML
     meta element for content type.
     """
@@ -2222,40 +2221,7 @@ def rule_charsets(
         if pluginData.isStandardTaxonomyUrl(modelDocument.uri, val.modelXbrl):
             continue
 
-        if modelDocument.type != ModelDocument.Type.INLINEXBRLDOCUMENTSET:
-            if modelDocument.documentEncoding is None or modelDocument.documentEncoding.lower() not in ('utf-8', 'utf-8-sig'):
-                yield Validation.error(
-                    codes='EDINET.EC5000E',
-                    msg=_("The encoding is not UTF-8. "
-                          "File name: '%(path)s'. "
-                          "Please change the encoding of the relevant file to UTF-8."),
-                    path=modelDocument.uri,
-                    modelObject=modelDocument,
-                )
-
-        # TODO: Consolidate wtih NL.FR-NL-1.02
-        for elt in modelDocument.xmlRootElement.iter():
-            if isinstance(elt, ModelComment):
-                texts = [getattr(elt, 'text')]
-            else:
-                texts = [elt.elementAttributesStr, elt.textValue]
-            illegalChars: set[str] = set()
-            for text in texts:
-                illegalChars.update(HALF_KANA.intersection(set(text)))
-            if len(illegalChars) > 0:
-                yield Validation.error(
-                    codes='EDINET.EC5003E',
-                    msg=_("Prohibited characters (%(chars)s) are used. "
-                          "File name: '%(file)s' (line %(line)s). "
-                          "The file in question contains prohibited characters. "
-                          "Please correct the prohibited characters. "),
-                    chars=', '.join(sorted(illegalChars)),
-                    file=modelDocument.basename,
-                    line=elt.sourceline,
-                    modelObject=elt,
-                )
-
-        if modelDocument.type != ModelDocument.Type.INLINEXBRL:
+        if modelDocument.type != ModelDocumentType.INLINEXBRL:
             continue
 
         xmlDeclaredEncoding = None

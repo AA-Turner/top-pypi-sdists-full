@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-glue
-Version: 1.10.15
+Version: 1.10.19
 Summary: dbt adapter for AWS Glue
 Home-page: https://github.com/aws-samples/dbt-glue
 Author: moshirm,segnina,sekiyama
@@ -17,7 +17,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: dbt-core~=1.10.15
+Requires-Dist: dbt-core~=1.10.19
 Requires-Dist: dbt-spark~=1.9.3
 Requires-Dist: dbt-common<3.0,>=1.0.4
 Requires-Dist: dbt-adapters<2.0,>=1.1.1

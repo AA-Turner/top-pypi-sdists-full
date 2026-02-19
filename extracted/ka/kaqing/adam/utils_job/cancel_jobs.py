@@ -6,7 +6,7 @@ from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_job.job_schedules import JobSchedules
 from adam.utils_job.job_status import JobStatus
 from adam.utils_repl.set_completer import SetCompleter
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class CancelJobs(Command):
     COMMAND = 'cancel jobs'

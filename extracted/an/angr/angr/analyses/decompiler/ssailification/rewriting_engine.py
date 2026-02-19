@@ -11,7 +11,7 @@ from angr.ailment.statement import (
     Assignment,
     CAS,
     Store,
-    Call,
+    SideEffectStatement,
     Return,
     ConditionalJump,
     DirtyStatement,
@@ -20,6 +20,7 @@ from angr.ailment.statement import (
 )
 from angr.ailment.expression import (
     Atom,
+    Call,
     Expression,
     Extract,
     Insert,
@@ -68,11 +69,12 @@ class SimEngineSSARewriting(
         vvar_id_start: int = 0,
         rewrite_tmps: bool = False,
         stackvars: bool = False,
+        fail_fast: bool = False,
     ):
         super().__init__(project)
 
         self.def_to_vvid_cache: dict[Def, int] = {}
-        self.tmp_to_vvid_cache: dict[int, int] = {}
+        self.tmp_to_vvid_cache: dict[tuple[int, int | None, int], int] = {}
         self.rewrite_tmps = rewrite_tmps
         self.ail_manager = ail_manager
         self.hclb_side_exit_state: RewritingState | None = None
@@ -80,6 +82,7 @@ class SimEngineSSARewriting(
         self.def_to_udef = def_to_udef
         self.stackvars = stackvars
         self.incomplete_defs = incomplete_defs
+        self._fail_fast = fail_fast
 
         self._current_vvar_id = vvar_id_start
         self._extra_defs: list[int] = []
@@ -262,29 +265,29 @@ class SimEngineSSARewriting(
             )
         return None
 
-    def _handle_stmt_Call(self, stmt: Call) -> Statement:
+    def _handle_stmt_SideEffectStatement(self, stmt: SideEffectStatement) -> Statement:
         new_args = None
-        if stmt.args is not None:
+        if stmt.expr.args is not None:
             new_args = []
-            for arg in stmt.args:
+            for arg in stmt.expr.args:
                 new_arg = self._expr(arg)
                 if new_arg is not None:
                     new_args.append(new_arg)
                 else:
                     new_args.append(arg)
 
-        new_target = self._expr(stmt.target) if not isinstance(stmt.target, str) else None
+        new_target = self._expr(stmt.expr.target) if not isinstance(stmt.expr.target, str) else None
         replaced_call = Call(
             stmt.idx,
-            stmt.target if new_target is None else new_target,
-            calling_convention=stmt.calling_convention,
-            prototype=stmt.prototype,
+            stmt.expr.target if new_target is None else new_target,
+            calling_convention=stmt.expr.calling_convention,
+            prototype=stmt.expr.prototype,
             args=new_args,
             bits=stmt.bits,
             **stmt.tags,
         )
 
-        cc = stmt.calling_convention if stmt.calling_convention is not None else self.project.factory.cc()
+        cc = stmt.expr.calling_convention if stmt.expr.calling_convention is not None else self.project.factory.cc()
         if cc is not None:
             # clean up all caller-saved registers (and their subregisters)
             for reg_name in cc.CALLER_SAVED_REGS:
@@ -300,7 +303,7 @@ class SimEngineSSARewriting(
             assert isinstance(stmt.fp_ret_expr, Atom)
             new_stmt = self._replace_def_expr(stmt.fp_ret_expr, replaced_call, stmt)
         if new_stmt is None:
-            new_stmt = replaced_call
+            new_stmt = SideEffectStatement(stmt.idx, replaced_call, **stmt.tags)
 
         return new_stmt
 
@@ -318,8 +321,9 @@ class SimEngineSSARewriting(
     def _handle_expr_Tmp(self, expr: Tmp) -> VirtualVariable | None:
         if not self.rewrite_tmps:
             return None
-        if (vvid := self.tmp_to_vvid_cache.get(expr.tmp_idx, None)) is None:
-            vvid = self.tmp_to_vvid_cache[expr.tmp_idx] = self._current_vvar_id
+        tmp_key = self.block.addr, self.block.idx, expr.tmp_idx
+        if (vvid := self.tmp_to_vvid_cache.get(tmp_key, None)) is None:
+            vvid = self.tmp_to_vvid_cache[tmp_key] = self._current_vvar_id
             self._current_vvar_id += 1
         return VirtualVariable(
             expr.idx,
@@ -335,7 +339,8 @@ class SimEngineSSARewriting(
             # vvar assignment
             vvar = self._expr_to_vvar(expr.addr, True)
             assert isinstance(expr.addr.offset, int)
-            return self._vvar_extract(vvar, expr.size, expr.addr.offset - vvar.stack_offset, expr)
+            if vvar.stack_offset + vvar.size >= expr.addr.offset + expr.size:
+                return self._vvar_extract(vvar, expr.size, expr.addr.offset - vvar.stack_offset, expr)
 
         new_addr = self._expr(expr.addr)
         if new_addr is not None:
@@ -442,11 +447,28 @@ class SimEngineSSARewriting(
         return None
 
     def _handle_expr_Call(self, expr):
-        assert expr.ret_expr is None
-        assert expr.fp_ret_expr is None
-        result = self._handle_stmt_Call(expr)
-        assert isinstance(result, Call)
-        return result
+        new_args = None
+        if expr.args is not None:
+            new_args = []
+            for arg in expr.args:
+                new_arg = self._expr(arg)
+                if new_arg is not None:
+                    new_args.append(new_arg)
+                else:
+                    new_args.append(arg)
+
+        new_target = self._expr(expr.target) if not isinstance(expr.target, str) else None
+        if new_target is not None or new_args is not None:
+            return Call(
+                expr.idx,
+                expr.target if new_target is None else new_target,
+                calling_convention=expr.calling_convention,
+                prototype=expr.prototype,
+                args=new_args if new_args is not None else expr.args,
+                bits=expr.bits,
+                **expr.tags,
+            )
+        return None
 
     def _handle_expr_Const(self, expr):
         return None
@@ -585,11 +607,31 @@ class SimEngineSSARewriting(
             # in case of emergency, raise keyerror
             if isinstance(expr, StackBaseOffset):
                 assert isinstance(expr.offset, int)
-                return self.state.stackvars[expr.offset]
-            if isinstance(expr, Register):
-                return self.state.registers[expr.reg_offset]
-            raise TypeError(expr)
-        kind, offset, size = udef
+                if expr.offset in self.state.stackvars:
+                    return self.state.stackvars[expr.offset]
+            elif isinstance(expr, Register):
+                if expr.reg_offset in self.state.registers:
+                    return self.state.registers[expr.reg_offset]
+            else:
+                raise TypeError(expr)
+
+            # we got here because expr refers to a non-existent stack offset or register offset.
+            # raise a KeyError if fail_fast is specified because something else has gone wrong at this point.
+            if self._fail_fast:
+                raise KeyError(expr)
+            # otherwise, we try our best to guesstimate the udef here
+            kind = "stack" if isinstance(expr, StackBaseOffset) else "reg"
+            offset = expr.offset
+            if kind == "stack":
+                next_off = min((o for o in self.state.stackvars if o >= offset), default=offset + 4)
+            else:
+                # kind == "reg"
+                next_off = min((o for o in self.state.registers if o >= offset), default=offset + 4)
+            size = next_off - offset
+        else:
+            # unpack udef
+            kind, offset, size = udef
+
         if (varid := self.def_to_vvid_cache.get(expr, None)) is None:
             varid = self.def_to_vvid_cache[expr] = self._current_vvar_id
             self._current_vvar_id += 1

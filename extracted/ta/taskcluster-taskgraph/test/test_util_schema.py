@@ -9,6 +9,7 @@ import pytest
 
 import taskgraph
 from taskgraph.util.schema import (
+    IndexSchema,
     Schema,
     optionally_keyed_by,
     resolve_keyed_by,
@@ -239,6 +240,47 @@ class TestResolveKeyedBy(unittest.TestCase):
             ),
             {"x": "anywhere"},
         )
+
+
+class TestNestedStructFieldsOptional(unittest.TestCase):
+    """Regression test: bare keys in nested voluptuous dict schemas were optional
+    by default. The msgspec migration must preserve this — nested struct fields
+    without defaults should not be required."""
+
+    def test_index_schema_accepts_partial_fields(self):
+        """IndexSchema should accept data with only 'type', omitting product/job-name."""
+
+        validate_schema(
+            IndexSchema,
+            {"type": "custom-index"},
+            "index schema",
+        )
+
+    def test_index_schema_accepts_all_fields(self):
+        """IndexSchema should still accept full data."""
+
+        validate_schema(
+            IndexSchema,
+            {
+                "type": "generic",
+                "product": "firefox",
+                "job-name": "build",
+                "rank": "by-tier",
+            },
+            "index schema",
+        )
+
+
+class TestValidateSchemaDictHandler(unittest.TestCase):
+    """validate_schema must accept plain dict schemas passed
+    by downstream payload builders without raising TypeError."""
+
+    def test_dict_schema_valid(self):
+        validate_schema({"name": str, "count": int}, {"name": "a", "count": 1}, "pfx")
+
+    def test_dict_schema_invalid(self):
+        with self.assertRaises(Exception):
+            validate_schema({"name": str}, {"name": 123}, "pfx")
 
 
 def test_optionally_keyed_by():

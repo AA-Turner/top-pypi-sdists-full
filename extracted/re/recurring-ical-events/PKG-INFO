@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: recurring-ical-events
-Version: 3.8.0
+Version: 3.8.1
 Summary: Calculate recurrence times of events, todos, alarms and journals based on icalendar RFC5545.
 Project-URL: Homepage, https://recurring-ical-events.readthedocs.io/
 Project-URL: Repository, https://github.com/niccokunzmann/python-recurring-ical-events
-Project-URL: Source Archive, https://github.com/niccokunzmann/python-recurring-ical-events/archive/e6c9618d14bc95b0c6fe67361a12a59d4e2035c3.zip
+Project-URL: Source Archive, https://github.com/niccokunzmann/python-recurring-ical-events/archive/daacf8619b873ea266ac128b10ac37a771504ff8.zip
 Project-URL: Issues, https://github.com/niccokunzmann/python-recurring-ical-events/issues
 Project-URL: Documentation, https://github.com/niccokunzmann/python-recurring-ical-events
 Project-URL: Changelog, https://github.com/niccokunzmann/python-recurring-ical-events?tab=readme-ov-file#changelog
@@ -14,7 +14,7 @@ Project-URL: Fund with Open Collective, https://opencollective.com/open-web-cale
 Project-URL: Fund with Tidelift, https://tidelift.com/funding/github/pypi/recurring-ical-events
 Author-email: Nicco Kunzmann <niccokunzmann@rambler.ru>
 Maintainer-email: Nicco Kunzmann <niccokunzmann@rambler.ru>
-License-Expression: GPL-3.0-or-later
+License-Expression: LGPL-3.0-or-later
 License-File: LICENSE
 Keywords: alarm,calendar,events,icalendar,ics,journal,rfc5545,scheduling,todo
 Classifier: Development Status :: 5 - Production/Stable
@@ -29,12 +29,13 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Office/Business :: Scheduling
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Requires-Python: >=3.8
 Requires-Dist: backports-zoneinfo; python_version == '3.7' or python_version == '3.8'
-Requires-Dist: icalendar<7.0.0,>=6.1.0
+Requires-Dist: icalendar<8.0.0,>=6.1.0
 Requires-Dist: python-dateutil<3.0.0,>=2.8.1
 Requires-Dist: typing-extensions; python_version <= '3.9'
 Requires-Dist: tzdata

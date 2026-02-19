@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-pabot
-Version: 5.2.1
+Version: 5.2.2
 Summary: Parallel test runner for Robot Framework
 Home-page: https://pabot.org
 Download-URL: https://pypi.python.org/pypi/robotframework-pabot

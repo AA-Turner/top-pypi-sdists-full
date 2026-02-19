@@ -312,7 +312,14 @@ else:
         check_same_thread: bool = True,
         cached_statements: int = 128,
         uri: bool = False,
-    ) -> Connection: ...
+    ) -> Connection:
+        """
+        Opens a connection to the SQLite database file database.
+
+        You can use ":memory:" to open a database connection to a database that resides
+        in RAM instead of on disk.
+        """
+        ...
     @overload
     def connect(
         database: StrOrBytesPath,
@@ -323,7 +330,14 @@ else:
         factory: type[_ConnectionT],
         cached_statements: int = 128,
         uri: bool = False,
-    ) -> _ConnectionT: ...
+    ) -> _ConnectionT:
+        """
+        Opens a connection to the SQLite database file database.
+
+        You can use ":memory:" to open a database connection to a database that resides
+        in RAM instead of on disk.
+        """
+        ...
     @overload
     def connect(
         database: StrOrBytesPath,
@@ -335,7 +349,14 @@ else:
         factory: type[_ConnectionT],
         cached_statements: int = 128,
         uri: bool = False,
-    ) -> _ConnectionT: ...
+    ) -> _ConnectionT:
+        """
+        Opens a connection to the SQLite database file database.
+
+        You can use ":memory:" to open a database connection to a database that resides
+        in RAM instead of on disk.
+        """
+        ...
 
 def enable_callback_tracebacks(enable: bool, /) -> None:
     """Enable or disable callback functions throwing errors to stderr."""
@@ -343,7 +364,16 @@ def enable_callback_tracebacks(enable: bool, /) -> None:
 
 if sys.version_info < (3, 12):
     # takes a pos-or-keyword argument because there is a C wrapper
-    def enable_shared_cache(do_enable: int) -> None: ...
+    def enable_shared_cache(do_enable: int) -> None:
+        """
+        Enable or disable shared cache mode for the calling thread.
+
+        This method is deprecated and will be removed in Python 3.12.
+        Shared cache is strongly discouraged by the SQLite 3 documentation.
+        If shared cache must be used, open the database in URI mode using
+        the cache=shared query parameter.
+        """
+        ...
 
 if sys.version_info >= (3, 10):
     def register_adapter(type: type[_T], adapter: _Adapter[_T], /) -> None:
@@ -354,8 +384,20 @@ if sys.version_info >= (3, 10):
         ...
 
 else:
-    def register_adapter(type: type[_T], caster: _Adapter[_T], /) -> None: ...
-    def register_converter(name: str, converter: _Converter, /) -> None: ...
+    def register_adapter(type: type[_T], caster: _Adapter[_T], /) -> None:
+        """
+        register_adapter(type, callable)
+
+        Registers an adapter with sqlite3's adapter registry.
+        """
+        ...
+    def register_converter(name: str, converter: _Converter, /) -> None:
+        """
+        register_converter(typename, callable)
+
+        Registers a converter with sqlite3.
+        """
+        ...
 
 if sys.version_info < (3, 10):
     OptimizedUnicode = str

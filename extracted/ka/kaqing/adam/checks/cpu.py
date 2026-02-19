@@ -5,7 +5,7 @@ from adam.checks.check_context import CheckContext
 from adam.checks.check_result import CheckResult
 from adam.checks.issue import Issue
 from adam.config import Config
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_k8s.custom_resources import CustomResources
 from adam.utils_k8s.pods import Pods

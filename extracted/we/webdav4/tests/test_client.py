@@ -257,12 +257,10 @@ def test_try_moving_a_resource_locked(
 
     (completely or partially, in src or dest)
     """
-    storage_dir.gen(
-        {
-            "data": {"foo": "foo", "bar": "bar"},
-            "data2": {"foobar": "foobar"},
-        }
-    )
+    storage_dir.gen({
+        "data": {"foo": "foo", "bar": "bar"},
+        "data2": {"foobar": "foobar"},
+    })
     lock_resource(client, lock_path)
 
     with pytest.raises(ResourceLocked) as exc_info:
@@ -380,7 +378,7 @@ def test_mkdir_forbidden_operations(client: Client, server_address: URL):
         client.mkdir("container")
 
     assert str(exc_info.value) == (
-        "the server does not allow creation in the namespace" "or cannot accept members"
+        "the server does not allow creation in the namespace or cannot accept members"
     )
 
 

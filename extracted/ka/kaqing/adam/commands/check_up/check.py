@@ -9,7 +9,7 @@ from adam.commands.check_up.issues import Issues
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log
 from adam.utils_cassandra.cassandra_status import CassandraStatus
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.commands.check_up.utils_issues import IssuesUtils
 
 class Check(Issues):

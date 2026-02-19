@@ -5,12 +5,12 @@ from adam.columns.columns import Columns
 from adam.commands.command import Command
 from adam.commands.devices.devices import device
 from adam.config import Config
+from adam.presentation.color import Color
+from adam.presentation.tabulize import POD_ORDINAL_DICT_SORT, tabulize
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_context import NULL
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_color import Color
 from adam.utils_k8s.k8s_context import K8sContext
-from adam.utils_tabulize import tabulize
 
 class ShowStatus(Command):
     COMMAND = 'show status'
@@ -80,10 +80,11 @@ class ShowStatus(Command):
         # header = Config().get('status.header', '--,Address,Load,Tokens,Owns,Host ID,GOSSIP,COMPACTIONS')
         columns = Columns.create_columns(cols)
 
-        tabulize(sorted(status, key=lambda l: l['pod'] if 'pod' in l else '-'),
+        tabulize(status,
                  lambda s: ','.join([c.host_value(check_results, s) for c in columns]),
                  header=header,
                  separator=',',
+                 sorted=POD_ORDINAL_DICT_SORT,
                  ctx=ctx)
 
         # remove compaction stats and gossip for faster return

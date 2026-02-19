@@ -291,6 +291,10 @@ class _ASN1Object(_ASN1ObjectBase):
     def fromname(cls, name: str) -> Self: ...
 
 class Purpose(_ASN1Object, enum.Enum):
+    """
+    SSLContext purpose flags with X509v3 Extended Key Usage objects
+    
+    """
     # Normally this class would inherit __new__ from _ASN1Object, but
     # because this is an enum, the inherited __new__ is replaced at runtime with
     # Enum.__new__.

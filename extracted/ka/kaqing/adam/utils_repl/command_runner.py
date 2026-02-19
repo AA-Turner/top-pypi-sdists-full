@@ -16,7 +16,7 @@ from adam.utils_context import NULL, Context
 from adam.thread_locals import thread_local_command
 from adam.utils_job.job import Job
 from adam.utils_log import CommandLog, clear_wait_log_flag, debug_trace, log2, log_exc, log_timing
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 import nest_asyncio
 nest_asyncio.apply()

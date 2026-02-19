@@ -1,4 +1,3 @@
-import copy
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Optional, TypedDict, TypeGuard, Union, cast
 
@@ -40,6 +39,10 @@ class Node:
     @property
     def node_size(self) -> int:
         return 1 if self.is_leaf else 2 + self.content.size
+
+    @property
+    def children(self) -> list["Node"]:
+        return self.content.content
 
     @property
     def child_count(self) -> int:
@@ -110,9 +113,9 @@ class Node:
         marks: list[Mark] | None = None,
     ) -> bool:
         return (
-            self.type.name == type.name
-            and (compare_deep(self.attrs, attrs or type.default_attrs or empty_attrs))
-            and (Mark.same_set(self.marks, marks or Mark.none))
+            self.type == type
+            and compare_deep(self.attrs, attrs or type.default_attrs or empty_attrs)
+            and Mark.same_set(self.marks, marks or Mark.none)
         )
 
     def copy(self, content: Fragment | None = None) -> "Node":
@@ -302,11 +305,11 @@ class Node:
             return self.type.compatible_content(other.type)
 
     def check(self) -> None:
-        if not self.type.valid_content(self.content):
-            msg = f"Invalid content for node {self.type.name}: {str(self.content)[:50]}"
-            raise ValueError(msg)
+        self.type.check_content(self.content)
+        self.type.check_attrs(self.attrs)
         copy = Mark.none
         for mark in self.marks:
+            mark.type.check_attrs(mark.attrs)
             copy = mark.add_to_set(copy)
         if not Mark.same_set(copy, self.marks):
             msg = (
@@ -323,20 +326,11 @@ class Node:
     def to_json(self) -> JSONDict:
         obj: JSONDict = {"type": self.type.name}
         if self.attrs:
-            obj = {
-                **obj,
-                "attrs": copy.deepcopy(self.attrs),
-            }
-        if getattr(self.content, "size", None):
-            obj = {
-                **obj,
-                "content": self.content.to_json(),
-            }
+            obj = {**obj, "attrs": self.attrs}
+        if self.content.size:
+            obj = {**obj, "content": self.content.to_json()}
         if len(self.marks):
-            obj = {
-                **obj,
-                "marks": [n.to_json() for n in self.marks],
-            }
+            obj = {**obj, "marks": [n.to_json() for n in self.marks]}
         return obj
 
     @classmethod
@@ -361,11 +355,13 @@ class Node:
         if json_data["type"] == "text":
             return schema.text(str(json_data["text"]), marks)
         content = Fragment.from_json(schema, json_data.get("content"))
-        return schema.node_type(str(json_data["type"])).create(
+        node = schema.node_type(str(json_data["type"])).create(
             cast("Attrs", json_data.get("attrs")),
             content,
             marks,
         )
+        node.type.check_attrs(node.attrs)
+        return node
 
 
 class TextNode(Node):

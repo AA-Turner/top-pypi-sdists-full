@@ -4,12 +4,12 @@ from adam.utils_repl.repl_state import ReplState
 from adam.utils import Holder
 from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
 from adam.utils_cassandra.pod_service import cassandra
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_concurrent import parallelize
 from adam.utils_k8s.k8s_context import K8sContext
 from adam.utils_k8s.pods import strip_pod_name
 from adam.utils_log import log_timing
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 
 class NodeRestartability:

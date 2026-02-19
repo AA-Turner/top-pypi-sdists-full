@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: torch-sim-atomistic
-Version: 0.5.1
+Version: 0.5.2
 Summary: A pytorch toolkit for calculating material properties using MLIPs
 Keywords: chemistry,interatomic-potentials,machine-learning,materials-science
 Author: Abhijeet Gangan, Janosh Riebesell, Orion Cohen
@@ -55,6 +55,7 @@ Requires-Dist: metatrain[pet]>=2025.12 ; extra == 'metatomic'
 Requires-Dist: nequip>=0.16.2 ; extra == 'nequip'
 Requires-Dist: orb-models>=0.5.2 ; extra == 'orb'
 Requires-Dist: sevenn>=0.11.0 ; extra == 'sevenn'
+Requires-Dist: moyopy>=0.3 ; extra == 'symmetry'
 Requires-Dist: ase>=3.26 ; extra == 'test'
 Requires-Dist: phonopy>=2.37.0 ; extra == 'test'
 Requires-Dist: platformdirs>=4.0.0 ; extra == 'test'
@@ -62,6 +63,8 @@ Requires-Dist: psutil>=7.0.0 ; extra == 'test'
 Requires-Dist: pymatgen>=2025.6.14 ; extra == 'test'
 Requires-Dist: pytest-cov>=6 ; extra == 'test'
 Requires-Dist: pytest>=8 ; extra == 'test'
+Requires-Dist: moyopy>=0.3 ; extra == 'test'
+Requires-Dist: spglib>=2.6 ; extra == 'test'
 Requires-Python: >=3.12
 Project-URL: Repo, https://github.com/torchsim/torch-sim
 Provides-Extra: docs
@@ -74,6 +77,7 @@ Provides-Extra: metatomic
 Provides-Extra: nequip
 Provides-Extra: orb
 Provides-Extra: sevenn
+Provides-Extra: symmetry
 Provides-Extra: test
 Description-Content-Type: text/markdown
 

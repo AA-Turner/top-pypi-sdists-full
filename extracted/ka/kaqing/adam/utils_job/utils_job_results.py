@@ -5,7 +5,7 @@ from adam.commands.devices.devices import device
 from adam.commands.export.export_sessions import export_session
 from adam.utils_repl.repl_state import ReplState
 from adam.utils import datetime_sec_precision
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_cassandra.cassandra_status import CassandraStatus
 from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_concurrent import parallelize
@@ -14,7 +14,7 @@ from adam.utils_job.job_schedules import JobSchedules
 from adam.utils_job.job_status import JobStatus
 from adam.utils_job.utils_ps import LogLine, proc_for_pid
 from adam.utils_k8s.k8s_context import K8sContext
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import Pods, strip_pod_name

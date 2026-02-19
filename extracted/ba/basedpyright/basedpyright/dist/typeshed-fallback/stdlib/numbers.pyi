@@ -175,10 +175,18 @@ class Rational(Real):
     __slots__ = ()
     @property
     @abstractmethod
-    def numerator(self) -> _IntegralLike: ...
+    def numerator(self) -> _IntegralLike:
+        """The numerator of a rational number in lowest terms."""
+        ...
     @property
     @abstractmethod
-    def denominator(self) -> _IntegralLike: ...
+    def denominator(self) -> _IntegralLike:
+        """
+        The denominator of a rational number in lowest terms.
+
+        This denominator should be positive.
+        """
+        ...
     def __float__(self) -> float: ...
 
 # See comment at the top of the file

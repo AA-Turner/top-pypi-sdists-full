@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ddapm-test-agent
-Version: 1.40.0
+Version: 1.41.0
 Summary: Test agent for Datadog APM client libraries
 Home-page: https://github.com/Datadog/dd-apm-test-agent
 Author: Kyle Verhoog
@@ -148,6 +148,13 @@ If using the Datadog agent, set the `DD_AGENT_URL` environment variable or `--ag
 If not running a Datadog agent, set the `DD_SITE` environment variable or `--dd-site` command-line argument to the site of the Datadog instance to forward events to. Additionally, set the `DD_API_KEY` environment variable or `--dd-api-key` command-line argument to the API key to use for the Datadog instance.
 
 To disable LLM Observability event forwarding, set the `DISABLE_LLMOBS_DATA_FORWARDING` environment variable or `--disable-llmobs-data-forwarding` command-line argument to `true`.
+
+
+### Claude Code Hooks
+
+The test agent can receive [Claude Code hook](https://docs.claude.com/en/docs/claude-code/hooks) events and assemble them into LLM Observability traces.
+
+See [`.claude/setup-hooks.md`](.claude/setup-hooks.md) for full setup instructions (also usable as a Claude Code prompt to automate the setup).
 
 
 ### Snapshot testing

@@ -24,6 +24,7 @@ from codeflash.code_utils.git_worktree_utils import (
 )
 from codeflash.code_utils.time_utils import humanize_runtime
 from codeflash.either import is_successful
+from codeflash.languages import is_javascript, set_current_language
 from codeflash.models.models import ValidCode
 from codeflash.telemetry.posthog_cf import ph
 from codeflash.verification.verification_utils import TestConfig
@@ -46,6 +47,7 @@ class Optimizer:
             tests_root=args.tests_root,
             tests_project_rootdir=args.test_project_root,
             project_root_path=args.project_root,
+            # TODO: Can rename it for language agnostic
             pytest_cmd=args.pytest_cmd if hasattr(args, "pytest_cmd") and args.pytest_cmd else "pytest",
             benchmark_tests_root=args.benchmarks_root if "benchmark" in args and "benchmarks_root" in args else None,
         )
@@ -61,6 +63,59 @@ class Optimizer:
         self.current_worktree: Path | None = None
         self.original_args_and_test_cfg: tuple[Namespace, TestConfig] | None = None
         self.patch_files: list[Path] = []
+
+    @staticmethod
+    def _find_js_project_root(file_path: Path) -> Path | None:
+        """Find the JavaScript/TypeScript project root by looking for package.json.
+
+        Traverses up from the given file path to find the nearest directory
+        containing package.json or jest.config.js.
+
+        Args:
+            file_path: A file path within the JavaScript project.
+
+        Returns:
+            The project root directory, or None if not found.
+
+        """
+        current = file_path.parent if file_path.is_file() else file_path
+        while current != current.parent:  # Stop at filesystem root
+            if (
+                (current / "package.json").exists()
+                or (current / "jest.config.js").exists()
+                or (current / "jest.config.ts").exists()
+                or (current / "tsconfig.json").exists()
+            ):
+                return current
+            current = current.parent
+        return None
+
+    def _verify_js_requirements(self) -> None:
+        """Verify JavaScript/TypeScript requirements before optimization.
+
+        Checks that Node.js, npm, and the test framework are available.
+        Logs warnings if requirements are not met but does not abort.
+
+        """
+        from codeflash.languages import get_language_support
+        from codeflash.languages.base import Language
+        from codeflash.languages.test_framework import get_js_test_framework_or_default
+
+        js_project_root = self.test_cfg.js_project_root
+        if not js_project_root:
+            return
+
+        try:
+            js_support = get_language_support(Language.JAVASCRIPT)
+            test_framework = get_js_test_framework_or_default()
+            success, errors = js_support.verify_requirements(js_project_root, test_framework)
+
+            if not success:
+                logger.warning("JavaScript requirements check found issues:")
+                for error in errors:
+                    logger.warning(f"  - {error}")
+        except Exception as e:
+            logger.debug(f"Failed to verify JS requirements: {e}")
 
     def run_benchmarks(
         self, file_to_funcs_to_optimize: dict[Path, list[FunctionToOptimize]], num_optimizable_functions: int
@@ -128,17 +183,53 @@ class Optimizer:
         """Discover functions to optimize."""
         from codeflash.discovery.functions_to_optimize import get_functions_to_optimize
 
-        return get_functions_to_optimize(
+        # In worktree mode for git-diff discovery, file paths come from the original repo
+        # (via get_git_diff using cwd), but module_root/project_root have been mirrored to
+        # the worktree. Use the original roots for filtering so path comparisons match,
+        # then remap the discovered file paths to the worktree.
+        project_root = self.args.project_root
+        module_root = self.args.module_root
+        use_original_roots = (
+            self.current_worktree and self.original_args_and_test_cfg and not self.args.all and not self.args.file
+        )
+        if use_original_roots:
+            assert self.original_args_and_test_cfg is not None
+            original_args, _ = self.original_args_and_test_cfg
+            project_root = original_args.project_root
+            module_root = original_args.module_root
+
+        result = get_functions_to_optimize(
             optimize_all=self.args.all,
             replay_test=self.args.replay_test,
             file=self.args.file,
             only_get_this_function=self.args.function,
             test_cfg=self.test_cfg,
             ignore_paths=self.args.ignore_paths,
-            project_root=self.args.project_root,
-            module_root=self.args.module_root,
+            project_root=project_root,
+            module_root=module_root,
             previous_checkpoint_functions=self.args.previous_checkpoint_functions,
         )
+
+        # Remap discovered file paths from the original repo to the worktree so
+        # downstream optimization reads/writes happen in the worktree.
+        if use_original_roots:
+            import dataclasses
+
+            assert self.current_worktree is not None
+            original_git_root = git_root_dir()
+            file_to_funcs, count, trace = result
+            remapped: dict[Path, list[FunctionToOptimize]] = {}
+            for file_path, funcs in file_to_funcs.items():
+                new_path = mirror_path(Path(file_path), original_git_root, self.current_worktree)
+                remapped[new_path] = [
+                    dataclasses.replace(
+                        func, file_path=mirror_path(func.file_path, original_git_root, self.current_worktree)
+                    )
+                    for func in funcs
+                ]
+            return remapped, count, trace
+
+        return result
 
     def create_function_optimizer(
         self,
@@ -192,7 +283,7 @@ class Optimizer:
 
     def prepare_module_for_optimization(
         self, original_module_path: Path
-    ) -> tuple[dict[Path, ValidCode], ast.Module] | None:
+    ) -> tuple[dict[Path, ValidCode], ast.Module | None] | None:
         from codeflash.code_utils.code_replacer import normalize_code, normalize_node
         from codeflash.code_utils.static_analysis import analyze_imported_modules
 
@@ -200,6 +291,15 @@ class Optimizer:
         console.rule()
 
         original_module_code: str = original_module_path.read_text(encoding="utf8")
+
+        # For JavaScript/TypeScript, skip Python-specific AST parsing
+        if is_javascript():
+            validated_original_code: dict[Path, ValidCode] = {
+                original_module_path: ValidCode(source_code=original_module_code, normalized_code=original_module_code)
+            }
+            return validated_original_code, None
+
+        # Python-specific parsing
         try:
             original_module_ast = ast.parse(original_module_code)
         except SyntaxError as e:
@@ -207,7 +307,7 @@ class Optimizer:
             logger.info("Skipping optimization due to file error.")
             return None
         normalized_original_module_code = ast.unparse(normalize_node(original_module_ast))
-        validated_original_code: dict[Path, ValidCode] = {
+        validated_original_code = {
             original_module_path: ValidCode(
                 source_code=original_module_code, normalized_code=normalized_original_module_code
             )
@@ -419,6 +519,20 @@ class Optimizer:
 
         function_optimizer = None
         file_to_funcs_to_optimize, num_optimizable_functions, trace_file_path = self.get_optimizable_functions()
+
+        # Set language on TestConfig and global singleton based on discovered functions
+        if file_to_funcs_to_optimize:
+            for file_path, funcs in file_to_funcs_to_optimize.items():
+                if funcs and funcs[0].language:
+                    set_current_language(funcs[0].language)
+                    self.test_cfg.set_language(funcs[0].language)
+                    # For JavaScript, also set js_project_root for test execution
+                    if is_javascript():
+                        self.test_cfg.js_project_root = self._find_js_project_root(file_path)
+                        # Verify JS requirements before proceeding
+                        self._verify_js_requirements()
+                    break
+
         if self.args.all:
             three_min_in_ns = int(1.8e11)
             console.rule()
@@ -449,7 +563,7 @@ class Optimizer:
             # GLOBAL RANKING: Rank all functions together before optimizing
             globally_ranked_functions = self.rank_all_functions_globally(file_to_funcs_to_optimize, trace_file_path)
             # Cache for module preparation (avoid re-parsing same files)
-            prepared_modules: dict[Path, tuple[dict[Path, ValidCode], ast.Module]] = {}
+            prepared_modules: dict[Path, tuple[dict[Path, ValidCode], ast.Module | None]] = {}
 
             # Optimize functions in globally ranked order
             for i, (original_module_path, function_to_optimize) in enumerate(globally_ranked_functions):
@@ -544,18 +658,31 @@ class Optimizer:
 
     @staticmethod
     def find_leftover_instrumented_test_files(test_root: Path) -> list[Path]:
-        """Search for all paths within the test_root that match the following patterns.
+        """Search for all paths within the test_root that match instrumented test file patterns.
 
+        Python patterns:
         - 'test.*__perf_test_{0,1}.py'
         - 'test_.*__unit_test_{0,1}.py'
         - 'test_.*__perfinstrumented.py'
         - 'test_.*__perfonlyinstrumented.py'
+
+        JavaScript/TypeScript patterns:
+        - '*__perfinstrumented.test.{js,ts,jsx,tsx}'
+        - '*__perfonlyinstrumented.test.{js,ts,jsx,tsx}'
+        - '*__perfinstrumented.spec.{js,ts,jsx,tsx}'
+        - '*__perfonlyinstrumented.spec.{js,ts,jsx,tsx}'
+
         Returns a list of matching file paths.
         """
         import re
 
         pattern = re.compile(
-            r"(?:test.*__perf_test_\d?\.py|test_.*__unit_test_\d?\.py|test_.*__perfinstrumented\.py|test_.*__perfonlyinstrumented\.py)$"
+            r"(?:"
+            # Python patterns
+            r"test.*__perf_test_\d?\.py|test_.*__unit_test_\d?\.py|test_.*__perfinstrumented\.py|test_.*__perfonlyinstrumented\.py|"
+            # JavaScript/TypeScript patterns (new naming with .test/.spec preserved)
+            r".*__perfinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)|.*__perfonlyinstrumented\.(?:test|spec)\.(?:js|ts|jsx|tsx)"
+            r")$"
         )
 
         return [

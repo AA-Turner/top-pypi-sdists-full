@@ -35,8 +35,9 @@ class AuthenticationInformation(BaseModel):
     saml_identity_provider_id:  Optional[StrictStr] = Field(None,alias="samlIdentityProviderId") 
     support: Optional[SupportAccessExpiry] = None
     support_access_expiry_with_role: Optional[List[SupportAccessExpiryWithRole]] = Field(default=None, alias="supportAccessExpiryWithRole")
+    status: Optional[StrictBool] = None
     links: Optional[List[Link]] = None
-    __properties = ["issuerUrl", "fallbackIssuerUrls", "samlIdentityProviderId", "support", "supportAccessExpiryWithRole", "links"]
+    __properties = ["issuerUrl", "fallbackIssuerUrls", "samlIdentityProviderId", "support", "supportAccessExpiryWithRole", "status", "links"]
 
     class Config:
         """Pydantic configuration"""
@@ -124,6 +125,7 @@ class AuthenticationInformation(BaseModel):
             "saml_identity_provider_id": obj.get("samlIdentityProviderId"),
             "support": SupportAccessExpiry.from_dict(obj.get("support")) if obj.get("support") is not None else None,
             "support_access_expiry_with_role": [SupportAccessExpiryWithRole.from_dict(_item) for _item in obj.get("supportAccessExpiryWithRole")] if obj.get("supportAccessExpiryWithRole") is not None else None,
+            "status": obj.get("status"),
             "links": [Link.from_dict(_item) for _item in obj.get("links")] if obj.get("links") is not None else None
         })
         return _obj

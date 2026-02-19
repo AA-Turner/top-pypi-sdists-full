@@ -67,9 +67,9 @@ class TestMCPMixin:
         instance = MyToolMixin()
         instance.register_tools(mcp, prefix=prefix, separator=separator)
 
-        registered_tools = await mcp.get_tools()
-        assert expected_key in registered_tools
-        assert unexpected_key not in registered_tools
+        registered_tools = await mcp.list_tools()
+        assert any(t.name == expected_key for t in registered_tools)
+        assert not any(t.name == unexpected_key for t in registered_tools)
 
     @pytest.mark.parametrize(
         "prefix, separator, expected_uri_key, expected_name, unexpected_uri_key",
@@ -112,10 +112,13 @@ class TestMCPMixin:
         instance = MyResourceMixin()
         instance.register_resources(mcp, prefix=prefix, separator=separator)
 
-        registered_resources = await mcp.get_resources()
-        assert expected_uri_key in registered_resources
-        assert registered_resources[expected_uri_key].name == expected_name
-        assert unexpected_uri_key not in registered_resources
+        registered_resources = await mcp.list_resources()
+        assert any(str(r.uri) == expected_uri_key for r in registered_resources)
+        resource = next(
+            r for r in registered_resources if str(r.uri) == expected_uri_key
+        )
+        assert resource.name == expected_name
+        assert not any(str(r.uri) == unexpected_uri_key for r in registered_resources)
 
     @pytest.mark.parametrize(
         "prefix, separator, expected_name, unexpected_name",
@@ -155,9 +158,9 @@ class TestMCPMixin:
         instance = MyPromptMixin()
         instance.register_prompts(mcp, prefix=prefix, separator=separator)
 
-        prompts = await mcp.get_prompts()
-        assert expected_name in prompts
-        assert unexpected_name not in prompts
+        prompts = await mcp.list_prompts()
+        assert any(p.name == expected_name for p in prompts)
+        assert not any(p.name == unexpected_name for p in prompts)
 
     async def test_register_all_no_prefix(self):
         """Test register_all method registers all types without a prefix."""
@@ -179,13 +182,13 @@ class TestMCPMixin:
         instance = MyFullMixin()
         instance.register_all(mcp)
 
-        tools = await mcp.get_tools()
-        resources = await mcp.get_resources()
-        prompts = await mcp.get_prompts()
+        tools = await mcp.list_tools()
+        resources = await mcp.list_resources()
+        prompts = await mcp.list_prompts()
 
-        assert "tool_all" in tools
-        assert "res://all" in resources
-        assert "prompt_all" in prompts
+        assert any(t.name == "tool_all" for t in tools)
+        assert any(str(r.uri) == "res://all" for r in resources)
+        assert any(p.name == "prompt_all" for p in prompts)
 
     async def test_register_all_with_prefix_default_separators(self):
         """Test register_all method registers all types with a prefix and default separators."""
@@ -207,13 +210,18 @@ class TestMCPMixin:
         instance = MyFullMixinPrefixed()
         instance.register_all(mcp, prefix="all")
 
-        tools = await mcp.get_tools()
-        resources = await mcp.get_resources()
-        prompts = await mcp.get_prompts()
+        tools = await mcp.list_tools()
+        resources = await mcp.list_resources()
+        prompts = await mcp.list_prompts()
 
-        assert f"all{_DEFAULT_SEPARATOR_TOOL}tool_all_p" in tools
-        assert f"all{_DEFAULT_SEPARATOR_RESOURCE}res://all_p" in resources
-        assert f"all{_DEFAULT_SEPARATOR_PROMPT}prompt_all_p" in prompts
+        assert any(t.name == f"all{_DEFAULT_SEPARATOR_TOOL}tool_all_p" for t in tools)
+        assert any(
+            str(r.uri) == f"all{_DEFAULT_SEPARATOR_RESOURCE}res://all_p"
+            for r in resources
+        )
+        assert any(
+            p.name == f"all{_DEFAULT_SEPARATOR_PROMPT}prompt_all_p" for p in prompts
+        )
 
     async def test_register_all_with_prefix_custom_separators(self):
         """Test register_all method registers all types with a prefix and custom separators."""
@@ -241,18 +249,25 @@ class TestMCPMixin:
             prompt_separator=".",
         )
 
-        tools = await mcp.get_tools()
-        resources = await mcp.get_resources()
-        prompts = await mcp.get_prompts()
+        tools = await mcp.list_tools()
+        resources = await mcp.list_resources()
+        prompts = await mcp.list_prompts()
 
-        assert "cust-tool_cust" in tools
-        assert "cust::res://cust" in resources
-        assert "cust.prompt_cust" in prompts
+        assert any(t.name == "cust-tool_cust" for t in tools)
+        assert any(str(r.uri) == "cust::res://cust" for r in resources)
+        assert any(p.name == "cust.prompt_cust" for p in prompts)
 
         # Check default separators weren't used
-        assert f"cust{_DEFAULT_SEPARATOR_TOOL}tool_cust" not in tools
-        assert f"cust{_DEFAULT_SEPARATOR_RESOURCE}res://cust" not in resources
-        assert f"cust{_DEFAULT_SEPARATOR_PROMPT}prompt_cust" not in prompts
+        assert not any(
+            t.name == f"cust{_DEFAULT_SEPARATOR_TOOL}tool_cust" for t in tools
+        )
+        assert not any(
+            str(r.uri) == f"cust{_DEFAULT_SEPARATOR_RESOURCE}res://cust"
+            for r in resources
+        )
+        assert not any(
+            p.name == f"cust{_DEFAULT_SEPARATOR_PROMPT}prompt_cust" for p in prompts
+        )
 
     async def test_tool_with_title_and_meta(self):
         """Test that title (via annotations) and meta arguments are properly passed through."""
@@ -271,8 +286,8 @@ class TestMCPMixin:
         instance = MyToolWithMeta()
         instance.register_tools(mcp)
 
-        registered_tools = await mcp.get_tools()
-        tool = registered_tools["sample_tool"]
+        registered_tools = await mcp.list_tools()
+        tool = next(t for t in registered_tools if t.name == "sample_tool")
 
         assert tool.annotations is not None
         assert tool.annotations.title == "My Tool Title"
@@ -294,8 +309,10 @@ class TestMCPMixin:
         instance = MyResourceWithMeta()
         instance.register_resources(mcp)
 
-        registered_resources = await mcp.get_resources()
-        resource = registered_resources["test://resource"]
+        registered_resources = await mcp.list_resources()
+        resource = next(
+            r for r in registered_resources if str(r.uri) == "test://resource"
+        )
 
         assert resource.meta == {"category": "data", "internal": True}
         assert resource.title == "My Resource Title"
@@ -315,8 +332,8 @@ class TestMCPMixin:
         instance = MyPromptWithMeta()
         instance.register_prompts(mcp)
 
-        prompts = await mcp.get_prompts()
-        prompt = prompts["sample_prompt"]
+        prompts = await mcp.list_prompts()
+        prompt = next(p for p in prompts if p.name == "sample_prompt")
 
         assert prompt.title == "My Prompt Title"
         assert prompt.meta == {"priority": "high", "category": "analysis"}

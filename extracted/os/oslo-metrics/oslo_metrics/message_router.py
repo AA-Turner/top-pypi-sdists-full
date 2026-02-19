@@ -21,31 +21,28 @@ from oslo_metrics import message_type
 LOG = logging.getLogger(__name__)
 
 
-MODULE_LISTS = [
-    "oslo_metrics.metrics.oslo_messaging",
-]
+MODULE_LISTS = ["oslo_metrics.metrics.oslo_messaging"]
 
 
-class MessageRouter():
-
-    def __init__(self):
+class MessageRouter:
+    def __init__(self) -> None:
         self.modules = {}
         for m_str in MODULE_LISTS:
             mod = importutils.try_import(m_str, False)
             if not mod:
-                LOG.error("Failed to load module %s" % m_str)
+                LOG.error("Failed to load module %s", m_str)
             self.modules[m_str.split('.')[-1]] = mod
 
-    def process(self, raw_string):
+    def process(self, raw_string: bytes) -> None:
         try:
             metric = message_type.Metric.from_json(raw_string.decode())
             self.dispatch(metric)
         except Exception as e:
             LOG.error("Failed to parse: %s", e)
 
-    def dispatch(self, metric):
+    def dispatch(self, metric: message_type.Metric) -> None:
         if metric.module not in self.modules:
-            LOG.error("Failed to lookup modules by %s" % metric.module)
+            LOG.error("Failed to lookup modules by %s", metric.module)
             return
         mod = self.modules.get(metric.module)
 
@@ -53,7 +50,7 @@ class MessageRouter():
         try:
             metric_definition = getattr(mod, metric.name)
         except AttributeError as e:
-            LOG.error("Failed to load metrics {}: {}".format(metric.name, e))
+            LOG.error("Failed to load metrics {}: {}", metric.name, e)
             return
 
         # Get labels
@@ -61,10 +58,13 @@ class MessageRouter():
             metric_with_label = getattr(metric_definition, "labels")
             metric_with_label = metric_with_label(**metric.labels)
         except AttributeError as e:
-            LOG.error("Failed to load labels func from metrics %s: %s" %
-                      (metric.name, e))
+            LOG.error(
+                "Failed to load labels func from metrics %s: %s",
+                metric.name,
+                e,
+            )
             return
-        LOG.debug("Get labels with {}: {}".format(metric.name, metric.labels))
+        LOG.debug("Get labels with {}: {}", metric.name, metric.labels)
 
         # perform action
         try:
@@ -74,8 +74,15 @@ class MessageRouter():
             else:
                 embed_action()
         except AttributeError as e:
-            LOG.error("Failed to perform metric actionv %s, %s: %s" %
-                      (metric.action.action, metric.action.value, e))
+            LOG.error(
+                "Failed to perform metric actionv %s, %s: %s",
+                metric.action.action,
+                metric.action.value,
+                e,
+            )
             return
-        LOG.debug("Perform action %s for %s metrics" %
-                  (metric.action.action, metric.name))
+        LOG.debug(
+            "Perform action %s for %s metrics",
+            metric.action.action,
+            metric.name,
+        )

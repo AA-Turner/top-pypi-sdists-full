@@ -136,7 +136,6 @@ class SimpleSpecifier:
 
     def _check_wildcard(self, candidate):
         """Check wildcard version matching."""
-        assert self.version is not None  # noqa: S101  # Checked by caller in contains()
         if self.operator == "==":
             return candidate.release[: self.wildcard_precision] == self.version.release[: self.wildcard_precision]
         if self.operator == "!=":
@@ -146,7 +145,6 @@ class SimpleSpecifier:
 
     def _check_standard(self, candidate):
         """Check standard version comparisons."""
-        assert self.version is not None  # noqa: S101  # Checked by caller in contains()
         if self.operator == "===":
             return str(candidate) == str(self.version)
         if self.operator == "~=":
@@ -166,7 +164,6 @@ class SimpleSpecifier:
 
     def _check_compatible_release(self, candidate):
         """Check compatible release version (~=)."""
-        assert self.version is not None  # noqa: S101  # Checked by caller in contains()
         if candidate < self.version:
             return False
         if len(self.version.release) >= 2:  # noqa: PLR2004

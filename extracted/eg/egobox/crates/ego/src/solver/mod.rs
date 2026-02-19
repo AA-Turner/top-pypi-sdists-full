@@ -1,14 +1,114 @@
+//! # Solver Module - EGO Optimizer Implementation
+//!
+//! This module contains the core implementation of the Efficient Global Optimization (EGO)
+//! algorithm using the argmin optimization framework.
+//!
+//! ## Architecture Overview
+//!
+//! The solver is organized following SOLID principles with clear separation of concerns:
+//!
+//! ### Public API
+//!
+//! - [`EgorSolver`] - Main optimizer implementing `argmin::Solver` trait
+//! - [`EgorState`] - Optimizer state implementing `argmin::State` trait  
+//! - [`EgorConfig`] / [`ValidEgorConfig`] - Configuration builders and validated config
+//! - [`EgorService`] - Ask-and-tell interface for external control
+//!
+//! ### State Organization ([`egor_state`])
+//!
+//! The optimizer state is decomposed into logical sub-states for maintainability:
+//!
+//! - [`DoeState`] - Design of Experiments tracking (points added, DOE size, retries)
+//! - [`SurrogateState`] - GP surrogate model state (clusterings, hyperparameters, training data)
+//! - [`TregoState`] - Trust Region EGO algorithm state (sigma, iteration counters)
+//! - [`CoegoState`] - Cooperative EGO state (component activity for high-dim problems)
+//!
+//! ### Strategy Pattern for Algorithm Variants
+//!
+//! Algorithm variants are implemented using the **Strategy pattern**, decoupling
+//! algorithm-specific logic from the core solver loop:
+//!
+//! - **Iteration strategy** ([`IterationStrategy`]) - Controls whether each iteration
+//!   performs global or local search:
+//!   - [`StandardEgoStrategy`] - Default: always global search
+//!   - [`TregoStrategy`] - Trust Region EGO with adaptive global/local phases
+//!
+//! - **Activity strategy** ([`ActivityStrategy`]) - Controls which variables are
+//!   optimized at each step:
+//!   - [`FullActivity`] - Default: all variables active
+//!   - [`CooperativeActivity`] - CoEGO: random variable grouping for high-dim problems
+//!
+//! Strategies are stateless configuration objects. Mutable per-iteration state
+//! (sigma, phase counters, activity matrices) lives in [`EgorState`] sub-states.
+//!
+//! ```ignore
+//! use egobox_ego::{EgorConfig, TregoStrategy, CooperativeActivity};
+//!
+//! // TREGO with custom parameters
+//! let config = EgorConfig::default()
+//!     .iteration_strategy(Box::new(TregoStrategy::default().beta(0.8)))
+//!     .check()?;
+//!
+//! // CoEGO for high-dimensional problems
+//! let config = EgorConfig::default()
+//!     .activity_strategy(Box::new(CooperativeActivity::new(5)))
+//!     .check()?;
+//! ```
+//!
+//! ### Internal Implementation
+//!
+//! - [`solver_impl`] - Core EGO iteration logic, surrogate training, point addition
+//! - [`solver_computations`] - Infill criterion computation, scaling, multistart strategies
+//! - [`solver_infill_optim`] - Infill criterion optimization (SLSQP, Cobyla backends)
+//! - [`trego`] - TREGO local step execution and phase state machine
+//! - [`coego`] - CoEGO cooperative variable handling utilities
+//!
+//! ## Configuration
+//!
+//! Runtime behavior can be controlled via [`RuntimeFlags`] instead of environment variables:
+//!
+//! ```ignore
+//! EgorBuilder::optimize(f)
+//!     .configure(|config| config
+//!         .max_iters(100)
+//!         .configure_runtime_flags(|flags| flags
+//!             .enable_logging(true)
+//!             .use_gp_var_portfolio(true)))
+//!     .min_within(&xlimits)
+//!     .run()
+//! ```
+//!
+//! ## Usage with argmin
+//!
+//! The solver integrates with argmin's executor for checkpointing and observation:
+//!
+//! ```ignore
+//! use argmin::core::{Executor, observers::ObserverMode};
+//!
+//! let solver = EgorSolver::new(config);
+//! let result = Executor::new(problem, solver)
+//!     .configure(|state| state.max_iters(50))
+//!     .add_observer(MyObserver, ObserverMode::Always)
+//!     .run()?;
+//! ```
+
+pub mod activity_strategy;
 mod coego;
 mod egor_config;
 mod egor_service;
 mod egor_solver;
 mod egor_state;
+pub mod iteration_strategy;
 mod solver_computations;
 mod solver_impl;
 mod solver_infill_optim;
 mod trego;
 
+pub use activity_strategy::{ActivityStrategy, CooperativeActivity, FullActivity};
 pub use egor_config::*;
 pub use egor_service::*;
 pub use egor_solver::*;
 pub use egor_state::*;
+pub use iteration_strategy::{
+    IterationMode, IterationStrategy, StandardEgoStrategy, TregoStrategy,
+};

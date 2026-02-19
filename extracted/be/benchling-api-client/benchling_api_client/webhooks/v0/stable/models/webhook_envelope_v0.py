@@ -45,6 +45,7 @@ from ..models.rna_sequence_updated_webhook_v3 import RnaSequenceUpdatedWebhookV3
 from ..models.run_created_webhook_v3 import RunCreatedWebhookV3
 from ..models.webhook_envelope_v0_app import WebhookEnvelopeV0App
 from ..models.webhook_envelope_v0_app_definition import WebhookEnvelopeV0AppDefinition
+from ..models.webhook_envelope_v0_channel import WebhookEnvelopeV0Channel
 from ..models.webhook_envelope_v0_version import WebhookEnvelopeV0Version
 from ..models.workflow_output_created_webhook_v2 import WorkflowOutputCreatedWebhookV2
 from ..models.workflow_output_updated_fields_webhook_v2 import WorkflowOutputUpdatedFieldsWebhookV2
@@ -70,6 +71,7 @@ class WebhookEnvelopeV0:
     _app: WebhookEnvelopeV0App
     _app_definition: WebhookEnvelopeV0AppDefinition
     _base_url: str
+    _channel: WebhookEnvelopeV0Channel
     _message: Union[
         LifecycleConfigurationUpdateWebhookV2Beta,
         CanvasInteractionWebhookV2,
@@ -132,6 +134,7 @@ class WebhookEnvelopeV0:
         fields.append("app={}".format(repr(self._app)))
         fields.append("app_definition={}".format(repr(self._app_definition)))
         fields.append("base_url={}".format(repr(self._base_url)))
+        fields.append("channel={}".format(repr(self._channel)))
         fields.append("message={}".format(repr(self._message)))
         fields.append("tenant_id={}".format(repr(self._tenant_id)))
         fields.append("version={}".format(repr(self._version)))
@@ -144,6 +147,8 @@ class WebhookEnvelopeV0:
         app_definition = self._app_definition.to_dict()
 
         base_url = self._base_url
+        channel = self._channel.value
+
         if isinstance(self._message, UnknownType):
             message = self._message.value
         elif isinstance(self._message, LifecycleConfigurationUpdateWebhookV2Beta):
@@ -308,6 +313,8 @@ class WebhookEnvelopeV0:
             field_dict["appDefinition"] = app_definition
         if base_url is not UNSET:
             field_dict["baseURL"] = base_url
+        if channel is not UNSET:
+            field_dict["channel"] = channel
         if message is not UNSET:
             field_dict["message"] = message
         if tenant_id is not UNSET:
@@ -355,6 +362,22 @@ class WebhookEnvelopeV0:
             if strict:
                 raise
             base_url = cast(str, UNSET)
+
+        def get_channel() -> WebhookEnvelopeV0Channel:
+            _channel = d.pop("channel")
+            try:
+                channel = WebhookEnvelopeV0Channel(_channel)
+            except ValueError:
+                channel = WebhookEnvelopeV0Channel.of_unknown(_channel)
+
+            return channel
+
+        try:
+            channel = get_channel()
+        except KeyError:
+            if strict:
+                raise
+            channel = cast(WebhookEnvelopeV0Channel, UNSET)
 
         def get_message() -> Union[
             LifecycleConfigurationUpdateWebhookV2Beta,
@@ -664,6 +687,7 @@ class WebhookEnvelopeV0:
             app=app,
             app_definition=app_definition,
             base_url=base_url,
+            channel=channel,
             message=message,
             tenant_id=tenant_id,
             version=version,
@@ -721,6 +745,17 @@ class WebhookEnvelopeV0:
     @base_url.setter
     def base_url(self, value: str) -> None:
         self._base_url = value
+
+    @property
+    def channel(self) -> WebhookEnvelopeV0Channel:
+        """ Channel of the webhook """
+        if isinstance(self._channel, Unset):
+            raise NotPresentError(self, "channel")
+        return self._channel
+
+    @channel.setter
+    def channel(self, value: WebhookEnvelopeV0Channel) -> None:
+        self._channel = value
 
     @property
     def message(

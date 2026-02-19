@@ -1,3 +1,4 @@
+import re
 from typing import Any
 
 from prosemirror.model import Schema
@@ -30,7 +31,7 @@ nodes: dict[str, NodeSpec] = {
         "toDOM": lambda _: hr_dom,
     },
     "heading": {
-        "attrs": {"level": {"default": 1}},
+        "attrs": {"level": {"default": 1, "validate": "number"}},
         "content": "inline*",
         "group": "block",
         "defining": True,
@@ -56,15 +57,20 @@ nodes: dict[str, NodeSpec] = {
     "text": {"group": "inline"},
     "image": {
         "inline": True,
-        "attrs": {"src": {}, "alt": {"default": None}, "title": {"default": None}},
+        "attrs": {
+            "src": {"validate": "string"},
+            "alt": {"default": None, "validate": "string|null"},
+            "title": {"default": None, "validate": "string|null"},
+        },
         "group": "inline",
         "draggable": True,
         "parseDOM": [
             {
-                "tag": "img",
+                "tag": "img[src]",
                 "getAttrs": lambda dom_: {
                     "src": dom_.get("src"),
                     "title": dom_.get("title"),
+                    "alt": dom_.get("alt"),
                 },
             },
         ],
@@ -92,9 +98,20 @@ code_dom = ["code", 0]
 
 marks: dict[str, MarkSpec] = {
     "link": {
-        "attrs": {"href": {}, "title": {"default": None}},
+        "attrs": {
+            "href": {"validate": "string"},
+            "title": {"default": None, "validate": "string|null"},
+        },
         "inclusive": False,
-        "parseDOM": [{"tag": "a", "getAttrs": lambda d: {"href": d.get("href")}}],
+        "parseDOM": [
+            {
+                "tag": "a[href]",
+                "getAttrs": lambda d: {
+                    "href": d.get("href"),
+                    "title": d.get("title"),
+                },
+            },
+        ],
         "toDOM": lambda node, _: [
             "a",
             {"href": node.attrs["href"], "title": node.attrs["title"]},
@@ -102,14 +119,50 @@ marks: dict[str, MarkSpec] = {
         ],
     },
     "em": {
-        "parseDOM": [{"tag": "i"}, {"tag": "em"}, {"style": "font-style=italic"}],
+        "parseDOM": [
+            {"tag": "i"},
+            {"tag": "em"},
+            {"style": "font-style=italic"},
+            {
+                "style": "font-style=normal",
+                "clearMark": lambda m: m.type.name == "em",
+            },
+        ],
         "toDOM": lambda _, __: em_dom,
     },
     "strong": {
-        "parseDOM": [{"tag": "strong"}, {"tag": "b"}, {"style": "font-weight"}],
+        "parseDOM": [
+            {"tag": "strong"},
+            # This works around a Google Docs misbehavior where
+            # pasted content will be inexplicably wrapped in <b>
+            # tags with a font-weight normal.
+            {
+                "tag": "b",
+                "getAttrs": lambda node: (
+                    None
+                    if "font-weight:normal"
+                    not in (node.get("style") or "").replace(" ", "")
+                    else False
+                ),
+            },
+            {
+                "style": "font-weight=400",
+                "clearMark": lambda m: m.type.name == "strong",
+            },
+            {
+                "style": "font-weight",
+                "getAttrs": lambda value: (
+                    None if re.match(r"^(bold(er)?|[5-9]\d{2,})$", value) else False
+                ),
+            },
+        ],
         "toDOM": lambda _, __: strong_dom,
     },
-    "code": {"parseDOM": [{"tag": "code"}], "toDOM": lambda _, __: code_dom},
+    "code": {
+        "code": True,
+        "parseDOM": [{"tag": "code"}],
+        "toDOM": lambda _, __: code_dom,
+    },
 }
 
 

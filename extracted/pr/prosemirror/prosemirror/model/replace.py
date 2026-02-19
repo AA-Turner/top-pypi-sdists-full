@@ -49,7 +49,7 @@ def insert_into(
             return None
         return content.cut(0, dist).append(insert).append(content.cut(dist))
     assert child
-    inner = insert_into(child.content, dist - offset - 1, insert, None)
+    inner = insert_into(child.content, dist - offset - 1, insert, child)
     if inner:
         return content.replace_child(index, child.copy(inner))
     return None
@@ -130,11 +130,15 @@ class Slice:
         open_start = 0
         open_end = 0
         n = fragment.first_child
-        while n and not n.is_leaf and (open_isolating or n.type.spec.get("isolating")):
+        while (
+            n and not n.is_leaf and (open_isolating or not n.type.spec.get("isolating"))
+        ):
             open_start += 1
             n = n.first_child
         n = fragment.last_child
-        while n and not n.is_leaf and (open_isolating or n.type.spec.get("isolating")):
+        while (
+            n and not n.is_leaf and (open_isolating or not n.type.spec.get("isolating"))
+        ):
             open_end += 1
             n = n.last_child
         return cls(fragment, open_start, open_end)
@@ -176,7 +180,8 @@ def replace_outer(
         content = parent.content
         return close(
             parent,
-            content.cut(0, from_.parent_offset)
+            content
+            .cut(0, from_.parent_offset)
             .append(slice.content)
             .append(content.cut(to.parent_offset)),
         )
@@ -232,7 +237,7 @@ def add_range(
 
 def close(node: "Node", content: Fragment) -> "Node":
     if not node.type.valid_content(content):
-        msg = f"Invalid content for node {node.type.name}"
+        msg = f"Invalid content for node {node.type.name}: {str(content)[:50]}"
         raise ReplaceError(msg)
     return node.copy(content)
 

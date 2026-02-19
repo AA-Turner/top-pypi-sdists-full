@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 from openai.types.responses import ResponseFunctionToolCall
+from openai.types.responses.response_reasoning_item import ResponseReasoningItem, Summary
 from typing_extensions import TypedDict
 
 from agents import (
@@ -47,6 +48,17 @@ from .utils.hitl import (
     resume_streamed_after_first_approval,
 )
 from .utils.simple_session import SimpleListSession
+
+
+def _find_reasoning_input_item(
+    items: str | list[TResponseInputItem] | Any,
+) -> dict[str, Any] | None:
+    if not isinstance(items, list):
+        return None
+    for item in items:
+        if isinstance(item, dict) and item.get("type") == "reasoning":
+            return cast(dict[str, Any], item)
+    return None
 
 
 @pytest.mark.asyncio
@@ -149,6 +161,47 @@ async def test_tool_call_runs():
         "should have five inputs: the original input, the message, the tool call, the tool result "
         "and the done message"
     )
+
+
+@pytest.mark.asyncio
+async def test_streamed_reasoning_item_id_policy_omits_follow_up_reasoning_ids() -> None:
+    model = FakeModel()
+    agent = Agent(
+        name="test",
+        model=model,
+        tools=[get_function_tool("foo", "tool_result")],
+    )
+
+    model.add_multiple_turn_outputs(
+        [
+            [
+                ResponseReasoningItem(
+                    id="rs_stream",
+                    type="reasoning",
+                    summary=[Summary(text="Thinking...", type="summary_text")],
+                ),
+                get_function_tool_call("foo", json.dumps({"a": "b"}), call_id="call_stream"),
+            ],
+            [get_text_message("done")],
+        ]
+    )
+
+    result = Runner.run_streamed(
+        agent,
+        input="hello",
+        run_config=RunConfig(reasoning_item_id_policy="omit"),
+    )
+    async for _ in result.stream_events():
+        pass
+
+    assert result.final_output == "done"
+    second_request_reasoning = _find_reasoning_input_item(model.last_turn_args.get("input"))
+    assert second_request_reasoning is not None
+    assert "id" not in second_request_reasoning
+
+    history_reasoning = _find_reasoning_input_item(result.to_input_list())
+    assert history_reasoning is not None
+    assert "id" not in history_reasoning
 
 
 @pytest.mark.asyncio
@@ -331,6 +384,61 @@ async def test_handoff_filters():
     assert len(result.to_input_list()) == 2, (
         "should only have 2 inputs: orig input and last message"
     )
+
+
+@pytest.mark.asyncio
+async def test_streamed_nested_handoff_filters_reasoning_items_from_model_input():
+    model = FakeModel()
+    delegate = Agent(
+        name="delegate",
+        model=model,
+    )
+    triage = Agent(
+        name="triage",
+        model=model,
+        handoffs=[delegate],
+    )
+
+    model.add_multiple_turn_outputs(
+        [
+            [
+                ResponseReasoningItem(
+                    id="reasoning_1",
+                    type="reasoning",
+                    summary=[Summary(text="Thinking about a handoff.", type="summary_text")],
+                ),
+                get_handoff_tool_call(delegate),
+            ],
+            [get_text_message("done")],
+        ]
+    )
+
+    captured_inputs: list[list[dict[str, Any]]] = []
+
+    def capture_model_input(data):
+        if isinstance(data.model_data.input, list):
+            captured_inputs.append(
+                [item for item in data.model_data.input if isinstance(item, dict)]
+            )
+        return data.model_data
+
+    result = Runner.run_streamed(
+        triage,
+        input="user_message",
+        run_config=RunConfig(
+            nest_handoff_history=True,
+            call_model_input_filter=capture_model_input,
+        ),
+    )
+    await consume_stream(result)
+
+    assert result.final_output == "done"
+    assert len(captured_inputs) >= 2
+    handoff_input = captured_inputs[1]
+    handoff_input_types = [
+        item["type"] for item in handoff_input if isinstance(item.get("type"), str)
+    ]
+    assert "reasoning" not in handoff_input_types
 
 
 @pytest.mark.asyncio
@@ -1275,6 +1383,7 @@ async def test_streaming_resume_carries_persisted_count(monkeypatch: pytest.Monk
         items: list[RunItem],
         persisted_count: int,
         response_id: str | None,
+        reasoning_item_id_policy: str | None = None,
         store: bool | None = None,
     ) -> int:
         observed_counts.append(persisted_count)
@@ -1283,6 +1392,7 @@ async def test_streaming_resume_carries_persisted_count(monkeypatch: pytest.Monk
             items=items,
             persisted_count=persisted_count,
             response_id=response_id,
+            reasoning_item_id_policy=reasoning_item_id_policy,
             store=store,
         )
         return int(result)

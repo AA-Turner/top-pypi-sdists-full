@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.utils_repl.repl_state import ReplState
 from adam.sql.async_executor import AsyncExecutor
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ShowOffloadedCompletes(Command):
     COMMAND = 'show offloaded completes'

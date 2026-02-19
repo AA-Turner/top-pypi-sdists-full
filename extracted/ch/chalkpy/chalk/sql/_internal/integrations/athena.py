@@ -167,8 +167,8 @@ class AthenaSourceImpl(BaseSQLSource):
         return AthenaConnection(
             s3_staging_dir=self.s3_staging_dir,
             role_arn=self.role_arn,
-            schema_name=self.schema_name or "default",
-            catalog_name=self.catalog_name or "awsdatacatalog",
+            schema_name=self.active_schema,
+            catalog_name=self.active_catalog,
             work_group=self.work_group,
             region_name=self.aws_region,
             access_key=self.aws_access_key_id,
@@ -183,6 +183,14 @@ class AthenaSourceImpl(BaseSQLSource):
         # Athena was introduced to sqlglot in v22.3.0: it does seem sqlglot version changes have historically
         # broken query pushdown so defer to trino for now
         return "trino"
+
+    @property
+    def active_catalog(self) -> str:
+        return self.catalog_name or "awsdatacatalog"
+
+    @property
+    def active_schema(self) -> str:
+        return self.schema_name or "default"
 
     def _create_s3_client(self):
         import boto3
@@ -367,6 +375,87 @@ class AthenaSourceImpl(BaseSQLSource):
                     f"Failed to drop external Athena table {ext_table_name} after use. Error info: Type: {drop_ext_table_query_result.error_type}, Category: {drop_ext_table_query_result.error_category}, Message: {drop_ext_table_query_result.error_message}"
                 )
 
+    def _execute_unload_and_list_s3_results(
+        self,
+        cursor: BaseCursor,
+        sql: str,
+        execution_params: Any = None,
+        paramstyle: Optional[str] = None,
+    ) -> tuple[str, list[AthenaResultHandle]]:
+        """
+        Execute an UNLOAD query and list the resulting S3 files.
+
+        This is the core UNLOAD execution pattern shared by all Athena query paths.
+
+        Args:
+            cursor: The PyAthena cursor to execute with
+            sql: The SQL query (already wrapped in UNLOAD)
+            execution_params: Optional query parameters
+            paramstyle: Optional parameter style ('named' or positional)
+
+        Returns:
+            A tuple of (query_id, list of result handles)
+        """
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[athena]")
+
+        query_id, query_fut = cursor.execute(
+            operation=sql,
+            parameters=execution_params,
+            paramstyle=paramstyle,
+        )
+
+        query_result = query_fut.result()
+        assert isinstance(query_result, AthenaArrowResultSet), "Expected athena query result to be AthenaArrowResultSet"
+
+        if query_result.error_type and query_result.error_category and query_result.error_message:
+            chalk_logger.error(
+                f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, "
+                + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+            )
+            raise ValueError(
+                f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, "
+                + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+            )
+
+        chalk_logger.info(f"Executed Athena unload query successfully. Query ID: {query_id}")
+
+        # Extract S3 prefix from the UNLOAD query to determine where files were written
+        # The UNLOAD query contains: UNLOAD (...) TO 's3://bucket/prefix/' WITH (...)
+        # We need to extract the S3 prefix to list the files
+        import re
+
+        match = re.search(r"TO\s+'(s3://[^']+)'", sql, re.IGNORECASE)
+        if not match:
+            raise ValueError(f"Could not extract S3 prefix from UNLOAD query: {sql}")
+
+        s3_prefix = match.group(1)
+        bucket_name = s3_prefix.split("/")[2]
+        remaining_prefix = "/".join(s3_prefix.split("/")[3:])
+
+        objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
+
+        if "Contents" not in objects_list_response:
+            chalk_logger.warning(
+                f"No unloaded files found for Athena query with query ID: {query_id}. "
+                + "This may mean there was no data to unload."
+            )
+            return query_id, []
+
+        chalk_logger.info(f"Found {len(objects_list_response['Contents'])} unloaded files")
+
+        result_handles = []
+        for obj in objects_list_response["Contents"]:
+            if "Key" not in obj or "Size" not in obj:
+                raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {obj}")
+            object_key = obj["Key"]
+            chalk_logger.info(f"Found unloaded file: {object_key}")
+            result_handles.append(AthenaResultHandle(uri=f"{bucket_name}/{object_key}", compressed_size=obj["Size"]))
+
+        return query_id, result_handles
+
     def _execute_query_efficient(
         self,
         finalized_query: FinalizedChalkQuery,
@@ -375,11 +464,6 @@ class AthenaSourceImpl(BaseSQLSource):
         query_execution_parameters: QueryExecutionParameters,
     ) -> Iterable[pa.RecordBatch]:
         with safe_trace("athena.execute_query_efficient"):
-            try:
-                from pyathena.arrow.result_set import AthenaArrowResultSet
-            except ModuleNotFoundError:
-                raise missing_dependency_exception("chalkpy[athena]")
-
             if self.s3_staging_dir is None:
                 raise ValueError("Could not query Athena, no s3_staging_dir set")
 
@@ -396,9 +480,7 @@ class AthenaSourceImpl(BaseSQLSource):
             elif len(named_params) > 0:
                 execution_params = named_params
                 paramstyle = "named"
-            result_handles: queue.Queue[
-                AthenaResultHandle
-            ] = queue.Queue()  # Using a queue since we'll be concurrently reading
+
             with self._pyathena_connection().cursor() as cursor:
                 job_id = str(uuid.uuid4())
                 job_prefix = f"chalk-unload/{job_id}"
@@ -408,6 +490,7 @@ class AthenaSourceImpl(BaseSQLSource):
                     sql=formatted_op,
                     s3_staging_dir_for_job=s3_prefix,
                 )
+
                 with contextlib.ExitStack() as exit_stack:
                     for (
                         ext_table_name,
@@ -423,47 +506,23 @@ class AthenaSourceImpl(BaseSQLSource):
                                 cursor=cursor,
                             )
                         )
-                    query_id, query_fut = cursor.execute(
-                        operation=final_sql,
-                        parameters=execution_params,
+
+                    # Use the common UNLOAD execution pattern
+                    _query_id, result_handles_list = self._execute_unload_and_list_s3_results(
+                        cursor=cursor,
+                        sql=final_sql,
+                        execution_params=execution_params,
                         paramstyle=paramstyle,
                     )
 
-                    query_result = query_fut.result()
-                    assert isinstance(
-                        query_result, AthenaArrowResultSet
-                    ), "Expected athena query result to be AthenaArrowResultSet"
-                    if query_result.error_type and query_result.error_category and query_result.error_message:
-                        chalk_logger.error(
-                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
-                        )
-                        raise ValueError(
-                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
-                        )
-
-                    chalk_logger.info(
-                        f"Executed Athena unload query successfully. Query ID: {query_id}",
-                    )
-                    bucket_name = s3_prefix.split("/")[2]
-                    remaining_prefix = "/".join(s3_prefix.split("/")[3:])
-                    objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
-                    if "Contents" not in objects_list_response:
-                        chalk_logger.warning(
-                            f"Failed to enumerate unloaded files for Athena query with query ID: {query_id}. This may mean there was no data to unload."
-                        )
-                        # Without any unloaded files, we cannot determine the schema of the output, so even if
-                        # yield_empty_batches is True, we do not yield anything
+                    if not result_handles_list:
+                        # No results to process
                         return
 
-                    chalk_logger.info(f"Found {len(objects_list_response['Contents'])} unloaded files")
-                    for object in objects_list_response["Contents"]:
-                        if "Key" not in object or "Size" not in object:
-                            raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {object}")
-                        object_key = object["Key"]
-                        chalk_logger.info(f"Found unloaded file: {object_key}")
-                        result_handles.put_nowait(
-                            AthenaResultHandle(uri=f"{bucket_name}/{object_key}", compressed_size=object["Size"])
-                        )
+                    # Convert list to queue for the existing downstream code
+                    result_handles: queue.Queue[AthenaResultHandle] = queue.Queue()
+                    for handle in result_handles_list:
+                        result_handles.put_nowait(handle)
 
                     yield from self._yield_from_result_handles(
                         result_handles=result_handles,
@@ -602,11 +661,6 @@ class AthenaSourceImpl(BaseSQLSource):
         import pyarrow.compute as pc
 
         with safe_trace("athena.execute_query_efficient_raw"):
-            try:
-                from pyathena.arrow.result_set import AthenaArrowResultSet
-            except ModuleNotFoundError:
-                raise missing_dependency_exception("chalkpy[athena]")
-
             if self.s3_staging_dir is None:
                 raise ValueError("Could not query Athena, no s3_staging_dir set")
 
@@ -649,26 +703,15 @@ class AthenaSourceImpl(BaseSQLSource):
                             )
                         )
 
-                    _, query_fut = cursor.execute(
-                        operation=final_sql,
-                        parameters=execution_params,
+                    # Use the shared UNLOAD execution pattern
+                    _query_id, result_handles = self._execute_unload_and_list_s3_results(
+                        cursor=cursor,
+                        sql=final_sql,
+                        execution_params=execution_params,
                         paramstyle=paramstyle,
                     )
 
-                    query_result = query_fut.result()
-                    assert isinstance(
-                        query_result, AthenaArrowResultSet
-                    ), "Expected athena query result to be AthenaArrowResultSet"
-                    if query_result.error_type and query_result.error_category and query_result.error_message:
-                        raise ValueError(
-                            f"Failed to execute Athena unload query. Error info: Type: {query_result.error_type}, Category: {query_result.error_category}, Message: {query_result.error_message}"
-                        )
-
-                    bucket_name = s3_prefix.split("/")[2]
-                    remaining_prefix = "/".join(s3_prefix.split("/")[3:])
-                    objects_list_response = self._s3_client.list_objects_v2(Bucket=bucket_name, Prefix=remaining_prefix)
-
-                    if "Contents" not in objects_list_response:
+                    if not result_handles:
                         # No data unloaded
                         if query_execution_parameters.yield_empty_batches:
                             arrays = [pa.nulls(0, field.type) for field in expected_output_schema]
@@ -677,15 +720,8 @@ class AthenaSourceImpl(BaseSQLSource):
                         return
 
                     # Process unloaded files
-                    for object in objects_list_response["Contents"]:
-                        if "Key" not in object or "Size" not in object:
-                            raise ValueError(f"Expected 'Key' and 'Size' in Athena unload response: {object}")
-                        object_key = object["Key"]
-
+                    for result_handle in result_handles:
                         # Download and process the file
-                        result_handle = AthenaResultHandle(
-                            uri=f"{bucket_name}/{object_key}", compressed_size=object["Size"]
-                        )
                         tbl = result_handle.to_arrow(self._s3_filesystem())
 
                         if len(tbl) == 0:
@@ -706,6 +742,168 @@ class AthenaSourceImpl(BaseSQLSource):
 
                         batch = pa.RecordBatch.from_arrays(arrays, schema=expected_output_schema)
                         yield batch
+
+    def list_db_schemas(self, db_schema_filter_pattern: str | None = None) -> list[str]:
+        """
+        List available schemas in the configured catalog.
+
+        Args:
+            db_schema_filter_pattern: Optional SQL LIKE pattern to filter schemas (case-insensitive).
+                If None, returns all schemas.
+
+        Returns:
+            A list of schema names matching the filter criteria.
+        """
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[athena]")
+
+        with self._pyathena_connection().cursor() as cursor:
+            # Build WHERE clause based on filter pattern
+            where_clause = ""
+            if db_schema_filter_pattern is not None:
+                where_clause = f"WHERE LOWER(schema_name) LIKE LOWER('{db_schema_filter_pattern}')"
+
+            # Query information_schema to get schema names
+            query = f"""
+            SELECT schema_name
+            FROM "{self.active_catalog}".information_schema.schemata
+            {where_clause}
+            ORDER BY schema_name
+            """
+
+            _query_id, query_fut = cursor.execute(query)
+            query_result = query_fut.result()
+
+            assert isinstance(
+                query_result, AthenaArrowResultSet
+            ), "Expected athena query result to be AthenaArrowResultSet"
+
+            if query_result.error_type and query_result.error_category and query_result.error_message:
+                raise ValueError(
+                    f"Failed to list schemas. Error info: Type: {query_result.error_type}, "
+                    + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+                )
+
+            # Convert result to list of schema names
+            schema_names = []
+            as_arrow = query_result.as_arrow()
+            if as_arrow and len(as_arrow) > 0:
+                schema_names_column = as_arrow.column("schema_name")
+                schema_names = [name.as_py() for name in schema_names_column]
+
+            return schema_names
+
+    def list_tables(
+        self, db_schema_filter_pattern: str | None = None, table_name_filter_pattern: str | None = None
+    ) -> list[tuple[str, str]]:
+        """
+        List available tables in the configured catalog and schema.
+
+        Args:
+            db_schema_filter_pattern: Optional SQL LIKE pattern to filter schemas.
+                If None, uses the configured schema_name exactly.
+            table_name_filter_pattern: Optional SQL LIKE pattern to filter table names.
+                If None, returns all tables.
+
+        Returns:
+            A list of tuples (schema_name, table_name) matching the filter criteria.
+        """
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[athena]")
+
+        with self._pyathena_connection().cursor() as cursor:
+            # Build WHERE clause based on filter patterns
+            where_conditions = []
+
+            if db_schema_filter_pattern is not None:
+                where_conditions.append(f"LOWER(table_schema) LIKE LOWER('{db_schema_filter_pattern}')")
+            else:
+                where_conditions.append(f"table_schema = '{self.active_schema}'")
+
+            if table_name_filter_pattern is not None:
+                where_conditions.append(f"LOWER(table_name) LIKE LOWER('{table_name_filter_pattern}')")
+
+            where_clause = " AND ".join(where_conditions)
+
+            # Query information_schema to get table and schema names
+            query = f"""
+            SELECT table_schema, table_name
+            FROM "{self.active_catalog}".information_schema.tables
+            WHERE {where_clause}
+            ORDER BY table_schema, table_name
+            """
+
+            _query_id, query_fut = cursor.execute(query)
+            query_result = query_fut.result()
+
+            assert isinstance(
+                query_result, AthenaArrowResultSet
+            ), "Expected athena query result to be AthenaArrowResultSet"
+
+            if query_result.error_type and query_result.error_category and query_result.error_message:
+                raise ValueError(
+                    f"Failed to list tables. Error info: Type: {query_result.error_type}, "
+                    + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+                )
+
+            # Convert result to list of (schema_name, table_name) tuples
+            tables = []
+            as_arrow = query_result.as_arrow()
+            if as_arrow and len(as_arrow) > 0:
+                schema_column = as_arrow.column("table_schema")
+                table_column = as_arrow.column("table_name")
+                tables = [(schema_column[i].as_py(), table_column[i].as_py()) for i in range(len(as_arrow))]
+
+            return tables
+
+    def get_table_schema(self, table_name: str, catalog: str | None = None, schema: str | None = None) -> pa.Schema:
+        """
+        Get the schema of a table as a PyArrow schema.
+
+        Args:
+            table_name: The name of the table
+            catalog: The catalog name. If None, uses the configured catalog_name.
+            schema: The schema name. If None, uses the configured schema_name.
+
+        Returns:
+            A PyArrow schema representing the table's structure
+        """
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise missing_dependency_exception("chalkpy[athena]")
+
+        catalog = catalog or self.active_catalog
+        schema = schema or self.active_schema
+
+        with self._pyathena_connection().cursor() as cursor:
+            # Query the table with LIMIT 0 to get schema without data
+            # Need to fully qualify the table name with catalog and schema
+            query = f'SELECT * FROM "{catalog}"."{schema}"."{table_name}" LIMIT 0'
+
+            _query_id, query_fut = cursor.execute(query)
+            query_result = query_fut.result()
+
+            assert isinstance(
+                query_result, AthenaArrowResultSet
+            ), "Expected athena query result to be AthenaArrowResultSet"
+
+            if query_result.error_type and query_result.error_category and query_result.error_message:
+                raise ValueError(
+                    f"Failed to get table schema. Error info: Type: {query_result.error_type}, "
+                    + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+                )
+
+            # Extract the PyArrow schema directly from the result
+            as_arrow = query_result.as_arrow()
+            if as_arrow is None:
+                raise ValueError(f"Table '{table_name}' not found in catalog '{catalog}', schema '{schema}'")
+
+            return as_arrow.schema
 
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {

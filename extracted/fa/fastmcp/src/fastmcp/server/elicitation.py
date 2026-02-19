@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Generic, Literal, get_origin
+from typing import Any, Generic, Literal, cast, get_origin
 
 from mcp.server.elicitation import (
     CancelledElicitation,
@@ -47,10 +47,10 @@ class ElicitationJsonSchema(GenerateJsonSchema):
         if schema["type"] == "enum":
             # Directly call our custom enum_schema without going through handler
             # This prevents the ref/defs mechanism from being invoked
-            return self.enum_schema(schema)  # type: ignore[arg-type]
+            return self.enum_schema(schema)
         # For list schemas, check if items are enums
         if schema["type"] == "list":
-            return self.list_schema(schema)  # type: ignore[arg-type]
+            return self.list_schema(schema)
         # For all other types, use the default implementation
         return super().generate_inner(schema)
 
@@ -94,7 +94,7 @@ class ElicitationJsonSchema(GenerateJsonSchema):
     def enum_schema(self, schema: core_schema.EnumSchema) -> JsonSchemaValue:
         """Generate inline enum schema.
 
-        Always generates enum pattern: {"enum": [value, ...]}
+        Always generates enum pattern: `{"enum": [value, ...]}`
         Titled enums are handled separately via dict-based syntax in ctx.elicit().
         """
         # Get the base schema from parent - always use simple enum pattern
@@ -134,12 +134,12 @@ def parse_elicit_response_type(response_type: Any) -> ElicitConfig:
 
     Supports multiple syntaxes:
     - None: Empty object schema, expect empty response
-    - dict: {"low": {"title": "..."}} -> single-select titled enum
+    - dict: `{"low": {"title": "..."}}` -> single-select titled enum
     - list patterns:
-        - [["a", "b"]] -> multi-select untitled
-        - [{"low": {...}}] -> multi-select titled
-        - ["a", "b"] -> single-select untitled
-    - list[X] type annotation: multi-select with type
+        - `[["a", "b"]]` -> multi-select untitled
+        - `[{"low": {...}}]` -> multi-select titled
+        - `["a", "b"]` -> single-select untitled
+    - `list[X]` type annotation: multi-select with type
     - Scalar types (bool, int, float, str, Literal, Enum): single value
     - Other types (dataclass, BaseModel): use directly
     """
@@ -229,11 +229,13 @@ def _parse_list_syntax(lst: list[Any]) -> ElicitConfig:
 
     # ["a", "b", "c"] -> single-select untitled
     if lst and all(isinstance(item, str) for item in lst):
-        choice_literal = Literal[tuple(lst)]  # type: ignore[valid-type]
+        # Construct Literal type from tuple - use cast since we can't construct Literal dynamically
+        # but we know the values are all strings
+        choice_literal: type[Any] = cast(type[Any], Literal[tuple(lst)])  # type: ignore[valid-type]
         wrapped = ScalarElicitationType[choice_literal]  # type: ignore[valid-type]
         return ElicitConfig(
-            schema=get_elicitation_schema(wrapped),  # type: ignore[arg-type]
-            response_type=wrapped,  # type: ignore[assignment]
+            schema=get_elicitation_schema(wrapped),
+            response_type=wrapped,
             is_raw=False,
         )
 
@@ -242,20 +244,20 @@ def _parse_list_syntax(lst: list[Any]) -> ElicitConfig:
 
 def _parse_generic_list(response_type: Any) -> ElicitConfig:
     """Parse list[X] type annotation -> multi-select."""
-    wrapped = ScalarElicitationType[response_type]  # type: ignore[valid-type]
+    wrapped = ScalarElicitationType[response_type]
     return ElicitConfig(
-        schema=get_elicitation_schema(wrapped),  # type: ignore[arg-type]
-        response_type=wrapped,  # type: ignore[assignment]
+        schema=get_elicitation_schema(wrapped),
+        response_type=wrapped,
         is_raw=False,
     )
 
 
 def _parse_scalar_type(response_type: Any) -> ElicitConfig:
     """Parse scalar types (bool, int, float, str, Literal, Enum)."""
-    wrapped = ScalarElicitationType[response_type]  # type: ignore[valid-type]
+    wrapped = ScalarElicitationType[response_type]
     return ElicitConfig(
-        schema=get_elicitation_schema(wrapped),  # type: ignore[arg-type]
-        response_type=wrapped,  # type: ignore[assignment]
+        schema=get_elicitation_schema(wrapped),
+        response_type=wrapped,
         is_raw=False,
     )
 

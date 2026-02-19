@@ -4,12 +4,12 @@ See COPYRIGHT.md for copyright information.
 from __future__ import annotations
 import regex as re
 import math
-from typing import Any, cast
+from typing import Any, TYPE_CHECKING, cast
 from arelle import (XmlUtil, XbrlUtil, XbrlConst,
                     ValidateXbrlCalcs, ValidateXbrlDimensions, ValidateXbrlDTS, ValidateUtr, ValidateDuplicateFacts)
 from arelle.PythonUtil import strTruncate
 from arelle.formula import ValidateFormula
-from arelle.ModelDocument import ModelDocument, Type as ModelDocumentType
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle import FunctionIxt
 from arelle.ModelObject import ModelObject
 from arelle.ModelDtsObject import ModelConcept
@@ -35,6 +35,9 @@ from arelle.ModelValue import QName
 from lxml.etree import _Element
 from arelle.ModelInstanceObject import ModelUnit
 from collections.abc import Iterable
+
+if TYPE_CHECKING:
+    from arelle.ModelDocument import ModelDocument
 
 _: TypeGetText  # Handle gettext
 
@@ -409,6 +412,8 @@ class ValidateXbrl:
         for importedModelDocument in (set(modelXbrl.urlDocs.values()) - checkedModelDocuments):
             ValidateXbrlDTS.checkDTS(self, importedModelDocument, checkedModelDocuments)
         del checkedModelDocuments, self.DTSreferenceResourceIDs
+
+        ValidateXbrlDTS.checkNamespaceSchemaConnectivity(self)
 
         for modelType in modelXbrl.qnameTypes.values():
             validateUniqueParticleAttribution(modelXbrl, modelType.particlesList, modelType)

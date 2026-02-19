@@ -3,6 +3,7 @@ import logging
 import re
 import threading
 from collections import defaultdict
+from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
 from typing import FrozenSet, List, Optional, Set, Tuple, Union
@@ -72,6 +73,24 @@ def format_sql(sql: str) -> str:
 
 def explain_plan(sql: str) -> str:
     return chquery.explain_ast(sql)
+
+
+@dataclass(frozen=True)
+class ColumnInfo:
+    name: str
+    type: str
+    nullable: bool
+    default_specifier: str = ""
+    default_expression: str | None = None
+    codec: str | None = None
+    comment: str | None = None
+    ttl: str | None = None
+    is_primary_key: bool = False
+
+
+def get_columns_from_create_query(sql_schema: str) -> list[ColumnInfo]:
+    columns = chquery.get_columns_from_create_query(sql_schema)
+    return [ColumnInfo(**col) for col in columns]
 
 
 def has_join(sql: str) -> bool:

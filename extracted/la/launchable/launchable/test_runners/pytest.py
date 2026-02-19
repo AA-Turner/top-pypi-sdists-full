@@ -3,7 +3,8 @@ import json
 import os
 import pathlib
 import subprocess
-from typing import Generator, List
+from datetime import datetime, timezone
+from typing import Generator, List, Optional
 
 import click
 from junitparser import Properties, TestCase  # type: ignore
@@ -12,7 +13,6 @@ from launchable.commands.record.case_event import CaseEvent, CaseEventType, Meta
 from launchable.testpath import TestPath
 
 from . import launchable
-
 
 # Please specify junit_family=legacy for pytest report format. if using pytest version 6 or higher.
 # - pytest has changed its default test report format from xunit1 to xunit2 since version 6.
@@ -36,6 +36,15 @@ from . import launchable
 # <testcase classname="tests.test_mod.TestClass" name="test__can_print_aaa" file="tests/test_mod.py"
 # line="3" time="0.001" />
 #
+
+
+def _timestamp_to_iso(ts: Optional[float]) -> Optional[str]:
+    # convert to ISO-8601 formatted date
+    if ts is None:
+        return None
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat()
+
+
 @click.argument('source_roots', required=False, nargs=-1)
 @launchable.subset
 def subset(client, source_roots: List[str]):
@@ -326,15 +335,39 @@ class PytestJSONReportParser:
                     else:
                         props = None
 
+                # extract raw timestamps
+                start_timestamp = data.get("start")
+                stop_timestamp = data.get("stop")
+
+                # convert to ISO-8601
+                start_timestamp_iso_format = _timestamp_to_iso(start_timestamp)
+                end_timestamp_iso_format = _timestamp_to_iso(stop_timestamp)
+
+                print(
+                    f"DEBUG pytest timing start={start_timestamp_iso_format}, stop={end_timestamp_iso_format}"
+                )
+
+                event_data = {}
+                if start_timestamp_iso_format:
+                    event_data["start_timestamp"] = start_timestamp_iso_format
+                if end_timestamp_iso_format:
+                    event_data["stop_timestamp"] = end_timestamp_iso_format
+
                 test_path = _parse_pytest_nodeid(nodeid)
                 for path in test_path:
                     if path.get("type") == "file":
                         path["name"] = pathlib.Path(path["name"]).as_posix()
 
+                data_payload = event_data if event_data else None
+
+                # end_timestamp_iso_format is being passed as timestamp as it reflects event finalization
+                # start + duration = stop
+                # sending both start and stop time in the event data field
                 yield CaseEvent.create(
                     test_path=test_path,
                     duration_secs=data.get("duration", 0),
                     status=status,
                     stdout=stdout,
                     stderr=stderr,
-                    data=props)
+                    timestamp=end_timestamp_iso_format,
+                    data=data_payload)

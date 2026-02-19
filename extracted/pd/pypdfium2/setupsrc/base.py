@@ -167,6 +167,50 @@ PdfiumBinariesMap.update({
 })
 
 
+def _manylinux_tag(arch, glibc="2_17"):
+    return f"manylinux_{glibc}_{arch}.manylinux2014_{arch}"
+
+PlatToWheeltag = {
+    # AOTW, pdfium-binaries/steps/05-configure.sh defines mac_deployment_target = "11.0.0"
+    PlatNames.darwin_x64:       "macosx_11_0_x86_64",
+    # macOS 11 is the first version available on arm64
+    PlatNames.darwin_arm64:     "macosx_11_0_arm64",
+    # universal binary format (combo of x64 and arm64) - we prefer arch-specific wheels, but allow callers to build a universal wheel if they want to
+    PlatNames.darwin_univ2:     "macosx_11_0_universal2",
+    
+    PlatNames.windows_x64:      "win_amd64",
+    PlatNames.windows_arm64:    "win_arm64",
+    PlatNames.windows_x86:      "win32",
+    
+    PlatNames.linux_x64:        _manylinux_tag("x86_64"),
+    PlatNames.linux_x86:        _manylinux_tag("i686"),
+    PlatNames.linux_arm64:      _manylinux_tag("aarch64"),
+    PlatNames.linux_arm32:      _manylinux_tag("armv7l"),
+    PlatNames.linux_ppc64le:    _manylinux_tag("ppc64le"),
+    
+    # pdfium-binaries statically link musl, so we can declare the lowest possible requirement.
+    # The builds have been confirmed to work in a musllinux_1_1 container, as of Nov 2025.
+    PlatNames.linux_musl_x64:   "musllinux_1_1_x86_64",
+    PlatNames.linux_musl_x86:   "musllinux_1_1_i686",
+    PlatNames.linux_musl_arm64: "musllinux_1_1_aarch64",
+    
+    # Android - see PEP 738 # Packaging
+    # AOTW, pdfium-binaries/steps/05-configure.sh defines default_min_sdk_version = 23
+    PlatNames.android_arm64:    "android_23_arm64_v8a",
+    PlatNames.android_arm32:    "android_23_armeabi_v7a",
+    PlatNames.android_x64:      "android_23_x86_64",
+    PlatNames.android_x86:      "android_23_x86",
+    
+    # iOS - see PEP 730 # Packaging
+    # We do not currently build wheels for iOS, but again, add the handlers so it could be done on demand. Untested. Note that the PEP says:
+    # "These wheels can include binary modules in-situ (i.e., co-located with the Python source, in the same way as wheels for a desktop platform); however, they will need to be post-processed as binary modules need to be moved into the “Frameworks” location for distribution. This can be automated with an Xcode build step."
+    # I take it this means you'd need to change the library search path to that Frameworks location in bindings.
+    PlatNames.ios_arm64_dev:    "ios_12_0_arm64_iphoneos",
+    PlatNames.ios_arm64_simu:   "ios_12_0_arm64_iphonesimulator",
+    PlatNames.ios_x64_simu:     "ios_12_0_x86_64_iphonesimulator",
+}
+
+
 def log(*args, **kwargs):
     print(*args, **kwargs, file=sys.stderr)
 
@@ -585,83 +629,6 @@ class _host_platform:
 Host = _host_platform()
 
 
-def _manylinux_tag(arch, glibc="2_17"):
-    # see BUG(203) for discussion of glibc requirement
-    return f"manylinux_{glibc}_{arch}.manylinux2014_{arch}"
-
-def get_wheel_tag(pl_name):
-    
-    if pl_name == PlatNames.darwin_x64:
-        # AOTW, pdfium-binaries/steps/05-configure.sh defines mac_deployment_target = "11.0.0"
-        return "macosx_11_0_x86_64"
-    elif pl_name == PlatNames.darwin_arm64:
-        # macOS 11 is the first version available on arm64
-        return "macosx_11_0_arm64"
-    elif pl_name == PlatNames.darwin_univ2:
-        # universal binary format (combo of x64 and arm64) - we prefer arch-specific wheels, but allow callers to build a universal wheel if they want to
-        return "macosx_11_0_universal2"
-    
-    elif pl_name == PlatNames.windows_x64:
-        return "win_amd64"
-    elif pl_name == PlatNames.windows_arm64:
-        return "win_arm64"
-    elif pl_name == PlatNames.windows_x86:
-        return "win32"
-    
-    elif pl_name == PlatNames.linux_x64:
-        return _manylinux_tag("x86_64")
-    elif pl_name == PlatNames.linux_x86:
-        return _manylinux_tag("i686")
-    elif pl_name == PlatNames.linux_arm64:
-        return _manylinux_tag("aarch64")
-    elif pl_name == PlatNames.linux_arm32:
-        return _manylinux_tag("armv7l")
-    elif pl_name == PlatNames.linux_ppc64le:
-        return _manylinux_tag("ppc64le")
-    
-    # pdfium-binaries statically link musl, so we can declare the lowest possible requirement.
-    # The builds have been confirmed to work in a musllinux_1_1 container, as of Nov 2025.
-    elif pl_name == PlatNames.linux_musl_x64:
-        return "musllinux_1_1_x86_64"
-    elif pl_name == PlatNames.linux_musl_x86:
-        return "musllinux_1_1_i686"
-    elif pl_name == PlatNames.linux_musl_arm64:
-        return "musllinux_1_1_aarch64"
-    
-    # Android - see PEP 738 # Packaging
-    # AOTW, pdfium-binaries/steps/05-configure.sh defines default_min_sdk_version = 23
-    elif pl_name == PlatNames.android_arm64:
-        return "android_23_arm64_v8a"
-    elif pl_name == PlatNames.android_arm32:
-        return "android_23_armeabi_v7a"
-    elif pl_name == PlatNames.android_x64:
-        return "android_23_x86_64"
-    elif pl_name == PlatNames.android_x86:
-        return "android_23_x86"
-    
-    # iOS - see PEP 730 # Packaging
-    # We do not currently build wheels for iOS, but again, add the handlers so it could be done on demand. Bear in mind that the resulting iOS packages are currently completely untested. In particular, the PEP says
-    # "These wheels can include binary modules in-situ (i.e., co-located with the Python source, in the same way as wheels for a desktop platform); however, they will need to be post-processed as binary modules need to be moved into the “Frameworks” location for distribution. This can be automated with an Xcode build step."
-    # I take it this means you may need to change the library search path to that Frameworks location.
-    elif pl_name == PlatNames.ios_arm64_dev:
-        return "ios_12_0_arm64_iphoneos"
-    elif pl_name == PlatNames.ios_arm64_simu:
-        return "ios_12_0_arm64_iphonesimulator"
-    elif pl_name == PlatNames.ios_x64_simu:
-        return "ios_12_0_x86_64_iphonesimulator"
-    
-    # The sourcebuild clause is currently inactive; setup.py will simply forward the tag determined by bdist_wheel. Anyway, this should be roughly equivalent.
-    elif pl_name == ExtPlats.sourcebuild:
-        tag = sysconfig.get_platform().replace("-", "_").replace(".", "_")
-        # sysconfig.get_platform() may return universal2 on macOS. However, the binaries built here should be considered architecture-specific.
-        if tag.startswith("macosx") and tag.endswith("universal2"):
-            tag = tag[:-len("universal2")] + Host._raw_machine
-        return tag
-    
-    else:
-        raise ValueError(f"Unhandled platform name {pl_name}")
-
-
 def run_cmd(command, cwd, capture=False, check=True, str_cast=True, stderr=None, **kwargs):
     
     if str_cast:
@@ -705,7 +672,8 @@ def run_ctypesgen(
         target_path, headers_dir, flags=(),
         rt_paths=(f"./{CTG_LIBPATTERN}", ), ct_paths=(), univ_paths=(),
         search_sys_despite_libpaths=False,
-        guard_symbols=False, no_srcinfo=False, version=None
+        guard_symbols=False, no_srcinfo=False,
+        windows_cross=False, version=None,
     ):
     
     if USE_REFBINDINGS:
@@ -747,10 +715,12 @@ def run_ctypesgen(
         args += ["--cpp", c_preproc]
     if flags:
         args += ["-D"] + [PdfiumFlagsDict[f] for f in flags]
-    if Host.system == SysNames.windows:
-        # If we are on a Windows host, add the relevant define to expose Windows-only members.
-        # Note, this is not currently active for our wheels, since we're packaging everything on Linux. It might be possible to divide packaging in native OS hosts in the future, or specify external headers for symbol spoofing.
-        args += ["-D", "_WIN32"]
+    
+    # include windows-only members (e.g. refbindings, cross-packaging)
+    # see the comments in utils/spoof/windows.h for more info on this approach
+    # this is not needed on a native host, the pre-processor will define _WIN32 and have the real windows.h on its standard search path
+    if windows_cross and not sys.platform.startswith("win32"):
+        args += ["-D", "_WIN32", "-I", ProjectDir/"utils"/"spoof"]
     
     # symbols - try to exclude some garbage aliases that get pulled in from struct tags
     # (this captures anything that ends with _, _t, or begins with _, and is not needed by other symbols)

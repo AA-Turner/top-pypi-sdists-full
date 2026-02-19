@@ -25,10 +25,6 @@ from . import __version__
 
 T = TypeVar('T')
 
-NO_SORT = 0
-SORT = 1
-REVERSE_SORT = -1
-
 def ts():
     return datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 

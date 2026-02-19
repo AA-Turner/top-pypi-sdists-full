@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Any, Literal
 from uuid import UUID
 
 from google.protobuf.empty_pb2 import Empty  # type: ignore[import]
-from langgraph_grpc_common.conversion.config import config_from_proto
+from langgraph_grpc_common.conversion.config import config_from_proto, config_to_proto
 from langgraph_grpc_common.proto import core_api_pb2 as pb
 from langgraph_grpc_common.proto import (
     enum_cron_on_run_completed_pb2 as cron_orc_pb2,
@@ -79,10 +79,14 @@ def _payload_dict_to_proto(payload: dict) -> pb.CronPayload:
         proto_payload.metadata_json = json.dumps(payload["metadata"]).encode()
     if "webhook" in payload and payload["webhook"] is not None:
         proto_payload.webhook = payload["webhook"]
+    if "config" in payload and payload["config"] is not None:
+        proto_config = config_to_proto(payload["config"])
+        if proto_config is not None:
+            proto_payload.config.CopyFrom(proto_config)
 
     # Complex/proto-typed fields and unknowns go into extra_json.
     # The Go side merges extra_json back into the Fragment at the top level.
-    simple_keys = {"assistant_id", "input", "context", "metadata", "webhook"}
+    simple_keys = {"assistant_id", "input", "context", "metadata", "webhook", "config"}
     for key, val in payload.items():
         if key not in simple_keys and val is not None:
             proto_payload.extra_json[key] = json.dumps(val).encode()
@@ -200,6 +204,11 @@ class Crons(Authenticated):
 
         end_time_dt = _ensure_datetime(end_time)
         metadata = metadata if metadata is not None else {}
+
+        # Ensure config.configurable exists in payload before auth handlers
+        # run, matching the postgres runtime path.
+        config = payload.setdefault("config", {})
+        config.setdefault("configurable", {})
 
         # Extract user_id from auth context
         auth_ctx = get_auth_ctx()

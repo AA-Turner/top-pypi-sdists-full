@@ -10,7 +10,7 @@ from adam.directories import Directories, local_downloads_dir
 from adam.utils_log import log2, log
 from adam.utils_cassandra.cassandra_nodes import CassandraNodes
 from adam.utils_concurrent import parallelize
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.statefulsets import StatefulSets

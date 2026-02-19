@@ -7,9 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-dynamic = [
-    "version",
-]
+version = "7.9.3"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "hey@posthog.com" },
@@ -17,7 +15,7 @@ authors = [
 maintainers = [
     { name = "PostHog", email = "hey@posthog.com" },
 ]
-readme = "README.md"
+readme = "README_ANALYTICS.md"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -105,9 +103,6 @@ packages = [
     "posthoganalytics.test.ai.openai_agents",
     "posthoganalytics.integrations",
 ]
-
-[tool.setuptools.dynamic.version]
-attr = "posthoganalytics.version.VERSION"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

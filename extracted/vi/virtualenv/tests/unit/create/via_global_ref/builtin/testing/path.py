@@ -76,7 +76,9 @@ class PathMockABC(FakeDataABC, Path):
 
 
 def MetaPathMock(filelist):  # noqa: N802
-    """Metaclass that creates a `PathMock` class with the `filelist` defined."""
+    """
+    Metaclass that creates a `PathMock` class with the `filelist` defined.
+    """
     return type("PathMock", (PathMockABC,), {"filelist": filelist})
 
 

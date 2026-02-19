@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from build import DistributionType
     from devpi_process import Index, IndexServer
 
+    from tox.execute.request import ExecuteRequest
     from tox.pytest import MonkeyPatch, TempPathFactory, ToxProjectCreator
 
 from importlib.metadata import Distribution
@@ -149,6 +150,34 @@ def test_provision_requires_nok(tox_project: ToxProjectCreator) -> None:
     )
 
 
+def test_provision_requires_skips_false_markers(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.toml": """
+            requires = ['pkg-does-not-exist; python_version < "2.0"']
+
+            [env_run_base]
+            package = "skip"
+        """,
+    })
+    outcome = project.run("c", "-e", "py")
+    outcome.assert_success()
+    assert "provisioned" not in outcome.out
+
+
+def test_provision_requires_checks_true_markers(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.toml": """
+            requires = ['pkg-does-not-exist; python_version >= "3.0"']
+
+            [env_run_base]
+            package = "skip"
+        """,
+    })
+    outcome = project.run("c", "-e", "py")
+    outcome.assert_failed()
+    assert "pkg-does-not-exist" in outcome.out
+
+
 @pytest.mark.integration
 @pytest.mark.usefixtures("_pypi_index_self")
 @pytest.mark.timeout(120)
@@ -260,6 +289,23 @@ def test_provision_conf_file(tox_project: ToxProjectCreator, tmp_path: Path, rel
     result.assert_success()
 
 
+def test_provision_acquires_file_lock(tox_project: ToxProjectCreator) -> None:
+    lock_held_during_provision: dict[str, bool] = {}
+
+    def _check_lock(request: ExecuteRequest) -> int | None:
+        if request.run_id == "provision":
+            env_dir = request.env.get("TOX_ENV_DIR", "")
+            lock_path = Path(env_dir) / "file.lock"
+            lock_held_during_provision["held"] = lock_path.exists()
+            return 0
+        return 0 if "install" in request.run_id else None
+
+    project = tox_project({"tox.ini": "[tox]\nrequires = tox<4.14\n[testenv]\npackage = skip"})
+    project.patch_execute(_check_lock)
+    project.run("r")
+    assert lock_held_during_provision.get("held") is True
+
+
 @pytest.mark.parametrize("subcommand", ["r", "p", "de", "l", "d", "c", "q", "e", "le"])
 def test_provision_default_arguments_exists(tox_project: ToxProjectCreator, subcommand: str) -> None:
     ini = r"""
@@ -306,3 +352,23 @@ def test_provision_install_pkg_pep517(
     project = tox_project({"tox.ini": tox_ini}, base=example)
     result = project.run("r", "-e", "py", "--installpkg", str(sdist), "--notest", "--no-list-dependencies")
     result.assert_success()
+
+
+def test_provision_colored_passed_to_subprocess(tox_project: ToxProjectCreator) -> None:
+
+    captured_cmd = None
+
+    def handle_provision(request: ExecuteRequest) -> int | None:
+        nonlocal captured_cmd
+        if "provision" in str(request.run_id):
+            captured_cmd = request.cmd
+        return 0
+
+    ini = "[tox]\nrequires = tox>=999\n\n[testenv]\npackage = skip\ncommands = python -c 'pass'"
+    project = tox_project({"tox.ini": ini})
+    project.patch_execute(handle_provision)
+    outcome = project.run("c", "--colored", "yes")
+    outcome.assert_success()
+    assert captured_cmd is not None, "provision command not captured"
+    assert "--colored" in captured_cmd, f"--colored not in command: {captured_cmd}"
+    assert "yes" in captured_cmd, f"'yes' not in command: {captured_cmd}"

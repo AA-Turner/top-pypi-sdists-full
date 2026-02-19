@@ -2,7 +2,7 @@ import pandas
 
 from adam.commands.export.export_databases import export_db
 from adam.commands.export.importer import Importer
-from adam.rdbms.utils_sqlite import SQLite, sqlite
+from adam.utils_rdbms.sqlite import SQLite, sqlite
 from adam.utils_repl.repl_state import ReplState
 from adam.utils import GeneratorStream, bytes_generator_from_file
 from adam.utils_log import ing

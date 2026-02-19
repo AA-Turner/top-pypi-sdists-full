@@ -1,5 +1,6 @@
-//! This library implements Efficient Global Optimization method,
-//! it started as a port of the [EGO algorithm](https://smt.readthedocs.io/en/stable/_src_docs/applications/ego.html)
+//! This library implements Efficient Global Optimization method with
+//! various variants and options.
+//! It started as a port of the [EGO algorithm](https://smt.readthedocs.io/en/stable/_src_docs/applications/ego.html)
 //! implemented as an application example in [SMT](https://smt.readthedocs.io/en/stable).
 //!
 //! The optimizer is able to deal with inequality constraints.
@@ -14,6 +15,7 @@
 //! * save intermediate results and allow warm/hot restart,
 //! * handling of mixed-integer variables
 //! * activation of TREGO algorithm variation
+//! * activation of CoEGO algorithm variation
 //!
 //! # Examples
 //!
@@ -191,9 +193,17 @@
 //! or with a custom configuration, here gl4-1 and beta=0.8
 //!
 //! ```no_run
-//! # use egobox_ego::{EgorConfig, RegressionSpec, CorrelationSpec};
+//! # use egobox_ego::{EgorConfig, TregoStrategy};
 //! # let egor_config = EgorConfig::default();
-//!    egor_config.configure_trego(|trego_cfg| trego_cfg.n_gl_steps((4, 1)).beta(0.8));
+//!    egor_config.configure_trego(|trego| trego.n_gl_steps((4, 1)).beta(0.8));
+//! ```
+//!
+//! or using the strategy directly
+//!
+//! ```no_run
+//! # use egobox_ego::{EgorConfig, TregoStrategy};
+//! # let egor_config = EgorConfig::default();
+//!    egor_config.iteration_strategy(Box::new(TregoStrategy::default().n_gl_steps((4, 1)).beta(0.8)));
 //! ```
 //!
 //! * Intermediate results can be logged at each iteration when `outdir` directory is specified.
@@ -314,7 +324,6 @@
 #![warn(rustdoc::broken_intra_doc_links)]
 
 pub mod criteria;
-pub mod gpmix;
 
 mod egor;
 mod errors;
@@ -323,7 +332,6 @@ mod types;
 
 pub use crate::egor::*;
 pub use crate::errors::*;
-pub use crate::gpmix::spec::{CorrelationSpec, RegressionSpec};
 pub use crate::solver::*;
 pub use crate::types::*;
 pub use crate::utils::{
@@ -331,6 +339,7 @@ pub use crate::utils::{
     EGOR_INITIAL_GP_FILENAME, EGOR_USE_GP_RECORDER, EGOR_USE_GP_VAR_PORTFOLIO,
     EGOR_USE_MAX_PROBA_OF_FEASIBILITY, HotStartCheckpoint, HotStartMode, find_best_result_index,
 };
+pub use egobox_moe::{CorrelationSpec, RegressionSpec};
 
 mod optimizers;
 mod utils;

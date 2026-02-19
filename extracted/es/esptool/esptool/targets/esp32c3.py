@@ -69,11 +69,18 @@ class ESP32C3ROM(ESP32ROM):
 
     PURPOSE_VAL_XTS_AES128_KEY = 4
 
-    SUPPORTS_ENCRYPTED_FLASH = True
-
     FLASH_ENCRYPTED_WRITE_ALIGN = 16
 
-    UARTDEV_BUF_NO = 0x3FCDF07C  # Variable in ROM .bss which indicates the port in use
+    # Variable in ROM .bss which indicates the port in use
+    @property
+    def UARTDEV_BUF_NO(self):
+        """Variable .bss.UartDev.buff_uart_no in ROM .bss
+        which indicates the port in use.
+        """
+        BUF_UART_NO_OFFSET = 24
+        BSS_UART_DEV_ADDR = 0x3FCDF064 if self.get_chip_revision() < 101 else 0x3FCDF060
+        return BSS_UART_DEV_ADDR + BUF_UART_NO_OFFSET
+
     UARTDEV_BUF_NO_USB_JTAG_SERIAL = 3  # The above var when USB-JTAG/Serial is used
 
     RTCCNTL_BASE_REG = 0x60008000
@@ -192,6 +199,10 @@ class ESP32C3ROM(ESP32ROM):
             self.read_reg(self.EFUSE_SECURE_BOOT_EN_REG)
             & self.EFUSE_SECURE_BOOT_EN_MASK
         )
+
+    def get_secure_boot_v1_enabled(self):
+        # Secure Boot V1 is only supported on ESP32, not on ESP32-C3
+        return False
 
     def get_key_block_purpose(self, key_block):
         if key_block < 0 or key_block > self.EFUSE_MAX_KEY:

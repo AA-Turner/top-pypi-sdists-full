@@ -378,15 +378,15 @@ class ToolTask(Task["CallToolResult"]):
                 ):
                     mcp_result = mcp.types.CallToolResult(
                         content=raw_result.content,
-                        structuredContent=raw_result.structured_content,  # type: ignore[arg-type]
-                        _meta=raw_result.meta,
+                        structuredContent=raw_result.structured_content,
+                        _meta=raw_result.meta,  # type: ignore[call-arg]  # _meta is Pydantic alias for meta field
                     )
                     result = await self._client._parse_call_tool_result(
                         self._tool_name, mcp_result, raise_on_error=True
                     )
                 else:
                     # Unknown type - just return it
-                    result = raw_result  # type: ignore[assignment]
+                    result = raw_result
 
         # Cache before returning
         self._cached_result = result

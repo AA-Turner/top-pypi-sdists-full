@@ -3,7 +3,7 @@ from typing import List, cast
 from kubernetes import client
 
 from adam.commands.command import Command
-from adam.commands.utils_table_render import show_pods
+from adam.presentation.utils_table_render import show_pods
 from adam.commands.reaper.utils_reaper import Reapers
 from adam.utils_repl.repl_state import ReplState, RequiredState
 

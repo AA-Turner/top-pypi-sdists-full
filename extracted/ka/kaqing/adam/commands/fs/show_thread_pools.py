@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from adam.commands.command import Command
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_concurrent import ThreadPool
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ShowThreadPools(Command):
     COMMAND = 'show thread pools'

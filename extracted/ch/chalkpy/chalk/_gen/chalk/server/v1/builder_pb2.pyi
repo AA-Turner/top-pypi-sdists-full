@@ -42,6 +42,12 @@ class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_STATUS_EXPIRED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: _ClassVar[DeploymentBuildStatus]
 
+class PerfettoTrigger(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    PERFETTO_TRIGGER_UNSPECIFIED: _ClassVar[PerfettoTrigger]
+    PERFETTO_TRIGGER_TIME_INTERVAL: _ClassVar[PerfettoTrigger]
+    PERFETTO_TRIGGER_HTTP: _ClassVar[PerfettoTrigger]
+
 class BranchScalingState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     BRANCH_SCALING_STATE_UNSPECIFIED: _ClassVar[BranchScalingState]
@@ -72,6 +78,9 @@ DEPLOYMENT_BUILD_STATUS_TIMEOUT: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_CANCELLED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_EXPIRED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
+PERFETTO_TRIGGER_UNSPECIFIED: PerfettoTrigger
+PERFETTO_TRIGGER_TIME_INTERVAL: PerfettoTrigger
+PERFETTO_TRIGGER_HTTP: PerfettoTrigger
 BRANCH_SCALING_STATE_UNSPECIFIED: BranchScalingState
 BRANCH_SCALING_STATE_SUCCESS: BranchScalingState
 BRANCH_SCALING_STATE_IN_PROGRESS: BranchScalingState
@@ -935,6 +944,7 @@ class EnvoyGatewaySpecs(_message.Message):
         "cluster_gateway_id",
         "suspended",
         "routing",
+        "container_ssh_port_count",
     )
     class ServiceAnnotationsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -957,6 +967,7 @@ class EnvoyGatewaySpecs(_message.Message):
     CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     ROUTING_FIELD_NUMBER: _ClassVar[int]
+    CONTAINER_SSH_PORT_COUNT_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     gateway_name: str
     gateway_class_name: str
@@ -970,6 +981,7 @@ class EnvoyGatewaySpecs(_message.Message):
     cluster_gateway_id: str
     suspended: bool
     routing: str
+    container_ssh_port_count: int
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -985,6 +997,7 @@ class EnvoyGatewaySpecs(_message.Message):
         cluster_gateway_id: _Optional[str] = ...,
         suspended: bool = ...,
         routing: _Optional[str] = ...,
+        container_ssh_port_count: _Optional[int] = ...,
     ) -> None: ...
 
 class EnvoyGatewayListener(_message.Message):
@@ -1040,6 +1053,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         "nodepool",
         "node_selector",
         "prevent_disruption",
+        "allow_colocation_with_chalk_workloads",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1059,6 +1073,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     PREVENT_DISRUPTION_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_COLOCATION_WITH_CHALK_WORKLOADS_FIELD_NUMBER: _ClassVar[int]
     timeout_duration: str
     dns_hostname: str
     replicas: int
@@ -1069,6 +1084,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
     nodepool: str
     node_selector: _containers.ScalarMap[str, str]
     prevent_disruption: bool
+    allow_colocation_with_chalk_workloads: bool
     def __init__(
         self,
         timeout_duration: _Optional[str] = ...,
@@ -1081,6 +1097,7 @@ class EnvoyGatewayProviderConfig(_message.Message):
         nodepool: _Optional[str] = ...,
         node_selector: _Optional[_Mapping[str, str]] = ...,
         prevent_disruption: bool = ...,
+        allow_colocation_with_chalk_workloads: bool = ...,
     ) -> None: ...
 
 class GCPGatewayProviderConfig(_message.Message):
@@ -1498,6 +1515,12 @@ class AggregatorSpec(_message.Message):
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
     ) -> None: ...
 
+class CustomerCollectorConfig(_message.Message):
+    __slots__ = ("config_yaml",)
+    CONFIG_YAML_FIELD_NUMBER: _ClassVar[int]
+    config_yaml: str
+    def __init__(self, config_yaml: _Optional[str] = ...) -> None: ...
+
 class OtelCollectorSpec(_message.Message):
     __slots__ = ("otel_collector_version", "request", "limit")
     OTEL_COLLECTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
@@ -1618,19 +1641,29 @@ class PerfCollectorSpec(_message.Message):
     ) -> None: ...
 
 class PerfettoDaemonSpec(_message.Message):
-    __slots__ = ("config_text", "max_retained_runs", "interval", "trigger_name", "export_to", "bucket_subdirectory")
+    __slots__ = (
+        "config_text",
+        "max_retained_runs",
+        "interval",
+        "trigger_name",
+        "export_to",
+        "bucket_subdirectory",
+        "trigger",
+    )
     CONFIG_TEXT_FIELD_NUMBER: _ClassVar[int]
     MAX_RETAINED_RUNS_FIELD_NUMBER: _ClassVar[int]
     INTERVAL_FIELD_NUMBER: _ClassVar[int]
     TRIGGER_NAME_FIELD_NUMBER: _ClassVar[int]
     EXPORT_TO_FIELD_NUMBER: _ClassVar[int]
     BUCKET_SUBDIRECTORY_FIELD_NUMBER: _ClassVar[int]
+    TRIGGER_FIELD_NUMBER: _ClassVar[int]
     config_text: str
     max_retained_runs: int
     interval: int
     trigger_name: str
     export_to: str
     bucket_subdirectory: str
+    trigger: PerfettoTrigger
     def __init__(
         self,
         config_text: _Optional[str] = ...,
@@ -1639,6 +1672,7 @@ class PerfettoDaemonSpec(_message.Message):
         trigger_name: _Optional[str] = ...,
         export_to: _Optional[str] = ...,
         bucket_subdirectory: _Optional[str] = ...,
+        trigger: _Optional[_Union[PerfettoTrigger, str]] = ...,
     ) -> None: ...
 
 class DirectoryWatcherSpec(_message.Message):
@@ -1668,6 +1702,33 @@ class DirectoryWatcherSpec(_message.Message):
         upload_destination_uri_fallback: _Optional[str] = ...,
     ) -> None: ...
 
+class StreamedDirectoryWatcherSpec(_message.Message):
+    __slots__ = (
+        "watch_directory_subpath",
+        "interval_ms",
+        "upload_destination_path_fallback",
+        "upload_destination_uri_fallback",
+        "idle_file_timeout_ms",
+    )
+    WATCH_DIRECTORY_SUBPATH_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_MS_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_DESTINATION_PATH_FALLBACK_FIELD_NUMBER: _ClassVar[int]
+    UPLOAD_DESTINATION_URI_FALLBACK_FIELD_NUMBER: _ClassVar[int]
+    IDLE_FILE_TIMEOUT_MS_FIELD_NUMBER: _ClassVar[int]
+    watch_directory_subpath: str
+    interval_ms: int
+    upload_destination_path_fallback: str
+    upload_destination_uri_fallback: str
+    idle_file_timeout_ms: int
+    def __init__(
+        self,
+        watch_directory_subpath: _Optional[str] = ...,
+        interval_ms: _Optional[int] = ...,
+        upload_destination_path_fallback: _Optional[str] = ...,
+        upload_destination_uri_fallback: _Optional[str] = ...,
+        idle_file_timeout_ms: _Optional[int] = ...,
+    ) -> None: ...
+
 class ObservabilityDaemonSpec(_message.Message):
     __slots__ = (
         "keep_running_when_suspended",
@@ -1680,6 +1741,7 @@ class ObservabilityDaemonSpec(_message.Message):
         "perf_collector",
         "perfetto_daemon",
         "directory_watcher",
+        "streamed_watcher",
     )
     KEEP_RUNNING_WHEN_SUSPENDED_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -1691,6 +1753,7 @@ class ObservabilityDaemonSpec(_message.Message):
     PERF_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     PERFETTO_DAEMON_FIELD_NUMBER: _ClassVar[int]
     DIRECTORY_WATCHER_FIELD_NUMBER: _ClassVar[int]
+    STREAMED_WATCHER_FIELD_NUMBER: _ClassVar[int]
     keep_running_when_suspended: bool
     request: KubeResourceConfig
     limit: KubeResourceConfig
@@ -1701,6 +1764,7 @@ class ObservabilityDaemonSpec(_message.Message):
     perf_collector: PerfCollectorSpec
     perfetto_daemon: PerfettoDaemonSpec
     directory_watcher: DirectoryWatcherSpec
+    streamed_watcher: StreamedDirectoryWatcherSpec
     def __init__(
         self,
         keep_running_when_suspended: bool = ...,
@@ -1713,6 +1777,7 @@ class ObservabilityDaemonSpec(_message.Message):
         perf_collector: _Optional[_Union[PerfCollectorSpec, _Mapping]] = ...,
         perfetto_daemon: _Optional[_Union[PerfettoDaemonSpec, _Mapping]] = ...,
         directory_watcher: _Optional[_Union[DirectoryWatcherSpec, _Mapping]] = ...,
+        streamed_watcher: _Optional[_Union[StreamedDirectoryWatcherSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeploymentSpec(_message.Message):
@@ -1724,6 +1789,7 @@ class TelemetryDeploymentSpec(_message.Message):
         "dns_name_override",
         "aggregator",
         "observability_daemons",
+        "customer_collector",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     CLICK_HOUSE_FIELD_NUMBER: _ClassVar[int]
@@ -1732,6 +1798,7 @@ class TelemetryDeploymentSpec(_message.Message):
     DNS_NAME_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     AGGREGATOR_FIELD_NUMBER: _ClassVar[int]
     OBSERVABILITY_DAEMONS_FIELD_NUMBER: _ClassVar[int]
+    CUSTOMER_COLLECTOR_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     click_house: ClickHouseSpec
     otel: OtelCollectorSpec
@@ -1739,6 +1806,7 @@ class TelemetryDeploymentSpec(_message.Message):
     dns_name_override: str
     aggregator: AggregatorSpec
     observability_daemons: _containers.RepeatedCompositeFieldContainer[ObservabilityDaemonSpec]
+    customer_collector: CustomerCollectorConfig
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -1748,6 +1816,7 @@ class TelemetryDeploymentSpec(_message.Message):
         dns_name_override: _Optional[str] = ...,
         aggregator: _Optional[_Union[AggregatorSpec, _Mapping]] = ...,
         observability_daemons: _Optional[_Iterable[_Union[ObservabilityDaemonSpec, _Mapping]]] = ...,
+        customer_collector: _Optional[_Union[CustomerCollectorConfig, _Mapping]] = ...,
     ) -> None: ...
 
 class TelemetryDeployment(_message.Message):

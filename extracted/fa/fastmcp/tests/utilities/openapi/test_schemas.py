@@ -580,8 +580,8 @@ class TestEdgeCases:
             len(properties) > 0
         )  # Should have some properties from one of the content types
 
-    def test_oneof_reference_preserved(self):
-        """Test that schemas referenced in oneOf are preserved."""
+    def test_oneof_reference_dereferenced(self):
+        """Test that schemas referenced in oneOf are preserved and unused defs pruned."""
 
         schema = {
             "type": "object",
@@ -594,14 +594,15 @@ class TestEdgeCases:
 
         result = compress_schema(schema)
 
-        # TestSchema should be preserved (referenced in oneOf)
-        assert "TestSchema" in result["$defs"]
+        # UnusedSchema should be pruned, TestSchema should be kept
+        assert "UnusedSchema" not in result.get("$defs", {})
+        assert result["$defs"]["TestSchema"] == {"type": "string"}
 
-        # UnusedSchema should be removed
-        assert "UnusedSchema" not in result["$defs"]
+        # $ref should be preserved in oneOf
+        assert result["properties"]["data"]["oneOf"] == [{"$ref": "#/$defs/TestSchema"}]
 
-    def test_anyof_reference_preserved(self):
-        """Test that schemas referenced in anyOf are preserved."""
+    def test_anyof_reference_dereferenced(self):
+        """Test that schemas referenced in anyOf are preserved and unused defs pruned."""
 
         schema = {
             "type": "object",
@@ -614,11 +615,15 @@ class TestEdgeCases:
 
         result = compress_schema(schema)
 
-        assert "TestSchema" in result["$defs"]
-        assert "UnusedSchema" not in result["$defs"]
+        # UnusedSchema should be pruned, TestSchema should be kept
+        assert "UnusedSchema" not in result.get("$defs", {})
+        assert result["$defs"]["TestSchema"] == {"type": "string"}
 
-    def test_allof_reference_preserved(self):
-        """Test that schemas referenced in allOf are preserved."""
+        # $ref should be preserved in anyOf
+        assert result["properties"]["data"]["anyOf"] == [{"$ref": "#/$defs/TestSchema"}]
+
+    def test_allof_reference_dereferenced(self):
+        """Test that schemas referenced in allOf are preserved and unused defs pruned."""
 
         schema = {
             "type": "object",
@@ -631,5 +636,9 @@ class TestEdgeCases:
 
         result = compress_schema(schema)
 
-        assert "TestSchema" in result["$defs"]
-        assert "UnusedSchema" not in result["$defs"]
+        # UnusedSchema should be pruned, TestSchema should be kept
+        assert "UnusedSchema" not in result.get("$defs", {})
+        assert result["$defs"]["TestSchema"] == {"type": "string"}
+
+        # $ref should be preserved in allOf
+        assert result["properties"]["data"]["allOf"] == [{"$ref": "#/$defs/TestSchema"}]

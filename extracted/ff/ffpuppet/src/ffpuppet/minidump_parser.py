@@ -275,7 +275,7 @@ class MinidumpParser:
                     extra_data = load(out_fp)
                 except JSONDecodeError:
                     extra_data = {}
-                    LOG.debug("invalid json in: %s", extra_data)
+                    LOG.debug("invalid json in: %s", entry)
             if "additional_minidumps" in extra_data:
                 for other in extra_data["additional_minidumps"].split(","):
                     prioritize.add(f"{entry.stem}-{other}.dmp")
@@ -320,16 +320,15 @@ class MinidumpParser:
             )
             return False
         # version check
-        for cver, mver in zip(current_version.split("."), min_version.split(".")):
-            if int(cver) > int(mver):
-                break
-            if int(cver) < int(mver):
-                LOG.error(
-                    "minidump-stackwalk '%s' is unsupported (minimum '%s')",
-                    current_version,
-                    min_version,
-                )
-                return False
+        current = tuple(int(x) for x in current_version.split("."))
+        minimum = tuple(int(x) for x in min_version.split("."))
+        if current < minimum:
+            LOG.error(
+                "minidump-stackwalk '%s' is unsupported (minimum '%s')",
+                current_version,
+                min_version,
+            )
+            return False
         LOG.debug("detected minidump-stackwalk version '%s'", current_version)
         return True
 

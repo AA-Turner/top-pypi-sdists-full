@@ -81,7 +81,7 @@ def make_cfapi_request(
         else:
             response = requests.get(url, headers=cfapi_headers, params=params, timeout=60)
         response.raise_for_status()
-        return response  # noqa: TRY300
+        return response
     except requests.exceptions.HTTPError:
         # response may be either a string or JSON, so we handle both cases
         error_message = ""
@@ -102,7 +102,7 @@ def make_cfapi_request(
 
 
 @lru_cache(maxsize=1)
-def get_user_id(api_key: Optional[str] = None) -> Optional[str]:  # noqa: PLR0911
+def get_user_id(api_key: Optional[str] = None) -> Optional[str]:
     """Retrieve the user's userid by making a request to the /cfapi/cli-get-user endpoint.
 
     :param api_key: The API key to use. If None, uses get_codeflash_api_key().
@@ -171,6 +171,8 @@ def suggest_changes(
     replay_tests: str = "",
     concolic_tests: str = "",
     optimization_review: str = "",
+    original_line_profiler: str | None = None,
+    optimized_line_profiler: str | None = None,
 ) -> Response:
     """Suggest changes to a pull request.
 
@@ -182,6 +184,8 @@ def suggest_changes(
     :param file_changes: A dictionary of file changes.
     :param pr_comment: The pull request comment object, containing the optimization explanation, best runtime, etc.
     :param generated_tests: The generated tests.
+    :param original_line_profiler: Line profiler results for original code (markdown format).
+    :param optimized_line_profiler: Line profiler results for optimized code (markdown format).
     :return: The response object.
     """
     payload = {
@@ -197,7 +201,10 @@ def suggest_changes(
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
         "optimizationReview": optimization_review,  # impact keyword left for legacy reasons, touches js/ts code
+        "originalLineProfiler": original_line_profiler,
+        "optimizedLineProfiler": optimized_line_profiler,
     }
+
     return make_cfapi_request(endpoint="/suggest-pr-changes", method="POST", payload=payload)
 
 
@@ -214,6 +221,8 @@ def create_pr(
     replay_tests: str = "",
     concolic_tests: str = "",
     optimization_review: str = "",
+    original_line_profiler: str | None = None,
+    optimized_line_profiler: str | None = None,
 ) -> Response:
     """Create a pull request, targeting the specified branch. (usually 'main').
 
@@ -223,6 +232,8 @@ def create_pr(
     :param file_changes: A dictionary of file changes.
     :param pr_comment: The pull request comment object, containing the optimization explanation, best runtime, etc.
     :param generated_tests: The generated tests.
+    :param original_line_profiler: Line profiler results for original code (markdown format).
+    :param optimized_line_profiler: Line profiler results for optimized code (markdown format).
     :return: The response object.
     """
     # convert Path objects to strings
@@ -239,7 +250,10 @@ def create_pr(
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
         "optimizationReview": optimization_review,  # Impact keyword left for legacy reasons, it touches js/ts codebase
+        "originalLineProfiler": original_line_profiler,
+        "optimizedLineProfiler": optimized_line_profiler,
     }
+
     return make_cfapi_request(endpoint="/create-pr", method="POST", payload=payload)
 
 
@@ -269,6 +283,9 @@ def create_staging(
     concolic_tests: str,
     root_dir: Path,
     optimization_review: str = "",
+    original_line_profiler: str | None = None,
+    optimized_line_profiler: str | None = None,
+    **_kwargs: Any,  # ignores the language argument TODO Hesham: staging for all langs
 ) -> Response:
     """Create a staging pull request, targeting the specified branch. (usually 'staging').
 
@@ -279,6 +296,8 @@ def create_staging(
     :param generated_original_test_source: Generated tests for the original function.
     :param function_trace_id: Unique identifier for this optimization trace.
     :param coverage_message: Coverage report or summary.
+    :param original_line_profiler: Line profiler results for original code (markdown format).
+    :param optimized_line_profiler: Line profiler results for optimized code (markdown format).
     :return: The response object from the backend.
     """
     relative_path = explanation.file_path.relative_to(root_dir).as_posix()
@@ -310,6 +329,8 @@ def create_staging(
         "replayTests": replay_tests,
         "concolicTests": concolic_tests,
         "optimizationReview": optimization_review,  # Impact keyword left for legacy reasons, it touches js/ts codebase
+        "originalLineProfiler": original_line_profiler,
+        "optimizedLineProfiler": optimized_line_profiler,
     }
 
     return make_cfapi_request(endpoint="/create-staging", method="POST", payload=payload)
@@ -376,7 +397,7 @@ def get_blocklisted_functions() -> dict[str, set[str]] | dict[str, Any]:
 
 def is_function_being_optimized_again(
     owner: str, repo: str, pr_number: int, code_contexts: list[dict[str, str]]
-) -> Any:  # noqa: ANN401
+) -> Any:
     """Check if the function being optimized is being optimized again."""
     response = make_cfapi_request(
         "/is-already-optimized",

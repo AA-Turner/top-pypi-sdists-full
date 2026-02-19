@@ -31,7 +31,7 @@ __all__ = [
     "write_mem",
 ]
 
-__version__ = "5.1.0"
+__version__ = "5.2.0"
 
 import os
 import shlex
@@ -75,7 +75,6 @@ from esptool.loader import (
     DEFAULT_OPEN_PORT_ATTEMPTS,
     StubFlasher,
     ESPLoader,
-    list_ports,
 )
 from esptool.logger import log
 from esptool.targets import CHIP_DEFS, CHIP_LIST, ESP32ROM
@@ -91,6 +90,8 @@ import serial
 
 from esptool.cli_util import (
     AutoSizeType,
+    BaudRateType,
+    DiffWithType,
     Group,
     AddrFilenameArg,
     AutoChunkSizeType,
@@ -100,10 +101,12 @@ from esptool.cli_util import (
     MutuallyExclusiveOption,
     ResetModeType,
     SpiConnectionType,
+    SerialPortType,
     AutoHex2BinType,
     AddrFilenamePairType,
     parse_port_filters,
     parse_size_arg,
+    get_port_list,
 )
 
 # Show arguments in the help output, this was default in argparse
@@ -311,14 +314,14 @@ def check_flash_size(esp: ESPLoader, address: int, size: int) -> None:
 @click.option(
     "--port",
     "-p",
-    type=click.Path(),
+    type=SerialPortType(),
     default=os.environ.get("ESPTOOL_PORT", None),
     help="Serial port device.",
 )
 @click.option(
     "--baud",
     "-b",
-    type=AnyIntType(),
+    type=BaudRateType(),
     default=os.environ.get("ESPTOOL_BAUD", ESPLoader.ESP_ROM_BAUD),
     help="Serial port baud rate used when flashing/reading.",
 )
@@ -355,7 +358,7 @@ def check_flash_size(esp: ESPLoader, address: int, size: int) -> None:
 # is implied globally
 @click.option(
     "--stub-version",
-    default=os.environ.get("ESPTOOL_STUB_VERSION", "1"),
+    default=os.environ.get("ESPTOOL_STUB_VERSION", None),
     type=click.Choice(["1", "2"]),
     # not a public option and is not subject to the semantic versioning policy
     hidden=True,
@@ -417,7 +420,8 @@ def cli(
 
 def prepare_esp_object(ctx):
     """Prepare ESP object for operation"""
-    StubFlasher.set_stub_subdir(ctx.obj["stub_version"])
+    if ctx.obj["stub_version"]:
+        StubFlasher.set_stub_subdir(ctx.obj["stub_version"])
     # Commands that require an ESP object (flash read/write, etc.)
     # 1) Get the ESP object
     #######################
@@ -648,6 +652,29 @@ def write_mem_cli(ctx, address, value, mask):
     help="Ignore flash encryption eFuse settings.",
 )
 @click.option(
+    "--diff-with",
+    type=DiffWithType(exists=True, dir_okay=False, readable=True),
+    cls=OptionEatAll,
+    multiple=True,
+    help="Previously flashed file(s) to compare the to-be-flashed files with "
+    "for fast reflashing. Use 'skip' to skip comparison for a specific file. "
+    "This list is zipped sequentially with the files being flashed.",
+)
+@click.option(
+    "--no-diff-verify",
+    is_flag=True,
+    help="Skip MD5 checks for faster reflashing. Requires --diff-with to be specified. "
+    "Must be sure the flash content has not changed since the last flash.",
+)
+@click.option(
+    "--skip-flashed",
+    "-s",
+    is_flag=True,
+    help="Skip flashing if the new binary is already in flash. Will perform MD5 checks "
+    "to verify the flash content matches the new binary. "
+    "Automatically enabled for each file with a valid --diff-with pair.",
+)
+@click.option(
     "--force",
     is_flag=True,
     help="Force write, skip security and compatibility checks. Use with caution!",
@@ -679,11 +706,33 @@ def write_flash_cli(ctx, addr_filename, **kwargs):
     # and --encrypt-files, which represents the list of files to encrypt.
     # The reason is that allowing both at the same time increases the chances of
     # having contradictory lists (e.g. one file not available in one of list).
-    if kwargs["encrypt"] and kwargs["encrypt_files"] is not None:
+    if kwargs["encrypt"] and kwargs["encrypt_files"]:
         raise FatalError(
             "Options --encrypt and --encrypt-files "
             "must not be specified at the same time."
         )
+    if kwargs["skip_flashed"] and kwargs["no_diff_verify"]:
+        raise FatalError(
+            "Options --skip-flashed and --no-diff-verify "
+            "must not be specified at the same time."
+        )
+    # Expand HEX file splits in diff_with if any
+    if "diff_with" in kwargs and kwargs["diff_with"]:
+        diff_with_expanded: list = []
+        for entry in kwargs["diff_with"]:
+            # Check if this entry is a HEX file that was split
+            if (
+                entry is not None
+                and hasattr(ctx, "_diff_with_hex_splits")
+                and entry in ctx._diff_with_hex_splits
+            ):
+                # This is a HEX file that was split, expand it to all splits
+                diff_with_expanded.extend(ctx._diff_with_hex_splits[entry])
+            else:
+                # Regular file or None (skip)
+                diff_with_expanded.append(entry)
+        kwargs["diff_with"] = diff_with_expanded
+
     prepare_esp_object(ctx)
     attach_flash(ctx.obj["esp"], kwargs.pop("spi_connection", None))
     write_flash(ctx.obj["esp"], addr_filename, **kwargs)
@@ -1033,41 +1082,6 @@ def main(argv: list[str] | None = None, esp: ESPLoader | None = None):
     except SystemExit as e:
         if e.code != 0:
             raise
-
-
-def get_port_list(
-    vids: list[str] = [],
-    pids: list[str] = [],
-    names: list[str] = [],
-    serials: list[str] = [],
-) -> list[str]:
-    if list_ports is None:
-        raise FatalError(
-            "Listing all serial ports is currently not available. "
-            "Please try to specify the port when running esptool or update "
-            "the pyserial package to the latest version."
-        )
-    ports = []
-    for port in list_ports.comports():
-        if sys.platform == "darwin" and port.device.endswith(
-            ("Bluetooth-Incoming-Port", "wlan-debug")
-        ):
-            continue
-        if vids and (port.vid is None or port.vid not in vids):
-            continue
-        if pids and (port.pid is None or port.pid not in pids):
-            continue
-        if names and (
-            port.name is None or all(name not in port.name for name in names)
-        ):
-            continue
-        if serials and (
-            port.serial_number is None
-            or all(serial not in port.serial_number for serial in serials)
-        ):
-            continue
-        ports.append(port.device)
-    return sorted(ports)
 
 
 def expand_file_arguments(argv: list[str]) -> list[str]:

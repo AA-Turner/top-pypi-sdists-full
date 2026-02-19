@@ -43,6 +43,10 @@ class ESP32P4ROM(ESP32ROM):
 
     EFUSE_RD_REG_BASE = EFUSE_BASE + 0x030  # BLOCK0 read base address
 
+    EFUSE_FORCE_USE_KEY_MANAGER_KEY_REG = EFUSE_BASE + 0x34
+    EFUSE_FORCE_USE_KEY_MANAGER_KEY_SHIFT = 9
+    FORCE_USE_KEY_MANAGER_VAL_XTS_AES_KEY = 2
+
     EFUSE_PURPOSE_KEY0_REG = EFUSE_BASE + 0x34
     EFUSE_PURPOSE_KEY0_SHIFT = 24
     EFUSE_PURPOSE_KEY1_REG = EFUSE_BASE + 0x34
@@ -76,9 +80,19 @@ class ESP32P4ROM(ESP32ROM):
     RTC_CNTL_OPTION1_REG = 0x50110008
     RTC_CNTL_FORCE_DOWNLOAD_BOOT_MASK = 0x4  # Is download mode forced over USB?
 
-    SUPPORTS_ENCRYPTED_FLASH = True
-
     FLASH_ENCRYPTED_WRITE_ALIGN = 16
+
+    # Flash power-on related registers and bits needed for ECO6
+    DR_REG_LPAON_BASE = 0x50110000
+    DR_REG_PMU_BASE = DR_REG_LPAON_BASE + 0x5000
+    DR_REG_LP_SYS_BASE = DR_REG_LPAON_BASE + 0x0
+    LP_SYSTEM_REG_ANA_XPD_PAD_GROUP_REG = DR_REG_LP_SYS_BASE + 0x10C
+    PMU_EXT_LDO_P0_0P1A_ANA_REG = DR_REG_PMU_BASE + 0x1BC
+    PMU_ANA_0P1A_EN_CUR_LIM_0 = 1 << 27
+    PMU_EXT_LDO_P0_0P1A_REG = DR_REG_PMU_BASE + 0x1B8
+    PMU_0P1A_TARGET0_0 = 0xFF << 23
+    PMU_0P1A_FORCE_TIEH_SEL_0 = 1 << 7
+    PMU_DATE_REG = DR_REG_PMU_BASE + 0x3FC
 
     @property
     def UARTDEV_BUF_NO(self):
@@ -191,6 +205,10 @@ class ESP32P4ROM(ESP32ROM):
             & self.EFUSE_SECURE_BOOT_EN_MASK
         )
 
+    def get_secure_boot_v1_enabled(self):
+        # Secure Boot V1 is only supported on ESP32, not on ESP32-P4
+        return False
+
     def get_key_block_purpose(self, key_block):
         if key_block < 0 or key_block > self.EFUSE_MAX_KEY:
             raise FatalError(
@@ -216,9 +234,15 @@ class ESP32P4ROM(ESP32ROM):
         if any(p == self.PURPOSE_VAL_XTS_AES128_KEY for p in purposes):
             return True
 
-        return any(p == self.PURPOSE_VAL_XTS_AES256_KEY_1 for p in purposes) and any(
+        if any(p == self.PURPOSE_VAL_XTS_AES256_KEY_1 for p in purposes) and any(
             p == self.PURPOSE_VAL_XTS_AES256_KEY_2 for p in purposes
-        )
+        ):
+            return True
+
+        return (
+            self.read_reg(self.EFUSE_FORCE_USE_KEY_MANAGER_KEY_REG)
+            >> self.EFUSE_FORCE_USE_KEY_MANAGER_KEY_SHIFT
+        ) & self.FORCE_USE_KEY_MANAGER_VAL_XTS_AES_KEY
 
     def change_baud(self, baud):
         ESPLoader.change_baud(self, baud)
@@ -228,6 +252,8 @@ class ESP32P4ROM(ESP32ROM):
             self.ESP_RAM_BLOCK = self.USB_RAM_BLOCK
         if not self.sync_stub_detected:  # Don't run if stub is reused
             self.disable_watchdogs()
+        if not self.secure_download_mode:
+            self.power_on_flash()  # Needs to be powered on before attach_flash()
 
     def uses_usb_otg(self):
         """
@@ -288,6 +314,54 @@ class ESP32P4ROM(ESP32ROM):
         else:
             ESPLoader.hard_reset(self)
 
+    def power_on_flash(self):
+        """Power on the flash chip by setting the appropriate regs."""
+        if self.secure_download_mode:
+            raise NotSupportedError(self, "Powering on flash in secure download mode")
+
+        if self.get_chip_revision() != 301:  # !=ECO6
+            # The flash chip is powered off by default on ECO6, when the default flash
+            # voltage changed from 1.8V to 3.3V. This is to prevent damage to 1.8V flash
+            # chips. Board designers must set the appropriate voltage level in eFuse.
+            return
+
+        # Power up pad group
+        self.write_reg(self.LP_SYSTEM_REG_ANA_XPD_PAD_GROUP_REG, 1)
+        sleep(0.01)
+        # Flash power up sequence
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_ANA_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_ANA_REG)
+            | self.PMU_ANA_0P1A_EN_CUR_LIM_0,
+        )
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_REG)
+            | self.PMU_0P1A_FORCE_TIEH_SEL_0,
+        )
+        self.write_reg(self.PMU_DATE_REG, self.read_reg(self.PMU_DATE_REG) | (3 << 0))
+        sleep(0.00005)
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_ANA_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_ANA_REG)
+            & ~self.PMU_ANA_0P1A_EN_CUR_LIM_0,
+        )
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_REG) & ~self.PMU_0P1A_TARGET0_0,
+        )
+        # Update eFuse voltage to PMU
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_REG) | 0x80,
+        )
+        self.write_reg(
+            self.PMU_EXT_LDO_P0_0P1A_REG,
+            self.read_reg(self.PMU_EXT_LDO_P0_0P1A_REG)
+            & ~self.PMU_0P1A_FORCE_TIEH_SEL_0,
+        )
+        sleep(0.0018)
+
 
 class ESP32P4StubLoader(StubMixin, ESP32P4ROM):
     """Stub loader for ESP32-P4, runs on top of ROM."""
@@ -300,7 +374,7 @@ class ESP32P4StubLoader(StubMixin, ESP32P4ROM):
 
     def stub_json_name(self):
         if self.get_chip_revision() < 300:
-            return "esp32p4rc1.json"
+            return "esp32p4-rev1.json"
         return "esp32p4.json"
 
 

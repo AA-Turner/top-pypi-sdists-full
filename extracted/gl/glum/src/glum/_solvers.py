@@ -17,8 +17,8 @@ from ._cd_fast import (
     identify_active_rows,
 )
 from ._distribution import ExponentialDispersionModel, get_one_over_variance
+from ._linalg import _safe_lin_pred, _safe_sandwich_dot
 from ._link import Link
-from ._util import _safe_lin_pred, _safe_sandwich_dot
 
 
 def timeit(runtime_attr: str):
@@ -217,13 +217,13 @@ def build_hessian_delta(
         return delta
 
     if P2.ndim == 1:
-        idiag = np.arange(start=idx, stop=delta.shape[0])
+        idiag = np.arange(idx, int(delta.shape[0]))
         delta[(idiag, idiag)] += P2[active_cols_non_intercept]
     else:
         if sparse.issparse(P2):
             is_diagonal = P2.nnz == P2.shape[0] and (P2.data == P2.diagonal()).all()
             if is_diagonal:
-                idiag = np.arange(start=idx, stop=delta.shape[0])
+                idiag = np.arange(idx, int(delta.shape[0]))
                 delta[(idiag, idiag)] += P2.data[active_cols_non_intercept]
             else:
                 delta[idx:, idx:] += P2.toarray()[
@@ -878,7 +878,7 @@ def _lbfgs_solver(
     )
     if info["warnflag"] == 1:
         warnings.warn(
-            "lbfgs failed to converge." " Increase the number of iterations.",
+            "lbfgs failed to converge. Increase the number of iterations.",
             ConvergenceWarning,
         )
     elif info["warnflag"] == 2:

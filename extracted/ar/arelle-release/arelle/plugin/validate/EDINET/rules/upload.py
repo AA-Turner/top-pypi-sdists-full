@@ -13,7 +13,7 @@ import regex
 from arelle import UrlUtil, XbrlConst
 from arelle.Cntlr import Cntlr
 from arelle.FileSource import FileSource
-from arelle.ModelDocument import Type as ModelDocumentType
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle.ModelInstanceObject import ModelFact, ModelInlineFact
 from arelle.ModelObject import ModelObject
 from arelle.typing import TypeGetText
@@ -1101,6 +1101,49 @@ def rule_EC1031E(
                 line=elt.sourceline,
                 modelObject=elt,
             )
+
+
+@validation(
+    hook=ValidationHook.FILESOURCE,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC5003E(
+        pluginData: ControllerPluginData,
+        cntlr: Cntlr,
+        fileSource: FileSource,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5003E: Prohibited characters must not be used in HTML files.
+
+    TODO: Consolidate with NL.FR-NL-1.02 (which currently only checks text content)
+    """
+    if not fileSource.dir or not isinstance(fileSource.baseurl, str):
+        return
+    illegalCharactersPattern = pluginData.getIllegalCharactersPattern()
+    filepaths = [
+        Path(fileSource.baseurl) / filepath
+        for filepath in fileSource.dir or []
+    ]
+    for filepath in filepaths:
+        if filepath.suffix not in HTML_EXTENSIONS:
+            continue
+        file = fileSource.file(str(filepath))[0]
+        with file as f:
+            for lineNumber, line in enumerate(f, start=1):
+                illegalChars = set(illegalCharactersPattern.findall(line))
+                if illegalChars:
+                    yield Validation.error(
+                        codes='EDINET.EC5003E',
+                        msg=_("Prohibited characters (%(chars)s) are used. "
+                              "File name: '%(file)s' (line %(line)s). "
+                              "The file in question contains prohibited characters. "
+                              "Please correct the prohibited characters. "),
+                        chars=', '.join(sorted(illegalChars)),
+                        file=filepath,
+                        line=lineNumber,
+                    )
 
 
 @validation(

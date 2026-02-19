@@ -27,6 +27,45 @@ ImportErrorPattern = re.compile(r"ModuleNotFoundError.*$", re.MULTILINE)
 
 BLACKLIST_ADDOPTS = ("--benchmark", "--sugar", "--codespeed", "--cov", "--profile", "--junitxml", "-n")
 
+# Characters that indicate a glob pattern
+GLOB_PATTERN_CHARS = frozenset("*?[")
+
+
+def is_glob_pattern(path_str: str) -> bool:
+    """Check if a path string contains glob pattern characters."""
+    return any(char in path_str for char in GLOB_PATTERN_CHARS)
+
+
+def normalize_ignore_paths(paths: list[str], base_path: Path | None = None) -> list[Path]:
+    if base_path is None:
+        base_path = Path.cwd()
+
+    base_path = base_path.resolve()
+    normalized: set[Path] = set()
+
+    for path_str in paths:
+        if not path_str:
+            continue
+
+        path_str = str(path_str)
+
+        if is_glob_pattern(path_str):
+            # pathlib requires relative glob patterns
+            path_str = path_str.removeprefix("./")
+            if path_str.startswith("/"):
+                path_str = path_str.lstrip("/")
+
+            for matched_path in base_path.glob(path_str):
+                normalized.add(matched_path.resolve())
+        else:
+            path_obj = Path(path_str)
+            if not path_obj.is_absolute():
+                path_obj = base_path / path_obj
+            if path_obj.exists():
+                normalized.add(path_obj.resolve())
+
+    return list(normalized)
+
 
 def unified_diff_strings(code1: str, code2: str, fromfile: str = "original", tofile: str = "modified") -> str:
     """Return the unified diff between two code strings as a single string.
@@ -166,7 +205,7 @@ def filter_args(addopts_args: list[str]) -> list[str]:
     return filtered_args
 
 
-def modify_addopts(config_file: Path) -> tuple[str, bool]:  # noqa : PLR0911
+def modify_addopts(config_file: Path) -> tuple[str, bool]:
     file_type = config_file.suffix.lower()
     filename = config_file.name
     config = None
@@ -436,7 +475,7 @@ def extract_unique_errors(pytest_output: str) -> set[str]:
     pattern = r"^E\s+(.*)$"
 
     for error_message in re.findall(pattern, pytest_output, re.MULTILINE):
-        error_message = error_message.strip()  # noqa: PLW2901
+        error_message = error_message.strip()
         if error_message:
             unique_errors.add(error_message)
 

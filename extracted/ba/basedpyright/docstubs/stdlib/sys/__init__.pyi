@@ -432,7 +432,9 @@ if sys.version_info >= (3, 13):
         ...
 
 else:
-    def _clear_type_cache() -> None: ...
+    def _clear_type_cache() -> None:
+        """Clear the internal type lookup cache."""
+        ...
 
 def _current_frames() -> dict[int, FrameType]:
     """
@@ -466,7 +468,13 @@ if sys.version_info >= (3, 12):
         ...
 
 else:
-    def _current_exceptions() -> dict[int, OptExcInfo]: ...
+    def _current_exceptions() -> dict[int, OptExcInfo]:
+        """
+        Return a dict mapping each thread's identifier to its current raised exception.
+
+        This function should be used for specialized purposes only.
+        """
+        ...
 
 if sys.version_info >= (3, 12):
     def _getframemodulename(depth: int = 0) -> str | None:
@@ -818,7 +826,9 @@ if sys.version_info >= (3, 12):
             """Return the number of elements of the unicode interned dictionary"""
             ...
     else:
-        def getunicodeinternedsize() -> int: ...
+        def getunicodeinternedsize() -> int:
+            """Return the number of elements of the unicode interned dictionary"""
+            ...
 
     def deactivate_stack_trampoline() -> None:
         """

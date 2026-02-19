@@ -27,7 +27,9 @@ if sys.version_info >= (3, 11):
         ...
 
 else:
-    def a2b_base64(data: _AsciiBuffer, /) -> bytes: ...
+    def a2b_base64(data: _AsciiBuffer, /) -> bytes:
+        """Decode a line of base64 data."""
+        ...
 
 def b2a_base64(data: ReadableBuffer, /, *, newline: bool = True) -> bytes:
     """Base64-code line of data."""
@@ -47,13 +49,21 @@ def b2a_qp(data: ReadableBuffer, quotetabs: bool = False, istext: bool = True, h
 
 if sys.version_info < (3, 11):
     @deprecated("Deprecated since Python 3.9; removed in Python 3.11.")
-    def a2b_hqx(data: _AsciiBuffer, /) -> bytes: ...
+    def a2b_hqx(data: _AsciiBuffer, /) -> bytes:
+        """Decode .hqx coding."""
+        ...
     @deprecated("Deprecated since Python 3.9; removed in Python 3.11.")
-    def rledecode_hqx(data: ReadableBuffer, /) -> bytes: ...
+    def rledecode_hqx(data: ReadableBuffer, /) -> bytes:
+        """Decode hexbin RLE-coded string."""
+        ...
     @deprecated("Deprecated since Python 3.9; removed in Python 3.11.")
-    def rlecode_hqx(data: ReadableBuffer, /) -> bytes: ...
+    def rlecode_hqx(data: ReadableBuffer, /) -> bytes:
+        """Binhex RLE-code binary data."""
+        ...
     @deprecated("Deprecated since Python 3.9; removed in Python 3.11.")
-    def b2a_hqx(data: ReadableBuffer, /) -> bytes: ...
+    def b2a_hqx(data: ReadableBuffer, /) -> bytes:
+        """Encode .hqx data."""
+        ...
 
 def crc_hqx(data: ReadableBuffer, crc: int, /) -> int:
     """Compute CRC-CCITT incrementally."""

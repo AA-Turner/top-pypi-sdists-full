@@ -138,7 +138,7 @@ class StepMap(Mappable):
         index = recover_index(recover)
         old_index = 2 if self.inverted else 1
         new_index = 1 if self.inverted else 2
-        for i in range(len(self.ranges), 3):
+        for i in range(0, len(self.ranges), 3):
             start = self.ranges[i] - (diff if self.inverted else 0)
             if start > pos:
                 break
@@ -161,6 +161,7 @@ class StepMap(Mappable):
             old_size = self.ranges[i + old_index]
             new_size = self.ranges[i + new_index]
             f(old_start, old_start + old_size, new_start, new_start + new_size)
+            diff += new_size - old_size
             i += 3
 
     def invert(self) -> "StepMap":
@@ -168,6 +169,12 @@ class StepMap(Mappable):
 
     def __str__(self) -> str:
         return ("-" if self.inverted else "") + str(self.ranges)
+
+    @staticmethod
+    def offset(n: int) -> "StepMap":
+        if n == 0:
+            return StepMap.empty
+        return StepMap([0, -n, 0] if n < 0 else [0, 0, n])
 
 
 StepMap.empty = StepMap([])
@@ -181,25 +188,22 @@ class Mapping(Mappable):
         from_: int | None = None,
         to: int | None = None,
     ) -> None:
-        self.maps = maps or []
+        self.maps: list[StepMap] = maps if maps is not None else []
         self.from_ = from_ or 0
         self.to = len(self.maps) if to is None else to
         self.mirror = mirror
+        self._own_data = not (maps or mirror)
 
     def slice(self, from_: int = 0, to: int | None = None) -> "Mapping":
         if to is None:
             to = len(self.maps)
         return Mapping(self.maps, self.mirror, from_, to)
 
-    def copy(self) -> "Mapping":
-        return Mapping(
-            self.maps[:],
-            (self.mirror[:] if self.mirror else None),
-            self.from_,
-            self.to,
-        )
-
     def append_map(self, map: StepMap, mirrors: int | None = None) -> None:
+        if not self._own_data:
+            self.maps = self.maps[:]
+            self.mirror = self.mirror[:] if self.mirror else None
+            self._own_data = True
         self.maps.append(map)
         self.to = len(self.maps)
         if mirrors is not None:
@@ -210,11 +214,11 @@ class Mapping(Mappable):
         start_size = len(self.maps)
         while i < len(mapping.maps):
             mirr = mapping.get_mirror(i)
-            i += 1
             self.append_map(
                 mapping.maps[i],
                 (start_size + mirr) if (mirr is not None and mirr < i) else None,
             )
+            i += 1
 
     def get_mirror(self, n: int) -> int | None:
         if self.mirror:

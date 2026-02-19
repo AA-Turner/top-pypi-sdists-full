@@ -1,24 +1,23 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: protoc-gen-validate
-Version: 1.2.1
+Version: 1.3.3
 Summary: PGV for python via just-in-time code generation
 Home-page: https://github.com/bufbuild/protoc-gen-validate
 Author: Buf
 Author-email: dev@buf.build
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: validate-email>=1.3
 Requires-Dist: Jinja2>=2.11.1
 Requires-Dist: protobuf>=5.27.0
-Requires-Dist: astunparse>=1.6.3; python_version < "3.10"
+Dynamic: license-file
 
 # Protoc-gen-validate (PGV)
 While protocol buffers effectively guarantee the types of structured data, 

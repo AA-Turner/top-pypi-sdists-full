@@ -196,7 +196,7 @@ class usurpManager():
         # Now you can use all_attributes as needed
 
         # Update asset links to local paths
-        for tag in soup.find_all():
+        for tag in soup.find_all(['img', 'script', 'link']):
             attr = 'src' if tag.name != 'link' else 'href'
             asset_url = tag.get(attr)
             if asset_url:
@@ -210,7 +210,7 @@ class usurpManager():
                                                         self.downloaded_assets,
                                                         self.session)
                     # Update tag to point to the local asset
-                    local_asset_path = parsed_asset_url.path.lstrip('/')
+                    local_asset_path = '/' + parsed_asset_url.path.lstrip('/')
                     tag[attr] = local_asset_path
 
         # Save the modified page
@@ -323,7 +323,6 @@ def usurpit( url,
                             website_bot=website_bot,
                             )
     site_mgr.main()
-
 
 
 

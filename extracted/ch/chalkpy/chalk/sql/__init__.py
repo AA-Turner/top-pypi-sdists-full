@@ -1743,9 +1743,9 @@ def AthenaSource(
     work_group
         Optionally provide an Athena work group to query from.
     catalog_name
-        The catalog name to query. Defaults to "default".
+        The catalog name to query. Defaults to "awsdatacatalog".
     schema_name
-        The schema (database) name to query. Defaults to "awsdatacatalog".
+        The schema (database) name to query. Defaults to "default".
     engine_args
         Additional arguments to use when constructing the SQLAlchemy engine.
 

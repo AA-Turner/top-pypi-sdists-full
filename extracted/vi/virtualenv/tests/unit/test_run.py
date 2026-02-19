@@ -41,15 +41,3 @@ def test_logging_setup(caplog, on):
         assert not caplog.records
     else:
         assert caplog.records
-
-
-def test_invalid_discovery_method_via_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("VIRTUALENV_DISCOVERY", "pyenv")
-    with pytest.raises(RuntimeError, match=r"discovery 'pyenv' is not available") as exc_info:
-        session_via_cli(["env"])
-
-    error_message = str(exc_info.value)
-    assert "discovery 'pyenv' is not available" in error_message
-    assert "Available discovery methods:" in error_message
-    assert "builtin" in error_message
-    assert "Is the plugin installed?" in error_message

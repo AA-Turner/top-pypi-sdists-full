@@ -5,11 +5,11 @@ from adam.commands.export.export_sessions import ExportSessions
 from adam.commands.export.importer import Importer
 from adam.config import Config
 from adam.directories import local_db_dir
-from adam.rdbms.utils_sqlite import SQLite
+from adam.utils_rdbms.sqlite import SQLite
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import debug, log_timing, ing, log_exc
-from adam.utils_tabulize import tabulize
-from adam.rdbms.utils_athena import Athena
+from adam.presentation.tabulize import tabulize
+from adam.utils_rdbms.athena import Athena
 from adam.utils_context import NULL
 
 LIKE = 'e%_%'

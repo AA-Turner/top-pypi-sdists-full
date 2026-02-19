@@ -3,7 +3,7 @@ from adam.config import Config
 from adam.utils_apps.app_session import AppSession
 from adam.utils_apps.apps import Apps
 from adam.utils_repl.repl_state import ReplState
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ShowAppActions(Command):
     COMMAND = 'show app actions'

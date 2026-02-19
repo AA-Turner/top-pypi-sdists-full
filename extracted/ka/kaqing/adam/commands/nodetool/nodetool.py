@@ -16,7 +16,7 @@ from adam.utils_job.utils_job_results import find_job_status
 from adam.utils_log import log
 from adam.utils_cassandra.pod_service import cassandra
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class NodeTool(Command):
     COMMAND = 'nodetool'

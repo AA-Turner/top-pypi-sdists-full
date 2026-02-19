@@ -28,6 +28,7 @@ class Section:
         self.text = text
         self.toc = toc
         self.root = root
+        self.page_count = 0
 
         self.paper_size = paper_size
         if isinstance(paper_size, str):
@@ -75,11 +76,11 @@ class MarkdownPdf:
         self.m_d = (MarkdownIt(mode).enable('table'))  # Enable support for tables
 
         self.optimize = optimize
-
         self.out_file = io.BytesIO()
         self.writer = fitz.DocumentWriter(self.out_file)
         self.page_num = 0
         self.hrefs = []
+        self.sections = []
 
     @staticmethod
     def _recorder(elpos):
@@ -120,11 +121,14 @@ class MarkdownPdf:
         more = 1
         while more:  # loop outputting the story
             self.page_num += 1
+            section.page_count += 1
             device = self.writer.begin_page(section.rect)
             more, _ = story.place(where)  # layout into allowed rectangle
             story.element_positions(self._recorder, {"toc": section.toc, "pdfile": self})
             story.draw(device)
             self.writer.end_page()
+
+        self.sections.append(section)
 
         return html
 

@@ -1,3 +1,4 @@
+from buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import displayagent_pb2 as _displayagent_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2

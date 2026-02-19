@@ -8,7 +8,7 @@ from adam.commands.command import Command, InvalidArgumentsException
 from adam.commands.command_helpers import ClusterOrPodCommandHelper
 from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log, log2
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ClipboardCopy(Command):
     COMMAND = 'cli cp'

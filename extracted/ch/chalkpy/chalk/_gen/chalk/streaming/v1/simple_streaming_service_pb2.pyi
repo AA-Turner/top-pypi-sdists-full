@@ -53,18 +53,21 @@ TEST_STREAM_RESOLVER_STATUS_SUCCESS: TestStreamResolverStatus
 TEST_STREAM_RESOLVER_STATUS_FAILURE: TestStreamResolverStatus
 
 class StreamingError(_message.Message):
-    __slots__ = ("error", "phase", "operation_id")
+    __slots__ = ("error", "phase", "operation_id", "row_index")
     ERROR_FIELD_NUMBER: _ClassVar[int]
     PHASE_FIELD_NUMBER: _ClassVar[int]
     OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    ROW_INDEX_FIELD_NUMBER: _ClassVar[int]
     error: _chalk_error_pb2.ChalkError
     phase: ExecutionPhase
     operation_id: str
+    row_index: int
     def __init__(
         self,
         error: _Optional[_Union[_chalk_error_pb2.ChalkError, _Mapping]] = ...,
         phase: _Optional[_Union[ExecutionPhase, str]] = ...,
         operation_id: _Optional[str] = ...,
+        row_index: _Optional[int] = ...,
     ) -> None: ...
 
 class SimpleStreamingUnaryInvokeRequest(_message.Message):

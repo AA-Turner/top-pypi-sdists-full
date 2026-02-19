@@ -53,7 +53,7 @@ class TestParallelCalls:
 
         count = 10
 
-        tasks = [proxy.get_tools() for _ in range(count)]
+        tasks = [proxy.list_tools() for _ in range(count)]
 
         results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -63,7 +63,7 @@ class TestParallelCalls:
 
 
 class TestKeepAlive:
-    # https://github.com/jlowin/fastmcp/issues/581
+    # https://github.com/PrefectHQ/fastmcp/issues/581
 
     @pytest.fixture
     def stdio_script(self, tmp_path):

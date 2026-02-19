@@ -4,7 +4,7 @@ ia_flag.py
 'ia' subcommand for managing flags on archive.org.
 """
 
-# Copyright (C) 2012-2025 Internet Archive
+# Copyright (C) 2012-2026 Internet Archive
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -39,7 +39,7 @@ def setup(subparsers):
         "identifier",
         nargs="?",
         type=str,
-        help="Identifier for the upload",
+        help="Identifier of the item",
     )
     parser.add_argument(
         "-u",

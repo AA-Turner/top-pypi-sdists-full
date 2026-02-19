@@ -4,7 +4,7 @@ from kubernetes import client
 from typing import List
 
 from adam.commands.command import Command
-from adam.commands.utils_table_render import show_pods, show_rollout
+from adam.presentation.utils_table_render import show_pods, show_rollout
 from adam.config import Config
 from adam.utils_k8s.statefulsets import StatefulSets
 from adam.utils_repl.repl_state import ReplState, RequiredState

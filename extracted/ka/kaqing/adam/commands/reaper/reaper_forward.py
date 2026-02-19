@@ -9,7 +9,7 @@ from adam.config import Config
 from adam.utils_repl.repl_session import ReplSession
 from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log2
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ReaperForward(Command):
     COMMAND = 'reaper forward'

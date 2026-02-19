@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: posthoganalytics
-Version: 7.9.0
+Version: 7.9.3
 Summary: Integrate PostHog into any python application.
 Home-page: https://github.com/posthog/posthog-python
 Author: Posthog
@@ -73,77 +73,14 @@ Dynamic: home-page
 Dynamic: license-file
 Dynamic: maintainer
 
-# PostHog Python
+# posthoganalytics
 
-<p align="center">
-  <img alt="posthoglogo" src="https://user-images.githubusercontent.com/65415371/205059737-c8a4f836-4889-4654-902e-f302b187b6a0.png">
-</p>
-<p align="center">
-   <a href="https://pypi.org/project/posthog/"><img alt="pypi installs" src="https://img.shields.io/pypi/v/posthog"/></a>
-   <img alt="GitHub contributors" src="https://img.shields.io/github/contributors/posthog/posthog-python">
-  <img alt="GitHub commit activity" src="https://img.shields.io/github/commit-activity/m/posthog/posthog-python"/>
-  <img alt="GitHub closed issues" src="https://img.shields.io/github/issues-closed/posthog/posthog-python"/>
-</p>
-
-Please see the [Python integration docs](https://posthog.com/docs/integrations/python-integration) for details.
-
-## Python Version Support
-
-| SDK Version | Python Versions Supported | Notes |
-|-------------|---------------------------|-------|
-| 7.3.1+      | 3.10, 3.11, 3.12, 3.13, 3.14 | Added Python 3.14 support |
-| 7.0.0 - 7.0.1 | 3.10, 3.11, 3.12, 3.13  | Dropped Python 3.9 support |
-| 4.0.1 - 6.x | 3.9, 3.10, 3.11, 3.12, 3.13 | Python 3.9+ required |
-
-## Development
-
-### Testing Locally
-
-We recommend using [uv](https://docs.astral.sh/uv/). It's super fast.
-
-1. Run `uv venv env` (creates virtual environment called "env")
-    * or `python3 -m venv env`
-2. Run `source env/bin/activate` (activates the virtual environment)
-3. Run `uv sync --extra dev --extra test` (installs the package in develop mode, along with test dependencies)
-    * or `pip install -e ".[dev,test]"`
-4. you have to run `pre-commit install` to have auto linting pre commit
-5. Run `make test`
-  1. To run a specific test do `pytest -k test_no_api_key`
-
-## PostHog recommends `uv` so...
+> **Do not use this package.** Use [`posthog`](https://pypi.org/project/posthog/) instead.
 
 ```bash
-uv python install 3.12
-uv python pin 3.12
-uv venv
-source env/bin/activate
-uv sync --extra dev --extra test
-pre-commit install
-make test
+pip install posthog
 ```
 
-### Running Locally
+This package exists solely for internal use by [posthog/posthog](https://github.com/posthog/posthog) to avoid import conflicts with the local `posthog` package in that repository. It is an automatically generated mirror of `posthog` — same code, same versions, just published under a different name.
 
-Assuming you have a [local version of PostHog](https://posthog.com/docs/developing-locally) running, you can run `python3 example.py` to see the library in action.
-
-### Releasing Versions
-
-Updates are released automatically using GitHub Actions when `version.py` is updated on `master`. After bumping `version.py` in `master` and adding to `CHANGELOG.md`, the [release workflow](https://github.com/PostHog/posthog-python/blob/master/.github/workflows/release.yaml) will automatically trigger and deploy the new version.
-
-If you need to check the latest runs or manually trigger a release, you can go to [our release workflow's page](https://github.com/PostHog/posthog-python/actions/workflows/release.yaml) and dispatch it manually, using workflow from `master`.
-
-
-### Testing changes locally with the PostHog app
-
-You can run `make prep_local`, and it'll create a new folder alongside the SDK repo one called `posthog-python-local`, which you can then import into the posthog project by changing pyproject.toml to look like this:
-```toml
-dependencies = [
-    ...
-    "posthoganalytics" #NOTE: no version number
-    ...
-]
-...
-[tools.uv.sources]
-posthoganalytics = { path = "../posthog-python-local" }
-```
-This'll let you build and test SDK changes fully locally, incorporating them into your local posthog app stack. It mainly takes care of the `posthog -> posthoganalytics` module renaming. You'll need to re-run `make prep_local` each time you make a change, and re-run `uv sync --active` in the posthog app project.
+If you are not working on the PostHog main repository, you should never need this package. All documentation, issues, and development happen in [`posthog-python`](https://github.com/posthog/posthog-python).

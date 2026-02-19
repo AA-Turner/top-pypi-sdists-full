@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: unimport
-Version: 1.3.0
+Version: 1.3.1
 Summary: The ultimate linter and formatter for removing unused import statements in your code.
 Author-email: Hakan Çelik <hakancelikdev@gmail.com>
 License: MIT
 Project-URL: Documentation, https://unimport.hakancelik.dev/
 Project-URL: Issues, https://github.com/hakancelikdev/unimport/issues/
-Project-URL: Changelog, https://unimport.hakancelik.dev/1.3.0/CHANGELOG/
+Project-URL: Changelog, https://unimport.hakancelik.dev/1.3.1/CHANGELOG/
 Keywords: unused,import
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: MIT License
@@ -39,7 +39,6 @@ Requires-Dist: mkdocs-git-revision-date-localized-plugin==1.4.7; extra == "docs"
 Requires-Dist: mike==2.1.3; extra == "docs"
 Provides-Extra: test
 Requires-Dist: pytest==8.4.1; extra == "test"
-Requires-Dist: pytest-cov==6.2.1; extra == "test"
 Requires-Dist: semantic-version==2.10.0; extra == "test"
 Dynamic: license-file
 

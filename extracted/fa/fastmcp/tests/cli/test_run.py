@@ -163,8 +163,8 @@ def greet(name: str) -> str:
         source = FileSystemSource(path=str(test_file))
         server = await source.load_server()
         assert server.name == "TestServer"
-        tools = await server.get_tools()
-        assert "greet" in tools
+        tools = await server.list_tools()
+        assert any(t.name == "greet" for t in tools)
 
     async def test_import_server_with_main_block(self, tmp_path):
         """Test importing server with if __name__ == '__main__' block."""
@@ -185,8 +185,8 @@ if __name__ == "__main__":
         source = FileSystemSource(path=str(test_file))
         server = await source.load_server()
         assert server.name == "MainServer"
-        tools = await server.get_tools()
-        assert "calculate" in tools
+        tools = await server.list_tools()
+        assert any(t.name == "calculate" for t in tools)
 
     async def test_import_server_standard_names(self, tmp_path):
         """Test automatic detection of standard names (mcp, server, app)."""
@@ -239,8 +239,8 @@ def custom_tool() -> str:
         source = FileSystemSource(path=f"{test_file}:my_custom_server")
         server = await source.load_server()
         assert server.name == "CustomServer"
-        tools = await server.get_tools()
-        assert "custom_tool" in tools
+        tools = await server.list_tools()
+        assert any(t.name == "custom_tool" for t in tools)
 
     async def test_import_server_no_standard_names_fails(self, tmp_path):
         """Test importing server when no standard names exist fails."""
@@ -600,3 +600,98 @@ mcp = fastmcp.FastMCP("TestServer")
 
             # Verify prepare was NOT called
             prepare_mock.assert_not_called()
+
+
+class TestReloadFunctionality:
+    """Test reload functionality."""
+
+    def test_watch_filter_accepts_watched_extensions(self):
+        """Test that watch filter accepts common source file extensions."""
+        from watchfiles import Change
+
+        from fastmcp.cli.run import _watch_filter
+
+        # Python
+        assert _watch_filter(Change.modified, "/path/to/file.py") is True
+        assert _watch_filter(Change.added, "server.py") is True
+        # JavaScript/TypeScript
+        assert _watch_filter(Change.modified, "/path/to/file.js") is True
+        assert _watch_filter(Change.modified, "/path/to/file.ts") is True
+        assert _watch_filter(Change.modified, "/path/to/file.jsx") is True
+        assert _watch_filter(Change.modified, "/path/to/file.tsx") is True
+        # Markup/Content
+        assert _watch_filter(Change.modified, "/path/to/file.html") is True
+        assert _watch_filter(Change.modified, "/path/to/file.md") is True
+        assert _watch_filter(Change.modified, "/path/to/file.txt") is True
+        # Styles
+        assert _watch_filter(Change.modified, "/path/to/file.css") is True
+        assert _watch_filter(Change.modified, "/path/to/file.scss") is True
+        # Data/Config
+        assert _watch_filter(Change.modified, "/path/to/file.json") is True
+        assert _watch_filter(Change.modified, "/path/to/file.yaml") is True
+        # Images
+        assert _watch_filter(Change.modified, "/path/to/file.png") is True
+        assert _watch_filter(Change.modified, "/path/to/file.svg") is True
+
+    def test_watch_filter_rejects_unwatched_extensions(self):
+        """Test that watch filter rejects files not in the watched set."""
+        from watchfiles import Change
+
+        from fastmcp.cli.run import _watch_filter
+
+        assert _watch_filter(Change.modified, "/path/to/file.pyc") is False
+        assert _watch_filter(Change.modified, "/path/to/file.pyo") is False
+        assert _watch_filter(Change.modified, "Dockerfile") is False
+        assert _watch_filter(Change.modified, "/path/to/file.lock") is False
+        assert _watch_filter(Change.modified, "/path/to/.gitignore") is False
+
+    def test_all_watched_extensions_are_accepted(self):
+        """Test that every extension in WATCHED_EXTENSIONS is accepted."""
+        from watchfiles import Change
+
+        from fastmcp.cli.run import WATCHED_EXTENSIONS, _watch_filter
+
+        for ext in WATCHED_EXTENSIONS:
+            path = f"/path/to/file{ext}"
+            assert _watch_filter(Change.modified, path) is True, (
+                f"Expected {ext} to be watched"
+            )
+
+    def test_watched_extensions_includes_frontend_types(self):
+        """Verify WATCHED_EXTENSIONS contains the expected frontend file types."""
+        from fastmcp.cli.run import WATCHED_EXTENSIONS
+
+        # Core frontend extensions that must be present
+        expected = {
+            # Python
+            ".py",
+            # JavaScript/TypeScript
+            ".js",
+            ".ts",
+            ".jsx",
+            ".tsx",
+            # Markup
+            ".html",
+            ".md",
+            ".mdx",
+            ".xml",
+            # Styles
+            ".css",
+            ".scss",
+            ".sass",
+            ".less",
+            # Data/Config
+            ".json",
+            ".yaml",
+            ".yml",
+            ".toml",
+            # Images
+            ".png",
+            ".jpg",
+            ".svg",
+            # Media
+            ".mp4",
+            ".mp3",
+        }
+        for ext in expected:
+            assert ext in WATCHED_EXTENSIONS, f"Expected {ext} in WATCHED_EXTENSIONS"

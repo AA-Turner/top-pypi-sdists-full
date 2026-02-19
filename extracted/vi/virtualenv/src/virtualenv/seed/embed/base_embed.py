@@ -46,7 +46,7 @@ class BaseEmbed(Seeder, ABC):
             self.enabled = False
 
     @classmethod
-    def distributions(cls) -> dict[str, str]:
+    def distributions(cls) -> dict[str, Version]:
         return {
             "pip": Version.bundle,
             "setuptools": Version.bundle,

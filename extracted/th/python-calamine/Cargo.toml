@@ -1,6 +1,6 @@
 [package]
 name = "python-calamine"
-version = "0.6.1"
+version = "0.6.2"
 edition = "2021"
 readme = "README.md"
 
@@ -9,14 +9,14 @@ name = "python_calamine"
 crate-type = ["cdylib"]
 
 [dependencies]
-calamine = { version = "0.32.0", features = ["chrono"] }
-pyo3 = { version = "0.27.1", features = [
+calamine = { version = "0.33.0", features = ["chrono"] }
+pyo3 = { version = "0.28.2", features = [
     "extension-module",
     "chrono",
     "generate-import-lib",
 ] }
 chrono = { version = "0.4.42", features = ["serde"] }
-pyo3-file = { git = "https://github.com/omerbenamram/pyo3-file.git", rev = "92e0f505825ea0d33184af35b6c677bda04929bd" }
+pyo3-file = { git = "https://github.com/dimastbk/pyo3-file.git", rev = "b0a5b260d13c6df14ea021b06c071a6f389fa805" }
 
 [build-dependencies]
-pyo3-build-config = "0.27.1"
+pyo3-build-config = "0.28.2"

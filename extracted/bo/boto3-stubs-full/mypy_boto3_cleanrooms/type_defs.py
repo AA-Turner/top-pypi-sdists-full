@@ -621,6 +621,7 @@ class AthenaTableReferenceTypeDef(TypedDict):
     tableName: str
     region: NotRequired[CommercialRegionType]
     outputLocation: NotRequired[str]
+    catalogName: NotRequired[str]
 
 
 class BatchGetCollaborationAnalysisTemplateErrorTypeDef(TypedDict):

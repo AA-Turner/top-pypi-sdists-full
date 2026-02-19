@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import weakref
+from collections.abc import Awaitable, Callable
 from contextlib import AsyncExitStack
 from typing import TYPE_CHECKING, Any
 
@@ -21,7 +22,9 @@ from mcp.server.session import ServerSession
 from mcp.server.stdio import stdio_server as stdio_server
 from mcp.shared.message import SessionMessage
 from mcp.shared.session import RequestResponder
+from pydantic import AnyUrl
 
+from fastmcp.server.apps import UI_EXTENSION_ID
 from fastmcp.utilities.logging import get_logger
 
 if TYPE_CHECKING:
@@ -46,6 +49,25 @@ class MiddlewareServerSession(ServerSession):
         if fastmcp is None:
             raise RuntimeError("FastMCP instance is no longer available")
         return fastmcp
+
+    def client_supports_extension(self, extension_id: str) -> bool:
+        """Check if the connected client supports a given MCP extension.
+
+        Inspects the ``extensions`` extra field on ``ClientCapabilities``
+        sent by the client during initialization.
+        """
+        client_params = self._client_params
+        if client_params is None:
+            return False
+        caps = client_params.capabilities
+        if caps is None:
+            return False
+        # ClientCapabilities uses extra="allow" — extensions is an extra field
+        extras = caps.model_extra or {}
+        extensions: dict[str, Any] | None = extras.get("extensions")
+        if not extensions:
+            return False
+        return extension_id in extensions
 
     async def _received_request(
         self,
@@ -94,7 +116,7 @@ class MiddlewareServerSession(ServerSession):
                 return None
 
             async with fastmcp.server.context.Context(
-                fastmcp=self.fastmcp
+                fastmcp=self.fastmcp, session=self
             ) as fastmcp_ctx:
                 # Create the middleware context.
                 mw_context = MiddlewareContext(
@@ -106,7 +128,7 @@ class MiddlewareServerSession(ServerSession):
                 )
 
                 try:
-                    return await self.fastmcp._apply_middleware(
+                    return await self.fastmcp._run_middleware(
                         mw_context, call_original_handler
                     )
                 except McpError as e:
@@ -186,6 +208,15 @@ class LowLevelServer(_Server[LifespanResultT, RequestT]):
         # Set tasks as a first-class field (not experimental) per SEP-1686
         capabilities.tasks = get_task_capabilities()
 
+        # Advertise MCP Apps extension support (io.modelcontextprotocol/ui)
+        # Uses the same extra-field pattern as tasks above — ServerCapabilities
+        # has extra="allow" so this survives serialization.
+        # Merge with any existing extensions to avoid clobbering other features.
+        existing_extensions: dict[str, Any] = (
+            getattr(capabilities, "extensions", None) or {}
+        )
+        capabilities.extensions = {**existing_extensions, UI_EXTENSION_ID: {}}
+
         return capabilities
 
     async def run(
@@ -223,3 +254,91 @@ class LowLevelServer(_Server[LifespanResultT, RequestT]):
                         lifespan_context,
                         raise_exceptions,
                     )
+
+    def read_resource(
+        self,
+    ) -> Callable[
+        [
+            Callable[
+                [AnyUrl],
+                Awaitable[mcp.types.ReadResourceResult | mcp.types.CreateTaskResult],
+            ]
+        ],
+        Callable[
+            [AnyUrl],
+            Awaitable[mcp.types.ReadResourceResult | mcp.types.CreateTaskResult],
+        ],
+    ]:
+        """
+        Decorator for registering a read_resource handler with CreateTaskResult support.
+
+        The MCP SDK's read_resource decorator does not support returning CreateTaskResult
+        for background task execution. This decorator wraps the result in ServerResult.
+
+        This decorator can be removed once the MCP SDK adds native CreateTaskResult support
+        for resources.
+        """
+
+        def decorator(
+            func: Callable[
+                [AnyUrl],
+                Awaitable[mcp.types.ReadResourceResult | mcp.types.CreateTaskResult],
+            ],
+        ) -> Callable[
+            [AnyUrl],
+            Awaitable[mcp.types.ReadResourceResult | mcp.types.CreateTaskResult],
+        ]:
+            async def handler(
+                req: mcp.types.ReadResourceRequest,
+            ) -> mcp.types.ServerResult:
+                result = await func(req.params.uri)
+                return mcp.types.ServerResult(result)
+
+            self.request_handlers[mcp.types.ReadResourceRequest] = handler
+            return func
+
+        return decorator
+
+    def get_prompt(
+        self,
+    ) -> Callable[
+        [
+            Callable[
+                [str, dict[str, Any] | None],
+                Awaitable[mcp.types.GetPromptResult | mcp.types.CreateTaskResult],
+            ]
+        ],
+        Callable[
+            [str, dict[str, Any] | None],
+            Awaitable[mcp.types.GetPromptResult | mcp.types.CreateTaskResult],
+        ],
+    ]:
+        """
+        Decorator for registering a get_prompt handler with CreateTaskResult support.
+
+        The MCP SDK's get_prompt decorator does not support returning CreateTaskResult
+        for background task execution. This decorator wraps the result in ServerResult.
+
+        This decorator can be removed once the MCP SDK adds native CreateTaskResult support
+        for prompts.
+        """
+
+        def decorator(
+            func: Callable[
+                [str, dict[str, Any] | None],
+                Awaitable[mcp.types.GetPromptResult | mcp.types.CreateTaskResult],
+            ],
+        ) -> Callable[
+            [str, dict[str, Any] | None],
+            Awaitable[mcp.types.GetPromptResult | mcp.types.CreateTaskResult],
+        ]:
+            async def handler(
+                req: mcp.types.GetPromptRequest,
+            ) -> mcp.types.ServerResult:
+                result = await func(req.params.name, req.params.arguments)
+                return mcp.types.ServerResult(result)
+
+            self.request_handlers[mcp.types.GetPromptRequest] = handler
+            return func
+
+        return decorator

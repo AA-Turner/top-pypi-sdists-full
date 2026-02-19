@@ -17,12 +17,13 @@ class Import:
     package: str
 
     node: ast.Import | ast.ImportFrom = dataclasses.field(init=False, repr=False, compare=False)
+    is_type_checking: bool = dataclasses.field(init=False, repr=False, compare=False, default=False)
 
     def __len__(self) -> int:
         return len(self.name.split("."))
 
     def is_match_sub_packages(self, name_name: str) -> bool:
-        return self.name.split(".")[0] == name_name
+        return self.name.split(".")[0] == name_name.split(".")[0]
 
     @property
     def scope(self):
@@ -30,7 +31,10 @@ class Import:
 
     def is_used(self) -> bool:
         for name in self.scope.names:
-            if name.match_import:
+            if self.is_type_checking:
+                if name.match_2(self):
+                    return True
+            elif name.match_import:
                 if name.match_import == self:
                     return True
             elif name.match(self):
@@ -43,7 +47,11 @@ class Import:
 
         scope = name.scope
         while scope:
-            imports = [_import for _import in scope.imports if name.match_2(_import) and name.lineno > _import.lineno]
+            imports = [
+                _import
+                for _import in scope.imports
+                if name.match_2(_import) and name.lineno > _import.lineno and not _import.is_type_checking
+            ]
             scope = scope.parent
 
             if imports:
@@ -62,7 +70,7 @@ class Import:
 
     @property
     def is_duplicate(self) -> bool:
-        return [_import.name for _import in self.imports].count(self.name) > 1
+        return [_import.name for _import in self.imports if not _import.is_type_checking].count(self.name) > 1
 
     @classmethod
     def get_unused_imports(cls, *, include_star_import: bool = False) -> typing.Iterator[Import | ImportFrom]:
@@ -73,9 +81,12 @@ class Import:
                 yield imp
 
     @classmethod
-    def register(cls, *, lineno: int, column: int, name: str, package: str, node: ast.Import) -> None:
+    def register(
+        cls, *, lineno: int, column: int, name: str, package: str, node: ast.Import, is_type_checking: bool = False
+    ) -> None:
         _import = cls(lineno, column, name, package)
         _import.node = node
+        _import.is_type_checking = is_type_checking
         cls.imports.append(_import)
 
         Scope.register(_import)
@@ -104,9 +115,11 @@ class ImportFrom(Import):
         star: bool,
         suggestions: list[str],
         node: ast.ImportFrom,
+        is_type_checking: bool = False,
     ) -> None:
         _import = cls(lineno, column, name, package, star, suggestions)
         _import.node = node
+        _import.is_type_checking = is_type_checking
         cls.imports.append(_import)
 
         Scope.register(_import)
@@ -127,15 +140,38 @@ class Name:
     def is_attribute(self):
         return "." in self.name
 
+    def _is_deferred_usage(self, imp: Import | ImportFrom) -> bool:
+        imp_scope = imp.scope
+        scope = self.scope
+        while scope is not None and scope != imp_scope:
+            if isinstance(scope.node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                return True
+            scope = scope.parent
+        return False
+
+    def _has_more_specific_import(self, imp: Import | ImportFrom) -> bool:
+        name_parts = self.name.split(".")
+        for other_imp in Import.imports:
+            if other_imp is imp:
+                continue
+            other_parts = other_imp.name.split(".")
+            if len(other_parts) <= len(name_parts) and name_parts[: len(other_parts)] == other_parts:
+                return True
+        return False
+
     def match_2(self, imp: Import | ImportFrom) -> bool:
         if self.is_all:
             is_match = self.name == imp.name
         elif self.is_attribute:
-            is_match = imp.lineno < self.lineno and (
-                ".".join(self.name.split(".")[: len(imp)]) == imp.name or imp.is_match_sub_packages(self.name)
+            primary_match = ".".join(self.name.split(".")[: len(imp)]) == imp.name
+            sub_match = (
+                not primary_match and imp.is_match_sub_packages(self.name) and not self._has_more_specific_import(imp)
             )
+            is_match = (imp.lineno <= self.lineno or self._is_deferred_usage(imp)) and (primary_match or sub_match)
         else:
-            is_match = (imp.lineno < self.lineno) and (self.name == imp.name or imp.is_match_sub_packages(self.name))
+            is_match = (imp.lineno <= self.lineno or self._is_deferred_usage(imp)) and (
+                self.name == imp.name or imp.is_match_sub_packages(self.name)
+            )
 
         return is_match
 

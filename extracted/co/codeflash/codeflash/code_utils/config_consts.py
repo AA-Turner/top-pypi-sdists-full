@@ -4,8 +4,8 @@ from enum import Enum
 from typing import Any, Union
 
 MAX_TEST_RUN_ITERATIONS = 5
-OPTIMIZATION_CONTEXT_TOKEN_LIMIT = 16000
-TESTGEN_CONTEXT_TOKEN_LIMIT = 16000
+OPTIMIZATION_CONTEXT_TOKEN_LIMIT = 48000
+TESTGEN_CONTEXT_TOKEN_LIMIT = 48000
 INDIVIDUAL_TESTCASE_TIMEOUT = 15
 MAX_FUNCTION_TEST_SECONDS = 60
 MIN_IMPROVEMENT_THRESHOLD = 0.05
@@ -91,7 +91,7 @@ EFFORT_VALUES: dict[str, dict[EffortLevel, Any]] = {
 }
 
 
-def get_effort_value(key: EffortKeys, effort: Union[EffortLevel, str]) -> Any:  # noqa: ANN401
+def get_effort_value(key: EffortKeys, effort: Union[EffortLevel, str]) -> Any:
     key_str = key.value
 
     if isinstance(effort, str):

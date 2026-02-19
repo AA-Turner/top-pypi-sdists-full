@@ -3,7 +3,7 @@ name = "temporalio-common"
 version = "0.1.0"
 edition = "2024"
 authors = ["Temporal Technologies Inc. <sdk@temporal.io>"]
-license-file = { workspace = true }
+license-file = "LICENSE.txt"
 description = "Common functionality for the Temporal SDK Core, Client, and Rust SDK"
 homepage = "https://temporal.io/"
 repository = "https://github.com/temporalio/sdk-core"

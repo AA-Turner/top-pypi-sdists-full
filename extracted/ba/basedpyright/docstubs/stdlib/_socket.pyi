@@ -1363,6 +1363,12 @@ if sys.version_info >= (3, 14):
         ...
 
 else:
-    def if_indextoname(index: int, /) -> str: ...
+    def if_indextoname(index: int, /) -> str:
+        """
+        if_indextoname(if_index)
+
+        Returns the interface name corresponding to the interface index if_index.
+        """
+        ...
 
 CAPI: CapsuleType

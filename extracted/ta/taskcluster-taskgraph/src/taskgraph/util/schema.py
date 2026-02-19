@@ -48,6 +48,9 @@ def validate_schema(schema, obj, msg_prefix):
         # Handle plain Python types (e.g. str, int) via msgspec.convert
         elif isinstance(schema, type):
             msgspec.convert(obj, schema)
+        # Handle plain dict schemas (e.g. from downstream payload builders)
+        elif isinstance(schema, dict):
+            voluptuous.Schema(schema)(obj)
         else:
             raise TypeError(f"Unsupported schema type: {type(schema)}")
     except (
@@ -316,9 +319,9 @@ class Schema(
 
 class IndexSchema(Schema):
     # the name of the product this build produces
-    product: str
+    product: Optional[str] = None
     # the names to use for this task in the TaskCluster index
-    job_name: str
+    job_name: Optional[str] = None
     # Type of gecko v2 index to use
     type: str = "generic"
     # The rank that the task will receive in the TaskCluster

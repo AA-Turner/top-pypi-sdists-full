@@ -149,8 +149,7 @@ async def gerar_nosso_numero(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoD
                 log_msg = "Todos os nossos numeros estao preenchidos!"
                 console.print(log_msg, style="bold yellow")
                 return RpaRetornoProcessoDTO(
-                sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
-            )
+                sucesso=True, retorno=log_msg, status=RpaHistoricoStatusEnum.Sucesso)
         except Exception as e:
             await capture_and_send_screenshot(task.historico_id, "Gerar_NN_Error.png")
             if "out of range" in str(e):

@@ -1,6 +1,8 @@
 from typing import Any
 
-from mcp.types import ToolAnnotations
+import mcp.types as mcp_types
+from mcp.types import Tool as MCPTool
+from mcp.types import ToolAnnotations, ToolExecution
 
 from fastmcp import Client, FastMCP
 from fastmcp.tools.tool import Tool
@@ -22,8 +24,7 @@ async def test_tool_annotations_in_tool_manager():
         return message
 
     # Check internal tool objects directly
-    tools_dict = await mcp._tool_manager.get_tools()
-    tools = list(tools_dict.values())
+    tools = await mcp.list_tools()
     assert len(tools) == 1
     assert tools[0].annotations is not None
     assert tools[0].annotations.title == "Echo Tool"
@@ -47,12 +48,12 @@ async def test_tool_annotations_in_mcp_protocol():
         return message
 
     # Check via MCP protocol
-    mcp_tools = await mcp._list_tools_mcp()
-    assert len(mcp_tools) == 1
-    assert mcp_tools[0].annotations is not None
-    assert mcp_tools[0].annotations.title == "Echo Tool"
-    assert mcp_tools[0].annotations.readOnlyHint is True
-    assert mcp_tools[0].annotations.openWorldHint is False
+    result = await mcp._list_tools_mcp(mcp_types.ListToolsRequest())
+    assert len(result.tools) == 1
+    assert result.tools[0].annotations is not None
+    assert result.tools[0].annotations.title == "Echo Tool"
+    assert result.tools[0].annotations.readOnlyHint is True
+    assert result.tools[0].annotations.openWorldHint is False
 
 
 async def test_tool_annotations_in_client_api():
@@ -125,8 +126,7 @@ async def test_direct_tool_annotations_in_tool_manager():
         return {"modified": True, **data}
 
     # Check internal tool objects directly
-    tools_dict = await mcp._tool_manager.get_tools()
-    tools = list(tools_dict.values())
+    tools = await mcp.list_tools()
     assert len(tools) == 1
     assert tools[0].annotations is not None
     assert tools[0].annotations.title == "Direct Tool"
@@ -185,8 +185,7 @@ async def test_add_tool_method_annotations():
     mcp.add_tool(tool)
 
     # Check internal tool objects directly
-    tools_dict = await mcp._tool_manager.get_tools()
-    tools = list(tools_dict.values())
+    tools = await mcp.list_tools()
     assert len(tools) == 1
     assert tools[0].annotations is not None
     assert tools[0].annotations.title == "Create Item"
@@ -234,8 +233,9 @@ async def test_task_execution_auto_populated_for_task_enabled_tool():
         tools_result = await client.list_tools()
         assert len(tools_result) == 1
         assert tools_result[0].name == "background_tool"
-        assert tools_result[0].execution is not None
-        assert tools_result[0].execution.taskSupport == "optional"  # type: ignore[attr-defined]
+        assert isinstance(tools_result[0], MCPTool)
+        assert isinstance(tools_result[0].execution, ToolExecution)
+        assert tools_result[0].execution.taskSupport == "optional"
 
 
 async def test_task_execution_omitted_for_task_disabled_tool():

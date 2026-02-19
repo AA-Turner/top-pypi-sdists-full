@@ -12,7 +12,6 @@
 from __future__ import annotations
 
 import json
-import os
 import pickle
 import subprocess
 import sys
@@ -26,6 +25,7 @@ from codeflash.code_utils.code_utils import get_run_tmp_file
 from codeflash.code_utils.compat import SAFE_SYS_EXECUTABLE
 from codeflash.code_utils.config_consts import EffortLevel
 from codeflash.code_utils.config_parser import parse_config_file
+from codeflash.code_utils.shell_utils import make_env_with_project_root
 from codeflash.tracing.pytest_parallelization import pytest_split
 
 if TYPE_CHECKING:
@@ -131,13 +131,7 @@ def main(args: Namespace | None = None) -> ArgumentParser:
                         else:
                             updated_sys_argv.append(elem)
                     args_dict["command"] = " ".join(updated_sys_argv)
-                    env = os.environ.copy()
-                    pythonpath = env.get("PYTHONPATH", "")
-                    project_root_str = str(project_root)
-                    if pythonpath:
-                        env["PYTHONPATH"] = f"{project_root_str}{os.pathsep}{pythonpath}"
-                    else:
-                        env["PYTHONPATH"] = project_root_str
+                    env = make_env_with_project_root(project_root)
                     # Disable JIT compilation to ensure tracing captures all function calls
                     env["NUMBA_DISABLE_JIT"] = str(1)
                     env["TORCHDYNAMO_DISABLE"] = str(1)
@@ -174,14 +168,7 @@ def main(args: Namespace | None = None) -> ArgumentParser:
                 args_dict["result_pickle_file_path"] = str(result_pickle_file_path)
                 args_dict["command"] = " ".join(sys.argv)
 
-                env = os.environ.copy()
-                # Add project root to PYTHONPATH so imports work correctly
-                pythonpath = env.get("PYTHONPATH", "")
-                project_root_str = str(project_root)
-                if pythonpath:
-                    env["PYTHONPATH"] = f"{project_root_str}{os.pathsep}{pythonpath}"
-                else:
-                    env["PYTHONPATH"] = project_root_str
+                env = make_env_with_project_root(project_root)
                 # Disable JIT compilation to ensure tracing captures all function calls
                 env["NUMBA_DISABLE_JIT"] = str(1)
                 env["TORCHDYNAMO_DISABLE"] = str(1)
@@ -214,8 +201,13 @@ def main(args: Namespace | None = None) -> ArgumentParser:
                 from codeflash.cli_cmds.cli import parse_args, process_pyproject_config
                 from codeflash.cli_cmds.cmd_init import CODEFLASH_LOGO
                 from codeflash.cli_cmds.console import paneled_text
+                from codeflash.languages import set_current_language
+                from codeflash.languages.base import Language
                 from codeflash.telemetry import posthog_cf
                 from codeflash.telemetry.sentry import init_sentry
+
+                # Set the language to Python since the tracer is Python-specific
+                set_current_language(Language.PYTHON)
 
                 sys.argv = ["codeflash", "--replay-test", *replay_test_paths]
                 args = parse_args()
@@ -227,8 +219,8 @@ def main(args: Namespace | None = None) -> ArgumentParser:
 
                 args = process_pyproject_config(args)
                 args.previous_checkpoint_functions = None
-                init_sentry(not args.disable_telemetry, exclude_errors=True)
-                posthog_cf.initialize_posthog(not args.disable_telemetry)
+                init_sentry(enabled=not args.disable_telemetry, exclude_errors=True)
+                posthog_cf.initialize_posthog(enabled=not args.disable_telemetry)
 
                 from codeflash.optimization import optimizer
 

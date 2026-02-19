@@ -281,10 +281,8 @@ class TestGetFastMCPInfo:
         components weren't actually available to clients.
         """
         # Create server with include_tags that will filter out untagged components
-        mcp = FastMCP(
-            "FilteredServer",
-            include_tags={"fetch", "analyze", "create"},
-        )
+        mcp = FastMCP("FilteredServer")
+        mcp.enable(tags={"fetch", "analyze", "create"}, only=True)
 
         # Add tools with and without matching tags
         @mcp.tool(tags={"fetch"})
@@ -396,7 +394,8 @@ class TestGetFastMCPInfo:
             return [{"role": "user", "content": "blocked"}]
 
         # Create parent server with tag filtering
-        parent = FastMCP("ParentServer", include_tags={"allowed"})
+        parent = FastMCP("ParentServer")
+        parent.enable(tags={"allowed"}, only=True)
         parent.mount(mounted)
 
         # Get inspect info
@@ -448,7 +447,8 @@ class TestGetFastMCPInfo:
             return "untagged"
 
         # Create parent with exclude_tags - should filter mounted components
-        parent = FastMCP("ParentServer", exclude_tags={"development"})
+        parent = FastMCP("ParentServer")
+        parent.disable(tags={"development"})
         parent.mount(mounted)
 
         # Get inspect info
@@ -968,7 +968,6 @@ class TestFormatFunctions:
         # Check tools
         assert len(data["tools"]) == 1
         assert data["tools"][0]["name"] == "test_tool"
-        assert data["tools"][0]["enabled"] is True
         assert "tags" in data["tools"][0]
 
     async def test_format_mcp_info(self):

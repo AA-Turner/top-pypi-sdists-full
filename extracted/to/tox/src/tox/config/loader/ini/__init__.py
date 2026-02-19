@@ -11,6 +11,7 @@ from tox.config.loader.replacer import replace
 from tox.config.loader.str_convert import StrConvert
 from tox.config.set_env import SetEnv
 from tox.report import HandledError
+from tox.tox_env.errors import Skip
 
 if TYPE_CHECKING:
     from configparser import ConfigParser, SectionProxy
@@ -52,10 +53,12 @@ class IniLoader(StrConvert, Loader[str]):
                 part = _COMMENTS.sub("", line)
                 elements.append(part.replace("\\#", "#"))
         strip_comments = "\n".join(elements)
-        if conf is None:  # noqa: SIM108 # conf is None when we're loading the global tox configuration file for the CLI
+        if conf is None:  # conf is None when we're loading the global tox configuration file for the CLI
             factor_filtered = strip_comments  # we don't support factor and replace functionality there
         else:
             factor_filtered = filter_for_env(strip_comments, env_name)  # select matching factors
+            if not factor_filtered and strip_comments.strip():
+                raise KeyError(value)
         return factor_filtered.replace("\r", "").replace("\\\n", "")  # collapse explicit new-line escape
 
     def build(  # noqa: PLR0913
@@ -77,7 +80,7 @@ class IniLoader(StrConvert, Loader[str]):
                 try:
                     replaced = replace(conf, reference_replacer, raw_, args_)  # do replacements
                 except Exception as exception:
-                    if isinstance(exception, HandledError):
+                    if isinstance(exception, (HandledError, Skip)):
                         raise
                     name = self.core_section.key if args_.env_name is None else args_.env_name
                     msg = f"replace failed in {name}.{key} with {exception!r}"

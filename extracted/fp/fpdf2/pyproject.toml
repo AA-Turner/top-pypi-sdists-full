@@ -1,5 +1,10 @@
 [build-system]
-requires = ["setuptools>=61.0", "wheel", "fonttools"]
+requires = [
+  "setuptools>=61.0",
+  "wheel",
+  "fonttools",
+  "typing-extensions>=4.0; python_version < '3.11'",
+]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -15,7 +20,8 @@ authors = [
   { name = "Olivier PLATHEY" },
   { name = "Max" },
   { name = "Lucas Cimon (@Lucas-C)" },
-  { name = " Anderson Herzogenrath da Costa (@andersonhc)" }
+  { name = "Georg Mischler (@gmischler)" },
+  { name = "Anderson Herzogenrath da Costa (@andersonhc)" }
 ]
 
 keywords = ["pdf", "unicode", "png", "jpg", "ttf", "barcode", "library", "markdown"]
@@ -42,7 +48,43 @@ dependencies = [
   "Pillow>=8.3.2,!=9.2.*",  # minimum version tested in .github/workflows/continuous-integration-workflow.yml
                             # Version 9.2.0 is excluded due to DoS vulnerability with TIFF images: https://github.com/py-pdf/fpdf2/issues/628
                             # Version exclusion explained here: https://devpress.csdn.net/python/630462c0c67703293080c302.html
-  "fonttools>=4.34.0"
+  "fonttools>=4.34.0",
+]
+
+[project.optional-dependencies]
+dev = [
+  "bandit",
+  "black",
+  "mypy",
+  "pre-commit",
+  "pyright",
+  "pylint",
+  "semgrep",
+  "zizmor",
+]
+docs = [
+  "lxml", 
+  "mkdocs", 
+  "mkdocs-git-revision-date-localized-plugin", 
+  "mkdocs-include-markdown-plugin", 
+  "mkdocs-macros-plugin", 
+  "mkdocs-material", 
+  "mkdocs-minify-plugin", 
+  "mkdocs-redirects", 
+  "mkdocs-with-pdf", 
+  "mknotebooks",
+  "pdoc3",
+]
+test = [
+  "brotli",
+  "camelot-py[base]",
+  "endesive[full]",
+  "pytest",
+  "pytest-cov",
+  "qrcode",
+  "tabula-py",
+  "typing-extensions>=4.0; python_version < '3.11'",
+  "uharfbuzz"
 ]
 
 [project.urls]
@@ -57,7 +99,8 @@ packages = ["fpdf", "fpdf.data", "fpdf.data.color_profiles"]
 [tool.setuptools.package-data]
 fpdf = [
   "data/color_profiles/*.icc",
-  "data/color_profiles/*.LICENSE"
+  "data/color_profiles/*.LICENSE",
+  "py.typed"
 ]
 
 [tool.setuptools.dynamic]
@@ -76,7 +119,6 @@ ignore = ["E203", "E221", "E241", "E251", "E701", "E731", "W503"]
 
 [tool.black]
 line-length = 88
-target-version = ["py310", "py311", "py312", "py313", "py314"]
 skip-string-normalization = false
 include = '\.pyi?$'
 
@@ -86,3 +128,43 @@ line_length = 88
 combine_as_imports = true
 include_trailing_comma = true
 multi_line_output = 3
+
+[tool.mypy]
+python_version = "3.14"
+strict = true
+
+files = ["fpdf"]
+
+# Optional dependencies to ignore
+[[tool.mypy.overrides]]
+module = "defusedxml.ElementTree"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "endesive"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "fontTools.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "uharfbuzz"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pymemtrace.*"
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "pympler.*"
+ignore_missing_imports = true
+
+[tool.pyright]
+include = ["fpdf"]
+typeCheckingMode = "strict"
+pythonVersion = "3.14"
+reportMissingImports = true
+reportMissingTypeStubs = false
+reportUnnecessaryIsInstance = false
+reportUnnecessaryComparison = false

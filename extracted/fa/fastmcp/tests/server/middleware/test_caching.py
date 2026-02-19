@@ -2,12 +2,18 @@
 
 import sys
 import tempfile
+import warnings
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import mcp.types
 import pytest
 from inline_snapshot import snapshot
-from key_value.aio.stores.disk import DiskStore
+from key_value.aio.stores.filetree import (
+    FileTreeStore,
+    FileTreeV1CollectionSanitizationStrategy,
+    FileTreeV1KeySanitizationStrategy,
+)
 from key_value.aio.stores.memory import MemoryStore
 from key_value.aio.wrappers.statistics.wrapper import (
     GetStatistics,
@@ -15,13 +21,14 @@ from key_value.aio.wrappers.statistics.wrapper import (
     PutStatistics,
 )
 from mcp.server.lowlevel.helper_types import ReadResourceContents
-from mcp.types import PromptMessage, TextContent, TextResourceContents
+from mcp.types import TextContent, TextResourceContents
 from pydantic import AnyUrl, BaseModel
 
 from fastmcp import Context, FastMCP
 from fastmcp.client.client import CallToolResult, Client
 from fastmcp.client.transports import FastMCPTransport
-from fastmcp.prompts.prompt import FunctionPrompt, Prompt
+from fastmcp.prompts.function_prompt import FunctionPrompt
+from fastmcp.prompts.prompt import Message, Prompt
 from fastmcp.resources.resource import Resource
 from fastmcp.server.middleware.caching import (
     CachableToolResult,
@@ -44,11 +51,8 @@ def sample_resource_fn() -> list[ReadResourceContents]:
     return [SAMPLE_READ_RESOURCE_CONTENTS]
 
 
-SAMPLE_PROMPT_CONTENTS = TextContent(type="text", text="test_text")
-
-
-def sample_prompt_fn() -> PromptMessage:
-    return PromptMessage(role="user", content=SAMPLE_PROMPT_CONTENTS)
+def sample_prompt_fn() -> Message:
+    return Message("test_text")
 
 
 SAMPLE_RESOURCE = Resource.from_function(
@@ -57,11 +61,7 @@ SAMPLE_RESOURCE = Resource.from_function(
 
 SAMPLE_PROMPT = Prompt.from_function(fn=sample_prompt_fn, name="test_prompt")
 SAMPLE_GET_PROMPT_RESULT = mcp.types.GetPromptResult(
-    messages=[
-        mcp.types.PromptMessage(
-            role="user", content=mcp.types.TextContent(type="text", text="test_text")
-        )
-    ]
+    messages=[Message("test_text").to_mcp_prompt_message()]
 )
 SAMPLE_TOOL = Tool(name="test_tool", parameters={"param1": "value1", "param2": 42})
 SAMPLE_TOOL_RESULT = ToolResult(
@@ -132,17 +132,19 @@ class TrackingCalculator:
     def how_to_calculate(self, a: int, b: int) -> str:
         return f"To calculate {a} + {b}, you need to add {a} and {b} together."
 
-    def get_add_calls(self) -> int:
-        return self.add_calls
+    def get_add_calls(self) -> str:
+        return str(self.add_calls)
 
-    def get_multiply_calls(self) -> int:
-        return self.multiply_calls
+    def get_multiply_calls(self) -> str:
+        return str(self.multiply_calls)
 
-    def get_crazy_calls(self) -> int:
-        return self.crazy_calls
+    def get_crazy_calls(self) -> str:
+        return str(self.crazy_calls)
 
     async def update_tool_list(self, context: Context):
-        await context.send_tool_list_changed()
+        import mcp.types
+
+        await context.send_notification(mcp.types.ToolListChangedNotification())
 
     def add_tools(self, fastmcp: FastMCP, prefix: str = ""):
         _ = fastmcp.add_tool(tool=Tool.from_function(fn=self.add, name=f"{prefix}add"))
@@ -285,19 +287,31 @@ class TestResponseCachingMiddleware:
 class TestResponseCachingMiddlewareIntegration:
     """Integration tests with real FastMCP server."""
 
-    @pytest.fixture(params=["memory", "disk"])
+    @pytest.fixture(params=["memory", "filetree"])
     async def caching_server(
         self,
         tracking_calculator: TrackingCalculator,
         request: pytest.FixtureRequest,
     ):
         """Create a FastMCP server for caching tests."""
-        mcp = FastMCP("CachingTestServer")
+        mcp = FastMCP("CachingTestServer", dereference_schemas=False)
 
         with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp_dir:
-            disk_store: DiskStore = DiskStore(directory=temp_dir)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                file_store = FileTreeStore(
+                    data_directory=Path(temp_dir),
+                    key_sanitization_strategy=FileTreeV1KeySanitizationStrategy(
+                        Path(temp_dir)
+                    ),
+                    collection_sanitization_strategy=FileTreeV1CollectionSanitizationStrategy(
+                        Path(temp_dir)
+                    ),
+                )
             response_caching_middleware = ResponseCachingMiddleware(
-                cache_storage=disk_store if request.param == "disk" else MemoryStore(),
+                cache_storage=file_store
+                if request.param == "filetree"
+                else MemoryStore(),
             )
 
             mcp.add_middleware(middleware=response_caching_middleware)
@@ -307,8 +321,6 @@ class TestResponseCachingMiddlewareIntegration:
             tracking_calculator.add_prompts(fastmcp=mcp)
 
             yield mcp
-
-            await disk_store.close()
 
     @pytest.fixture
     def non_caching_server(self, tracking_calculator: TrackingCalculator):
@@ -526,3 +538,96 @@ class TestCachableToolResult:
         assert cached_tool_result.content == tool_result.content
         assert cached_tool_result.structured_content == tool_result.structured_content
         assert cached_tool_result.meta == tool_result.meta
+
+
+class TestCachingWithImportedServerPrefixes:
+    """Test that caching preserves prefixes from imported servers.
+
+    Regression tests for issue #2300: ResponseCachingMiddleware was losing
+    prefix information when caching components from imported servers.
+    """
+
+    @pytest.fixture
+    async def parent_with_imported_child(self, tracking_calculator: TrackingCalculator):
+        """Create a parent server with an imported child server (prefixed)."""
+        child = FastMCP("child")
+        tracking_calculator.add_tools(fastmcp=child)
+        tracking_calculator.add_resources(fastmcp=child)
+        tracking_calculator.add_prompts(fastmcp=child)
+
+        parent = FastMCP("parent")
+        parent.add_middleware(ResponseCachingMiddleware())
+        parent.mount(child, namespace="child")
+
+        return parent
+
+    async def test_tool_prefixes_preserved_after_cache_hit(
+        self, parent_with_imported_child: FastMCP
+    ):
+        """Tool names should retain prefix after being served from cache."""
+        async with Client(parent_with_imported_child) as client:
+            # First call populates cache
+            tools_first = await client.list_tools()
+            tool_names_first = [t.name for t in tools_first]
+
+            # Second call should come from cache
+            tools_cached = await client.list_tools()
+            tool_names_cached = [t.name for t in tools_cached]
+
+            # All tools should have prefix in both calls
+            assert all(name.startswith("child_") for name in tool_names_first)
+            assert all(name.startswith("child_") for name in tool_names_cached)
+            assert tool_names_first == tool_names_cached
+
+    async def test_resource_prefixes_preserved_after_cache_hit(
+        self, parent_with_imported_child: FastMCP
+    ):
+        """Resource URIs should retain prefix after being served from cache."""
+        async with Client(parent_with_imported_child) as client:
+            # First call populates cache
+            resources_first = await client.list_resources()
+            resource_uris_first = [str(r.uri) for r in resources_first]
+
+            # Second call should come from cache
+            resources_cached = await client.list_resources()
+            resource_uris_cached = [str(r.uri) for r in resources_cached]
+
+            # All resources should have prefix in URI path in both calls
+            # Resources get path-style prefix: resource://child/path
+            assert all("://child/" in uri for uri in resource_uris_first)
+            assert all("://child/" in uri for uri in resource_uris_cached)
+            assert resource_uris_first == resource_uris_cached
+
+    async def test_prompt_prefixes_preserved_after_cache_hit(
+        self, parent_with_imported_child: FastMCP
+    ):
+        """Prompt names should retain prefix after being served from cache."""
+        async with Client(parent_with_imported_child) as client:
+            # First call populates cache
+            prompts_first = await client.list_prompts()
+            prompt_names_first = [p.name for p in prompts_first]
+
+            # Second call should come from cache
+            prompts_cached = await client.list_prompts()
+            prompt_names_cached = [p.name for p in prompts_cached]
+
+            # All prompts should have prefix in both calls
+            assert all(name.startswith("child_") for name in prompt_names_first)
+            assert all(name.startswith("child_") for name in prompt_names_cached)
+            assert prompt_names_first == prompt_names_cached
+
+    async def test_prefixed_tool_callable_after_cache_hit(
+        self,
+        parent_with_imported_child: FastMCP,
+        tracking_calculator: TrackingCalculator,
+    ):
+        """Prefixed tools should be callable after cache populates."""
+        async with Client(parent_with_imported_child) as client:
+            # Trigger cache population
+            await client.list_tools()
+            await client.list_tools()  # From cache
+
+            # Tool should be callable with prefixed name
+            result = await client.call_tool("child_add", {"a": 5, "b": 3})
+            assert not result.is_error
+            assert tracking_calculator.add_calls == 1

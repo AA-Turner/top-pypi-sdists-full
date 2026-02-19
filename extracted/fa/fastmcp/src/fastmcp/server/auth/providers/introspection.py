@@ -25,41 +25,18 @@ from __future__ import annotations
 
 import base64
 import time
-from typing import Any
+from typing import Any, Literal, get_args
 
 import httpx
-from pydantic import AnyHttpUrl, SecretStr, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import AnyHttpUrl, SecretStr
 
 from fastmcp.server.auth import AccessToken, TokenVerifier
-from fastmcp.settings import ENV_FILE
 from fastmcp.utilities.auth import parse_scopes
 from fastmcp.utilities.logging import get_logger
-from fastmcp.utilities.types import NotSet, NotSetT
 
 logger = get_logger(__name__)
 
-
-class IntrospectionTokenVerifierSettings(BaseSettings):
-    """Settings for OAuth 2.0 Token Introspection verification."""
-
-    model_config = SettingsConfigDict(
-        env_prefix="FASTMCP_SERVER_AUTH_INTROSPECTION_",
-        env_file=ENV_FILE,
-        extra="ignore",
-    )
-
-    introspection_url: str | None = None
-    client_id: str | None = None
-    client_secret: SecretStr | None = None
-    timeout_seconds: int = 10
-    required_scopes: list[str] | None = None
-    base_url: AnyHttpUrl | str | None = None
-
-    @field_validator("required_scopes", mode="before")
-    @classmethod
-    def _parse_scopes(cls, v):
-        return parse_scopes(v)
+ClientAuthMethod = Literal["client_secret_basic", "client_secret_post"]
 
 
 class IntrospectionTokenVerifier(TokenVerifier):
@@ -70,8 +47,11 @@ class IntrospectionTokenVerifier(TokenVerifier):
     endpoint. Unlike JWT verification which is stateless, token introspection requires
     a network call to the authorization server for each token validation.
 
-    The verifier authenticates to the introspection endpoint using HTTP Basic Auth
-    with the provided client_id and client_secret, as specified in RFC 7662.
+    The verifier authenticates to the introspection endpoint using either:
+    - HTTP Basic Auth (client_secret_basic, default): credentials in Authorization header
+    - POST body authentication (client_secret_post): credentials in request body
+
+    Both methods are specified in RFC 6749 (OAuth 2.0) and RFC 7662 (Token Introspection).
 
     Use this when:
     - Your authorization server issues opaque (non-JWT) tokens
@@ -93,12 +73,13 @@ class IntrospectionTokenVerifier(TokenVerifier):
     def __init__(
         self,
         *,
-        introspection_url: str | NotSetT = NotSet,
-        client_id: str | NotSetT = NotSet,
-        client_secret: str | NotSetT = NotSet,
-        timeout_seconds: int | NotSetT = NotSet,
-        required_scopes: list[str] | NotSetT | None = NotSet,
-        base_url: AnyHttpUrl | str | NotSetT | None = NotSet,
+        introspection_url: str,
+        client_id: str,
+        client_secret: str | SecretStr,
+        client_auth_method: ClientAuthMethod = "client_secret_basic",
+        timeout_seconds: int = 10,
+        required_scopes: list[str] | None = None,
+        base_url: AnyHttpUrl | str | None = None,
     ):
         """
         Initialize the introspection token verifier.
@@ -107,49 +88,38 @@ class IntrospectionTokenVerifier(TokenVerifier):
             introspection_url: URL of the OAuth 2.0 token introspection endpoint
             client_id: OAuth client ID for authenticating to the introspection endpoint
             client_secret: OAuth client secret for authenticating to the introspection endpoint
+            client_auth_method: Client authentication method. "client_secret_basic" (default)
+                uses HTTP Basic Auth header, "client_secret_post" sends credentials in POST body
             timeout_seconds: HTTP request timeout in seconds (default: 10)
             required_scopes: Required scopes for all tokens (optional)
             base_url: Base URL for TokenVerifier protocol
         """
-        settings = IntrospectionTokenVerifierSettings.model_validate(
-            {
-                k: v
-                for k, v in {
-                    "introspection_url": introspection_url,
-                    "client_id": client_id,
-                    "client_secret": client_secret,
-                    "timeout_seconds": timeout_seconds,
-                    "required_scopes": required_scopes,
-                    "base_url": base_url,
-                }.items()
-                if v is not NotSet
-            }
+        # Parse scopes if provided as string
+        parsed_required_scopes = (
+            parse_scopes(required_scopes) if required_scopes is not None else None
         )
 
-        if not settings.introspection_url:
-            raise ValueError(
-                "introspection_url is required - set via parameter or "
-                "FASTMCP_SERVER_AUTH_INTROSPECTION_INTROSPECTION_URL"
-            )
-        if not settings.client_id:
-            raise ValueError(
-                "client_id is required - set via parameter or "
-                "FASTMCP_SERVER_AUTH_INTROSPECTION_CLIENT_ID"
-            )
-        if not settings.client_secret:
-            raise ValueError(
-                "client_secret is required - set via parameter or "
-                "FASTMCP_SERVER_AUTH_INTROSPECTION_CLIENT_SECRET"
-            )
+        super().__init__(base_url=base_url, required_scopes=parsed_required_scopes)
 
-        super().__init__(
-            base_url=settings.base_url, required_scopes=settings.required_scopes
+        self.introspection_url = introspection_url
+        self.client_id = client_id
+        self.client_secret = (
+            client_secret.get_secret_value()
+            if isinstance(client_secret, SecretStr)
+            else client_secret
         )
 
-        self.introspection_url = settings.introspection_url
-        self.client_id = settings.client_id
-        self.client_secret = settings.client_secret.get_secret_value()
-        self.timeout_seconds = settings.timeout_seconds
+        # Validate client_auth_method to catch typos/invalid values early
+        valid_methods = get_args(ClientAuthMethod)
+        if client_auth_method not in valid_methods:
+            options = " or ".join(f"'{m}'" for m in valid_methods)
+            raise ValueError(
+                f"Invalid client_auth_method: {client_auth_method!r}. "
+                f"Must be {options}."
+            )
+        self.client_auth_method: ClientAuthMethod = client_auth_method
+
+        self.timeout_seconds = timeout_seconds
         self.logger = get_logger(__name__)
 
     def _create_basic_auth_header(self) -> str:
@@ -186,7 +156,8 @@ class IntrospectionTokenVerifier(TokenVerifier):
         Verify a bearer token using OAuth 2.0 Token Introspection (RFC 7662).
 
         This method makes a POST request to the introspection endpoint with the token,
-        authenticated using HTTP Basic Auth with the client credentials.
+        authenticated using the configured client authentication method (client_secret_basic
+        or client_secret_post).
 
         Args:
             token: The opaque token string to validate
@@ -197,19 +168,29 @@ class IntrospectionTokenVerifier(TokenVerifier):
         try:
             async with httpx.AsyncClient(timeout=self.timeout_seconds) as client:
                 # Prepare introspection request per RFC 7662
-                auth_header = self._create_basic_auth_header()
+                # Build request data with token and token_type_hint
+                data = {
+                    "token": token,
+                    "token_type_hint": "access_token",
+                }
+
+                # Build headers
+                headers = {
+                    "Content-Type": "application/x-www-form-urlencoded",
+                    "Accept": "application/json",
+                }
+
+                # Add client authentication based on method
+                if self.client_auth_method == "client_secret_basic":
+                    headers["Authorization"] = self._create_basic_auth_header()
+                elif self.client_auth_method == "client_secret_post":
+                    data["client_id"] = self.client_id
+                    data["client_secret"] = self.client_secret
 
                 response = await client.post(
                     self.introspection_url,
-                    data={
-                        "token": token,
-                        "token_type_hint": "access_token",
-                    },
-                    headers={
-                        "Authorization": auth_header,
-                        "Content-Type": "application/x-www-form-urlencoded",
-                        "Accept": "application/json",
-                    },
+                    data=data,
+                    headers=headers,
                 )
 
                 # Check for HTTP errors

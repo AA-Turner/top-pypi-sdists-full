@@ -1,9 +1,9 @@
 import sys
 import os
 
+from adam.presentation.tabulize import tabulize
 from adam.utils_apps.app_session import AppSession
 from adam.utils_k8s.kube_context import KubeContext
-from adam.utils_tabulize import tabulize
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 

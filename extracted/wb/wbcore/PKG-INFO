@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wbcore
-Version: 1.61.10
+Version: 1.61.11
 Author-email: Christopher Wittlinger <c.wittlinger@stainly.com>
 Requires-Dist: celery[redis]==5.*
 Requires-Dist: croniter==2.*

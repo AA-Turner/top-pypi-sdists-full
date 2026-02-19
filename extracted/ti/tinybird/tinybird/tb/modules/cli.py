@@ -36,6 +36,7 @@ from tinybird.tb.modules.common import (
     force_echo,
     getenv_bool,
     try_update_config_with_remote,
+    warn_prompt_ai_deprecation,
 )
 from tinybird.tb.modules.config import CURRENT_VERSION, CLIConfig
 from tinybird.tb.modules.datafile.build import build_graph
@@ -52,6 +53,52 @@ DEFAULT_PATTERNS: List[Tuple[str, Union[str, Callable[[str], str]]]] = [
     (r"p\.ey[A-Za-z0-9-_\.]+", lambda v: f"{v[:4]}...{v[-8:]}")
 ]
 VERSION = f"{__cli__.__version__} (rev {__cli__.__revision__})"
+
+
+def _get_raw_cli_args(ctx: Context) -> List[str]:
+    root_ctx = ctx.find_root()
+    root_obj = root_ctx.obj if isinstance(root_ctx.obj, dict) else {}
+    raw_args = root_obj.get("_tb_raw_args")
+    if isinstance(raw_args, list):
+        return raw_args
+    return sys.argv[1:]
+
+
+def _argv_has_option(args: List[str], flag: str) -> bool:
+    return any(arg == flag or arg.startswith(f"{flag}=") for arg in args)
+
+
+def _argv_has_sequence(args: List[str], command_parts: List[str]) -> bool:
+    sequence_len = len(command_parts)
+    return any(args[i : i + sequence_len] == command_parts for i in range(len(args) - sequence_len + 1))
+
+
+def _should_warn_prompt_ai_deprecation(
+    ctx: Context,
+    is_agent_mode: bool,
+    is_prompt_mode: bool,
+) -> bool:
+    raw_args = _get_raw_cli_args(ctx)
+
+    if is_agent_mode or is_prompt_mode:
+        return True
+
+    if ctx.invoked_subcommand == "mock":
+        return True
+
+    if ctx.invoked_subcommand == "test" and _argv_has_sequence(raw_args, ["test", "create"]):
+        return True
+
+    if ctx.invoked_subcommand == "create" and (
+        _argv_has_option(raw_args, "--prompt") or _argv_has_option(raw_args, "-p")
+    ):
+        return True
+
+    return (
+        ctx.invoked_subcommand == "datasource"
+        and _argv_has_sequence(raw_args, ["datasource", "create"])
+        and _argv_has_option(raw_args, "--prompt")
+    )
 
 
 @click.group(
@@ -129,6 +176,7 @@ def cli(
         click.echo(FeedbackManager.warning_disabled_ssl_checks())
 
     is_agent_mode = ctx.invoked_subcommand is None
+    is_prompt_mode = prompt is not None
     if not environ.get("PYTEST", None) and version_warning and not token and not is_agent_mode:
         latest_version = CheckPypi().get_latest_version()
         if latest_version:
@@ -215,6 +263,10 @@ def cli(
         return
 
     ctx.ensure_object(dict)["project"] = project
+
+    if _should_warn_prompt_ai_deprecation(ctx, is_agent_mode, is_prompt_mode):
+        warn_prompt_ai_deprecation()
+
     client = create_ctx_client(
         ctx,
         config,
@@ -234,8 +286,6 @@ def cli(
 
     # Check if current folder is tracked from previous sessions
     check_current_folder_in_sessions(ctx)
-
-    is_prompt_mode = prompt is not None
 
     if is_agent_mode or is_prompt_mode:
         if any(arg in sys.argv for arg in ["--cloud", "--local", "--branch"]):

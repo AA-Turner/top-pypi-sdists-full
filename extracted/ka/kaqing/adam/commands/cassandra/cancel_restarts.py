@@ -6,7 +6,7 @@ from adam.utils_context import NULL
 from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils import duration
 from adam.utils_repl.set_completer import SetCompleter
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class CancelRestarts(Command):
     COMMAND = 'cancel restarts'

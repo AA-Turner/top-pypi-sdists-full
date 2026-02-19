@@ -1,7 +1,7 @@
 from adam.commands.export.export_databases import ExportDatabases
 from adam.utils_repl.repl_state import ReplState
 from adam.sql.lark_completer import LarkCompleter
-from adam.rdbms.utils_athena import Athena
+from adam.utils_rdbms.athena import Athena
 
 def completions_x(state: ReplState):
     return LarkCompleter(expandables={

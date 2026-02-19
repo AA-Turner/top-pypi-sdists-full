@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import warnings
+
 from apify_client._http_client import HTTPClient, HTTPClientAsync
 from apify_client._statistics import Statistics
 from apify_client.clients import (
@@ -87,9 +89,11 @@ class _BaseApifyClient:
         self.base_url = f'{api_url}/{API_VERSION}'
         api_public_url = (api_public_url or DEFAULT_API_URL).rstrip('/')
         self.public_base_url = f'{api_public_url}/{API_VERSION}'
-        self.max_retries = max_retries or 8
-        self.min_delay_between_retries_millis = min_delay_between_retries_millis or 500
-        self.timeout_secs = timeout_secs or DEFAULT_TIMEOUT
+        self.max_retries = max_retries if max_retries is not None else 8
+        self.min_delay_between_retries_millis = (
+            min_delay_between_retries_millis if min_delay_between_retries_millis is not None else 500
+        )
+        self.timeout_secs = timeout_secs if timeout_secs is not None else DEFAULT_TIMEOUT
 
     def _options(self) -> dict:
         return {
@@ -97,6 +101,18 @@ class _BaseApifyClient:
             'base_url': self.base_url,
             'http_client': self.http_client,
         }
+
+    def _check_custom_headers(self, headers: dict) -> None:
+        default_headers = {'Accept', 'Authorization', 'Accept-Encoding', 'User-Agent'}
+        overwrite_headers = [key for key in headers if key.title() in default_headers]
+        if overwrite_headers:
+            warnings.warn(
+                f'{", ".join(overwrite_headers)} headers of {self.__class__.__name__} was overridden with an '
+                'explicit value. A wrong header value can lead to API errors, it is recommended to use the default '
+                f'value for following headers: {", ".join(default_headers)}.',
+                category=UserWarning,
+                stacklevel=2,
+            )
 
 
 class ApifyClient(_BaseApifyClient):
@@ -113,6 +129,7 @@ class ApifyClient(_BaseApifyClient):
         max_retries: int | None = 8,
         min_delay_between_retries_millis: int | None = 500,
         timeout_secs: int | None = DEFAULT_TIMEOUT,
+        headers: dict | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -126,6 +143,7 @@ class ApifyClient(_BaseApifyClient):
             min_delay_between_retries_millis: How long will the client wait between retrying requests
                 (increases exponentially from this value).
             timeout_secs: The socket timeout of the HTTP requests sent to the Apify API.
+            headers: Set headers to client for all requests.
         """
         super().__init__(
             token,
@@ -137,12 +155,17 @@ class ApifyClient(_BaseApifyClient):
         )
 
         self.stats = Statistics()
+
+        if headers:
+            self._check_custom_headers(headers)
+
         self.http_client = HTTPClient(
             token=token,
             max_retries=self.max_retries,
             min_delay_between_retries_millis=self.min_delay_between_retries_millis,
             timeout_secs=self.timeout_secs,
             stats=self.stats,
+            headers=headers,
         )
 
     def actor(self, actor_id: str) -> ActorClient:
@@ -301,6 +324,7 @@ class ApifyClientAsync(_BaseApifyClient):
         max_retries: int | None = 8,
         min_delay_between_retries_millis: int | None = 500,
         timeout_secs: int | None = DEFAULT_TIMEOUT,
+        headers: dict | None = None,
     ) -> None:
         """Initialize a new instance.
 
@@ -314,6 +338,7 @@ class ApifyClientAsync(_BaseApifyClient):
             min_delay_between_retries_millis: How long will the client wait between retrying requests
                 (increases exponentially from this value).
             timeout_secs: The socket timeout of the HTTP requests sent to the Apify API.
+            headers: Set headers to client for all requests.
         """
         super().__init__(
             token,
@@ -325,12 +350,17 @@ class ApifyClientAsync(_BaseApifyClient):
         )
 
         self.stats = Statistics()
+
+        if headers:
+            self._check_custom_headers(headers)
+
         self.http_client = HTTPClientAsync(
             token=token,
             max_retries=self.max_retries,
             min_delay_between_retries_millis=self.min_delay_between_retries_millis,
             timeout_secs=self.timeout_secs,
             stats=self.stats,
+            headers=headers,
         )
 
     def actor(self, actor_id: str) -> ActorClientAsync:

@@ -538,7 +538,25 @@ class int:
             """
             ...
     else:
-        def to_bytes(self, length: SupportsIndex, byteorder: Literal["little", "big"], *, signed: bool = False) -> bytes: ...
+        def to_bytes(self, length: SupportsIndex, byteorder: Literal["little", "big"], *, signed: bool = False) -> bytes:
+            """
+            Return an array of bytes representing an integer.
+
+            length
+              Length of bytes object to use.  An OverflowError is raised if the
+              integer is not representable with the given number of bytes.
+            byteorder
+              The byte order used to represent the integer.  If byteorder is 'big',
+              the most significant byte is at the beginning of the byte array.  If
+              byteorder is 'little', the most significant byte is at the end of the
+              byte array.  To request the native byte order of the host system, use
+              `sys.byteorder' as the byte order value.
+            signed
+              Determines whether two's complement is used to represent the integer.
+              If signed is False and a negative integer is given, an OverflowError
+              is raised.
+            """
+            ...
         @classmethod
         def from_bytes(
             cls,
@@ -546,7 +564,25 @@ class int:
             byteorder: Literal["little", "big"],
             *,
             signed: bool = False,
-        ) -> Self: ...
+        ) -> Self:
+            """
+            Return the integer represented by the given array of bytes.
+
+            bytes
+              Holds the array of bytes to convert.  The argument must either
+              support the buffer protocol or be an iterable object producing bytes.
+              Bytes and bytearray are examples of built-in objects that support the
+              buffer protocol.
+            byteorder
+              The byte order used to represent the integer.  If byteorder is 'big',
+              the most significant byte is at the beginning of the byte array.  If
+              byteorder is 'little', the most significant byte is at the end of the
+              byte array.  To request the native byte order of the host system, use
+              `sys.byteorder' as the byte order value.
+            signed
+              Indicates whether two's complement is used to represent the integer.
+            """
+            ...
 
     if sys.version_info >= (3, 12):
         def is_integer(self) -> Literal[True]:
@@ -681,7 +717,13 @@ class int:
             """
             ...
     else:
-        def __round__(self, ndigits: SupportsIndex = ..., /) -> int: ...
+        def __round__(self, ndigits: SupportsIndex = ..., /) -> int:
+            """
+            Rounding an Integral returns itself.
+
+            Rounding with an ndigits argument also returns an integer.
+            """
+            ...
 
     def __getnewargs__(self) -> tuple[int]: ...
     def __eq__(self, value: object, /) -> bool:
@@ -1382,9 +1424,31 @@ class str(Sequence[str]):
         @overload
         def replace(
             self: LiteralString, old: LiteralString, new: LiteralString, count: SupportsIndex = -1, /
-        ) -> LiteralString: ...
+        ) -> LiteralString:
+            """
+            Return a copy with all occurrences of substring old replaced by new.
+
+              count
+                Maximum number of occurrences to replace.
+                -1 (the default value) means replace all occurrences.
+
+            If the optional argument count is given, only the first count occurrences are
+            replaced.
+            """
+            ...
         @overload
-        def replace(self, old: str, new: str, count: SupportsIndex = -1, /) -> str: ...  # type: ignore[misc]
+        def replace(self, old: str, new: str, count: SupportsIndex = -1, /) -> str:
+            """
+            Return a copy with all occurrences of substring old replaced by new.
+
+              count
+                Maximum number of occurrences to replace.
+                -1 (the default value) means replace all occurrences.
+
+            If the optional argument count is given, only the first count occurrences are
+            replaced.
+            """
+            ...
 
     @overload
     def removeprefix(self: LiteralString, prefix: LiteralString, /) -> LiteralString:
@@ -2259,7 +2323,14 @@ class bytes(Sequence[int]):
             ...
     else:
         @classmethod
-        def fromhex(cls, string: str, /) -> Self: ...
+        def fromhex(cls, string: str, /) -> Self:
+            r"""
+            Create a bytes object from a string of hexadecimal numbers.
+
+            Spaces between two numbers are accepted.
+            Example: bytes.fromhex('B9 01EF') -> b'\\xb9\\x01\\xef'.
+            """
+            ...
 
     @staticmethod
     def maketrans(frm: ReadableBuffer, to: ReadableBuffer, /) -> bytes:
@@ -2826,7 +2897,14 @@ class bytearray(MutableSequence[int]):
             ...
     else:
         @classmethod
-        def fromhex(cls, string: str, /) -> Self: ...
+        def fromhex(cls, string: str, /) -> Self:
+            r"""
+            Create a bytearray object from a string of hexadecimal numbers.
+
+            Spaces between two numbers are accepted.
+            Example: bytearray.fromhex('B9 01EF') -> bytearray(b'\\xb9\\x01\\xef')
+            """
+            ...
 
     @staticmethod
     def maketrans(frm: ReadableBuffer, to: ReadableBuffer, /) -> bytes:
@@ -2925,7 +3003,7 @@ class bytearray(MutableSequence[int]):
             Resize the internal buffer of bytearray to len.
 
             size
-              New size to resize to..
+              New size to resize to.
             """
             ...
 
@@ -3068,7 +3146,15 @@ class memoryview(Sequence[_I]):
             """
             ...
     else:
-        def tobytes(self, order: Literal["C", "F", "A"] | None = None) -> bytes: ...
+        def tobytes(self, order: Literal["C", "F", "A"] | None = None) -> bytes:
+            """
+            Return the data in the buffer as a byte string. Order can be {'C', 'F', 'A'}.
+            When order is 'C' or 'F', the data of the original array is converted to C or
+            Fortran order. For contiguous views, 'A' returns an exact copy of the physical
+            memory. In particular, in-memory Fortran order is preserved. For non-contiguous
+            views, the data is converted to C first. order=None is the same as order='C'.
+            """
+            ...
 
     def tolist(self) -> list[int]:
         """Return the data in the buffer as a list of elements."""
@@ -4295,7 +4381,17 @@ else:
         globals: dict[str, Any] | None = None,
         locals: Mapping[str, object] | None = None,
         /,
-    ) -> Any: ...
+    ) -> Any:
+        """
+        Evaluate the given source in the context of globals and locals.
+
+        The source may be a string representing a Python expression
+        or a code object as returned by compile().
+        The globals must be a dictionary and locals can be any mapping,
+        defaulting to the current globals and locals.
+        If only globals is given, locals defaults to it.
+        """
+        ...
 
 # Comment above regarding `eval` applies to `exec` as well
 if sys.version_info >= (3, 13):
@@ -4328,7 +4424,19 @@ elif sys.version_info >= (3, 11):
         /,
         *,
         closure: tuple[CellType, ...] | None = None,
-    ) -> None: ...
+    ) -> None:
+        """
+        Execute the given source in the context of globals and locals.
+
+        The source may be a string representing one or more Python statements
+        or a code object as returned by compile().
+        The globals must be a dictionary and locals can be any mapping,
+        defaulting to the current globals and locals.
+        If only globals is given, locals defaults to it.
+        The closure must be a tuple of cellvars, and can only be used
+        when source is a code object requiring exactly that many cellvars.
+        """
+        ...
 
 else:
     def exec(
@@ -4336,7 +4444,17 @@ else:
         globals: dict[str, Any] | None = None,
         locals: Mapping[str, object] | None = None,
         /,
-    ) -> None: ...
+    ) -> None:
+        """
+        Execute the given source in the context of globals and locals.
+
+        The source may be a string representing one or more Python statements
+        or a code object as returned by compile().
+        The globals must be a dictionary and locals can be any mapping,
+        defaulting to the current globals and locals.
+        If only globals is given, locals defaults to it.
+        """
+        ...
 
 exit: _sitebuiltins.Quitter
 
@@ -6377,7 +6495,9 @@ if sys.version_info >= (3, 10):
         obj: object
 
 else:
-    class AttributeError(Exception): ...
+    class AttributeError(Exception):
+        """Attribute not found."""
+        ...
 
 class BufferError(Exception):
     """Buffer error."""
@@ -6411,7 +6531,9 @@ if sys.version_info >= (3, 10):
         name: str | None
 
 else:
-    class NameError(Exception): ...
+    class NameError(Exception):
+        """Name not found globally."""
+        ...
 
 class ReferenceError(Exception):
     """Weak ref proxy used after referent went away."""

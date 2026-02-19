@@ -104,12 +104,12 @@ class SitemapGenerator:
         self.crawl(self.base_url)
         self.generate_sitemap_xml()
 
-# Example usage:
-if __name__ == "__main__":
-    base_url = 'https://pump.fun'  # Replace with your website URL
-    input(linkManager(base_url).find_all_domain())
-    generator = SitemapGenerator(base_url)
-    generator.run()
+### Example usage:
+##if __name__ == "__main__":
+##    base_url = 'https://pump.fun'  # Replace with your website URL
+##    input(linkManager(base_url).find_all_domain())
+##    generator = SitemapGenerator(base_url)
+##    generator.run()
 
 class crawlManager:
     def __init__(self, url, req_mgr, url_mgr, source_code=None, parse_type="html.parser"):
@@ -170,17 +170,17 @@ class crawlManager:
         soup = BeautifulSoup(self.source_code, self.parse_type)
         links = {'images': [], 'external_links': []}
 
-        if self.response:
-            for attr in ['href', 'src']:
-                for tag in soup.find_all(attrs={attr: True}):
-                    link = tag.get(attr)
-                    if link:
-                        absolute_link = urljoin(url, link)
-                        if link.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')):
-                            links['images'].append(absolute_link)
-                        elif urlparse(absolute_link).netloc != urlparse(url).netloc:
-                            links['external_links'].append(absolute_link)
-        
+
+        for attr in ['href', 'src']:
+            for tag in soup.find_all(attrs={attr: True}):
+                link = tag.get(attr)
+                if link:
+                    absolute_link = urljoin(url, link)
+                    if link.lower().endswith(('.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp')):
+                        links['images'].append(absolute_link)
+                    elif urlparse(absolute_link).netloc != urlparse(url).netloc:
+                        links['external_links'].append(absolute_link)
+    
         return links
 
     def get_all_website_links(self):
@@ -283,3 +283,8 @@ def get_domain_crawl(url=None,req_mgr=None,url_mgr=None,source_code=None,parse_t
     url = get_url(url=url,url_mgr=url_mgr)
     all_domain_links = crawl_mgr.crawl(url=url, max_depth=max_depth, depth=depth)
     return all_domain_links
+def get_all_crawl_links(url):
+    url_mgr = urlManager(url)
+    req_mgr = requestManager(url_mgr=url_mgr)
+    crawl_mgr = crawlManager(url=url,url_mgr=url_mgr,req_mgr=req_mgr)
+    return crawl_mgr.extract_links_from_url()

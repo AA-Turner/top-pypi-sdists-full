@@ -973,6 +973,57 @@ class LazyFramePlaceholder:
         compression: str | None = None,
         ensure_files: bool = False,
         connector_id: str | None = None,
+        return_table_write_result: bool = False,
+    ) -> "LazyFramePlaceholder":
+        """Persist the DataFrame plan using Velox's Hive connector.
+
+        Parameters
+        ----------
+        target_path
+            Directory to write output files.
+        target_file_name
+            Optional explicit file name.
+        file_format
+            Output format (default ``parquet``).
+        serde_parameters
+            Optional SerDe options for text formats.
+        compression
+            Optional compression codec.
+        ensure_files
+            Ensure writers emit files even if no rows were produced.
+        connector_id
+            Optional connector id override.
+        return_table_write_result
+            If True, return the raw TableWrite result (default False).
+
+        Returns
+        -------
+        DataFrame representing the TableWrite operator.
+        """
+
+        return self._construct(
+            self_dataframe=self,
+            function_name="write",
+            target_path=target_path,
+            target_file_name=target_file_name,
+            file_format=file_format,
+            serde_parameters=serde_parameters,
+            compression=compression,
+            ensure_files=ensure_files,
+            connector_id=connector_id,
+            return_table_write_result=return_table_write_result,
+        )
+
+    def write_lazy(
+        self,
+        target_path: str,
+        target_file_name: str | None = None,
+        *,
+        file_format: str = "parquet",
+        serde_parameters: typing.Mapping[str, str] | None = None,
+        compression: str | None = None,
+        ensure_files: bool = False,
+        connector_id: str | None = None,
     ) -> "LazyFramePlaceholder":
         """Persist the DataFrame plan using Velox's Hive connector.
 
@@ -1000,7 +1051,7 @@ class LazyFramePlaceholder:
 
         return self._construct(
             self_dataframe=self,
-            function_name="write",
+            function_name="write_lazy",
             target_path=target_path,
             target_file_name=target_file_name,
             file_format=file_format,
@@ -1008,6 +1059,50 @@ class LazyFramePlaceholder:
             compression=compression,
             ensure_files=ensure_files,
             connector_id=connector_id,
+        )
+
+    def write_parquet(
+        self,
+        output_uri_prefix: str,
+        skip_planning_time_validation: bool = False,
+        return_table_write_result: bool = False,
+    ) -> "LazyFramePlaceholder":
+        """Write the DataFrame as Parquet files using an auto-configured connector.
+
+        This is a convenience method that simplifies writing Parquet files compared
+        to the more general ``write()`` method. It automatically configures the
+        appropriate connector based on the URI prefix.
+
+        Parameters
+        ----------
+        output_uri_prefix
+            URI prefix where Parquet files will be written. Examples:
+            - ``"file:///path/to/dir/"`` for local filesystem
+            - ``"s3://bucket/prefix/"`` for S3
+            - ``"gs://bucket/prefix/"`` for Google Cloud Storage
+        skip_planning_time_validation
+            Whether to skip validation at planning time (default: False).
+        return_table_write_result
+            If True, return the raw TableWrite result (default False).
+
+        Returns
+        -------
+        DataFrame representing the TableWrite operator.
+
+        Examples
+        --------
+        >>> from chalkdf import DataFrame
+        >>> df = DataFrame.from_dict({"x": [1, 2, 3], "y": [4, 5, 6]})
+        >>> # Write to local filesystem
+        >>> write_df = df.write_parquet("file:///tmp/output/")
+        """
+
+        return self._construct(
+            self_dataframe=self,
+            function_name="write_parquet",
+            output_uri_prefix=output_uri_prefix,
+            skip_planning_time_validation=skip_planning_time_validation,
+            return_table_write_result=return_table_write_result,
         )
 
     def rename(self, new_names: typing.Mapping[str | Underscore, str]) -> LazyFramePlaceholder:

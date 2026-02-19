@@ -1,4 +1,4 @@
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -46,7 +46,7 @@ class Fragment:
             if (
                 end > from_
                 and f(child, node_start + pos, parent, i) is not False
-                and getattr(child.content, "size", None)
+                and child.content.size
             ):
                 start = pos + 1
                 child.nodes_between(
@@ -72,29 +72,39 @@ class Fragment:
         leaf_text: Callable[["Node"], str] | str = "",
     ) -> str:
         text = []
-        separated = True
+        first = True
 
         def iteratee(
             node: "Node",
             pos: int,
             _parent: Optional["Node"],
-            _to: int,
+            _index: int,
         ) -> None:
             nonlocal text
-            nonlocal separated
+            nonlocal first
+            node_text: str
             if node.is_text:
                 text_node = cast("TextNode", node)
-                text.append(text_node.text[max(from_, pos) - pos : to - pos])
-                separated = not block_separator
+                node_text = text_node.text[max(from_, pos) - pos : to - pos]
             elif node.is_leaf:
                 if leaf_text:
-                    text.append(leaf_text(node) if callable(leaf_text) else leaf_text)
+                    node_text = leaf_text(node) if callable(leaf_text) else leaf_text
                 elif (node_leaf_text := node.type.spec.get("leafText")) is not None:
-                    text.append(node_leaf_text(node))
-                separated = not block_separator
-            elif not separated and node.is_block:
-                text.append(block_separator)
-                separated = True
+                    node_text = node_leaf_text(node)
+                else:
+                    node_text = ""
+            else:
+                node_text = ""
+            if (
+                node.is_block
+                and ((node.is_leaf and node_text) or node.is_textblock)
+                and block_separator
+            ):
+                if first:
+                    first = False
+                else:
+                    text.append(block_separator)
+            text.append(node_text)
 
         self.nodes_between(from_, to, iteratee, 0)
         return "".join(text)
@@ -192,7 +202,11 @@ class Fragment:
         return len(self.content)
 
     def child(self, index: int) -> "Node":
-        return self.content[index]
+        found = self.content[index] if index < len(self.content) else None
+        if not found:
+            msg = f"Index {index} out of range for {self}"
+            raise IndexError(msg)
+        return found
 
     def maybe_child(self, index: int) -> Optional["Node"]:
         try:
@@ -228,7 +242,7 @@ class Fragment:
             other_pos = other.size
         return find_diff_end(self, other, pos, other_pos)
 
-    def find_index(self, pos: int, round: int = -1) -> dict[str, int]:
+    def find_index(self, pos: int) -> dict[str, int]:
         if pos == 0:
             return ret_index(0, pos)
         if pos == self.size:
@@ -242,7 +256,7 @@ class Fragment:
             cur = self.child(i)
             end = cur_pos + cur.node_size
             if end >= pos:
-                if end == pos or round > 0:
+                if end == pos:
                     return ret_index(i + 1, end)
                 return ret_index(i, cur_pos)
             i += 1
@@ -297,8 +311,8 @@ class Fragment:
             return cls.empty
         if isinstance(nodes, Fragment):
             return nodes
-        if isinstance(nodes, Iterable):
-            return cls.from_array(list(nodes))
+        if isinstance(nodes, Sequence):
+            return cls.from_array(cast(list["Node"], list(nodes)))
         if hasattr(nodes, "attrs"):
             return cls([nodes], nodes.node_size)
         msg = f"cannot convert {nodes!r} to a fragment"

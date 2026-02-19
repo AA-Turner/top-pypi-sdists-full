@@ -17,12 +17,14 @@ import espefuse.efuse.esp32c3 as esp32c3_efuse
 import espefuse.efuse.esp32c5 as esp32c5_efuse
 import espefuse.efuse.esp32c6 as esp32c6_efuse
 import espefuse.efuse.esp32c61 as esp32c61_efuse
+import espefuse.efuse.esp32e22 as esp32e22_efuse
 import espefuse.efuse.esp32h2 as esp32h2_efuse
 import espefuse.efuse.esp32h21 as esp32h21_efuse
 import espefuse.efuse.esp32h4 as esp32h4_efuse
 import espefuse.efuse.esp32p4 as esp32p4_efuse
 import espefuse.efuse.esp32s2 as esp32s2_efuse
 import espefuse.efuse.esp32s3 as esp32s3_efuse
+import espefuse.efuse.esp32s31 as esp32s31_efuse
 
 
 @dataclass
@@ -64,12 +66,14 @@ SUPPORTED_CHIPS = {
     "esp32c6": DefChip(esp32c6_efuse, esptool.targets.ESP32C6ROM),
     "esp32c61": DefChip(esp32c61_efuse, esptool.targets.ESP32C61ROM),
     "esp32c5": DefChip(esp32c5_efuse, esptool.targets.ESP32C5ROM),
+    "esp32e22": DefChip(esp32e22_efuse, esptool.targets.ESP32E22ROM),
     "esp32h2": DefChip(esp32h2_efuse, esptool.targets.ESP32H2ROM),
     "esp32h21": DefChip(esp32h21_efuse, esptool.targets.ESP32H21ROM),
     "esp32h4": DefChip(esp32h4_efuse, esptool.targets.ESP32H4ROM),
     "esp32p4": DefChip(esp32p4_efuse, esptool.targets.ESP32P4ROM),
     "esp32s2": DefChip(esp32s2_efuse, esptool.targets.ESP32S2ROM),
     "esp32s3": DefChip(esp32s3_efuse, esptool.targets.ESP32S3ROM),
+    "esp32s31": DefChip(esp32s31_efuse, esptool.targets.ESP32S31ROM),
 }
 
 
@@ -130,15 +134,20 @@ def init_commands(
             port, baud, before, chip, skip_connect, virt, debug, virt_efuse_file
         )
 
-    commands = _get_command_class(strip_chip_name(esp.CHIP_NAME))
-    commands.esp = esp
-    commands.external_esp = external_esp
-    commands.get_efuses(
-        skip_connect=skip_connect,
-        debug_mode=debug,
-        do_not_confirm=do_not_confirm,
-        extend_efuse_table=extend_efuse_table,
-    )
+    try:
+        commands = _get_command_class(strip_chip_name(esp.CHIP_NAME))
+        commands.esp = esp
+        commands.external_esp = external_esp
+        commands.get_efuses(
+            skip_connect=skip_connect,
+            debug_mode=debug,
+            do_not_confirm=do_not_confirm,
+            extend_efuse_table=extend_efuse_table,
+        )
+    except Exception:
+        # If creating commands fails, ensure the port is closed
+        BaseCommands._close_port(esp, external_esp)
+        raise
     if batch_mode:
         commands.use_batch_mode()
     return commands

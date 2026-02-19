@@ -21,6 +21,9 @@ RESERVED_CONFIGURABLE_KEYS = (
     "__langsmith_example_id__",
     "__request_start_time_ms__",
     "__after_seconds__",
+    "__otel_traceparent__",
+    "__otel_tracestate__",
+    "__pregel_node_finished",
 )
 RESERVED_OR_NULL_OR_ESCAPED_PATTERN = rf"^(?!.*\\[uU]0000)(?!({'|'.join(f'{re.escape(k)}$' for k in RESERVED_CONFIGURABLE_KEYS)}))[^\u0000]*$"
 WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT = (

@@ -62,13 +62,11 @@ class CallbackIOWrapper(Iterable):
 
             self.__dict__[method] = fwrite
 
-        self.__dict__.update(
-            {
-                "__wrapped_stream__": stream,
-                "__wrapped_method__": method,
-                "__call_back__": cb_func,
-            }
-        )
+        self.__dict__.update({
+            "__wrapped_stream__": stream,
+            "__wrapped_method__": method,
+            "__call_back__": cb_func,
+        })
 
     def __iter__(self) -> Iterator[AnyStr]:
         """Iterate through the stream and call callback method with size.
@@ -83,7 +81,7 @@ class CallbackIOWrapper(Iterable):
             if method != "read":
                 raise
 
-            from .stream import read_until
+            from .stream import read_until  # noqa: PLC0415
 
             chunks = read_until(stream, "\n")
 
@@ -110,4 +108,4 @@ def wrap_file_like(
     This method exists to cast the type to the file-like on return.
     """
     wrapper = CallbackIOWrapper(file_obj, callback, method=method)
-    return cast(IO[AnyStr], wrapper)
+    return cast("IO[AnyStr]", wrapper)

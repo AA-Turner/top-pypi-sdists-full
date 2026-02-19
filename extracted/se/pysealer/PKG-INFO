@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysealer
-Version: 0.9.2
+Version: 1.0.0
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -230,11 +230,11 @@ on:
   push:
     branches: [ main, develop ]
     paths:
-      - 'examples/**'
+      - 'examples'
   pull_request:
     branches: [ main, develop ]
     paths:
-      - 'examples/**'
+      - 'examples'
 
 jobs:
   pysealer-check:
@@ -243,6 +243,8 @@ jobs:
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -252,7 +254,7 @@ jobs:
     - name: Install pysealer
       run: |
         python -m pip install --upgrade pip
-        pip install pysealer==0.8.9
+        pip install pysealer==0.9.2
 
     - name: Run pysealer check
       env:

@@ -19,6 +19,8 @@ import signal
 import socket
 import sys
 import threading
+from types import FrameType
+from typing import Any
 from wsgiref.simple_server import make_server
 from wsgiref.simple_server import WSGIRequestHandler
 
@@ -30,18 +32,35 @@ from oslo_metrics import message_router
 
 
 oslo_metrics_configs = [
-    cfg.StrOpt('metrics_socket_file',
-               default='/var/tmp/metrics_collector.sock',  # nosec
-               help='Unix domain socket file to be used'
-                    ' to send rpc related metrics'),
-    cfg.PortOpt('prometheus_port', default=3000,
-                help='Port number to expose metrics in prometheus format.'),
-    cfg.IntOpt('metrics_socket_perm', default=0o660,
-               help='Permission set to the unix domain socket file'),
-    cfg.BoolOpt('wsgi_silent_server', default=True,
-                help='Whether to silence the WSGI server. If disabled, the '
-                     'WSGI server will print all requests it receives on '
-                     'STDOUT. This could be very verbose.'),
+    cfg.StrOpt(
+        'metrics_socket_file',
+        default='/var/tmp/metrics_collector.sock',  # noqa: S108
+        help='Unix domain socket file to be used to send rpc related metrics',
+    ),
+    cfg.StrOpt(
+        'prometheus_host',
+        default='',
+        help='Hostname or IP address to serve metrics. An empty value '
+        '(the default) makes the server bind to all network '
+        'interfaces, equivalent to 0.0.0.0.',
+    ),
+    cfg.PortOpt(
+        'prometheus_port',
+        default=3000,
+        help='Port number to expose metrics in prometheus format.',
+    ),
+    cfg.IntOpt(
+        'metrics_socket_perm',
+        default=0o660,
+        help='Permission set to the unix domain socket file',
+    ),
+    cfg.BoolOpt(
+        'wsgi_silent_server',
+        default=True,
+        help='Whether to silence the WSGI server. If disabled, the '
+        'WSGI server will print all requests it receives on '
+        'STDOUT. This could be very verbose.',
+    ),
 ]
 cfg.CONF.register_opts(oslo_metrics_configs, group='oslo_metrics')
 
@@ -52,9 +71,8 @@ logging.register_options(CONF)
 logging.setup(CONF, 'oslo-metrics')
 
 
-class MetricsListener():
-
-    def __init__(self, socket_path):
+class MetricsListener:
+    def __init__(self, socket_path: str) -> None:
         self.socket_path = socket_path
         self.socket = socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM)
         self.unlink(socket_path)
@@ -63,17 +81,18 @@ class MetricsListener():
         self.start = True
         self.router = message_router.MessageRouter()
 
-    def unlink(self, socket_path):
+    def unlink(self, socket_path: str) -> None:
         try:
             os.unlink(socket_path)
         except OSError:
             if os.path.exists(socket_path):
                 raise
 
-    def serve(self):
+    def serve(self) -> None:
         while self.start:
             readable, writable, exceptional = select.select(
-                [self.socket], [], [], 1)
+                [self.socket], [], [], 1
+            )
             if len(readable) == 0:
                 continue
             try:
@@ -82,10 +101,10 @@ class MetricsListener():
                 msg = self.socket.recv(65565)
                 LOG.debug("got message")
                 self.router.process(msg)
-            except socket.timeout:
+            except TimeoutError:
                 pass
 
-    def stop(self):
+    def stop(self) -> None:
         self.socket.close()
         self.start = False
 
@@ -93,20 +112,24 @@ class MetricsListener():
 class _SilentHandler(WSGIRequestHandler):
     """WSGI handler that does not log requests."""
 
-    def log_message(self, format, *args):
+    def log_message(self, format: str, *args: Any) -> None:
         """Log nothing."""
 
 
 httpd = None
 
 
-def handle_sigterm(_signum, _frame):
+def handle_sigterm(_signum: int, _frame: FrameType | None) -> None:
+    if httpd is None:
+        # this should never happen
+        raise RuntimeError('httpd is uninitialized')
+
     LOG.debug("Caught sigterm")
     shutdown_thread = threading.Thread(target=httpd.shutdown)
     shutdown_thread.start()
 
 
-def main():
+def main() -> None:
     cfg.CONF(sys.argv[1:])
     socket_path = cfg.CONF.oslo_metrics.metrics_socket_file
     m = MetricsListener(socket_path)
@@ -119,14 +142,25 @@ def main():
     mt.start()
 
     app = make_wsgi_app()
+
+    global httpd
+    if cfg.CONF.oslo_metrics.wsgi_silent_server:
+        httpd = make_server(
+            CONF.oslo_metrics.prometheus_host,
+            CONF.oslo_metrics.prometheus_port,
+            app,
+            handler_class=_SilentHandler,
+        )
+    else:
+        httpd = make_server(
+            CONF.oslo_metrics.prometheus_host,
+            CONF.oslo_metrics.prometheus_port,
+            app,
+        )
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
+
     try:
-        global httpd
-        if cfg.CONF.oslo_metrics.wsgi_silent_server:
-            httpd = make_server('', CONF.oslo_metrics.prometheus_port, app,
-                                handler_class=_SilentHandler)
-        else:
-            httpd = make_server('', CONF.oslo_metrics.prometheus_port, app)
-        signal.signal(signal.SIGTERM, handle_sigterm)
         httpd.serve_forever()
     except KeyboardInterrupt:
         pass

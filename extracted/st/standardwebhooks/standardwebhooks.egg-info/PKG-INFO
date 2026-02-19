@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: standardwebhooks
-Version: 1.0.0
+Version: 1.0.1
 Summary: Standard Webhooks
 Author: Standard Webhooks
 License: MIT
@@ -28,6 +28,15 @@ Requires-Dist: python-dateutil
 Requires-Dist: Deprecated
 Requires-Dist: types-python-dateutil
 Requires-Dist: types-Deprecated
+Dynamic: author
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python library for Standard Webhooks
 

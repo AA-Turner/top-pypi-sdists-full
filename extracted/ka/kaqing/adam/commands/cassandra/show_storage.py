@@ -1,7 +1,7 @@
 from adam.commands.command import Command
 from adam.config import Config
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_cassandra.table_renderer import renderer
+from adam.presentation.table_renderer import renderer
 
 class ShowStorage(Command):
     COMMAND = 'show storage'
@@ -33,7 +33,7 @@ class ShowStorage(Command):
 
         with self.validate(args, state) as (args, state):
             with self.context(args, show_out=False) as (args, ctx):
-                cols = Config().get('storage.columns', 'pod,volume_root,volume_cassandra,snapshots,data,compactions')
+                cols = Config().get('storage.columns', 'short-pod,volume_root,volume_cassandra,snapshots,data,compactions')
                 header = Config().get('storage.header', 'POD_NAME,VOLUME /,VOLUME CASS,SNAPSHOTS,DATA,COMPACTIONS')
 
                 with renderer(state) as pods:

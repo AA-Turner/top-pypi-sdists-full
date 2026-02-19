@@ -419,7 +419,7 @@ class TestClassMethods(TestNonEmptyTree):
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.skipif(
-        os.getenv("DATABASE_ENGINE", "") == "sqlite",
+        os.getenv("DATABASE_ENGINE", "sqlite") == "sqlite",
         reason="SQLite doesn't support row-level locking",
     )
     def test_add_root_concurrent(self, model_without_data):
@@ -864,7 +864,7 @@ class TestAddChild(TestNonEmptyTree):
 
     @pytest.mark.django_db(transaction=True)
     @pytest.mark.skipif(
-        os.getenv("DATABASE_ENGINE", "") == "sqlite",
+        os.getenv("DATABASE_ENGINE", "sqlite") == "sqlite",
         reason="SQLite doesn't support row-level locking",
     )
     def test_add_child_concurrent(self, model_without_data):
@@ -1823,6 +1823,15 @@ class TestTreeSorted(TestTreeBase):
             (3, 3, "abc", 1, 0),
             (3, 3, "abc", 1, 0),
             (4, 1, "fgh", 1, 0),
+        ]
+        assert self.got(sorted_model) == expected
+
+    def test_add_root_sorted_with_instances(self, sorted_model):
+        sorted_model.add_root(instance=sorted_model(val1=3, val2=3, desc="zxy"))
+        sorted_model.add_root(instance=sorted_model(val1=1, val2=4, desc="bcd"))
+        expected = [
+            (1, 4, "bcd", 1, 0),
+            (3, 3, "zxy", 1, 0),
         ]
         assert self.got(sorted_model) == expected
 

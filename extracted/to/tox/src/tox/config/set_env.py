@@ -21,9 +21,10 @@ class SetEnv:
         self.changed = False
         self._materialized: dict[str, str] = {}  # env vars we already loaded
         self._raw: dict[str, str] = {}  # could still need replacement
+        self._defined_keys: set[str] = set()  # keys explicitly defined during parsing (survives load() draining _raw)
         self._markers: dict[str, Marker] = {}  # PEP-496 markers for conditional env vars
         self._needs_replacement: list[str] = []  # env vars that need replacement
-        self._env_files: list[str] = []
+        self._env_files: list[tuple[str, set[str]]] = []
         self._replacer: Replacer = lambda s, c: s  # noqa: ARG005
         self._name, self._env_name, self._root = name, env_name, root
         from .loader.replacer import MatchExpression, find_replace_expr  # noqa: PLC0415
@@ -35,10 +36,11 @@ class SetEnv:
             merged = reduce(lambda a, b: {**a, **b}, raw)
             self._parse_dict(merged)
             return
+        keys_after_file: set[str] = set()
         for line in raw.splitlines():  # noqa: PLR1702
             if line.strip():
                 if self._is_file_line(line):
-                    self._env_files.append(self._parse_file_line(line))
+                    self._env_files.append((self._parse_file_line(line), keys_after_file := set()))
                 else:
                     try:
                         key, value, marker = self._extract_key_value_marker(line)
@@ -54,20 +56,27 @@ class SetEnv:
                             raise
                     else:
                         self._raw[key] = value
+                        self._defined_keys.add(key)
+                        keys_after_file.add(key)
                         if marker:
                             self._markers[key] = Marker(marker)
 
     def _parse_dict(self, raw: dict[str, Any]) -> None:
+        keys_after_file: set[str] = set()
         for key, value in raw.items():
             if key == "file":
-                self._env_files.append(value)
+                self._env_files.append((value, keys_after_file := set()))
             elif isinstance(value, dict):
                 if "value" in value:
                     self._raw[key] = value["value"]
+                    self._defined_keys.add(key)
+                    keys_after_file.add(key)
                     if marker := value.get("marker"):
                         self._markers[key] = Marker(marker)
             else:
                 self._raw[key] = value
+                self._defined_keys.add(key)
+                keys_after_file.add(key)
 
     @staticmethod
     def _is_file_line(line: str) -> bool:
@@ -84,8 +93,10 @@ class SetEnv:
 
     def use_replacer(self, value: Replacer, args: ConfigLoadArgs) -> None:
         self._replacer = value
-        for filename in self._env_files:
-            self._raw.update(self._stream_env_file(filename, args))
+        for filename, keys_after in self._env_files:
+            for key, val in self._stream_env_file(filename, args):
+                if key not in keys_after:
+                    self._raw[key] = val
 
     def _stream_env_file(self, filename: str, args: ConfigLoadArgs) -> Iterator[tuple[str, str]]:
         # Our rules in the documentation, some upstream environment file rules (we follow mostly the docker one):
@@ -165,13 +176,15 @@ class SetEnv:
             for sub_line in filter(None, expanded_line.splitlines()):
                 if self._is_file_line(sub_line):
                     for key, value in self._stream_env_file(self._parse_file_line(sub_line), args):
-                        if key not in self._raw:
+                        if key not in self._raw and key not in self._defined_keys:
                             sub_raw[key] = value  # noqa: PERF403
                 else:
                     key, value, marker = self._extract_key_value_marker(sub_line)
-                    sub_raw[key] = value
+                    if key not in self._raw and key not in self._defined_keys:
+                        sub_raw[key] = value
                     if marker:
                         self._markers[key] = Marker(marker)
+            self._materialized = {k: v for k, v in self._materialized.items() if k not in sub_raw}
             self._raw.update(sub_raw)
             self.changed = True  # loading while iterating can cause these values to be missed
             for key in sub_raw:

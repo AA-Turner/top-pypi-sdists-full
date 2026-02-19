@@ -77,14 +77,24 @@ class ESP32C2ROM(ESP32C3ROM):
     def get_chip_description(self):
         chip_name = {
             0: "ESP32-C2",
-            1: "ESP32-C2",
+            1: "ESP8684H",
         }.get(self.get_pkg_version(), "Unknown ESP32-C2")
         major_rev = self.get_major_chip_version()
         minor_rev = self.get_minor_chip_version()
         return f"{chip_name} (revision v{major_rev}.{minor_rev})"
 
     def get_chip_features(self):
-        return ["Wi-Fi", "BT 5 (LE)", "Single Core", "120MHz"]
+        features = ["Wi-Fi", "BT 5 (LE)", "Single Core", "120MHz"]
+
+        flash = {
+            0: None,
+            1: "Embedded Flash 4MB",
+            2: "Embedded Flash 2MB",
+            3: "Embedded Flash 1MB",
+        }.get(self.get_flash_cap(), "Unknown Embedded Flash")
+        if flash is not None:
+            features += [flash + f" ({self.get_flash_vendor()})"]
+        return features
 
     def get_minor_chip_version(self):
         num_word = 1
@@ -95,20 +105,25 @@ class ESP32C2ROM(ESP32C3ROM):
         return (self.read_reg(self.EFUSE_BLOCK2_ADDR + (4 * num_word)) >> 20) & 0x3
 
     def get_flash_cap(self):
-        # ESP32-C2 doesn't have eFuse field FLASH_CAP.
-        # Can't get info about the flash chip.
-        return 0
+        num_word = 7
+        return (self.read_reg(self.EFUSE_BLOCK2_ADDR + (4 * num_word)) >> 29) & 0x7
 
     def get_flash_vendor(self):
-        # ESP32-C2 doesn't have eFuse field FLASH_VENDOR.
-        # Can't get info about the flash chip.
-        return ""
+        num_word = 7
+        vendor_id = (self.read_reg(self.EFUSE_BLOCK2_ADDR + (4 * num_word)) >> 24) & 0x7
+        return {1: "XMC", 2: "GD", 3: "FM", 4: "TT", 5: "ZBIT"}.get(vendor_id, "")
 
     def get_crystal_freq(self):
         # The crystal detection algorithm of ESP32/ESP8266 works for ESP32-C2 as well.
         return ESPLoader.get_crystal_freq(self)
 
     def change_baud(self, baud):
+        if self.secure_download_mode:  # ESPTOOL-1231
+            log.warning(
+                "Baud rate change is not supported in secure download mode. "
+                "Keeping 115200 baud."
+            )
+            return
         rom_with_26M_XTAL = not self.IS_STUB and self.get_crystal_freq() == 26
         if rom_with_26M_XTAL:
             # The code is copied over from ESPLoader.change_baud().
@@ -139,31 +154,26 @@ class ESP32C2ROM(ESP32C3ROM):
 
     """ Try to read (encryption key) and check if it is valid """
 
-    def is_flash_encryption_key_valid(self):
-        key_len_256 = (
+    def is_flash_encryption_key_valid(self) -> bool:
+        """Check if the flash encryption key is valid (non-zero or read-disabled)."""
+        key_len_256 = bool(
             self.read_reg(self.EFUSE_XTS_KEY_LENGTH_256_REG)
             & self.EFUSE_XTS_KEY_LENGTH_256
         )
 
-        word0 = self.read_reg(self.EFUSE_RD_DIS_REG) & self.EFUSE_RD_DIS
-        rd_disable = word0 == 3 if key_len_256 else word0 == 1
+        rd_dis_val = self.read_reg(self.EFUSE_RD_DIS_REG) & self.EFUSE_RD_DIS
+        rd_disabled = rd_dis_val == 3 if key_len_256 else rd_dis_val == 1
 
-        # reading of BLOCK3 is NOT ALLOWED so we assume valid key is programmed
-        if rd_disable:
+        if rd_disabled:
+            # Reading BLOCK3 is disabled; assume key is programmed and valid
             return True
-        else:
-            # reading of BLOCK3 is ALLOWED so we will read and verify for non-zero.
-            # When chip has not generated AES/encryption key in BLOCK3,
-            # the contents will be readable and 0.
-            # If the flash encryption is enabled it is expected to have a valid
-            # non-zero key. We break out on first occurrence of non-zero value
-            key_word = [0] * 7 if key_len_256 else [0] * 3
-            for i in range(len(key_word)):
-                key_word[i] = self.read_reg(self.EFUSE_BLOCK_KEY0_REG + i * 4)
-                # key is non-zero so break & return
-                if key_word[i] != 0:
-                    return True
-            return False
+
+        # Reading BLOCK3 is allowed; check if any key word is non-zero
+        key_words = 8 if key_len_256 else 4
+        for i in range(key_words):
+            if self.read_reg(self.EFUSE_BLOCK_KEY0_REG + i * 4) != 0:
+                return True
+        return False
 
     def check_spi_connection(self, spi_connection):
         if not set(spi_connection).issubset(set(range(0, 21))):

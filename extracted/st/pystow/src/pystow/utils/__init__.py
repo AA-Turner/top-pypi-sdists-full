@@ -82,11 +82,13 @@ from .io_typing import (
 from .pydantic_utils import (
     ModelValidateFailureAction,
     iter_pydantic_jsonl,
+    iter_pydantic_tsv,
     read_pydantic_jsonl,
+    read_pydantic_tsv,
     stream_write_pydantic_jsonl,
     write_pydantic_jsonl,
 )
-from .safe_open import open_inner_zipfile, safe_open
+from .safe_open import open_inner_zipfile, safe_open, safe_open_dict_reader
 from ..constants import README_TEXT, TimeoutHint
 
 if TYPE_CHECKING:
@@ -131,7 +133,9 @@ __all__ = [
     "get_soup",
     "getenv_path",
     "gunzip",
+    "gzip_compress",
     "iter_pydantic_jsonl",
+    "iter_pydantic_tsv",
     "iter_tarred_csvs",
     "iter_tarred_files",
     "iter_zipped_csvs",
@@ -151,6 +155,7 @@ __all__ = [
     "raise_on_digest_mismatch",
     "read_lzma_csv",
     "read_pydantic_jsonl",
+    "read_pydantic_tsv",
     "read_rdf",
     "read_tarfile_csv",
     "read_tarfile_xml",
@@ -741,14 +746,39 @@ def path_to_sqlite(path: str | Path) -> str:
     return f"sqlite:///{path.as_posix()}"
 
 
-def gunzip(source: str | Path, target: str | Path) -> None:
+def gunzip(source: str | Path, target: str | Path | None = None, *, cleanup: bool = False) -> Path:
     """Unzip a file in the source to the target.
 
     :param source: The path to an input file
     :param target: The path to an output file
+    :param cleanup: Whether to clean the output file
     """
+    source = Path(source).expanduser().resolve()
+    if target is None:
+        raise NotImplementedError
+    else:
+        target = Path(target).expanduser().resolve()
     with gzip.open(source, "rb") as in_file, open(target, "wb") as out_file:
         shutil.copyfileobj(in_file, out_file)
+    if cleanup:
+        source.unlink()
+    return target
+
+
+def gzip_compress(
+    source: str | Path, *, target: str | Path | None = None, cleanup: bool = False
+) -> Path:
+    """Compress a file, then delete the original."""
+    source = Path(source).expanduser().resolve()
+    if target is None:
+        target = source.with_suffix(source.suffix + ".gz")
+    else:
+        target = Path(target).expanduser().resolve()
+    with open(source, "rb") as in_file, gzip.open(target, "wb") as out_file:
+        shutil.copyfileobj(in_file, out_file)
+    if cleanup:
+        source.unlink()
+    return target
 
 
 @contextlib.contextmanager
@@ -802,22 +832,6 @@ def safe_open_reader(
     """
     with safe_open(f, operation="read", representation="text", newline="") as file:
         yield csv.reader(file, delimiter=delimiter, **kwargs)
-
-
-@contextlib.contextmanager
-def safe_open_dict_reader(
-    f: str | Path | TextIO, *, delimiter: str = "\t", **kwargs: Any
-) -> Generator[csv.DictReader[str], None, None]:
-    """Open a CSV dictionary reader, wrapping :func:`csv.DictReader`.
-
-    :param f: A path to a file, or an already open text-based IO object
-    :param delimiter: The delimiter for writing to CSV
-    :param kwargs: Keyword arguments to pass to :func:`csv.DictReader`
-
-    :yields: A CSV reader object, constructed from :func:`csv.DictReader`
-    """
-    with safe_open(f, operation="read", representation="text") as file:
-        yield csv.DictReader(file, delimiter=delimiter, **kwargs)
 
 
 def get_soup(

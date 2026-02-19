@@ -1842,6 +1842,36 @@ def json_value(expr: Underscore, path: Union[str, Underscore]):
     return UnderscoreFunction("get_json_value", expr, path)
 
 
+def json_value_strict(expr: Underscore, path: Union[str, Underscore]):
+    """
+    Extract structured data from a JSON string feature using a JSONPath expression,
+    with strict error reporting for invalid JSON.
+
+    Unlike `json_value`, this function records errors when JSON parsing fails,
+    making it suitable for streaming resolvers where error attribution is important.
+
+    Parameters
+    ----------
+    expr
+        The JSON string feature to query.
+    path
+        The JSONPath-like expression to extract the scalar from the JSON feature.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    profile: str
+    ...    # Use json_value_strict in streaming resolvers to get error reporting
+    ...    favorite_color: str = F.json_value_strict(_.profile, "$.prefs.color")
+    """
+
+    return UnderscoreFunction("get_json_value_strict", expr, path)
+
+
 def json_extract_array(expr: Underscore, path: Union[str, Underscore]):
     """
     Extract an array from a JSON string feature using a JSONPath expression. The value of the referenced path must be a JSON
@@ -6111,6 +6141,7 @@ __all__ = (
     "jinja",
     "json_extract_array",
     "json_value",
+    "json_value_strict",
     "jsonify",
     "last_day_of_month",
     "least",

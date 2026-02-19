@@ -3,7 +3,7 @@ import os
 
 import pytest
 from mcp import McpError
-from mcp.types import Tool
+from mcp.types import TextContent, Tool
 
 from fastmcp import Client
 from fastmcp.client import StreamableHttpTransport
@@ -104,14 +104,15 @@ class TestGithubMCPRemote:
         async with streamable_http_client:
             assert streamable_http_client.is_connected()
             result = await streamable_http_client.call_tool(
-                "list_commits", {"owner": "jlowin", "repo": "fastmcp"}
+                "list_commits", {"owner": "prefecthq", "repo": "fastmcp"}
             )
 
             # at this time, the github server does not support structured content
             assert result.structured_content is None
             assert isinstance(result.content, list)
             assert len(result.content) == 1
-            commits = json.loads(result.content[0].text)  # type: ignore[attr-defined]
+            assert isinstance(result.content[0], TextContent)
+            commits = json.loads(result.content[0].text)
             for commit in commits:
                 assert isinstance(commit, dict)
                 assert "sha" in commit

@@ -1,4 +1,65 @@
-//! Egor optimizer configuration.
+//! # EgorConfig - Optimizer Configuration
+//!
+//! This module provides the configuration system for the EGO optimizer.
+//!
+//! ## Configuration Types
+//!
+//! - [`EgorConfig`] - Builder for configuring the optimizer
+//! - [`ValidEgorConfig`] - Validated configuration (after `.check()`)
+//! - [`GpConfig`] - Gaussian Process surrogate model settings
+//! - [`QEiConfig`] - Parallel (q-EI) evaluation settings
+//! - [`RuntimeFlags`] - Runtime behavior flags (replaces environment variables)
+//! - [`IterationStrategy`] / [`TregoStrategy`] - Trust Region EGO algorithm control
+//! - [`ActivityStrategy`] / [`CooperativeActivity`] - Variable activity for CoEGO
+//!
+//! ## Runtime Flags
+//!
+//! [`RuntimeFlags`] provides programmatic control over behaviors previously controlled
+//! by environment variables. This follows the Dependency Inversion Principle (DIP)
+//! by injecting configuration rather than reading from global state.
+//!
+//! ```ignore
+//! use egobox_ego::RuntimeFlags;
+//!
+//! // All flags disabled
+//! let flags = RuntimeFlags::none();
+//!
+//! // Configure specific flags
+//! let flags = RuntimeFlags::none()
+//!     .enable_logging(true)
+//!     .use_gp_var_portfolio(true);
+//!
+//! // Or use default (reads from environment variables for backward compatibility)
+//! let flags = RuntimeFlags::default();
+//! ```
+//!
+//! ## Example
+//!
+//! ```ignore
+//! use egobox_ego::{EgorConfig, TregoStrategy, CooperativeActivity};
+//!
+//! let config = EgorConfig::default()
+//!     .max_iters(50)
+//!     .n_doe(10)
+//!     .configure_gp(|gp| gp.n_clusters(NbClusters::Auto))
+//!     .configure_runtime_flags(|f| f.enable_logging(true))
+//!     .check()?;
+//!
+//! // TREGO with custom parameters
+//! let config = EgorConfig::default()
+//!     .configure_trego(|trego| trego.beta(0.8).n_gl_steps((2, 5)))
+//!     .check()?;
+//!
+//! // CoEGO for high-dimensional problems
+//! let config = EgorConfig::default()
+//!     .activity_strategy(Box::new(CooperativeActivity::new(5)))
+//!     .check()?;
+//! ```
+
+use crate::utils::{
+    EGOBOX_LOG, EGOR_DO_NOT_USE_MIDDLEPICKER_MULTISTARTER, EGOR_USE_GP_RECORDER,
+    EGOR_USE_GP_VAR_PORTFOLIO, EGOR_USE_MAX_PROBA_OF_FEASIBILITY, EGOR_USE_RUN_RECORDER,
+};
 use crate::{HotStartMode, criteria::*, errors::Result, types::*};
 use egobox_gp::ThetaTuning;
 use egobox_moe::NbClusters;
@@ -8,6 +69,9 @@ use ndarray::Array1;
 use ndarray::Array2;
 
 use serde::{Deserialize, Serialize};
+
+use super::activity_strategy::{ActivityStrategy, CooperativeActivity, FullActivity};
+use super::iteration_strategy::{IterationStrategy, StandardEgoStrategy, TregoStrategy};
 
 /// Default number of starts for multistart approach used for optimization
 pub const EGO_GP_OPTIM_N_START: usize = 10;
@@ -116,76 +180,6 @@ impl GpConfig {
     }
 }
 
-/// A structure to handle TREGO method parameterization
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct TregoConfig {
-    /// Whether the TReGO algorithm is activated
-    pub(crate) activated: bool,
-    /// Number of global and local optimization steps.
-    /// number of steps should be strictly positive
-    pub(crate) n_gl_steps: (usize, usize),
-    /// Trust region size bounds (min, max)
-    pub(crate) d: (f64, f64),
-    /// Threshold ratio for iteration acceptance used in trust region criteria
-    /// rho(sigma) = alpha * sigma * sigma
-    pub(crate) alpha: f64,
-    /// Trust region contraction factor in ]0, 1.[.
-    pub(crate) beta: f64,
-    /// Initial trust region radius
-    pub(crate) sigma0: f64,
-}
-
-impl Default for TregoConfig {
-    fn default() -> Self {
-        TregoConfig {
-            activated: false,
-            n_gl_steps: (1, 4),
-            d: (1e-6, 1.),
-            alpha: 1.0,
-            beta: 0.9,
-            sigma0: 1e-1,
-        }
-    }
-}
-
-impl TregoConfig {
-    /// Sets whether TReGO is activated
-    pub fn activated(mut self, activated: bool) -> Self {
-        self.activated = activated;
-        self
-    }
-
-    /// Sets the number of global optimization steps
-    pub fn n_gl_steps(mut self, n_gl_steps: (usize, usize)) -> Self {
-        self.n_gl_steps = n_gl_steps;
-        self
-    }
-
-    /// Sets the trust region size bounds (min, max)
-    pub fn d(mut self, d: (f64, f64)) -> Self {
-        self.d = d;
-        self
-    }
-
-    /// Sets the threshold ratio for iteration acceptance
-    pub fn alpha(mut self, alpha: f64) -> Self {
-        self.alpha = alpha;
-        self
-    }
-
-    /// Sets the trust region contraction factor
-    pub fn beta(mut self, beta: f64) -> Self {
-        self.beta = beta;
-        self
-    }
-
-    /// Sets the initial trust region radius
-    pub fn sigma0(mut self, sigma0: f64) -> Self {
-        self.sigma0 = sigma0;
-        self
-    }
-}
-
 /// A structure to handle qEI (parallel infill criterion) method parameterization
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct QEiConfig {
@@ -238,28 +232,102 @@ pub enum CoegoStatus {
     Enabled(usize),
 }
 
-/// A structure to handle CoEGO method parameterization
-/// CoEGO variant is intended to be used for high dimensional problems
-/// with dim > 100
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub(crate) struct CoegoConfig {
-    pub(crate) activated: bool,
-    pub(crate) n_coop: usize,
-}
-
-impl Default for CoegoConfig {
-    fn default() -> Self {
-        CoegoConfig {
-            activated: false,
-            n_coop: 5,
-        }
-    }
-}
-
 /// Max number of iterations of EGO algorithm (aka iteration budget)
 pub const EGO_DEFAULT_MAX_ITERS: usize = 20;
 /// Number of restart for optimization of the infill criterion (aka multistart)
 pub const EGO_DEFAULT_N_START: usize = 20;
+
+// =============================================================================
+// Runtime flags for behavior control (DIP - Dependency Inversion Principle)
+// =============================================================================
+
+/// Runtime flags controlling optimizer behavior.
+///
+/// These flags replace environment variable checks, allowing programmatic control
+/// of runtime behavior while maintaining backward compatibility through the Default
+/// implementation which reads from environment variables.
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct RuntimeFlags {
+    /// Enable verbose logging (env: EGOBOX_LOG)
+    pub enable_logging: bool,
+    /// Use max probability of feasibility for infill criterion (env: EGOR_USE_MAX_PROBA_OF_FEASIBILITY)
+    pub use_max_proba_of_feasibility: bool,
+    /// Use GP variance portfolio for infill optimization (env: EGOR_USE_GP_VAR_PORTFOLIO)
+    pub use_gp_var_portfolio: bool,
+    /// Disable middle-picker multistarter for infill optimization (env: EGOR_DO_NOT_USE_MIDDLEPICKER_MULTISTARTER)
+    pub disable_middlepicker_multistarter: bool,
+    /// Enable GP model recording to files (env: EGOR_USE_GP_RECORDER)
+    pub use_gp_recorder: bool,
+    /// Enable run data recording to JSON (env: EGOR_USE_RUN_RECORDER)
+    pub use_run_recorder: bool,
+}
+
+impl Default for RuntimeFlags {
+    /// Creates RuntimeFlags by reading from environment variables for backward compatibility.
+    fn default() -> Self {
+        RuntimeFlags {
+            enable_logging: std::env::var(EGOBOX_LOG).is_ok(),
+            use_max_proba_of_feasibility: std::env::var(EGOR_USE_MAX_PROBA_OF_FEASIBILITY).is_ok(),
+            use_gp_var_portfolio: std::env::var(EGOR_USE_GP_VAR_PORTFOLIO).is_ok(),
+            disable_middlepicker_multistarter: std::env::var(
+                EGOR_DO_NOT_USE_MIDDLEPICKER_MULTISTARTER,
+            )
+            .is_ok(),
+            use_gp_recorder: std::env::var(EGOR_USE_GP_RECORDER).is_ok(),
+            use_run_recorder: std::env::var(EGOR_USE_RUN_RECORDER).is_ok(),
+        }
+    }
+}
+
+impl RuntimeFlags {
+    /// Creates RuntimeFlags with all flags disabled.
+    pub fn none() -> Self {
+        RuntimeFlags {
+            enable_logging: false,
+            use_max_proba_of_feasibility: false,
+            use_gp_var_portfolio: false,
+            disable_middlepicker_multistarter: false,
+            use_gp_recorder: false,
+            use_run_recorder: false,
+        }
+    }
+
+    /// Enable verbose logging.
+    pub fn enable_logging(mut self, enabled: bool) -> Self {
+        self.enable_logging = enabled;
+        self
+    }
+
+    /// Use max probability of feasibility for infill criterion.
+    pub fn use_max_proba_of_feasibility(mut self, enabled: bool) -> Self {
+        self.use_max_proba_of_feasibility = enabled;
+        self
+    }
+
+    /// Use GP variance portfolio for infill optimization.
+    pub fn use_gp_var_portfolio(mut self, enabled: bool) -> Self {
+        self.use_gp_var_portfolio = enabled;
+        self
+    }
+
+    /// Disable middle-picker multistarter.
+    pub fn disable_middlepicker_multistarter(mut self, enabled: bool) -> Self {
+        self.disable_middlepicker_multistarter = enabled;
+        self
+    }
+
+    /// Enable GP model recording.
+    pub fn use_gp_recorder(mut self, enabled: bool) -> Self {
+        self.use_gp_recorder = enabled;
+        self
+    }
+
+    /// Enable run data recording.
+    pub fn use_run_recorder(mut self, enabled: bool) -> Self {
+        self.use_run_recorder = enabled;
+        self
+    }
+}
 
 /// Valid Egor optimizer configuration
 #[derive(Clone, Serialize, Deserialize, Debug)]
@@ -302,16 +370,18 @@ pub struct ValidEgorConfig {
     pub(crate) xtypes: Vec<XType>,
     /// A random generator seed used to get reproductible results.
     pub(crate) seed: Option<u64>,
-    /// TREGO parameterization
-    pub(crate) trego_config: TregoConfig,
-    /// CoEGO  parameterization
-    pub(crate) coego: CoegoConfig,
     /// Constrained infill criterion activation
     pub(crate) cstr_infill: bool,
     /// Constraints criterion
     pub(crate) cstr_strategy: ConstraintStrategy,
     /// Failure handling strategy
     pub(crate) failsafe_strategy: FailsafeStrategy,
+    /// Runtime behavior flags (replaces environment variable checks)
+    pub(crate) runtime_flags: RuntimeFlags,
+    /// Strategy controlling iteration flow (Standard EGO vs TREGO)
+    pub(crate) iteration_strategy: Box<dyn IterationStrategy>,
+    /// Strategy controlling variable activity (Full vs Cooperative/CoEGO)
+    pub(crate) activity_strategy: Box<dyn ActivityStrategy>,
 }
 
 impl Default for ValidEgorConfig {
@@ -333,11 +403,12 @@ impl Default for ValidEgorConfig {
             hot_start: HotStartMode::Disabled,
             xtypes: vec![],
             seed: None,
-            trego_config: TregoConfig::default(),
-            coego: CoegoConfig::default(),
             cstr_infill: false,
             cstr_strategy: ConstraintStrategy::MeanConstraint,
             failsafe_strategy: FailsafeStrategy::Rejection,
+            runtime_flags: RuntimeFlags::default(),
+            iteration_strategy: Box::new(StandardEgoStrategy),
+            activity_strategy: Box::new(FullActivity),
         }
     }
 }
@@ -513,28 +584,87 @@ impl EgorConfig {
         self
     }
 
-    /// Activate or deactivate TREGO method
+    /// Activate or deactivate TREGO method.
+    ///
+    /// When `activated` is true, sets the iteration strategy to [`TregoStrategy`] with
+    /// default parameters. When false, resets to [`StandardEgoStrategy`].
+    ///
+    /// For custom TREGO parameters, use [`configure_trego`](Self::configure_trego) or
+    /// [`iteration_strategy`](Self::iteration_strategy) directly.
     pub fn trego(mut self, activated: bool) -> Self {
-        self.0.trego_config.activated = activated;
+        if activated {
+            self.0.iteration_strategy = Box::new(TregoStrategy::default());
+        } else {
+            self.0.iteration_strategy = Box::new(StandardEgoStrategy);
+        }
         self
     }
 
-    /// Configure TREGO parameters. TREGO is automatically activated by this method
-    pub fn configure_trego<F: FnOnce(TregoConfig) -> TregoConfig>(mut self, init: F) -> Self {
-        self.0.trego_config = init(self.0.trego_config);
-        self.0.trego_config.activated = true;
+    /// Configure TREGO parameters. TREGO is automatically activated by this method.
+    ///
+    /// The closure receives a [`TregoStrategy`] for configuration.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::EgorConfig;
+    ///
+    /// let config = EgorConfig::default()
+    ///     .configure_trego(|trego| trego.beta(0.8).n_gl_steps((2, 5)));
+    /// ```
+    ///
+    /// For direct strategy configuration, use [`iteration_strategy`](Self::iteration_strategy).
+    pub fn configure_trego<F: FnOnce(TregoStrategy) -> TregoStrategy>(mut self, init: F) -> Self {
+        self.0.iteration_strategy = Box::new(init(TregoStrategy::default()));
         self
     }
 
-    /// Activate CoEGO method
+    /// Sets the iteration strategy directly.
+    ///
+    /// This is the preferred way to configure algorithm variants like TREGO.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::{EgorConfig, TregoStrategy};
+    ///
+    /// let config = EgorConfig::default()
+    ///     .iteration_strategy(Box::new(TregoStrategy::default().beta(0.8)));
+    /// ```
+    pub fn iteration_strategy(mut self, strategy: Box<dyn IterationStrategy>) -> Self {
+        self.0.iteration_strategy = strategy;
+        self
+    }
+
+    /// Activate CoEGO method.
+    ///
+    /// When enabled, sets the activity strategy to [`CooperativeActivity`] with the
+    /// specified number of groups. When disabled, resets to [`FullActivity`].
+    ///
+    /// For direct strategy configuration, use [`activity_strategy`](Self::activity_strategy).
     pub fn coego(mut self, status: CoegoStatus) -> Self {
         match status {
-            CoegoStatus::Disabled => self.0.coego.activated = false,
+            CoegoStatus::Disabled => {
+                self.0.activity_strategy = Box::new(FullActivity);
+            }
             CoegoStatus::Enabled(n) => {
-                self.0.coego.activated = true;
-                self.0.coego.n_coop = n;
+                self.0.activity_strategy = Box::new(CooperativeActivity::new(n));
             }
         }
+        self
+    }
+
+    /// Sets the activity strategy directly.
+    ///
+    /// This is the preferred way to configure variable grouping strategies like CoEGO.
+    ///
+    /// # Example
+    /// ```ignore
+    /// use egobox_ego::{EgorConfig, CooperativeActivity};
+    ///
+    /// let config = EgorConfig::default()
+    ///     .activity_strategy(Box::new(CooperativeActivity::new(5)));
+    /// ```
+    pub fn activity_strategy(mut self, strategy: Box<dyn ActivityStrategy>) -> Self {
+        self.0.activity_strategy = strategy;
         self
     }
 
@@ -556,6 +686,32 @@ impl EgorConfig {
         self
     }
 
+    /// Configure runtime behavior flags.
+    ///
+    /// These flags control various runtime behaviors that were previously
+    /// controlled by environment variables. Using this method allows
+    /// programmatic control without relying on environment.
+    ///
+    /// # Example
+    /// ```ignore
+    /// config.configure_runtime_flags(|flags| flags
+    ///     .enable_logging(true)
+    ///     .use_gp_var_portfolio(true))
+    /// ```
+    pub fn configure_runtime_flags<F: FnOnce(RuntimeFlags) -> RuntimeFlags>(
+        mut self,
+        init: F,
+    ) -> Self {
+        self.0.runtime_flags = init(self.0.runtime_flags);
+        self
+    }
+
+    /// Sets runtime flags directly.
+    pub fn runtime_flags(mut self, flags: RuntimeFlags) -> Self {
+        self.0.runtime_flags = flags;
+        self
+    }
+
     /// Checks and wraps an EgorConfig
     pub fn check(self) -> Result<ValidEgorConfig> {
         let config = self.0;
@@ -571,8 +727,8 @@ impl EgorConfig {
             )));
         }
 
-        // Check exclusicve use of coego and gp_config kpls
-        if config.coego.activated && config.gp.kpls_dim.is_some() {
+        // Check exclusive use of cooperative activity strategy and KPLS
+        if config.activity_strategy.is_cooperative() && config.gp.kpls_dim.is_some() {
             return Err(crate::EgoError::InvalidConfigError(
                 "EgorConfig invalid: CoEGO and KPLS cannot be used together".to_string(),
             ));

@@ -11,7 +11,7 @@ from adam.utils import json_to_csv
 from adam.utils_apps.apps import Apps
 from adam.utils_context import NULL
 from adam.utils_log import Log, debug, debug_trace,log2, log_exc
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class AppLogin:
     def __init__(self, session: requests.Session, app_access_token: str, idp_uri: str, idp_login: IdpLogin = None):

@@ -38,8 +38,6 @@ class ESP32S3ROM(ESP32ROM):
 
     BOOTLOADER_FLASH_OFFSET = 0x0
 
-    SUPPORTS_ENCRYPTED_FLASH = True
-
     FLASH_ENCRYPTED_WRITE_ALIGN = 16
 
     # todo: use espefuse APIs to get this info
@@ -285,6 +283,10 @@ class ESP32S3ROM(ESP32ROM):
             self.read_reg(self.EFUSE_SECURE_BOOT_EN_REG)
             & self.EFUSE_SECURE_BOOT_EN_MASK
         )
+
+    def get_secure_boot_v1_enabled(self):
+        # Secure Boot V1 is only supported on ESP32, not on ESP32-S3
+        return False
 
     def _get_rtc_cntl_flash_voltage(self):
         return None  # not supported on ESP32-S3

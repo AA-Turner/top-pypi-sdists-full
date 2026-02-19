@@ -462,10 +462,14 @@ class ParsingError(Error):
     if sys.version_info < (3, 12):
         @property
         @deprecated("Deprecated since Python 3.2; removed in Python 3.12. Use `source` instead.")
-        def filename(self) -> str: ...
+        def filename(self) -> str:
+            """Deprecated, use `source'."""
+            ...
         @filename.setter
         @deprecated("Deprecated since Python 3.2; removed in Python 3.12. Use `source` instead.")
-        def filename(self, value: str) -> None: ...
+        def filename(self, value: str) -> None:
+            """Deprecated, use `source'."""
+            ...
 
 class MissingSectionHeaderError(ParsingError):
     lineno: int

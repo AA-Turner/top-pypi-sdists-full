@@ -4,7 +4,7 @@ import time
 import requests
 
 from adam.config import Config
-from adam.rdbms.utils_athena import Athena
+from adam.utils_rdbms.athena import Athena
 from adam.utils_log import debug, log2, log_exc
 from adam.utils_concurrent import OffloadHandler, ThreadPool, offload
 from adam.utils_net import get_my_host

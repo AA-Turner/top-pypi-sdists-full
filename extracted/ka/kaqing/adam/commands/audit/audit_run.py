@@ -1,6 +1,6 @@
 from adam.commands.command import Command
 from adam.config import Config
-from adam.rdbms.utils_athena import Athena
+from adam.utils_rdbms.athena import Athena
 from adam.utils_log import log2
 from adam.commands.audit.utils_audits import AuditMeta, Audits, audit
 from adam.utils_repl.repl_state import ReplState

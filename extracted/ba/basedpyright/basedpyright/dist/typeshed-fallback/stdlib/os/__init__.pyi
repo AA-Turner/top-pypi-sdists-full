@@ -1419,7 +1419,14 @@ if sys.version_info >= (3, 11):
         ...
 
 else:
-    def lseek(fd: int, position: int, how: int, /) -> int: ...
+    def lseek(fd: int, position: int, how: int, /) -> int:
+        """
+        Set the position of a file descriptor.  Return the new position.
+
+        Return the new cursor position in number of bytes
+        relative to the beginning of the file.
+        """
+        ...
 
 def open(path: StrOrBytesPath, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
     """
@@ -2386,8 +2393,32 @@ if sys.platform != "win32":
             ...
 
     else:
-        def spawnv(mode: int, file: StrOrBytesPath, args: _ExecVArgs) -> int: ...
-        def spawnve(mode: int, file: StrOrBytesPath, args: _ExecVArgs, env: _ExecEnv) -> int: ...
+        def spawnv(mode: int, file: StrOrBytesPath, args: _ExecVArgs) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            mode
+              Mode of process creation.
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            """
+            ...
+        def spawnve(mode: int, file: StrOrBytesPath, args: _ExecVArgs, env: _ExecEnv) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            mode
+              Mode of process creation.
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            env
+              Dictionary of strings mapping to strings.
+            """
+            ...
 
 else:
     if sys.version_info >= (3, 14):
@@ -2407,7 +2438,9 @@ if sys.version_info >= (3, 14):
         ...
 
 else:
-    def system(command: StrOrBytesPath) -> int: ...
+    def system(command: StrOrBytesPath) -> int:
+        """Execute the command in a subshell."""
+        ...
 
 @final
 class times_result(structseq[float], tuple[float, float, float, float, float]):
@@ -2687,7 +2720,32 @@ else:
             setsigmask: Iterable[int] = ...,
             setsigdef: Iterable[int] = ...,
             scheduler: tuple[Any, sched_param] | None = ...,
-        ) -> int: ...
+        ) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            env
+              Dictionary of strings mapping to strings.
+            file_actions
+              A sequence of file action tuples.
+            setpgroup
+              The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+            resetids
+              If the value is `true` the POSIX_SPAWN_RESETIDS will be activated.
+            setsid
+              If the value is `true` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.
+            setsigmask
+              The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+            setsigdef
+              The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+            scheduler
+              A tuple with the scheduler policy (optional) and parameters.
+            """
+            ...
         def posix_spawnp(
             path: StrOrBytesPath,
             argv: _ExecVArgs,
@@ -2701,7 +2759,32 @@ else:
             setsigmask: Iterable[int] = ...,
             setsigdef: Iterable[int] = ...,
             scheduler: tuple[Any, sched_param] | None = ...,
-        ) -> int: ...
+        ) -> int:
+            """
+            Execute the program specified by path in a new process.
+
+            path
+              Path of executable file.
+            argv
+              Tuple or list of strings.
+            env
+              Dictionary of strings mapping to strings.
+            file_actions
+              A sequence of file action tuples.
+            setpgroup
+              The pgroup to use with the POSIX_SPAWN_SETPGROUP flag.
+            resetids
+              If the value is `True` the POSIX_SPAWN_RESETIDS will be activated.
+            setsid
+              If the value is `True` the POSIX_SPAWN_SETSID or POSIX_SPAWN_SETSID_NP will be activated.
+            setsigmask
+              The sigmask to use with the POSIX_SPAWN_SETSIGMASK flag.
+            setsigdef
+              The sigmask to use with the POSIX_SPAWN_SETSIGDEF flag.
+            scheduler
+              A tuple with the scheduler policy (optional) and parameters.
+            """
+            ...
 
     POSIX_SPAWN_OPEN: Final = 0
     POSIX_SPAWN_CLOSE: Final = 1

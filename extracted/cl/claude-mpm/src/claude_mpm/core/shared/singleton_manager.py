@@ -166,17 +166,9 @@ def singleton(cls: Type[T]) -> Type[T]:
     cls.__new__ = new_new
 
     # Add convenience methods
-    cls.get_instance = classmethod(
-        lambda cls_inner, *args, **kwargs: SingletonManager.get_instance(
-            cls_inner, *args, **kwargs
-        )
-    )
-    cls.clear_instance = classmethod(
-        lambda cls_inner: SingletonManager.clear_instance(cls_inner)
-    )
-    cls.has_instance = classmethod(
-        lambda cls_inner: SingletonManager.has_instance(cls_inner)
-    )
+    cls.get_instance = classmethod(SingletonManager.get_instance)
+    cls.clear_instance = classmethod(SingletonManager.clear_instance)
+    cls.has_instance = classmethod(SingletonManager.has_instance)
 
     return cls
 

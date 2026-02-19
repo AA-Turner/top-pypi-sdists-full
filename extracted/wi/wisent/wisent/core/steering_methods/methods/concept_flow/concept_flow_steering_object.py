@@ -134,6 +134,46 @@ class ConceptFlowSteeringObject(BaseSteeringObject):
             return h_new.reshape(original_shape)
         return h_new
 
+    def compute_mean_transport(self, base_strength: float = 1.0) -> Dict[int, torch.Tensor]:
+        """
+        Compute mean transport direction per layer in full hidden space.
+
+        Uses the stored mean_neg + flow networks to compute the average
+        displacement that concept flow applies. Returns vectors in the
+        full hidden_dim space (not concept subspace).
+
+        Returns:
+            Dict mapping layer_idx -> delta vector [hidden_dim].
+        """
+        deltas: Dict[int, torch.Tensor] = {}
+        for layer, network in self.flow_networks.items():
+            Vh = self.concept_bases[layer].float()
+            z_neg = self.mean_neg[layer].float()
+            if z_neg.dim() == 1:
+                z_neg = z_neg.unsqueeze(0)
+
+            network_dev = network.to(z_neg.device)
+            network_dev.eval()
+
+            layer_w = self._layer_weights.get(
+                layer, 1.0 / max(len(self.flow_networks), 1),
+            )
+            t_eff = self.t_max * base_strength * layer_w
+
+            if t_eff > 0:
+                z_new = euler_integrate(
+                    network_dev, z_neg, t_max=t_eff,
+                    num_steps=self.num_integration_steps,
+                )
+            else:
+                z_new = z_neg
+
+            delta_concept = z_new - z_neg          # [1, k]
+            delta_full = delta_concept @ Vh         # [1, hidden_dim]
+            deltas[layer] = delta_full.squeeze(0)
+
+        return deltas
+
     def to_dict(self) -> Dict[str, Any]:
         """Serialize to dictionary for saving."""
         meta = self.metadata

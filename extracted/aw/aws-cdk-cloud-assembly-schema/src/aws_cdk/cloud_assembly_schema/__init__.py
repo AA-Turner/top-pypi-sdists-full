@@ -5463,6 +5463,7 @@ class LoadBalancerType(enum.Enum):
         "skip_enum_check": "skipEnumCheck",
         "skip_version_check": "skipVersionCheck",
         "topo_sort": "topoSort",
+        "validate_schema": "validateSchema",
     },
 )
 class LoadManifestOptions:
@@ -5472,18 +5473,21 @@ class LoadManifestOptions:
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
+        validate_schema: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''Options for the loadManifest operation.
 
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
+        :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__185f78e45d1b609ea45acca81931dd5b5992991a7423c244b8cc7b4d203f8361)
             check_type(argname="argument skip_enum_check", value=skip_enum_check, expected_type=type_hints["skip_enum_check"])
             check_type(argname="argument skip_version_check", value=skip_version_check, expected_type=type_hints["skip_version_check"])
             check_type(argname="argument topo_sort", value=topo_sort, expected_type=type_hints["topo_sort"])
+            check_type(argname="argument validate_schema", value=validate_schema, expected_type=type_hints["validate_schema"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if skip_enum_check is not None:
             self._values["skip_enum_check"] = skip_enum_check
@@ -5491,6 +5495,8 @@ class LoadManifestOptions:
             self._values["skip_version_check"] = skip_version_check
         if topo_sort is not None:
             self._values["topo_sort"] = topo_sort
+        if validate_schema is not None:
+            self._values["validate_schema"] = validate_schema
 
     @builtins.property
     def skip_enum_check(self) -> typing.Optional[builtins.bool]:
@@ -5527,6 +5533,18 @@ class LoadManifestOptions:
         :default: true
         '''
         result = self._values.get("topo_sort")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def validate_schema(self) -> typing.Optional[builtins.bool]:
+        '''Validate the file according to the declared JSON Schema.
+
+        Be aware that JSON Schema validation has a significant performance cost
+        (about 10x over not validating).
+
+        :default: false, unless $TESTING_CDK is set to '1'
+        '''
+        result = self._values.get("validate_schema")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -5581,6 +5599,7 @@ class Manifest(
         skip_enum_check: typing.Optional[builtins.bool] = None,
         skip_version_check: typing.Optional[builtins.bool] = None,
         topo_sort: typing.Optional[builtins.bool] = None,
+        validate_schema: typing.Optional[builtins.bool] = None,
     ) -> "AssemblyManifest":
         '''Load and validates the cloud assembly manifest from file.
 
@@ -5588,6 +5607,7 @@ class Manifest(
         :param skip_enum_check: Skip enum checks. This means you may read enum values you don't know about yet. Make sure to always check the values of enums you encounter in the manifest. Default: false
         :param skip_version_check: Skip the version check. This means you may read a newer cloud assembly than the CX API is designed to support, and your application may not be aware of all features that in use in the Cloud Assembly. Default: false
         :param topo_sort: Topologically sort all artifacts. This parameter is only respected by the constructor of ``CloudAssembly``. The property lives here for backwards compatibility reasons. Default: true
+        :param validate_schema: Validate the file according to the declared JSON Schema. Be aware that JSON Schema validation has a significant performance cost (about 10x over not validating). Default: false, unless $TESTING_CDK is set to '1'
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8d8e67a18b9b5fcc00d83ef5eb21ea18cebefe37668a220bf60072d9a0d7c144)
@@ -5596,6 +5616,7 @@ class Manifest(
             skip_enum_check=skip_enum_check,
             skip_version_check=skip_version_check,
             topo_sort=topo_sort,
+            validate_schema=validate_schema,
         )
 
         return typing.cast("AssemblyManifest", jsii.sinvoke(cls, "loadAssemblyManifest", [file_path, options]))
@@ -8164,6 +8185,7 @@ def _typecheckingstub__185f78e45d1b609ea45acca81931dd5b5992991a7423c244b8cc7b4d2
     skip_enum_check: typing.Optional[builtins.bool] = None,
     skip_version_check: typing.Optional[builtins.bool] = None,
     topo_sort: typing.Optional[builtins.bool] = None,
+    validate_schema: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -8180,6 +8202,7 @@ def _typecheckingstub__8d8e67a18b9b5fcc00d83ef5eb21ea18cebefe37668a220bf60072d9a
     skip_enum_check: typing.Optional[builtins.bool] = None,
     skip_version_check: typing.Optional[builtins.bool] = None,
     topo_sort: typing.Optional[builtins.bool] = None,
+    validate_schema: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

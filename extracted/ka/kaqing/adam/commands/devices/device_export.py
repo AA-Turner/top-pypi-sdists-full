@@ -5,7 +5,7 @@ from adam.config import Config
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import log2, wait_log
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 
 class DeviceExport(Command, Device):

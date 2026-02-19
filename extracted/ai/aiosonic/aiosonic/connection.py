@@ -1,10 +1,12 @@
 """Connection stuffs."""
 
+import asyncio
 import ssl
 import time
 from asyncio import StreamReader, StreamWriter, open_connection
+from contextlib import contextmanager
 from ssl import SSLContext
-from typing import Dict, Optional
+from typing import Dict, Iterator, NoReturn, Optional, Tuple, Type
 from urllib.parse import ParseResult
 
 import h2.config
@@ -12,6 +14,7 @@ import h2.connection
 import h2.events
 
 from aiosonic.exceptions import (
+    ConnectionDisconnected,
     HttpParsingError,
     MissingReaderException,
     MissingWriterException,
@@ -68,6 +71,7 @@ class Connection:
         self.temp_key: Optional[str] = None
         self.requests_count = 0
         self.background_tasks = set()
+        self._connect_lock = asyncio.Lock()
 
         self.h2conn: Optional[h2.connection.H2Connection] = None
         self.h2handler: Optional[Http2Handler] = None
@@ -97,8 +101,9 @@ class Connection:
             ssl_context (SSLContext): The SSL context to use for secure connections.
             http2 (bool, optional): Whether to use HTTP/2 protocol. Defaults to False.
         """
-        self._verify = verify
-        await self._connect(urlparsed, verify, ssl_context, dns_info, http2)
+        async with self._connect_lock:
+            self._verify = verify
+            await self._connect(urlparsed, verify, ssl_context, dns_info, http2)
 
     def write(self, data: bytes):
         """Write data to the socket.
@@ -111,7 +116,20 @@ class Connection:
         """
         if not self.writer:
             raise MissingWriterException("writer not set.")
-        self.writer.write(data)
+        with self._handle_connection_disconnected((OSError,)):
+            self.writer.write(data)
+
+    @contextmanager
+    def _handle_connection_disconnected(self, exceptions: Tuple[Type[BaseException], ...]) -> Iterator[None]:
+        try:
+            yield
+        except exceptions as exc:
+            self._raise_connection_disconnected(exc)
+
+    def _raise_connection_disconnected(self, exc: BaseException) -> NoReturn:
+        self.keep = False
+        self.close()
+        raise ConnectionDisconnected() from exc
 
     async def readline(self):
         """Read data from the socket until a line break is encountered.
@@ -124,7 +142,8 @@ class Connection:
         """
         if not self.reader:
             raise MissingReaderException("reader not set.")
-        return await self.reader.readline()
+        with self._handle_connection_disconnected((BrokenPipeError, ConnectionResetError)):
+            return await self.reader.readline()
 
     async def readexactly(self, size: int):
         """Read exactly the specified number of bytes from the socket.
@@ -140,7 +159,8 @@ class Connection:
         """
         if not self.reader:
             raise MissingReaderException("reader not set.")
-        return await self.reader.readexactly(size)
+        with self._handle_connection_disconnected((BrokenPipeError, ConnectionResetError)):
+            return await self.reader.readexactly(size)
 
     async def read(self, size: int = -1):
         """Read up to the specified number of bytes from the socket.
@@ -157,7 +177,8 @@ class Connection:
         """
         if not self.reader:
             raise MissingReaderException("reader not set.")
-        return await self.reader.read(size)
+        with self._handle_connection_disconnected((BrokenPipeError, ConnectionResetError)):
+            return await self.reader.read(size)
 
     async def readuntil(self, separator: bytes = b"\n"):
         """Read data from the socket until the specified separator is encountered.
@@ -173,7 +194,8 @@ class Connection:
         """
         if not self.reader:
             raise MissingReaderException("reader not set.")
-        return await self.reader.readuntil(separator)
+        with self._handle_connection_disconnected((BrokenPipeError, ConnectionResetError)):
+            return await self.reader.readuntil(separator)
 
     async def _connect(
         self,
@@ -210,23 +232,23 @@ class Connection:
         dns_info_copy["server_hostname"] = dns_info_copy.pop("hostname")
         dns_info_copy["flags"] = dns_info_copy["flags"] | keepalive_flags()
 
-        if not (
-            self.key and key == self.key and not is_closing() and self.__max_cons_made()
-        ):
+        conn_key = self.key or self.temp_key
+        if not (conn_key and key == conn_key and not is_closing() and self.__max_cons_made()):
             self.close()
 
             if urlparsed.scheme in ["https", "wss"]:
                 ssl_context = ssl_context or get_default_ssl_context(verify, http2)
+                if http2 and ssl_context:
+                    try:
+                        ssl_context.set_alpn_protocols(["h2", "http/1.1"])
+                    except Exception:
+                        pass
             else:
                 del dns_info_copy["server_hostname"]
-            port = urlparsed.port or (
-                443 if urlparsed.scheme in ["https", "ws"] else 80
-            )
+            port = urlparsed.port or (443 if urlparsed.scheme in ["https", "ws"] else 80)
             dns_info_copy["port"] = port
 
-            self.reader, self.writer = await open_connection(
-                **dns_info_copy, ssl=ssl_context
-            )
+            self.reader, self.writer = await open_connection(**dns_info_copy, ssl=ssl_context)
 
             self.temp_key = key
             await self._connection_made()
@@ -277,7 +299,7 @@ class Connection:
         if self.reader:
             try:
                 self.writer._transport.abort()
-            except:
+            except Exception:
                 pass
 
             self.reader, self.writer = None, None
@@ -298,9 +320,7 @@ class Connection:
             raise MissingWriterException()
         await self.writer.start_tls(ssl_context)
 
-    async def http2_request(
-        self, headers: Dict[str, str], body: Optional[ParsedBodyType]
-    ):
+    async def http2_request(self, headers: Dict[str, str], body: Optional[ParsedBodyType]):
         """Send an HTTP/2 request.
 
         Args:
@@ -314,10 +334,9 @@ class Connection:
             return await self.h2handler.request(headers, body)
 
     def __max_cons_made(self):
-        return (
-            self.pool.conf.max_conn_requests
-            and self.requests_count <= self.pool.conf.max_conn_requests
-        )
+        if self.pool.conf.max_conn_requests is None:
+            return True
+        return self.requests_count <= self.pool.conf.max_conn_requests
 
     async def __aenter__(self):
         """Get connection from pool."""
@@ -330,11 +349,12 @@ class Connection:
         else:
             self.key = None
             self.h2conn = None
+            if self.h2handler:  # pragma: no cover
+                self.h2handler.cleanup()
+            self.h2handler = None
 
         if not self.blocked:
             self.release()
-            if self.h2handler:  # pragma: no cover
-                self.h2handler.cleanup()
 
 
 def get_default_ssl_context(verify=True, http2=False):
@@ -371,9 +391,7 @@ def _get_http2_ssl_context():
 
     # RFC 7540 Section 9.2: Implementations of HTTP/2 MUST use TLS version 1.2
     # or higher. Disable TLS 1.1 and lower.
-    ctx.options |= (
-        ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
-    )
+    ctx.options |= ssl.OP_NO_SSLv2 | ssl.OP_NO_SSLv3 | ssl.OP_NO_TLSv1 | ssl.OP_NO_TLSv1_1
 
     # RFC 7540 Section 9.2.1: A deployment of HTTP/2 over TLS 1.2 MUST disable
     # compression.

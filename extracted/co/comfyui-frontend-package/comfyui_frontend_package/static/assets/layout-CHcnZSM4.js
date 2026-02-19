@@ -1,2 +1,0 @@
-import{t as e}from"./src-DpgoZgDv.js";const t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
-//# sourceMappingURL=layout-CHcnZSM4.js.map

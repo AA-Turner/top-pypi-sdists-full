@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-genai
-Version: 1.63.0
+Version: 1.64.0
 Summary: GenAI Python SDK
 Author-email: Google LLC <googleapis-packages@google.com>
 License-Expression: Apache-2.0
@@ -29,6 +29,7 @@ Requires-Dist: websockets<15.1.0,>=13.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.11.0
 Requires-Dist: distro<2,>=1.7.0
 Requires-Dist: sniffio
+Requires-Dist: aiohttp>=3.10.11
 Provides-Extra: aiohttp
 Requires-Dist: aiohttp<3.13.3; extra == "aiohttp"
 Provides-Extra: local-tokenizer
@@ -1467,8 +1468,8 @@ Files are only supported in Gemini Developer API. See the 'Create a client'
 section above to initialize a client.
 
 ```sh
-!gsutil cp gs://cloud-samples-data/generative-ai/pdf/2312.11805v3.pdf .
-!gsutil cp gs://cloud-samples-data/generative-ai/pdf/2403.05530.pdf .
+!gcloud storage cp gs://cloud-samples-data/generative-ai/pdf/2312.11805v3.pdf .
+!gcloud storage cp gs://cloud-samples-data/generative-ai/pdf/2403.05530.pdf .
 ```
 
 ### Upload

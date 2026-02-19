@@ -6,7 +6,7 @@ from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_log import log_timing
 from adam.utils_cassandra.cassandra_status import AddressTranslationError, CassandraStatus
 from adam.utils_cassandra.node_restartability import NodeRestartability
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ShowTokens(Command):
     COMMAND = 'show tokens'

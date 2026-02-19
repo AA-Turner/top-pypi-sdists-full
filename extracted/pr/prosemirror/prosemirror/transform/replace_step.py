@@ -22,7 +22,7 @@ class ReplaceStep(Step):
 
     def apply(self, doc: Node) -> StepResult:
         if self.structure and content_between(doc, self.from_, self.to):
-            return StepResult.fail("Structure replace would overrite content")
+            return StepResult.fail("Structure replace would overwrite content")
         return StepResult.from_replace(doc, self.from_, self.to, self.slice)
 
     def get_map(self) -> StepMap:
@@ -40,7 +40,12 @@ class ReplaceStep(Step):
         to = mapping.map_result(self.to, -1)
         if from_.deleted and to.deleted:
             return None
-        return ReplaceStep(from_.pos, max(from_.pos, to.pos), self.slice)
+        return ReplaceStep(
+            from_.pos,
+            max(from_.pos, to.pos),
+            self.slice,
+            self.structure,
+        )
 
     def merge(self, other: "Step") -> Optional["ReplaceStep"]:
         if not isinstance(other, ReplaceStep) or other.structure or self.structure:
@@ -105,7 +110,7 @@ class ReplaceStep(Step):
             json_data["to"],
             int,
         ):
-            msg = "Invlid input for ReplaceStep.from_json"
+            msg = "Invalid input for ReplaceStep.from_json"
             raise ValueError(msg)
         return ReplaceStep(
             json_data["from"],
@@ -180,8 +185,10 @@ class ReplaceAroundStep(Step):
     def map(self, mapping: Mappable) -> Optional["ReplaceAroundStep"]:
         from_ = mapping.map_result(self.from_, 1)
         to = mapping.map_result(self.to, -1)
-        gap_from = mapping.map(self.gap_from, -1)
-        gap_to = mapping.map(self.gap_to, 1)
+        gap_from = (
+            from_.pos if self.from_ == self.gap_from else mapping.map(self.gap_from, -1)
+        )
+        gap_to = to.pos if self.to == self.gap_to else mapping.map(self.gap_to, 1)
         if (from_.deleted and to.deleted) or gap_from < from_.pos or gap_to > to.pos:
             return None
         return ReplaceAroundStep(
@@ -232,7 +239,7 @@ class ReplaceAroundStep(Step):
             or not isinstance(json_data["gapTo"], int)
             or not isinstance(json_data["insert"], int)
         ):
-            msg = "Invlid input for ReplaceAroundStep.from_json"
+            msg = "Invalid input for ReplaceAroundStep.from_json"
             raise ValueError(msg)
         return ReplaceAroundStep(
             json_data["from"],

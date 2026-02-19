@@ -1,20 +1,15 @@
 from __future__ import annotations
 
-import sys
-from functools import lru_cache
+from functools import cache
+from importlib import resources
 
 import polars as pl
 
 from janaf.table import Table
 
-if sys.version_info < (3, 9):
-    import importlib_resources as resources
-else:
-    from importlib import resources
 
-
-@lru_cache(maxsize=None)
-def db() -> pl.DataFrame:
+@cache
+def db() -> pl.DataFrame:  # noqa: D103
     src = resources.files("janaf").joinpath("janaf.json").read_bytes()
     return (
         pl.read_json(src)
@@ -30,7 +25,7 @@ def db() -> pl.DataFrame:
     )
 
 
-class NotUnique(Exception):  # noqa: N818
+class NotUnique(Exception):  # noqa: D101, N818
     pass
 
 
@@ -40,28 +35,29 @@ def search(
     name: str | None = None,
     phase: str | None = None,
 ) -> Table:
-    """Search a compound
+    """
+    Search a compound.
 
     Parameters
     ----------
-    formula, optional
-        Regex for `formula`, by default None
-    name, optional
-        Regex for `name`, by default None
-    phase, optional
-        Regex for `phase`, by default None
+    formula
+        Regex for `formula`, by default None.
+    name
+        Regex for `name`, by default None.
+    phase
+        Regex for `phase`, by default None.
 
     Returns
     -------
-        `janaf.Table`
+    janaf.Table
+        The found table.
 
     Raises
     ------
     NotUnique
-        Occurs when search results are not unique
+        Occurs when search results are not unique.
     """
-
-    expr = pl.lit(True)
+    expr = pl.lit(value=True)
     if formula:
         expr &= pl.col("formula").str.contains(
             formula if formula[0] == "^" else f"^{formula}"

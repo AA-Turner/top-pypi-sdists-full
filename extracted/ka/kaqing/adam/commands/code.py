@@ -2,7 +2,7 @@ import code
 
 from adam.commands.command import Command
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class Code(Command):
     COMMAND = 'python'

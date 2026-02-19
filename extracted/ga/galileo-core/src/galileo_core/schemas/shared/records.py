@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Sequence, Type, TypeAlias, Union
 
-from pydantic import UUID4, BaseModel, Field, TypeAdapter, field_validator
+from pydantic import UUID4, BaseModel, ConfigDict, Field, TypeAdapter, field_validator
 from pydantic_partial import PartialModelMixin
 from typing_extensions import Annotated, Any, get_args
 
@@ -9,8 +9,29 @@ from galileo_core.schemas.logging.session import BaseSession
 from galileo_core.schemas.logging.span import BaseAgentSpan, BaseRetrieverSpan, BaseToolSpan, BaseWorkflowSpan, LlmSpan
 from galileo_core.schemas.logging.step import BaseStep, StepAllowedInputType
 from galileo_core.schemas.logging.trace import BaseTrace
-from galileo_core.schemas.shared.annotation import AnnotationAggregate, AnnotationRatingInfo
+from galileo_core.schemas.shared.feedback import (
+    AnnotationAggregate,
+    AnnotationRatingInfo,
+    FeedbackRatingInfo,
+)
 from galileo_core.schemas.shared.multimodal import ContentModality
+
+
+class MetricValue(BaseModel):
+    """
+    Schema for a metric with explicit is_primary flag.
+
+    Allows individual metrics to specify whether they should be
+    considered primary (for aggregation)
+    """
+
+    value: Any = Field(description="The metric value (can be numeric, string, array, dict, etc.)")
+    is_primary: bool = Field(
+        default=False,
+        description="Whether this specific metric is primary",
+    )
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class RecordIdsWithMetrics(BaseModel):
@@ -19,7 +40,11 @@ class RecordIdsWithMetrics(BaseModel):
     run_id: UUID4
     created_at: datetime
     updated_at: Optional[datetime] = Field(default=None)
-    metrics: Dict[str, Any]
+    session_id: Optional[UUID4] = Field(default=None)
+    session_created_at: Optional[datetime] = Field(default=None)
+    metrics: Dict[str, MetricValue | Any]
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class BaseRecord(PartialModelMixin, BaseStep):
@@ -47,7 +72,7 @@ class BaseRecord(PartialModelMixin, BaseStep):
     session_batch_id: Optional[UUID4] = Field(
         default=None, description="Galileo ID of the metrics batch associated with this trace or span"
     )
-    feedback_rating_info: Dict[str, AnnotationRatingInfo] = Field(
+    feedback_rating_info: Dict[str, FeedbackRatingInfo] = Field(
         default_factory=dict, description="Feedback information related to the record"
     )
     annotations: Dict[UUID4, Dict[UUID4, AnnotationRatingInfo]] = Field(

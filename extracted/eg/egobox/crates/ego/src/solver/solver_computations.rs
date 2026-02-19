@@ -1,11 +1,8 @@
 use crate::errors::Result;
-use crate::gpmix::mixint::to_discrete_space;
 use crate::{types::*, utils};
+use egobox_moe::to_discrete_space;
 
-use crate::utils::{
-    EGOR_DO_NOT_USE_MIDDLEPICKER_MULTISTARTER, compute_cstr_scales, logpofs, logpofs_grad, pofs,
-    pofs_grad,
-};
+use crate::utils::{compute_cstr_scales, logpofs, logpofs_grad, pofs, pofs_grad};
 use crate::{EgorSolver, solver::coego};
 
 use argmin::core::{CostFunction, Problem};
@@ -13,7 +10,7 @@ use argmin::core::{CostFunction, Problem};
 use egobox_doe::{Lhs, LhsKind, SamplingMethod};
 use egobox_moe::MixtureGpSurrogate;
 
-use log::{debug, info};
+use log::{debug, info, warn};
 use ndarray::{
     Array, Array1, Array2, ArrayBase, ArrayView2, Axis, Data, Ix1, Ix2, Zip, array, concatenate, s,
     stack,
@@ -61,6 +58,8 @@ pub(crate) struct MiddlePickerMultiStarter<'a, 'b, R: Rng + Clone> {
     xlimits: &'a Array2<f64>,
     xtrain: &'b Array2<f64>,
     rng: R,
+    /// If true, disable middle-picker and fallback to LHS
+    disable_middlepicker: bool,
 }
 
 impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter
@@ -69,7 +68,7 @@ impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter
     fn multistart(&mut self, n_start: usize, active: &[usize]) -> Array2<f64> {
         let xlimits = coego::get_active_x(Axis(0), self.xlimits, active);
 
-        if std::env::var(EGOR_DO_NOT_USE_MIDDLEPICKER_MULTISTARTER).is_err() {
+        if !self.disable_middlepicker {
             let nt = self.xtrain.nrows();
             // Compute the maximum number of points n to consider to generate midpoints
             // to avoid too much computation when large training set
@@ -123,11 +122,17 @@ impl<R: Rng + Clone> super::solver_infill_optim::MultiStarter
 }
 
 impl<'a, 'b, R: Rng + Clone> MiddlePickerMultiStarter<'a, 'b, R> {
-    pub fn new(xlimits: &'a Array2<f64>, xtrain: &'b Array2<f64>, rng: R) -> Self {
+    pub fn new(
+        xlimits: &'a Array2<f64>,
+        xtrain: &'b Array2<f64>,
+        rng: R,
+        disable_middlepicker: bool,
+    ) -> Self {
         MiddlePickerMultiStarter {
             xlimits,
             xtrain,
             rng,
+            disable_middlepicker,
         }
     }
 }
@@ -514,7 +519,14 @@ where
             x.to_owned()
         };
         pb.problem("cost_count", |problem| problem.cost(&x))
-            .expect("Objective evaluation")
+            .unwrap_or_else(|err| {
+                warn!("Objective function evaluation failed at x = {x:?} with error: {err}");
+                Array::from_shape_vec(
+                    (x.nrows(), 1 + self.config.n_cstr),
+                    vec![f64::NAN; x.nrows() * (1 + self.config.n_cstr)],
+                )
+                .unwrap()
+            })
     }
 
     /// Evaluate the constraints given as function at given x points
@@ -555,13 +567,13 @@ where
 
     /// Evaluate the constraints given as function at given x points
     /// within the problem structure so that the function is taken from there
-    pub fn eval_problem_fcstrs<O: DomainConstraints<C>>(
+    pub fn eval_problem_fcstrs<O: Constraints<C>>(
         &self,
         pb: &mut Problem<O>,
         x: &ArrayBase<impl Data<Elem = f64>, Ix2>,
     ) -> Array2<f64> {
         let problem = pb.take_problem().unwrap();
-        let fcstrs = problem.fn_constraints();
+        let fcstrs = problem.constraints();
 
         let res = self.eval_fcstrs(fcstrs, x);
 

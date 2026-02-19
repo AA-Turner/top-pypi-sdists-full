@@ -117,6 +117,27 @@ class CodewordsResponse:
 
 
 ###############################################################################
+#                             SHARED HELPERS
+###############################################################################
+
+
+def _raise_for_status(resp: httpx.Response) -> None:
+    """raise_for_status with enriched error message including response body detail."""
+    if resp.status_code >= 400:
+        detail = ""
+        try:
+            error_data = resp.json()
+            detail = error_data.get("detail") or resp.text
+        except Exception:
+            detail = resp.text or ""
+        raise httpx.HTTPStatusError(
+            f"{resp.status_code}: {detail}" if detail else f"{resp.status_code}",
+            request=resp.request,
+            response=resp,
+        )
+
+
+###############################################################################
 #                            ASYNC CODEWORDS CLIENT
 ###############################################################################
 
@@ -131,7 +152,7 @@ class AsyncCodewordsClient:
         self,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        default_timeout: float = 115.0,
+        default_timeout: float = 300.0,
     ):
         """
         :param base_url: Base URL of the Codewords runtime (e.g. 'https://runtime.codewords.ai').
@@ -167,6 +188,10 @@ class AsyncCodewordsClient:
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
         await self.close()
+
+    @staticmethod
+    def _raise_for_status(resp: httpx.Response) -> None:
+        _raise_for_status(resp)
 
     def _auth_headers(self) -> Dict[str, str]:
         """
@@ -282,7 +307,7 @@ class AsyncCodewordsClient:
 
         if in_background:
             resp = await self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
-            resp.raise_for_status()
+            self._raise_for_status(resp)
             data = resp.json()
             req_id = data["request_id"]
             response = AsyncCodewordsResponse(req_id, self)
@@ -311,11 +336,11 @@ class AsyncCodewordsClient:
 
                 # Get the response
                 resp = await task
-                resp.raise_for_status()
+                self._raise_for_status(resp)
                 return resp
             else:
                 resp = await self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
-                resp.raise_for_status()
+                self._raise_for_status(resp)
                 return resp
 
     async def start_service(
@@ -642,7 +667,7 @@ class CodewordsClient:
         self,
         base_url: Optional[str] = None,
         api_key: Optional[str] = None,
-        default_timeout: float = 115.0,
+        default_timeout: float = 300.0,
     ):
         """
         :param base_url: Base URL of the Codewords runtime (e.g. 'https://runtime.codewords.ai').
@@ -665,6 +690,10 @@ class CodewordsClient:
 
         # Reuse a single httpx.Client (synchronous).
         self.client = httpx.Client(timeout=self.default_timeout)
+
+    @staticmethod
+    def _raise_for_status(resp: httpx.Response) -> None:
+        _raise_for_status(resp)
 
     def close(self) -> None:
         """Close the underlying sync HTTP client."""
@@ -757,13 +786,13 @@ class CodewordsClient:
 
         if in_background:
             resp = self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
-            resp.raise_for_status()
+            self._raise_for_status(resp)
             data = resp.json()
             req_id = data["request_id"]
             return CodewordsResponse(req_id, self)
         else:
             r = self.client.post(url, headers=headers, json=inputs, timeout=self.default_timeout)
-            r.raise_for_status()
+            self._raise_for_status(r)
             return r
 
     def start_service(

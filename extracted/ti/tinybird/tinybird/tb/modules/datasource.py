@@ -38,6 +38,7 @@ from tinybird.tb.modules.common import (
     get_format_from_filename_or_url,
     normalize_datasource_name,
     push_data,
+    warn_prompt_ai_deprecation,
 )
 from tinybird.tb.modules.config import CLIConfig
 from tinybird.tb.modules.connection_kafka import (
@@ -975,6 +976,7 @@ ENGINE "MergeTree"
             return
 
         if datasource_type == "prompt":
+            warn_prompt_ai_deprecation()
             if not config.get("user_token"):
                 raise Exception("This action requires authentication. Run 'tb login' first.")
 

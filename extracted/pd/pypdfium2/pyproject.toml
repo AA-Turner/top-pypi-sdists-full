@@ -9,7 +9,7 @@ requires = [
     "packaging",
     # XXX dependence on wheel is historical, with setuptools >= v70.1.0 this is not needed anymore
     "wheel !=0.38.0, !=0.38.1",
-    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@b561360fad763b4a64e2d8ef8f7ddf354670dbb7",
+    "ctypesgen @ git+https://github.com/pypdfium2-team/ctypesgen@78edc2c0df793456ed40c058701aba6b2c295ddc",
 ]
 
 [tool.cibuildwheel]
@@ -35,7 +35,7 @@ select = "*-manylinux_*"
 before-all = [
     "dnf clean all && dnf makecache --refresh",
     "dnf -y install ninja-build freetype-devel lcms2-devel libjpeg-devel openjpeg2-devel libpng-devel libtiff-devel zlib-devel glib2-devel",
-    "sh -c 'dnf -y install gn || true'",  # not manylinux_{i686,riscv64,loongarch64}
+    "sh -c 'dnf -y install gn || true'",  # not manylinux_{i686,riscv64}
 ]
 
 # manylinux_armv7l uses a Ubuntu-based image, for lack of an RHEL-based one
@@ -89,13 +89,6 @@ before-all = [
     "unset PREFIX GCC_ROOT",
 ]
 
-[[tool.cibuildwheel.overrides]]
-select = "*-manylinux_loongarch64"
-inherit.before-all = "append"
-before-all = [
-    "curl -L 'https://github.com/loong64/gn/releases/download/2024.12/gn-linux-loong64.tar.gz' | tar xz -C /usr/local/bin",
-]
-
 # We're in luck, Google actually serves GN binaries for riscv64
 [[tool.cibuildwheel.overrides]]
 select = "*-manylinux_riscv64"
@@ -115,9 +108,7 @@ PDFIUM_PLATFORM = "sourcebuild-native"
 BUILD_PARAMS = "--vendor all --no-vendor libc++"
 
 [[tool.cibuildwheel.overrides]]
-# s390x (manylinux and musllinux) is broken with clang-cross, perpetually freezes during test phase.
-# It works when built using emulated gcc, however.
-select = "*-*linux_{ppc64le,riscv64,loongarch64}"
+select = "*-*linux_{ppc64le,riscv64,loongarch64,s390x}"
 inherit.environment-pass = "append"
 environment-pass = ["RUNNER_ARCH"]
 inherit.before-all = "prepend"
@@ -130,10 +121,9 @@ inherit.environment = "append"
 environment.BUILD_PARAMS = "--compiler clang --clang-path /opt/clang --no-libclang-rt --vendor all --no-vendor libc++"
 
 [[tool.cibuildwheel.overrides]]
-# Vendoring all dependencies is too costly with an emulated compiler, so vendor only ICU for smaller wheel size.
 select = "*-*linux_s390x"
 inherit.environment = "append"
-environment.BUILD_PARAMS = "--vendor icu --compat"
+environment.BUILD_PARAMS = "--compiler clang --clang-path /opt/clang --clang-as-gcc --vendor all --no-vendor libc++"
 
 [tool.cibuildwheel.macos.environment]
 PDFIUM_PLATFORM = "sourcebuild-toolchained"

@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 3.3.1
+Version: 3.5.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -56,6 +56,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+3.5.0
+*******
+
+- `Changed` AI-assisted CLI commands now show a deprecation warning indicating they will be removed in a future major release and include agent skills guidance (`npx skills add @tinybirdco/tinybird-agent-skills`).
+
+3.4.0
+*******
+
+- `Changed` Prompt-based AI flows now print a deprecation warning (`tb --prompt`, `tb create --prompt`, `tb datasource create --prompt`, `tb test create`, `tb mock`) ahead of their removal in a future release.
 
 3.3.1
 *******

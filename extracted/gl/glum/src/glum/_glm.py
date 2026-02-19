@@ -1,47 +1,19 @@
-"""
-Generalized Linear Models with Exponential Dispersion Family
-
-Modified from code submitted as a PR to sklearn:
-https://github.com/scikit-learn/scikit-learn/pull/9405
-
-Original attribution from:
-https://github.com/scikit-learn/scikit-learn/pull/9405/files
-#diff-38e412190dc50455611b75cfcf2d002713dcf6d537a78b9a22cc6b1c164390d1
-'''
-Author: Christian Lorentzen <lorentzen.ch@googlemail.com>
-some parts and tricks stolen from other sklearn files.
-'''
-"""
-
-# License: BSD 3 clause
-import copy
 import re
 import sys
+import time
+import typing
 import warnings
 from collections.abc import Iterable, Mapping, Sequence
-from time import perf_counter
-from typing import Any, NamedTuple, Optional, Union, cast
+from typing import Any, Optional, Union
 
+import formulaic
 import numpy as np
+import packaging.version
 import pandas as pd
 import scipy.sparse as sps
-import scipy.sparse.linalg as splinalg
 import sklearn as skl
 import tabmat as tm
-from formulaic import Formula, FormulaSpec
-from formulaic.parser import DefaultFormulaParser
-from formulaic.utils.constraints import LinearConstraintParser
-from formulaic.utils.context import capture_context
-from packaging import version
 from scipy import linalg, sparse, stats
-from sklearn.base import BaseEstimator, RegressorMixin
-from sklearn.utils import check_array
-from sklearn.utils.validation import (
-    assert_all_finite,
-    check_consistent_length,
-    check_is_fitted,
-    column_or_1d,
-)
 
 from ._distribution import (
     BinomialDistribution,
@@ -55,6 +27,8 @@ from ._distribution import (
     TweedieDistribution,
     guess_intercept,
 )
+from ._formula import capture_context, parse_formula
+from ._linalg import is_pos_semidef
 from ._link import CloglogLink, IdentityLink, Link, LogitLink, LogLink, TweedieLink
 from ._solvers import (
     IRLSData,
@@ -64,656 +38,37 @@ from ._solvers import (
     _least_squares_solver,
     _trust_constr_solver,
 )
-from ._util import (
-    _add_missing_categories,
-    _align_df_categories,
-    _expand_categorical_penalties,
-    _is_contiguous,
-    _safe_toarray,
+from ._typing import ArrayLike, ShapedArrayLike, VectorLike, WaldTestResult
+from ._utils import (
+    add_missing_categories,
+    align_df_categories,
+    expand_categorical_penalties,
+    is_contiguous,
+    safe_toarray,
+    standardize,
+    standardize_warm_start,
+    unstandardize,
+)
+from ._validation import (
+    check_array_tabmat_compliant,
+    check_bounds,
+    check_inequality_constraints,
+    check_offset,
+    check_weights,
+    check_X_y_tabmat_compliant,
 )
 
-if version.parse(skl.__version__).release < (1, 6):
+if packaging.version.parse(skl.__version__).release < (1, 6):
     keyword_finiteness = "force_all_finite"
-    validate_data = BaseEstimator._validate_data
+    validate_data = skl.base.BaseEstimator._validate_data
 else:
     keyword_finiteness = "ensure_all_finite"
     from sklearn.utils.validation import validate_data  # type: ignore
 
 _float_itemsize_to_dtype = {8: np.float64, 4: np.float32, 2: np.float16}
 
-VectorLike = Union[np.ndarray, pd.api.extensions.ExtensionArray, pd.Index, pd.Series]
 
-ArrayLike = Union[
-    list,
-    tm.MatrixBase,
-    tm.StandardizedMatrix,
-    pd.DataFrame,
-    sparse.spmatrix,
-    VectorLike,
-]
-
-ShapedArrayLike = Union[
-    tm.MatrixBase,
-    tm.StandardizedMatrix,
-    pd.DataFrame,
-    sparse.spmatrix,
-    VectorLike,
-]
-
-
-class WaldTestResult(NamedTuple):
-    test_statistic: float
-    p_value: float
-    df: int
-
-
-def check_array_tabmat_compliant(mat: ArrayLike, drop_first: bool = False, **kwargs):
-    to_copy = kwargs.get("copy", False)
-
-    if isinstance(mat, pd.DataFrame):
-        raise RuntimeError("DataFrames should have been converted by this point.")
-
-    if isinstance(mat, tm.SplitMatrix):
-        kwargs.update({"ensure_min_features": 0})
-        new_matrices = [
-            check_array_tabmat_compliant(m, drop_first=drop_first, **kwargs)
-            for m in mat.matrices
-        ]
-        new_indices = [elt.copy() for elt in mat.indices] if to_copy else mat.indices
-        return tm.SplitMatrix(new_matrices, new_indices)
-
-    if isinstance(mat, tm.CategoricalMatrix):
-        if to_copy:
-            return copy.copy(mat)
-        return mat
-
-    if isinstance(mat, tm.StandardizedMatrix):
-        return tm.StandardizedMatrix(
-            check_array_tabmat_compliant(mat.mat, drop_first=drop_first, **kwargs),
-            check_array(mat.shift, **kwargs),
-        )
-
-    original_type = type(mat)
-    if isinstance(mat, (tm.DenseMatrix, tm.SparseMatrix)):
-        res = check_array(mat.unpack(), **kwargs)
-    else:
-        res = check_array(mat, **kwargs)
-
-    if res is not mat and original_type in (tm.DenseMatrix, tm.SparseMatrix):
-        res = original_type(
-            res,
-            column_names=mat.column_names,  # type: ignore
-            term_names=mat.term_names,  # type: ignore
-        )
-
-    return res
-
-
-def check_X_y_tabmat_compliant(
-    X: ArrayLike, y: Union[VectorLike, sparse.spmatrix], **kwargs
-) -> tuple[Union[tm.MatrixBase, sparse.spmatrix, np.ndarray], np.ndarray]:
-    """
-    See the documentation for :func:`sklearn.utils.check_X_y`. This function
-    behaves identically for inputs that are not from the Matrix package and
-    fixes some parameters, such as ``'force_all_finite'``, to match the needs of
-    GLMs.
-
-    Returns
-    -------
-    X_converted : array-like
-        The converted and validated X.
-    y_converted : numpy.ndarray
-        The converted and validated y.
-    """
-    if y is None:
-        raise ValueError("y cannot be None")
-
-    y = column_or_1d(y, warn=True)
-    assert_all_finite(y)
-    if y.dtype.kind == "O":
-        y = y.astype(np.float64)
-
-    check_consistent_length(X, y)
-    X = check_array_tabmat_compliant(X, **kwargs)
-
-    return X, y
-
-
-def _check_weights(
-    sample_weight: Optional[Union[float, VectorLike]],
-    n_samples: int,
-    dtype,
-    force_all_finite: bool = True,
-) -> np.ndarray:
-    """Check that sample weights are non-negative and have the right shape."""
-    if sample_weight is None:
-        return np.ones(n_samples, dtype=dtype)
-    if np.isscalar(sample_weight):
-        if sample_weight <= 0:  # type: ignore
-            raise ValueError("Sample weights must be non-negative.")
-        return np.full(n_samples, sample_weight, dtype=dtype)
-
-    sample_weight = check_array(
-        sample_weight,
-        accept_sparse=False,
-        ensure_2d=False,
-        dtype=[np.float64, np.float32],
-        **{keyword_finiteness: force_all_finite},
-    )
-
-    if sample_weight.ndim > 1:  # type: ignore
-        raise ValueError("Sample weights must be 1D array or scalar.")
-    if sample_weight.shape[0] != n_samples:  # type: ignore
-        raise ValueError("Sample weights must have the same length as y.")
-    if np.any(sample_weight < 0):  # type: ignore
-        raise ValueError("Sample weights must be non-negative.")
-    if np.sum(sample_weight) == 0:  # type: ignore
-        raise ValueError("Sample weights must have at least one positive element.")
-
-    return sample_weight  # type: ignore
-
-
-def _check_offset(
-    offset: Optional[Union[VectorLike, float]], n_rows: int, dtype
-) -> Optional[np.ndarray]:
-    """
-    Unlike weights, if the offset is ``None``, it can stay ``None``, so we only
-    need to validate it when it is not.
-    """
-    if offset is None:
-        return None
-    if np.isscalar(offset):
-        return np.full(n_rows, offset)
-
-    offset = check_array(
-        offset,
-        accept_sparse=False,
-        ensure_2d=False,
-        dtype=dtype,
-        **{keyword_finiteness: True},
-    )
-
-    offset = cast(np.ndarray, offset)
-
-    if offset.ndim > 1:  # type: ignore
-        raise ValueError("Offsets must be 1D array or scalar.")
-    if offset.shape[0] != n_rows:  # type: ignore
-        raise ValueError("Offsets must have the same length as y.")
-
-    return offset
-
-
-def _parse_formula(
-    formula: FormulaSpec, include_intercept: bool = True
-) -> tuple[Optional[Formula], Formula]:
-    """
-    Parse and transform the formula for use in a GeneralizedLinearRegressor.
-
-    The left-hand side and right-hand side of the formula are separated. If an
-    intercept is present, it will be removed from the right-hand side, and a
-    boolean flag to indicate whether or not an intercept should be added to
-    the model will be returned.
-
-    Parameters
-    ----------
-    formula : formulaic.FormulaSpec
-        The formula to parse.
-    include_intercept: bool, default True
-        Whether to include an intercept column.
-
-    Returns
-    -------
-    tuple[formulaic.Formula, formulaic.Formula]
-        The left-hand side and right-hand sides of the formula.
-    """
-    if isinstance(formula, str):
-        parser = DefaultFormulaParser(include_intercept=include_intercept)
-        terms = parser.get_terms(formula)
-    elif isinstance(formula, Formula):
-        terms = formula
-    else:
-        raise TypeError("formula must be a string or Formula object.")
-
-    if hasattr(terms, "lhs"):
-        lhs_terms = terms.lhs
-        if len(lhs_terms) != 1:
-            raise ValueError(
-                "formula must have exactly one term on the left-hand side."
-            )
-        rhs_terms = terms.rhs
-    else:
-        lhs_terms = None
-        rhs_terms = terms
-
-    return lhs_terms, rhs_terms
-
-
-def check_bounds(
-    bounds: Optional[Union[float, VectorLike]], n_features: int, dtype
-) -> Optional[np.ndarray]:
-    """Check that the bounds have the right shape."""
-    if bounds is None:
-        return None
-    if np.isscalar(bounds):
-        return np.full(n_features, bounds, dtype=dtype)
-
-    bounds = check_array(
-        bounds,
-        accept_sparse=False,
-        ensure_2d=False,
-        dtype=dtype,
-        **{keyword_finiteness: False},
-    )
-
-    bounds = cast(np.ndarray, bounds)
-
-    if bounds.ndim > 1:  # type: ignore
-        raise ValueError("Bounds must be 1D array or scalar.")
-    if bounds.shape[0] != n_features:  # type: ignore
-        raise ValueError("Bounds must be the same length as X.shape[1].")
-
-    return bounds
-
-
-def check_inequality_constraints(
-    A_ineq: Optional[np.ndarray],
-    b_ineq: Optional[np.ndarray],
-    n_features: int,
-    dtype,
-) -> tuple[Union[None, np.ndarray], Union[None, np.ndarray]]:
-    """Check that the inequality constraints are well-defined."""
-    if A_ineq is None or b_ineq is None:
-        return None, None
-    else:
-        A_ineq = check_array(
-            A_ineq,
-            accept_sparse=False,
-            ensure_2d=True,
-            dtype=dtype,
-            copy=True,
-            **{keyword_finiteness: False},
-        )
-        b_ineq = check_array(
-            b_ineq,
-            accept_sparse=False,
-            ensure_2d=False,
-            dtype=dtype,
-            copy=True,
-            **{keyword_finiteness: False},
-        )
-        if A_ineq.shape[1] != n_features:  # type: ignore
-            raise ValueError("A_ineq must have same number of columns as X.")
-        if A_ineq.shape[0] != b_ineq.shape[0]:  # type: ignore
-            raise ValueError("A_ineq and b_ineq must have same number of rows.")
-        if b_ineq.ndim > 1:  # type: ignore
-            raise ValueError("b_ineq must be 1D array.")
-    return A_ineq, b_ineq
-
-
-def _standardize(
-    X: tm.MatrixBase,
-    sample_weight: np.ndarray,
-    center_predictors: bool,
-    estimate_as_if_scaled_model: bool,
-    lower_bounds: Optional[np.ndarray],
-    upper_bounds: Optional[np.ndarray],
-    A_ineq: Optional[np.ndarray],
-    P1: Union[np.ndarray, sparse.spmatrix],
-    P2: Union[np.ndarray, sparse.spmatrix],
-) -> tuple[
-    tm.StandardizedMatrix,
-    np.ndarray,
-    Optional[np.ndarray],
-    Optional[np.ndarray],
-    Optional[np.ndarray],
-    Optional[np.ndarray],
-    Any,
-    Any,
-]:
-    """
-    Standardize the data matrix ``X`` and adjust the bounds and penalties to
-    match the standardized data matrix, so that standardizing does not affect
-    estimates.
-
-    This is only done for computational reasons and does not affect final
-    estimates or alter the input data. Columns are always scaled to have unit
-    standard deviation.
-
-    Bounds, inequality constraints and regularization coefficients are modified
-    appropriately so that the estimates remain unchanged compared to an
-    unstandardized problem.
-
-    Parameters
-    ----------
-    X : MatrixBase
-    sample_weight : numpy.ndarray
-    center_predictors : bool
-        If ``True``, adjust the data matrix so that columns have mean zero.
-    estimate_as_if_scaled_model : bool
-        If ``True``, estimates returned equal those from a model where
-        predictors have been standardized to have unit standard deviation, with
-        penalty unchanged. Note that, internally, for purely computational
-        reasons, we always scale predictors; whether estimates match a scaled
-        model depends on whether we modify the penalty. If ``False``, penalties
-        are rescaled to match the original scale, canceling out the effect of
-        rescaling X.
-    lower_bounds
-    upper_bounds
-    A_ineq
-    P1
-    P2
-    """
-    X, col_means, col_stds = X.standardize(sample_weight, center_predictors, True)
-
-    if col_stds is not None:
-        inv_col_stds = _one_over_var_inf_to_val(col_stds, 1.0)
-        # We copy the bounds when multiplying here so the we avoid
-        # side effects.
-        if lower_bounds is not None:
-            lower_bounds = lower_bounds / inv_col_stds
-        if upper_bounds is not None:
-            upper_bounds = upper_bounds / inv_col_stds
-        if A_ineq is not None:
-            A_ineq = A_ineq * inv_col_stds
-
-    if not estimate_as_if_scaled_model and col_stds is not None:
-        P1 *= inv_col_stds
-        if sparse.issparse(P2):
-            inv_col_stds_mat = sparse.diags(inv_col_stds)
-            P2 = inv_col_stds_mat @ P2 @ inv_col_stds_mat
-        elif P2.ndim == 1:
-            P2 *= inv_col_stds**2
-        else:
-            P2 = (inv_col_stds[:, None] * P2) * inv_col_stds[None, :]
-
-    return X, col_means, col_stds, lower_bounds, upper_bounds, A_ineq, P1, P2
-
-
-def _unstandardize(
-    col_means: np.ndarray,
-    col_stds: Optional[np.ndarray],
-    intercept: Union[float, np.ndarray],
-    coef: np.ndarray,
-) -> tuple[Union[float, np.ndarray], np.ndarray]:
-    if col_stds is None:
-        intercept -= np.squeeze(np.squeeze(col_means).dot(np.atleast_1d(coef).T))
-    else:
-        penalty_mult = _one_over_var_inf_to_val(col_stds, 1.0)
-        intercept -= np.squeeze(
-            np.squeeze(col_means * penalty_mult).dot(np.atleast_1d(coef).T)
-        )
-        coef *= penalty_mult
-    return intercept, coef
-
-
-def _one_over_var_inf_to_val(arr: np.ndarray, val: float) -> np.ndarray:
-    """
-    Return 1/arr unless the values are zeros.
-
-    If values are zeros, return val.
-    """
-    zeros = np.where(np.abs(arr) < 10 * np.sqrt(np.finfo(arr.dtype).eps))
-    with np.errstate(divide="ignore"):
-        one_over = 1 / arr
-    one_over[zeros] = val
-    return one_over
-
-
-def _standardize_warm_start(
-    coef: np.ndarray, col_means: np.ndarray, col_stds: Optional[np.ndarray]
-) -> None:
-    if col_stds is None:
-        coef[0] += np.squeeze(col_means).dot(coef[1:])
-    else:
-        coef[1:] *= col_stds
-        coef[0] += np.squeeze(col_means * _one_over_var_inf_to_val(col_stds, 1)).dot(
-            coef[1:]
-        )
-
-
-def get_family(
-    family: Union[str, ExponentialDispersionModel],
-) -> ExponentialDispersionModel:
-    if isinstance(family, ExponentialDispersionModel):
-        return family
-
-    name_to_dist = {
-        "binomial": BinomialDistribution(),
-        "gamma": GammaDistribution(),
-        "gaussian": NormalDistribution(),
-        "inverse.gaussian": InverseGaussianDistribution(),
-        "normal": NormalDistribution(),
-        "poisson": PoissonDistribution(),
-        "tweedie": TweedieDistribution(1.5),
-        "negative.binomial": NegativeBinomialDistribution(1.0),
-    }
-
-    if family in name_to_dist:
-        return name_to_dist[family]
-
-    custom_tweedie = re.search(r"tweedie\s?\((.+)\)", family)
-
-    if custom_tweedie:
-        return TweedieDistribution(float(custom_tweedie.group(1)))
-
-    custom_negative_binomial = re.search(r"negative.binomial\s?\((.+)\)", family)
-
-    if custom_negative_binomial:
-        return NegativeBinomialDistribution(float(custom_negative_binomial.group(1)))
-
-    raise ValueError(
-        "The family must be an instance of class ExponentialDispersionModel or an "
-        f"element of {sorted(name_to_dist.keys())}; got (family={family})."
-    )
-
-
-def get_link(link: Union[str, Link], family: ExponentialDispersionModel) -> Link:
-    """
-    For the Tweedie distribution, this code follows actuarial best practices
-    regarding link functions. Note that these links are sometimes not canonical:
-        - identity for normal (``p = 0``);
-        - no convention for ``p < 0``, so let's leave it as identity;
-        - log otherwise.
-    """
-    if isinstance(link, Link):
-        return link
-
-    if (link is None) or (link == "auto"):
-        if tweedie_representation := family.to_tweedie(safe=False):
-            if tweedie_representation.power <= 0:
-                return IdentityLink()
-            return LogLink()
-        if isinstance(family, GeneralizedHyperbolicSecant):
-            return IdentityLink()
-        if isinstance(family, BinomialDistribution):
-            return LogitLink()
-        if isinstance(family, NegativeBinomialDistribution):
-            return LogLink()
-        raise ValueError(
-            "No default link known for the specified distribution family. "
-            "Please set link manually, i.e. not to 'auto'. "
-            f"Got (link='auto', family={family.__class__.__name__})."
-        )
-
-    mapping = {
-        "cloglog": CloglogLink(),
-        "identity": IdentityLink(),
-        "log": LogLink(),
-        "logit": LogitLink(),
-        "tweedie": TweedieLink(1.5),
-    }
-
-    if link in mapping:
-        return mapping[link]
-    if custom_tweedie := re.search(r"tweedie\s?\((.+)\)", link):
-        return TweedieLink(float(custom_tweedie.group(1)))
-
-    raise ValueError(
-        "The link must be an instance of class Link or an element of "
-        "['auto', 'identity', 'log', 'logit', 'cloglog', 'tweedie']; "
-        f"got (link={link})."
-    )
-
-
-def setup_p1(
-    P1: Optional[Union[str, np.ndarray]],
-    X: Union[tm.MatrixBase, tm.StandardizedMatrix],
-    dtype,
-    alpha: float,
-    l1_ratio: float,
-) -> np.ndarray:
-    if not isinstance(X, (tm.MatrixBase, tm.StandardizedMatrix)):
-        raise TypeError
-
-    n_features = X.shape[1]
-
-    if isinstance(P1, str):
-        if P1 != "identity":
-            raise ValueError(f"P1 must be either 'identity' or an array; got {P1}.")
-        P1 = np.ones(n_features, dtype=dtype)
-    elif P1 is None:
-        P1 = np.ones(n_features, dtype=dtype)
-    else:
-        P1 = np.atleast_1d(P1)
-        try:
-            P1 = P1.astype(dtype, casting="safe", copy=False)  # type: ignore
-        except TypeError as e:
-            raise TypeError(
-                "The given P1 cannot be converted to a numeric array; "
-                f"got (P1.dtype={P1.dtype})."  # type: ignore
-            ) from e
-        if (P1.ndim != 1) or (P1.shape[0] != n_features):  # type: ignore
-            raise ValueError(
-                "P1 must be either 'identity' or a 1d array with the length of "
-                "X.shape[1] (either before or after categorical expansion); "
-                f"got (P1.shape[0]={P1.shape[0]})."  # type: ignore
-            )
-
-    # P1 and P2 are now for sure copies
-    P1 = alpha * l1_ratio * P1  # type: ignore
-    return cast(np.ndarray, P1).astype(dtype)
-
-
-def setup_p2(
-    P2: Optional[Union[str, np.ndarray, sparse.spmatrix]],
-    X: Union[tm.MatrixBase, tm.StandardizedMatrix],
-    stype,
-    dtype,
-    alpha: float,
-    l1_ratio: float,
-) -> Union[np.ndarray, sparse.spmatrix]:
-    if not isinstance(X, (tm.MatrixBase, tm.StandardizedMatrix)):
-        raise TypeError
-
-    n_features = X.shape[1]
-
-    def _setup_sparse_p2(P2):
-        return (sparse.dia_matrix((P2, 0), shape=(n_features, n_features))).tocsc()
-
-    if isinstance(P2, str):
-        if P2 != "identity":
-            raise ValueError(f"P2 must be either 'identity' or an array. Got {P2}.")
-        if sparse.issparse(X):  # if X is sparse, make P2 sparse, too
-            P2 = _setup_sparse_p2(np.ones(n_features, dtype=dtype))
-        else:
-            P2 = np.ones(n_features, dtype=dtype)
-    elif P2 is None:
-        if sparse.issparse(X):  # if X is sparse, make P2 sparse, too
-            P2 = _setup_sparse_p2(np.ones(n_features, dtype=dtype))
-        else:
-            P2 = np.ones(n_features, dtype=dtype)
-    else:
-        P2 = check_array(
-            P2, copy=True, accept_sparse=stype, dtype=dtype, ensure_2d=False
-        )
-        P2 = cast(np.ndarray, P2)
-        if P2.ndim == 1:
-            P2 = np.asarray(P2)
-            if P2.shape[0] != n_features:
-                raise ValueError(
-                    "P2 should be a 1d array of shape X.shape[1] (either before or "
-                    "after categorical expansion); "
-                    f"got (P2.shape={P2.shape})."
-                )
-            if sparse.issparse(X):
-                P2 = _setup_sparse_p2(P2)
-        elif P2.ndim == 2 and P2.shape[0] == P2.shape[1] and P2.shape[0] == n_features:
-            if sparse.issparse(X):
-                P2 = sparse.csc_matrix(P2)
-        else:
-            raise ValueError(
-                "P2 must be either None or an array of shape (n_features, n_features) "
-                f"with n_features=X.shape[1]; got (P2.shape={P2.shape}); "
-                f"needed ({n_features}, {n_features})."
-            )
-
-    # P1 and P2 are now for sure copies
-    P2 = alpha * (1 - l1_ratio) * P2
-    # one only ever needs the symmetrized L2 penalty matrix 1/2 (P2 + P2')
-    # reason: w' P2 w = (w' P2 w)', i.e. it is symmetric
-    if P2.ndim == 2:
-        if sparse.issparse(P2):
-            if sparse.isspmatrix_csc(P2):
-                P2 = 0.5 * (P2 + P2.transpose()).tocsc()
-            else:
-                P2 = 0.5 * (P2 + P2.transpose()).tocsr()
-        else:
-            P2 = 0.5 * (P2 + P2.T)
-    return P2
-
-
-def is_pos_semidef(p: Union[sparse.spmatrix, np.ndarray]) -> Union[bool, np.bool_]:
-    """
-    Checks for positive semidefiniteness of ``p`` if ``p`` is a matrix, or
-    ``diag(p)`` if a vector.
-
-    ``np.linalg.cholesky(P2)`` 'only' asserts positive definiteness; due to
-    numerical precision, we allow eigenvalues to be a tiny bit negative.
-    """
-    # 1d case
-    if p.ndim == 1 or p.shape[0] == 1:
-        any_negative = (p < 0).max() if sparse.isspmatrix(p) else (p < 0).any()
-        return not any_negative
-
-    # 2d case
-    # About -6e-7 for 32-bit, -1e-15 for 64-bit
-    epsneg = -10 * np.finfo(np.result_type(float, p.dtype)).epsneg
-
-    if sparse.issparse(p):
-        # Computing eigenvalues for sparse matrices is inefficient. If the matrix is
-        # not huge, convert to dense. Otherwise, calculate 10% of its eigenvalues.
-        p = cast(sparse.spmatrix, p)
-        if p.shape[0] < 2000:
-            eigenvalues = linalg.eigvalsh(p.toarray())
-        else:
-            n_evals_to_compuate = p.shape[0] // 10 + 1
-            sigma = -1000 * epsneg  # start searching near this value
-            which = "SA"  # find smallest algebraic eigenvalues first
-            eigenvalues = splinalg.eigsh(
-                p,
-                k=n_evals_to_compuate,
-                sigma=sigma,
-                which=which,
-                return_eigenvectors=False,
-            )
-    else:  # dense
-        eigenvalues = linalg.eigvalsh(p)
-
-    return np.all(eigenvalues >= epsneg)
-
-
-def _group_sum(groups: np.ndarray, data: tm.MatrixBase):
-    """Sum over groups."""
-    ngroups = len(np.unique(groups))
-    out = np.empty((ngroups, data.shape[1]))
-    eye_n = sps.eye(ngroups, format="csc")[:, groups]
-    for i in range(data.shape[1]):
-        out[:, i] = _safe_toarray(eye_n @ data.getcol(i).unpack()).ravel()
-    return out
-
-
-# TODO: abc
-class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
+class GeneralizedLinearRegressorBase(skl.base.RegressorMixin, skl.base.BaseEstimator):
     """
     Base class for :class:`GeneralizedLinearRegressor` and
     :class:`GeneralizedLinearRegressorCV`.
@@ -754,7 +109,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         drop_first: bool = False,
         robust: bool = True,
         expected_information: bool = False,
-        formula: Optional[FormulaSpec] = None,
+        formula: Optional[formulaic.FormulaSpec] = None,
         interaction_separator: str = ":",
         categorical_format: str = "{name}[{category}]",
         cat_missing_method: str = "fail",
@@ -835,7 +190,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             if self.fit_intercept:
                 coef = np.concatenate((np.array([intercept]), coef))
             if self._center_predictors:
-                _standardize_warm_start(coef, col_means, col_stds)  # type: ignore
+                standardize_warm_start(coef, col_means, col_stds)  # type: ignore
 
         elif self.start_params is None:
             if self.fit_intercept:
@@ -851,7 +206,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 )
 
         else:  # assign given array as start values
-            coef = check_array(
+            coef = skl.utils.check_array(
                 self.start_params,
                 accept_sparse=False,
                 ensure_2d=False,
@@ -868,7 +223,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 )
 
             if self._center_predictors:
-                _standardize_warm_start(coef, col_means, col_stds)  # type: ignore
+                standardize_warm_start(coef, col_means, col_stds)  # type: ignore
 
         # If starting values are outside the specified bounds (if set),
         # bring the starting value exactly at the bound.
@@ -891,7 +246,9 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         return coef
 
     def _convert_from_pandas(
-        self, df: pd.DataFrame, context: Optional[Mapping[str, Any]] = None
+        self,
+        df: pd.DataFrame,
+        context: Optional[Mapping[str, Any]] = None,
     ) -> tm.MatrixBase:
         """Convert a pandas data frame to a tabmat matrix."""
         if hasattr(self, "X_model_spec_"):
@@ -900,14 +257,14 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         cat_missing_method_after_alignment = getattr(self, "cat_missing_method", "fail")
 
         if hasattr(self, "feature_dtypes_"):
-            df = _align_df_categories(
+            df = align_df_categories(
                 df,
                 self.feature_dtypes_,
                 getattr(self, "has_missing_category_", {}),
                 cat_missing_method_after_alignment,
             )
             if cat_missing_method_after_alignment == "convert":
-                df = _add_missing_categories(
+                df = add_missing_categories(
                     df=df,
                     dtypes=self.feature_dtypes_,
                     feature_names=self.feature_names_,
@@ -995,19 +352,22 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         If some features have L1 regularization, the maximum alpha is the lowest
         alpha such that no l1-regularized coefficients are nonzero.
 
-        If all features do not have L1 regularization, use the
-        :class:`sklearn.linear_model.RidgeCV` default path ``[10, 1, 0.1]`` or
-        whatever is specified by the input parameters ``min_alpha_ratio`` and
-        ``n_alphas``.
+        If all features do not have L1 regularization (ridge), the maximum alpha is
+        such that coefficients are close to, but not exactly, zero, or whatever is
+        specified by the input parameters ``min_alpha_ratio`` and ``n_alphas``.
 
-        ``min_alpha_ratio`` governs the length of the path, with ``1e-6`` as the
-        default. Smaller values will lead to a longer path.
+        ``min_alpha_ratio`` governs the length of the path. When ``None``, the
+        default is ``1e-6`` if ``n_samples >= n_features``, else ``1e-2``.
+        Smaller values will lead to a longer path.
         """
+        n_samples = X.shape[0]
+        n_features = X.shape[1]
 
         def _make_grid(max_alpha: float) -> np.ndarray:
             if self.min_alpha is None:
                 if self.min_alpha_ratio is None:
-                    min_alpha = max_alpha * 1e-6
+                    _min_alpha_ratio = 1e-6 if n_samples >= n_features else 1e-2
+                    min_alpha = max_alpha * _min_alpha_ratio
                 else:
                     min_alpha = max_alpha * self.min_alpha_ratio
             else:
@@ -1027,13 +387,9 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 dtype=X.dtype,
             )
 
-        if np.all(P1_no_alpha == 0):
-            alpha_max = 10
-            return _make_grid(alpha_max)
-
         if self.fit_intercept:
             intercept_offset = 1
-            coef = np.zeros(X.shape[1] + 1, dtype=X.dtype)
+            coef = np.zeros(n_features + 1, dtype=X.dtype)
             coef[0] = guess_intercept(
                 y=y,
                 sample_weight=w,
@@ -1042,7 +398,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             )
         else:
             intercept_offset = 0
-            coef = np.zeros(X.shape[1], dtype=X.dtype)
+            coef = np.zeros(n_features, dtype=X.dtype)
 
         _, dev_der = self._family_instance._mu_deviance_derivative(
             coef=coef,
@@ -1053,14 +409,20 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             offset=offset,
         )
 
-        l1_regularized_mask = P1_no_alpha > 0
-        alpha_max = np.max(
-            np.abs(
-                -0.5
-                * dev_der[intercept_offset:][l1_regularized_mask]
-                / P1_no_alpha[l1_regularized_mask]
+        feature_gradient = np.abs(-0.5 * dev_der[intercept_offset:])
+
+        if np.all(P1_no_alpha == 0):
+            # Ridge: start at small value because coefficients are never exactly zero.
+            alpha_max: float = np.max(feature_gradient) / 0.001
+        else:
+            l1_regularized_mask = P1_no_alpha > 0
+            alpha_max = np.max(
+                feature_gradient[l1_regularized_mask] / P1_no_alpha[l1_regularized_mask]
             )
-        )
+
+        if alpha_max == 0:
+            alpha_max = 10.0
+
         return _make_grid(alpha_max)
 
     def _solve(
@@ -1192,7 +554,8 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             P1 = P1_no_alpha * alpha
             P2 = P2_no_alpha * alpha
 
-            tic = perf_counter()
+            tic = time.perf_counter()
+
             coef = self._solve(
                 X=X,
                 y=y,
@@ -1206,7 +569,8 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 A_ineq=A_ineq,
                 b_ineq=b_ineq,
             )
-            toc = perf_counter()
+
+            toc = time.perf_counter()
 
             if self.verbose > 0:
                 print(
@@ -1218,7 +582,10 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         return self.coef_path_
 
     def report_diagnostics(
-        self, *, full_report: bool = False, custom_columns: Optional[Iterable] = None
+        self,
+        *,
+        full_report: bool = False,
+        custom_columns: Optional[Sequence] = None,
     ) -> None:
         """Print diagnostics to ``stdout``.
 
@@ -1246,7 +613,10 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             print(diagnostics)
 
     def get_formatted_diagnostics(
-        self, *, full_report: bool = False, custom_columns: Optional[Iterable] = None
+        self,
+        *,
+        full_report: bool = False,
+        custom_columns: Optional[Sequence] = None,
     ) -> Union[str, pd.DataFrame]:
         """Get formatted diagnostics which can be printed with report_diagnostics.
 
@@ -1280,12 +650,8 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         elif full_report:
             keep_cols = df.columns
         else:
-            keep_cols = [
-                "convergence",
-                "n_cycles",
-                "iteration_runtime",
-                "intercept",
-            ]
+            keep_cols = ["convergence", "n_cycles", "iteration_runtime", "intercept"]
+
         return df[keep_cols]
 
     def _find_alpha_index(self, alpha):
@@ -1293,10 +659,11 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             return None
         if not self.alpha_search:
             raise ValueError
-        # `np.isclose` because comparing floats is difficult
-        isclose = np.isclose(self._alphas, alpha)
-        if np.sum(isclose) == 1:
-            return np.argmax(isclose)  # cf. stackoverflow.com/a/61117770
+        # find closest index
+        idx = np.argmin(np.abs(np.asarray(self._alphas) - alpha))
+        # make sure it's close enough, rely only on relative tolerance
+        if np.isclose(self._alphas[idx], alpha, atol=0):
+            return idx
         raise IndexError(
             f"Could not determine a unique index for alpha {alpha}. Available values: "
             f"{self._alphas}. Consider specifying the index directly via 'alpha_index'."
@@ -1347,7 +714,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         array, shape (n_samples, n_alphas)
             The linear predictor.
         """
-        check_is_fitted(self, "coef_")
+        skl.utils.validation.check_is_fitted(self, "coef_")
 
         if (alpha is not None) and (alpha_index is not None):
             raise ValueError("Please specify only one of {alpha_index, alpha}.")
@@ -1357,10 +724,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             alpha_index = [self._find_alpha_index(a) for a in alpha]  # type: ignore
 
         if isinstance(X, pd.DataFrame):
-            captured_context = capture_context(
-                context + 1 if isinstance(context, int) else context
-            )
-            X = self._convert_from_pandas(X, context=captured_context)
+            X = self._convert_from_pandas(X, context=capture_context(context))
 
         X = check_array_tabmat_compliant(
             X,
@@ -1449,20 +813,19 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             Predicted values times ``sample_weight``.
         """
         if isinstance(X, pd.DataFrame):
-            captured_context = capture_context(
-                context + 1 if isinstance(context, int) else context
-            )
-            X = self._convert_from_pandas(X, context=captured_context)
+            X = self._convert_from_pandas(X, context=capture_context(context))
 
         eta = self.linear_predictor(
-            X, offset=offset, alpha_index=alpha_index, alpha=alpha
+            X, offset=offset, alpha_index=alpha_index, alpha=alpha, context=context
         )
-        mu = get_link(self.link, get_family(self.family)).inverse(eta)
+
+        mu = self.link_instance.inverse(eta)
 
         if sample_weight is None:
             return mu
 
-        sample_weight = _check_weights(sample_weight, X.shape[0], X.dtype)
+        sample_weight = check_weights(sample_weight, X.shape[0], X.dtype)
+
         return mu * sample_weight
 
     def coef_table(
@@ -1533,9 +896,6 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             names = self.feature_names_
             beta = self.coef_
 
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
         if (X is None) and (getattr(self, "covariance_matrix_", None) is None):
             return pd.Series(beta, index=names, name="coef")
 
@@ -1549,7 +909,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             robust=robust,
             clusters=clusters,
             expected_information=expected_information,
-            context=captured_context,
+            context=capture_context(context),
         )
 
         significance_level = 1 - confidence_level
@@ -1675,10 +1035,6 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 f"Received {num_lhs_specs} specifications."
             )
 
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-
         kwargs = {
             "X": X,
             "y": y,
@@ -1689,7 +1045,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             "robust": robust,
             "clusters": clusters,
             "expected_information": expected_information,
-            "context": captured_context,
+            "context": capture_context(context),
         }
 
         if R is not None:
@@ -1795,14 +1151,17 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         else:
             names = self.feature_names_
 
-        parser = LinearConstraintParser(names)
+        parser = formulaic.utils.constraints.LinearConstraintParser(names)
 
         R, r = parser.get_matrix(formula)
 
         return self._wald_test_matrix(R=R, r=r, **kwargs)
 
     def _wald_test_term_names(
-        self, terms: Union[str, list[str]], values: Optional[Sequence] = None, **kwargs
+        self,
+        terms: Union[str, list[str]],
+        values: Optional[Sequence] = None,
+        **kwargs,
     ) -> WaldTestResult:
         """
         Perform a Wald test for the hypothesis that the coefficients of the
@@ -1834,7 +1193,9 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             num_restrictions = len(R_indices)
             if num_restrictions == 0:
                 raise ValueError(f"term {term} is not in the model")
-            R_current = np.zeros((num_restrictions, len(beta)), dtype=np.float64)
+            R_current: np.ndarray = np.zeros(
+                (num_restrictions, len(beta)), dtype=np.float64
+            )
             R_current[np.arange(num_restrictions), R_indices] = 1.0
             R_list.append(R_current)
 
@@ -1903,25 +1264,21 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             no context is added. Set ``context=0`` to make the calling scope
             available.
         """
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
+        covariance_matrix = self.covariance_matrix(
+            X=X,
+            y=y,
+            sample_weight=sample_weight,
+            offset=offset,
+            mu=mu,
+            dispersion=dispersion,
+            robust=robust,
+            clusters=clusters,
+            expected_information=expected_information,
+            store_covariance_matrix=store_covariance_matrix,
+            context=capture_context(context),
         )
 
-        return np.sqrt(
-            self.covariance_matrix(
-                X=X,
-                y=y,
-                sample_weight=sample_weight,
-                offset=offset,
-                mu=mu,
-                dispersion=dispersion,
-                robust=robust,
-                clusters=clusters,
-                expected_information=expected_information,
-                store_covariance_matrix=store_covariance_matrix,
-                context=captured_context,
-            ).diagonal()
-        )
+        return np.sqrt(covariance_matrix.diagonal())
 
     def covariance_matrix(
         self,
@@ -2035,10 +1392,6 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         """
         self.covariance_matrix_: Union[np.ndarray, None]
 
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-
         if robust is None:
             _robust = getattr(self, "robust", True)
         else:
@@ -2107,7 +1460,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 # This has to go first because X is modified in the next line
 
             if isinstance(X, pd.DataFrame):
-                X = self._convert_from_pandas(X, context=captured_context)
+                X = self._convert_from_pandas(X, context=capture_context(context))
 
             X, y = check_X_y_tabmat_compliant(
                 X,
@@ -2125,13 +1478,13 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             if sparse.issparse(X) and not isinstance(X, tm.SparseMatrix):
                 X = tm.SparseMatrix(X)
 
-            sample_weight = _check_weights(
+            sample_weight = check_weights(
                 sample_weight,
                 y.shape[0],
                 X.dtype,
                 force_all_finite=self.force_all_finite,
             )
-            offset = _check_offset(offset, y.shape[0], X.dtype)
+            offset = check_offset(offset, y.shape[0], X.dtype)
 
         sum_weights = np.sum(sample_weight)  # type: ignore
 
@@ -2149,7 +1502,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
             )
 
         if (
-            np.linalg.cond(_safe_toarray(X.sandwich(np.ones(X.shape[0]))))
+            np.linalg.cond(safe_toarray(X.sandwich(np.ones(X.shape[0]))))
             > 1 / sys.float_info.epsilon**2
         ):
             raise np.linalg.LinAlgError(
@@ -2192,7 +1545,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 correction = sum_weights / (
                     sum_weights - self.n_features_in_ - int(self.fit_intercept)
                 )
-            vcov = linalg.solve(oim, linalg.solve(oim, _safe_toarray(inner_part)).T)
+            vcov = linalg.solve(oim, linalg.solve(oim, safe_toarray(inner_part)).T)
             vcov *= correction
         else:
             fisher = self._family_instance._fisher_information(
@@ -2204,7 +1557,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 dispersion,
                 self.fit_intercept,
             )
-            vcov = linalg.inv(_safe_toarray(fisher))
+            vcov = linalg.inv(safe_toarray(fisher))
             vcov *= sum_weights / (
                 sum_weights - self.n_features_in_ - int(self.fit_intercept)
             )
@@ -2265,20 +1618,15 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         float
             D^2 of self.predict(X) w.r.t. y.
         """
-        # Note, default score defined in RegressorMixin is R^2 score.
-        # TODO: make D^2 a score function in module metrics (and thereby get
-        #       input validation and so on)
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
+        sample_weight = check_weights(sample_weight, y.shape[0], y.dtype)
 
-        sample_weight = _check_weights(sample_weight, y.shape[0], y.dtype)
-        mu = self.predict(X, offset=offset, context=captured_context)
-        family = get_family(self.family)
-        dev = family.deviance(y, mu, sample_weight=sample_weight)
+        mu = self.predict(X, offset=offset, context=context)
         y_mean = np.average(y, weights=sample_weight)
-        dev_null = family.deviance(y, y_mean, sample_weight=sample_weight)
-        return 1.0 - dev / dev_null
+
+        dev = self.family_instance.deviance(y, mu, sample_weight=sample_weight)
+        dev_null = self.family_instance.deviance(y, y_mean, sample_weight=sample_weight)
+
+        return 1 - dev / dev_null
 
     def _validate_hyperparameters(self) -> None:
         if not isinstance(self.fit_intercept, bool):
@@ -2408,7 +1756,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
 
         if isinstance(X, pd.DataFrame):
             if hasattr(self, "formula") and self.formula is not None:
-                lhs, rhs = _parse_formula(
+                lhs, rhs = parse_formula(
                     self.formula, include_intercept=self.fit_intercept
                 )
 
@@ -2471,10 +1819,10 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 }
 
                 if any(X.dtypes == "category"):
-                    P1 = _expand_categorical_penalties(
+                    P1 = expand_categorical_penalties(
                         self.P1, X, drop_first, self.has_missing_category_
                     )
-                    P2 = _expand_categorical_penalties(
+                    P2 = expand_categorical_penalties(
                         self.P2, X, drop_first, self.has_missing_category_
                     )
 
@@ -2494,7 +1842,7 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
                 "requires y to be passed, but the target y is None."
             )
 
-        if not _is_contiguous(X):
+        if not is_contiguous(X):
             if self.copy_X is not None and not self.copy_X:
                 raise ValueError(
                     "The X matrix is noncontiguous and copy_X = False."
@@ -2550,14 +1898,14 @@ class GeneralizedLinearRegressorBase(RegressorMixin, BaseEstimator):
         # mixed-precision numbers
         y = np.asarray(y, dtype=X.dtype)
 
-        sample_weight = _check_weights(
+        sample_weight = check_weights(
             sample_weight,
             y.shape[0],  # type: ignore
             X.dtype,
             force_all_finite=force_all_finite,
         )
 
-        offset = _check_offset(offset, y.shape[0], X.dtype)  # type: ignore
+        offset = check_offset(offset, y.shape[0], X.dtype)  # type: ignore
 
         # IMPORTANT NOTE: Since we want to minimize
         # 1/(2*sum(sample_weight)) * deviance + L1 + L2,
@@ -2756,7 +2104,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         3. If ``min_alpha_ratio`` is set, create a path where the ratio of
            ``min_alpha / max_alpha = min_alpha_ratio``.
         4. If none of the above parameters are set, use a ``min_alpha_ratio`` of
-           ``1e-6``.
+           ``1e-6`` if ``n_samples >= n_features``, else ``1e-2``.
 
     alphas : DEPRECATED. Use ``alpha`` instead.
 
@@ -2765,7 +2113,8 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
 
     min_alpha_ratio : float, optional (default=None)
         Length of the path. ``min_alpha_ratio=1e-6`` means that
-        ``min_alpha / max_alpha = 1e-6``. If ``None``, ``1e-6`` is used.
+        ``min_alpha / max_alpha = 1e-6``. If ``None``, ``1e-6`` is used
+        when ``n_samples >= n_features``, else ``1e-2``.
 
     min_alpha : float, optional (default=None)
         Minimum alpha to estimate the model with. The grid will then be created
@@ -2980,7 +2329,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         drop_first: bool = False,
         robust: bool = True,
         expected_information: bool = False,
-        formula: Optional[FormulaSpec] = None,
+        formula: Optional[formulaic.FormulaSpec] = None,
         interaction_separator: str = ":",
         categorical_format: str = "{name}[{category}]",
         cat_missing_method: str = "fail",
@@ -3032,8 +2381,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         if self.alpha_search:
             if not isinstance(self.alpha, Iterable) and self.alpha is not None:
                 raise ValueError(
-                    "`alpha` should be an Iterable or None when `alpha_search`"
-                    " is True"
+                    "`alpha` should be an Iterable or None when `alpha_search` is True"
                 )
             if self.alpha is not None and (
                 (np.asarray(self.alpha) < 0).any()
@@ -3043,7 +2391,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         if not self.alpha_search:
             if not np.isscalar(self.alpha) and self.alpha is not None:
                 raise ValueError(
-                    "`alpha` should be a scalar or None when `alpha_search`" " is False"
+                    "`alpha` should be a scalar or None when `alpha_search` is False"
                 )
             if self.alpha is not None and (
                 not isinstance(self.alpha, (int, float)) or self.alpha < 0
@@ -3137,10 +2485,6 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
 
         self._validate_hyperparameters()
 
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-
         # NOTE: This function checks if all the entries in X and y are
         # finite. That can be expensive. But probably worthwhile.
         (
@@ -3157,8 +2501,9 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             sample_weight,
             offset,
             force_all_finite=self.force_all_finite,
-            context=captured_context,
+            context=capture_context(context),
         )
+
         assert isinstance(X, tm.MatrixBase)
         assert isinstance(y, np.ndarray)
 
@@ -3207,7 +2552,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             A_ineq,
             P1_no_alpha,
             P2_no_alpha,
-        ) = _standardize(
+        ) = standardize(
             X,
             sample_weight,
             self._center_predictors,
@@ -3270,14 +2615,14 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
 
             # intercept_ and coef_ return the last estimated alpha
             if self.fit_intercept:
-                self.intercept_path_, self.coef_path_ = _unstandardize(
+                self.intercept_path_, self.coef_path_ = unstandardize(
                     self.col_means_, self.col_stds_, coef[:, 0], coef[:, 1:]
                 )
                 self.intercept_ = self.intercept_path_[-1]  # type: ignore
                 self.coef_ = self.coef_path_[-1]
             else:
                 # set intercept to zero as the other linear models do
-                self.intercept_path_, self.coef_path_ = _unstandardize(
+                self.intercept_path_, self.coef_path_ = unstandardize(
                     self.col_means_, self.col_stds_, np.zeros(coef.shape[0]), coef
                 )
                 self.intercept_ = 0.0
@@ -3308,12 +2653,12 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             )
 
             if self.fit_intercept:
-                self.intercept_, self.coef_ = _unstandardize(
+                self.intercept_, self.coef_ = unstandardize(
                     self.col_means_, self.col_stds_, coef[0], coef[1:]
                 )
             else:
                 # set intercept to zero as the other linear models do
-                self.intercept_, self.coef_ = _unstandardize(
+                self.intercept_, self.coef_ = unstandardize(
                     self.col_means_, self.col_stds_, 0.0, coef
                 )
 
@@ -3427,12 +2772,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             no context is added. Set ``context=0`` to make the calling scope
             available.
         """
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-        return self._get_info_criteria(
-            "aic", X, y, sample_weight, context=captured_context
-        )
+        return self._get_info_criteria("aic", X, y, sample_weight, context=context)
 
     def aicc(
         self,
@@ -3471,16 +2811,12 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             no context is added. Set ``context=0`` to make the calling scope
             available.
         """
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-        aicc = self._get_info_criteria(
-            "aicc", X, y, sample_weight, context=captured_context
-        )
+        aicc = self._get_info_criteria("aicc", X, y, sample_weight, context=context)
+
         if not aicc:
-            raise ValueError(
-                "Model degrees of freedom should be more than training datapoints."
-            )
+            msg = "Model degrees of freedom should be more than training data points."
+            raise ValueError(msg)
+
         return aicc
 
     def bic(
@@ -3519,12 +2855,7 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             no context is added. Set ``context=0`` to make the calling scope
             available.
         """
-        captured_context = capture_context(
-            context + 1 if isinstance(context, int) else context
-        )
-        return self._get_info_criteria(
-            "bic", X, y, sample_weight, context=captured_context
-        )
+        return self._get_info_criteria("bic", X, y, sample_weight, context=context)
 
     def _get_info_criteria(
         self,
@@ -3532,9 +2863,11 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
         X: ArrayLike,
         y: ArrayLike,
         sample_weight: Optional[ArrayLike] = None,
-        context: Optional[Mapping[str, Any]] = None,
+        context: Optional[Union[int, Mapping[str, Any]]] = None,
     ):
-        check_is_fitted(self, "coef_")
+        skl.utils.validation.check_is_fitted(self, "coef_")
+
+        context = capture_context(context)
 
         if not hasattr(self, "_info_criteria"):
             self._compute_information_criteria(X, y, sample_weight, context=context)
@@ -3549,3 +2882,205 @@ class GeneralizedLinearRegressor(GeneralizedLinearRegressorBase):
             )
 
         return self._info_criteria[crit]
+
+
+def get_family(
+    family: Union[str, ExponentialDispersionModel],
+) -> ExponentialDispersionModel:
+    if isinstance(family, ExponentialDispersionModel):
+        return family
+
+    name_to_dist = {
+        "binomial": BinomialDistribution(),
+        "gamma": GammaDistribution(),
+        "gaussian": NormalDistribution(),
+        "inverse.gaussian": InverseGaussianDistribution(),
+        "normal": NormalDistribution(),
+        "poisson": PoissonDistribution(),
+        "tweedie": TweedieDistribution(1.5),
+        "negative.binomial": NegativeBinomialDistribution(1.0),
+    }
+
+    if family in name_to_dist:
+        return name_to_dist[family]
+
+    custom_tweedie = re.search(r"tweedie\s?\((.+)\)", family)
+
+    if custom_tweedie:
+        return TweedieDistribution(float(custom_tweedie.group(1)))
+
+    custom_negative_binomial = re.search(r"negative.binomial\s?\((.+)\)", family)
+
+    if custom_negative_binomial:
+        return NegativeBinomialDistribution(float(custom_negative_binomial.group(1)))
+
+    raise ValueError(
+        "The family must be an instance of class ExponentialDispersionModel or an "
+        f"element of {sorted(name_to_dist.keys())}; got (family={family})."
+    )
+
+
+def get_link(link: Union[str, Link], family: ExponentialDispersionModel) -> Link:
+    """
+    For the Tweedie distribution, this code follows actuarial best practices
+    regarding link functions. Note that these links are sometimes not canonical:
+        - identity for normal (``p = 0``);
+        - no convention for ``p < 0``, so let's leave it as identity;
+        - log otherwise.
+    """
+    if isinstance(link, Link):
+        return link
+
+    if (link is None) or (link == "auto"):
+        if tweedie_representation := family.to_tweedie(safe=False):
+            if tweedie_representation.power <= 0:
+                return IdentityLink()
+            return LogLink()
+        if isinstance(family, GeneralizedHyperbolicSecant):
+            return IdentityLink()
+        if isinstance(family, BinomialDistribution):
+            return LogitLink()
+        if isinstance(family, NegativeBinomialDistribution):
+            return LogLink()
+        raise ValueError(
+            "No default link known for the specified distribution family. "
+            "Please set link manually, i.e. not to 'auto'. "
+            f"Got (link='auto', family={family.__class__.__name__})."
+        )
+
+    mapping = {
+        "cloglog": CloglogLink(),
+        "identity": IdentityLink(),
+        "log": LogLink(),
+        "logit": LogitLink(),
+        "tweedie": TweedieLink(1.5),
+    }
+
+    if link in mapping:
+        return mapping[link]
+    if custom_tweedie := re.search(r"tweedie\s?\((.+)\)", link):
+        return TweedieLink(float(custom_tweedie.group(1)))
+
+    raise ValueError(
+        "The link must be an instance of class Link or an element of "
+        "['auto', 'identity', 'log', 'logit', 'cloglog', 'tweedie']; "
+        f"got (link={link})."
+    )
+
+
+def setup_p1(
+    P1: Optional[Union[str, np.ndarray]],
+    X: Union[tm.MatrixBase, tm.StandardizedMatrix],
+    dtype,
+    alpha: float,
+    l1_ratio: float,
+) -> np.ndarray:
+    if not isinstance(X, (tm.MatrixBase, tm.StandardizedMatrix)):
+        raise TypeError
+
+    n_features = X.shape[1]
+
+    if isinstance(P1, str):
+        if P1 != "identity":
+            raise ValueError(f"P1 must be either 'identity' or an array; got {P1}.")
+        P1 = np.ones(n_features, dtype=dtype)
+    elif P1 is None:
+        P1 = np.ones(n_features, dtype=dtype)
+    else:
+        P1 = np.atleast_1d(P1)
+        try:
+            P1 = P1.astype(dtype, casting="safe", copy=False)  # type: ignore
+        except TypeError as e:
+            raise TypeError(
+                "The given P1 cannot be converted to a numeric array; "
+                f"got (P1.dtype={P1.dtype})."  # type: ignore
+            ) from e
+        if (P1.ndim != 1) or (P1.shape[0] != n_features):  # type: ignore
+            raise ValueError(
+                "P1 must be either 'identity' or a 1d array with the length of "
+                "X.shape[1] (either before or after categorical expansion); "
+                f"got (P1.shape[0]={P1.shape[0]})."  # type: ignore
+            )
+
+    # P1 and P2 are now for sure copies
+    P1 = alpha * l1_ratio * P1  # type: ignore
+
+    return typing.cast(np.ndarray, P1).astype(dtype)
+
+
+def setup_p2(
+    P2: Optional[Union[str, np.ndarray, sparse.spmatrix]],
+    X: Union[tm.MatrixBase, tm.StandardizedMatrix],
+    stype,
+    dtype,
+    alpha: float,
+    l1_ratio: float,
+) -> Union[np.ndarray, sparse.spmatrix]:
+    if not isinstance(X, (tm.MatrixBase, tm.StandardizedMatrix)):
+        raise TypeError
+
+    n_features = X.shape[1]
+
+    def _setup_sparse_p2(P2):
+        return (sparse.dia_matrix((P2, 0), shape=(n_features, n_features))).tocsc()
+
+    if isinstance(P2, str):
+        if P2 != "identity":
+            raise ValueError(f"P2 must be either 'identity' or an array. Got {P2}.")
+        if sparse.issparse(X):  # if X is sparse, make P2 sparse, too
+            P2 = _setup_sparse_p2(np.ones(n_features, dtype=dtype))
+        else:
+            P2 = np.ones(n_features, dtype=dtype)
+    elif P2 is None:
+        if sparse.issparse(X):  # if X is sparse, make P2 sparse, too
+            P2 = _setup_sparse_p2(np.ones(n_features, dtype=dtype))
+        else:
+            P2 = np.ones(n_features, dtype=dtype)
+    else:
+        P2 = skl.utils.check_array(
+            P2, copy=True, accept_sparse=stype, dtype=dtype, ensure_2d=False
+        )
+        P2 = typing.cast(np.ndarray, P2)
+        if P2.ndim == 1:
+            P2 = np.asarray(P2)
+            if P2.shape[0] != n_features:  # type: ignore
+                raise ValueError(
+                    "P2 should be a 1d array of shape X.shape[1] (either before or "
+                    "after categorical expansion); "
+                    f"got (P2.shape={P2.shape})."  # type: ignore
+                )
+            if sparse.issparse(X):
+                P2 = _setup_sparse_p2(P2)
+        elif P2.ndim == 2 and P2.shape[0] == P2.shape[1] and P2.shape[0] == n_features:
+            if sparse.issparse(X):
+                P2 = sparse.csc_matrix(P2)
+        else:
+            raise ValueError(
+                "P2 must be either None or an array of shape (n_features, n_features) "
+                f"with n_features=X.shape[1]; got (P2.shape={P2.shape}); "
+                f"needed ({n_features}, {n_features})."
+            )
+
+    # P1 and P2 are now for sure copies
+    P2 = alpha * (1 - l1_ratio) * P2  # type: ignore
+    # one only ever needs the symmetrized L2 penalty matrix 1/2 (P2 + P2')
+    # reason: w' P2 w = (w' P2 w)', i.e. it is symmetric
+    if P2.ndim == 2:  # type: ignore
+        if sparse.issparse(P2):
+            if sparse.isspmatrix_csc(P2):
+                P2 = 0.5 * (P2 + P2.transpose()).tocsc()  # type: ignore
+            else:
+                P2 = 0.5 * (P2 + P2.transpose()).tocsr()  # type: ignore
+        else:
+            P2 = 0.5 * (P2 + P2.T)  # type: ignore
+    return P2
+
+
+def _group_sum(groups: np.ndarray, data: tm.MatrixBase):
+    """Sum over groups."""
+    ngroups = len(np.unique(groups))
+    out = np.empty((ngroups, data.shape[1]))
+    eye_n = sps.eye(ngroups, format="csc")[:, groups]
+    for i in range(data.shape[1]):
+        out[:, i] = safe_toarray(eye_n @ data.getcol(i).unpack()).ravel()
+    return out

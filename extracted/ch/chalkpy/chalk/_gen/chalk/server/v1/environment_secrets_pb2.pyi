@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -12,6 +13,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class SecretSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SECRET_SOURCE_UNSPECIFIED: _ClassVar[SecretSource]
+    SECRET_SOURCE_MANAGED: _ClassVar[SecretSource]
+    SECRET_SOURCE_EXTERNAL: _ClassVar[SecretSource]
+
+SECRET_SOURCE_UNSPECIFIED: SecretSource
+SECRET_SOURCE_MANAGED: SecretSource
+SECRET_SOURCE_EXTERNAL: SecretSource
 
 class Secret(_message.Message):
     __slots__ = ("id", "name", "updated_at", "integration_id")
@@ -32,25 +43,34 @@ class Secret(_message.Message):
     ) -> None: ...
 
 class SecretValue(_message.Message):
-    __slots__ = ("name", "value")
+    __slots__ = ("name", "value", "source")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
     name: str
     value: str
-    def __init__(self, name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    source: SecretSource
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        value: _Optional[str] = ...,
+        source: _Optional[_Union[SecretSource, str]] = ...,
+    ) -> None: ...
 
 class SecretWithValue(_message.Message):
-    __slots__ = ("id", "updated_at", "name", "full_name", "value")
+    __slots__ = ("id", "updated_at", "name", "full_name", "value", "source")
     ID_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     FULL_NAME_FIELD_NUMBER: _ClassVar[int]
     VALUE_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
     id: str
     updated_at: _timestamp_pb2.Timestamp
     name: str
     full_name: str
     value: str
+    source: SecretSource
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -58,6 +78,7 @@ class SecretWithValue(_message.Message):
         name: _Optional[str] = ...,
         full_name: _Optional[str] = ...,
         value: _Optional[str] = ...,
+        source: _Optional[_Union[SecretSource, str]] = ...,
     ) -> None: ...
 
 class ListSecretsRequest(_message.Message):

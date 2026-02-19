@@ -95,6 +95,25 @@ def test_config_override_appends_to_empty_list(tox_ini_conf: ToxIniCreator) -> N
     assert conf["passenv"] == ["bar"]
 
 
+@pytest.mark.parametrize(
+    ("ini_key", "override_key"),
+    [
+        pytest.param("passenv", "pass_env", id="ini_old_override_new"),
+        pytest.param("pass_env", "passenv", id="ini_new_override_old"),
+    ],
+)
+def test_config_override_append_alias_key(tox_ini_conf: ToxIniCreator, ini_key: str, override_key: str) -> None:
+    example = f"""
+    [testenv]
+    {ini_key} = foo
+    """
+    conf = tox_ini_conf(example, override=[Override(f"testenv.{override_key}+=bar")]).get_env("testenv")
+    conf.add_config(["pass_env", "passenv"], of_type=list[str], default=[], desc="desc")
+    result = conf["pass_env"]
+    assert "foo" in result
+    assert "bar" in result
+
+
 def test_config_override_appends_to_setenv(tox_ini_conf: ToxIniCreator) -> None:
     example = """
     [testenv]
@@ -222,6 +241,30 @@ def test_args_are_paths_when_with_change_dir(tox_project: ToxProjectCreator) -> 
     result = project.run("c", "-e", "py", "-k", "commands", "--", *args)
     result.assert_success()
     assert result.out == f"[testenv:py]\ncommands = magic.py {project.path} ..{os.sep}tox.ini a.txt . ..\n"
+
+
+def test_get_env_reuses_config_across_package_flag(tox_project: ToxProjectCreator) -> None:
+    project = tox_project({
+        "tox.toml": """
+env_list = ["a"]
+
+[env.a]
+package = "external"
+package_env = ".build-a"
+
+[env.".build-a"]
+commands = [["python", "-c", "print('{env_tmp_dir}')"]]
+package_glob = "{env_tmp_dir}/dist/*.whl"
+""",
+    })
+    execute_calls = project.patch_execute(lambda r: 0)  # noqa: ARG005
+    project.run("r", "-e", "a")
+    calls = [(i[0][0].conf.name, i[0][3].cmd) for i in execute_calls.call_args_list]
+    pkg_cmds = [cmd for name, cmd in calls if name == ".build-a"]
+    assert pkg_cmds, f"no .build-a command found in {calls}"
+    for cmd in pkg_cmds:
+        cmd_str = " ".join(str(c) for c in cmd)
+        assert "{env_tmp_dir}" not in cmd_str, f"env_tmp_dir not expanded in command: {cmd}"
 
 
 def test_relative_config_paths_resolve(tox_project: ToxProjectCreator) -> None:

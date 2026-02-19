@@ -4,9 +4,9 @@ import re
 
 from adam.commands.devices.devices import device
 from adam.utils_repl.repl_state import ReplState
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_concurrent import parallelize
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.pod_exec_result import PodExecResult
 from adam.utils_k8s.pods import Pods

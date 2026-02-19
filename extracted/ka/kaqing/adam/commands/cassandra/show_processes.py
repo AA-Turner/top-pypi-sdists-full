@@ -2,7 +2,7 @@ from adam.commands import extract_sequence
 from adam.commands.command import Command
 from adam.config import Config
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_cassandra.table_renderer import renderer
+from adam.presentation.table_renderer import renderer
 
 class ShowProcesses(Command):
     COMMAND = 'show processes'
@@ -35,10 +35,10 @@ class ShowProcesses(Command):
         with self.validate(args, state) as (args, state):
             with self.context(args, show_out=False) as (args, ctx):
                 with extract_sequence(args, ['with', 'recipe', '=', 'mpstat']) as (_, recipe_qing):
-                    cols = Config().get('processes.columns', 'pod,cpu-metrics,mem')
+                    cols = Config().get('processes.columns', 'short-pod,cpu-metrics,mem')
                     header = Config().get('processes.header', 'POD_NAME,M_CPU(USAGE/LIMIT),MEM/LIMIT')
                     if recipe_qing:
-                        cols = Config().get('processes-mpstat.columns', 'pod,cpu,mem')
+                        cols = Config().get('processes-mpstat.columns', 'short-pod,cpu,mem')
                         header = Config().get('processes-mpstat.header', 'POD_NAME,Q_CPU/TOTAL,MEM/LIMIT')
 
                     with renderer(state) as pods:

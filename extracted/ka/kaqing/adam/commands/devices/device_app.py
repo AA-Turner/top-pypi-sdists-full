@@ -8,7 +8,7 @@ from adam.utils_apps.apps import Apps
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import wait_log
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.ingresses import Ingresses
 

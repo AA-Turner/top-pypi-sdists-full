@@ -1,7 +1,7 @@
 import os
 os.environ["NUMBA_NUM_THREADS"] = "1"
 
-__version__ = "0.7.1437"
+__version__ = "0.7.1442"
 
 from wisent.core.tasks.base.diversity_processors import (
     OpenerPenaltyProcessor,

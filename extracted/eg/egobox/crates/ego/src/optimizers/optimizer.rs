@@ -1,13 +1,45 @@
+//! # Infill Criterion Optimizer
+//!
+//! This module provides optimization backends for the infill criterion.
+//!
+//! ## Design
+//!
+//! The optimizer follows the Strategy pattern with the [`InfillOptimizerTrait`] trait
+//! defining the interface for optimization backends. This allows:
+//!
+//! - **Open/Closed Principle**: New optimizers can be added by implementing the trait
+//! - **Dependency Inversion**: Code depends on the trait abstraction, not concrete types
+//!
+//! ## Available Backends
+//!
+//! - [`Algorithm::Slsqp`] - Sequential Least Squares Programming (gradient-based)
+//! - [`Algorithm::Cobyla`] - Constrained Optimization BY Linear Approximations (derivative-free)
+//!
+//! When the `nlopt` feature is enabled, these use the NLopt library.
+//! Otherwise, pure-Rust implementations from `slsqp` and `cobyla` crates are used.
+//!
+//! ## Usage
+//!
+//! The optimizer is used internally by [`EgorSolver`](crate::EgorSolver) to optimize
+//! the infill criterion at each iteration.
+
 use crate::InfillObjData;
 use ndarray::{Array1, Array2, ArrayView1, arr1};
 
 #[cfg(not(feature = "nlopt"))]
-use crate::types::ObjFn;
+use crate::types::UserFn;
+#[cfg(not(feature = "nlopt"))]
+pub(crate) trait OptFn<U>: UserFn<U> + Sync {}
+#[cfg(not(feature = "nlopt"))]
+impl<T, U> OptFn<U> for T where T: UserFn<U> + Sync {}
+
 #[cfg(not(feature = "nlopt"))]
 use cobyla::RhoBeg;
 
 #[cfg(feature = "nlopt")]
-use nlopt::ObjFn;
+pub(crate) trait OptFn<U>: nlopt::ObjFn<U> + Sync {}
+#[cfg(feature = "nlopt")]
+impl<T, U> OptFn<U> for T where T: nlopt::ObjFn<U> + Sync {}
 
 #[derive(Copy, Clone, Debug)]
 pub enum Algorithm {
@@ -20,8 +52,8 @@ pub const INFILL_MAX_EVAL_DEFAULT: usize = 2000;
 /// Facade for various optimization algorithms
 pub(crate) struct Optimizer<'a> {
     algo: Algorithm,
-    fun: &'a (dyn ObjFn<InfillObjData<f64>> + Sync),
-    cons: Vec<&'a (dyn ObjFn<InfillObjData<f64>> + Sync)>,
+    fun: &'a (dyn OptFn<InfillObjData<f64>> + Sync),
+    cons: Vec<&'a (dyn OptFn<InfillObjData<f64>> + Sync)>,
     cstr_tol: Option<Array1<f64>>,
     bounds: Array2<f64>,
     user_data: &'a InfillObjData<f64>,
@@ -34,8 +66,8 @@ pub(crate) struct Optimizer<'a> {
 impl<'a> Optimizer<'a> {
     pub fn new(
         algo: Algorithm,
-        fun: &'a (dyn ObjFn<InfillObjData<f64>> + Sync),
-        cons: &[&'a (dyn ObjFn<InfillObjData<f64>> + Sync)],
+        fun: &'a (dyn OptFn<InfillObjData<f64>> + Sync),
+        cons: &[&'a (dyn OptFn<InfillObjData<f64>> + Sync)],
         user_data: &'a InfillObjData<f64>,
         bounds: &Array2<f64>,
     ) -> Self {

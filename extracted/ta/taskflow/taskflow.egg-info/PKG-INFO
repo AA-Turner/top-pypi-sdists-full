@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskflow
-Version: 6.1.1
+Version: 6.2.0
 Summary: Taskflow structured state management library.
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0

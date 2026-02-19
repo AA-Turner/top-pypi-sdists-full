@@ -1,5 +1,5 @@
-__version__ = "1.5.0.dev20260217"
-__author__ = "TensorCircuit Authors"
+__version__ = "1.5.0.dev20260218"
+__author__ = "TensorCircuit-NG Authors"
 __creator__ = "refraction-ray"
 
 from .utils import gpu_memory_share

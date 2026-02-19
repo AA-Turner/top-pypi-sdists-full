@@ -5649,6 +5649,7 @@ class VIEW3D_PT_overlay_guides(_bpy_types.Panel):
 
 class VIEW3D_PT_overlay_motion_tracking(_bpy_types.Panel):
     bl_label: typing.Any
+    bl_options: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any
@@ -6166,6 +6167,7 @@ class VIEW3D_PT_shading(_bpy_types.Panel):
 
 class VIEW3D_PT_shading_cavity(_bpy_types.Panel):
     bl_label: typing.Any
+    bl_options: typing.Any
     bl_parent_id: typing.Any
     bl_region_type: typing.Any
     bl_rna: typing.Any

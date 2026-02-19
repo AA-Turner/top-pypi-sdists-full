@@ -76,7 +76,7 @@ def infer_transport_type_from_url(
 class _TransformingMCPServerMixin(FastMCPBaseModel):
     """A mixin that enables wrapping an MCP Server with tool transforms."""
 
-    tools: dict[str, ToolTransformConfig] = Field(...)
+    tools: dict[str, ToolTransformConfig] = Field(default_factory=dict)
     """The multi-tool transform to apply to the tools."""
 
     include_tags: set[str] | None = Field(
@@ -89,30 +89,59 @@ class _TransformingMCPServerMixin(FastMCPBaseModel):
         description="The tags to exclude in the proxy.",
     )
 
+    @model_validator(mode="before")
+    @classmethod
+    def _require_at_least_one_transform_field(
+        cls, values: dict[str, Any]
+    ) -> dict[str, Any]:
+        """Reject if none of the transforming fields are set.
+
+        This ensures that plain server configs (without tools, include_tags,
+        or exclude_tags) fall through to the base server types during union
+        validation, avoiding unnecessary proxy wrapping.
+        """
+        if isinstance(values, dict):
+            has_tools = bool(values.get("tools"))
+            has_include = values.get("include_tags") is not None
+            has_exclude = values.get("exclude_tags") is not None
+            if not (has_tools or has_include or has_exclude):
+                raise ValueError(
+                    "At least one of 'tools', 'include_tags', or 'exclude_tags' is required"
+                )
+        return values
+
     def _to_server_and_underlying_transport(
         self,
         server_name: str | None = None,
         client_name: str | None = None,
     ) -> tuple[FastMCP[Any], ClientTransport]:
         """Turn the Transforming MCPServer into a FastMCP Server and also return the underlying transport."""
-        from fastmcp import FastMCP
         from fastmcp.client import Client
         from fastmcp.client.transports import (
             ClientTransport,  # pyright: ignore[reportUnusedImport]
         )
+        from fastmcp.server import create_proxy
 
         transport: ClientTransport = super().to_transport()  # pyright: ignore[reportUnknownMemberType, reportAttributeAccessIssue, reportUnknownVariableType]  # ty: ignore[unresolved-attribute]
         transport = cast(ClientTransport, transport)
 
         client: Client[ClientTransport] = Client(transport=transport, name=client_name)
 
-        wrapped_mcp_server = FastMCP.as_proxy(
+        wrapped_mcp_server = create_proxy(
+            client,
             name=server_name,
-            backend=client,
-            tool_transformations=self.tools,
-            include_tags=self.include_tags,
-            exclude_tags=self.exclude_tags,
         )
+
+        if self.include_tags is not None:
+            wrapped_mcp_server.enable(tags=self.include_tags, only=True)
+        if self.exclude_tags is not None:
+            wrapped_mcp_server.disable(tags=self.exclude_tags)
+
+        # Apply tool transforms if configured
+        if self.tools:
+            from fastmcp.server.transforms import ToolTransform
+
+            wrapped_mcp_server.add_transform(ToolTransform(self.tools))
 
         return wrapped_mcp_server, transport
 
@@ -143,6 +172,9 @@ class StdioMCPServer(BaseModel):
     # Execution context
     cwd: str | None = None  # Working directory for command execution
     timeout: int | None = None  # Maximum response time in milliseconds
+    keep_alive: bool | None = (
+        None  # Whether to keep the subprocess alive between connections
+    )
 
     # Metadata
     description: str | None = None  # Human-readable server description
@@ -161,6 +193,7 @@ class StdioMCPServer(BaseModel):
             args=self.args,
             env=self.env,
             cwd=self.cwd,
+            keep_alive=self.keep_alive,
         )
 
 

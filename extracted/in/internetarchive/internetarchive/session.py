@@ -1,7 +1,7 @@
 #
 # The internetarchive module is a Python/CLI interface to Archive.org.
 #
-# Copyright (C) 2012-2024 Internet Archive
+# Copyright (C) 2012-2026 Internet Archive
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -55,6 +55,10 @@ from internetarchive.search import Search
 from internetarchive.utils import parse_dict_cookies, reraise_modify
 
 logger = logging.getLogger(__name__)
+
+_ORIGINAL_SOCKET_CONNECT = socket.socket.connect
+_SOCKET_ALREADY_PATCHED = False
+_active_session_local = threading.local()   # shared thread-local for all sessions
 
 
 class ArchiveSession(requests.sessions.Session):
@@ -156,34 +160,51 @@ class ArchiveSession(requests.sessions.Session):
                                          logging_config.get('file', 'internetarchive.log'),
                                          'urllib3')
 
-        # Thread-local storage for connection info
-        self._connection_info_local = threading.local()
+        # Monkey-patch socket.connect only once.  The guard prevents re-patching on every
+        # ArchiveSession instantiation.  Without it, each new session would re-capture
+        # socket.socket.connect — which is by then already the instrumented version — as
+        # its "_original", producing infinite mutual recursion the first time a socket is used.
+        global _SOCKET_ALREADY_PATCHED
+        if not _SOCKET_ALREADY_PATCHED:
+            def instrumented_connect(sock, address):
+                # _ORIGINAL_SOCKET_CONNECT is the real unpatched method, captured at
+                # module import time.  Calling it directly (not via self) guarantees
+                # we never end up calling the patched version accidentally.
+                result = _ORIGINAL_SOCKET_CONNECT(sock, address)
+                try:
+                    src_ip, src_port = sock.getsockname()
+                    dst_ip, dst_port = address
+                    _active_session_local.info = {
+                        'src': f"{src_ip}:{src_port}",
+                        'dst': f"{dst_ip}:{dst_port}",
+                        'src_ip': src_ip,
+                        'src_port': src_port,
+                        'dst_ip': dst_ip,
+                        'dst_port': dst_port,
+                    }
+                except Exception:
+                    _active_session_local.info = {}
+                return result
+            socket.socket.connect = instrumented_connect  # type: ignore[method-assign]
+            _SOCKET_ALREADY_PATCHED = True
 
-        # Monkey-patch socket.connect
-        self._original_connect = socket.socket.connect
+    def get_connection_info(self) -> dict:
+        """Get connection info for the current thread.
 
-        def instrumented_connect(sock, address):
-            result = self._original_connect(sock, address)
-            try:
-                src_ip, src_port = sock.getsockname()
-                dst_ip, dst_port = address
-                self._connection_info_local.info = {
-                    'src': f"{src_ip}:{src_port}",
-                    'dst': f"{dst_ip}:{dst_port}",
-                    'src_ip': src_ip,
-                    'src_port': src_port,
-                    'dst_ip': dst_ip,
-                    'dst_port': dst_port
-                }
-            except Exception:
-                self._connection_info_local.info = {}
-            return result
+        Returns diagnostic information about the most recent socket connection
+        made by this thread, useful for debugging connection issues.
 
-        socket.socket.connect = instrumented_connect  # type: ignore[method-assign]
+        :returns: A dict containing connection details:
+                  - ``src``: Source IP:port string
+                  - ``dst``: Destination IP:port string
+                  - ``src_ip``: Source IP address
+                  - ``src_port``: Source port number
+                  - ``dst_ip``: Destination IP address
+                  - ``dst_port``: Destination port number
 
-    def get_connection_info(self):
-        """Get connection info for current thread"""
-        return getattr(self._connection_info_local, 'info', {})
+                  Returns an empty dict if no connection info is available.
+        """
+        return getattr(_active_session_local, 'info', {})
 
     def _get_user_agent_string(self) -> str:
         """Generate a User-Agent string to be sent with every request."""
@@ -198,7 +219,15 @@ class ArchiveSession(requests.sessions.Session):
                 f'Python/{py_version}')
 
     def rebuild_auth(self, prepared_request, response):
-        """Never rebuild auth for archive.org URLs.
+        """Rebuild authentication for redirects, except for archive.org URLs.
+
+        This override prevents stripping authentication headers when following
+        redirects to archive.org domains. For other domains, the default
+        requests behavior is used (which removes auth headers on redirect
+        to a different host for security).
+
+        :param prepared_request: The redirected request being prepared.
+        :param response: The response that triggered the redirect.
         """
         u = urlparse(prepared_request.url)
         if u.netloc.endswith('archive.org'):
@@ -424,7 +453,20 @@ class ArchiveSession(requests.sessions.Session):
                       request_kwargs=request_kwargs,
                       max_retries=max_retries)
 
-    def s3_is_overloaded(self, identifier=None, access_key=None, request_kwargs=None):
+    def s3_is_overloaded(self, identifier=None, access_key=None, request_kwargs=None) -> bool:
+        """Check if IA-S3 is currently overloaded for the given access key.
+
+        This is used to implement backoff/retry logic for uploads. When S3
+        is overloaded, uploads should be delayed to avoid 503 errors.
+
+        :param identifier: Optional item identifier (bucket) to check.
+        :param access_key: Optional access key to check limits for.
+                          Defaults to the session's access key.
+        :param request_kwargs: Optional keyword arguments for the request.
+
+        :returns: ``True`` if S3 is overloaded and uploads should be delayed,
+                  ``False`` if uploads can proceed.
+        """
         request_kwargs = request_kwargs or {}
         if 'timeout' not in request_kwargs:
             request_kwargs['timeout'] = 12
@@ -442,7 +484,17 @@ class ArchiveSession(requests.sessions.Session):
             return True
         return j.get('over_limit') != 0
 
-    def get_tasks_api_rate_limit(self, cmd: str = 'derive.php', request_kwargs: dict | None = None):
+    def get_tasks_api_rate_limit(
+        self, cmd: str = 'derive.php', request_kwargs: dict | None = None
+    ) -> dict:
+        """Get the current rate limit status for the Tasks API.
+
+        :param cmd: The task command to check rate limits for.
+                   Defaults to ``'derive.php'``.
+        :param request_kwargs: Optional keyword arguments for the request.
+
+        :returns: A dict containing rate limit information from the Tasks API.
+        """
         return catalog.Catalog(self, request_kwargs).get_rate_limit(cmd=cmd)
 
     def submit_task(self,
@@ -625,6 +677,17 @@ class ArchiveSession(requests.sessions.Session):
         return catalog.CatalogTask.get_task_log(task_id, self, request_kwargs)
 
     def send(self, request, **kwargs) -> Response:
+        """Send a prepared request, handling HTTPS security warnings.
+
+        Overrides :meth:`requests.Session.send` to catch and handle
+        urllib3 warnings about insecure HTTPS connections.
+
+        :param request: The :class:`PreparedRequest` to send.
+        :param kwargs: Additional arguments passed to the parent ``send()`` method.
+        :returns: The :class:`Response` object.
+        :raises requests.exceptions.RequestException: If the platform has insecure
+                                                      HTTPS configuration.
+        """
         # Catch urllib3 warnings for HTTPS related errors.
         insecure = False
         with warnings.catch_warnings(record=True) as w:

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = 'flake8-type-checking'
-version = "3.1.1"
+version = "3.2.0"
 description = 'A flake8 plugin for managing type-checking imports & forward references'
 homepage = 'https://github.com/snok'
 repository = 'https://github.com/snok/flake8-type-checking'
@@ -17,7 +17,6 @@ classifiers = [
     'License :: OSI Approved :: BSD License',
     'Topic :: Software Development :: Quality Assurance',
     'Programming Language :: Python',
-    'Programming Language :: Python :: 3.9',
     'Programming Language :: Python :: 3.10',
     'Programming Language :: Python :: 3.11',
     'Programming Language :: Python :: 3.12',
@@ -30,21 +29,19 @@ classifiers = [
 "Releases" = "https://github.com/snok/flake8-type-checking/releases"
 
 [tool.poetry.dependencies]
-python = '>=3.9'
+python = '>=3.10'
 flake8 = '*'
 classify-imports = '*'
-
-[tool.poetry.dev-dependencies]
-pytest = '*'
-ipython = '*'
-coverage = '*'
-pre-commit = '*'
-pytest-flake8-path = '*'
 
 [tool.poetry.plugins.'flake8.extension']
 TC = 'flake8_type_checking.plugin:Plugin'
 
 [tool.poetry.group.dev.dependencies]
+pytest = '*'
+ipython = '*'
+coverage = '*'
+pre-commit = '*'
+pytest-flake8-path = '*'
 flake8-bugbear = "^24.10.31"
 
 [build-system]

@@ -3,6 +3,7 @@ from infisical_sdk.resources.auth_methods import AWSAuth
 from infisical_sdk.resources.auth_methods import UniversalAuth
 from infisical_sdk.resources.auth_methods import OidcAuth
 from infisical_sdk.resources.auth_methods import TokenAuth
+from infisical_sdk.resources.auth_methods import LdapAuth
 from typing import Callable
 
 class Auth:
@@ -12,3 +13,4 @@ class Auth:
         self.universal_auth = UniversalAuth(requests, setToken)
         self.oidc_auth = OidcAuth(requests, setToken)
         self.token_auth = TokenAuth(setToken)
+        self.ldap_auth = LdapAuth(requests, setToken)

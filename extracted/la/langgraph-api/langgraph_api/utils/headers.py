@@ -49,7 +49,9 @@ def get_configurable_headers(headers: Mapping[str, str]) -> dict[str, str]:
             configurable[key] = value
             if baggage := headers.get("baggage"):
                 for item in baggage.split(","):
-                    baggage_key, baggage_value = item.split("=")
+                    if "=" not in item:
+                        continue
+                    baggage_key, baggage_value = item.split("=", 1)
                     if (
                         baggage_key == LANGSMITH_METADATA
                         and baggage_key not in configurable

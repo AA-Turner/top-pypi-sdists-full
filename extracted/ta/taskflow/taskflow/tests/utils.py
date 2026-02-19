@@ -32,7 +32,7 @@ from taskflow.utils import kazoo_utils
 from taskflow.utils import redis_utils
 
 ETCD_PORT = int(os.getenv("TASKFLOW_TEST_ETCD_PORT", 2379))
-REDIS_PORT = int(os.getenv("TASKFLOW_TEST_REDIS_SENTINEL_PORT", 6379))
+REDIS_PORT = int(os.getenv("TASKFLOW_TEST_REDIS_PORT", 6379))
 ZK_PORT = int(os.getenv("TASKFLOW_TEST_ZOOKEEPER_PORT", 2181))
 ZK_TEST_CONFIG = {
     'timeout': 1.0,
@@ -57,10 +57,14 @@ def wrap_all_failures():
         raise exceptions.WrappedFailure([failure.Failure()])
 
 
-def zookeeper_available(min_version, timeout=3):
+def zookeeper_available(min_version, timeout=30):
+    url = os.getenv("TAKSFLOW_TEST_URL")
+    if url is not None:
+        return url.startswith("zookeeper://")
+
     client = kazoo_utils.make_client(ZK_TEST_CONFIG.copy())
     try:
-        # NOTE(imelnikov): 3 seconds we should be enough for localhost
+        # NOTE(imelnikov): 30 seconds we should be enough for localhost
         client.start(timeout=float(timeout))
         if min_version:
             zk_ver = client.server_version()
@@ -77,6 +81,10 @@ def zookeeper_available(min_version, timeout=3):
 
 
 def redis_available(min_version):
+    url = os.getenv("TAKSFLOW_TEST_URL")
+    if url is not None:
+        return url.startswith("redis://")
+
     client = redis.Redis(port=REDIS_PORT)
     try:
         client.ping()
@@ -89,6 +97,10 @@ def redis_available(min_version):
 
 
 def etcd_available():
+    url = os.getenv("TAKSFLOW_TEST_URL")
+    if url is not None:
+        return url.startswith("etcd://")
+
     client = etcd3gw.Etcd3Client(port=ETCD_PORT)
     try:
         client.get("/")

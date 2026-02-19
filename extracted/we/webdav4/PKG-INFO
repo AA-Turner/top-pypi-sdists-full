@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: webdav4
-Version: 0.10.0
+Version: 0.11.0
 Summary: WebDAV client library with an fsspec-based filesystem and a CLI
 Project-URL: Bug Tracker, https://github.com/skshetry/webdav4/issues
 Project-URL: Documentation, https://skshetry.github.io/webdav4
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Requires-Dist: httpx<1,>=0.20
 Requires-Dist: python-dateutil>=2.8.1
@@ -27,35 +28,37 @@ Provides-Extra: dev
 Requires-Dist: cheroot; extra == 'dev'
 Requires-Dist: colorama; extra == 'dev'
 Requires-Dist: fsspec>=2021.7; extra == 'dev'
-Requires-Dist: furo==2024.5.6; extra == 'dev'
+Requires-Dist: furo==2024.8.6; (python_version == '3.8') and extra == 'dev'
+Requires-Dist: furo==2025.12.19; (python_version >= '3.9') and extra == 'dev'
 Requires-Dist: httpx[http2]<1,>=0.20; extra == 'dev'
-Requires-Dist: mypy==1.10.1; extra == 'dev'
-Requires-Dist: myst-parser<4,>=3; extra == 'dev'
+Requires-Dist: mypy==1.14; (python_version == '3.8') and extra == 'dev'
+Requires-Dist: mypy==1.19.1; (python_version >= '3.9') and extra == 'dev'
+Requires-Dist: myst-parser<6,>=3; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
 Requires-Dist: pytest-xdist; extra == 'dev'
 Requires-Dist: sphinx-copybutton==0.5.2; extra == 'dev'
-Requires-Dist: sphinx<8,>=7; extra == 'dev'
+Requires-Dist: sphinx<10,>=7; extra == 'dev'
 Requires-Dist: types-colorama; extra == 'dev'
-Requires-Dist: types-pkg-resources; extra == 'dev'
 Requires-Dist: types-python-dateutil; extra == 'dev'
 Requires-Dist: typing-extensions; extra == 'dev'
 Requires-Dist: wsgidav; extra == 'dev'
 Provides-Extra: docs
-Requires-Dist: furo==2024.5.6; extra == 'docs'
-Requires-Dist: myst-parser<4,>=3; extra == 'docs'
+Requires-Dist: furo==2024.8.6; (python_version == '3.8') and extra == 'docs'
+Requires-Dist: furo==2025.12.19; (python_version >= '3.9') and extra == 'docs'
+Requires-Dist: myst-parser<6,>=3; extra == 'docs'
 Requires-Dist: sphinx-copybutton==0.5.2; extra == 'docs'
-Requires-Dist: sphinx<8,>=7; extra == 'docs'
+Requires-Dist: sphinx<10,>=7; extra == 'docs'
 Provides-Extra: fsspec
 Requires-Dist: fsspec>=2021.7; extra == 'fsspec'
 Provides-Extra: http2
 Requires-Dist: httpx[http2]<1,>=0.20; extra == 'http2'
 Provides-Extra: qa
-Requires-Dist: mypy==1.10.1; extra == 'qa'
+Requires-Dist: mypy==1.14; (python_version == '3.8') and extra == 'qa'
+Requires-Dist: mypy==1.19.1; (python_version >= '3.9') and extra == 'qa'
 Requires-Dist: pre-commit; extra == 'qa'
 Requires-Dist: types-colorama; extra == 'qa'
-Requires-Dist: types-pkg-resources; extra == 'qa'
 Requires-Dist: types-python-dateutil; extra == 'qa'
 Provides-Extra: tests
 Requires-Dist: cheroot; extra == 'tests'

@@ -7,14 +7,14 @@ from collections import defaultdict
 from dataclasses import dataclass
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, cast, Iterable
+from typing import Any, TYPE_CHECKING, cast, Iterable
 
 import regex as re
 from lxml.etree import _Comment, _ElementTree, _Entity, _ProcessingInstruction, _Element, XPath
 
 from arelle import XbrlConst
 from arelle.LinkbaseType import LinkbaseType
-from arelle.ModelDocument import ModelDocument, Type as ModelDocumentType
+from arelle.ModelDocumentType import ModelDocumentType
 from arelle.ModelDtsObject import ModelConcept, ModelRelationship
 from arelle.ModelInstanceObject import ModelContext, ModelFact, ModelInlineFootnote, ModelUnit, ModelInlineFact
 from arelle.ModelRelationshipSet import ModelRelationshipSet
@@ -23,12 +23,16 @@ from arelle.ModelValue import QName, gYear
 from arelle.ModelXbrl import ModelXbrl
 from arelle.typing import assert_type
 from arelle.utils.PluginData import PluginData
-from arelle.utils.validate.Concepts import isExtensionUri, getExtensionConcepts
+from arelle.utils.validate.Concepts import getExtensionConcepts
+from arelle.utils.validate.Common import isExtensionUri
 from arelle.utils.validate.ValidationUtil import etreeIterWithDepth
 from arelle.XbrlConst import ixbrl11
 from arelle.XmlValidate import lexicalPatterns
 from arelle.XmlValidateConst import VALID
 from .Constants import NON_DIMENSIONALIZED_LINE_ITEM_LINKROLES, STANDARD_TAXONOMY_URL_PREFIXES, STYLE_CSS_HIDDEN_PATTERN, STYLE_IX_HIDDEN_PATTERN, UNTRANSFORMABLE_TYPES
+
+if TYPE_CHECKING:
+    from arelle.ModelDocument import ModelDocument
 
 
 baseXPath = XPath(

@@ -20,6 +20,16 @@ class ClickhouseServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriResponse.FromString,
         )
+        self.GetClickhouseOtelTtls = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/GetClickhouseOtelTtls",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsResponse.FromString,
+        )
+        self.SetClickhouseOtelTtls = channel.unary_unary(
+            "/chalk.server.v1.ClickhouseService/SetClickhouseOtelTtls",
+            request_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsResponse.FromString,
+        )
 
 
 class ClickhouseServiceServicer(object):
@@ -31,6 +41,18 @@ class ClickhouseServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetClickhouseOtelTtls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def SetClickhouseOtelTtls(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_ClickhouseServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -38,6 +60,16 @@ def add_ClickhouseServiceServicer_to_server(servicer, server):
             servicer.GetClickhouseUri,
             request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriResponse.SerializeToString,
+        ),
+        "GetClickhouseOtelTtls": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClickhouseOtelTtls,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsResponse.SerializeToString,
+        ),
+        "SetClickhouseOtelTtls": grpc.unary_unary_rpc_method_handler(
+            servicer.SetClickhouseOtelTtls,
+            request_deserializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.ClickhouseService", rpc_method_handlers)
@@ -67,6 +99,64 @@ class ClickhouseService(object):
             "/chalk.server.v1.ClickhouseService/GetClickhouseUri",
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseUriResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClickhouseOtelTtls(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/GetClickhouseOtelTtls",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.GetClickhouseOtelTtlsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def SetClickhouseOtelTtls(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.ClickhouseService/SetClickhouseOtelTtls",
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_clickhouse__pb2.SetClickhouseOtelTtlsResponse.FromString,
             options,
             channel_credentials,
             insecure,

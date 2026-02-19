@@ -173,7 +173,9 @@ class array(MutableSequence[_T]):
             """
             ...
     else:
-        def index(self, v: _T, /) -> int: ...  # type: ignore[override]
+        def index(self, v: _T, /) -> int:
+            """Return index of first occurrence of v in the array."""
+            ...
 
     def insert(self, i: int, v: _T, /) -> None:
         """Insert a new item v into the array before position i."""

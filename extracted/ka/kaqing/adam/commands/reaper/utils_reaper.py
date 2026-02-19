@@ -8,8 +8,8 @@ import requests
 from adam.config import Config
 from adam.utils_repl.repl_state import ReplState
 from adam.utils import convert_seconds, epoch
-from adam.utils_color import Color
-from adam.utils_tabulize import tabulize
+from adam.presentation.color import Color
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 from adam.utils_k8s.k8s import port_forwarding
 from adam.utils_log import log2, wait_log

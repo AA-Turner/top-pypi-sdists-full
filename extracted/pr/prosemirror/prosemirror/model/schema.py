@@ -43,11 +43,26 @@ def compute_attrs(attrs: "Attributes", value: Attrs | None) -> Attrs:
     return built
 
 
-def init_attrs(attrs: Optional["AttributeSpecs"]) -> "Attributes":
+def check_attrs(
+    attrs: "Attributes",
+    values: Attrs,
+    type_str: str,
+    name: str,
+) -> None:
+    for attr_name in values:
+        if attr_name not in attrs:
+            msg = f"Unsupported attribute {attr_name} for {type_str} of type {name}"
+            raise ValueError(msg)
+    for attr_name, attr in attrs.items():
+        if attr.validate:
+            attr.validate(values[attr_name])
+
+
+def init_attrs(type_name: str, attrs: Optional["AttributeSpecs"]) -> "Attributes":
     result = {}
     if attrs:
         for name in attrs:
-            result[name] = Attribute(attrs[name])
+            result[name] = Attribute(type_name, name, attrs[name])
     return result
 
 
@@ -74,7 +89,7 @@ class NodeType:
         self.schema = schema
         self.spec = spec
         self.groups = spec["group"].split(" ") if "group" in spec else []
-        self.attrs = init_attrs(spec.get("attrs"))
+        self.attrs = init_attrs(name, spec.get("attrs"))
         self.default_attrs = default_attrs(self.attrs)
         self._content_match: ContentMatch | None = None
         self.mark_set = None
@@ -106,6 +121,9 @@ class NodeType:
     @property
     def is_atom(self) -> bool:
         return self.is_leaf or bool(self.spec.get("atom"))
+
+    def is_in_group(self, group: str) -> bool:
+        return group in self.groups
 
     @property
     def whitespace(self) -> Literal["pre", "normal"]:
@@ -147,8 +165,7 @@ class NodeType:
         marks: list[Mark] | None = None,
     ) -> Node:
         content = Fragment.from_(content)
-        if not self.valid_content(content):
-            raise ValueError("Invalid content for node " + self.name)
+        self.check_content(content)
         return Node(self, self.compute_attrs(attrs), content, Mark.set_from(marks))
 
     def create_and_fill(
@@ -180,6 +197,14 @@ class NodeType:
             if not self.allows_marks(content.child(i).marks):
                 return False
         return True
+
+    def check_content(self, content: Fragment) -> None:
+        if not self.valid_content(content):
+            msg = f"Invalid content for node {self.name}: {str(content)[:50]}"
+            raise ValueError(msg)
+
+    def check_attrs(self, attrs: Attrs) -> None:
+        check_attrs(self.attrs, attrs, "node", self.name)
 
     def allows_mark_type(self, mark_type: "MarkType") -> bool:
         return self.mark_set is None or mark_type in self.mark_set
@@ -239,10 +264,49 @@ class NodeType:
 Attributes: TypeAlias = dict[str, "Attribute"]
 
 
+def _validate_type(
+    type_name: str,
+    attr_name: str,
+    type_str: str,
+) -> Callable[[JSON], None]:
+    types = type_str.split("|")
+
+    def validator(value: JSON) -> None:
+        name = (
+            "null"
+            if value is None
+            else {str: "string", int: "number", float: "number", bool: "boolean"}.get(
+                type(value), type(value).__name__
+            )
+        )
+        if name not in types:
+            msg = (
+                f"Expected value of type {types} for attribute"
+                f" {attr_name} on type {type_name}, got {name}"
+            )
+            raise ValueError(msg)
+
+    return validator
+
+
 class Attribute:
-    def __init__(self, options: "AttributeSpec") -> None:
+    def __init__(
+        self,
+        type_name: str,
+        attr_name: str,
+        options: "AttributeSpec",
+    ) -> None:
         self.has_default = "default" in options
         self.default = options.get("default")
+        validate = options.get("validate")
+        if isinstance(validate, str):
+            self.validate: Callable[[JSON], None] | None = _validate_type(
+                type_name,
+                attr_name,
+                validate,
+            )
+        else:
+            self.validate = validate
 
     @property
     def is_required(self) -> bool:
@@ -263,7 +327,7 @@ class MarkType:
         self.name = name
         self.schema = schema
         self.spec = spec
-        self.attrs = init_attrs(spec.get("attrs"))
+        self.attrs = init_attrs(name, spec.get("attrs"))
         self.rank = rank
         self.excluded = None  # type: ignore[assignment]
         defaults = default_attrs(self.attrs)
@@ -296,8 +360,11 @@ class MarkType:
     def is_in_set(self, set: list[Mark]) -> Mark | None:
         return next((item for item in set if item.type == self), None)
 
+    def check_attrs(self, attrs: Attrs) -> None:
+        check_attrs(self.attrs, attrs, "mark", self.name)
+
     def excludes(self, other: "MarkType") -> bool:
-        return any(other.name == e.name for e in self.excluded)
+        return other in self.excluded
 
 
 Nodes = TypeVar("Nodes", bound=str, covariant=True)
@@ -352,6 +419,7 @@ class NodeSpec(TypedDict, total=False):
     parseDOM: list[dict[str, Any]]  # FIXME: add types
     toDebugString: Callable[[Node], str]
     leafText: Callable[[Node], str]
+    linebreakReplacement: bool
 
 
 AttributeSpecs: TypeAlias = dict[str, "AttributeSpec"]
@@ -363,12 +431,14 @@ class MarkSpec(TypedDict, total=False):
     excludes: str
     group: str
     spanning: bool
+    code: bool
     toDOM: Callable[[Mark, bool], Any]  # FIXME: add types
     parseDOM: list[dict[str, Any]]  # FIXME: add types
 
 
 class AttributeSpec(TypedDict, total=False):
     default: JSON
+    validate: str | Callable[[Any], None]
 
 
 class Schema(Generic[Nodes, Marks]):
@@ -378,8 +448,11 @@ class Schema(Generic[Nodes, Marks]):
 
     marks: dict[Marks, "MarkType"]
 
+    linebreak_replacement: "NodeType | None"
+
     def __init__(self, spec: SchemaSpec[Nodes, Marks]) -> None:
         self.spec = spec
+        self.linebreak_replacement = None
         self.nodes = NodeType.compile(self.spec["nodes"], self)
         self.marks = MarkType.compile(self.spec.get("marks", {}), self)
         content_expr_cache = {}
@@ -398,6 +471,14 @@ class Schema(Generic[Nodes, Marks]):
 
             type.content_match = content_expr_cache[content_expr]
             type.inline_content = type.content_match.inline_content
+            if type.spec.get("linebreakReplacement"):
+                if self.linebreak_replacement:
+                    msg = "Multiple linebreak nodes defined"
+                    raise ValueError(msg)
+                if not type.is_inline or not type.is_leaf:
+                    msg = "Linebreak replacement nodes must be inline leaf nodes"
+                    raise ValueError(msg)
+                self.linebreak_replacement = type
             if mark_expr == "_":
                 type.mark_set = None
             elif mark_expr:
@@ -486,6 +567,6 @@ def gather_marks(schema: Schema[Any, Any], marks: list[str]) -> list[MarkType]:
                     ok = mark
                     found.append(mark)
         if not ok:
-            msg = f"unknow mark type: '{mark}'"
+            msg = f"Unknown mark type: '{name}'"
             raise SyntaxError(msg)
     return found

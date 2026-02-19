@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import logging
 import re
 from collections import Counter
@@ -7,10 +8,10 @@ from dataclasses import dataclass
 from difflib import get_close_matches
 from importlib.util import find_spec
 from itertools import chain
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from tox.config.cli.parser import Parsed
-from tox.config.loader.str_convert import StrConvert
+from tox.config.loader.ini.factor import extend_factors
 from tox.config.main import Config
 from tox.config.source.discover import discover_source
 from tox.config.types import EnvList
@@ -22,8 +23,14 @@ from tox.tox_env.register import REGISTER
 from tox.tox_env.runner import RunToxEnv
 
 if TYPE_CHECKING:
+    import sys
     from argparse import Action, ArgumentParser, Namespace
     from collections.abc import Iterable, Iterator
+
+    if sys.version_info >= (3, 11):  # pragma: no cover (py311+)
+        from typing import Self
+    else:  # pragma: no cover (<py311)
+        from typing_extensions import Self
 
     from tox.session.state import State
 
@@ -50,7 +57,11 @@ class CliEnv:  # noqa: PLW1641
 
     def __init__(self, value: list[str] | str | None = None) -> None:
         if isinstance(value, str):
-            value = StrConvert().to(value, of_type=list[str], factory=None)
+            raw = value
+            try:
+                value = list(extend_factors(raw)) or None
+            except ValueError:
+                value = [v.strip() for v in raw.split(",") if v.strip()] or None
         self._names: list[str] | None = value
 
     def __iter__(self) -> Iterator[str]:
@@ -75,6 +86,14 @@ class CliEnv:  # noqa: PLW1641
     def __ne__(self, other: object) -> bool:
         return not (self == other)
 
+    def __iadd__(self, other: CliEnv) -> Self:
+        if other._names is not None:
+            if self._names is None:
+                self._names = list(other._names)
+            else:
+                self._names.extend(other._names)
+        return self
+
     @property
     def is_all(self) -> bool:
         return self._names is not None and "ALL" in self._names
@@ -82,6 +101,22 @@ class CliEnv:  # noqa: PLW1641
     @property
     def is_default_list(self) -> bool:
         return not (self._names or [])
+
+
+class _CliEnvAction(argparse.Action):
+    def __call__(
+        self,
+        parser: argparse.ArgumentParser,  # noqa: ARG002
+        namespace: argparse.Namespace,
+        values: Any,
+        option_string: str | None = None,  # noqa: ARG002
+    ) -> None:
+        new = CliEnv(values)
+        existing = getattr(namespace, self.dest, None)
+        if existing is not None and isinstance(existing, CliEnv) and existing is not self.default:
+            existing += new
+        else:
+            setattr(namespace, self.dest, new)
 
 
 def register_env_select_flags(
@@ -109,7 +144,7 @@ def register_env_select_flags(
             help_msg = "enumerate (ALL -> all environments, not set -> use <env_list> from config)"
         else:
             help_msg = "environment to run"
-        action = add_to.add_argument("-e", dest="env", help=help_msg, default=default, type=CliEnv)
+        action = add_to.add_argument("-e", dest="env", help=help_msg, default=default, action=_CliEnvAction)
         if find_spec("argcomplete"):
             action.completer = _env_completer  # type: ignore[attr-defined]
     if multiple:
@@ -211,11 +246,17 @@ class EnvSelector:
             yield label_envs.keys(), False
 
     def _ensure_envs_valid(self) -> None:
-        valid_factors = set(chain.from_iterable(env.split("-") for env in self._state.conf))
-        valid_factors.add(".pkg")  # packaging factor
+        known_envs = set(self._state.conf)
+        # factors that can be freely combined: from env_list entries and known env names themselves
+        combinable = set(chain.from_iterable(env.split("-") for env in self._state.conf.core["env_list"]))
+        combinable.update(known_envs)
+        combinable.add(".pkg")
+        # broader pool for suggestions includes factors from all known env names
+        all_factors = set(chain.from_iterable(env.split("-") for env in known_envs))
+        all_factors.update(combinable)
         invalid_envs: dict[str, str | None] = {}
         for env in self._cli_envs or []:
-            if env.startswith(".pkg_external"):  # external package
+            if env.startswith(".pkg_external") or env in known_envs:
                 continue
             factors: dict[str, str | None] = dict.fromkeys(env.split("-"))
             found_factors: set[str] = set()
@@ -223,12 +264,13 @@ class EnvSelector:
                 if (
                     _DYNAMIC_ENV_FACTORS.fullmatch(factor)
                     or _PY_PRE_RELEASE_FACTOR.fullmatch(factor)
-                    or factor in valid_factors
+                    or factor in combinable
                 ):
                     found_factors.add(factor)
                 else:
-                    closest = get_close_matches(factor, valid_factors, n=1)
-                    factors[factor] = closest[0] if closest else None
+                    closest = get_close_matches(factor, all_factors, n=1)
+                    suggestion = closest[0] if closest else None
+                    factors[factor] = None if suggestion == factor else suggestion
             if set(factors) - found_factors:
                 invalid_envs[env] = (
                     None

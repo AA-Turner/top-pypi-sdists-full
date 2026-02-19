@@ -236,3 +236,10 @@ GERMAN_SAMPLE_B = """
     Alle Parteien widmen dem Thema rein quantitativ betrachtet nennenswerte
     Aufmerksamkeit, die Grünen wenig überraschend am meisten.
     """
+
+# Extreme readability tests (for bounds clamping)
+VERY_SIMPLE_TEXT = "I am simple text"
+VERY_COMPLEX_TEXT = (
+    "Epistemological paradigms invariably necessitate hermeneutic scrutiny "
+    "of phenomenological constructs through dialectical methodologies."
+)

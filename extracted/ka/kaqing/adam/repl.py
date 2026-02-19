@@ -11,7 +11,7 @@ from adam.commands.command_helpers import ClusterCommandHelper
 from adam.commands.devices.devices import device
 from adam.config import Config
 from adam.commands.audit.utils_audits import Audits, audit
-from adam.utils_color import Color, colored_text
+from adam.presentation.color import Color, colored_text
 from adam.utils_job.job_scheduler import JobScheduler
 from adam.utils_k8s.kube_context import KubeContext
 from adam.utils_log import Log, log2, log_timing

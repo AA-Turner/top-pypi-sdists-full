@@ -1407,6 +1407,9 @@ __all__ = [
     'SensitiveDataScannerRuleTextReplacement',
     'ServiceLevelObjectiveQuery',
     'ServiceLevelObjectiveSliSpecification',
+    'ServiceLevelObjectiveSliSpecificationCount',
+    'ServiceLevelObjectiveSliSpecificationCountQuery',
+    'ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery',
     'ServiceLevelObjectiveSliSpecificationTimeSlice',
     'ServiceLevelObjectiveSliSpecificationTimeSliceQuery',
     'ServiceLevelObjectiveSliSpecificationTimeSliceQueryFormula',
@@ -43049,8 +43052,8 @@ class MonitorNotificationRuleConditionalRecipientsCondition(dict):
                  recipients: Sequence[_builtins.str],
                  scope: _builtins.str):
         """
-        :param Sequence[_builtins.str] recipients: List of recipients to notify.
-        :param _builtins.str scope: The scope to which the monitor applied.
+        :param Sequence[_builtins.str] recipients: A list of recipients to notify. Uses the same format as the monitor message field. Must not start with an '@'.
+        :param _builtins.str scope: Defines the condition under which the recipients are notified. Supported formats: Monitor status condition using `transition_type:<status>` (for example `transition_type:is_alert`) or a single tag `key:value pair` (for example `env:prod`).
         """
         pulumi.set(__self__, "recipients", recipients)
         pulumi.set(__self__, "scope", scope)
@@ -43059,7 +43062,7 @@ class MonitorNotificationRuleConditionalRecipientsCondition(dict):
     @pulumi.getter
     def recipients(self) -> Sequence[_builtins.str]:
         """
-        List of recipients to notify.
+        A list of recipients to notify. Uses the same format as the monitor message field. Must not start with an '@'.
         """
         return pulumi.get(self, "recipients")
 
@@ -43067,7 +43070,7 @@ class MonitorNotificationRuleConditionalRecipientsCondition(dict):
     @pulumi.getter
     def scope(self) -> _builtins.str:
         """
-        The scope to which the monitor applied.
+        Defines the condition under which the recipients are notified. Supported formats: Monitor status condition using `transition_type:<status>` (for example `transition_type:is_alert`) or a single tag `key:value pair` (for example `env:prod`).
         """
         return pulumi.get(self, "scope")
 
@@ -43078,8 +43081,8 @@ class MonitorNotificationRuleFilter(dict):
                  scope: Optional[_builtins.str] = None,
                  tags: Optional[Sequence[_builtins.str]] = None):
         """
-        :param _builtins.str scope: The scope to which the monitor applied.
-        :param Sequence[_builtins.str] tags: All tags that target monitors must match.
+        :param _builtins.str scope: A scope expression composed of `key:value` pairs (such as `env:prod`) with boolean operators (AND, OR, NOT) and parentheses for grouping.
+        :param Sequence[_builtins.str] tags: A list of tag key:value pairs (e.g. team:product). All tags must match (AND semantics).
         """
         if scope is not None:
             pulumi.set(__self__, "scope", scope)
@@ -43090,7 +43093,7 @@ class MonitorNotificationRuleFilter(dict):
     @pulumi.getter
     def scope(self) -> Optional[_builtins.str]:
         """
-        The scope to which the monitor applied.
+        A scope expression composed of `key:value` pairs (such as `env:prod`) with boolean operators (AND, OR, NOT) and parentheses for grouping.
         """
         return pulumi.get(self, "scope")
 
@@ -43098,7 +43101,7 @@ class MonitorNotificationRuleFilter(dict):
     @pulumi.getter
     def tags(self) -> Optional[Sequence[_builtins.str]]:
         """
-        All tags that target monitors must match.
+        A list of tag key:value pairs (e.g. team:product). All tags must match (AND semantics).
         """
         return pulumi.get(self, "tags")
 
@@ -43238,11 +43241,13 @@ class MonitorSchedulingOptionEvaluationWindow(dict):
     def __init__(__self__, *,
                  day_starts: Optional[_builtins.str] = None,
                  hour_starts: Optional[_builtins.int] = None,
-                 month_starts: Optional[_builtins.int] = None):
+                 month_starts: Optional[_builtins.int] = None,
+                 timezone: Optional[_builtins.str] = None):
         """
         :param _builtins.str day_starts: The time of the day at which a one day cumulative evaluation window starts. Must be defined in UTC time in `HH:mm` format.
         :param _builtins.int hour_starts: The minute of the hour at which a one hour cumulative evaluation window starts. Must be between 0 and 59.
         :param _builtins.int month_starts: The day of the month at which a one month cumulative evaluation window starts. Must be a value of 1.
+        :param _builtins.str timezone: The timezone for the cumulative evaluation window start time.
         """
         if day_starts is not None:
             pulumi.set(__self__, "day_starts", day_starts)
@@ -43250,6 +43255,8 @@ class MonitorSchedulingOptionEvaluationWindow(dict):
             pulumi.set(__self__, "hour_starts", hour_starts)
         if month_starts is not None:
             pulumi.set(__self__, "month_starts", month_starts)
+        if timezone is not None:
+            pulumi.set(__self__, "timezone", timezone)
 
     @_builtins.property
     @pulumi.getter(name="dayStarts")
@@ -43274,6 +43281,14 @@ class MonitorSchedulingOptionEvaluationWindow(dict):
         The day of the month at which a one month cumulative evaluation window starts. Must be a value of 1.
         """
         return pulumi.get(self, "month_starts")
+
+    @_builtins.property
+    @pulumi.getter
+    def timezone(self) -> Optional[_builtins.str]:
+        """
+        The timezone for the cumulative evaluation window start time.
+        """
+        return pulumi.get(self, "timezone")
 
 
 @pulumi.output_type
@@ -45345,26 +45360,33 @@ class ObservabilityPipelineConfigDestinationGoogleCloudStorageMetadata(dict):
 @pulumi.output_type
 class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
     def __init__(__self__, *,
+                 encoding: _builtins.str,
                  project: _builtins.str,
                  topic: _builtins.str,
                  auth: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubAuth'] = None,
-                 encoding: Optional[_builtins.str] = None,
                  tls: Optional['outputs.ObservabilityPipelineConfigDestinationGooglePubsubTls'] = None):
         """
+        :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
         :param _builtins.str project: The GCP project ID that owns the Pub/Sub topic.
         :param _builtins.str topic: The Pub/Sub topic name to publish logs to.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubAuthArgs' auth: GCP credentials used to authenticate with Google Cloud services.
-        :param _builtins.str encoding: Encoding format for log events. Valid values: `json`, `raw_message`.
         :param 'ObservabilityPipelineConfigDestinationGooglePubsubTlsArgs' tls: Configuration for enabling TLS encryption between the pipeline component and external services.
         """
+        pulumi.set(__self__, "encoding", encoding)
         pulumi.set(__self__, "project", project)
         pulumi.set(__self__, "topic", topic)
         if auth is not None:
             pulumi.set(__self__, "auth", auth)
-        if encoding is not None:
-            pulumi.set(__self__, "encoding", encoding)
         if tls is not None:
             pulumi.set(__self__, "tls", tls)
+
+    @_builtins.property
+    @pulumi.getter
+    def encoding(self) -> _builtins.str:
+        """
+        Encoding format for log events. Valid values: `json`, `raw_message`.
+        """
+        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter
@@ -45389,14 +45411,6 @@ class ObservabilityPipelineConfigDestinationGooglePubsub(dict):
         GCP credentials used to authenticate with Google Cloud services.
         """
         return pulumi.get(self, "auth")
-
-    @_builtins.property
-    @pulumi.getter
-    def encoding(self) -> Optional[_builtins.str]:
-        """
-        Encoding format for log events. Valid values: `json`, `raw_message`.
-        """
-        return pulumi.get(self, "encoding")
 
     @_builtins.property
     @pulumi.getter
@@ -48149,16 +48163,23 @@ class ObservabilityPipelineConfigProcessorGroupProcessorParseGrok(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 disable_library_rules: Optional[_builtins.bool] = None,
-                 rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule']] = None):
+                 rules: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule'],
+                 disable_library_rules: Optional[_builtins.bool] = None):
         """
-        :param _builtins.bool disable_library_rules: If set to `true`, disables the default Grok rules provided by Datadog.
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleArgs'] rules: The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
+        :param _builtins.bool disable_library_rules: If set to `true`, disables the default Grok rules provided by Datadog.
         """
+        pulumi.set(__self__, "rules", rules)
         if disable_library_rules is not None:
             pulumi.set(__self__, "disable_library_rules", disable_library_rules)
-        if rules is not None:
-            pulumi.set(__self__, "rules", rules)
+
+    @_builtins.property
+    @pulumi.getter
+    def rules(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule']:
+        """
+        The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
+        """
+        return pulumi.get(self, "rules")
 
     @_builtins.property
     @pulumi.getter(name="disableLibraryRules")
@@ -48167,14 +48188,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorParseGrok(dict):
         If set to `true`, disables the default Grok rules provided by Datadog.
         """
         return pulumi.get(self, "disable_library_rules")
-
-    @_builtins.property
-    @pulumi.getter
-    def rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule']]:
-        """
-        The list of Grok parsing rules. If multiple parsing rules are provided, they are evaluated in order. The first successful match is applied.
-        """
-        return pulumi.get(self, "rules")
 
 
 @pulumi.output_type
@@ -48199,19 +48212,26 @@ class ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
+                 match_rules: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule'],
                  source: _builtins.str,
-                 match_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule']] = None,
                  support_rules: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRule']] = None):
         """
-        :param _builtins.str source: The name of the field in the log event to apply the Grok rules to.
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRuleArgs'] match_rules: A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
+        :param _builtins.str source: The name of the field in the log event to apply the Grok rules to.
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleSupportRuleArgs'] support_rules: A list of helper Grok rules that can be referenced by the parsing rules.
         """
+        pulumi.set(__self__, "match_rules", match_rules)
         pulumi.set(__self__, "source", source)
-        if match_rules is not None:
-            pulumi.set(__self__, "match_rules", match_rules)
         if support_rules is not None:
             pulumi.set(__self__, "support_rules", support_rules)
+
+    @_builtins.property
+    @pulumi.getter(name="matchRules")
+    def match_rules(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule']:
+        """
+        A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
+        """
+        return pulumi.get(self, "match_rules")
 
     @_builtins.property
     @pulumi.getter
@@ -48220,14 +48240,6 @@ class ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRule(dict):
         The name of the field in the log event to apply the Grok rules to.
         """
         return pulumi.get(self, "source")
-
-    @_builtins.property
-    @pulumi.getter(name="matchRules")
-    def match_rules(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorParseGrokRuleMatchRule']]:
-        """
-        A list of Grok parsing rules that define how to extract fields from the source field. Each rule must contain a name and a valid Grok pattern.
-        """
-        return pulumi.get(self, "match_rules")
 
     @_builtins.property
     @pulumi.getter(name="supportRules")
@@ -48703,14 +48715,13 @@ class ObservabilityPipelineConfigProcessorGroupProcessorReduce(dict):
 
     def __init__(__self__, *,
                  group_bies: Sequence[_builtins.str],
-                 merge_strategies: Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']] = None):
+                 merge_strategies: Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']):
         """
         :param Sequence[_builtins.str] group_bies: A list of fields used to group log events for merging.
         :param Sequence['ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategyArgs'] merge_strategies: List of merge strategies defining how values from grouped events should be combined.
         """
         pulumi.set(__self__, "group_bies", group_bies)
-        if merge_strategies is not None:
-            pulumi.set(__self__, "merge_strategies", merge_strategies)
+        pulumi.set(__self__, "merge_strategies", merge_strategies)
 
     @_builtins.property
     @pulumi.getter(name="groupBies")
@@ -48722,7 +48733,7 @@ class ObservabilityPipelineConfigProcessorGroupProcessorReduce(dict):
 
     @_builtins.property
     @pulumi.getter(name="mergeStrategies")
-    def merge_strategies(self) -> Optional[Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']]:
+    def merge_strategies(self) -> Sequence['outputs.ObservabilityPipelineConfigProcessorGroupProcessorReduceMergeStrategy']:
         """
         List of merge strategies defining how values from grouped events should be combined.
         """
@@ -98250,19 +98261,185 @@ class ServiceLevelObjectiveSliSpecification(dict):
         return super().get(key, default)
 
     def __init__(__self__, *,
-                 time_slice: 'outputs.ServiceLevelObjectiveSliSpecificationTimeSlice'):
+                 count: Optional['outputs.ServiceLevelObjectiveSliSpecificationCount'] = None,
+                 time_slice: Optional['outputs.ServiceLevelObjectiveSliSpecificationTimeSlice'] = None):
         """
+        :param 'ServiceLevelObjectiveSliSpecificationCountArgs' count: A count-based (metric) SLI specification. Composed of a good events formula, a total events formula, and the underlying metric queries.
         :param 'ServiceLevelObjectiveSliSpecificationTimeSliceArgs' time_slice: The time slice condition, composed of 3 parts: 1. The timeseries query, 2. The comparator, and 3. The threshold. Optionally, a fourth part, the query interval, can be provided.
         """
-        pulumi.set(__self__, "time_slice", time_slice)
+        if count is not None:
+            pulumi.set(__self__, "count", count)
+        if time_slice is not None:
+            pulumi.set(__self__, "time_slice", time_slice)
+
+    @_builtins.property
+    @pulumi.getter
+    def count(self) -> Optional['outputs.ServiceLevelObjectiveSliSpecificationCount']:
+        """
+        A count-based (metric) SLI specification. Composed of a good events formula, a total events formula, and the underlying metric queries.
+        """
+        return pulumi.get(self, "count")
 
     @_builtins.property
     @pulumi.getter(name="timeSlice")
-    def time_slice(self) -> 'outputs.ServiceLevelObjectiveSliSpecificationTimeSlice':
+    def time_slice(self) -> Optional['outputs.ServiceLevelObjectiveSliSpecificationTimeSlice']:
         """
         The time slice condition, composed of 3 parts: 1. The timeseries query, 2. The comparator, and 3. The threshold. Optionally, a fourth part, the query interval, can be provided.
         """
         return pulumi.get(self, "time_slice")
+
+
+@pulumi.output_type
+class ServiceLevelObjectiveSliSpecificationCount(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "goodEventsFormula":
+            suggest = "good_events_formula"
+        elif key == "totalEventsFormula":
+            suggest = "total_events_formula"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceLevelObjectiveSliSpecificationCount. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceLevelObjectiveSliSpecificationCount.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceLevelObjectiveSliSpecificationCount.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 good_events_formula: _builtins.str,
+                 queries: Sequence['outputs.ServiceLevelObjectiveSliSpecificationCountQuery'],
+                 total_events_formula: _builtins.str):
+        """
+        :param _builtins.str good_events_formula: The formula that specifies how to compute the good events.
+        :param Sequence['ServiceLevelObjectiveSliSpecificationCountQueryArgs'] queries: A list of data-source-specific queries that are referenced in the formulas.
+        :param _builtins.str total_events_formula: The formula that specifies how to compute the total events.
+        """
+        pulumi.set(__self__, "good_events_formula", good_events_formula)
+        pulumi.set(__self__, "queries", queries)
+        pulumi.set(__self__, "total_events_formula", total_events_formula)
+
+    @_builtins.property
+    @pulumi.getter(name="goodEventsFormula")
+    def good_events_formula(self) -> _builtins.str:
+        """
+        The formula that specifies how to compute the good events.
+        """
+        return pulumi.get(self, "good_events_formula")
+
+    @_builtins.property
+    @pulumi.getter
+    def queries(self) -> Sequence['outputs.ServiceLevelObjectiveSliSpecificationCountQuery']:
+        """
+        A list of data-source-specific queries that are referenced in the formulas.
+        """
+        return pulumi.get(self, "queries")
+
+    @_builtins.property
+    @pulumi.getter(name="totalEventsFormula")
+    def total_events_formula(self) -> _builtins.str:
+        """
+        The formula that specifies how to compute the total events.
+        """
+        return pulumi.get(self, "total_events_formula")
+
+
+@pulumi.output_type
+class ServiceLevelObjectiveSliSpecificationCountQuery(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "metricQuery":
+            suggest = "metric_query"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceLevelObjectiveSliSpecificationCountQuery. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceLevelObjectiveSliSpecificationCountQuery.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceLevelObjectiveSliSpecificationCountQuery.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 metric_query: Optional['outputs.ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery'] = None):
+        """
+        :param 'ServiceLevelObjectiveSliSpecificationCountQueryMetricQueryArgs' metric_query: A timeseries formula and functions metrics query.
+        """
+        if metric_query is not None:
+            pulumi.set(__self__, "metric_query", metric_query)
+
+    @_builtins.property
+    @pulumi.getter(name="metricQuery")
+    def metric_query(self) -> Optional['outputs.ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery']:
+        """
+        A timeseries formula and functions metrics query.
+        """
+        return pulumi.get(self, "metric_query")
+
+
+@pulumi.output_type
+class ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery(dict):
+    @staticmethod
+    def __key_warning(key: str):
+        suggest = None
+        if key == "dataSource":
+            suggest = "data_source"
+
+        if suggest:
+            pulumi.log.warn(f"Key '{key}' not found in ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery. Access the value via the '{suggest}' property getter instead.")
+
+    def __getitem__(self, key: str) -> Any:
+        ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery.__key_warning(key)
+        return super().__getitem__(key)
+
+    def get(self, key: str, default = None) -> Any:
+        ServiceLevelObjectiveSliSpecificationCountQueryMetricQuery.__key_warning(key)
+        return super().get(key, default)
+
+    def __init__(__self__, *,
+                 name: _builtins.str,
+                 query: _builtins.str,
+                 data_source: Optional[_builtins.str] = None):
+        """
+        :param _builtins.str name: The name of the query for use in formulas.
+        :param _builtins.str query: The metrics query definition.
+        :param _builtins.str data_source: The data source for metrics queries. Defaults to `"metrics"`.
+        """
+        pulumi.set(__self__, "name", name)
+        pulumi.set(__self__, "query", query)
+        if data_source is not None:
+            pulumi.set(__self__, "data_source", data_source)
+
+    @_builtins.property
+    @pulumi.getter
+    def name(self) -> _builtins.str:
+        """
+        The name of the query for use in formulas.
+        """
+        return pulumi.get(self, "name")
+
+    @_builtins.property
+    @pulumi.getter
+    def query(self) -> _builtins.str:
+        """
+        The metrics query definition.
+        """
+        return pulumi.get(self, "query")
+
+    @_builtins.property
+    @pulumi.getter(name="dataSource")
+    def data_source(self) -> Optional[_builtins.str]:
+        """
+        The data source for metrics queries. Defaults to `"metrics"`.
+        """
+        return pulumi.get(self, "data_source")
 
 
 @pulumi.output_type
@@ -99897,7 +100074,7 @@ class SyntheticsTestApiStepRequestClientCertificateCert(dict):
                  filename: Optional[_builtins.str] = None):
         """
         :param _builtins.str content: Content of the certificate.
-        :param _builtins.str filename: File name for the certificate.
+        :param _builtins.str filename: File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         if content is not None:
             pulumi.set(__self__, "content", content)
@@ -99916,7 +100093,7 @@ class SyntheticsTestApiStepRequestClientCertificateCert(dict):
     @pulumi.getter
     def filename(self) -> Optional[_builtins.str]:
         """
-        File name for the certificate.
+        File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         return pulumi.get(self, "filename")
 
@@ -99928,7 +100105,7 @@ class SyntheticsTestApiStepRequestClientCertificateKey(dict):
                  filename: Optional[_builtins.str] = None):
         """
         :param _builtins.str content: Content of the certificate.
-        :param _builtins.str filename: File name for the certificate.
+        :param _builtins.str filename: File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         if content is not None:
             pulumi.set(__self__, "content", content)
@@ -99947,7 +100124,7 @@ class SyntheticsTestApiStepRequestClientCertificateKey(dict):
     @pulumi.getter
     def filename(self) -> Optional[_builtins.str]:
         """
-        File name for the certificate.
+        File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         return pulumi.get(self, "filename")
 
@@ -101481,7 +101658,9 @@ class SyntheticsTestConfigVariable(dict):
         """
         :param _builtins.str name: Name of the variable.
         :param _builtins.str type: Type of test configuration variable. Valid values are `global`, `text`, `email`.
+        :param _builtins.str example: Example for the variable. This value is not returned by the API when `secure = true`. Avoid drift by only making updates to this value from within Terraform.
         :param _builtins.str id: When type = `global`, ID of the global variable to use.
+        :param _builtins.str pattern: Pattern of the variable. This value is not returned by the API when `secure = true`. Avoid drift by only making updates to this value from within Terraform.
         :param _builtins.bool secure: Whether the value of this variable will be obfuscated in test results. Defaults to `false`.
         """
         pulumi.set(__self__, "name", name)
@@ -101514,6 +101693,9 @@ class SyntheticsTestConfigVariable(dict):
     @_builtins.property
     @pulumi.getter
     def example(self) -> Optional[_builtins.str]:
+        """
+        Example for the variable. This value is not returned by the API when `secure = true`. Avoid drift by only making updates to this value from within Terraform.
+        """
         return pulumi.get(self, "example")
 
     @_builtins.property
@@ -101527,6 +101709,9 @@ class SyntheticsTestConfigVariable(dict):
     @_builtins.property
     @pulumi.getter
     def pattern(self) -> Optional[_builtins.str]:
+        """
+        Pattern of the variable. This value is not returned by the API when `secure = true`. Avoid drift by only making updates to this value from within Terraform.
+        """
         return pulumi.get(self, "pattern")
 
     @_builtins.property
@@ -103494,7 +103679,7 @@ class SyntheticsTestRequestClientCertificateCert(dict):
                  filename: Optional[_builtins.str] = None):
         """
         :param _builtins.str content: Content of the certificate.
-        :param _builtins.str filename: File name for the certificate.
+        :param _builtins.str filename: File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         if content is not None:
             pulumi.set(__self__, "content", content)
@@ -103513,7 +103698,7 @@ class SyntheticsTestRequestClientCertificateCert(dict):
     @pulumi.getter
     def filename(self) -> Optional[_builtins.str]:
         """
-        File name for the certificate.
+        File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         return pulumi.get(self, "filename")
 
@@ -103525,7 +103710,7 @@ class SyntheticsTestRequestClientCertificateKey(dict):
                  filename: Optional[_builtins.str] = None):
         """
         :param _builtins.str content: Content of the certificate.
-        :param _builtins.str filename: File name for the certificate.
+        :param _builtins.str filename: File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         if content is not None:
             pulumi.set(__self__, "content", content)
@@ -103544,7 +103729,7 @@ class SyntheticsTestRequestClientCertificateKey(dict):
     @pulumi.getter
     def filename(self) -> Optional[_builtins.str]:
         """
-        File name for the certificate.
+        File name for the certificate. Defaults to `"Provided in Terraform config"`.
         """
         return pulumi.get(self, "filename")
 
@@ -104103,6 +104288,8 @@ class TagPipelineRulesetRuleMapping(dict):
             suggest = "destination_key"
         elif key == "ifNotExists":
             suggest = "if_not_exists"
+        elif key == "ifTagExists":
+            suggest = "if_tag_exists"
         elif key == "sourceKeys":
             suggest = "source_keys"
 
@@ -104120,16 +104307,20 @@ class TagPipelineRulesetRuleMapping(dict):
     def __init__(__self__, *,
                  destination_key: Optional[_builtins.str] = None,
                  if_not_exists: Optional[_builtins.bool] = None,
+                 if_tag_exists: Optional[_builtins.str] = None,
                  source_keys: Optional[Sequence[_builtins.str]] = None):
         """
         :param _builtins.str destination_key: The destination key for the mapping.
         :param _builtins.bool if_not_exists: Whether to apply the mapping only if the destination key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param Sequence[_builtins.str] source_keys: The source keys for the mapping.
         """
         if destination_key is not None:
             pulumi.set(__self__, "destination_key", destination_key)
         if if_not_exists is not None:
             pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if if_tag_exists is not None:
+            pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         if source_keys is not None:
             pulumi.set(__self__, "source_keys", source_keys)
 
@@ -104143,11 +104334,20 @@ class TagPipelineRulesetRuleMapping(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> Optional[_builtins.bool]:
         """
         Whether to apply the mapping only if the destination key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter(name="sourceKeys")
@@ -104167,6 +104367,8 @@ class TagPipelineRulesetRuleQuery(dict):
             suggest = "case_insensitivity"
         elif key == "ifNotExists":
             suggest = "if_not_exists"
+        elif key == "ifTagExists":
+            suggest = "if_tag_exists"
 
         if suggest:
             pulumi.log.warn(f"Key '{key}' not found in TagPipelineRulesetRuleQuery. Access the value via the '{suggest}' property getter instead.")
@@ -104183,11 +104385,13 @@ class TagPipelineRulesetRuleQuery(dict):
                  addition: Optional['outputs.TagPipelineRulesetRuleQueryAddition'] = None,
                  case_insensitivity: Optional[_builtins.bool] = None,
                  if_not_exists: Optional[_builtins.bool] = None,
+                 if_tag_exists: Optional[_builtins.str] = None,
                  query: Optional[_builtins.str] = None):
         """
         :param 'TagPipelineRulesetRuleQueryAdditionArgs' addition: The addition configuration for the query.
         :param _builtins.bool case_insensitivity: Whether the query matching is case insensitive.
         :param _builtins.bool if_not_exists: Whether to apply the query only if the key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param _builtins.str query: The query string.
         """
         if addition is not None:
@@ -104196,6 +104400,8 @@ class TagPipelineRulesetRuleQuery(dict):
             pulumi.set(__self__, "case_insensitivity", case_insensitivity)
         if if_not_exists is not None:
             pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if if_tag_exists is not None:
+            pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         if query is not None:
             pulumi.set(__self__, "query", query)
 
@@ -104217,11 +104423,20 @@ class TagPipelineRulesetRuleQuery(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> Optional[_builtins.bool]:
         """
         Whether to apply the query only if the key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter
@@ -104274,6 +104489,8 @@ class TagPipelineRulesetRuleReferenceTable(dict):
             suggest = "field_pairs"
         elif key == "ifNotExists":
             suggest = "if_not_exists"
+        elif key == "ifTagExists":
+            suggest = "if_tag_exists"
         elif key == "sourceKeys":
             suggest = "source_keys"
         elif key == "tableName":
@@ -104294,12 +104511,14 @@ class TagPipelineRulesetRuleReferenceTable(dict):
                  case_insensitivity: Optional[_builtins.bool] = None,
                  field_pairs: Optional[Sequence['outputs.TagPipelineRulesetRuleReferenceTableFieldPair']] = None,
                  if_not_exists: Optional[_builtins.bool] = None,
+                 if_tag_exists: Optional[_builtins.str] = None,
                  source_keys: Optional[Sequence[_builtins.str]] = None,
                  table_name: Optional[_builtins.str] = None):
         """
         :param _builtins.bool case_insensitivity: Whether the reference table lookup is case insensitive.
         :param Sequence['TagPipelineRulesetRuleReferenceTableFieldPairArgs'] field_pairs: The field pairs for the reference table.
         :param _builtins.bool if_not_exists: Whether to apply the reference table only if the key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param Sequence[_builtins.str] source_keys: The source keys for the reference table lookup.
         :param _builtins.str table_name: The name of the reference table.
         """
@@ -104309,6 +104528,8 @@ class TagPipelineRulesetRuleReferenceTable(dict):
             pulumi.set(__self__, "field_pairs", field_pairs)
         if if_not_exists is not None:
             pulumi.set(__self__, "if_not_exists", if_not_exists)
+        if if_tag_exists is not None:
+            pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         if source_keys is not None:
             pulumi.set(__self__, "source_keys", source_keys)
         if table_name is not None:
@@ -104332,11 +104553,20 @@ class TagPipelineRulesetRuleReferenceTable(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> Optional[_builtins.bool]:
         """
         Whether to apply the reference table only if the key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> Optional[_builtins.str]:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter(name="sourceKeys")
@@ -106533,15 +106763,18 @@ class GetMonitorSchedulingOptionEvaluationWindowResult(dict):
     def __init__(__self__, *,
                  day_starts: _builtins.str,
                  hour_starts: _builtins.int,
-                 month_starts: _builtins.int):
+                 month_starts: _builtins.int,
+                 timezone: _builtins.str):
         """
         :param _builtins.str day_starts: The time of the day at which a one day cumulative evaluation window starts. Must be defined in UTC time in `HH:mm` format.
         :param _builtins.int hour_starts: The minute of the hour at which a one hour cumulative evaluation window starts. Must be between 0 and 59.
         :param _builtins.int month_starts: The day of the month at which a one month cumulative evaluation window starts. Must be a value of 1.
+        :param _builtins.str timezone: The timezone for the cumulative evaluation window start time.
         """
         pulumi.set(__self__, "day_starts", day_starts)
         pulumi.set(__self__, "hour_starts", hour_starts)
         pulumi.set(__self__, "month_starts", month_starts)
+        pulumi.set(__self__, "timezone", timezone)
 
     @_builtins.property
     @pulumi.getter(name="dayStarts")
@@ -106566,6 +106799,14 @@ class GetMonitorSchedulingOptionEvaluationWindowResult(dict):
         The day of the month at which a one month cumulative evaluation window starts. Must be a value of 1.
         """
         return pulumi.get(self, "month_starts")
+
+    @_builtins.property
+    @pulumi.getter
+    def timezone(self) -> _builtins.str:
+        """
+        The timezone for the cumulative evaluation window start time.
+        """
+        return pulumi.get(self, "timezone")
 
 
 @pulumi.output_type
@@ -108929,14 +109170,17 @@ class GetTagPipelineRulesetRuleMappingResult(dict):
     def __init__(__self__, *,
                  destination_key: _builtins.str,
                  if_not_exists: _builtins.bool,
+                 if_tag_exists: _builtins.str,
                  source_keys: Sequence[_builtins.str]):
         """
         :param _builtins.str destination_key: The destination key for the mapping.
         :param _builtins.bool if_not_exists: Whether to apply the mapping only if the destination key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param Sequence[_builtins.str] source_keys: The source keys for the mapping.
         """
         pulumi.set(__self__, "destination_key", destination_key)
         pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         pulumi.set(__self__, "source_keys", source_keys)
 
     @_builtins.property
@@ -108949,11 +109193,20 @@ class GetTagPipelineRulesetRuleMappingResult(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> _builtins.bool:
         """
         Whether to apply the mapping only if the destination key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> _builtins.str:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter(name="sourceKeys")
@@ -108969,16 +109222,19 @@ class GetTagPipelineRulesetRuleQueryResult(dict):
     def __init__(__self__, *,
                  case_insensitivity: _builtins.bool,
                  if_not_exists: _builtins.bool,
+                 if_tag_exists: _builtins.str,
                  query: _builtins.str,
                  addition: Optional['outputs.GetTagPipelineRulesetRuleQueryAdditionResult'] = None):
         """
         :param _builtins.bool case_insensitivity: Whether the query matching is case insensitive.
         :param _builtins.bool if_not_exists: Whether to apply the query only if the key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param _builtins.str query: The query string.
         :param 'GetTagPipelineRulesetRuleQueryAdditionArgs' addition: The addition configuration for the query.
         """
         pulumi.set(__self__, "case_insensitivity", case_insensitivity)
         pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         pulumi.set(__self__, "query", query)
         if addition is not None:
             pulumi.set(__self__, "addition", addition)
@@ -108993,11 +109249,20 @@ class GetTagPipelineRulesetRuleQueryResult(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> _builtins.bool:
         """
         Whether to apply the query only if the key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> _builtins.str:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter
@@ -109050,18 +109315,21 @@ class GetTagPipelineRulesetRuleReferenceTableResult(dict):
     def __init__(__self__, *,
                  case_insensitivity: _builtins.bool,
                  if_not_exists: _builtins.bool,
+                 if_tag_exists: _builtins.str,
                  source_keys: Sequence[_builtins.str],
                  table_name: _builtins.str,
                  field_pairs: Optional[Sequence['outputs.GetTagPipelineRulesetRuleReferenceTableFieldPairResult']] = None):
         """
         :param _builtins.bool case_insensitivity: Whether the reference table lookup is case insensitive.
         :param _builtins.bool if_not_exists: Whether to apply the reference table only if the key doesn't exist.
+        :param _builtins.str if_tag_exists: Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
         :param Sequence[_builtins.str] source_keys: The source keys for the reference table lookup.
         :param _builtins.str table_name: The name of the reference table.
         :param Sequence['GetTagPipelineRulesetRuleReferenceTableFieldPairArgs'] field_pairs: The field pairs for the reference table.
         """
         pulumi.set(__self__, "case_insensitivity", case_insensitivity)
         pulumi.set(__self__, "if_not_exists", if_not_exists)
+        pulumi.set(__self__, "if_tag_exists", if_tag_exists)
         pulumi.set(__self__, "source_keys", source_keys)
         pulumi.set(__self__, "table_name", table_name)
         if field_pairs is not None:
@@ -109077,11 +109345,20 @@ class GetTagPipelineRulesetRuleReferenceTableResult(dict):
 
     @_builtins.property
     @pulumi.getter(name="ifNotExists")
+    @_utilities.deprecated("""Use `if_tag_exists` instead. This field will be removed in a future release.""")
     def if_not_exists(self) -> _builtins.bool:
         """
         Whether to apply the reference table only if the key doesn't exist.
         """
         return pulumi.get(self, "if_not_exists")
+
+    @_builtins.property
+    @pulumi.getter(name="ifTagExists")
+    def if_tag_exists(self) -> _builtins.str:
+        """
+        Behavior when the tag already exists. Valid values: `append` (append to the existing tag value), `replace` (replace existing tag value), `do_not_apply` (never apply if tag already exists). Valid values are `append`, `replace`, `do_not_apply`.
+        """
+        return pulumi.get(self, "if_tag_exists")
 
     @_builtins.property
     @pulumi.getter(name="sourceKeys")

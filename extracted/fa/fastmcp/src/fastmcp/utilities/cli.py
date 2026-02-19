@@ -167,7 +167,7 @@ LOGO_ASCII_2 = (
     "\x1b[38;2;0;120;255m█\x1b[38;2;0;117;255m▀\x1b[38;2;0;114;255m▀\x1b[39m"
 ).strip()
 
-# Prints the below in a blue gradient - sylized F
+# Prints the below in a blue gradient - stylized F
 #  ▄▀▀▀
 #  █▀▀
 # ▀
@@ -217,7 +217,10 @@ def log_server_banner(server: FastMCP[Any]) -> None:
     info_table.add_column(style="cyan", justify="left")  # Label column
     info_table.add_column(style="dim", justify="left")  # Value column
 
-    info_table.add_row("🖥", "Server:", Text(server.name, style="dim"))
+    server_info = server.name
+    if server.version:
+        server_info += f", {server.version}"
+    info_table.add_row("🖥", "Server:", Text(server_info, style="dim"))
     info_table.add_row("🚀", "Deploy free:", "https://fastmcp.cloud")
 
     # Create panel with logo, title, and information using Group
@@ -233,20 +236,6 @@ def log_server_banner(server: FastMCP[Any]) -> None:
         Align.center(info_table),
     )
 
-    # v3 notice banner (shown below main panel)
-    v3_line1 = Text("✨ FastMCP 3.0 is coming!", style="bold")
-    v3_line2 = Text.assemble(
-        ("Pin ", "dim"),
-        ("`fastmcp < 3`", "dim bold"),
-        (" in production, then upgrade when you're ready.", "dim"),
-    )
-    v3_notice = Panel(
-        Group(Align.center(v3_line1), Align.center(v3_line2)),
-        border_style="blue",
-        padding=(0, 2),
-        width=80,
-    )
-
     panel = Panel(
         panel_content,
         border_style="dim",
@@ -259,7 +248,6 @@ def log_server_banner(server: FastMCP[Any]) -> None:
 
     # Build output elements
     output_elements: list[Align | Panel | str] = ["\n", Align.center(panel)]
-    output_elements.append(Align.center(v3_notice))
 
     # Add update notice if a newer version is available (shown last for visibility)
     if newer_version:

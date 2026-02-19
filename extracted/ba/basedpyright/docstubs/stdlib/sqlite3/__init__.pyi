@@ -345,8 +345,8 @@ class Connection:
               Table name.
             column
               Column name.
-            row
-              Row index.
+            rowid
+              Row id.
             readonly
               Open the BLOB without write permissions.
             name
@@ -471,7 +471,9 @@ class Connection:
             """
             ...
     else:
-        def iterdump(self) -> Generator[str, None, None]: ...
+        def iterdump(self) -> Generator[str, None, None]:
+            """Returns iterator to the dump of the database in an SQL text format."""
+            ...
 
     def rollback(self) -> None:
         """
@@ -529,7 +531,9 @@ class Connection:
             """Load SQLite extension module."""
             ...
     else:
-        def load_extension(self, name: str, /) -> None: ...
+        def load_extension(self, name: str, /) -> None:
+            """Load SQLite extension module."""
+            ...
 
     def backup(
         self,

@@ -6,7 +6,7 @@ from adam.utils_cassandra.node_restart_schedules import NodeRestartSchedules
 from adam.utils_job.job_status import NULL_JOB_STATUS
 from adam.utils_k8s.pods import Pods
 from adam.utils_k8s.statefulsets import StatefulSets
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_log import log2
 from adam.utils_repl.repl_state import ReplState, RequiredState
 

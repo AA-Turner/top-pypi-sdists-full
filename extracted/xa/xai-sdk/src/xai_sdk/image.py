@@ -1,4 +1,5 @@
 import base64
+import warnings
 from typing import Any, Sequence, Union
 
 import grpc
@@ -66,8 +67,18 @@ class BaseImageResponse(ProtoDecorator[image_pb2.ImageResponse]):
 
         This is different from the prompt used in the request because prompts get rewritten by the
         system.
+
+        .. deprecated::
+            This field is no longer populated by the server and always returns an empty string.
+            It will be removed in a future release.
         """
-        return self._image.up_sampled_prompt
+        warnings.warn(
+            "BaseImageResponse.prompt is deprecated and will be removed in a future release. "
+            "The field is no longer populated by the server.",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        return ""
 
     @property
     def respect_moderation(self) -> bool:
@@ -159,7 +170,7 @@ def _make_span_response_attributes(
         image_pb2.ImageFormat.Name(request.format).removeprefix("IMG_FORMAT_").lower()
     )
     for index, response in enumerate(responses):
-        attributes[f"gen_ai.response.{index}.image.up_sampled_prompt"] = response.prompt
+        attributes[f"gen_ai.response.{index}.image.up_sampled_prompt"] = ""
         attributes[f"gen_ai.response.{index}.image.respect_moderation"] = response.respect_moderation
         if request.format == image_pb2.ImageFormat.IMG_FORMAT_URL:
             if response._image.url:
@@ -204,5 +215,7 @@ def convert_image_resolution_to_pb(resolution: ImageResolution) -> image_pb2.Ima
     match resolution:
         case "1k":
             return image_pb2.ImageResolution.IMG_RESOLUTION_1K
+        case "2k":
+            return image_pb2.ImageResolution.IMG_RESOLUTION_2K
         case _:
             raise ValueError(f"Invalid image resolution {resolution}.")

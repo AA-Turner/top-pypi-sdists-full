@@ -3,13 +3,18 @@
 # SPDX-License-Identifier: GPL-2.0-or-later
 
 
+import os
+import sys
 import rich_click as click
 
 from esptool.bin_image import ESPLoader, intel_hex_to_bin
 from esptool.cmds import detect_flash_size
 from esptool.util import FatalError, flash_size_bytes, strip_chip_name
 from esptool.logger import log
+from esptool.loader import list_ports, ListPortInfo
 from typing import IO, Any
+
+from click.shell_completion import CompletionItem
 
 ################################ Custom types #################################
 
@@ -96,6 +101,59 @@ class AutoChunkSizeType(AnyIntType):
         if num & 3 != 0:
             raise click.BadParameter("Chunk size should be a 4-byte aligned number.")
         return num
+
+
+class SerialPortType(click.ParamType):
+    """
+    Custom type for serial port with autocomplete support.
+    Provides shell completion for available serial ports.
+    """
+
+    name = "serial-port"
+
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context
+    ) -> str:
+        # Just return the value as-is, validation happens elsewhere
+        return value
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> list[CompletionItem]:
+        """Provide shell completion suggestions for serial ports"""
+        available_ports = _get_port_list()
+        # Filter ports that match the incomplete string (case-insensitive)
+        incomplete_lower = incomplete.lower()
+        return [
+            CompletionItem(
+                port.device,
+                help=f"Description: {port.description}, "
+                f"VID: {port.vid}, PID: {port.pid}"
+                # Avoid printing None values
+                if port.vid is not None
+                else None,
+            )
+            for port in reversed(available_ports)
+            if port.device.lower().startswith(incomplete_lower)
+        ]
+
+
+class BaudRateType(click.ParamType):
+    """Custom type for baud rate with autocomplete support"""
+
+    name = "baud-rate"
+
+    def convert(
+        self, value: str, param: click.Parameter | None, ctx: click.Context
+    ) -> int:
+        return int(value)
+
+    def shell_complete(
+        self, ctx: click.Context, param: click.Parameter, incomplete: str
+    ) -> list[CompletionItem]:
+        """Provide shell completion suggestions for common baud rates"""
+        available_baud_rates = [9600, 115200, 230400, 460800, 576000, 921600]
+        return [CompletionItem(str(baud)) for baud in available_baud_rates]
 
 
 class SpiConnectionType(click.ParamType):
@@ -209,6 +267,64 @@ class AddrFilenamePairType(click.Path):
                 )
             end = sector_end
         return pairs
+
+
+class DiffWithType(click.Path):
+    """Custom type for --diff-with parameter that accepts file paths (binary or HEX),
+    or "skip", and returns a file handle or None. When used with multiple=True, Click
+    will collect the results into a list. HEX files are automatically split into
+    multiple binary files (one per continuous region), allowing a single HEX file
+    to match multiple files being flashed.
+    """
+
+    name = "diff-with-file"
+
+    def get_metavar(
+        self, param: click.Parameter | None, ctx: click.Context | None = None
+    ):
+        return "<filename(s)> or 'skip'"
+
+    def convert(
+        self,
+        value: str,
+        param: click.Parameter | None,
+        ctx: click.Context,
+    ) -> IO[bytes] | None:
+        # Handle special "skip" string
+        if value.lower() == "skip":
+            # Check if a file with this name actually exists
+            if os.path.exists(value):
+                raise click.BadParameter(
+                    f"File named '{value}' exists, but this filename is not supported "
+                    "as it conflicts with the 'skip' keyword. Please rename the file."
+                )
+            return None
+
+        # Validate path using parent class
+        validated_path = super().convert(value, param, ctx)
+        # Open file and store handle in context for cleanup
+        if not hasattr(ctx, "_open_files"):
+            ctx._open_files = []
+        # Initialize dict to map HEX file first split to all splits
+        if not hasattr(ctx, "_diff_with_hex_splits"):
+            ctx._diff_with_hex_splits = {}
+        try:
+            file_handle = open(validated_path, "rb")
+            # Use intel_hex_to_bin to handle HEX file conversion and splitting
+            hex_converted = intel_hex_to_bin(file_handle)
+            # intel_hex_to_bin returns list[tuple[int | None, IO[bytes]]]
+            # Extract just the file handles
+            split_files = [f for _, f in hex_converted]
+            # Store all file handles for cleanup
+            for f in split_files:
+                ctx._open_files.append(f)
+            # If HEX file was split into multiple files, store mapping for expansion
+            if len(split_files) > 1:
+                ctx._diff_with_hex_splits[split_files[0]] = split_files
+            # Return first file (or only file if binary)
+            return split_files[0] if split_files else None
+        except OSError as e:
+            raise click.BadParameter(str(e))
 
 
 ########################### Custom option/argument ############################
@@ -398,6 +514,92 @@ class MutuallyExclusiveOption(click.Option):
 def arg_auto_int(x: str) -> int:
     """Parse an integer value in any base"""
     return int(x, 0)
+
+
+def get_port_list(
+    vids: list[str] = [],
+    pids: list[str] = [],
+    names: list[str] = [],
+    serials: list[str] = [],
+) -> list[str]:
+    """Get the list of serial ports names with optional filters.
+
+    For backwards compatibility, this function returns a list of port names.
+    """
+    return [port.device for port in _get_port_list(vids, pids, names, serials)]
+
+
+def _get_port_list(
+    vids: list[str] = [],
+    pids: list[str] = [],
+    names: list[str] = [],
+    serials: list[str] = [],
+) -> list[ListPortInfo]:
+    if list_ports is None:
+        raise FatalError(
+            "Listing all serial ports is currently not available. "
+            "Please try to specify the port when running esptool or update "
+            "the pyserial package to the latest version."
+        )
+    ports = []
+    for port in list_ports.comports():
+        if sys.platform == "darwin" and port.device.endswith(
+            ("Bluetooth-Incoming-Port", "wlan-debug", "cu.debug-console")
+        ):
+            continue
+        if vids and (port.vid is None or port.vid not in vids):
+            continue
+        if pids and (port.pid is None or port.pid not in pids):
+            continue
+        if names and (
+            port.name is None or all(name not in port.name for name in names)
+        ):
+            continue
+        if serials and (
+            port.serial_number is None
+            or all(serial not in port.serial_number for serial in serials)
+        ):
+            continue
+        ports.append(port)
+
+    # Constants for sorting optimization
+    ESPRESSIF_VID = 0x303A
+    LINUX_DEVICE_PATTERNS = ("ttyUSB", "ttyACM")
+    MACOS_DEVICE_PATTERNS = ("usbserial", "usbmodem")
+
+    def _port_sort_key_linux(port_info: ListPortInfo) -> tuple[int, str]:
+        if port_info.vid == ESPRESSIF_VID:
+            return (3, port_info.device)
+
+        if any(pattern in port_info.device for pattern in LINUX_DEVICE_PATTERNS):
+            return (2, port_info.device)
+
+        return (1, port_info.device)
+
+    def _port_sort_key_macos(port_info: ListPortInfo) -> tuple[int, str]:
+        if port_info.vid == ESPRESSIF_VID:
+            return (3, port_info.device)
+
+        if any(pattern in port_info.device for pattern in MACOS_DEVICE_PATTERNS):
+            return (2, port_info.device)
+
+        return (1, port_info.device)
+
+    def _port_sort_key_windows(port_info: ListPortInfo) -> tuple[int, str]:
+        if port_info.vid == ESPRESSIF_VID:
+            return (2, port_info.device)
+
+        return (1, port_info.device)
+
+    if sys.platform == "win32":
+        key_func = _port_sort_key_windows
+    elif sys.platform == "darwin":
+        key_func = _port_sort_key_macos
+    else:
+        key_func = _port_sort_key_linux
+
+    sorted_port_info = sorted(ports, key=key_func)
+    return sorted_port_info
 
 
 def parse_port_filters(

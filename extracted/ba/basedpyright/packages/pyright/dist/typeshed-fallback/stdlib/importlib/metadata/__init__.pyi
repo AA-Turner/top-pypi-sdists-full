@@ -44,7 +44,9 @@ else:
 
 class PackageNotFoundError(ModuleNotFoundError):
     @property
-    def name(self) -> str: ...  # type: ignore[override]
+    def name(self) -> str:
+        """module name"""
+        ...
 
 if sys.version_info >= (3, 13):
     _EntryPointBase = object
@@ -116,7 +118,9 @@ else:
                 extras: list[str] = ...,
             ) -> bool: ...  # undocumented
 
-        def __hash__(self) -> int: ...
+        def __hash__(self) -> int:
+            """Return hash(self)."""
+            ...
         def __iter__(self) -> Iterator[Any]: ...  # result of iter((str, Self)), really
 
 if sys.version_info >= (3, 12):
@@ -161,9 +165,19 @@ elif sys.version_info >= (3, 10):
             extras: list[str] = ...,
         ) -> EntryPoints: ...
         @property
-        def names(self) -> set[str]: ...
+        def names(self) -> set[str]:
+            """Return the set of all names of all entry points."""
+            ...
         @property
-        def groups(self) -> set[str]: ...
+        def groups(self) -> set[str]:
+            """
+            Return the set of all groups of all entry points.
+
+            For coverage while SelectableGroups is present.
+            >>> EntryPoints().groups
+            set()
+            """
+            ...
 
 if sys.version_info >= (3, 10) and sys.version_info < (3, 12):
     class Deprecated(Generic[_KT, _VT]):
@@ -186,7 +200,13 @@ if sys.version_info >= (3, 10) and sys.version_info < (3, 12):
         @property
         def groups(self) -> set[str]: ...
         @property
-        def names(self) -> set[str]: ...
+        def names(self) -> set[str]:
+            """
+            for coverage:
+            >>> SelectableGroups().names
+            set()
+            """
+            ...
         @overload
         def select(self) -> Self: ...
         @overload
@@ -264,7 +284,14 @@ class Distribution(_distribution_parent):
             ...
     else:
         @property
-        def metadata(self) -> Message: ...
+        def metadata(self) -> Message:
+            """
+            Return the parsed metadata for this Distribution.
+
+            The returned object will have keys that name the various bits of
+            metadata.  See PEP 566 for details.
+            """
+            ...
         @property
         def entry_points(self) -> list[EntryPoint]: ...
 

@@ -2,13 +2,12 @@ from __future__ import annotations as _annotations
 
 import inspect
 import os
-import warnings
 from datetime import timedelta
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Literal
+from typing import Annotated, Any, Literal
 
 from platformdirs import user_data_dir
-from pydantic import Field, ImportString, field_validator
+from pydantic import Field, field_validator
 from pydantic_settings import (
     BaseSettings,
     SettingsConfigDict,
@@ -25,9 +24,6 @@ LOG_LEVEL = Literal["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
 DuplicateBehavior = Literal["warn", "error", "replace", "ignore"]
 
 TEN_MB_IN_BYTES = 1024 * 1024 * 10
-
-if TYPE_CHECKING:
-    from fastmcp.server.auth.auth import AuthProvider
 
 
 class DocketSettings(BaseSettings):
@@ -118,30 +114,6 @@ class DocketSettings(BaseSettings):
     ] = timedelta(seconds=5)
 
 
-class ExperimentalSettings(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_prefix="FASTMCP_EXPERIMENTAL_",
-        extra="ignore",
-        validate_assignment=True,
-    )
-
-    # Deprecated in 2.14 - the new OpenAPI parser is now the default and only parser
-    enable_new_openapi_parser: bool = False
-
-    @field_validator("enable_new_openapi_parser", mode="after")
-    @classmethod
-    def _warn_openapi_parser_deprecated(cls, v: bool) -> bool:
-        if v:
-            warnings.warn(
-                "enable_new_openapi_parser is deprecated. "
-                "The new OpenAPI parser is now the default (and only) parser. "
-                "You can remove this setting.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-        return v
-
-
 class Settings(BaseSettings):
     """FastMCP settings."""
 
@@ -194,9 +166,19 @@ class Settings(BaseSettings):
             return v.upper()
         return v
 
-    experimental: ExperimentalSettings = ExperimentalSettings()
-
     docket: DocketSettings = DocketSettings()
+
+    enable_rich_logging: Annotated[
+        bool,
+        Field(
+            description=inspect.cleandoc(
+                """
+                If True, will use rich formatting for log output. If False,
+                will use standard Python logging without rich formatting.
+                """
+            )
+        ),
+    ] = True
 
     enable_rich_tracebacks: Annotated[
         bool,
@@ -296,76 +278,6 @@ class Settings(BaseSettings):
         False  # If True, uses true stateless mode (new transport per request)
     )
 
-    # Auth settings
-    server_auth: Annotated[
-        str | None,
-        Field(
-            description=inspect.cleandoc(
-                """
-                Configure the authentication provider for the server by specifying
-                the full module path to an AuthProvider class (e.g., 
-                'fastmcp.server.auth.providers.google.GoogleProvider').
-
-                The specified class will be imported and instantiated automatically
-                during FastMCP server creation. Any class that inherits from AuthProvider
-                can be used, including custom implementations.
-
-                If None, no automatic configuration will take place.
-
-                This setting is *always* overridden by any auth provider passed to the
-                FastMCP constructor.
-
-                Note that most auth providers require additional configuration
-                that must be provided via env vars.
-
-                Examples:
-                  - fastmcp.server.auth.providers.google.GoogleProvider
-                  - fastmcp.server.auth.providers.jwt.JWTVerifier
-                  - mycompany.auth.CustomAuthProvider
-                """
-            ),
-        ),
-    ] = None
-
-    include_tags: Annotated[
-        set[str] | None,
-        Field(
-            description=inspect.cleandoc(
-                """
-                If provided, only components that match these tags will be
-                exposed to clients. A component is considered to match if ANY of
-                its tags match ANY of the tags in the set.
-                """
-            ),
-        ),
-    ] = None
-    exclude_tags: Annotated[
-        set[str] | None,
-        Field(
-            description=inspect.cleandoc(
-                """
-                If provided, components that match these tags will be excluded
-                from the server. A component is considered to match if ANY of
-                its tags match ANY of the tags in the set.
-                """
-            ),
-        ),
-    ] = None
-
-    include_fastmcp_meta: Annotated[
-        bool,
-        Field(
-            description=inspect.cleandoc(
-                """
-                Whether to include FastMCP meta in the server's MCP responses.
-                If True, a `_fastmcp` key will be added to the `meta` field of
-                all MCP component responses. This key will contain a dict of
-                various FastMCP-specific metadata, such as tags.
-                """
-            ),
-        ),
-    ] = True
-
     mounted_components_raise_on_load_error: Annotated[
         bool,
         Field(
@@ -379,14 +291,15 @@ class Settings(BaseSettings):
         ),
     ] = False
 
-    show_cli_banner: Annotated[
+    show_server_banner: Annotated[
         bool,
         Field(
             description=inspect.cleandoc(
                 """
-                If True, the server banner will be displayed when running the server via CLI.
-                This setting can be overridden by the --no-banner CLI flag.
-                Set to False via FASTMCP_SHOW_CLI_BANNER=false to suppress the banner.
+                If True, the server banner will be displayed when running the server.
+                This setting can be overridden by the --no-banner CLI flag or by
+                passing show_banner=False to server.run().
+                Set to False via FASTMCP_SHOW_SERVER_BANNER=false to suppress the banner.
                 """
             ),
         ),
@@ -407,21 +320,19 @@ class Settings(BaseSettings):
         ),
     ] = "stable"
 
-    @property
-    def server_auth_class(self) -> AuthProvider | None:
-        from fastmcp.utilities.types import get_cached_typeadapter
+    decorator_mode: Annotated[
+        Literal["function", "object"],
+        Field(
+            description=inspect.cleandoc(
+                """
+                Controls what decorators (@tool, @resource, @prompt) return.
 
-        if not self.server_auth:
-            return None
-
-        # https://github.com/jlowin/fastmcp/issues/1749
-        # Pydantic imports the module in an ImportString during model validation, but we don't want the server
-        # auth module imported during settings creation as it imports dependencies we aren't ready for yet.
-        # To fix this while limiting breaking changes, we delay the import by only creating the ImportString
-        # when the class is actually needed
-
-        type_adapter = get_cached_typeadapter(ImportString)
-
-        auth_class = type_adapter.validate_python(self.server_auth)
-
-        return auth_class
+                - "function" (default): Decorators return the original function unchanged.
+                  The function remains callable and is registered with the server normally.
+                - "object" (deprecated): Decorators return component objects (FunctionTool,
+                  FunctionResource, FunctionPrompt). This was the default behavior in v2 and
+                  will be removed in a future version.
+                """
+            ),
+        ),
+    ] = "function"

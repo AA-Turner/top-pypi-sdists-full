@@ -81,7 +81,7 @@ default-groups = ["dev"]
 
 [tool.uv.sources]
 langgraph-runtime-inmem = { path = "../runtime_inmem", editable = true }
-langgraph-grpc-common = { path = "../grpc_common_py" }
+langgraph-grpc-common = { path = "../grpc_common_py", editable = true }
 [tool.hatch.build]
 exclude = ["tests/"]
 

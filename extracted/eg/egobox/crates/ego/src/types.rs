@@ -1,10 +1,14 @@
-use crate::gpmix::spec::*;
-use crate::{EgorState, errors::Result};
+use crate::{EgoError, EgorState, Result};
 use argmin::core::CostFunction;
-use egobox_moe::{Clustering, MixtureGpSurrogate, NbClusters, Recombination, ThetaTuning};
 use linfa::Float;
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use ndarray::{Array1, Array2, ArrayView2};
 use serde::{Deserialize, Serialize};
+
+// Re-export from egobox_moe for backward compatibility
+#[deprecated(since = "0.36.1", note = "Use `egobox_moe::SurrogateBuilder` instead")]
+pub use egobox_moe::SurrogateBuilder;
+#[deprecated(since = "0.36.1", note = "Use `egobox_moe::XType` instead")]
+pub use egobox_moe::XType;
 
 /// Optimization result
 #[derive(Clone, Debug)]
@@ -80,32 +84,68 @@ pub enum FailsafeStrategy {
     Viability,
 }
 
+/// A trait for types that can be returned by an objective function.
+///
+/// This allows objective functions to return either `Array2<f64>` directly
+/// (infallible) or `Result<Array2<f64>, E>` (fallible) where E implements `Display`.
+pub trait ObjFnResponse {
+    /// Convert the response into a `Result<Array2<f64>, EgoError>`.
+    fn into_obj_result(self) -> Result<Array2<f64>>;
+}
+
+impl ObjFnResponse for Array2<f64> {
+    fn into_obj_result(self) -> Result<Array2<f64>> {
+        Ok(self)
+    }
+}
+
+impl<E: std::fmt::Display> ObjFnResponse for std::result::Result<Array2<f64>, E> {
+    fn into_obj_result(self) -> Result<Array2<f64>> {
+        self.map_err(|e| EgoError::UserFnError(e.to_string()))
+    }
+}
+
 /// An interface for objective function to be optimized
 ///
 /// The function is expected to return a matrix allowing nrows evaluations at once.
 /// A row of the output matrix is expected to contain [objective, cstr_1, ... cstr_n] values.
-pub trait GroupFunc: Clone + Fn(&ArrayView2<f64>) -> Array2<f64> {}
-impl<T> GroupFunc for T where T: Clone + Fn(&ArrayView2<f64>) -> Array2<f64> {}
+///
+/// The function can return either `Array2<f64>` directly (infallible evaluation)
+/// or `Result<Array2<f64>, E>` (fallible evaluation) where `E` implements `Display`.
+/// On error, the optimizer handles the failure according to the configured [`FailsafeStrategy`].
+pub trait ObjFn: Clone {
+    /// Evaluate the objective function at the given points.
+    fn eval(&self, x: &ArrayView2<f64>) -> crate::errors::Result<Array2<f64>>;
+}
 
-/// A trait to retrieve functions constraints specifying
-/// the domain of the input variables.
-pub trait DomainConstraints<C: CstrFn> {
+impl<T, R: ObjFnResponse> ObjFn for T
+where
+    T: Clone + Fn(&ArrayView2<f64>) -> R,
+{
+    fn eval(&self, x: &ArrayView2<f64>) -> crate::errors::Result<Array2<f64>> {
+        (self)(x).into_obj_result()
+    }
+}
+
+/// A trait to retrieve functions constraints
+/// provided by the user and used by the internal optimizer
+pub trait Constraints<C: CstrFn> {
     /// Returns the list of constraints functions
-    fn fn_constraints(&self) -> &[impl CstrFn];
+    fn constraints(&self) -> &[impl CstrFn];
 }
 
 /// As structure to handle the objective and constraints functions for implementing
-/// `argmin::CostFunction` to be used with argmin framework.
+/// the optimization problem and `argmin::CostFunction` to be used with argmin framework.
 #[derive(Clone)]
-pub struct ObjFunc<O: GroupFunc, C: CstrFn> {
+pub struct ProblemFunc<O: ObjFn, C: CstrFn> {
     fobj: O,
     fcstrs: Vec<C>,
 }
 
-impl<O: GroupFunc, C: CstrFn> ObjFunc<O, C> {
+impl<O: ObjFn, C: CstrFn> ProblemFunc<O, C> {
     /// Constructor given the objective function
     pub fn new(fobj: O) -> Self {
-        ObjFunc {
+        ProblemFunc {
             fobj,
             fcstrs: vec![],
         }
@@ -118,7 +158,7 @@ impl<O: GroupFunc, C: CstrFn> ObjFunc<O, C> {
     }
 }
 
-impl<O: GroupFunc, C: CstrFn> CostFunction for ObjFunc<O, C> {
+impl<O: ObjFn, C: CstrFn> CostFunction for ProblemFunc<O, C> {
     /// Type of the parameter vector
     type Param = Array2<f64>;
     /// Type of the return value computed by the cost function
@@ -126,93 +166,42 @@ impl<O: GroupFunc, C: CstrFn> CostFunction for ObjFunc<O, C> {
 
     /// Apply the cost function to a parameter `p`
     fn cost(&self, p: &Self::Param) -> std::result::Result<Self::Output, argmin::core::Error> {
-        // Evaluate objective function
-        Ok((self.fobj)(&p.view()))
+        // Evaluate objective function, forward error on failure
+        self.fobj
+            .eval(&p.view())
+            .map_err(|e| argmin::core::Error::msg(e.to_string()))
     }
 }
 
-impl<O: GroupFunc, C: CstrFn> DomainConstraints<C> for ObjFunc<O, C> {
-    fn fn_constraints(&self) -> &[impl CstrFn] {
+impl<O: ObjFn, C: CstrFn> Constraints<C> for ProblemFunc<O, C> {
+    fn constraints(&self) -> &[impl CstrFn] {
         &self.fcstrs
     }
 }
 
-/// An enumeration to define the type of an input variable component
-/// with its domain definition
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum XType {
-    /// Continuous variable in [lower bound, upper bound]
-    Float(f64, f64),
-    /// Integer variable in lower bound .. upper bound
-    Int(i32, i32),
-    /// An Ordered variable in { float_1, float_2, ..., float_n }
-    Ord(Vec<f64>),
-    /// An Enum variable in { 1, 2, ..., int_n }
-    Enum(usize),
-}
-
-/// A trait for surrogate training
-///
-/// The output surrogate used by [crate::Egor] is expected to model either
-/// objective function or constraint functions
-pub trait SurrogateBuilder: Clone + Serialize + Sync {
-    /// Constructor from domain space specified with types.
-    fn new_with_xtypes(xtypes: &[XType]) -> Self;
-
-    /// Sets the allowed regression models used in gaussian processes.
-    fn set_regression_spec(&mut self, regression_spec: RegressionSpec);
-
-    /// Sets the allowed correlation models used in gaussian processes.
-    fn set_correlation_spec(&mut self, correlation_spec: CorrelationSpec);
-
-    /// Sets the number of components to be used specifiying PLS projection is used (a.k.a KPLS method).
-    fn set_kpls_dim(&mut self, kpls_dim: Option<usize>);
-
-    /// Sets the number of clusters used by the mixture of surrogate experts.
-    fn set_n_clusters(&mut self, n_clusters: NbClusters);
-
-    /// Sets the mode of recombination to get the output prediction from experts prediction
-    fn set_recombination(&mut self, recombination: Recombination<f64>);
-
-    /// Sets the hyperparameters tuning strategy
-    fn set_theta_tunings(&mut self, theta_tunings: &[ThetaTuning<f64>]);
-
-    /// Set likelihood optimization parameters
-    fn set_optim_params(&mut self, n_start: usize, max_eval: usize);
-
-    /// Train the surrogate with given training dataset (x, y)
-    fn train(
-        &self,
-        xt: ArrayView2<f64>,
-        yt: ArrayView1<f64>,
-    ) -> Result<Box<dyn MixtureGpSurrogate>>;
-
-    /// Train the surrogate with given training dataset (x, y) and given clustering
-    fn train_on_clusters(
-        &self,
-        xt: ArrayView2<f64>,
-        yt: ArrayView1<f64>,
-        clustering: &Clustering,
-    ) -> Result<Box<dyn MixtureGpSurrogate>>;
-}
-
-/// A trait for functions used by internal optimizers
+/// A trait for functions provided by the user
 /// Functions are expected to be defined as `g(x, g, u)` where
 /// * `x` is the input information,
 /// * `g` an optional gradient information to be updated if present
 /// * `u` information provided by the user
 #[cfg(not(feature = "nlopt"))]
-pub trait ObjFn<U>: Fn(&[f64], Option<&mut [f64]>, &mut U) -> f64 {}
-#[cfg(feature = "nlopt")]
-use nlopt::ObjFn;
+pub trait UserFn<U>: Fn(&[f64], Option<&mut [f64]>, &mut U) -> f64 {}
 
 #[cfg(not(feature = "nlopt"))]
-impl<T, U> ObjFn<U> for T where T: Fn(&[f64], Option<&mut [f64]>, &mut U) -> f64 {}
+impl<T, U> UserFn<U> for T where T: Fn(&[f64], Option<&mut [f64]>, &mut U) -> f64 {}
 
-/// A function trait for domain constraints used by the internal optimizer
-/// It is a specialized version of [`ObjFn`] with [`InfillObjData`] as user information
-pub trait CstrFn: Clone + ObjFn<InfillObjData<f64>> + Sync {}
-impl<T> CstrFn for T where T: Clone + ObjFn<InfillObjData<f64>> + Sync {}
+/// A function trait for constraints provided by the user and used by the internal optimizer
+/// It is a specialized version of [`UserFn`] with [`InfillObjData`] as user information
+#[cfg(not(feature = "nlopt"))]
+pub trait CstrFn: Clone + UserFn<InfillObjData<f64>> + Sync {}
+#[cfg(not(feature = "nlopt"))]
+impl<T> CstrFn for T where T: Clone + UserFn<InfillObjData<f64>> + Sync {}
+/// A function trait for constraints used by the internal optimizer
+/// It is a specialized version of [`ObjFn`] with [`InfillObjData`] as user informati
+#[cfg(feature = "nlopt")]
+pub trait CstrFn: Clone + nlopt::ObjFn<InfillObjData<f64>> + Sync {}
+#[cfg(feature = "nlopt")]
+impl<T> CstrFn for T where T: Clone + nlopt::ObjFn<InfillObjData<f64>> + Sync {}
 
 /// A function type for domain constraints which will be used by the internal optimizer
 /// which is the default value for [`crate::EgorFactory`] generic `C` parameter.

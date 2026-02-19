@@ -16,12 +16,27 @@ class DirectoryOptions(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DIRECTORY_OPTIONS_INDEXING_JOB: _ClassVar[DirectoryOptions]
     DIRECTORY_OPTIONS_VENV_INDEXING: _ClassVar[DirectoryOptions]
 
+class IndexingJobStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    INDEXING_JOB_STATUS_UNSPECIFIED: _ClassVar[IndexingJobStatus]
+    INDEXING_JOB_STATUS_PENDING: _ClassVar[IndexingJobStatus]
+    INDEXING_JOB_STATUS_RUNNING: _ClassVar[IndexingJobStatus]
+    INDEXING_JOB_STATUS_SUCCEEDED: _ClassVar[IndexingJobStatus]
+    INDEXING_JOB_STATUS_FAILED: _ClassVar[IndexingJobStatus]
+    INDEXING_JOB_STATUS_UNKNOWN: _ClassVar[IndexingJobStatus]
+
 DIRECTORY_OPTIONS_UNSPECIFIED: DirectoryOptions
 DIRECTORY_OPTIONS_MAIN: DirectoryOptions
 DIRECTORY_OPTIONS_SHADOW: DirectoryOptions
 DIRECTORY_OPTIONS_DRY_RUN: DirectoryOptions
 DIRECTORY_OPTIONS_INDEXING_JOB: DirectoryOptions
 DIRECTORY_OPTIONS_VENV_INDEXING: DirectoryOptions
+INDEXING_JOB_STATUS_UNSPECIFIED: IndexingJobStatus
+INDEXING_JOB_STATUS_PENDING: IndexingJobStatus
+INDEXING_JOB_STATUS_RUNNING: IndexingJobStatus
+INDEXING_JOB_STATUS_SUCCEEDED: IndexingJobStatus
+INDEXING_JOB_STATUS_FAILED: IndexingJobStatus
+INDEXING_JOB_STATUS_UNKNOWN: IndexingJobStatus
 
 class GetIndexingJobStatusRequest(_message.Message):
     __slots__ = ("deployment_id", "directory_prefix_enum")
@@ -34,7 +49,13 @@ class GetIndexingJobStatusRequest(_message.Message):
     ) -> None: ...
 
 class GetIndexingJobStatusResponse(_message.Message):
-    __slots__ = ("export",)
+    __slots__ = ("export", "status")
     EXPORT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
     export: _export_pb2.Export
-    def __init__(self, export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...) -> None: ...
+    status: IndexingJobStatus
+    def __init__(
+        self,
+        export: _Optional[_Union[_export_pb2.Export, _Mapping]] = ...,
+        status: _Optional[_Union[IndexingJobStatus, str]] = ...,
+    ) -> None: ...

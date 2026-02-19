@@ -99,6 +99,7 @@ def change_effect_type(
         "GAUSSIAN_BLUR",
         "TEXT",
         "COLORMIX",
+        "COMPOSITOR",
     ]
     | None = "CROSS",
 ) -> set[Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
@@ -153,6 +154,9 @@ def change_effect_type(
 
     COLORMIX
     Color Mix -- Combine two strips using blend modes.
+
+    COMPOSITOR
+    Compositor -- Compositor based effect.
         :return: Result of the operator call.
     """
 
@@ -391,6 +395,7 @@ def effect_strip_add(
         "GAUSSIAN_BLUR",
         "TEXT",
         "COLORMIX",
+        "COMPOSITOR",
     ]
     | None = "CROSS",
     move_strips: bool | None = True,
@@ -454,6 +459,9 @@ def effect_strip_add(
 
     COLORMIX
     Color Mix -- Combine two strips using blend modes.
+
+    COMPOSITOR
+    Compositor -- Compositor based effect.
         :param move_strips: Move Strips, Automatically begin translating strips with the mouse after adding them to the timeline (optional)
         :param frame_start: Start Frame, Start frame of the strip (in [-inf, inf], optional)
         :param length: Length, Length of the strip in frames, or the length of each strip if multiple are added (in [-inf, inf], optional)

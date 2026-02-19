@@ -152,8 +152,16 @@ class GetIntegrationResponse(_message.Message):
     integration_with_secrets: IntegrationWithSecrets
     def __init__(self, integration_with_secrets: _Optional[_Union[IntegrationWithSecrets, _Mapping]] = ...) -> None: ...
 
+class IntegrationConfigValue(_message.Message):
+    __slots__ = ("literal", "secret_id")
+    LITERAL_FIELD_NUMBER: _ClassVar[int]
+    SECRET_ID_FIELD_NUMBER: _ClassVar[int]
+    literal: str
+    secret_id: str
+    def __init__(self, literal: _Optional[str] = ..., secret_id: _Optional[str] = ...) -> None: ...
+
 class InsertIntegrationRequest(_message.Message):
-    __slots__ = ("name", "integration_kind", "environment_variables")
+    __slots__ = ("name", "integration_kind", "environment_variables", "config")
     class EnvironmentVariablesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -162,17 +170,30 @@ class InsertIntegrationRequest(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class ConfigEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: IntegrationConfigValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[IntegrationConfigValue, _Mapping]] = ...
+        ) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_KIND_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_VARIABLES_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     integration_kind: IntegrationKind
     environment_variables: _containers.ScalarMap[str, str]
+    config: _containers.MessageMap[str, IntegrationConfigValue]
     def __init__(
         self,
         name: _Optional[str] = ...,
         integration_kind: _Optional[_Union[IntegrationKind, str]] = ...,
         environment_variables: _Optional[_Mapping[str, str]] = ...,
+        config: _Optional[_Mapping[str, IntegrationConfigValue]] = ...,
     ) -> None: ...
 
 class InsertIntegrationResponse(_message.Message):
@@ -182,7 +203,7 @@ class InsertIntegrationResponse(_message.Message):
     def __init__(self, integration: _Optional[_Union[Integration, _Mapping]] = ...) -> None: ...
 
 class UpdateIntegrationRequest(_message.Message):
-    __slots__ = ("name", "integration_id", "environment_variables")
+    __slots__ = ("name", "integration_id", "environment_variables", "config")
     class EnvironmentVariablesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -191,17 +212,30 @@ class UpdateIntegrationRequest(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class ConfigEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: IntegrationConfigValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[IntegrationConfigValue, _Mapping]] = ...
+        ) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_VARIABLES_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
     name: str
     integration_id: str
     environment_variables: _containers.ScalarMap[str, str]
+    config: _containers.MessageMap[str, IntegrationConfigValue]
     def __init__(
         self,
         name: _Optional[str] = ...,
         integration_id: _Optional[str] = ...,
         environment_variables: _Optional[_Mapping[str, str]] = ...,
+        config: _Optional[_Mapping[str, IntegrationConfigValue]] = ...,
     ) -> None: ...
 
 class UpdateIntegrationResponse(_message.Message):
@@ -245,7 +279,7 @@ class PreviewedMessage(_message.Message):
     ) -> None: ...
 
 class TestIntegrationRequest(_message.Message):
-    __slots__ = ("kind", "environment_variables", "integration_id", "include_preview")
+    __slots__ = ("kind", "environment_variables", "config", "integration_id", "include_preview")
     class EnvironmentVariablesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -254,18 +288,31 @@ class TestIntegrationRequest(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
 
+    class ConfigEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: IntegrationConfigValue
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[IntegrationConfigValue, _Mapping]] = ...
+        ) -> None: ...
+
     KIND_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_VARIABLES_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FIELD_NUMBER: _ClassVar[int]
     INTEGRATION_ID_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_PREVIEW_FIELD_NUMBER: _ClassVar[int]
     kind: IntegrationKind
     environment_variables: _containers.ScalarMap[str, str]
+    config: _containers.MessageMap[str, IntegrationConfigValue]
     integration_id: str
     include_preview: bool
     def __init__(
         self,
         kind: _Optional[_Union[IntegrationKind, str]] = ...,
         environment_variables: _Optional[_Mapping[str, str]] = ...,
+        config: _Optional[_Mapping[str, IntegrationConfigValue]] = ...,
         integration_id: _Optional[str] = ...,
         include_preview: bool = ...,
     ) -> None: ...

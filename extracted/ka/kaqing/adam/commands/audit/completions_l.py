@@ -1,4 +1,4 @@
-from adam.rdbms.utils_athena import Athena
+from adam.utils_rdbms.athena import Athena
 from adam.sql.lark_completer import LarkCompleter
 from adam.utils_repl.repl_state import ReplState
 

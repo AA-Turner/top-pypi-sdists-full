@@ -18,7 +18,7 @@ from chalk._gen.chalk.utils.v1 import sensitive_pb2 as chalk_dot_utils_dot_v1_do
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/server/v1/clickhouse.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto"\x19\n\x17GetClickhouseUriRequest"2\n\x18GetClickhouseUriResponse\x12\x16\n\x03uri\x18\x01 \x01(\tB\x04\xd8\xa1\'\x01R\x03uri2\x84\x01\n\x11\x43lickhouseService\x12o\n\x10GetClickhouseUri\x12(.chalk.server.v1.GetClickhouseUriRequest\x1a).chalk.server.v1.GetClickhouseUriResponse"\x06\x90\x02\x01\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0f\x43lickhouseProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n chalk/server/v1/clickhouse.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1e\x63halk/utils/v1/sensitive.proto"\x19\n\x17GetClickhouseUriRequest"2\n\x18GetClickhouseUriResponse\x12\x16\n\x03uri\x18\x01 \x01(\tB\x04\xd8\xa1\'\x01R\x03uri"^\n\x08OtelTtls\x12&\n\x0flog_ttl_minutes\x18\x01 \x01(\x05R\rlogTtlMinutes\x12*\n\x11trace_ttl_minutes\x18\x02 \x01(\x05R\x0ftraceTtlMinutes"\xa6\x01\n\x1cSetClickhouseOtelTtlsRequest\x12+\n\x0flog_ttl_minutes\x18\x01 \x01(\x05H\x00R\rlogTtlMinutes\x88\x01\x01\x12/\n\x11trace_ttl_minutes\x18\x02 \x01(\x05H\x01R\x0ftraceTtlMinutes\x88\x01\x01\x42\x12\n\x10_log_ttl_minutesB\x14\n\x12_trace_ttl_minutes"N\n\x1dSetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls"\x1e\n\x1cGetClickhouseOtelTtlsRequest"N\n\x1dGetClickhouseOtelTtlsResponse\x12-\n\x04ttls\x18\x01 \x01(\x0b\x32\x19.chalk.server.v1.OtelTtlsR\x04ttls2\x81\x03\n\x11\x43lickhouseService\x12o\n\x10GetClickhouseUri\x12(.chalk.server.v1.GetClickhouseUriRequest\x1a).chalk.server.v1.GetClickhouseUriResponse"\x06\x90\x02\x01\x80}\x0b\x12~\n\x15GetClickhouseOtelTtls\x12-.chalk.server.v1.GetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.GetClickhouseOtelTtlsResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x15SetClickhouseOtelTtls\x12-.chalk.server.v1.SetClickhouseOtelTtlsRequest\x1a..chalk.server.v1.SetClickhouseOtelTtlsResponse"\x03\x80}\x0b\x42\x98\x01\n\x13\x63om.chalk.server.v1B\x0f\x43lickhouseProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -33,10 +33,26 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_GETCLICKHOUSEURIRESPONSE"].fields_by_name["uri"]._serialized_options = b"\330\241'\001"
     _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseUri"]._options = None
     _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseUri"]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["GetClickhouseOtelTtls"]._options = None
+    _globals["_CLICKHOUSESERVICE"].methods_by_name[
+        "GetClickhouseOtelTtls"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["SetClickhouseOtelTtls"]._options = None
+    _globals["_CLICKHOUSESERVICE"].methods_by_name["SetClickhouseOtelTtls"]._serialized_options = b"\200}\013"
     _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_start = 118
     _globals["_GETCLICKHOUSEURIREQUEST"]._serialized_end = 143
     _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_start = 145
     _globals["_GETCLICKHOUSEURIRESPONSE"]._serialized_end = 195
-    _globals["_CLICKHOUSESERVICE"]._serialized_start = 198
-    _globals["_CLICKHOUSESERVICE"]._serialized_end = 330
+    _globals["_OTELTTLS"]._serialized_start = 197
+    _globals["_OTELTTLS"]._serialized_end = 291
+    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 294
+    _globals["_SETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 460
+    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 462
+    _globals["_SETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 540
+    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_start = 542
+    _globals["_GETCLICKHOUSEOTELTTLSREQUEST"]._serialized_end = 572
+    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_start = 574
+    _globals["_GETCLICKHOUSEOTELTTLSRESPONSE"]._serialized_end = 652
+    _globals["_CLICKHOUSESERVICE"]._serialized_start = 655
+    _globals["_CLICKHOUSESERVICE"]._serialized_end = 1040
 # @@protoc_insertion_point(module_scope)

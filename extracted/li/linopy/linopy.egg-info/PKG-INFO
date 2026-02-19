@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: linopy
-Version: 0.6.3
+Version: 0.6.4
 Summary: Linear optimization with N-D labeled arrays in Python
 Author-email: Fabian Hofmann <fabianmarikhofmann@gmail.com>
 Project-URL: Homepage, https://github.com/PyPSA/linopy
@@ -69,6 +69,7 @@ Requires-Dist: mindoptpy; python_version < "3.12" and extra == "solvers"
 Requires-Dist: coptpy!=7.2.1; extra == "solvers"
 Requires-Dist: xpress; (platform_system != "Darwin" and python_version < "3.11") and extra == "solvers"
 Requires-Dist: pyscipopt; platform_system != "Darwin" and extra == "solvers"
+Requires-Dist: knitro>=15.1.0; extra == "solvers"
 Dynamic: license-file
 
 # linopy: Optimization with array-like variables and constraints
@@ -216,13 +217,14 @@ Fri    0          4
 
 * [Cbc](https://projects.coin-or.org/Cbc)
 * [GLPK](https://www.gnu.org/software/glpk/)
-* [HiGHS](https://www.maths.ed.ac.uk/hall/HiGHS/)
+* [HiGHS](https://highs.dev/)
 * [Gurobi](https://www.gurobi.com/)
 * [Xpress](https://www.fico.com/en/products/fico-xpress-solver)
 * [Cplex](https://www.ibm.com/de-de/analytics/cplex-optimizer)
 * [MOSEK](https://www.mosek.com/)
 * [COPT](https://www.shanshu.ai/copt)
 * [cuPDLPx](https://github.com/MIT-Lu-Lab/cuPDLPx)
+* [Knitro](https://www.artelys.com/solvers/knitro/)
 
 Note that these do have to be installed by the user separately.
 

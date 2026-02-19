@@ -22,13 +22,13 @@ from arelle.ModelValue import QName, qname
 from arelle.ModelXbrl import ModelXbrl
 from arelle.ValidateDuplicateFacts import DuplicateType
 from arelle.ValidateXbrl import ValidateXbrl
-from arelle.XmlValidateConst import VALID
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
 from arelle.utils.validate.Decorator import validation
+from arelle.utils.validate.Document import checkDocumentEncoding
 from arelle.utils.validate.Validation import Validation
 from arelle.utils.validate.ValidationUtil import hasPresentationalConceptsWithFacts
-from ..Constants import AccountingStandard, HALF_KANA, JAPAN_LANGUAGE_CODES, REPORT_ELR_URI_PATTERN, REPORT_ELR_ID_PATTERN
+from ..Constants import AccountingStandard, JAPAN_LANGUAGE_CODES, REPORT_ELR_URI_PATTERN, REPORT_ELR_ID_PATTERN, STANDARD_TAXONOMY_URL_PREFIXES
 from ..ControllerPluginData import ControllerPluginData
 from ..DeiRequirements import DeiItemStatus
 from ..DisclosureSystems import DISCLOSURE_SYSTEM_EDINET
@@ -134,6 +134,31 @@ def rule_EC1057E(
                       "Please add '【提出日】' to the relevant file."),
                 file=modelDocument.basename,
             )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_EC5000E(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5000E: The encoding of the file must be UTF-8.
+    """
+    invalidEncodings = checkDocumentEncoding(val, ['utf-8', 'utf-8-sig'], STANDARD_TAXONOMY_URL_PREFIXES)
+    for modelDocument in invalidEncodings:
+        yield Validation.error(
+            codes='EDINET.EC5000E',
+            msg=_("The encoding is not UTF-8. "
+                  "File name: '%(path)s'. "
+                  "Please change the encoding of the relevant file to UTF-8."),
+            path=modelDocument.uri,
+            modelObject=modelDocument,
+        )
 
 
 @validation(
@@ -984,6 +1009,7 @@ def rule_EC8073E(
     axisConcept = val.modelXbrl.qnameConcepts.get(pluginData.categoriesOfDirectorsAndOtherOfficersAxisQn)
     if axisConcept is None:
         return
+    illegalCharactersPattern = pluginData.getIllegalCharactersPattern(val.modelXbrl)
     defRelSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.DEFINITION.getArcroles()))
     labelRelSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
     for rel in defRelSet.fromModelObject(axisConcept):
@@ -992,7 +1018,7 @@ def rule_EC8073E(
         for labelRel in labelRelSet.fromModelObject(rel.toModelObject):
             if labelRel.toModelObject is None or labelRel.toModelObject.textValue is None:
                 continue
-            illegalChars = HALF_KANA.intersection(set(labelRel.toModelObject.textValue))
+            illegalChars = set(illegalCharactersPattern.findall(labelRel.toModelObject.textValue))
             if any(illegalChars):
                 yield Validation.error(
                     codes='EDINET.EC8073E',
@@ -1019,32 +1045,19 @@ def rule_EC8073W_EC8074W(
     EDINET.EC8073W: Prohibited characters are used in Japanese labels for descendents of ExecutiveOfficersMember
     EDINET.EC8074W: Prohibited characters are used in English labels for descendents of ExecutiveOfficersMember
     """
-    def getIllegalCharsJapanese(textValue: str) -> set[str]:
-        """Check for prohibited characters in Japanese labels."""
-        return set(HALF_KANA.intersection(set(textValue)))
-
-    def getIllegalCharsEnglish(textValue: str) -> set[str]:
-        """Check for prohibited characters in English labels."""
-        illegalChars = set()
-        for char in textValue:
-            if char in HALF_KANA:
-                illegalChars.add(char)
-                continue
-            codePoint = ord(char)
-            if 0xA1 <= codePoint <= 0xBF:
-                # Exclude symbols
-                illegalChars.add(char)
-            elif codePoint in (0xD7, 0xF7):
-                # Exclude multiplication and division symbols
-                illegalChars.add(char)
-            elif codePoint > 0xFF:
-                # Characters beyond Latin-1
-                illegalChars.add(char)
-        return illegalChars
-
     memberConcept = val.modelXbrl.qnameConcepts.get(pluginData.executiveOfficersMemberQn)
     if memberConcept is None:
         return
+
+    # Pattern breakdown:
+    # \u0020-\u007E : Basic Latin (Alphanumeric + Symbols)
+    # \u00C0-\u00D6 : Latin-1 Letters (Part 1)
+    # \u00D8-\u00F6 : Latin-1 Letters (Part 2)
+    # \u00F8-\u00FF : Latin-1 Letters (Part 3)
+    # Note: U+00D7 is '×' and U+00F7 is '÷', which are symbols.
+    illegalEnglishCharactersPattern = regex.compile(r'[^\u0020-\u007E\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u00FF]')
+    illegalJapaneseCharactersPattern = pluginData.getIllegalCharactersPattern(val.modelXbrl)
+
     defRelSet = val.modelXbrl.relationshipSet(tuple(LinkbaseType.DEFINITION.getArcroles()))
     labelRelSet = val.modelXbrl.relationshipSet(XbrlConst.conceptLabel)
     conceptsLabelsToCheck = {memberConcept}.union(
@@ -1058,7 +1071,7 @@ def rule_EC8073W_EC8074W(
 
             # Check Japanese labels
             if label.xmlLang in JAPAN_LANGUAGE_CODES:
-                illegalChars = getIllegalCharsJapanese(label.textValue)
+                illegalChars = set(illegalJapaneseCharactersPattern.findall(label.textValue))
                 if illegalChars:
                     yield Validation.warning(
                         codes='EDINET.EC8073W',
@@ -1072,7 +1085,7 @@ def rule_EC8073W_EC8074W(
 
             # Check English labels
             elif label.xmlLang == 'en':
-                illegalChars = getIllegalCharsEnglish(label.textValue)
+                illegalChars = set(illegalEnglishCharactersPattern.findall(label.textValue))
                 if illegalChars:
                     yield Validation.warning(
                         codes='EDINET.EC8074W',

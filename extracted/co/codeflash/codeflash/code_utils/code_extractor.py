@@ -16,6 +16,7 @@ from libcst.helpers import calculate_module_and_package
 
 from codeflash.cli_cmds.console import logger
 from codeflash.code_utils.config_consts import MAX_CONTEXT_LEN_REVIEW
+from codeflash.languages.base import Language
 from codeflash.models.models import CodePosition, FunctionParent
 
 if TYPE_CHECKING:
@@ -44,14 +45,14 @@ class GlobalFunctionCollector(cst.CSTVisitor):
         self.scope_depth += 1
         return True
 
-    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:
         self.scope_depth -= 1
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> Optional[bool]:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> Optional[bool]:
         self.scope_depth += 1
         return True
 
-    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:  # noqa: ARG002
+    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:
         self.scope_depth -= 1
 
 
@@ -65,7 +66,7 @@ class GlobalFunctionTransformer(cst.CSTTransformer):
         self.processed_functions: set[str] = set()
         self.scope_depth = 0
 
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
         self.scope_depth += 1
 
     def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.FunctionDef:
@@ -80,14 +81,14 @@ class GlobalFunctionTransformer(cst.CSTTransformer):
             return self.new_functions[name]
         return updated_node
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> None:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> None:
         self.scope_depth += 1
 
-    def leave_ClassDef(self, original_node: cst.ClassDef, updated_node: cst.ClassDef) -> cst.ClassDef:  # noqa: ARG002
+    def leave_ClassDef(self, original_node: cst.ClassDef, updated_node: cst.ClassDef) -> cst.ClassDef:
         self.scope_depth -= 1
         return updated_node
 
-    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:  # noqa: ARG002
+    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
         # Add any new functions that weren't in the original file
         new_statements = list(updated_node.body)
 
@@ -141,28 +142,28 @@ class GlobalAssignmentCollector(cst.CSTVisitor):
         self.scope_depth = 0
         self.if_else_depth = 0
 
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> Optional[bool]:  # noqa: ARG002
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> Optional[bool]:
         self.scope_depth += 1
         return True
 
-    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:
         self.scope_depth -= 1
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> Optional[bool]:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> Optional[bool]:
         self.scope_depth += 1
         return True
 
-    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:  # noqa: ARG002
+    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:
         self.scope_depth -= 1
 
-    def visit_If(self, node: cst.If) -> Optional[bool]:  # noqa: ARG002
+    def visit_If(self, node: cst.If) -> Optional[bool]:
         self.if_else_depth += 1
         return True
 
-    def leave_If(self, original_node: cst.If) -> None:  # noqa: ARG002
+    def leave_If(self, original_node: cst.If) -> None:
         self.if_else_depth -= 1
 
-    def visit_Else(self, node: cst.Else) -> Optional[bool]:  # noqa: ARG002
+    def visit_Else(self, node: cst.Else) -> Optional[bool]:
         # Else blocks are already counted as part of the if statement
         return True
 
@@ -231,24 +232,24 @@ class GlobalAssignmentTransformer(cst.CSTTransformer):
         self.scope_depth = 0
         self.if_else_depth = 0
 
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
         self.scope_depth += 1
 
-    def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.FunctionDef:  # noqa: ARG002
+    def leave_FunctionDef(self, original_node: cst.FunctionDef, updated_node: cst.FunctionDef) -> cst.FunctionDef:
         self.scope_depth -= 1
         return updated_node
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> None:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> None:
         self.scope_depth += 1
 
-    def leave_ClassDef(self, original_node: cst.ClassDef, updated_node: cst.ClassDef) -> cst.ClassDef:  # noqa: ARG002
+    def leave_ClassDef(self, original_node: cst.ClassDef, updated_node: cst.ClassDef) -> cst.ClassDef:
         self.scope_depth -= 1
         return updated_node
 
-    def visit_If(self, node: cst.If) -> None:  # noqa: ARG002
+    def visit_If(self, node: cst.If) -> None:
         self.if_else_depth += 1
 
-    def leave_If(self, original_node: cst.If, updated_node: cst.If) -> cst.If:  # noqa: ARG002
+    def leave_If(self, original_node: cst.If, updated_node: cst.If) -> cst.If:
         self.if_else_depth -= 1
         return updated_node
 
@@ -283,7 +284,7 @@ class GlobalAssignmentTransformer(cst.CSTTransformer):
 
         return updated_node
 
-    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:  # noqa: ARG002
+    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
         # Add any new assignments that weren't in the original file
         new_statements = list(updated_node.body)
 
@@ -370,7 +371,7 @@ class GlobalStatementTransformer(cst.CSTTransformer):
         super().__init__()
         self.global_statements = global_statements
 
-    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:  # noqa: ARG002
+    def leave_Module(self, original_node: cst.Module, updated_node: cst.Module) -> cst.Module:
         if not self.global_statements:
             return updated_node
 
@@ -396,20 +397,20 @@ class GlobalStatementCollector(cst.CSTVisitor):
         self.global_statements = []
         self.in_function_or_class = False
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> bool:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> bool:
         # Don't visit inside classes
         self.in_function_or_class = True
         return False
 
-    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:  # noqa: ARG002
+    def leave_ClassDef(self, original_node: cst.ClassDef) -> None:
         self.in_function_or_class = False
 
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:  # noqa: ARG002
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:
         # Don't visit inside functions
         self.in_function_or_class = True
         return False
 
-    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def leave_FunctionDef(self, original_node: cst.FunctionDef) -> None:
         self.in_function_or_class = False
 
     def visit_SimpleStatementLine(self, node: cst.SimpleStatementLine) -> None:
@@ -490,16 +491,16 @@ class DottedImportCollector(cst.CSTVisitor):
         self.depth = 0
         self._collect_imports_from_block(node)
 
-    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> None:
         self.depth += 1
 
-    def leave_FunctionDef(self, node: cst.FunctionDef) -> None:  # noqa: ARG002
+    def leave_FunctionDef(self, node: cst.FunctionDef) -> None:
         self.depth -= 1
 
-    def visit_ClassDef(self, node: cst.ClassDef) -> None:  # noqa: ARG002
+    def visit_ClassDef(self, node: cst.ClassDef) -> None:
         self.depth += 1
 
-    def leave_ClassDef(self, node: cst.ClassDef) -> None:  # noqa: ARG002
+    def leave_ClassDef(self, node: cst.ClassDef) -> None:
         self.depth -= 1
 
     def visit_If(self, node: cst.If) -> None:
@@ -529,9 +530,7 @@ def find_last_import_line(target_code: str) -> int:
 
 class FutureAliasedImportTransformer(cst.CSTTransformer):
     def leave_ImportFrom(
-        self,
-        original_node: cst.ImportFrom,  # noqa: ARG002
-        updated_node: cst.ImportFrom,
+        self, original_node: cst.ImportFrom, updated_node: cst.ImportFrom
     ) -> cst.BaseSmallStatement | cst.FlattenSentinel[cst.BaseSmallStatement] | cst.RemovalSentinel:
         import libcst.matchers as m
 
@@ -676,7 +675,7 @@ def resolve_star_import(module_name: str, project_root: Path) -> set[str]:
                     if not name.startswith("_"):
                         public_names.add(name)
 
-        return public_names  # noqa: TRY300
+        return public_names
 
     except Exception as e:
         logger.warning(f"Error resolving star import for {module_name}: {e}")
@@ -1165,7 +1164,7 @@ class FunctionCallFinder(ast.NodeVisitor):
 
         return False
 
-    def _get_call_name(self, func_node) -> Optional[str]:  # noqa: ANN001
+    def _get_call_name(self, func_node) -> Optional[str]:
         """Extract the name being called from a function node."""
         # Fast path short-circuit for ast.Name nodes
         if isinstance(func_node, ast.Name):
@@ -1341,9 +1340,12 @@ def get_fn_references_jedi(
     source_code: str, file_path: Path, project_root: Path, target_function: str, target_class: str | None
 ) -> list[Path]:
     start_time = time.perf_counter()
-    function_position: CodePosition = find_specific_function_in_file(
+    function_position: CodePosition | None = find_specific_function_in_file(
         source_code, file_path, target_function, target_class
     )
+    if function_position is None:
+        # Function not found (may be non-Python code)
+        return []
     try:
         script = jedi.Script(code=source_code, path=file_path, project=jedi.Project(path=project_root))
         # Get references to the function
@@ -1427,7 +1429,9 @@ def _collect_numerical_imports(tree: ast.Module) -> tuple[set[str], set[str]]:
     numerical_names: set[str] = set()
     modules_used: set[str] = set()
 
-    for node in ast.walk(tree):
+    stack: list[ast.AST] = [tree]
+    while stack:
+        node = stack.pop()
         if isinstance(node, ast.Import):
             for alias in node.names:
                 # import numpy or import numpy as np
@@ -1449,6 +1453,8 @@ def _collect_numerical_imports(tree: ast.Module) -> tuple[set[str], set[str]]:
                         name = alias.asname if alias.asname else alias.name
                         numerical_names.add(name)
                 modules_used.add(module_root)
+        else:
+            stack.extend(ast.iter_child_nodes(node))
 
     return numerical_names, modules_used
 
@@ -1555,29 +1561,234 @@ def is_numerical_code(code_string: str, function_name: str | None = None) -> boo
 
     # If numba is not installed and all modules used require numba for optimization,
     # return False since we can't optimize this code
-    if not has_numba and modules_used.issubset(NUMBA_REQUIRED_MODULES):  # noqa : SIM103
-        return False
-
-    return True
+    return not (not has_numba and modules_used.issubset(NUMBA_REQUIRED_MODULES))
 
 
 def get_opt_review_metrics(
-    source_code: str, file_path: Path, qualified_name: str, project_root: Path, tests_root: Path
+    source_code: str, file_path: Path, qualified_name: str, project_root: Path, tests_root: Path, language: Language
 ) -> str:
+    """Get function reference metrics for optimization review.
+
+    Uses the LanguageSupport abstraction to find references, supporting both Python and JavaScript/TypeScript.
+
+    Args:
+        source_code: Source code of the file containing the function.
+        file_path: Path to the file.
+        qualified_name: Qualified name of the function (e.g., "module.ClassName.method").
+        project_root: Root of the project.
+        tests_root: Root of the tests directory.
+        language: The programming language.
+
+    Returns:
+        Markdown-formatted string with code blocks showing calling functions.
+
+    """
+    from codeflash.discovery.functions_to_optimize import FunctionToOptimize
+    from codeflash.languages.registry import get_language_support
+    from codeflash.models.models import FunctionParent
+
     start_time = time.perf_counter()
+
     try:
+        # Get the language support
+        lang_support = get_language_support(language)
+        if lang_support is None:
+            return ""
+
+        # Parse qualified name to get function name and class name
         qualified_name_split = qualified_name.rsplit(".", maxsplit=1)
         if len(qualified_name_split) == 1:
-            target_function, target_class = qualified_name_split[0], None
+            function_name, class_name = qualified_name_split[0], None
         else:
-            target_function, target_class = qualified_name_split[1], qualified_name_split[0]
-        matches = get_fn_references_jedi(
-            source_code, file_path, project_root, target_function, target_class
-        )  # jedi is not perfect, it doesn't capture aliased references
-        calling_fns_details = find_occurances(qualified_name, str(file_path), matches, project_root, tests_root)
+            function_name, class_name = qualified_name_split[1], qualified_name_split[0]
+
+        # Create a FunctionToOptimize for the function
+        # We don't have full line info here, so we'll use defaults
+        parents: list[FunctionParent] = []
+        if class_name:
+            parents = [FunctionParent(name=class_name, type="ClassDef")]
+
+        func_info = FunctionToOptimize(
+            function_name=function_name,
+            file_path=file_path,
+            parents=parents,
+            starting_line=1,
+            ending_line=1,
+            language=str(language),
+        )
+
+        # Find references using language support
+        references = lang_support.find_references(func_info, project_root, tests_root, max_files=500)
+
+        if not references:
+            return ""
+
+        # Format references as markdown code blocks
+        calling_fns_details = _format_references_as_markdown(references, file_path, project_root, language)
+
     except Exception as e:
+        logger.debug(f"Error getting function references: {e}")
         calling_fns_details = ""
-        logger.debug(f"Investigate {e}")
+
     end_time = time.perf_counter()
     logger.debug(f"Got function references in {end_time - start_time:.2f} seconds")
     return calling_fns_details
+
+
+def _format_references_as_markdown(references: list, file_path: Path, project_root: Path, language: Language) -> str:
+    """Format references as markdown code blocks with calling function code.
+
+    Args:
+        references: List of ReferenceInfo objects.
+        file_path: Path to the source file (to exclude).
+        project_root: Root of the project.
+        language: The programming language.
+
+    Returns:
+        Markdown-formatted string.
+
+    """
+    # Group references by file
+    refs_by_file: dict[Path, list] = {}
+    for ref in references:
+        # Exclude the source file's definition/import references
+        if ref.file_path == file_path and ref.reference_type in ("import", "reexport"):
+            continue
+
+        if ref.file_path not in refs_by_file:
+            refs_by_file[ref.file_path] = []
+        refs_by_file[ref.file_path].append(ref)
+
+    fn_call_context = ""
+    context_len = 0
+
+    for ref_file, file_refs in refs_by_file.items():
+        if context_len > MAX_CONTEXT_LEN_REVIEW:
+            break
+
+        try:
+            path_relative = ref_file.relative_to(project_root)
+        except ValueError:
+            continue
+
+        # Get syntax highlighting language
+        ext = ref_file.suffix.lstrip(".")
+        if language == Language.PYTHON:
+            lang_hint = "python"
+        elif ext in ("ts", "tsx"):
+            lang_hint = "typescript"
+        else:
+            lang_hint = "javascript"
+
+        # Read the file to extract calling function context
+        try:
+            file_content = ref_file.read_text(encoding="utf-8")
+            lines = file_content.splitlines()
+        except Exception:
+            continue
+
+        # Get unique caller functions from this file
+        callers_seen: set[str] = set()
+        caller_contexts: list[str] = []
+
+        for ref in file_refs:
+            caller = ref.caller_function or "<module>"
+            if caller in callers_seen:
+                continue
+            callers_seen.add(caller)
+
+            # Extract context around the reference
+            if ref.caller_function:
+                # Try to extract the full calling function
+                func_code = _extract_calling_function(file_content, ref.caller_function, ref.line, language)
+                if func_code:
+                    caller_contexts.append(func_code)
+                    context_len += len(func_code)
+            else:
+                # Module-level call - show a few lines of context
+                start_line = max(0, ref.line - 3)
+                end_line = min(len(lines), ref.line + 2)
+                context_code = "\n".join(lines[start_line:end_line])
+                caller_contexts.append(context_code)
+                context_len += len(context_code)
+
+        if caller_contexts:
+            fn_call_context += f"```{lang_hint}:{path_relative.as_posix()}\n"
+            fn_call_context += "\n".join(caller_contexts)
+            fn_call_context += "\n```\n"
+
+    return fn_call_context
+
+
+def _extract_calling_function(source_code: str, function_name: str, ref_line: int, language: Language) -> str | None:
+    """Extract the source code of a calling function.
+
+    Args:
+        source_code: Full source code of the file.
+        function_name: Name of the function to extract.
+        ref_line: Line number where the reference is.
+        language: The programming language.
+
+    Returns:
+        Source code of the function, or None if not found.
+
+    """
+    if language == Language.PYTHON:
+        return _extract_calling_function_python(source_code, function_name, ref_line)
+    return _extract_calling_function_js(source_code, function_name, ref_line)
+
+
+def _extract_calling_function_python(source_code: str, function_name: str, ref_line: int) -> str | None:
+    """Extract the source code of a calling function in Python."""
+    try:
+        import ast
+
+        tree = ast.parse(source_code)
+        lines = source_code.splitlines()
+
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                if node.name == function_name:
+                    # Check if the reference line is within this function
+                    start_line = node.lineno
+                    end_line = node.end_lineno or start_line
+                    if start_line <= ref_line <= end_line:
+                        return "\n".join(lines[start_line - 1 : end_line])
+        return None
+    except Exception:
+        return None
+
+
+def _extract_calling_function_js(source_code: str, function_name: str, ref_line: int) -> str | None:
+    """Extract the source code of a calling function in JavaScript/TypeScript.
+
+    Args:
+        source_code: Full source code of the file.
+        function_name: Name of the function to extract.
+        ref_line: Line number where the reference is (helps identify the right function).
+
+    Returns:
+        Source code of the function, or None if not found.
+
+    """
+    try:
+        from codeflash.languages.javascript.treesitter import TreeSitterAnalyzer, TreeSitterLanguage
+
+        # Try TypeScript first, fall back to JavaScript
+        for lang in [TreeSitterLanguage.TYPESCRIPT, TreeSitterLanguage.TSX, TreeSitterLanguage.JAVASCRIPT]:
+            try:
+                analyzer = TreeSitterAnalyzer(lang)
+                functions = analyzer.find_functions(source_code, include_methods=True)
+
+                for func in functions:
+                    if func.name == function_name:
+                        # Check if the reference line is within this function
+                        if func.start_line <= ref_line <= func.end_line:
+                            return func.source_text
+                break
+            except Exception:
+                continue
+
+        return None
+    except Exception:
+        return None

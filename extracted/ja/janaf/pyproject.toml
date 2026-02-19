@@ -3,7 +3,7 @@ dynamic = ["version"]
 name = "janaf"
 description = "Python wrapper for NIST-JANAF Thermochemical Tables"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = "MIT"
 authors = [
   { name = "Takumasa Nakamura", email = "n.takumasa@gmail.com" },
@@ -11,7 +11,6 @@ authors = [
 classifiers = [
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -25,8 +24,7 @@ classifiers = [
 urls.Repository = "https://github.com/n-takumasa/py-janaf"
 
 dependencies = [
-  "polars>=1.0.0",
-  "importlib_resources>=5.0; python_version < '3.9'",
+  "polars>=1.32.0",
 ]
 
 [project.optional-dependencies]
@@ -44,13 +42,18 @@ dev = [
   { include-group = "optional" },
   "tox>=4.22",
   "tox-uv",
+  { include-group = "docs" },
   { include-group = "lint" },
   { include-group = "script" },
   { include-group = "test" },
-  { include-group = "type" },
+  { include-group = "type_ty" },
 ]
 lint = ["ruff"]
 script = ["aiofiles", "aiohttp"]
+docs = [
+  "mkdocstrings-python>=1.11.1",
+  "zensical>=0.0.21",
+]
 test-base = [
   "pytest>=8",
   "pytest-cov",
@@ -65,11 +68,19 @@ test = [
 test-min = [
   { include-group = "test-base" },
 ]
-type = [
+type_ty = [
+  "ty>=0.0.2",
+  { include-group = "script" },
+  { include-group = "test" },
+]
+type_mypy = [
   "mypy[install-types]",
   { include-group = "script" },
   { include-group = "test" },
 ]
+
+[tool.uv.dependency-groups]
+docs = { requires-python = ">=3.13" }
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -85,7 +96,7 @@ build.targets.sdist.exclude = [
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-testpaths = ["tests"]
+testpaths = ["tests", "src", "README.md"]
 log_cli_level = "INFO"
 xfail_strict = true
 addopts = [
@@ -93,6 +104,8 @@ addopts = [
   "--strict-config",
   "--strict-markers",
   "-p", "no:faulthandler",  # TODO: pola-rs/polars#23142
+  "--doctest-modules",
+  "--doctest-glob", "*.md",
 ]
 filterwarnings = ["error"]
 
@@ -109,14 +122,40 @@ report.exclude_lines = [
 
 [tool.ruff]
 line-length = 88
-lint.extend-select = [
-  "B",  # flake8-bugbear
-  "I",  # isort
-  "UP",  # pyupgrade
-]
 
 [tool.ruff.format]
+preview = false
 docstring-code-format = true
+
+[tool.ruff.lint]
+preview = true
+pydocstyle.convention = "numpy"
+extend-select = ["ALL"]
+extend-ignore = [
+  # https://docs.astral.sh/ruff/formatter/#conflicting-lint-rules
+  "W191", "E111", "E114", "E117", "D206", "D300",
+  "Q000", "Q001", "Q002", "COM812", "COM819", "E501",
+  #
+  "D100",  # undocumented-public-module
+  "D104",  # undocumented-public-package
+  "FIX002",  # line-contains-todo
+  "PLC0415",  # import-outside-top-level
+  "RET504",  # unnecessary-assign
+  "TD002",  # missing-todo-author
+  #
+  "CPY001",  # missing-copyright-notice
+  "PLC1901",  # compare-to-empty-string
+  "RUF067",  # non-empty-init-module
+]
+extend-per-file-ignores."example/**.py" = [
+  "D100",
+]
+extend-per-file-ignores."scripts/**.py" = [
+  "D100", "D103", "INP001", "LOG015", "PTH123", "S101", 
+]
+extend-per-file-ignores."tests/**.py" = [
+  "ANN201", "D100", "D103", "ICN001", "PTH123", "PLR2004", "S101", 
+]
 
 [tool.mypy]
 files = "src,scripts,example"
@@ -130,18 +169,17 @@ requires = [
     "tox-uv",
 ]
 env_list = [
-    "lint", "type", "min",
-    "3.14", "3.13", "3.12", "3.11", "3.10", "3.9", "3.8",
+    "lint", "type_ty", "type_mypy", "min",
+    "3.14", "3.13", "3.12", "3.11", "3.10", "3.9",
 ]
 
 [tool.tox.gh.python]
 "3.14" = ["3.14"]
-"3.13" = ["3.13", "lint", "type", "min"]
+"3.13" = ["3.13", "lint", "type_ty", "type_mypy", "min"]
 "3.12" = ["3.12"]
 "3.11" = ["3.11"]
 "3.10" = ["3.10"]
 "3.9" = ["3.9"]
-"3.8" = ["3.8"]
 
 [tool.tox.env_run_base]
 package = "wheel"
@@ -150,13 +188,20 @@ dependency_groups = ["test"]
 commands = [
     ["pytest", { replace = "posargs", default = [], extend = true }],
 ]
+set_env = { PY_IGNORE_IMPORTMISMATCH = "1" }  # pytest-dev/pytest#9567
 pass_env = [
   "GITHUB_ACTIONS",
 ]
 
+[tool.tox.env.docs]
+dependency_groups = ["docs"]
+commands = [
+  ["zensical", { replace = "posargs", default = ["build", "--clean"], extend = true }],
+]
+
 [tool.tox.env.min]
 dependency_groups = ["test-min"]
-set_env = { ALLOW_MISSING_DEPS = "1" }
+set_env = { ALLOW_MISSING_DEPS = "1", PY_IGNORE_IMPORTMISMATCH = "1" }  # pytest-dev/pytest#9567
 
 [tool.tox.env.lint]
 package = "skip"
@@ -171,9 +216,16 @@ pass_env = [
     "RUFF_OUTPUT_FORMAT",
 ]
 
-[tool.tox.env.type]
+[tool.tox.env.type_ty]
 package = "wheel"
-dependency_groups = ["type"]
+dependency_groups = ["type_ty"]
+commands = [
+    ["ty", "check", { replace = "posargs", default = [], extend = true }],
+]
+
+[tool.tox.env.type_mypy]
+package = "wheel"
+dependency_groups = ["type_mypy"]
 commands = [
     ["mypy", "--install-types", "--non-interactive", { replace = "posargs", default = [], extend = true }],
 ]

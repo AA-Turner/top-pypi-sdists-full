@@ -10,7 +10,6 @@ from virtualenv.util.path import ensure_dir
 from virtualenv.util.subprocess import run_cmd
 
 from .api import ViaGlobalRefApi, ViaGlobalRefMeta
-from .builtin.cpython.common import is_mac_os_framework
 from .builtin.cpython.mac_os import CPython3macOsBrew
 from .builtin.pypy.pypy3 import Pypy3Windows
 
@@ -36,8 +35,6 @@ class Venv(ViaGlobalRefApi):
             meta = ViaGlobalRefMeta()
             if interpreter.platform == "win32":
                 meta = handle_store_python(meta, interpreter)
-            if is_mac_os_framework(interpreter):
-                meta.copy_error = "macOS framework builds do not support copy-based virtual environments"
             return meta
         return None
 
@@ -48,13 +45,15 @@ class Venv(ViaGlobalRefApi):
             self.create_via_sub_process()
         for lib in self.libs:
             ensure_dir(lib)
-        if self.describe is not None:
-            self.describe.install_venv_shared_libs(self)
         super().create()
         self.executables_for_win_pypy_less_v37()
 
     def executables_for_win_pypy_less_v37(self):
-        """PyPy <= 3.6 (v7.3.3) for Windows contains only pypy3.exe and pypy3w.exe Venv does not handle non-existing exe sources, e.g. python.exe, so this patch does it."""
+        """
+        PyPy <= 3.6 (v7.3.3) for Windows contains only pypy3.exe and pypy3w.exe
+        Venv does not handle non-existing exe sources, e.g. python.exe, so this
+        patch does it.
+        """  # noqa: D205
         creator = self.describe
         if isinstance(creator, Pypy3Windows) and creator.less_v37:
             for exe in creator.executables(self.interpreter):

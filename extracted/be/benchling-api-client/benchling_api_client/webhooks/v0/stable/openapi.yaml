@@ -1008,6 +1008,14 @@ components:
           example: tenant.benchling.com
           nullable: false
           type: string
+        channel:
+          description: Channel of the webhook
+          enum:
+          - events
+          - app_signals
+          example: events
+          nullable: false
+          type: string
         message:
           $ref: '#/components/schemas/WebhookMessageV0'
         tenantId:
@@ -1029,6 +1037,7 @@ components:
       - app
       - appDefinition
       - message
+      - channel
       type: object
     WebhookMessageV0:
       discriminator:

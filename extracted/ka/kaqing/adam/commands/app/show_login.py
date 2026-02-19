@@ -7,7 +7,7 @@ from adam.utils import duration
 from adam.utils_apps.apps import Apps
 from adam.utils_log import log2, log_exc
 from adam.utils_repl.repl_state import ReplState
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class ShowLogin(Command):
     COMMAND = 'show login'

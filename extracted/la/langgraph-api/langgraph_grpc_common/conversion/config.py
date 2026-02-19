@@ -26,6 +26,7 @@ from langgraph_grpc_common.conversion._compat import (
     Runtime,
     StreamProtocol,
 )
+from langgraph_grpc_common.conversion.struct import _default_serializer
 from langgraph_grpc_common.proto import engine_common_pb2, enum_stream_mode_pb2
 
 CONFIG_KEY_GRAPH_ID = "graph_id"
@@ -194,7 +195,19 @@ def config_to_proto(
         elif k == "run_id":
             pb_config.server_run_id = str(v)
         else:
-            pb_config.metadata_json[k] = orjson.dumps(v)
+            try:
+                pb_config.metadata_json[k] = orjson.dumps(
+                    v, default=_default_serializer
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to serialize metadata value",
+                    extra={
+                        "metadata_key": str(k),
+                        "metadata_value_type": str(type(v)),
+                    },
+                )
+                raise
     if run_name := config.get("run_name"):
         pb_config.run_name = run_name
 
@@ -224,12 +237,12 @@ def config_to_proto(
         extra_json = {}
         for k, v in extra.items():
             try:
-                extra_json[k] = orjson.dumps(v)
+                extra_json[k] = orjson.dumps(v, default=_default_serializer)
             except Exception:
                 logger.warning(
                     "Ignoring unserializable extra config value",
                     extra={
-                        "config_key": k,
+                        "config_key": str(k),
                         "config_value_type": str(type(v)),
                     },
                 )
@@ -301,9 +314,23 @@ def _inject_configurable_into_proto(
         elif key not in RESTRICTED_RESERVED_CONFIGURABLE_KEYS:
             extra[key] = value
     if extra:
-        proto.extra_configurable_json.update(
-            {k: orjson.dumps(v) for k, v in extra.items()}
-        )
+        extra_configurable_json = {}
+        for k, v in extra.items():
+            try:
+                extra_configurable_json[k] = orjson.dumps(
+                    v, default=_default_serializer
+                )
+            except Exception:
+                logger.warning(
+                    "Failed to serialize extra configurable value",
+                    extra={
+                        "configurable_key": str(k),
+                        "configurable_value_type": str(type(v)),
+                    },
+                )
+                raise
+
+        proto.extra_configurable_json.update(extra_configurable_json)
 
 
 def runtime_to_proto(runtime: Runtime) -> engine_common_pb2.Runtime:

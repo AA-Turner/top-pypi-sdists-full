@@ -18,7 +18,6 @@ import riskfolio.src.ParamsEstimation as pe
 import riskfolio.src.DBHT as db
 import riskfolio.src.GerberStatistic as gs
 
-
 __all__ = [
     "HCPortfolio",
 ]
@@ -241,7 +240,7 @@ class HCPortfolio(object):
                 if self.kurt:
                     method_kurt = "hist"
                 elif self.skurt:
-                    method_kurt = "hist"
+                    method_kurt = "semi"
                 else:
                     method_kurt = None
 
@@ -271,7 +270,7 @@ class HCPortfolio(object):
                 if self.kurt:
                     method_kurt = "hist"
                 elif self.skurt:
-                    method_kurt = "hist"
+                    method_kurt = "semi"
                 else:
                     method_kurt = None
                 port.assets_stats(
@@ -337,7 +336,7 @@ class HCPortfolio(object):
                 S = codep.to_numpy()  # similarity matrix
             else:
                 S = self.codep.to_numpy()  # similarity matrix
-            (_, _, _, _, _, clustering) = db.DBHTs(
+            _, _, _, _, _, clustering = db.DBHTs(
                 D, S, leaf_order=leaf_order
             )  # DBHT clustering
         else:

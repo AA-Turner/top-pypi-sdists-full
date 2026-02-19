@@ -9,7 +9,7 @@ from kubernetes.stream.ws_client import ERROR_CHANNEL, WSClient
 import traceback
 from websocket._core import WebSocket
 
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_log import log_timing, PodLogFile, log2, debug, log_exc
 from adam.utils_context import NULL
 from adam.utils_k8s.kube_context import KubeContext

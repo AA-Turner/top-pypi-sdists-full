@@ -14,10 +14,9 @@
 use crate::domain::*;
 use crate::gp_config::*;
 use crate::qei_config::*;
-use crate::trego_config::TregoConfig;
-use crate::trego_config::TregoConfigSpec;
+use crate::trego_config::{TregoConfig, TregoConfigSpec};
 use crate::types::*;
-use egobox_ego::{CoegoStatus, InfillObjData, find_best_result_index};
+use egobox_ego::{CoegoStatus, InfillObjData, Result, find_best_result_index};
 use egobox_gp::ThetaTuning;
 use egobox_moe::NbClusters;
 use ndarray::{Array1, Array2, ArrayView2, Axis, array, concatenate};
@@ -27,6 +26,9 @@ use pyo3_stub_gen::derive::{gen_stub_pyclass, gen_stub_pymethods};
 use std::cmp::Ordering;
 
 /// Optimizer constructor
+///
+/// # Parameters
+///
 ///     xspecs (list(XSpec)) where XSpec(xtype=FLOAT|INT|ORD|ENUM, xlimits=[<f(xtype)>] or tags=[strings]):
 ///         Specifications of the nx components of the input x (eg. len(xspecs) == nx)
 ///         Depending on the x type we get the following for xlimits:
@@ -126,11 +128,15 @@ use std::cmp::Ordering;
 ///
 ///     seed (int >= 0):
 ///         Random generator seed to allow computation reproducibility.
+///
+/// # Returns
+///
+///     Egor object which can be used to optimize a function using the minimize method.
 ///      
 #[gen_stub_pyclass]
 #[pyclass]
 pub(crate) struct Egor {
-    pub xspecs: Py<PyAny>,
+    pub xtypes: Vec<egobox_moe::XType>,
     pub gp_config: GpConfig,
     pub n_cstr: usize,
     pub cstr_tol: Option<Vec<f64>>,
@@ -204,6 +210,8 @@ impl Egor {
     ) -> Self {
         let doe = doe.map(|x| x.to_owned_array());
 
+        let xtypes = parse(py, xspecs.clone_ref(py));
+
         // Parse trego configuration: boolean or custom configuration
         let trego = match trego {
             Some(trego_py) => {
@@ -228,7 +236,7 @@ impl Egor {
         log::info!("TREGO config: {:?}", trego);
 
         Egor {
-            xspecs,
+            xtypes,
             gp_config,
             n_cstr,
             cstr_tol,
@@ -251,10 +259,10 @@ impl Egor {
         }
     }
 
-    /// ```ignore
     /// This function finds the minimum of a given function "fun"
     ///
-    /// Parameters
+    /// # Parameters
+    ///
     ///     fun: (array[n, nx] -> array[n, ny])
     ///         the function to be minimized
     ///         fun(x) = [obj(x), cstr_1(x), ... cstr_k(x)] where
@@ -276,7 +284,8 @@ impl Egor {
     ///         Otherwise the function has to return the gradient (ndarray[nx,]) of the constraint function
     ///         wrt the "nx" components of "x".
     ///
-    /// Returns
+    /// # Returns
+    ///
     ///     optimization result
     ///         x_opt (array[1, nx]): x value where fun is at its minimum subject to constraints
     ///         y_opt (array[1, nx]): fun(x_opt)
@@ -290,12 +299,20 @@ impl Egor {
         max_iters: usize,
         run_info: Option<Py<PyAny>>,
     ) -> PyResult<OptimResult> {
-        let obj = |x: &ArrayView2<f64>| -> Array2<f64> {
+        let obj = |x: &ArrayView2<f64>| -> Result<Array2<f64>> {
             Python::attach(|py| {
                 let args = (x.to_owned().into_pyarray(py),);
-                let res = fun.bind(py).call1(args).unwrap();
-                let pyarray = res.downcast_into::<PyArray2<f64>>().unwrap();
-                pyarray.to_owned_array()
+                let res = fun.bind(py).call1(args);
+                match res {
+                    Ok(res) => {
+                        let pyarray = res.downcast_into::<PyArray2<f64>>().unwrap();
+                        Ok(pyarray.to_owned_array())
+                    }
+                    Err(e) => {
+                        log::error!("Error during objective function evaluation: {:?}", e);
+                        Err(egobox_ego::EgoError::UserFnError(e.to_string()))
+                    }
+                }
             })
         };
 
@@ -318,14 +335,12 @@ impl Egor {
             })
             .collect::<Vec<_>>();
 
-        let xtypes: Vec<egobox_ego::XType> = parse(py, self.xspecs.clone_ref(py));
-
         let mixintegor = egobox_ego::EgorFactory::optimize(obj)
             .subject_to(fcstrs)
             .configure(|config| {
                 self.apply_config(config, Some(max_iters), n_fcstr, self.doe.as_ref())
             })
-            .min_within_mixint_space(&xtypes)
+            .min_within_mixint_space(&self.xtypes)
             .expect("Egor configured");
 
         let mixintegor = if let Some(ri) = run_info {
@@ -359,11 +374,11 @@ impl Egor {
     /// under optimization wrt to previous evaluations.
     /// The function returns several point when multi point qEI strategy is used.
     ///
-    /// Parameters
+    /// # Parameters
     ///     x_doe (array[ns, nx]): ns samples where function has been evaluated
     ///     y_doe (array[ns, 1 + n_cstr]): ns values of objecctive and constraints
     ///
-    /// Returns
+    /// # Returns
     ///     (array[1, nx]): suggested location where to evaluate objective and constraints
     ///
     #[pyo3(signature = (x_doe, y_doe))]
@@ -376,11 +391,10 @@ impl Egor {
         let x_doe = x_doe.as_array();
         let y_doe = y_doe.as_array();
         let doe = concatenate(Axis(1), &[x_doe.view(), y_doe.view()]).unwrap();
-        let xtypes: Vec<egobox_ego::XType> = parse(py, self.xspecs.clone_ref(py));
 
         let mixintegor = egobox_ego::EgorServiceBuilder::optimize()
             .configure(|config| self.apply_config(config, Some(1), 0, Some(&doe)))
-            .min_within_mixint_space(&xtypes)
+            .min_within_mixint_space(&self.xtypes)
             .expect("Egor configured");
 
         let x_suggested = py.detach(|| mixintegor.suggest(&x_doe, &y_doe));
@@ -391,10 +405,10 @@ impl Egor {
     /// of the function (objective wrt constraints) under minimization.
     /// Caveat: This function does not take into account function constraints values
     ///
-    /// Parameters
+    /// # Parameters
     ///     y_doe (array[ns, 1 + n_cstr]): ns values of objective and constraints
     ///     
-    /// Returns
+    /// # Returns
     ///     index in y_doe of the best evaluation
     ///
     #[pyo3(signature = (y_doe))]
@@ -410,14 +424,16 @@ impl Egor {
     /// of the function (objective wrt constraints) under minimization.
     /// Caveat: This function does not take into account function constraints values
     ///
-    /// Parameters
+    /// # Parameters
     ///     x_doe (array[ns, nx]): ns samples where function has been evaluated
     ///     y_doe (array[ns, 1 + n_cstr]): ns values of objective and constraints
     ///     
-    /// Returns
+    /// # Returns
     ///     result
     ///         x_opt (array[1, nx]): x value where fun is at its minimum subject to constraints
     ///         y_opt (array[1, nx]): fun(x_opt)
+    ///         x_doe (array[ns, nx]): x values of the final DOE
+    ///         y_doe (array[ns, 1 + n_cstr]): y values of the final DOE
     ///
     #[pyo3(signature = (x_doe, y_doe))]
     fn get_result(
@@ -584,7 +600,8 @@ impl Egor {
             .failsafe_strategy(failsafe_strategy);
 
         if let Some(trego) = self.trego.as_ref() {
-            config = config.configure_trego(|_| trego.clone().into())
+            let strategy: egobox_ego::TregoStrategy = trego.clone().into();
+            config = config.iteration_strategy(Box::new(strategy))
         }
 
         if let Some(doe) = doe {

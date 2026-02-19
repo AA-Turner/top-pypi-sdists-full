@@ -155,6 +155,7 @@ def execute_prism_mode(args, model, tokenizer, wisent_model, pairs):
         print(f"  Directions per layer: {num_dirs}")
 
 
+
 def execute_guided_modification(args, wisent_model, model, tokenizer):
     """Execute linearity-guided weight modification."""
     from wisent.core.weight_modification.methods.guided import (

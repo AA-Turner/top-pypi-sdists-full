@@ -18,7 +18,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n)chalk/server/v1/environment_secrets.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xa6\x01\n\x06Secret\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12*\n\x0eintegration_id\x18\x04 \x01(\tH\x00R\rintegrationId\x88\x01\x01\x42\x11\n\x0f_integration_id"7\n\x0bSecretValue\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"\xb2\x01\n\x0fSecretWithValue\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nupdated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x04 \x01(\tR\x08\x66ullName\x12\x19\n\x05value\x18\x05 \x01(\tH\x00R\x05value\x88\x01\x01\x42\x08\n\x06_value"\x14\n\x12ListSecretsRequest"H\n\x13ListSecretsResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\'\n\x15GetSecretValueRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"o\n\x16GetSecretValueResponse\x12\x44\n\x0csecret_value\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.SecretValueH\x00R\x0bsecretValue\x88\x01\x01\x42\x0f\n\r_secret_value"?\n\x13UpsertSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"I\n\x14UpsertSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets")\n\x13\x44\x65leteSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"I\n\x14\x44\x65leteSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets2\xa6\x03\n\x19\x45nvironmentSecretsService\x12]\n\x0bListSecrets\x12#.chalk.server.v1.ListSecretsRequest\x1a$.chalk.server.v1.ListSecretsResponse"\x03\x80}\x14\x12\x66\n\x0eGetSecretValue\x12&.chalk.server.v1.GetSecretValueRequest\x1a\'.chalk.server.v1.GetSecretValueResponse"\x03\x80}\x13\x12`\n\x0cUpsertSecret\x12$.chalk.server.v1.UpsertSecretRequest\x1a%.chalk.server.v1.UpsertSecretResponse"\x03\x80}\x12\x12`\n\x0c\x44\x65leteSecret\x12$.chalk.server.v1.DeleteSecretRequest\x1a%.chalk.server.v1.DeleteSecretResponse"\x03\x80}\x12\x42\xa0\x01\n\x13\x63om.chalk.server.v1B\x17\x45nvironmentSecretsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n)chalk/server/v1/environment_secrets.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xa6\x01\n\x06Secret\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12\x39\n\nupdated_at\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12*\n\x0eintegration_id\x18\x04 \x01(\tH\x00R\rintegrationId\x88\x01\x01\x42\x11\n\x0f_integration_id"n\n\x0bSecretValue\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value\x12\x35\n\x06source\x18\x03 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06source"\xe9\x01\n\x0fSecretWithValue\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x39\n\nupdated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tupdatedAt\x12\x12\n\x04name\x18\x03 \x01(\tR\x04name\x12\x1b\n\tfull_name\x18\x04 \x01(\tR\x08\x66ullName\x12\x19\n\x05value\x18\x05 \x01(\tH\x00R\x05value\x88\x01\x01\x12\x35\n\x06source\x18\x06 \x01(\x0e\x32\x1d.chalk.server.v1.SecretSourceR\x06sourceB\x08\n\x06_value"\x14\n\x12ListSecretsRequest"H\n\x13ListSecretsResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets"\'\n\x15GetSecretValueRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"o\n\x16GetSecretValueResponse\x12\x44\n\x0csecret_value\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.SecretValueH\x00R\x0bsecretValue\x88\x01\x01\x42\x0f\n\r_secret_value"?\n\x13UpsertSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value"I\n\x14UpsertSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets")\n\x13\x44\x65leteSecretRequest\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name"I\n\x14\x44\x65leteSecretResponse\x12\x31\n\x07secrets\x18\x01 \x03(\x0b\x32\x17.chalk.server.v1.SecretR\x07secrets*d\n\x0cSecretSource\x12\x1d\n\x19SECRET_SOURCE_UNSPECIFIED\x10\x00\x12\x19\n\x15SECRET_SOURCE_MANAGED\x10\x01\x12\x1a\n\x16SECRET_SOURCE_EXTERNAL\x10\x02\x32\xa6\x03\n\x19\x45nvironmentSecretsService\x12]\n\x0bListSecrets\x12#.chalk.server.v1.ListSecretsRequest\x1a$.chalk.server.v1.ListSecretsResponse"\x03\x80}\x14\x12\x66\n\x0eGetSecretValue\x12&.chalk.server.v1.GetSecretValueRequest\x1a\'.chalk.server.v1.GetSecretValueResponse"\x03\x80}\x13\x12`\n\x0cUpsertSecret\x12$.chalk.server.v1.UpsertSecretRequest\x1a%.chalk.server.v1.UpsertSecretResponse"\x03\x80}\x12\x12`\n\x0c\x44\x65leteSecret\x12$.chalk.server.v1.DeleteSecretRequest\x1a%.chalk.server.v1.DeleteSecretResponse"\x03\x80}\x12\x42\xa0\x01\n\x13\x63om.chalk.server.v1B\x17\x45nvironmentSecretsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -37,28 +37,30 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["UpsertSecret"]._serialized_options = b"\200}\022"
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["DeleteSecret"]._options = None
     _globals["_ENVIRONMENTSECRETSSERVICE"].methods_by_name["DeleteSecret"]._serialized_options = b"\200}\022"
+    _globals["_SECRETSOURCE"]._serialized_start = 1153
+    _globals["_SECRETSOURCE"]._serialized_end = 1253
     _globals["_SECRET"]._serialized_start = 129
     _globals["_SECRET"]._serialized_end = 295
     _globals["_SECRETVALUE"]._serialized_start = 297
-    _globals["_SECRETVALUE"]._serialized_end = 352
-    _globals["_SECRETWITHVALUE"]._serialized_start = 355
-    _globals["_SECRETWITHVALUE"]._serialized_end = 533
-    _globals["_LISTSECRETSREQUEST"]._serialized_start = 535
-    _globals["_LISTSECRETSREQUEST"]._serialized_end = 555
-    _globals["_LISTSECRETSRESPONSE"]._serialized_start = 557
-    _globals["_LISTSECRETSRESPONSE"]._serialized_end = 629
-    _globals["_GETSECRETVALUEREQUEST"]._serialized_start = 631
-    _globals["_GETSECRETVALUEREQUEST"]._serialized_end = 670
-    _globals["_GETSECRETVALUERESPONSE"]._serialized_start = 672
-    _globals["_GETSECRETVALUERESPONSE"]._serialized_end = 783
-    _globals["_UPSERTSECRETREQUEST"]._serialized_start = 785
-    _globals["_UPSERTSECRETREQUEST"]._serialized_end = 848
-    _globals["_UPSERTSECRETRESPONSE"]._serialized_start = 850
-    _globals["_UPSERTSECRETRESPONSE"]._serialized_end = 923
-    _globals["_DELETESECRETREQUEST"]._serialized_start = 925
-    _globals["_DELETESECRETREQUEST"]._serialized_end = 966
-    _globals["_DELETESECRETRESPONSE"]._serialized_start = 968
-    _globals["_DELETESECRETRESPONSE"]._serialized_end = 1041
-    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_start = 1044
-    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_end = 1466
+    _globals["_SECRETVALUE"]._serialized_end = 407
+    _globals["_SECRETWITHVALUE"]._serialized_start = 410
+    _globals["_SECRETWITHVALUE"]._serialized_end = 643
+    _globals["_LISTSECRETSREQUEST"]._serialized_start = 645
+    _globals["_LISTSECRETSREQUEST"]._serialized_end = 665
+    _globals["_LISTSECRETSRESPONSE"]._serialized_start = 667
+    _globals["_LISTSECRETSRESPONSE"]._serialized_end = 739
+    _globals["_GETSECRETVALUEREQUEST"]._serialized_start = 741
+    _globals["_GETSECRETVALUEREQUEST"]._serialized_end = 780
+    _globals["_GETSECRETVALUERESPONSE"]._serialized_start = 782
+    _globals["_GETSECRETVALUERESPONSE"]._serialized_end = 893
+    _globals["_UPSERTSECRETREQUEST"]._serialized_start = 895
+    _globals["_UPSERTSECRETREQUEST"]._serialized_end = 958
+    _globals["_UPSERTSECRETRESPONSE"]._serialized_start = 960
+    _globals["_UPSERTSECRETRESPONSE"]._serialized_end = 1033
+    _globals["_DELETESECRETREQUEST"]._serialized_start = 1035
+    _globals["_DELETESECRETREQUEST"]._serialized_end = 1076
+    _globals["_DELETESECRETRESPONSE"]._serialized_start = 1078
+    _globals["_DELETESECRETRESPONSE"]._serialized_end = 1151
+    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_start = 1256
+    _globals["_ENVIRONMENTSECRETSSERVICE"]._serialized_end = 1678
 # @@protoc_insertion_point(module_scope)

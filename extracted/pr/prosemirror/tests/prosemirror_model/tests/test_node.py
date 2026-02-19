@@ -232,6 +232,18 @@ class TestTextBetween:
             d.text_between(0, d.content.size, "", "<anonymous>") == "Hello <anonymous>"
         )
 
+    def test_adds_block_separator_around_empty_paragraphs(self):
+        assert doc(p("one"), p(), p("two")).text_between(0, 12, "\n") == "one\n\ntwo"
+
+    def test_adds_block_separator_around_leaf_nodes(self):
+        assert (
+            doc(p("one"), hr, hr, p("two")).text_between(0, 12, "\n", "---")
+            == "one\n---\n---\ntwo"
+        )
+
+    def test_doesnt_add_block_separator_around_non_rendered_leaf_nodes(self):
+        assert doc(p("one"), hr, hr, p("two")).text_between(0, 12, "\n") == "one\ntwo"
+
 
 class TestTextContent:
     def test_whole_doc(self):
@@ -243,6 +255,41 @@ class TestTextContent:
     def test_nested_element(self):
         node = doc(ul(li(p("hi")), li(p(em("a"), "b"))))
         assert node.text_content == "hiab"
+
+
+class TestCheck:
+    def test_notices_invalid_content(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid content for node doc"):
+            doc(li(p("x"))).check()
+
+    def test_notices_marks_in_wrong_places(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid content for node doc"):
+            doc(
+                schema.nodes["paragraph"].create(
+                    None, [], [schema.marks["em"].create()]
+                )
+            ).check()
+
+    def test_notices_incorrect_sets_of_marks(self):
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid collection of marks"):
+            schema.text(
+                "a", [schema.marks["em"].create(), schema.marks["em"].create()]
+            ).check()
+
+    def test_notices_wrong_attribute_types(self):
+        import pytest
+
+        with pytest.raises(
+            ValueError,
+            match=r"Expected value of type.*attribute src.*image.*boolean",
+        ):
+            schema.nodes["image"].create({"src": True}).check()
 
 
 class TestFrom:

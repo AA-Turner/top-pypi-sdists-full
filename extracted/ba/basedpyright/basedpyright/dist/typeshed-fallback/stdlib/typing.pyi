@@ -143,7 +143,19 @@ if sys.version_info >= (3, 13):
 # due to an import cycle. Below instead we use Any with a comment.
 # from _typeshed import AnnotationForm
 
-class Any: ...
+class Any:
+    """
+    Special type indicating an unconstrained type.
+
+    - Any is compatible with every type.
+    - Any assumed to have all methods.
+    - All values assumed to be instances of Any.
+
+    Note that all the above statements are true from the point of view of
+    static type checkers. At runtime, Any should not be used with instance
+    or class checks.
+    """
+    ...
 
 class _Final:
     __slots__ = ("__weakref__",)
@@ -534,13 +546,13 @@ class SupportsRound(Protocol[_T_co]):
 
 @runtime_checkable
 class Sized(Protocol, metaclass=ABCMeta):
-    """A generic version of collections.abc.Sized."""
+    """Deprecated alias to collections.abc.Sized."""
     @abstractmethod
     def __len__(self) -> int: ...
 
 @runtime_checkable
 class Hashable(Protocol, metaclass=ABCMeta):
-    """A generic version of collections.abc.Hashable."""
+    """Deprecated alias to collections.abc.Hashable."""
     # TODO: This is special, in that a subclass of a hashable class may not be hashable
     #   (for example, list vs. object). It's not obvious how to represent this. This class
     #   is currently mostly useless for static checking.
@@ -551,20 +563,20 @@ class Hashable(Protocol, metaclass=ABCMeta):
 
 @runtime_checkable
 class Iterable(Protocol[_T_co]):
-    """A generic version of collections.abc.Iterable."""
+    """Deprecated alias to collections.abc.Iterable."""
     @abstractmethod
     def __iter__(self) -> Iterator[_T_co]: ...
 
 @runtime_checkable
 class Iterator(Iterable[_T_co], Protocol[_T_co]):
-    """A generic version of collections.abc.Iterator."""
+    """Deprecated alias to collections.abc.Iterator."""
     @abstractmethod
     def __next__(self) -> _T_co: ...
     def __iter__(self) -> Iterator[_T_co]: ...
 
 @runtime_checkable
 class Reversible(Iterable[_T_co], Protocol[_T_co]):
-    """A generic version of collections.abc.Reversible."""
+    """Deprecated alias to collections.abc.Reversible."""
     @abstractmethod
     def __reversed__(self) -> Iterator[_T_co]: ...
 
@@ -574,7 +586,7 @@ _ReturnT_co = TypeVar("_ReturnT_co", covariant=True, default=None)
 
 @runtime_checkable
 class Generator(Iterator[_YieldT_co], Protocol[_YieldT_co, _SendT_contra, _ReturnT_co]):
-    """A generic version of collections.abc.Generator."""
+    """Deprecated alias to collections.abc.Generator."""
     def __next__(self) -> _YieldT_co: ...
     @abstractmethod
     def send(self, value: _SendT_contra, /) -> _YieldT_co: ...
@@ -600,14 +612,18 @@ else:
     from contextlib import AbstractAsyncContextManager, AbstractContextManager
 
     @runtime_checkable
-    class ContextManager(AbstractContextManager[_T_co, bool | None], Protocol[_T_co]): ...
+    class ContextManager(AbstractContextManager[_T_co, bool | None], Protocol[_T_co]):
+        """A generic version of contextlib.AbstractContextManager."""
+        ...
 
     @runtime_checkable
-    class AsyncContextManager(AbstractAsyncContextManager[_T_co, bool | None], Protocol[_T_co]): ...
+    class AsyncContextManager(AbstractAsyncContextManager[_T_co, bool | None], Protocol[_T_co]):
+        """A generic version of contextlib.AbstractAsyncContextManager."""
+        ...
 
 @runtime_checkable
 class Awaitable(Protocol[_T_co]):
-    """A generic version of collections.abc.Awaitable."""
+    """Deprecated alias to collections.abc.Awaitable."""
     @abstractmethod
     def __await__(self) -> Generator[Any, Any, _T_co]: ...
 
@@ -616,7 +632,7 @@ _SendT_nd_contra = TypeVar("_SendT_nd_contra", contravariant=True)
 _ReturnT_nd_co = TypeVar("_ReturnT_nd_co", covariant=True)
 
 class Coroutine(Awaitable[_ReturnT_nd_co], Generic[_YieldT_co, _SendT_nd_contra, _ReturnT_nd_co]):
-    """A generic version of collections.abc.Coroutine."""
+    """Deprecated alias to collections.abc.Coroutine."""
     __name__: str
     __qualname__: str
 
@@ -646,20 +662,20 @@ class AwaitableGenerator(
 
 @runtime_checkable
 class AsyncIterable(Protocol[_T_co]):
-    """A generic version of collections.abc.AsyncIterable."""
+    """Deprecated alias to collections.abc.AsyncIterable."""
     @abstractmethod
     def __aiter__(self) -> AsyncIterator[_T_co]: ...
 
 @runtime_checkable
 class AsyncIterator(AsyncIterable[_T_co], Protocol[_T_co]):
-    """A generic version of collections.abc.AsyncIterator."""
+    """Deprecated alias to collections.abc.AsyncIterator."""
     @abstractmethod
     def __anext__(self) -> Awaitable[_T_co]: ...
     def __aiter__(self) -> AsyncIterator[_T_co]: ...
 
 @runtime_checkable
 class AsyncGenerator(AsyncIterator[_YieldT_co], Protocol[_YieldT_co, _SendT_contra]):
-    """A generic version of collections.abc.AsyncGenerator."""
+    """Deprecated alias to collections.abc.AsyncGenerator."""
     def __anext__(self) -> Coroutine[Any, Any, _YieldT_co]: ...
     @abstractmethod
     def asend(self, value: _SendT_contra, /) -> Coroutine[Any, Any, _YieldT_co]: ...
@@ -677,20 +693,20 @@ class AsyncGenerator(AsyncIterator[_YieldT_co], Protocol[_YieldT_co, _SendT_cont
 
 @runtime_checkable
 class Container(Protocol[_T_co]):
-    """A generic version of collections.abc.Container."""
+    """Deprecated alias to collections.abc.Container."""
     # This is generic more on vibes than anything else
     @abstractmethod
     def __contains__(self, x: object, /) -> bool: ...
 
 @runtime_checkable
 class Collection(Iterable[_T_co], Container[_T_co], Protocol[_T_co]):
-    """A generic version of collections.abc.Collection."""
+    """Deprecated alias to collections.abc.Collection."""
     # Implement Sized (but don't have it as a base class).
     @abstractmethod
     def __len__(self) -> int: ...
 
 class Sequence(Reversible[_T_co], Collection[_T_co]):
-    """A generic version of collections.abc.Sequence."""
+    """Deprecated alias to collections.abc.Sequence."""
     @overload
     @abstractmethod
     def __getitem__(self, index: int) -> _T_co: ...
@@ -705,7 +721,7 @@ class Sequence(Reversible[_T_co], Collection[_T_co]):
     def __reversed__(self) -> Iterator[_T_co]: ...
 
 class MutableSequence(Sequence[_T]):
-    """A generic version of collections.abc.MutableSequence."""
+    """Deprecated alias to collections.abc.MutableSequence."""
     @abstractmethod
     def insert(self, index: int, value: _T) -> None: ...
     @overload
@@ -736,7 +752,7 @@ class MutableSequence(Sequence[_T]):
     def __iadd__(self, values: Iterable[_T]) -> typing_extensions.Self: ...
 
 class AbstractSet(Collection[_T_co]):
-    """A generic version of collections.abc.Set."""
+    """Deprecated alias to collections.abc.Set."""
     @abstractmethod
     def __contains__(self, x: object) -> bool: ...
     def _hash(self) -> int: ...
@@ -763,7 +779,7 @@ class AbstractSet(Collection[_T_co]):
     def isdisjoint(self, other: Iterable[Any]) -> bool: ...
 
 class MutableSet(AbstractSet[_T]):
-    """A generic version of collections.abc.MutableSet."""
+    """Deprecated alias to collections.abc.MutableSet."""
     @abstractmethod
     def add(self, value: _T) -> None: ...
     @abstractmethod
@@ -778,13 +794,13 @@ class MutableSet(AbstractSet[_T]):
     def __isub__(self, it: AbstractSet[Any]) -> typing_extensions.Self: ...
 
 class MappingView(Sized):
-    """A generic version of collections.abc.MappingView."""
+    """Deprecated alias to collections.abc.MappingView."""
     __slots__ = ("_mapping",)
     def __init__(self, mapping: Sized) -> None: ...  # undocumented
     def __len__(self) -> int: ...
 
 class ItemsView(MappingView, AbstractSet[tuple[_KT_co, _VT_co]], Generic[_KT_co, _VT_co]):
-    """A generic version of collections.abc.ItemsView."""
+    """Deprecated alias to collections.abc.ItemsView."""
     def __init__(self, mapping: SupportsGetItemViewable[_KT_co, _VT_co]) -> None: ...  # undocumented
     def __and__(self, other: Iterable[Any]) -> set[tuple[_KT_co, _VT_co]]: ...
     def __rand__(self, other: Iterable[_T]) -> set[_T]: ...
@@ -798,7 +814,7 @@ class ItemsView(MappingView, AbstractSet[tuple[_KT_co, _VT_co]], Generic[_KT_co,
     def __rxor__(self, other: Iterable[_T]) -> set[tuple[_KT_co, _VT_co] | _T]: ...
 
 class KeysView(MappingView, AbstractSet[_KT_co]):
-    """A generic version of collections.abc.KeysView."""
+    """Deprecated alias to collections.abc.KeysView."""
     def __init__(self, mapping: Viewable[_KT_co]) -> None: ...  # undocumented
     def __and__(self, other: Iterable[Any]) -> set[_KT_co]: ...
     def __rand__(self, other: Iterable[_T]) -> set[_T]: ...
@@ -812,7 +828,7 @@ class KeysView(MappingView, AbstractSet[_KT_co]):
     def __rxor__(self, other: Iterable[_T]) -> set[_KT_co | _T]: ...
 
 class ValuesView(MappingView, Collection[_VT_co]):
-    """A generic version of collections.abc.ValuesView."""
+    """Deprecated alias to collections.abc.ValuesView."""
     def __init__(self, mapping: SupportsGetItemViewable[Any, _VT_co]) -> None: ...  # undocumented
     def __contains__(self, value: object) -> bool: ...
     def __iter__(self) -> Iterator[_VT_co]: ...
@@ -823,7 +839,7 @@ class ValuesView(MappingView, Collection[_VT_co]):
 # don't allow keyword arguments.
 
 class Mapping(Collection[_KT], Generic[_KT, _VT_co]):
-    """A generic version of collections.abc.Mapping."""
+    """Deprecated alias to collections.abc.Mapping."""
     # TODO: We wish the key type could also be covariant, but that doesn't work,
     # see discussion in https://github.com/python/typing/pull/273.
     @abstractmethod
@@ -844,7 +860,7 @@ class Mapping(Collection[_KT], Generic[_KT, _VT_co]):
         ...
 
 class MutableMapping(Mapping[_KT, _VT]):
-    """A generic version of collections.abc.MutableMapping."""
+    """Deprecated alias to collections.abc.MutableMapping."""
     @abstractmethod
     def __setitem__(self, key: _KT, value: _VT, /) -> None: ...
     @abstractmethod

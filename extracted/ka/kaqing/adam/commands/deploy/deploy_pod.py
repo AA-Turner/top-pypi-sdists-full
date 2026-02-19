@@ -80,7 +80,7 @@ class DeployPod(Command):
                 version = 'latest'
                 if v := get_latest_version():
                     version = v
-                image = Config().get('pod.image', 'seanahnsf/kaqing-cloud:{version}').replace('{version}', version)
+                image = Config().get('pod.image', 'seanahnsf/kaqing:{version}').replace('{version}', version)
                 security_context = client.V1SecurityContext(
                     capabilities=client.V1Capabilities(
                         add=["SYS_PTRACE"]

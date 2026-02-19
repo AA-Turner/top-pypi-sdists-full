@@ -31,7 +31,9 @@ if sys.version_info >= (3, 14):
         ...
 
 else:
-    def enable(file: FileDescriptorLike = ..., all_threads: bool = ...) -> None: ...
+    def enable(file: FileDescriptorLike = ..., all_threads: bool = ...) -> None:
+        """Enable the fault handler."""
+        ...
 
 def is_enabled() -> bool:
     """Check if the handler is enabled."""

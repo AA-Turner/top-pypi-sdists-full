@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.log
-Version: 8.0.0
+Version: 8.1.0
 Summary: oslo.log library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 Project-URL: Homepage, https://docs.openstack.org/oslo.log
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE

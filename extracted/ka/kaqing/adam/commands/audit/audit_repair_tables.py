@@ -3,7 +3,7 @@ import time
 from adam.commands import validate_args
 from adam.commands.command import Command
 from adam.config import Config
-from adam.rdbms.utils_athena import Athena
+from adam.utils_rdbms.athena import Athena
 from adam.utils_context import NULL
 from adam.utils_log import log2
 from adam.commands.audit.utils_audits import AuditMeta, Audits, audit

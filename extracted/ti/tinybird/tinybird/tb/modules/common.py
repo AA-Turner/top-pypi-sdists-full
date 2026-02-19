@@ -74,12 +74,27 @@ _PATTERN_AWS_ARN = re.compile(r"arn:aws:iam::(\d+):root")
 SUPPORTED_FORMATS = ["csv", "ndjson", "json", "parquet"]
 OLDEST_ROLLBACK = "oldest_rollback"
 MAIN_BRANCH = "main"
+PROMPT_AI_DEPRECATION_WARNING = (
+    "Tinybird Code and `--prompt` commands are now deprecated and will be removed in the next major release.\n"
+    "You can instead bring the best of Tinybird Code to your preferred coding agent with skills. Run: npx skills add @tinybirdco/tinybird-agent-skills\n"
+)
 
 
 def obfuscate_token(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
     return f"{value[:4]}...{value[-8:]}"
+
+
+def warn_prompt_ai_deprecation() -> None:
+    ctx = click.get_current_context(silent=True)
+    if ctx:
+        root_ctx = ctx.find_root()
+        root_obj = root_ctx.ensure_object(dict)
+        if root_obj.get("_prompt_ai_deprecation_warned"):
+            return
+        root_obj["_prompt_ai_deprecation_warned"] = True
+    click.echo(FeedbackManager.warning(message=PROMPT_AI_DEPRECATION_WARNING))
 
 
 def gather_with_concurrency(n, *tasks):
@@ -236,6 +251,12 @@ class CatchAuthExceptions(AliasedGroup):
         init_telemetry()
         add_telemetry_sysinfo_event()
         super().__init__(*args, **kwargs)
+
+    def parse_args(self, ctx: click.Context, args: List[str]) -> List[str]:
+        # Keep original invocation args so root-level handlers can inspect
+        # subcommand flags without relying on sys.argv (e.g. in CliRunner tests).
+        ctx.ensure_object(dict)["_tb_raw_args"] = list(args)
+        return super().parse_args(ctx, args)
 
     def format_epilog(self, ctx: Context, formatter: click.formatting.HelpFormatter) -> None:
         super().format_epilog(ctx, formatter)

@@ -312,7 +312,9 @@ if sys.version_info >= (3, 12):
         ...
 
 else:
-    def nextafter(x: _SupportsFloatOrIndex, y: _SupportsFloatOrIndex, /) -> float: ...
+    def nextafter(x: _SupportsFloatOrIndex, y: _SupportsFloatOrIndex, /) -> float:
+        """Return the next floating-point value after x towards y."""
+        ...
 
 def perm(n: SupportsIndex, k: SupportsIndex | None = None, /) -> int:
     """

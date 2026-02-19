@@ -8,8 +8,12 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.clickhouse_pb2 import (
+    GetClickhouseOtelTtlsRequest,
+    GetClickhouseOtelTtlsResponse,
     GetClickhouseUriRequest,
     GetClickhouseUriResponse,
+    SetClickhouseOtelTtlsRequest,
+    SetClickhouseOtelTtlsResponse,
 )
 from grpc import (
     Channel,
@@ -25,6 +29,14 @@ class ClickhouseServiceStub:
         GetClickhouseUriResponse,
     ]
     """Get the Clickhouse connection URI for an environment"""
+    GetClickhouseOtelTtls: UnaryUnaryMultiCallable[
+        GetClickhouseOtelTtlsRequest,
+        GetClickhouseOtelTtlsResponse,
+    ]
+    SetClickhouseOtelTtls: UnaryUnaryMultiCallable[
+        SetClickhouseOtelTtlsRequest,
+        SetClickhouseOtelTtlsResponse,
+    ]
 
 class ClickhouseServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -34,5 +46,17 @@ class ClickhouseServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetClickhouseUriResponse:
         """Get the Clickhouse connection URI for an environment"""
+    @abstractmethod
+    def GetClickhouseOtelTtls(
+        self,
+        request: GetClickhouseOtelTtlsRequest,
+        context: ServicerContext,
+    ) -> GetClickhouseOtelTtlsResponse: ...
+    @abstractmethod
+    def SetClickhouseOtelTtls(
+        self,
+        request: SetClickhouseOtelTtlsRequest,
+        context: ServicerContext,
+    ) -> SetClickhouseOtelTtlsResponse: ...
 
 def add_ClickhouseServiceServicer_to_server(servicer: ClickhouseServiceServicer, server: Server) -> None: ...

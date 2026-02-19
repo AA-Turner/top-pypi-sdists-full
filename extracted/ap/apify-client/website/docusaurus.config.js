@@ -1,4 +1,4 @@
-const path = require('path');
+const { join, resolve } = require('node:path');
 
 const { config } = require('@apify/docs-theme');
 
@@ -102,9 +102,16 @@ module.exports = {
                 routeBasePath: 'reference',
                 python: true,
                 pythonOptions: {
-                    pythonModulePath: path.join(__dirname, '../src/apify_client'),
-                    moduleShortcutsPath: path.join(__dirname, 'module_shortcuts.json'),
+                    pythonModulePath: join(__dirname, '../src/apify_client'),
+                    moduleShortcutsPath: join(__dirname, 'module_shortcuts.json'),
                 },
+            },
+        ],
+        [
+            resolve(__dirname, 'src/plugins/docusaurus-plugin-segment'),
+            {
+                writeKey: process.env.SEGMENT_TOKEN,
+                allowedInDev: false,
             },
         ],
         [
@@ -127,6 +134,13 @@ module.exports = {
         tableOfContents: {
             ...config.themeConfig.tableOfContents,
             maxHeadingLevel: 5,
+        },
+        footer: {
+            ...config.themeConfig.footer,
+            logo: {
+                ...config.themeConfig.footer.logo,
+                href: 'docs/introduction/overview',
+            },
         },
     },
     staticDirectories: ['node_modules/@apify/docs-theme/static', 'static'],

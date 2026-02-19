@@ -174,9 +174,10 @@ def json_dumpb(obj) -> bytes:
         dumped = orjson.dumps(_sanitise(obj), default=default, option=_option)
     if rb"\u0000" not in dumped:
         return dumped  # fast path — no null bytes
-    # Delete the double-backslash form first to avoid orphaned backslashes,
-    # then the single-escape form for actual null bytes.
-    return dumped.replace(rb"\\u0000", b"").replace(rb"\u0000", b"")
+    # Replace with U+FFFD (replacement character) instead of stripping,
+    # so that "key\x00" becomes "key\uFFFD" rather than "key" — preventing
+    # a poisoned key from projecting onto a legitimate one.
+    return dumped.replace(rb"\\u0000", rb"\\ufffd").replace(rb"\u0000", rb"\ufffd")
 
 
 def json_loads(content: bytes | Fragment | dict) -> Any:

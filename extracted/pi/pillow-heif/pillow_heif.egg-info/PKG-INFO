@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pillow_heif
-Version: 1.2.0
+Version: 1.2.1
 Summary: Python interface for libheif library
 Home-page: https://github.com/bigcat88/pillow_heif
 Author: Alexander Piskun
@@ -53,7 +53,7 @@ Requires-Dist: defusedxml; extra == "dev"
 Requires-Dist: packaging; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pympler; extra == "dev"
-Requires-Dist: opencv-python==4.12.0.88; extra == "dev"
+Requires-Dist: opencv-python==4.13.0.92; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
 Requires-Dist: pylint; extra == "dev"
 Requires-Dist: coverage; extra == "dev"
@@ -64,7 +64,6 @@ Dynamic: license-file
 
 [![Analysis & Coverage](https://github.com/bigcat88/pillow_heif/actions/workflows/analysis-coverage.yml/badge.svg)](https://github.com/bigcat88/pillow_heif/actions/workflows/analysis-coverage.yml)
 [![Nightly build](https://github.com/bigcat88/pillow_heif/actions/workflows/nightly-src-build.yml/badge.svg)](https://github.com/bigcat88/pillow_heif/actions/workflows/nightly-src-build.yml)
-[![Wheels test](https://github.com/bigcat88/pillow_heif/actions/workflows/test-wheels.yml/badge.svg)](https://github.com/bigcat88/pillow_heif/actions/workflows/test-wheels.yml)
 [![docs](https://readthedocs.org/projects/pillow-heif/badge/?version=latest)](https://pillow-heif.readthedocs.io/en/latest/?badge=latest)
 [![codecov](https://codecov.io/gh/bigcat88/pillow_heif/branch/master/graph/badge.svg?token=JY64F2OL6V)](https://codecov.io/gh/bigcat88/pillow_heif)
 

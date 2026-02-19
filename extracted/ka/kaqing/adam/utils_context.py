@@ -1,9 +1,8 @@
 from copy import copy
-import traceback
 from typing import Callable, TypeVar, Union
 
 from adam.config_holder import ConfigHolder
-from adam.utils_color import Color
+from adam.presentation.color import Color
 from adam.utils_concurrent import offload
 from adam.directories import Directories
 from adam.thread_locals import thread_local_command

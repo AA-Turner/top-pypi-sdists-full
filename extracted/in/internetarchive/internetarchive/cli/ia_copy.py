@@ -4,7 +4,7 @@ ia_copy.py
 'ia' subcommand for copying files on archive.org
 """
 
-# Copyright (C) 2012-2024 Internet Archive
+# Copyright (C) 2012-2026 Internet Archive
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU Affero General Public License as
@@ -54,21 +54,22 @@ def setup(subparsers):
     # Options
     parser.add_argument("-m", "--metadata",
                         metavar="KEY:VALUE",
-                        nargs="+",
-                        default={},
+                        nargs=1,
+                        default=None,
                         action=MetadataAction,
                         help=("Metadata to add to your new item, if you are moving the "
-                              "file to a new item"))
+                              "file to a new item. Can be specified multiple times."))
     parser.add_argument("--replace-metadata",
                         action="store_true",
                         help=("Only use metadata specified as argument, do not copy any "
                               "from the source item"))
     parser.add_argument("-H", "--header",
                         metavar="KEY:VALUE",
-                        nargs="+",
-                        default={},
+                        nargs=1,
+                        default=None,
                         action=QueryStringAction,
-                        help="S3 HTTP headers to send with your request")
+                        help="S3 HTTP headers to send with your request. "
+                             "Can be specified multiple times.")
     parser.add_argument("--ignore-file-metadata",
                         action="store_true",
                         help="Do not copy file metadata")
@@ -102,6 +103,9 @@ def main(args: argparse.Namespace,
     """
     Main entry point for 'ia copy'.
     """
+    args.metadata = args.metadata or {}
+    args.header = args.header or {}
+
     SRC_FILE = None
 
     if args.source == args.destination:

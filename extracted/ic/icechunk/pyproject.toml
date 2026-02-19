@@ -23,7 +23,7 @@ authors = [{ name = "Earthmover", email = "info@earthmover.io" }]
 
 dependencies = ["zarr>=3,!=3.0.3"]
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
   "boto3",
   "coverage",
@@ -89,7 +89,6 @@ docs = [
   "sphinx-autodoc-typehints",
 ]
 
-[dependency-groups]
 upstream = [
   "boto3",
   "coverage",
@@ -118,9 +117,9 @@ dev = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "icechunk._icechunk_python"
-python-source = "python"
 exclude = ["README.md"]
 manifest-path = "icechunk-python/Cargo.toml"
+python-source = "python"
 
 [tool.uv]
 # Rebuild package when any Rust files change

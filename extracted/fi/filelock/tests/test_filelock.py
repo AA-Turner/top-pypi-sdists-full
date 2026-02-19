@@ -398,7 +398,7 @@ def test_default_timeout(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
     # test if the default timeout parameter works
     lock_path = tmp_path / "a"
     lock_1, lock_2 = lock_type(str(lock_path)), lock_type(str(lock_path), timeout=0.1)
-    assert lock_2.timeout == 0.1
+    assert lock_2.timeout == pytest.approx(0.1)
 
     # acquire lock 1
     lock_1.acquire()
@@ -508,13 +508,13 @@ def test_poll_intervall_deprecated(lock_type: type[BaseFileLock], tmp_path: Path
 def test_default_poll_interval(lock_type: type[BaseFileLock], tmp_path: Path) -> None:
     lock_path = tmp_path / "a"
     lock = lock_type(str(lock_path))
-    assert lock.poll_interval == 0.05
+    assert lock.poll_interval == pytest.approx(0.05)
 
     lock_2 = lock_type(str(lock_path), poll_interval=0.1)
-    assert lock_2.poll_interval == 0.1
+    assert lock_2.poll_interval == pytest.approx(0.1)
 
     lock_2.poll_interval = 0.2
-    assert lock_2.poll_interval == 0.2
+    assert lock_2.poll_interval == pytest.approx(0.2)
 
 
 @pytest.mark.parametrize("lock_type", [FileLock, SoftFileLock])
@@ -1128,3 +1128,28 @@ def test_cancel_check_log_message(
         lock_2.acquire(timeout=1, cancel_check=lambda: True)
     assert any("Cancellation requested" in msg for msg in caplog.messages)
     lock_1.release()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="unix-only test")
+def test_filenotfound_on_fuse_nfs_retries(tmp_path: Path, mocker: MockerFixture) -> None:
+    """FileNotFoundError from FUSE/NFS os.open(O_CREAT) race is handled by retry."""
+    lock_path = tmp_path / "test.lock"
+    lock = FileLock(str(lock_path), is_singleton=False)
+
+    real_open = os.open
+    call_count = 0
+
+    def open_enoent_then_succeed(path: str, flags: int, mode: int = 0o777, *, dir_fd: int | None = None) -> int:
+        nonlocal call_count
+        call_count += 1
+        # Simulate FUSE/NFS race: first call to os.open(O_CREAT) fails with ENOENT
+        if call_count == 1 and flags & os.O_CREAT and "test.lock" in path:
+            raise FileNotFoundError(2, "No such file or directory", path)
+        return real_open(path, flags, mode) if dir_fd is None else real_open(path, flags, mode, dir_fd=dir_fd)
+
+    mocker.patch("os.open", side_effect=open_enoent_then_succeed)
+    lock.acquire()
+    assert lock.is_locked
+    # First call failed with ENOENT, retry succeeded
+    assert call_count >= 2
+    lock.release()

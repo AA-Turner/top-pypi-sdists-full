@@ -22,15 +22,15 @@ class PayloadForTesting:
     signature: str
     header: t.Dict[str, str]
 
-    def __init__(self, timestamp: datetime = datetime.now(tz=timezone.utc)):
+    def __init__(self, timestamp: datetime = datetime.now(tz=timezone.utc), secret: str = DEFAULT_SECRET):
         ts = str(floor(timestamp.timestamp()))
         to_sign = f"{DEFAULT_MSG_ID}.{ts}.{DEFAULT_PAYLOAD}".encode()
-        signature = base64.b64encode(hmac_data(base64.b64decode(DEFAULT_SECRET), to_sign)).decode("utf-8")
+        signature = base64.b64encode(hmac_data(base64.b64decode(secret), to_sign)).decode("utf-8")
 
         self.id = DEFAULT_MSG_ID
         self.timestamp = ts
         self.payload = DEFAULT_PAYLOAD
-        self.secret = DEFAULT_SECRET
+        self.secret = secret
         self.signature = signature
         self.header = {
             "webhook-id": DEFAULT_MSG_ID,
@@ -156,6 +156,38 @@ def test_signature_verification_with_and_without_prefix() -> None:
     assert json["test"] == 2432232314
 
     wh = Webhook("whsec_" + test_payload.secret)
+
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+
+def test_signature_verification_with_unpadded_secret() -> None:
+    # needs no padding
+    secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw"
+    test_payload = PayloadForTesting(secret=secret)
+
+    wh = Webhook(secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+    # needs one padding
+    secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaS"
+    test_payload = PayloadForTesting(secret=secret + "=")
+
+    wh = Webhook(secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+    # needs two padding
+    secret = "MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSwBr"
+    test_payload = PayloadForTesting(secret=secret + "==")
+
+    wh = Webhook(secret)
+    json = wh.verify(test_payload.payload, test_payload.header)
+    assert json["test"] == 2432232314
+
+    # with prefix
+    wh = Webhook("whsec_" + secret)
 
     json = wh.verify(test_payload.payload, test_payload.header)
     assert json["test"] == 2432232314

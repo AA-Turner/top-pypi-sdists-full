@@ -1,11 +1,10 @@
 from adam.commands import extract_options
 from adam.commands.command import Command
 from adam.config import Config
+from adam.presentation.tabulize import tabulize
 from adam.utils_k8s.deployment import Deployments
-from adam.utils_k8s.pods import Pods
 from adam.utils_log import ing
 from adam.utils_repl.repl_state import ReplState, RequiredState
-from adam.utils_tabulize import tabulize
 from adam.utils_version import get_container_version, get_latest_version
 
 class Upgrade(Command):
@@ -55,24 +54,23 @@ class Upgrade(Command):
                         ctx.log('Ops pod is already with latest version.')
                         return state
 
-                    if version.split('.')[0] != newer.split('.')[0]:
-                        ctx.log("Upgrade cannot work as major version has been changed. Please re-deploy pod with \n  'deploy pod --force'.")
+                    # 2.1.68
+                    os = version.split('.')
+                    ns = newer.split('.')
+                    if os[0] != ns[0] or os[1] != ns[1]:
+                        ctx.log("Upgrade works only when minor version is changed. Please re-deploy pod with \n  'deploy pod --force'.")
                         return state
 
                     if not forced:
                         ctx.log2('Please add --force.')
                         return state
 
-                    label_selector = Config().get('pod.label-selector', 'run=ops')
-                    with ing('Deleting pod'):
-                        Pods.delete_with_selector(state.namespace, label_selector, grace_period_seconds=0)
-
                     version = 'latest'
                     if v := get_latest_version():
                         version = v
-                    image = Config().get('pod.image', 'seanahnsf/kaqing-cloud:{version}').replace('{version}', version)
+                    image = Config().get('pod.image', 'seanahnsf/kaqing:{version}').replace('{version}', version)
                     pod_name = Config().get('pod.name', 'ops')
-                    with ing('Patching deployment'):
+                    with ing(f'Patching deployment with {version}'):
                         Deployments.update_image(state.namespace,
                                                  pod_name,
                                                  pod_name,

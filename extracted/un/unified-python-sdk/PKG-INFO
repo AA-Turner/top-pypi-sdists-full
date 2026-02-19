@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Unified-python-sdk
-Version: 0.57.5
+Version: 0.57.6
 Summary: Python Client SDK for Unified.to
 License-File: LICENSE.md
 Author: Unified API Inc.
@@ -447,6 +447,15 @@ asyncio.run(main())
 
 * [get_accounting_balancesheet](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md#get_accounting_balancesheet) - Retrieve a balancesheet
 * [list_accounting_balancesheets](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/balancesheet/README.md#list_accounting_balancesheets) - List all balancesheets
+
+### [Bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md)
+
+* [create_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#create_hris_bankaccount) - Create a bankaccount
+* [get_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#get_hris_bankaccount) - Retrieve a bankaccount
+* [list_hris_bankaccounts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#list_hris_bankaccounts) - List all bankaccounts
+* [patch_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#patch_hris_bankaccount) - Update a bankaccount
+* [remove_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#remove_hris_bankaccount) - Remove a bankaccount
+* [update_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/bankaccount/README.md#update_hris_bankaccount) - Update a bankaccount
 
 ### [Benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/benefit/README.md)
 
@@ -953,6 +962,7 @@ asyncio.run(main())
 
 ### [Hris](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md)
 
+* [create_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_bankaccount) - Create a bankaccount
 * [create_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_benefit) - Create a benefit
 * [create_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_company) - Create a company
 * [create_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_deduction) - Create a deduction
@@ -961,6 +971,7 @@ asyncio.run(main())
 * [create_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_group) - Create a group
 * [create_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_location) - Create a location
 * [create_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#create_hris_timeshift) - Create a timeshift
+* [get_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_bankaccount) - Retrieve a bankaccount
 * [get_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_benefit) - Retrieve a benefit
 * [get_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_company) - Retrieve a company
 * [get_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_deduction) - Retrieve a deduction
@@ -971,6 +982,7 @@ asyncio.run(main())
 * [get_hris_payslip](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_payslip) - Retrieve a payslip
 * [get_hris_timeoff](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeoff) - Retrieve a timeoff
 * [get_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#get_hris_timeshift) - Retrieve a timeshift
+* [list_hris_bankaccounts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_bankaccounts) - List all bankaccounts
 * [list_hris_benefits](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_benefits) - List all benefits
 * [list_hris_companies](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_companies) - List all companies
 * [list_hris_deductions](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_deductions) - List all deductions
@@ -981,6 +993,7 @@ asyncio.run(main())
 * [list_hris_payslips](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_payslips) - List all payslips
 * [list_hris_timeoffs](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeoffs) - List all timeoffs
 * [list_hris_timeshifts](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#list_hris_timeshifts) - List all timeshifts
+* [patch_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_bankaccount) - Update a bankaccount
 * [patch_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_benefit) - Update a benefit
 * [patch_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_company) - Update a company
 * [patch_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_deduction) - Update a deduction
@@ -989,6 +1002,7 @@ asyncio.run(main())
 * [patch_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_group) - Update a group
 * [patch_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_location) - Update a location
 * [patch_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#patch_hris_timeshift) - Update a timeshift
+* [remove_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_bankaccount) - Remove a bankaccount
 * [remove_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_benefit) - Remove a benefit
 * [remove_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_company) - Remove a company
 * [remove_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_deduction) - Remove a deduction
@@ -997,6 +1011,7 @@ asyncio.run(main())
 * [remove_hris_group](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_group) - Remove a group
 * [remove_hris_location](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_location) - Remove a location
 * [remove_hris_timeshift](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#remove_hris_timeshift) - Remove a timeshift
+* [update_hris_bankaccount](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_bankaccount) - Update a bankaccount
 * [update_hris_benefit](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_benefit) - Update a benefit
 * [update_hris_company](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_company) - Update a company
 * [update_hris_deduction](https://github.com/unified-to/unified-python-sdk/blob/master/./docs/sdks/hris/README.md#update_hris_deduction) - Update a deduction

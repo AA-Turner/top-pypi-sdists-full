@@ -46,8 +46,24 @@ class HomogeneousMedium(Medium):
         c_map[x_start:x_end, :] = self.params.acoustic['medium']['c0']
         rho_map[x_start:x_end, :] = self.params.acoustic['medium']['density']
 
-        # Atténuation et non-linéarité dans le phantom
-        alpha_coeff_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_coeff']
+        is_absorbing = self.params.acoustic['medium'].get('isAbsorbingMedium', True)
+        
+        if is_absorbing:
+            # Remplir la carte d'atténuation avec la valeur spécifiée (0.3)
+            alpha_coeff_map[x_start:x_end, :] = self.params.acoustic['medium']['alpha_coeff']
+
+            # Utiliser alpha_power tel que spécifié (1.1 dans vos paramètres)
+            alpha_power = self.params.acoustic['medium']['alpha_power']
+
+            # Pour alpha_power proche de 1 mais différent, utiliser 'no_dispersion'
+            # Cela évite les problèmes numériques tout en modélisant correctement l'atténuation
+            alpha_mode = 'no_dispersion'
+        else:
+            # Si jamais l'absorption est désactivée (bien que vos paramètres l'activent)
+            alpha_power = 1.5  # Valeur standard
+            alpha_mode = 'no_absorption'
+
+
         BonA_map[x_start:x_end, :] = self.params.acoustic['medium']['BonA']
 
         c_map = c_map.astype(np.float32)
@@ -55,14 +71,14 @@ class HomogeneousMedium(Medium):
         alpha_coeff_map = alpha_coeff_map.astype(np.float32)
         BonA_map = BonA_map.astype(np.float32)
 
-        # --- 5. Création du milieu k-Wave ---
         self.kmedium = kWaveMedium(
             sound_speed=c_map,
             density=rho_map,
             alpha_coeff=alpha_coeff_map,
-            alpha_power=self.params.acoustic['medium']['alpha_power'],
+            alpha_power=alpha_power,
+            alpha_mode=alpha_mode,  # Ajout du paramètre alpha_mode
             BonA=BonA_map,
-            absorbing=True,
+            absorbing=is_absorbing,
             stokes=False
         )
 

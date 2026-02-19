@@ -22,7 +22,7 @@ use crate::{
     },
     front::{Object, ObjectId},
     modules::{ModuleId, ModuleInfo, ModuleLoader, ModulePath, ModuleRepr, ModuleSource},
-    parsing::ast::types::{Annotation, NodeRef},
+    parsing::ast::types::{Annotation, NodeRef, TagNode},
 };
 #[cfg(feature = "artifact-graph")]
 use crate::{
@@ -160,6 +160,7 @@ pub(crate) struct SketchBlockState {
     pub solver_constraints: Vec<kcl_ezpz::Constraint>,
     pub solver_optional_constraints: Vec<kcl_ezpz::Constraint>,
     pub needed_by_engine: Vec<UnsolvedSegment>,
+    pub segment_tags: IndexMap<ObjectId, TagNode>,
 }
 
 impl ExecState {
@@ -567,6 +568,12 @@ impl ExecState {
             Default::default(),
             #[cfg(feature = "artifact-graph")]
             self.global.artifacts.graph.clone(),
+            #[cfg(feature = "artifact-graph")]
+            self.global.root_module_artifacts.scene_objects.clone(),
+            #[cfg(feature = "artifact-graph")]
+            self.global.root_module_artifacts.source_range_to_object.clone(),
+            #[cfg(feature = "artifact-graph")]
+            self.global.root_module_artifacts.var_solutions.clone(),
             module_id_to_module_path,
             self.global.id_to_source.clone(),
             default_planes,
@@ -835,7 +842,7 @@ impl SketchBlockState {
     #[cfg(feature = "artifact-graph")]
     pub(crate) fn var_solutions(
         &self,
-        solve_outcome: Solved,
+        solve_outcome: &Solved,
         solution_ty: NumericType,
         range: SourceRange,
     ) -> Result<Vec<(SourceRange, Number)>, KclError> {

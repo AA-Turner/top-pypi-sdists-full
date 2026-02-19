@@ -46,6 +46,31 @@ def test_run_sequential_fail(tox_project: ToxProjectCreator) -> None:
     assert Matches(r"  a: FAIL code 1 \(.*=setup\[.*\]\+cmd\[.*\] seconds\)") == reports[-3]
 
 
+@pytest.mark.parametrize(
+    ("envs", "expected_code"),
+    [
+        ("a", 1),  # single failing env returns its exit code
+        ("a,b", 1),  # mixed fail+ok returns positive non-zero
+        ("a,c", 1),  # all failing returns positive non-zero
+    ],
+)
+def test_run_multi_env_exit_code_positive(tox_project: ToxProjectCreator, envs: str, expected_code: int) -> None:
+    """Exit code must be a positive integer so Windows CMD ``IF ERRORLEVEL 1`` detects failure (see #2945)."""
+
+    def _cmd(value: int) -> str:
+        return f"python -c 'import sys; sys.exit({value})'"
+
+    ini = (
+        f"[tox]\nno_package=true\n"
+        f"[testenv:a]\ncommands={_cmd(1)}\n"
+        f"[testenv:b]\ncommands={_cmd(0)}\n"
+        f"[testenv:c]\ncommands={_cmd(2)}\n"
+    )
+    project = tox_project({"tox.ini": ini})
+    outcome = project.run("r", "-e", envs)
+    assert outcome.code == expected_code
+
+
 def test_run_sequential_quiet(tox_project: ToxProjectCreator) -> None:
     ini = "[tox]\nenv_list=a\nno_package=true\n[testenv]\ncommands=python -V"
     project = tox_project({"tox.ini": ini})
@@ -186,6 +211,27 @@ def test_recreate_package(tox_project: ToxProjectCreator, demo_pkg_inline: Path)
     result_rerun.assert_success()
 
 
+def test_recreate_env_does_not_destroy_shared_pkg(tox_project: ToxProjectCreator, demo_pkg_inline: Path) -> None:
+    toml = (demo_pkg_inline / "pyproject.toml").read_text()
+    build = (demo_pkg_inline / "build.py").read_text()
+    proj = tox_project({
+        "tox.toml": """\
+env_list = ["a", "b"]
+
+[env_run_base]
+package = "wheel"
+commands = [["python", "-c", "from demo_pkg_inline import do; do()"]]
+
+[env.b]
+recreate = true
+""",
+        "pyproject.toml": toml,
+        "build.py": build,
+    })
+    result = proj.run("r", "-e", "a,b")
+    result.assert_success()
+
+
 def test_package_deps_change(tox_project: ToxProjectCreator, demo_pkg_inline: Path) -> None:
     toml = (demo_pkg_inline / "pyproject.toml").read_text()
     build = (demo_pkg_inline / "build.py").read_text()
@@ -257,6 +303,47 @@ def test_missing_interpreter_skip_off(tox_project: ToxProjectCreator) -> None:
     result.assert_failed()
     exp = "py: failed with could not find python interpreter matching any of the specs missing-interpreter"
     assert exp in result.out
+
+
+@pytest.mark.slow
+def test_missing_interpreter_skip_set_env_substitution_ini(tox_project: ToxProjectCreator) -> None:
+    ini = """\
+[tox]
+env_list = ok, bad
+skip_missing_interpreters = true
+[testenv]
+package = skip
+set_env =
+    DATA_DIR={envsitepackagesdir}
+[testenv:bad]
+base_python = missing-interpreter
+set_env =
+    {[testenv]set_env}
+    EXTRA=yes
+"""
+    result = tox_project({"tox.ini": ini}).run("r")
+    result.assert_success()
+    assert "bad: SKIP" in result.out
+    assert "ok: OK" in result.out
+
+
+@pytest.mark.slow
+def test_missing_interpreter_skip_set_env_substitution_toml(tox_project: ToxProjectCreator) -> None:
+    toml = """\
+env_list = ["ok", "bad"]
+skip_missing_interpreters = true
+
+[env_run_base]
+package = "skip"
+
+[env.bad]
+base_python = ["missing-interpreter"]
+set_env = {DATA_DIR = "{envsitepackagesdir}", EXTRA = "yes"}
+"""
+    result = tox_project({"tox.toml": toml}).run("r")
+    result.assert_success()
+    assert "bad: SKIP" in result.out
+    assert "ok: OK" in result.out
 
 
 def test_env_tmp_dir_reset(tox_project: ToxProjectCreator) -> None:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-tests
-Version: 1.1.4
+Version: 1.1.5
 Summary: Standard tests for LangChain implementations
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://docs.langchain.com/
@@ -32,8 +32,8 @@ Requires-Dist: pytest-benchmark
 Requires-Dist: pytest-codspeed
 Requires-Dist: pytest-recording
 Requires-Dist: pytest-socket<1.0.0,>=0.7.0
-Requires-Dist: pytest<9.0.0,>=7.0.0
-Requires-Dist: syrupy<5.0.0,>=4.0.0
+Requires-Dist: pytest<10.0.0,>=7.0.0
+Requires-Dist: syrupy<6.0.0,>=4.0.0
 Requires-Dist: vcrpy<9.0.0,>=8.0.0
 Description-Content-Type: text/markdown
 

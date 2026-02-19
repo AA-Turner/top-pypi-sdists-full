@@ -46,6 +46,7 @@ class Config:
 
         self._src = config_source
         self._key_to_conf_set: dict[tuple[str, str, str], ConfigSet] = OrderedDict()
+        self._env_to_conf_set: dict[str, EnvConfigSet] = {}
         self._core_set: CoreConfigSet | None = None
         self.memory_seed_loaders: defaultdict[str, list[MemoryLoader]] = defaultdict(list)
 
@@ -64,9 +65,12 @@ class Config:
                 if path_arg.exists() and not path_arg.is_absolute():
                     # we use os.path to unroll .. in path without resolve
                     path_arg_str = os.path.abspath(str(path_arg))  # noqa: PTH100
-                    # we use os.path to not fail when not within
-                    relative = os.path.relpath(path_arg_str, to_path_str)
-                    args.append(relative)
+                    try:
+                        relative = os.path.relpath(path_arg_str, to_path_str)
+                    except ValueError:  # on Windows, relpath fails across drives (e.g. subst mounts)
+                        args.append(path_arg_str)
+                    else:
+                        args.append(relative)
                 else:
                     args.append(arg)
             return tuple(args)
@@ -171,18 +175,25 @@ class Config:
         :returns: the tox environments config
 
         """
+        if item in self._env_to_conf_set:
+            return self._env_to_conf_set[item]
         section, base_test, base_pkg = self._src.get_tox_env_section(item)
-        return self.get_section_config(
+        result = self.get_section_config(
             section,
             base=base_pkg if package else base_test,
             of_type=EnvConfigSet,
             for_env=item,
             loaders=loaders,
         )
+        self._env_to_conf_set[item] = result
+        return result
 
     def clear_env(self, name: str) -> None:
         section, _, __ = self._src.get_tox_env_section(name)
-        self._key_to_conf_set = {k: v for k, v in self._key_to_conf_set.items() if k[0] == section.key and k[1] == name}
+        self._key_to_conf_set = {
+            k: v for k, v in self._key_to_conf_set.items() if not (k[0] == section.key and k[1] == name)
+        }
+        self._env_to_conf_set.pop(name, None)
 
 
 ___all__ = [

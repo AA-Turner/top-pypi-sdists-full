@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fiftyone
-Version: 1.13.0
+Version: 1.13.1
 Summary: FiftyOne: the open-source tool for building high-quality datasets and computer vision models
 Home-page: https://github.com/voxel51/fiftyone
 Author: Voxel51, Inc.
@@ -64,7 +64,7 @@ Requires-Dist: setuptools
 Requires-Dist: sseclient-py<2,>=1.7.2
 Requires-Dist: sse-starlette<1,>=0.10.3
 Requires-Dist: starlette>=0.24.0
-Requires-Dist: strawberry-graphql>=0.262.4
+Requires-Dist: strawberry-graphql<0.292.0,>=0.262.4
 Requires-Dist: tabulate
 Requires-Dist: tqdm
 Requires-Dist: xmltodict

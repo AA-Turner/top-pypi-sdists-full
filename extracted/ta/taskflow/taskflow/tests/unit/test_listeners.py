@@ -19,11 +19,12 @@ import time
 
 from oslo_serialization import jsonutils
 from oslo_utils import reflection
-from zake import fake_client
+import testtools
 
 import taskflow.engines
 from taskflow import exceptions as exc
 from taskflow.jobs import backends as jobs
+from taskflow.jobs.backends import impl_zookeeper
 from taskflow.listeners import claims
 from taskflow.listeners import logging as logging_listeners
 from taskflow.listeners import timing
@@ -34,8 +35,13 @@ from taskflow import task
 from taskflow import test
 from taskflow.test import mock
 from taskflow.tests import utils as test_utils
+from taskflow.utils import kazoo_utils
 from taskflow.utils import misc
 from taskflow.utils import persistence_utils
+
+
+ZOOKEEPER_AVAILABLE = test_utils.zookeeper_available(
+    impl_zookeeper.ZookeeperJobBoard.MIN_ZK_VERSION)
 
 
 _LOG_LEVELS = frozenset([
@@ -70,6 +76,7 @@ class EngineMakerMixin:
         return e
 
 
+@testtools.skipIf(not ZOOKEEPER_AVAILABLE, 'zookeeper is not available')
 class TestClaimListener(test.TestCase, EngineMakerMixin):
     def _make_dummy_flow(self, count):
         f = lf.Flow('root')
@@ -79,7 +86,7 @@ class TestClaimListener(test.TestCase, EngineMakerMixin):
 
     def setUp(self):
         super().setUp()
-        self.client = fake_client.FakeClient()
+        self.client = kazoo_utils.make_client(test_utils.ZK_TEST_CONFIG.copy())
         self.addCleanup(self.client.stop)
         self.board = jobs.fetch('test', 'zookeeper', client=self.client)
         self.addCleanup(self.board.close)
@@ -92,7 +99,7 @@ class TestClaimListener(test.TestCase, EngineMakerMixin):
             if children:
                 arrived.set()
 
-        self.client.ChildrenWatch("/taskflow", set_on_children)
+        self.client.ChildrenWatch("/taskflow/jobs", set_on_children)
         job = self.board.post('test-1')
 
         # Make sure it arrived and claimed before doing further work...
@@ -105,22 +112,20 @@ class TestClaimListener(test.TestCase, EngineMakerMixin):
         return job
 
     def _destroy_locks(self):
-        children = self.client.storage.get_children("/taskflow",
-                                                    only_direct=False)
+        children = self.client.get_children("/taskflow/jobs")
         removed = 0
-        for p, data in children.items():
+        for p in children:
             if p.endswith(".lock"):
-                self.client.storage.pop(p)
+                self.client.delete("/taskflow/jobs/" + p)
                 removed += 1
         return removed
 
     def _change_owner(self, new_owner):
-        children = self.client.storage.get_children("/taskflow",
-                                                    only_direct=False)
+        children = self.client.get_children("/taskflow/jobs")
         altered = 0
-        for p, data in children.items():
+        for p in children:
             if p.endswith(".lock"):
-                self.client.set(p, misc.binary_encode(
+                self.client.set("/taskflow/jobs/" + p, misc.binary_encode(
                     jsonutils.dumps({'owner': new_owner})))
                 altered += 1
         return altered
@@ -177,7 +182,7 @@ class TestClaimListener(test.TestCase, EngineMakerMixin):
         self.assertNotEqual(-1, destroyed_at)
 
         after_states = ran_states[destroyed_at:]
-        self.assertGreater(0, len(after_states))
+        self.assertGreater(len(after_states), 0)
 
     def test_claim_lost_new_owner(self):
         job = self._post_claim_job('test')
@@ -224,7 +229,7 @@ class TestDurationListener(test.TestCase, EngineMakerMixin):
             self.assertIsNotNone(td)
             self.assertIsNotNone(td.meta)
             self.assertIn('duration', td.meta)
-            self.assertGreaterEqual(0.1, td.meta['duration'])
+            self.assertGreaterEqual(td.meta['duration'], 0.1)
 
     def test_flow_duration(self):
         with contextlib.closing(impl_memory.MemoryBackend()) as be:
@@ -237,7 +242,7 @@ class TestDurationListener(test.TestCase, EngineMakerMixin):
             self.assertIsNotNone(fd)
             self.assertIsNotNone(fd.meta)
             self.assertIn('duration', fd.meta)
-            self.assertGreaterEqual(0.1, fd.meta['duration'])
+            self.assertGreaterEqual(fd.meta['duration'], 0.1)
 
     @mock.patch.object(timing.LOG, 'warning')
     def test_record_ending_exception(self, mocked_warning):
@@ -271,12 +276,12 @@ class TestEventTimeListener(test.TestCase, EngineMakerMixin):
         self.assertIn(running_field, td.meta)
         self.assertIn(success_field, td.meta)
         td_duration = td.meta[success_field] - td.meta[running_field]
-        self.assertGreaterEqual(0.1, td_duration)
+        self.assertGreaterEqual(td_duration, 0.1)
         fd_meta = engine.storage._flowdetail.meta
         self.assertIn(running_field, fd_meta)
         self.assertIn(success_field, fd_meta)
         fd_duration = fd_meta[success_field] - fd_meta[running_field]
-        self.assertGreaterEqual(0.1, fd_duration)
+        self.assertGreaterEqual(fd_duration, 0.1)
 
 
 class TestCapturingListeners(test.TestCase, EngineMakerMixin):
@@ -312,7 +317,7 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
         log, handler = self._make_logger()
         with logging_listeners.LoggingListener(e, log=log):
             e.run()
-        self.assertGreater(0, handler.counts[logging.DEBUG])
+        self.assertGreater(handler.counts[logging.DEBUG], 0)
         for levelno in _LOG_LEVELS - {logging.DEBUG}:
             self.assertEqual(0, handler.counts[levelno])
         self.assertEqual([], handler.exc_infos)
@@ -326,7 +331,7 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
             e, log=log, level=logging.INFO)
         with listener:
             e.run()
-        self.assertGreater(0, handler.counts[logging.INFO])
+        self.assertGreater(handler.counts[logging.INFO], 0)
         for levelno in _LOG_LEVELS - {logging.INFO}:
             self.assertEqual(0, handler.counts[levelno])
         self.assertEqual([], handler.exc_infos)
@@ -338,7 +343,7 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
         log, handler = self._make_logger()
         with logging_listeners.LoggingListener(e, log=log):
             self.assertRaises(RuntimeError, e.run)
-        self.assertGreater(0, handler.counts[logging.DEBUG])
+        self.assertGreater(handler.counts[logging.DEBUG], 0)
         for levelno in _LOG_LEVELS - {logging.DEBUG}:
             self.assertEqual(0, handler.counts[levelno])
         self.assertEqual(1, len(handler.exc_infos))
@@ -350,7 +355,7 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
         log, handler = self._make_logger()
         with logging_listeners.DynamicLoggingListener(e, log=log):
             e.run()
-        self.assertGreater(0, handler.counts[logging.DEBUG])
+        self.assertGreater(handler.counts[logging.DEBUG], 0)
         for levelno in _LOG_LEVELS - {logging.DEBUG}:
             self.assertEqual(0, handler.counts[levelno])
         self.assertEqual([], handler.exc_infos)
@@ -362,8 +367,8 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
         log, handler = self._make_logger()
         with logging_listeners.DynamicLoggingListener(e, log=log):
             self.assertRaises(RuntimeError, e.run)
-        self.assertGreater(0, handler.counts[logging.WARNING])
-        self.assertGreater(0, handler.counts[logging.DEBUG])
+        self.assertGreater(handler.counts[logging.WARNING], 0)
+        self.assertGreater(handler.counts[logging.DEBUG], 0)
         self.assertEqual(1, len(handler.exc_infos))
         for levelno in _LOG_LEVELS - {logging.DEBUG, logging.WARNING}:
             self.assertEqual(0, handler.counts[levelno])
@@ -377,8 +382,8 @@ class TestLoggingListeners(test.TestCase, EngineMakerMixin):
             e, log=log, failure_level=logging.ERROR)
         with listener:
             self.assertRaises(RuntimeError, e.run)
-        self.assertGreater(0, handler.counts[logging.ERROR])
-        self.assertGreater(0, handler.counts[logging.DEBUG])
+        self.assertGreater(handler.counts[logging.ERROR], 0)
+        self.assertGreater(handler.counts[logging.DEBUG], 0)
         self.assertEqual(1, len(handler.exc_infos))
         for levelno in _LOG_LEVELS - {logging.DEBUG, logging.ERROR}:
             self.assertEqual(0, handler.counts[levelno])

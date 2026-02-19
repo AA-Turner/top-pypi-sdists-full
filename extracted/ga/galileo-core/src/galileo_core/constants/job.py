@@ -52,3 +52,4 @@ class JobName(str, Enum):
     logstream_insights = "logstream_insights"
     auto_metric_suggestion = "auto_metric_suggestion"
     org_metadata_delete = "org_metadata_delete"
+    file_upload = "file_upload"

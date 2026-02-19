@@ -9,8 +9,8 @@ import time
 import click
 
 from adam.config_holder import ConfigHolder
-from adam.utils_color import Color, colored_print
 from adam.directories import local_log_dir
+from adam.presentation.color import Color, colored_print
 from adam.thread_locals import Timable, thread_local_logging
 
 T = TypeVar('T')

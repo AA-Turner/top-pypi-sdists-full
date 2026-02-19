@@ -3,7 +3,7 @@ from adam.commands.command import Command
 from adam.commands.devices.devices import all_devices
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_log import log, log_exc
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class Pwd(Command):
     COMMAND = 'pwd'

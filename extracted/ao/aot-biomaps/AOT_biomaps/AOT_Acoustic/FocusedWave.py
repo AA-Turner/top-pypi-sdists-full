@@ -36,63 +36,86 @@ class FocusedWave(AcousticField):
             print(f"Error generating file name: {e}")
             return None
 
-    def _apply_delay(self, dx=None):
+    def _apply_delay(self, dt=None, dx=None, c0=None):
+        """
+        Applique un retard temporel parabolique CORRECT pour une focalisation.
+        Les éléments sur les bords sont activés EN PREMIER (retard plus petit).
+
+        Args:
+            dt: Pas temporel (en secondes). Si None, utilise self.medium.kgrid.dt.
+            dx: Pas spatial (en mètres). Si None, utilise self.params.general['dx'].
+            c0: Vitesse du son (en m/s). Si None, utilise self.params.acoustic['medium']['c0'].
+
+        Returns:
+            ndarray: Tableau des signaux retardés (shape: [total_grid_points, len(burst) + max_delay]).
+        """
         try:
+            # 1. Initialisation des paramètres
             if dx is None:
                 dx = self.params.general['dx']
+            if c0 is None:
+                c0 = self.params.acoustic['medium']['c0']
+            actual_dt = dt if dt is not None else self.medium.kgrid.dt
 
-            # 1. Grid and element setup (utilise les paramètres utilisateur)
+            # 2. Configuration de la grille et des éléments
             element_width_grid_points = int(round(self.params.acoustic['probe']['element_width'] / dx))
             total_grid_points = self.params.acoustic['probe']['num_elements'] * element_width_grid_points
+
+            # Positions physiques des éléments (en mètres)
             element_positions = np.linspace(
-                self.params.general['Xrange'][0] + self.params.acoustic['probe']['element_width']/2,
-                self.params.general['Xrange'][1] - self.params.acoustic['probe']['element_width'],
+                self.params.general['Xrange'][0] + self.params.acoustic['probe']['element_width'] / 2,
+                self.params.general['Xrange'][1] - self.params.acoustic['probe']['element_width'] / 2,
                 self.params.acoustic['probe']['num_elements']
             )
 
-            # 2. Select active elements (utilise les paramètres utilisateur)
+            # 3. Sélection des éléments actifs (focalisation)
+            TxWidth = self.params.acoustic['emission']['Foc'] / 2  # Largeur active en mètres
+            pitch = self.params.acoustic['probe']['element_width']  # Pas entre éléments (en mètres)
+            N_piezoFocal = int(round(TxWidth / pitch))  # Nombre d'éléments actifs de chaque côté
+
             center_idx = np.argmin(np.abs(element_positions - self.focal_line))
-            half_N = self.params.acoustic['emission']['N_piezoFocal'] // 2
-            start_idx = max(0, center_idx - half_N)
-            end_idx = min(self.params.acoustic['probe']['num_elements'] - 1, center_idx + half_N - 1)
+            start_idx = max(0, center_idx - N_piezoFocal)
+            end_idx = min(self.params.acoustic['probe']['num_elements'] - 1, center_idx + N_piezoFocal)
             active_elements = np.arange(start_idx, end_idx + 1)
             active_element_positions = element_positions[active_elements]
 
-            # 3. Calculate relative positions
+            # 4. Calcul des retards paraboliques CORRECTS
+            # On veut que les éléments sur les bords aient un retard plus petit
+            # La loi correcte : retard = (Foc - sqrt(Foc² + x_rel²)) / c0
             x_rel = active_element_positions - self.focal_line
-            a = np.max(np.abs(x_rel))
+            delays = (self.params.acoustic['emission']['Foc'] - np.sqrt(self.params.acoustic['emission']['Foc']**2 + x_rel**2)) / c0
 
-            # 4. Calculate the parabolic delays (utilise les paramètres utilisateur)
-            tau_max = (a**2) / (2 * self.params.acoustic['emission']['Foc'] * self.params.acoustic['medium']['c0'])
-            delays = tau_max * (1 - (x_rel / a)**2)
+            # 5. Trouver le retard maximum (en valeur absolue)
+            max_delay = np.max(np.abs(delays))
 
-            # 5. Force the delays at the edges to be zero
-            tau_edge = delays[0]
-            delays -= tau_edge
+            # 6. Conversion en échantillons
+            delay_samples = np.round(delays / actual_dt).astype(int)
+            max_delay_samples = np.max(np.abs(delay_samples))
 
-            # 6. Convert delays to samples
-            delay_samples = np.round(delays / self.medium.kgrid.dt).astype(int)
-            max_delay_samples = np.max(delay_samples)
-            print(f"Max delay (samples): {max_delay_samples}")
-
-            # 7. Initialize output
+            # 7. Initialisation du tableau des signaux retardés
             delayed_signals = np.zeros((total_grid_points, len(self.burst) + max_delay_samples))
 
-            # 8. Apply delays
-            for elem_idx, elem_delay in zip(active_elements, delay_samples):
+            # 8. Application des retards aux éléments actifs
+            for elem_idx in active_elements:
                 start_grid = elem_idx * element_width_grid_points
                 end_grid = start_grid + element_width_grid_points
-                for grid_idx in range(start_grid, end_grid):
-                    if elem_delay >= 0 and elem_delay + len(self.burst) <= delayed_signals.shape[1]:
-                        delayed_signals[grid_idx, elem_delay:elem_delay + len(self.burst)] = self.burst
+                elem_delay = delay_samples[elem_idx - start_idx]  # Retard pour cet élément
 
+                # Décalage dans le tableau : max_delay + elem_delay
+                # Cela permet de gérer les retards négatifs
+                shift = max_delay_samples + elem_delay
+
+                for grid_idx in range(start_grid, end_grid):
+                    if shift >= 0 and shift + len(self.burst) <= delayed_signals.shape[1]:
+                        delayed_signals[grid_idx, shift:shift + len(self.burst)] = self.burst
+
+            print(f"Retard maximum (échantillons): {max_delay_samples}")
             return delayed_signals
 
         except Exception as e:
-            print(f"Error applying delay: {e}")
+            print(f"Erreur lors de l'application des retards: {e}")
             return None
 
- 
     def plot_delay(self):
         """
         Plot the time of the maximum of each delayed signal to visualize the wavefront.
@@ -121,47 +144,75 @@ class FocusedWave(AcousticField):
         except Exception as e:
             print(f"Error plotting max times: {e}")
 
-    def _SetUpSource(self, source, Nx, dx, factorT):
+    def _SetUpSource(self, source, Nx, dt, dx, c0, factorT):
         """
-        Set up source for both 2D and 3D focused waves.
+        Configure la source k-Wave pour une onde focalisée en 2D.
+        Applique les retards paraboliques et sélectionne les éléments actifs autour du point focal.
+
+        Args:
+            source: Objet k-Wave source (p_mask et p seront modifiés).
+            Nx: Nombre de points de la grille en x.
+            dt: Pas temporel (en secondes).
+            dx: Pas spatial (en mètres).
+            c0: Vitesse du son (en m/s).
+            factorT: Facteur de sous-échantillonnage temporel.
         """
-        element_width_grid_points = int(round(self.params.acoustic['probe']['element_width'] / dx))
+        # Largeur d'un élément en pixels
+        el_width_px = int(round(self.params.acoustic['probe']['element_width'] / dx))
+        total_sonde_px = self.params.acoustic['probe']['num_elements'] * el_width_px
 
-        if source.p_mask.ndim == 2:
-            # --- 2D ---
-            element_positions = np.linspace(
-                self.params.general['Xrange'][0] + self.params.acoustic['probe']['element_width'] / 2,
-                self.params.general['Xrange'][1] - self.params.acoustic['probe']['element_width'] / 2,
-                self.params.acoustic['probe']['num_elements']
-            )
-            center_idx = np.argmin(np.abs(element_positions - self.focal_line))
-            start_idx = max(0, center_idx - self.params.acoustic['emission']['N_piezoFocal'] // 2)
-            end_idx = min(self.params.acoustic['probe']['num_elements'] - 1, start_idx + self.params.acoustic['emission']['N_piezoFocal'] - 1)
-            selected_indices = np.arange(start_idx, end_idx + 1)
+        # Largeur du milieu (PVA) en pixels
+        pva_nx = int(np.round(self.params.acoustic['medium']['width'] / dx))
+        air_margin = (Nx - pva_nx) // 2
 
-            current_position = (Nx - self.params.acoustic['probe']['num_elements'] * element_width_grid_points) // 2
-            active_grid_indices = []
-            for i in range(self.params.acoustic['probe']['num_elements']):
+        # Position de départ pour centrer la sonde sur le milieu
+        current_position = air_margin + (pva_nx - total_sonde_px) // 2
+
+        # --- Sélection des éléments actifs (focalisation) ---
+        element_positions = np.linspace(
+            self.params.general['Xrange'][0] + self.params.acoustic['probe']['element_width'] / 2,
+            self.params.general['Xrange'][1] - self.params.acoustic['probe']['element_width'] / 2,
+            self.params.acoustic['probe']['num_elements']
+        )
+
+        # Largeur active et éléments actifs (TxWidth = Foc/2)
+        TxWidth = self.params.acoustic['emission']['Foc'] / 2  # en mètres
+        pitch = self.params.acoustic['probe']['element_width']  # en mètres
+        N_piezoFocal = int(round(TxWidth / pitch))
+
+        center_idx = np.argmin(np.abs(element_positions - self.focal_line))
+        start_idx = max(0, center_idx - N_piezoFocal)
+        end_idx = min(self.params.acoustic['probe']['num_elements'] - 1, center_idx + N_piezoFocal)
+        active_indices = np.arange(start_idx, end_idx + 1)
+
+        # Masque des éléments actifs (grille 1D)
+        activeListGrid = np.zeros(total_sonde_px, dtype=int)
+
+        # Configuration du masque k-Wave et marquage des indices actifs
+        for i in range(self.params.acoustic['probe']['num_elements']):
+            if i in active_indices:
                 x_start = current_position
-                x_end = current_position + element_width_grid_points
-                if i in selected_indices:
-                    source.p_mask[x_start:x_end, 0] = 1
-                    active_grid_indices.extend(range(x_start, x_end))
-                current_position += element_width_grid_points
+                x_end = x_start + el_width_px
+                source.p_mask[x_start:x_end, 0] = 1  # Activation dans p_mask
 
-            delayed_signals = self._apply_delay(dx=dx) if factorT != 1 else self.delayedSignal
-            source.p = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity']) * delayed_signals[active_grid_indices, :]
-        elif source.p_mask.ndim == 3:
-            # --- 3D ---
-            center_index_x = Nx // 2
-            center_index_y = self.params.general['Ny'] // 2
+                # Marquage des indices pour injection du signal
+                idx_start = i * el_width_px
+                idx_end = idx_start + el_width_px
+                activeListGrid[idx_start:idx_end] = 1
 
-            for i in range(self.params.acoustic['probe']['num_elements']):
-                x_pos = center_index_x - (self.params.acoustic['probe']['num_elements'] // 2) * element_width_grid_points + i * element_width_grid_points
-                source.p_mask[x_pos, center_index_y, 0] = 1
+            current_position += el_width_px
 
-            delayed_signals = self._apply_delay()
-            source.p = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity']) * delayed_signals.T
+        # Injection du signal (retards paraboliques)
+        if factorT != 1:
+            delayedSignal = self._apply_delay(dt=dt, dx=dx, c0=c0)
+        else:
+            delayedSignal = self.delayedSignal
+
+        # Application du signal uniquement aux éléments actifs
+        amplitude = float(self.params.acoustic['emission']['voltage']) * float(self.params.acoustic['emission']['sensitivity'])
+        source.p = amplitude * delayedSignal[activeListGrid == 1, :]
+
+        return source
 
     def _save2D_HDR_IMG(self, filePath):
         """
@@ -241,3 +292,5 @@ class FocusedWave(AcousticField):
         except Exception as e:
             print(f"Error saving HDR/IMG files: {e}")
  
+    def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
+        pass

@@ -7,8 +7,7 @@ from decimal import Decimal
 from typing import TYPE_CHECKING, Any, cast, overload, Optional, Union
 from fractions import Fraction
 from arelle.UrlUtil import isValidUriReference
-
-import arelle.ModelObject
+from arelle.typing import ModelObjectBase
 
 if TYPE_CHECKING:
     from arelle.ModelObject import ModelObject
@@ -20,7 +19,6 @@ if TYPE_CHECKING:
     from arelle.XmlValidate import XsdPattern
 
 import regex as re
-XmlUtil = None
 
 @overload
 def qname(value: ModelObject | str | QName) -> QName: ...
@@ -52,14 +50,15 @@ def qname(
     # value can be namespaceURI and name is localname or prefix:localname
     # value can be prefix:localname (and localname omitted)
     # for xpath qnames which do not take default namespace if no prefix, specify noPrefixIsNoNamespace
-    if isinstance(value, arelle.ModelObject.ModelObject):
+    if isinstance(value, ModelObjectBase):
+        value = cast('ModelObject', value)
         if name: # name is prefixed name
             element = value  # may be an attribute
             value = name
             name = None
         else:
             return QName(value.prefix, value.namespaceURI, value.localName)
-    elif isinstance(name, arelle.ModelObject.ModelObject):
+    elif isinstance(name, ModelObjectBase):
         element = name
         name = None
     else:
@@ -296,13 +295,11 @@ def dateTime(
     type: int | None = None,
     castException: type[Exception] | None = None,
 ) -> DateTime | None:
-    from arelle.ModelObject import ModelObject
-
     if value == "MinDate":
         return DateTime(datetime.MINYEAR,1,1)
     elif value == "maxyear":
         return DateTime(datetime.MAXYEAR,12,31)
-    elif isinstance(value, ModelObject):
+    elif isinstance(value, ModelObjectBase):
         value = value.text
     elif isinstance(value, DateTime) and not addOneDay and (value.dateOnly == (type == DATE)):
         return value    # no change needed for cast or conversion
@@ -586,9 +583,7 @@ class YearMonthDayTimeDuration():
             return "PT0S"
         return "P" + ''.join(per)
 
-def time(value: str, castException: type[Exception] | None = None) -> Time | None:
-    from arelle.ModelObject import ModelObject
-
+def time(value: str | ModelObject | datetime.time | datetime.datetime | Any | None, castException: type[Exception] | None = None) -> Time | None:
     if value == "MinTime":
         return Time(
             hour=datetime.time.min.hour,
@@ -605,7 +600,8 @@ def time(value: str, castException: type[Exception] | None = None) -> Time | Non
             microsecond=datetime.time.max.microsecond,
             tzinfo=datetime.time.max.tzinfo,
         )
-    elif isinstance(value, ModelObject):
+    elif isinstance(value, ModelObjectBase):
+        value = cast('ModelObject', value)
         value = value.text
     elif isinstance(value, datetime.time):
         return Time(value.hour, value.minute, value.second, value.microsecond, value.tzinfo)

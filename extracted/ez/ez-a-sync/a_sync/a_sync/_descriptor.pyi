@@ -1,0 +1,30 @@
+from typing import Generic
+
+from typing_extensions import Concatenate
+
+from a_sync import TaskMapping
+from a_sync._typing import AnyFn, AnyIterable, I, ModifierKwargs, P, T
+from a_sync.a_sync import decorator
+from a_sync.a_sync.function import ASyncFunction, ModifierManager, _ModifiedMixin
+from a_sync.functools import cached_property_unsafe, update_wrapper
+
+class ASyncDescriptor(_ModifiedMixin, Generic[I, P, T]):
+    __wrapped__: AnyFn[Concatenate[I, P], T]
+    modifiers: ModifierManager
+    field_name: str
+    def __init__(
+        self,
+        _fget: AnyFn[Concatenate[I, P], T],
+        field_name: str | None = None,
+        **modifiers: ModifierKwargs
+    ) -> None: ...
+    def __set_name__(self, owner, name) -> None: ...
+    def map(
+        self, *instances: AnyIterable[I], **bound_method_kwargs: P.kwargs
+    ) -> TaskMapping[I, T]: ...
+    def all(self) -> ASyncFunction[Concatenate[AnyIterable[I], P], bool]: ...
+    def any(self) -> ASyncFunction[Concatenate[AnyIterable[I], P], bool]: ...
+    def min(self) -> ASyncFunction[Concatenate[AnyIterable[I], P], T]: ...
+    def max(self) -> ASyncFunction[Concatenate[AnyIterable[I], P], T]: ...
+    def sum(self) -> ASyncFunction[Concatenate[AnyIterable[I], P], T]: ...
+    def __init_subclass__(cls) -> None: ...

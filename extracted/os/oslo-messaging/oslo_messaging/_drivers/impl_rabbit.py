@@ -86,6 +86,9 @@ rabbit_opts = [
                     '(valid only if SSL enabled).'),
     cfg.BoolOpt('ssl_enforce_fips_mode',
                 default=False,
+                deprecated_for_removal=True,
+                deprecated_reason='FIPS_mode_set API was removed in OpenSSL '
+                                  '3.0.0. This option has no effect now.',
                 help='Global toggle for enforcing the OpenSSL FIPS mode. '
                 'This feature requires Python support. '
                 'This is available in Python 3.9 in all '
@@ -558,14 +561,6 @@ class Consumer:
                           'Queue: [%(queue)s], '
                           'error message: [%(err_str)s]', info)
                 time.sleep(interval)
-                if self.queue_arguments.get('x-queue-type') == 'quorum':
-                    # Before re-declare queue, try to delete it
-                    # This is helping with issue #2028384
-                    # NOTE(amorin) we need to make sure the connection is
-                    # established again, because when an error occur, the
-                    # connection is closed.
-                    conn.ensure_connection()
-                    self.queue.delete()
                 self.queue.declare()
             else:
                 raise
@@ -606,24 +601,6 @@ class Consumer:
                 self.queue.consume(callback=self._callback,
                                    consumer_tag=str(tag),
                                    nowait=self.nowait)
-            else:
-                raise
-        except amqp_ex.InternalError as exc:
-            if self.queue_arguments.get('x-queue-type') == 'quorum':
-                # Before re-consume queue, try to delete it
-                # This is helping with issue #2028384
-                if exc.code == 541:
-                    LOG.warning('Queue %s seems broken, will try delete it '
-                                'before starting over.', self.queue.name)
-                    # NOTE(amorin) we need to make sure the connection is
-                    # established again, because when an error occur, the
-                    # connection is closed.
-                    conn.ensure_connection()
-                    self.queue.delete()
-                    self.declare(conn)
-                    self.queue.consume(callback=self._callback,
-                                       consumer_tag=str(tag),
-                                       nowait=self.nowait)
             else:
                 raise
 
@@ -816,19 +793,6 @@ class Connection:
             self.ssl_key_file = driver_conf.ssl_key_file
             self.ssl_cert_file = driver_conf.ssl_cert_file
             self.ssl_ca_file = driver_conf.ssl_ca_file
-
-            if self.ssl_enforce_fips_mode:
-                if hasattr(ssl, 'FIPS_mode'):
-                    LOG.info("Enforcing the use of the OpenSSL FIPS mode")
-                    ssl.FIPS_mode_set(1)
-                else:
-                    raise exceptions.ConfigurationError(
-                        "OpenSSL FIPS mode is not supported by your Python "
-                        "version. You must either change the Python "
-                        "executable used to a version with FIPS mode "
-                        "support or disable FIPS mode by setting the "
-                        "'[oslo_messaging_rabbit] ssl_enforce_fips_mode' "
-                        "configuration option to 'False'.")
 
         self._url = ''
         if url.hosts:

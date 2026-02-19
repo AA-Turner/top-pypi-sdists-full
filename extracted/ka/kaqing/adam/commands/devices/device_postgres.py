@@ -6,7 +6,7 @@ from adam.commands.postgres.utils_postgres import pg_database_names, pg_table_na
 from adam.utils_repl.repl_state import ReplState
 from adam.utils_job.job import Job
 from adam.utils_log import wait_log
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 from adam.utils_context import NULL
 
 class DevicePostgres(Command, Device):

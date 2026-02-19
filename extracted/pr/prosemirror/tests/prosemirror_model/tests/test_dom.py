@@ -209,7 +209,7 @@ def test_html_is_escaped():
                             {"type": "text", "text": "test "},
                             {
                                 "type": "text",
-                                "marks": [{"type": "strong", "attrs": {}}],
+                                "marks": [{"type": "strong"}],
                                 "text": "some bolded text",
                             },
                         ],
@@ -230,7 +230,7 @@ def test_html_is_escaped():
                             {"type": "text", "text": "test "},
                             {
                                 "type": "text",
-                                "marks": [{"type": "strong", "attrs": {}}],
+                                "marks": [{"type": "strong"}],
                                 "text": "some bolded text",
                             },
                         ],
@@ -241,7 +241,7 @@ def test_html_is_escaped():
                             {"type": "text", "text": "another test "},
                             {
                                 "type": "text",
-                                "marks": [{"type": "em", "attrs": {}}],
+                                "marks": [{"type": "em"}],
                                 "text": "em",
                             },
                         ],
@@ -296,7 +296,7 @@ def test_html_is_escaped():
                         "content": [
                             {
                                 "type": "text",
-                                "marks": [{"type": "strong", "attrs": {}}],
+                                "marks": [{"type": "strong"}],
                                 "text": "Hello",
                             },
                         ],
@@ -311,14 +311,14 @@ def test_html_is_escaped():
                         "content": [
                             {
                                 "type": "text",
-                                "marks": [{"type": "em", "attrs": {}}],
+                                "marks": [{"type": "em"}],
                                 "text": "Test ",
                             },
                             {
                                 "type": "text",
                                 "marks": [
-                                    {"type": "em", "attrs": {}},
-                                    {"type": "strong", "attrs": {}},
+                                    {"type": "em"},
+                                    {"type": "strong"},
                                 ],
                                 "text": "break",
                             },
@@ -360,14 +360,14 @@ def test_html_is_escaped():
                             {"type": "text", "text": "result "},
                             {
                                 "type": "text",
-                                "marks": [{"type": "strong", "attrs": {}}],
+                                "marks": [{"type": "strong"}],
                                 "text": "o",
                             },
                             {
                                 "type": "text",
                                 "marks": [
-                                    {"type": "em", "attrs": {}},
-                                    {"type": "strong", "attrs": {}},
+                                    {"type": "em"},
+                                    {"type": "strong"},
                                 ],
                                 "text": "f",
                             },
@@ -390,3 +390,133 @@ def test_parser(doc, expect, desc):
     behavior of existing files with the addition of this
     """
     assert from_html(schema, doc) == expect, desc
+
+
+def test_closes_block_with_inline_content_on_seeing_block_level_children():
+    result = from_html(
+        schema,
+        "<div><br><div>CCC</div><div>DDD</div><br></div>",
+    )
+    assert result["content"] == [
+        {"type": "paragraph", "content": [{"type": "hard_break"}]},
+        {"type": "paragraph", "content": [{"type": "text", "text": "CCC"}]},
+        {"type": "paragraph", "content": [{"type": "text", "text": "DDD"}]},
+        {"type": "paragraph", "content": [{"type": "hard_break"}]},
+    ]
+
+
+def test_can_temporary_shadow_mark_with_another_configuration():
+    from prosemirror.model import Schema
+
+    s = Schema({
+        "nodes": {
+            **{name: schema.nodes[name].spec for name in schema.nodes},
+        },
+        "marks": {
+            "color": {
+                "attrs": {"color": {}},
+                "toDOM": lambda m, _inline: [
+                    "span",
+                    {"style": f"color: {m.attrs['color']}"},
+                ],
+                "parseDOM": [
+                    {"style": "color", "getAttrs": lambda v: {"color": v}},
+                ],
+            },
+        },
+    })
+    result = from_html(
+        s,
+        '<p><span style="color: red">abc'
+        '<span style="color: blue">def</span>ghi</span></p>',
+    )
+    expected = s.node(
+        "doc",
+        None,
+        [
+            s.node(
+                "paragraph",
+                None,
+                [
+                    s.text("abc", [s.mark("color", {"color": "red"})]),
+                    s.text("def", [s.mark("color", {"color": "blue"})]),
+                    s.text("ghi", [s.mark("color", {"color": "red"})]),
+                ],
+            ),
+        ],
+    )
+    assert result == expected.to_json()
+
+
+def test_preserves_whitespace_in_pre_elements():
+    from prosemirror.model import Schema
+
+    s = Schema({
+        "nodes": {
+            "doc": {"content": "block+"},
+            "text": {"group": "inline"},
+            "p": {"group": "block", "content": "inline*"},
+        },
+    })
+    result = from_html(s, "<pre>  hello </pre>   ")
+    expected = s.node(
+        "doc",
+        None,
+        [s.node("p", None, [s.text("  hello ")])],
+    )
+    assert result == expected.to_json()
+
+
+def test_preserves_whitespace_in_white_space_pre_styled_elements():
+    result = from_html(
+        schema,
+        "  <div style='white-space: pre'>  okay  then </div>  <p> x</p>",
+    )
+    expected = doc(p("  okay  then "), p("x"))
+    assert result["content"] == expected.to_json()["content"]
+
+
+def test_can_move_block_node_out_of_paragraph():
+    import lxml.html
+
+    from prosemirror.model import DOMParser as PMDOMParser
+
+    hr = out["hr"]
+    dom = lxml.html.Element("p")
+    text_el = lxml.html.Element("lxmltext")
+    text_el.text = "Hello"
+    dom.append(text_el)
+    hr_el = lxml.html.Element("hr")
+    dom.append(hr_el)
+    wrapper = lxml.html.Element("document-fragment")
+    wrapper.append(dom)
+    result = PMDOMParser.from_schema(schema).parse(wrapper)
+    expected = doc(p("Hello"), hr)
+    assert result.to_json()["content"] == expected.to_json()["content"]
+
+
+def test_inserts_line_break_replacements():
+    from prosemirror.model import Schema
+
+    hb_spec = {**schema.nodes["hard_break"].spec, "linebreakReplacement": True}
+    node_specs = {}
+    for name in schema.nodes:
+        if name == "hard_break":
+            node_specs[name] = hb_spec
+        else:
+            node_specs[name] = schema.nodes[name].spec
+    s = Schema({"nodes": node_specs})
+
+    result = from_html(
+        s,
+        "<p><span style='white-space: pre'>one\ntwo\n\nthree</span></p>",
+    )
+    result_node = s.node_from_json(result)
+    assert (
+        str(result_node)
+        == 'doc(paragraph("one", hard_break, "two", hard_break, hard_break, "three"))'
+    )
+
+    result2 = from_html(s, "<p><span>one\ntwo\n\nthree</span></p>")
+    result2_node = s.node_from_json(result2)
+    assert str(result2_node) == 'doc(paragraph("one two three"))'

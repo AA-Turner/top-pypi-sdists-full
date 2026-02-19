@@ -13,13 +13,14 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
+from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from chalk._gen.chalk.auth.v1 import displayagent_pb2 as chalk_dot_auth_dot_v1_dot_displayagent__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1b\x63halk/server/v1/flare.proto\x12\x0f\x63halk.server.v1\x1a chalk/auth/v1/displayagent.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x85\x01\n\x05\x46lare\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x05\x61gent\x18\x02 \x01(\x0b\x32\x1b.chalk.auth.v1.DisplayAgentR\x05\x61gent\x12\x39\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt"\x13\n\x11ListFlaresRequest"D\n\x12ListFlaresResponse\x12.\n\x06\x66lares\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.FlareR\x06\x66lares"-\n\x1bGetFlareDownloadLinkRequest\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id"=\n\x1cGetFlareDownloadLinkResponse\x12\x1d\n\nsigned_uri\x18\x01 \x01(\tR\tsignedUri".\n\x12UploadFlareRequest\x12\x18\n\x07\x61rchive\x18\x02 \x01(\x0cR\x07\x61rchive")\n\x13UploadFlareResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name2\xc3\x02\n\x0c\x46lareService\x12]\n\x0bUploadFlare\x12#.chalk.server.v1.UploadFlareRequest\x1a$.chalk.server.v1.UploadFlareResponse"\x03\x80}\x02\x12Z\n\nListFlares\x12".chalk.server.v1.ListFlaresRequest\x1a#.chalk.server.v1.ListFlaresResponse"\x03\x80}\x0b\x12x\n\x14GetFlareDownloadLink\x12,.chalk.server.v1.GetFlareDownloadLinkRequest\x1a-.chalk.server.v1.GetFlareDownloadLinkResponse"\x03\x80}\x0b\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nFlareProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1b\x63halk/server/v1/flare.proto\x12\x0f\x63halk.server.v1\x1a\x1b\x62uf/validate/validate.proto\x1a chalk/auth/v1/displayagent.proto\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\x85\x01\n\x05\x46lare\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x31\n\x05\x61gent\x18\x02 \x01(\x0b\x32\x1b.chalk.auth.v1.DisplayAgentR\x05\x61gent\x12\x39\n\ncreated_at\x18\x0b \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt"\x13\n\x11ListFlaresRequest"D\n\x12ListFlaresResponse\x12.\n\x06\x66lares\x18\x01 \x03(\x0b\x32\x16.chalk.server.v1.FlareR\x06\x66lares"6\n\x1bGetFlareDownloadLinkRequest\x12\x17\n\x02id\x18\x01 \x01(\tB\x07\xbaH\x04r\x02\x10\x01R\x02id"=\n\x1cGetFlareDownloadLinkResponse\x12\x1d\n\nsigned_uri\x18\x01 \x01(\tR\tsignedUri".\n\x12UploadFlareRequest\x12\x18\n\x07\x61rchive\x18\x02 \x01(\x0cR\x07\x61rchive")\n\x13UploadFlareResponse\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name2\xc3\x02\n\x0c\x46lareService\x12]\n\x0bUploadFlare\x12#.chalk.server.v1.UploadFlareRequest\x1a$.chalk.server.v1.UploadFlareResponse"\x03\x80}\x02\x12Z\n\nListFlares\x12".chalk.server.v1.ListFlaresRequest\x1a#.chalk.server.v1.ListFlaresResponse"\x03\x80}\x0b\x12x\n\x14GetFlareDownloadLink\x12,.chalk.server.v1.GetFlareDownloadLinkRequest\x1a-.chalk.server.v1.GetFlareDownloadLinkResponse"\x03\x80}\x0b\x42\x93\x01\n\x13\x63om.chalk.server.v1B\nFlareProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -30,26 +31,28 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals[
         "DESCRIPTOR"
     ]._serialized_options = b"\n\023com.chalk.server.v1B\nFlareProtoP\001Z\022server/v1;serverv1\242\002\003CSX\252\002\017Chalk.Server.V1\312\002\017Chalk\\Server\\V1\342\002\033Chalk\\Server\\V1\\GPBMetadata\352\002\021Chalk::Server::V1"
+    _globals["_GETFLAREDOWNLOADLINKREQUEST"].fields_by_name["id"]._options = None
+    _globals["_GETFLAREDOWNLOADLINKREQUEST"].fields_by_name["id"]._serialized_options = b"\272H\004r\002\020\001"
     _globals["_FLARESERVICE"].methods_by_name["UploadFlare"]._options = None
     _globals["_FLARESERVICE"].methods_by_name["UploadFlare"]._serialized_options = b"\200}\002"
     _globals["_FLARESERVICE"].methods_by_name["ListFlares"]._options = None
     _globals["_FLARESERVICE"].methods_by_name["ListFlares"]._serialized_options = b"\200}\013"
     _globals["_FLARESERVICE"].methods_by_name["GetFlareDownloadLink"]._options = None
     _globals["_FLARESERVICE"].methods_by_name["GetFlareDownloadLink"]._serialized_options = b"\200}\013"
-    _globals["_FLARE"]._serialized_start = 149
-    _globals["_FLARE"]._serialized_end = 282
-    _globals["_LISTFLARESREQUEST"]._serialized_start = 284
-    _globals["_LISTFLARESREQUEST"]._serialized_end = 303
-    _globals["_LISTFLARESRESPONSE"]._serialized_start = 305
-    _globals["_LISTFLARESRESPONSE"]._serialized_end = 373
-    _globals["_GETFLAREDOWNLOADLINKREQUEST"]._serialized_start = 375
-    _globals["_GETFLAREDOWNLOADLINKREQUEST"]._serialized_end = 420
-    _globals["_GETFLAREDOWNLOADLINKRESPONSE"]._serialized_start = 422
-    _globals["_GETFLAREDOWNLOADLINKRESPONSE"]._serialized_end = 483
-    _globals["_UPLOADFLAREREQUEST"]._serialized_start = 485
-    _globals["_UPLOADFLAREREQUEST"]._serialized_end = 531
-    _globals["_UPLOADFLARERESPONSE"]._serialized_start = 533
-    _globals["_UPLOADFLARERESPONSE"]._serialized_end = 574
-    _globals["_FLARESERVICE"]._serialized_start = 577
-    _globals["_FLARESERVICE"]._serialized_end = 900
+    _globals["_FLARE"]._serialized_start = 178
+    _globals["_FLARE"]._serialized_end = 311
+    _globals["_LISTFLARESREQUEST"]._serialized_start = 313
+    _globals["_LISTFLARESREQUEST"]._serialized_end = 332
+    _globals["_LISTFLARESRESPONSE"]._serialized_start = 334
+    _globals["_LISTFLARESRESPONSE"]._serialized_end = 402
+    _globals["_GETFLAREDOWNLOADLINKREQUEST"]._serialized_start = 404
+    _globals["_GETFLAREDOWNLOADLINKREQUEST"]._serialized_end = 458
+    _globals["_GETFLAREDOWNLOADLINKRESPONSE"]._serialized_start = 460
+    _globals["_GETFLAREDOWNLOADLINKRESPONSE"]._serialized_end = 521
+    _globals["_UPLOADFLAREREQUEST"]._serialized_start = 523
+    _globals["_UPLOADFLAREREQUEST"]._serialized_end = 569
+    _globals["_UPLOADFLARERESPONSE"]._serialized_start = 571
+    _globals["_UPLOADFLARERESPONSE"]._serialized_end = 612
+    _globals["_FLARESERVICE"]._serialized_start = 615
+    _globals["_FLARESERVICE"]._serialized_end = 938
 # @@protoc_insertion_point(module_scope)

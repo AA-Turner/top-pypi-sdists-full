@@ -5,7 +5,7 @@ import os
 import re
 from abc import ABC, abstractmethod
 from hashlib import sha256
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 from tox.config.types import Command, EnvList
 
@@ -76,6 +76,12 @@ class RunToxEnv(ToxEnv, ABC):
             desc="when executing the commands keep going even if a sub-command exits with non-zero exit code",
         )
         self.conf.add_config(
+            keys=["commands_retry"],
+            of_type=int,
+            default=0,
+            desc="number of times to retry a failed command (0 means no retries)",
+        )
+        self.conf.add_config(
             keys=["ignore_outcome"],
             of_type=bool,
             default=False,
@@ -129,7 +135,10 @@ class RunToxEnv(ToxEnv, ABC):
     def _clean(self, transitive: bool = False) -> None:  # noqa: FBT001, FBT002
         super()._clean(transitive)
         if transitive:
-            self._call_pkg_envs("_clean")
+            for pkg_env in self.package_envs:
+                if cast("bool", pkg_env.conf["recreate"]):
+                    with pkg_env.display_context(suspend=self._has_display_suspended):
+                        pkg_env._clean()  # noqa: SLF001
 
     @property
     def _default_package_env(self) -> str:

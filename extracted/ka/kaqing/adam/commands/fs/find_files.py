@@ -5,7 +5,7 @@ from adam.utils_concurrent import parallelize
 from adam.utils_repl.repl_state import ReplState, RequiredState
 from adam.utils_k8s.pod_files import PodFiles
 from adam.utils_k8s.pods import strip_pod_name
-from adam.utils_tabulize import tabulize
+from adam.presentation.tabulize import tabulize
 
 class FindFiles(Command):
     COMMAND = 'find file'
