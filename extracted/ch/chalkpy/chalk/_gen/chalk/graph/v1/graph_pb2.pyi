@@ -39,6 +39,12 @@ class AcceleratePython(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ACCELERATE_PYTHON_AUTO: _ClassVar[AcceleratePython]
     ACCELERATE_PYTHON_NEVER: _ClassVar[AcceleratePython]
 
+class StreamMessageFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    STREAM_MESSAGE_FORMAT_UNSPECIFIED: _ClassVar[StreamMessageFormat]
+    STREAM_MESSAGE_FORMAT_BODY_ONLY: _ClassVar[StreamMessageFormat]
+    STREAM_MESSAGE_FORMAT_FULL_ENVELOPE: _ClassVar[StreamMessageFormat]
+
 class ResolverKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     RESOLVER_KIND_UNSPECIFIED: _ClassVar[ResolverKind]
@@ -92,6 +98,9 @@ ACCELERATE_PYTHON_UNSPECIFIED: AcceleratePython
 ACCELERATE_PYTHON_REQUIRE: AcceleratePython
 ACCELERATE_PYTHON_AUTO: AcceleratePython
 ACCELERATE_PYTHON_NEVER: AcceleratePython
+STREAM_MESSAGE_FORMAT_UNSPECIFIED: StreamMessageFormat
+STREAM_MESSAGE_FORMAT_BODY_ONLY: StreamMessageFormat
+STREAM_MESSAGE_FORMAT_FULL_ENVELOPE: StreamMessageFormat
 RESOLVER_KIND_UNSPECIFIED: ResolverKind
 RESOLVER_KIND_ONLINE: ResolverKind
 RESOLVER_KIND_OFFLINE: ResolverKind
@@ -1156,6 +1165,8 @@ class StreamResolver(_message.Message):
         "skip_online",
         "skip_offline",
         "update_aggregates",
+        "message_format",
+        "header_filters",
     )
     class FeatureExpressionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1189,6 +1200,8 @@ class StreamResolver(_message.Message):
     SKIP_ONLINE_FIELD_NUMBER: _ClassVar[int]
     SKIP_OFFLINE_FIELD_NUMBER: _ClassVar[int]
     UPDATE_AGGREGATES_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FORMAT_FIELD_NUMBER: _ClassVar[int]
+    HEADER_FILTERS_FIELD_NUMBER: _ClassVar[int]
     fqn: str
     params: _containers.RepeatedCompositeFieldContainer[StreamResolverParam]
     outputs: _containers.RepeatedCompositeFieldContainer[ResolverOutput]
@@ -1211,6 +1224,8 @@ class StreamResolver(_message.Message):
     skip_online: bool
     skip_offline: bool
     update_aggregates: bool
+    message_format: StreamMessageFormat
+    header_filters: _containers.RepeatedCompositeFieldContainer[StreamHeaderFilter]
     def __init__(
         self,
         fqn: _Optional[str] = ...,
@@ -1235,7 +1250,23 @@ class StreamResolver(_message.Message):
         skip_online: bool = ...,
         skip_offline: bool = ...,
         update_aggregates: bool = ...,
+        message_format: _Optional[_Union[StreamMessageFormat, str]] = ...,
+        header_filters: _Optional[_Iterable[_Union[StreamHeaderFilter, _Mapping]]] = ...,
     ) -> None: ...
+
+class StreamMessageHeaderEqualityCheck(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: str
+    value: bytes
+    def __init__(self, key: _Optional[str] = ..., value: _Optional[bytes] = ...) -> None: ...
+
+class StreamHeaderFilter(_message.Message):
+    __slots__ = ("equality_check",)
+    EQUALITY_CHECK_FIELD_NUMBER: _ClassVar[int]
+    equality_check: StreamMessageHeaderEqualityCheck
+    def __init__(self, equality_check: _Optional[_Union[StreamMessageHeaderEqualityCheck, _Mapping]] = ...) -> None: ...
 
 class StreamResolverMessageProducerParsed(_message.Message):
     __slots__ = ("send_to", "output_features", "transformations", "format")

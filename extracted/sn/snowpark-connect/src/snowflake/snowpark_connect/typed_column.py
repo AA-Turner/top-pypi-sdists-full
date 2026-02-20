@@ -108,3 +108,17 @@ class TypedColumnWithDeferredCast(TypedColumn):
 
     def over(self, window: snowpark.window.WindowSpec) -> Column:
         return self.col.over(window).cast(self.typ)
+
+
+class TypedColumnWithDeferredWindowBuilder(TypedColumn):
+    def __init__(
+        self,
+        col: Column,
+        type_resolver: Callable[[], list[snowpark.types.DataType] | None],
+        window_builder: Callable[[snowpark.window.WindowSpec], Column],
+    ) -> None:
+        super().__init__(col, type_resolver)
+        self._window_builder = window_builder
+
+    def over(self, window: snowpark.window.WindowSpec) -> Column:
+        return self._window_builder(window)

@@ -12,6 +12,8 @@ from .identify import STATEMENT_DECLARATIONS
 from .settings import DEFAULT_CONFIG, Config
 
 
+# Ignore DeepSource cyclomatic complexity check for this function.
+# skipcq: PY-R1000
 def sorted_imports(
     parsed: parse.ParsedContent,
     config: Config = DEFAULT_CONFIG,
@@ -88,7 +90,7 @@ def sorted_imports(
         lines_between = [""] * (
             config.lines_between_types if from_modules and straight_modules else 0
         )
-        if config.from_first:
+        if config.from_first or section == "FUTURE":
             section_output = from_imports + lines_between + straight_imports
         else:
             section_output = straight_imports + lines_between + from_imports
@@ -184,6 +186,13 @@ def sorted_imports(
         ] == [""]:
             formatted_output.pop(imports_tail)
 
+        if config.lines_before_imports != -1:
+            lines_before_imports = config.lines_before_imports
+            if config.profile == "black" and extension == "pyi":  # special case for black
+                lines_before_imports = 1
+            formatted_output[:0] = ["" for line in range(lines_before_imports)]
+            imports_tail += lines_before_imports
+
         if len(formatted_output) > imports_tail:
             next_construct = ""
             tail = formatted_output[imports_tail:]
@@ -218,12 +227,6 @@ def sorted_imports(
                 formatted_output[imports_tail:0] = ["", ""]
             else:
                 formatted_output[imports_tail:0] = [""]
-
-            if config.lines_before_imports != -1:
-                lines_before_imports = config.lines_before_imports
-                if config.profile == "black" and extension == "pyi":  # special case for black
-                    lines_before_imports = 1
-                formatted_output[:0] = ["" for line in range(lines_before_imports)]
 
     if parsed.place_imports:
         new_out_lines = []

@@ -117,12 +117,11 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         column_impl: Optional[ColumnImpl],
         check_impl: MissingAndValidityCheckImpl,
         function: Optional[str],
-        column_name: Optional[str] = None,
+        column_expression: Optional[COLUMN | SqlExpressionStr] = None,
         data_source_impl: Optional[DataSourceImpl] = None,
         dataset_identifier: Optional[DatasetIdentifier] = None,
     ):
         self.function: Optional[str] = function
-        self.column_name = column_impl.column_yaml.name if column_impl else column_name
         super().__init__(
             contract_impl=contract_impl,
             column_impl=column_impl,
@@ -131,11 +130,12 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
             missing_and_validity=check_impl.missing_and_validity,
             data_source_impl=data_source_impl,
             dataset_identifier=dataset_identifier,
+            column_expression=column_expression or check_impl.column_expression,
         )
 
     def sql_expression(self) -> SqlExpression:
-        is_missing = self.missing_and_validity.is_missing_expr(self.column_name)
-        is_invalid = self.missing_and_validity.is_invalid_expr(self.column_name)
+        is_missing = self.missing_and_validity.is_missing_expr(self.column_expression)
+        is_invalid = self.missing_and_validity.is_invalid_expr(self.column_expression)
 
         filters: list[SqlExpression] = []
         if is_missing or is_invalid:
@@ -143,9 +143,9 @@ class AggregateFunctionMetricImpl(AggregationMetricImpl):
         if self.check_filter:
             filters.append(SqlExpressionStr(self.check_filter))
 
-        arg: SqlExpression | str = self.column_name
+        arg: SqlExpression | COLUMN = self.column_expression
         if filters:
-            arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=self.column_name, else_expression=None)
+            arg = CASE_WHEN(condition=AND(clauses=filters), if_expression=self.column_expression, else_expression=None)
 
         return self.data_source_impl.sql_dialect.get_function_expression(self.function, arg)
 

@@ -13,7 +13,7 @@ from google.protobuf.internal import builder as _builder
 _sym_db = _symbol_database.Default()
 
 
-from buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
+from chalk._gen.buf.validate import validate_pb2 as buf_dot_validate_dot_validate__pb2
 from chalk._gen.chalk.auth.v1 import displayagent_pb2 as chalk_dot_auth_dot_v1_dot_displayagent__pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2

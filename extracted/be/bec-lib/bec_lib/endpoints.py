@@ -41,7 +41,17 @@ class MessageOp(list[str], enum.Enum):
     SET_PUBLISH = ["register", "set_and_publish", "delete", "get", "keys"]
     SEND = ["send", "register"]
     STREAM = ["xadd", "xrange", "xread", "register_stream", "keys", "get_last", "delete"]
-    LIST = ["lpush", "lrange", "lrem", "rpush", "ltrim", "keys", "delete", "blocking_list_pop"]
+    LIST = [
+        "llen",
+        "lpush",
+        "lrange",
+        "lrem",
+        "rpush",
+        "ltrim",
+        "keys",
+        "delete",
+        "blocking_list_pop",
+    ]
     KEY_VALUE = ["set", "get", "delete", "keys"]
     SET = ["remove_from_set", "get_set_members", "delete"]
 
@@ -1901,4 +1911,21 @@ class MessageEndpoints:
             endpoint=endpoint,
             message_type=messages.AvailableResourceMessage,
             message_op=MessageOp.KEY_VALUE,
+        )
+
+    @staticmethod
+    def dynamic_metric(group_name: str):
+        """
+        Endpoint for dynamic metric publishing.
+        Args:
+            group_name (str): name for the group of metric values.
+
+        Returns:
+            EndpointInfo: Endpoint for dynamic metric publishing.
+        """
+        endpoint = f"{EndpointType.INFO.value}/dynamic_metrics/{group_name}"
+        return EndpointInfo(
+            endpoint=endpoint,
+            message_type=messages.DynamicMetricMessage,
+            message_op=MessageOp.SET_PUBLISH,
         )

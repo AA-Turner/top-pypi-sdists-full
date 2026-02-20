@@ -12,11 +12,13 @@ query getUser {
         uuid
         name
         connectionType
+        isDeleted
         connections {
           uuid
           type
           createdOn
           jobTypes
+          isActive
           connectionIdentifiers {
             key
             value
@@ -35,6 +37,7 @@ query getUser {
           type
           createdOn
           jobTypes
+          isActive
           connectionIdentifiers {
             key
             value
@@ -53,6 +56,7 @@ query getUser {
           type
           createdOn
           jobTypes
+          isActive
           connectionIdentifiers {
             key
             value

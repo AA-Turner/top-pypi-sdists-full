@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vesin-torch
-Version: 0.4.2
+Version: 0.5.0
 Summary: Computing neighbor lists for atomistic system, in TorchScript
 Author-email: Guillaume Fraux <guillaume.fraux@epfl.ch>
 License-Expression: BSD-3-Clause
@@ -110,3 +110,24 @@ cutoff in size, and can't run with large cutoffs and small cells).
 Vesin is is distributed under the [3 clauses BSD license](LICENSE). By
 contributing to this code, you agree to distribute your contributions under the
 same license.
+
+## Citation
+
+If you found ``vesin`` useful, you can cite the pre-print where it was presented
+(<https://doi.org/10.48550/arXiv.2508.15704>) as
+
+```bibtex
+@misc{metatensor-and-metatomic,
+    title = {Metatensor and Metatomic: Foundational Libraries for Interoperable Atomistic
+    Machine Learning},
+    shorttitle = {Metatensor and Metatomic},
+    author = {Bigi, Filippo and Abbott, Joseph W. and Loche, Philip and Mazitov, Arslan
+    and Tisi, Davide and Langer, Marcel F. and Goscinski, Alexander and Pegolo, Paolo
+    and Chong, Sanggyu and Goswami, Rohit and Chorna, Sofiia and Kellner, Matthias and
+    Ceriotti, Michele and Fraux, Guillaume},
+    year = {2025},
+    month = aug,
+    publisher = {arXiv},
+    doi = {10.48550/arXiv.2508.15704},
+}
+```

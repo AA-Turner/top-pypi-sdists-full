@@ -84,7 +84,7 @@ class KinesisSource(StreamSource, BaseModel, frozen=True):
     Requires IAM permissions: kinesis:DescribeStreamSummary, kinesis:ListShards on stream ARN,
     and kinesis:DescribeStreamConsumer, kinesis:SubscribeToShard on consumer ARN pattern
     arn:aws:kinesis:region:account:stream/stream-name/consumer/{enhanced_fanout_consumer_name}:*
-    If None, uses traditional shared-throughput consumption.
+    If `None`, uses traditional shared-throughput consumption.
     """
 
     def __init__(

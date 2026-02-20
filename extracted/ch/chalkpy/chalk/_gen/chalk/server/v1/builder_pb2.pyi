@@ -1912,18 +1912,21 @@ class DeleteTelemetryDeploymentResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class UpdateTelemetryDeploymentRequest(_message.Message):
-    __slots__ = ("telemetry_deployment_id", "spec", "suspended")
+    __slots__ = ("telemetry_deployment_id", "spec", "suspended", "update_mask")
     TELEMETRY_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     SPEC_FIELD_NUMBER: _ClassVar[int]
     SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
     telemetry_deployment_id: str
     spec: TelemetryDeploymentSpec
     suspended: bool
+    update_mask: _field_mask_pb2.FieldMask
     def __init__(
         self,
         telemetry_deployment_id: _Optional[str] = ...,
         spec: _Optional[_Union[TelemetryDeploymentSpec, _Mapping]] = ...,
         suspended: bool = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateTelemetryDeploymentResponse(_message.Message):

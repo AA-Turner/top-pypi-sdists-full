@@ -84,9 +84,11 @@ from ..interfaces.aws_msk import (
     IConfigurationRef as _IConfigurationRef_69565de0,
     IReplicatorRef as _IReplicatorRef_ba6501db,
     IServerlessClusterRef as _IServerlessClusterRef_d48e2d5f,
+    ITopicRef as _ITopicRef_23dbcdbe,
     IVpcConnectionRef as _IVpcConnectionRef_08dbabf3,
     ReplicatorReference as _ReplicatorReference_d24fd028,
     ServerlessClusterReference as _ServerlessClusterReference_591ff7ca,
+    TopicReference as _TopicReference_7cfe3b9a,
     VpcConnectionReference as _VpcConnectionReference_c5ff3bd2,
 )
 
@@ -6130,6 +6132,334 @@ class CfnServerlessClusterProps:
         )
 
 
+@jsii.implements(_IInspectable_c2943556, _ITopicRef_23dbcdbe)
+class CfnTopic(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_msk.CfnTopic",
+):
+    '''Resource Type definition for AWS::MSK::Topic.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html
+    :cloudformationResource: AWS::MSK::Topic
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_msk as msk
+        
+        cfn_topic = msk.CfnTopic(self, "MyCfnTopic",
+            cluster_arn="clusterArn",
+            partition_count=123,
+            replication_factor=123,
+            topic_name="topicName",
+        
+            # the properties below are optional
+            configs="configs"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        cluster_arn: builtins.str,
+        partition_count: jsii.Number,
+        replication_factor: jsii.Number,
+        topic_name: builtins.str,
+        configs: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::MSK::Topic``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param cluster_arn: The Amazon Resource Name (ARN) of the MSK cluster.
+        :param partition_count: The number of partitions for the topic.
+        :param replication_factor: The replication factor for the topic.
+        :param topic_name: The name of the topic.
+        :param configs: Base64 encoded configuration properties of the topic.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b65ea930f030c6200eb3e58ce245a00ab5a80426a29da1a06a580c4795a2612)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnTopicProps(
+            cluster_arn=cluster_arn,
+            partition_count=partition_count,
+            replication_factor=replication_factor,
+            topic_name=topic_name,
+            configs=configs,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForTopic")
+    @builtins.classmethod
+    def arn_for_topic(cls, resource: "_ITopicRef_23dbcdbe") -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d7ec7bedc63824fe51303fcab873ffd63e2cbeeb7104bbf0284085be531bc6a0)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForTopic", [resource]))
+
+    @jsii.member(jsii_name="isCfnTopic")
+    @builtins.classmethod
+    def is_cfn_topic(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnTopic.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__345f579283754c4bcb04c359a42bb14fc0f58729f2bd922d9f05d52387b25977)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnTopic", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__476acaaaf8d5c361de0105f2fc662d9de72db5d637855467b9fd348598762c89)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__25e55aa5fb03d739a371308f375129185f33bd60129fb904deb55012aa6d36f6)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrTopicArn")
+    def attr_topic_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the topic.
+
+        :cloudformationAttribute: TopicArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrTopicArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRef")
+    def topic_ref(self) -> "_TopicReference_7cfe3b9a":
+        '''A reference to a Topic resource.'''
+        return typing.cast("_TopicReference_7cfe3b9a", jsii.get(self, "topicRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="clusterArn")
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the MSK cluster.'''
+        return typing.cast(builtins.str, jsii.get(self, "clusterArn"))
+
+    @cluster_arn.setter
+    def cluster_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b558152503258d355eb438a39a4f5e56c558a46062c5e5bd9ef875b13e3d9ea6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "clusterArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="partitionCount")
+    def partition_count(self) -> jsii.Number:
+        '''The number of partitions for the topic.'''
+        return typing.cast(jsii.Number, jsii.get(self, "partitionCount"))
+
+    @partition_count.setter
+    def partition_count(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b0187b06ab1ff2e2fe9e7648c5ae0e38bdca944f60b1e6ede6fd92d4034fe590)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "partitionCount", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="replicationFactor")
+    def replication_factor(self) -> jsii.Number:
+        '''The replication factor for the topic.'''
+        return typing.cast(jsii.Number, jsii.get(self, "replicationFactor"))
+
+    @replication_factor.setter
+    def replication_factor(self, value: jsii.Number) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c9027e1955fbd72c69d0ec6fb730e11f8f5ce4dedcf74d298aee1d3fc74ffb56)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "replicationFactor", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="topicName")
+    def topic_name(self) -> builtins.str:
+        '''The name of the topic.'''
+        return typing.cast(builtins.str, jsii.get(self, "topicName"))
+
+    @topic_name.setter
+    def topic_name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ef36a99b3928df1bf2792a6ebbcdf1278e76cba610bc650d070cea300d8c928a)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "topicName", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="configs")
+    def configs(self) -> typing.Optional[builtins.str]:
+        '''Base64 encoded configuration properties of the topic.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "configs"))
+
+    @configs.setter
+    def configs(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c1d8ee5d96302181be437dccff1e250907f99522e570468644b7715108e61138)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "configs", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_msk.CfnTopicProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "cluster_arn": "clusterArn",
+        "partition_count": "partitionCount",
+        "replication_factor": "replicationFactor",
+        "topic_name": "topicName",
+        "configs": "configs",
+    },
+)
+class CfnTopicProps:
+    def __init__(
+        self,
+        *,
+        cluster_arn: builtins.str,
+        partition_count: jsii.Number,
+        replication_factor: jsii.Number,
+        topic_name: builtins.str,
+        configs: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnTopic``.
+
+        :param cluster_arn: The Amazon Resource Name (ARN) of the MSK cluster.
+        :param partition_count: The number of partitions for the topic.
+        :param replication_factor: The replication factor for the topic.
+        :param topic_name: The name of the topic.
+        :param configs: Base64 encoded configuration properties of the topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_msk as msk
+            
+            cfn_topic_props = msk.CfnTopicProps(
+                cluster_arn="clusterArn",
+                partition_count=123,
+                replication_factor=123,
+                topic_name="topicName",
+            
+                # the properties below are optional
+                configs="configs"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e8cea60233b5736c8c0bdcb9422e16d47e4a4ba919026e3133ad995280497ca7)
+            check_type(argname="argument cluster_arn", value=cluster_arn, expected_type=type_hints["cluster_arn"])
+            check_type(argname="argument partition_count", value=partition_count, expected_type=type_hints["partition_count"])
+            check_type(argname="argument replication_factor", value=replication_factor, expected_type=type_hints["replication_factor"])
+            check_type(argname="argument topic_name", value=topic_name, expected_type=type_hints["topic_name"])
+            check_type(argname="argument configs", value=configs, expected_type=type_hints["configs"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "cluster_arn": cluster_arn,
+            "partition_count": partition_count,
+            "replication_factor": replication_factor,
+            "topic_name": topic_name,
+        }
+        if configs is not None:
+            self._values["configs"] = configs
+
+    @builtins.property
+    def cluster_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the MSK cluster.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html#cfn-msk-topic-clusterarn
+        '''
+        result = self._values.get("cluster_arn")
+        assert result is not None, "Required property 'cluster_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def partition_count(self) -> jsii.Number:
+        '''The number of partitions for the topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html#cfn-msk-topic-partitioncount
+        '''
+        result = self._values.get("partition_count")
+        assert result is not None, "Required property 'partition_count' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def replication_factor(self) -> jsii.Number:
+        '''The replication factor for the topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html#cfn-msk-topic-replicationfactor
+        '''
+        result = self._values.get("replication_factor")
+        assert result is not None, "Required property 'replication_factor' is missing"
+        return typing.cast(jsii.Number, result)
+
+    @builtins.property
+    def topic_name(self) -> builtins.str:
+        '''The name of the topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html#cfn-msk-topic-topicname
+        '''
+        result = self._values.get("topic_name")
+        assert result is not None, "Required property 'topic_name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def configs(self) -> typing.Optional[builtins.str]:
+        '''Base64 encoded configuration properties of the topic.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-topic.html#cfn-msk-topic-configs
+        '''
+        result = self._values.get("configs")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnTopicProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(_IInspectable_c2943556, _IVpcConnectionRef_08dbabf3, _ITaggable_36806126)
 class CfnVpcConnection(
     _CfnResource_9df397a6,
@@ -6520,6 +6850,8 @@ __all__ = [
     "CfnReplicatorProps",
     "CfnServerlessCluster",
     "CfnServerlessClusterProps",
+    "CfnTopic",
+    "CfnTopicProps",
     "CfnVpcConnection",
     "CfnVpcConnectionProps",
 ]
@@ -7360,6 +7692,84 @@ def _typecheckingstub__c714eb0299c64ab481c3d39d1e14117755189081833a87372e9f1a245
     cluster_name: builtins.str,
     vpc_configs: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnServerlessCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]]],
     tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b65ea930f030c6200eb3e58ce245a00ab5a80426a29da1a06a580c4795a2612(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    cluster_arn: builtins.str,
+    partition_count: jsii.Number,
+    replication_factor: jsii.Number,
+    topic_name: builtins.str,
+    configs: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d7ec7bedc63824fe51303fcab873ffd63e2cbeeb7104bbf0284085be531bc6a0(
+    resource: _ITopicRef_23dbcdbe,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__345f579283754c4bcb04c359a42bb14fc0f58729f2bd922d9f05d52387b25977(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__476acaaaf8d5c361de0105f2fc662d9de72db5d637855467b9fd348598762c89(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__25e55aa5fb03d739a371308f375129185f33bd60129fb904deb55012aa6d36f6(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b558152503258d355eb438a39a4f5e56c558a46062c5e5bd9ef875b13e3d9ea6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__b0187b06ab1ff2e2fe9e7648c5ae0e38bdca944f60b1e6ede6fd92d4034fe590(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c9027e1955fbd72c69d0ec6fb730e11f8f5ce4dedcf74d298aee1d3fc74ffb56(
+    value: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ef36a99b3928df1bf2792a6ebbcdf1278e76cba610bc650d070cea300d8c928a(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c1d8ee5d96302181be437dccff1e250907f99522e570468644b7715108e61138(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e8cea60233b5736c8c0bdcb9422e16d47e4a4ba919026e3133ad995280497ca7(
+    *,
+    cluster_arn: builtins.str,
+    partition_count: jsii.Number,
+    replication_factor: jsii.Number,
+    topic_name: builtins.str,
+    configs: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

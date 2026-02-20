@@ -75,4 +75,20 @@ def get_editor_bp(main_controller: MainController) -> flask.Blueprint:
         result = controller.run_sql(sql, params)
         return result.json()
 
+    @bp.get("/dump")
+    def _dump():
+        import requests as req
+
+        from abstra_internals.credentials import resolve_headers
+        from abstra_internals.environment import CLOUD_API_CLI_URL, REQUEST_TIMEOUT
+
+        try:
+            url = f"{CLOUD_API_CLI_URL}/tables/dump"
+            headers = resolve_headers()
+            res = req.get(url, headers=headers, timeout=REQUEST_TIMEOUT)
+            res.raise_for_status()
+            return res.json()
+        except Exception:
+            return {"tables": []}
+
     return bp

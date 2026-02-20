@@ -27,11 +27,10 @@ class MetricValue(BaseModel):
 
     value: Any = Field(description="The metric value (can be numeric, string, array, dict, etc.)")
     is_primary: bool = Field(
-        default=False,
         description="Whether this specific metric is primary",
     )
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, strict=True)
 
 
 class RecordIdsWithMetrics(BaseModel):

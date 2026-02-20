@@ -187,3 +187,8 @@ class UserServiceTest(TestCase):
             ).all_resource_identifiers.get("17c1c8be-271e-48c1-ae41-c6a3c8a84949"),
             "bi-one",
         )
+
+    def test_get_user_query_includes_deleted_status_for_warehouses(self) -> None:
+        """GET_USER_QUERY includes isDeleted for warehouses; isActive for connections."""
+        self.assertIn("isDeleted", GET_USER_QUERY)
+        self.assertIn("isActive", GET_USER_QUERY)

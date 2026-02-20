@@ -163,8 +163,20 @@ class LocalLinterRepository(LinterRepository):
                     for fix in issue.fixes:
                         if fix.name == fix_name:
                             fix.fix()
+                            self._update_check_for_rule(rule_name)
                             return True
         return False
+
+    def _update_check_for_rule(self, rule_name: str):
+        """Re-run the check for a specific rule and update the cache."""
+        for rule in rules:
+            if rule.name == rule_name:
+                new_check = rule.check()
+                self.checks = [
+                    new_check if check.name == rule_name else check
+                    for check in self.checks
+                ]
+                break
 
     def fix_all_linters(self):
         for check in self.checks:

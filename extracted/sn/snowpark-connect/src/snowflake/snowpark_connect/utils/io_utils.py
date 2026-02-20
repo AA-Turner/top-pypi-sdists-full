@@ -15,12 +15,14 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     create_file_format_statement,
     unquote_if_quoted,
 )
+from snowflake.snowpark._internal.utils import ttl_cache
 from snowflake.snowpark.functions import col, equal_null, lit
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.identifiers import FQN, spark_to_sf_single_id
 
 _MINUS_AT_THE_BEGINNING_REGEX = re.compile(r"^-")
+_TTL_CACHE_EXIPRATION_TIME_SECONDS = 15
 
 
 def cached_file_format(
@@ -81,6 +83,8 @@ def file_format(
     return file_format_name
 
 
+# caches table type with a time-to-live (TTL) expiration
+@ttl_cache(ttl_seconds=_TTL_CACHE_EXIPRATION_TIME_SECONDS)
 def get_table_type(
     snowpark_table_name: str,
     snowpark_session: Session,

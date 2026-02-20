@@ -114,8 +114,16 @@ def get_lsp_proto_or_error(
     additional_failed_import_protos: Sequence[export_pb.FailedImport],
 ) -> Tuple[lsp_pb2.LSP, Optional[ChalkException]]:
     """
-    :param additional_failed_import_protos:  Supplementary failed imports to add as lsp diagnostics
-    :return: A tuple [LSP, error | None]. If generating the LSP threw an exception, return the partial LSP and a serialized form of the error for reporting.
+    Parameters
+    ----------
+    additional_failed_import_protos
+        Supplementary failed imports to add as LSP diagnostics.
+
+    Returns
+    -------
+    Tuple[lsp_pb2.LSP, Optional[ChalkException]]
+        A tuple `[LSP, error | None]`. If generating the LSP throws an exception, returns the partial
+        LSP and a serialized form of the error for reporting.
     """
     lsp = get_lsp_gql()
     exc: Optional[ChalkException] = None

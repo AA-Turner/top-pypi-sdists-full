@@ -6,29 +6,16 @@ import torch
 from vesin.torch import NeighborList
 
 
+DEVICES = ["cpu"]
+if torch.cuda.is_available():
+    DEVICES.append("cuda")
+
+
 def test_errors():
     points = torch.tensor([[0.0, 0.0, 0.0], [0.0, 0.0, 2.0]], dtype=torch.float64)
     box = torch.zeros((3, 3), dtype=torch.float64)
 
     calculator = NeighborList(cutoff=2.8, full_list=True)
-
-    message = "only float64 is supported for `points` and `box"
-    with pytest.raises(ValueError, match=message):
-        calculator.compute(
-            points.to(torch.float32),
-            box.to(torch.float32),
-            periodic=False,
-            quantities="ij",
-        )
-
-    message = "expected `points` and `box` to have the same dtype, got Double and Float"
-    with pytest.raises(ValueError, match=message):
-        calculator.compute(
-            points,
-            box.to(torch.float32),
-            periodic=False,
-            quantities="ij",
-        )
 
     message = "expected `points` and `box` to have the same device, got cpu and meta"
     with pytest.raises(ValueError, match=message):
@@ -59,9 +46,10 @@ def test_errors():
 
 
 @pytest.mark.parametrize("quantities", ["ijS", "D", "d", "ijSDd"])
-def test_all_alone_no_neighbors(quantities):
-    points = torch.tensor([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], dtype=torch.float64)
-    box = torch.eye(3, dtype=torch.float64)
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_all_alone_no_neighbors(quantities, dtype):
+    points = torch.tensor([[0.0, 0.0, 0.0], [0.5, 0.5, 0.5]], dtype=dtype)
+    box = torch.eye(3, dtype=dtype)
 
     calculator = NeighborList(cutoff=0.1, full_list=True)
     outputs = calculator.compute(points, box, True, quantities)
@@ -129,3 +117,20 @@ def test_script():
 
     module = TestModule()
     module = torch.jit.script(module)
+
+
+@pytest.mark.parametrize("device", DEVICES)
+@pytest.mark.parametrize("dtype", [torch.float32, torch.float64])
+def test_dtype(dtype, device):
+    box = torch.eye(3, dtype=dtype, device=device) * 3.0
+    points = torch.rand((100, 3), dtype=dtype, device=device) * 3.0
+
+    # FIXME: this should work with cutoff=4, but crashes
+    calculator = NeighborList(cutoff=1, full_list=True)
+    i, j, s, D, d = calculator.compute(points, box, True, "ijSDd")
+
+    assert i.dtype == torch.int64
+    assert j.dtype == torch.int64
+    assert s.dtype == torch.int32
+    assert D.dtype == dtype
+    assert d.dtype == dtype

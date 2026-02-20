@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-to-confluence
-Version: 0.5.5
+Version: 0.5.6
 Summary: Publish Markdown files to Confluence wiki
 Author-email: Levente Hunyadi <hunyadi@gmail.com>
 Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
@@ -23,23 +23,23 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: cattrs>=25.3
+Requires-Dist: cattrs>=26.1
 Requires-Dist: lxml>=6.0
 Requires-Dist: markdown>=3.10
 Requires-Dist: orjson>=3.11
-Requires-Dist: pymdown-extensions>=10.20
+Requires-Dist: pymdown-extensions>=10.21
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: requests>=2.32
 Requires-Dist: truststore>=0.10
 Requires-Dist: typing-extensions>=4.15; python_version < "3.11"
 Provides-Extra: dev
 Requires-Dist: markdown_doc>=0.1.7; extra == "dev"
-Requires-Dist: types-lxml>=2026.1.1; extra == "dev"
+Requires-Dist: types-lxml>=2026.2.16; extra == "dev"
 Requires-Dist: types-markdown>=3.10; extra == "dev"
 Requires-Dist: types-PyYAML>=6.0; extra == "dev"
 Requires-Dist: types-requests>=2.32; extra == "dev"
 Requires-Dist: mypy[faster-cache]>=1.19; extra == "dev"
-Requires-Dist: ruff>=0.14; extra == "dev"
+Requires-Dist: ruff>=0.15; extra == "dev"
 Provides-Extra: formulas
 Requires-Dist: matplotlib>=3.9; extra == "formulas"
 Dynamic: license-file
@@ -405,6 +405,16 @@ You can configure diagram and image alignment using the JSON/YAML front-matter a
 
 Unfortunately, not every third-party app supports every alignment variant. For example, the draw\.io marketplace app supports left and center but not right alignment; and diagrams produced by the Mermaid marketplace app are always centered, ignoring the setting for alignment.
 
+### Page preview cards
+
+When a link to an absolute URL fully occupies a paragraph, it is automatically transformed into a block-level *card*, showing a document preview. These previews are represented in Confluence by the HTML element `<a>` having an attribute `data-card-appearance` with the value `block`. Thus, the following Markdown syntax will produce equivalent Confluence Storage Format output when the source file is converted:
+
+```md
+[Project page](https://github.com/hunyadi/md2conf)
+
+<a href="https://github.com/hunyadi/md2conf" data-card-appearance="block">Project page</a>
+```
+
 ### Confluence widgets
 
 *md2conf* supports some Confluence widgets. If the appropriate code is found when a Markdown document is processed, it is automatically replaced with Confluence Storage Format XML that produces the corresponding widget.
@@ -426,8 +436,8 @@ Use the pseudo-language `csf` in a Markdown code block to pass content directly 
 ````markdown
 ```csf
 <ac:structured-macro ac:name="panel" ac:schema-version="1">
-  <ac:parameter ac:name="panelIcon">:slight_smile:</ac:parameter>
   <ac:parameter ac:name="panelIconId">1f642</ac:parameter>
+  <ac:parameter ac:name="panelIcon">:slight_smile:</ac:parameter>
   <ac:parameter ac:name="panelIconText">&#128578;</ac:parameter>
   <ac:parameter ac:name="bgColor">#FFF0B3</ac:parameter>
   <ac:rich-text-body>
@@ -698,23 +708,33 @@ positional arguments:
 options:
   -h, --help            show this help message and exit
   --version             show program's version number and exit
-  -d, --domain DOMAIN   Confluence organization domain.
-  -p, --path PATH       Base path for Confluence (default: '/wiki/').
-  --api-url API_URL     Confluence API URL. Required for scoped tokens. Refer to documentation how to obtain one.
+  -d, --domain DOMAIN   Confluence organization domain. (env: CONFLUENCE_DOMAIN)
+  -p, --path PATH       Base path for Confluence. (env: CONFLUENCE_PATH; default: '/wiki/')
+  --api-url API_URL     Confluence API URL. Required for scoped tokens. Refer to documentation how to obtain one. (env: CONFLUENCE_API_URL)
   -u, --username USERNAME
-                        Confluence user name.
+                        Confluence user name. (env: CONFLUENCE_USER_NAME)
   -a, --api-key API_KEY
-                        Confluence API key. Refer to documentation how to obtain one.
-  -s, --space SPACE     Confluence space key for pages to be published. If omitted, will default to user space.
+                        Confluence API key. Refer to documentation how to obtain one. (env: CONFLUENCE_API_KEY)
+  -s, --space SPACE     Confluence space key for pages to be published. If omitted, will default to user space. (env: CONFLUENCE_SPACE_KEY)
+  --api-version {v2,v1}
+                        Confluence REST API version to use (v2 for Cloud, v1 for Data Center/Server). (env: CONFLUENCE_API_VERSION; default: v2)
   -l, --loglevel {debug,info,warning,error,critical}
                         Use this option to set the log verbosity.
-  -r ROOT_PAGE          Root Confluence page to create new pages. If omitted, will raise exception when creating new pages.
+  -r CONFLUENCE_PAGE_ID
+                        Confluence page to act as initial parent for creating new pages. (deprecated)
+  --root-page CONFLUENCE_PAGE_ID
+                        Confluence page to act as initial parent for creating new pages. Defaults to space home page.
   --keep-hierarchy      Maintain source directory structure when exporting to Confluence.
-  --skip-hierarchy      Flatten directories with no `index.md` or `README.md` when exporting to Confluence.
+  --skip-hierarchy      Flatten directories with no `index.md` or `README.md` when exporting to Confluence. (default)
+  --title-prefix STR    String to prepend to Confluence page title for each published page.
+  --no-title-prefix     Use Markdown title to synchronize page. (default)
   --generated-by MARKDOWN
-                        Add prompt to pages.
+                        Add prompt to pages. (default: This page has been generated with a tool.)
   --no-generated-by     Do not add 'generated by a tool' prompt to pages.
+  --overwrite           Overwrite (manual) page changes that occurred since last synchronization. (default)
+  --no-overwrite        Skip pages with (manual) changes that occurred since last synchronization.
   --skip-update         Skip saving Confluence page ID in Markdown files.
+  --keep-update         Inject published Confluence page ID in Markdown files. (default)
   --heading-anchors     Place an anchor at each section heading with GitHub-style same-page identifiers.
   --no-heading-anchors  Omit the extra anchor from section headings. (May break manually placed same-page references.) (default)
   --force-valid-url     Raise an error when relative URLs point to an invalid location. (default)
@@ -737,6 +757,10 @@ options:
   --no-webui-links      Use hierarchical links including space and page ID. (default)
   --use-panel           Transform admonitions and alerts into a Confluence custom panel.
   --no-use-panel        Use standard Confluence macro types for admonitions and alerts (info, tip, note and warning). (default)
+  --force-valid-language
+                        Only allow supported languages in code blocks (unsupported languages are ignored) (default)
+  --no-force-valid-language
+                        Use unknown language names as-is (Confluence may still highlight code).
   --layout-image-alignment {center,left,right,None}
                         Alignment for block-level images and formulas.
   --layout-image-max-width INT
@@ -747,9 +771,9 @@ options:
                         Set table display mode. (default: responsive)
   --layout-alignment {center,left,right,None}
                         Default alignment for block-level content.
-  --ignore-invalid-url  Emit a warning but otherwise ignore relative URLs that point to ill-specified locations.
-  --title-prefix TEXT   String to prepend to Confluence page title for each published page.
-  --line-numbers        Inject line numbers in Markdown source to help localize conversion errors.
+  --line-numbers        Inject line numbers in Markdown source file to help localize conversion errors.
+  --no-line-numbers     Leave Markdown source file unmodified. (default)
+  --ignore-invalid-url  Emit a warning but otherwise ignore relative URLs that point to ill-specified locations. (deprecated)
   --local               Write XHTML-based Confluence Storage Format files locally without invoking Confluence API.
   --headers KEY=VALUE [KEY=VALUE ...]
                         Apply custom headers to all Confluence API requests.
@@ -757,12 +781,12 @@ options:
 
 #### Python
 
-*md2conf* has a Python interface. Create a `ConnectionProperties` object to set connection parameters to the Confluence server, and a `DocumentOptions` object to configure how Markdown files are converted into pages on a Confluence wiki site. Open a connection to the Confluence server with the context manager `ConfluenceAPI`, and instantiate a `Publisher` to start converting documents.
+*md2conf* has a Python interface. Create a `ConnectionProperties` object to set connection parameters to the Confluence server, and a `ProcessorOptions` object to configure how Markdown files are converted into pages on a Confluence wiki site. Open a connection to the Confluence server with the context manager `ConfluenceAPI`, and instantiate a `Publisher` to start converting documents.
 
 ```python
 from md2conf.api import ConfluenceAPI
 from md2conf.environment import ConnectionProperties
-from md2conf.options import ConfluencePageID, ConverterOptions, DocumentOptions, ImageLayoutOptions, LayoutOptions, TableLayoutOptions
+from md2conf.options import ConfluencePageID, ConverterOptions, ImageLayoutOptions, LayoutOptions, Markdown, ProcessorOptions, TableLayoutOptions
 from md2conf.publisher import Publisher
 
 properties = ConnectionProperties(
@@ -772,13 +796,15 @@ properties = ConnectionProperties(
     api_url=str() or None,
     user_name=str() or None,
     api_key=str(),
+    api_version='v2' or 'v1' or None,
     headers={str(): str()} or None,
 )
-options = DocumentOptions(
-    root_page_id=ConfluencePageID() or None,
+options = ProcessorOptions(
+    root_page=ConfluencePageID() or None,
     keep_hierarchy=bool(),
     title_prefix=str() or None,
-    generated_by=str() or None,
+    generated_by=Markdown() or None,
+    overwrite=bool(),
     skip_update=bool(),
     converter=ConverterOptions(
         heading_anchors=bool(),
@@ -792,6 +818,7 @@ options = DocumentOptions(
         diagram_output_format='png' or 'svg',
         webui_links=bool(),
         use_panel=bool(),
+        force_valid_language=bool(),
         layout=LayoutOptions(
             image=ImageLayoutOptions(
                 alignment='center' or 'left' or 'right' or None,
@@ -814,7 +841,7 @@ with ConfluenceAPI(properties) as api:
 
 *md2conf* version 0.3.0 has switched to using [Confluence REST API v2](https://developer.atlassian.com/cloud/confluence/rest/v2/) for API calls such as retrieving current page content. Earlier versions used [Confluence REST API v1](https://developer.atlassian.com/cloud/confluence/rest/v1/) exclusively. Unfortunately, Atlassian has decommissioned Confluence REST API v1 for several endpoints in Confluence Cloud as of due date March 31, 2025, and we don't have access to an environment where we could test retired v1 endpoints.
 
-If you are restricted to an environment with Confluence REST API v1, we recommend *md2conf* [version 0.2.7](https://pypi.org/project/markdown-to-confluence/0.2.7/). Even though we don't actively support it, we are not aware of any major issues, making it a viable option in an on-premise environment with only Confluence REST API v1 support.
+If you are restricted to an environment with [Confluence REST API v1](https://developer.atlassian.com/cloud/confluence/rest/v1/) (such as older Data Center/Server installations), we recommend the command-line option `--api-version=v1`. Even though we don't actively support it, the implementation has been tested by contributors, making it a viable option in an on-premise environment with only Confluence REST API v1 support. If you find any issues with `--api-version=v1`, feel free to open a pull request with the proposed fix. (Don't open an issue, we can't figure out a solution without access to a working environment.)
 
 ### Using the Docker container
 

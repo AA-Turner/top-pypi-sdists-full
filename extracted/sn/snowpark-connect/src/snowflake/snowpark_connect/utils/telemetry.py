@@ -93,6 +93,216 @@ RECORDED_CONFIG_KEYS = {
     "snowpark.connect.views.duplicate_column_names_handling_mode",
 }
 
+# IO option allowlist for telemetry reporting.
+#
+# Maps lowercased option key -> allowed values:
+#   frozenset(...)  : value is reported only if it matches (case-insensitive)
+#   "numeric"       : value is reported only if it parses as a number
+#   None            : key is reported but value is always redacted
+#
+# Keys NOT in this dict are still reported (key only), value = "<redacted>".
+# This two-level allowlist prevents accidental leakage even when a user
+# mistakenly puts sensitive data into a well-known option key.
+
+_BOOLEAN = frozenset({"true", "false", "0", "1", "yes", "no"})
+
+_COMPRESSION = frozenset(
+    {
+        "none",
+        "auto",
+        "gzip",
+        "bzip2",
+        "snappy",
+        "lz4",
+        "zstd",
+        "deflate",
+        "uncompressed",
+        "lzo",
+    }
+)
+
+_ENCODING = frozenset(
+    {
+        "utf-8",
+        "utf-16",
+        "utf8",
+        "utf16",
+        "us-ascii",
+        "ascii",
+        "iso-8859-1",
+        "latin1",
+        "windows-1252",
+    }
+)
+
+_REBASE_MODE = frozenset({"exception", "corrected", "legacy"})
+
+_SEP = frozenset({",", "\t", ";", "|"})
+_QUOTE = frozenset({'"', "'", ""})
+_ESCAPE = frozenset({"\\", "\\\\"})
+_COMMENT = frozenset({"#", "//", "--"})
+_LINESEP = frozenset({"\n", "\r", "\r\n"})
+_NULL_LIKE = frozenset({"", "null", "none", "nan", "\\n", "\\N"})
+_DATE_FORMAT = frozenset(
+    {
+        "yyyy-mm-dd",
+        "yyyy/mm/dd",
+        "mm/dd/yyyy",
+        "dd/mm/yyyy",
+        "dd-mm-yyyy",
+        "mm-dd-yyyy",
+        "auto",
+    }
+)
+_TIMESTAMP_FORMAT = frozenset(
+    {
+        "auto",
+        "yyyy-mm-dd hh24:mi:ss.ff6",
+        "yyyy-mm-dd hh:mm:ss",
+        "yyyy-mm-dd hh:mm:ss.sss",
+        "yyyy-mm-dd't'hh:mm:ss",
+        "yyyy-mm-dd't'hh:mm:ss.sss",
+    }
+)
+_PATH_GLOB_FILTER = frozenset(
+    {
+        "*.csv",
+        "*.json",
+        "*.parquet",
+        "*.txt",
+        "*.xml",
+        "*.orc",
+        "*.avro",
+        "*.gz",
+        "*.bz2",
+        "*.zst",
+        "*.snappy.parquet",
+    }
+)
+_FORMAT = frozenset(
+    {
+        "csv",
+        "json",
+        "parquet",
+        "text",
+        "xml",
+        "orc",
+        "avro",
+        "iceberg",
+        "delta",
+        "jdbc",
+        "table",
+        "net.snowflake.spark.snowflake",
+    }
+)
+
+ALLOWED_IO_OPTION_VALUES: dict[str, frozenset[str] | str | None] = {
+    # --- CSV / general boolean options ---
+    "header": _BOOLEAN,
+    "inferschema": _BOOLEAN,
+    "multiline": _BOOLEAN,
+    "single": _BOOLEAN,
+    "ignoreleadingwhitespace": _BOOLEAN,
+    "ignoretrailingwhitespace": _BOOLEAN,
+    "escapequotes": _BOOLEAN,
+    "quoteall": _BOOLEAN,
+    "recursivefilelookup": _BOOLEAN,
+    "relaxtypestoinferschema": _BOOLEAN,
+    # --- JSON boolean options ---
+    "primitivesasstring": _BOOLEAN,
+    "prefersdecimal": _BOOLEAN,
+    "allowcomments": _BOOLEAN,
+    "allowunquotedfieldnames": _BOOLEAN,
+    "allowsinglequotes": _BOOLEAN,
+    "allownumericleadingzero": _BOOLEAN,
+    "allowbackslashescapinganycharacter": _BOOLEAN,
+    "allowunquotedcontrolchars": _BOOLEAN,
+    "allownonnumericnumbers": _BOOLEAN,
+    "dropfieldifallnull": _BOOLEAN,
+    "processinbulk": _BOOLEAN,
+    "bz2fileparallelloading": _BOOLEAN,
+    # --- Parquet boolean options ---
+    "mergeschema": _BOOLEAN,
+    # --- Enum options ---
+    "compression": _COMPRESSION,
+    "encoding": _ENCODING,
+    "charset": _ENCODING,
+    "mode": frozenset(
+        {
+            "permissive",
+            "dropmalformed",
+            "failfast",
+            "append",
+            "overwrite",
+            "errorifexists",
+            "ignore",
+        }
+    ),
+    "overwrite-mode": frozenset({"static", "dynamic"}),
+    "datetimerebasemode": _REBASE_MODE,
+    "int96rebasemode": _REBASE_MODE,
+    # --- Numeric options (value reported only if it parses as a number) ---
+    "rowstoinferschema": "numeric",
+    "batchsize": "numeric",
+    "splitsizemb": "numeric",
+    "additionalpaddingmb": "numeric",
+    "samplingratio": "numeric",
+    "maxcolumns": "numeric",
+    "maxcharspercolumn": "numeric",
+    "snowflake_max_file_size": "numeric",
+    # --- Common string options ---
+    "sep": _SEP,
+    "quote": _QUOTE,
+    "escape": _ESCAPE,
+    "comment": _COMMENT,
+    "linesep": _LINESEP,
+    "nullvalue": _NULL_LIKE,
+    "nanvalue": _NULL_LIKE,
+    "emptyvalue": _NULL_LIKE,
+    "dateformat": _DATE_FORMAT,
+    "timestampformat": _TIMESTAMP_FORMAT,
+    "columnnameofcorruptrecord": None,
+    "pathglobfilter": _PATH_GLOB_FILTER,
+    "modifiedbefore": None,
+    "modifiedafter": None,
+    "partitionby": None,
+    "format": _FORMAT,
+}
+
+_REDACTED = "<redacted>"
+
+
+def _sanitize_io_option_value(key: str, value: str) -> str:
+    """Return the option value if it passes the allowlist, otherwise '<redacted>'.
+
+    The allowlist in ALLOWED_IO_OPTION_VALUES controls what gets through:
+      - frozenset: value must match one of the entries (case-insensitive)
+      - "numeric": value must parse as a number
+      - None: key is known but its value is always redacted (free-text fields)
+      - key absent: unknown option, value is redacted
+    """
+    normalized_key = str(key).lower()
+    raw_value = str(value)
+    normalized_value = raw_value.strip()
+    allowed = ALLOWED_IO_OPTION_VALUES.get(normalized_key)
+    if allowed is None:
+        return _REDACTED
+    if allowed == "numeric":
+        try:
+            float(normalized_value)
+            return normalized_value
+        except (ValueError, TypeError):
+            return _REDACTED
+    if isinstance(allowed, frozenset):
+        raw_lower = raw_value.lower()
+        normalized_lower = normalized_value.lower()
+        if raw_lower in allowed:
+            return raw_value
+        if normalized_lower in allowed:
+            return normalized_value
+    return _REDACTED
+
+
 # these fields will be redacted when reporting the spark query plan
 REDACTED_PLAN_SUFFIXES = [
     # config values can be set using SQL, so we have to redact it
@@ -547,7 +757,9 @@ class Telemetry:
 
         summary["udf_usage"][udf_name] += 1
 
-    def _report_io(self, op: str, type: str):
+    def _report_io(
+        self, op: str, io_type: str, options: dict[str, str] | None = None
+    ) -> None:
         if self._not_in_request():
             return
 
@@ -556,15 +768,32 @@ class Telemetry:
         if "io" not in summary:
             summary["io"] = []
 
-        summary["io"].append({"op": op, "type": type})
+        entry: dict = {"op": op, "type": io_type}
+
+        if options:
+            reported_options = {}
+            for key, value in options.items():
+                lower_key = key.lower()
+                reported_options[lower_key] = _sanitize_io_option_value(
+                    lower_key, value
+                )
+            if reported_options:
+                # Keep this key name as "safe_options": backend redacts fields named "options".
+                entry["safe_options"] = reported_options
+
+        summary["io"].append(entry)
 
     @safe
-    def report_io_read(self, type: str):
-        self._report_io("read", type)
+    def report_io_read(
+        self, io_type: str, options: dict[str, str] | None = None
+    ) -> None:
+        self._report_io("read", io_type, options)
 
     @safe
-    def report_io_write(self, type: str):
-        self._report_io("write", type)
+    def report_io_write(
+        self, io_type: str, options: dict[str, str] | None = None
+    ) -> None:
+        self._report_io("write", io_type, options)
 
     @safe
     def send_server_started_telemetry(self):

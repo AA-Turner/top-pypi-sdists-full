@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: xvfbwrapper
-Version: 0.2.18
+Version: 0.2.20
 Summary: Manage headless displays with Xvfb (X virtual framebuffer)
 Author: Corey Goldberg
 Maintainer: Corey Goldberg
@@ -35,7 +35,9 @@ Dynamic: license-file
 
 ----
 
-[![Supported Python Versions](https://img.shields.io/pypi/pyversions/xvfbwrapper)](https://pypi.org/project/xvfbwrapper)
+## About
+
+`xvfbwrapper` is a Python library for controlling X11 virtual displays with Xvfb.
 
 - Copyright (c) 2012-2026 [Corey Goldberg][github-profile]
 - Development: [GitHub][github-repo]
@@ -44,9 +46,13 @@ Dynamic: license-file
 
 ----
 
-## About
+## Status
 
-`xvfbwrapper` is a Python library for controlling X11 virtual displays with Xvfb.
+| Type | Status |
+| ---- | ------ |
+| Build/Tests (CI) | [![Build/Tests (GitHub)](https://github.com/cgoldberg/xvfbwrapper/actions/workflows/test.yml/badge.svg)](https://github.com/cgoldberg/xvfbwrapper/actions/workflows/test.yml) |
+| Supported Python Versions | [![Supported Python Versions](https://img.shields.io/pypi/pyversions/xvfbwrapper)](https://pypi.org/project/xvfbwrapper) |
+| OSS Sponsorship | [![Tidelift](https://tidelift.com/badges/package/maven/com.fasterxml.uuid:java-uuid-generator)](https://tidelift.com/lifter/search/pypi/xvfbwrapper) |
 
 ----
 
@@ -74,7 +80,7 @@ pip install xvfbwrapper
 ## System Requirements
 
 - Python 3.10+
-- X Window System (or Xwayland)
+- X Window System
 - Xvfb (`sudo apt-get install xvfb`, `yum install xorg-x11-server-Xvfb`, etc)
 - Support for locking with `fcntl` system call (non-Windows systems)
 
@@ -127,13 +133,28 @@ xvfb = Xvfb(display=23)
 xvfb.start() # Xvfb will start on display :23
 ```
 
+#### Setting XDG_SESSION_TYPE:
+
+When running `Xvfb` in a Wayland session, GUI toolkits may try to use the
+Wayland backend instead of connecting to `Xvfb`. Setting
+`set_xdg_session_type=True` forces `XDG_SESSION_TYPE=x11` in the Python process
+and all child processes, ensuring that GUI apps use the X11 backend and can
+render on the virtual display.
+
+```python
+from xvfbwrapper import Xvfb
+
+xvfb = Xvfb(set_xdg_session_type=True)
+xvfb.start()
+```
+
 #### Specifying other Xvfb options:
 
 The `Xvfb` executable accepts several types of command line arguments.
 
 The most common is an argument with a `-` prefix and a parameter
 (i.e. `-nolisten tcp`). These can be added as keyword arguments when
-creating an `xvfbrwapper.Xvfb` instance. For example:
+creating an `xvfbwrapper.Xvfb` instance. For example:
 
 ```python
 from xvfbwrapper import Xvfb
@@ -151,7 +172,7 @@ However, there are other possible types of arguments:
 - argument with a `+` prefix and a parameter (i.e. `+extension RANDR`)
 
 Any type of argument can be added as an `extra_args` sequence when creating
-an `xvfbrwapper.Xvfb` instance. For example:
+an `xvfbwrapper.Xvfb` instance. For example:
 
 ```python
 from xvfbwrapper import Xvfb

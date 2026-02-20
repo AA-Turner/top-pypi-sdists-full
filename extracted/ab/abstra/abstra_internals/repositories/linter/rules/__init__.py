@@ -15,6 +15,7 @@ from .missing_abstra_in_requirements import MissingAbstraInRequirements
 from .missing_entrypoint import MissingEntrypoint
 from .missing_env import MissingEnv
 from .missing_packages_in_requirements import MissingPackagesInRequirements
+from .missing_task_schema_for_agent_target import MissingTaskSchemaForAgentTarget
 from .new_version_of_abstra_available import NewVersionOfAbstraAvailable
 from .psycopg2 import Psycopg2MustBeBinary
 from .syntax_errors import SyntaxErrors
@@ -38,6 +39,7 @@ core_rules: List[LinterRule] = [
     DeprecatedFunctionUsage(),
     BigPyFiles(),
     FileOutsideProjectRoot(),
+    MissingTaskSchemaForAgentTarget(),
     # TypeCheckingRule(),
 ]
 

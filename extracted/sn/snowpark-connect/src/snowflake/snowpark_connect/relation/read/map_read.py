@@ -78,7 +78,7 @@ def map_read(
                 read_format = "parquet"
 
             if read_format.lower() == "iceberg":
-                telemetry.report_io_read("iceberg")
+                telemetry.report_io_read("iceberg", dict(rel.read.data_source.options))
                 return map_read_table(rel)
 
             if rel.read.data_source.schema == "":
@@ -100,7 +100,7 @@ def map_read(
                     parsed_schema, quote_struct_fields_names=quote_fields
                 )
             options = dict(rel.read.data_source.options)
-            telemetry.report_io_read(read_format)
+            telemetry.report_io_read(read_format, options)
             session: snowpark.Session = get_or_create_snowpark_session()
             if len(rel.read.data_source.paths) > 0:
                 if options.get("path"):
@@ -253,7 +253,7 @@ def map_read_table_or_file(rel) -> DataFrameContainer:
             rel.read.named_table.unparsed_identifier
         )
         options = {}
-        telemetry.report_io_read(read_format)
+        telemetry.report_io_read(read_format, options)
         session: snowpark.Session = get_or_create_snowpark_session()
 
         clean_source_paths = [

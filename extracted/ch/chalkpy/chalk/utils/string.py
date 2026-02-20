@@ -125,8 +125,15 @@ def s(length: int):
     Returns an "s" if 0-count or plural.
     Helps Chalk attain perfect grammar.
 
-    :param length: Length of variable being described.
-    :return: Empty string or "s".
+    Parameters
+    ----------
+    length
+        Length of variable being described.
+
+    Returns
+    -------
+    str
+        Empty string or "s".
     """
     return "" if length == 1 else "s"
 

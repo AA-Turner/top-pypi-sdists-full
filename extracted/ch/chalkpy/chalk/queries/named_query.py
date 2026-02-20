@@ -77,9 +77,9 @@ class NamedQuery:
             If query logging is enabled, this will log the specified features in addition to
             the output features to the query log.
         valid_plan_not_required
-            If False (which is the default), new main deployments will fail if the planner cannot
+            If `False` (which is the default), new main deployments will fail if the planner cannot
             generate a valid plan for the named query, preventing rollover of a bad deployment. If
-            set to True, the query will not be preplanned and therefore will not be validated on
+            set to `True`, the query will not be preplanned and therefore will not be validated on
             deployment.
 
 

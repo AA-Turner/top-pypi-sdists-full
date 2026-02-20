@@ -149,9 +149,24 @@ class HttpWorker(IStatsigNetworkWorker):
             return on_complete(response.data, None)
         return on_complete(None, None)
 
-    def get_id_list(self, on_complete, url, headers, log_on_exception=False):
+    def get_id_list(
+        self,
+        on_complete,
+        url,
+        headers,
+        log_on_exception=False,
+        id_list_file_id: Optional[str] = None,
+    ):
+        extra_tags = {}
+        if id_list_file_id:
+            extra_tags["id_list_file_id"] = id_list_file_id
         resp = self._get_request(
-            url, headers, log_on_exception, tag="get_id_list", get_text_value_only=True
+            url,
+            headers,
+            log_on_exception,
+            tag="get_id_list",
+            get_text_value_only=True,
+            extra_tags=extra_tags,
         )
         if resp is not None and self._is_success_code(resp.status_code):
             return on_complete(resp)
@@ -257,6 +272,7 @@ class HttpWorker(IStatsigNetworkWorker):
         tag=None,
         get_text_value_only=False,
         useStatsigClient=False,
+        extra_tags: Optional[Dict[str, Any]] = None,
     ):
         return self._request(
             "GET",
@@ -268,7 +284,8 @@ class HttpWorker(IStatsigNetworkWorker):
             zipped,
             tag,
             get_text_value_only,
-            useStatsigClient
+            useStatsigClient,
+            extra_tags,
         )
 
     def _request(
@@ -283,6 +300,7 @@ class HttpWorker(IStatsigNetworkWorker):
         tag=None,
         get_text_value_only=False,
         useStatsigClient = False,
+        extra_tags: Optional[Dict[str, Any]] = None,
     ) -> RequestResult:
         if self.__local_mode:
             globals.logger.debug("Using local mode. Dropping network request")
@@ -296,7 +314,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 create_marker().start({"markerID": marker_id})
             )
 
-        headers = self._prepare_headers(headers, zipped, url)
+        headers = self._prepare_headers(headers, zipped)
 
         if payload is not None:
             payload = self._prepare_payload(payload, url, zipped)
@@ -338,6 +356,7 @@ class HttpWorker(IStatsigNetworkWorker):
                 source_service=source_service,
                 partial_sdk_key=self.__partial_sdk_key,
                 request_path=request_path,
+                extra_tags=extra_tags,
             )
 
         return result
@@ -428,7 +447,7 @@ class HttpWorker(IStatsigNetworkWorker):
         return 200 <= status_code < 300
 
     def _prepare_headers(
-        self, headers: Optional[Dict[str, Any]], zipped: bool, url: str
+        self, headers: Optional[Dict[str, Any]], zipped: bool
     ) -> Dict[str, Any]:
         base_headers = {
             "Content-type": "application/json",
@@ -439,6 +458,7 @@ class HttpWorker(IStatsigNetworkWorker):
             "STATSIG-SDK-VERSION": self.__statsig_metadata["sdkVersion"],
             "STATSIG-RETRY": "0",
             "Accept-Encoding": "gzip, deflate, br",
+            "x-request-service": self.__service_name,
         }
 
         if zipped:
@@ -446,9 +466,6 @@ class HttpWorker(IStatsigNetworkWorker):
 
         if headers is not None:
             base_headers.update(headers)
-
-        if "statsig-foward-proxy" in url:
-            base_headers.update({"x-request-service": self.__service_name})
 
         return base_headers
 

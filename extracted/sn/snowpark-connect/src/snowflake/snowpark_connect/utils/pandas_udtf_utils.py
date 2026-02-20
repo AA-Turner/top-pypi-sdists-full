@@ -60,11 +60,18 @@ def process_udtf_packages(
     packages_str: str,
     is_arrow_enabled: bool = False,
     custom_packages: list[str] | None = None,
+    artifact_repository: str | None = None,
 ) -> list[str]:
     packages = process_dependencies_string_array(packages_str)
     # Include pyarrow in packages when using Arrow-enabled UDTF
     if is_arrow_enabled and "pyarrow" not in packages:
         packages += ["pyarrow"]
+
+    # TODO: Remove this once Snowpark Python automatically includes cloudpickle when artifact_repository is set.
+    # cloudpickle is required for serialization/deserialization of UDTFs but is not automatically
+    # added by Snowflake when using a custom artifact_repository.
+    if artifact_repository and "cloudpickle" not in packages:
+        packages += ["cloudpickle"]
 
     if "pyspark" not in packages:
         # need this to support table argument in UDTF.
@@ -155,6 +162,7 @@ def create_pandas_udtf(
     return_schema: StructType,
     udtf_packages: str,
     udtf_imports: str,
+    artifact_repository: str | None = None,
 ):
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
     output_column_names = [field.name for field in return_schema.fields]
@@ -229,10 +237,13 @@ def create_pandas_udtf(
         name="map_pandas_udtf",
         replace=True,
         packages=process_udtf_packages(
-            udtf_packages, custom_packages=["pandas", TELEMETRY_PACKAGE]
+            udtf_packages,
+            custom_packages=["pandas", TELEMETRY_PACKAGE],
+            artifact_repository=artifact_repository,
         ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
+        artifact_repository=artifact_repository,
     )
 
 
@@ -243,6 +254,7 @@ def create_pandas_udtf_with_arrow(
     return_schema: StructType,
     udtf_packages: str,
     udtf_imports: str,
+    artifact_repository: str | None = None,
 ) -> str | snowpark.udtf.UserDefinedTableFunction:
 
     user_function, _ = cloudpickle.loads(udtf_proto.python_udf.command)
@@ -271,9 +283,11 @@ def create_pandas_udtf_with_arrow(
             udtf_packages,
             is_arrow_enabled=True,
             custom_packages=["pandas", TELEMETRY_PACKAGE],
+            artifact_repository=artifact_repository,
         ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
+        artifact_repository=artifact_repository,
     )
 
 
@@ -384,6 +398,7 @@ def create_cogroup_pandas_udtf(
     return_schema: StructType,
     udtf_packages: str,
     udtf_imports: str,
+    artifact_repository: str | None = None,
 ):
     """
     Create a pandas UDTF for co-group operations (applyInPandas on cogrouped data).
@@ -427,8 +442,11 @@ def create_cogroup_pandas_udtf(
         name=udtf_name,
         replace=True,
         packages=process_udtf_packages(
-            udtf_packages, custom_packages=["pandas", TELEMETRY_PACKAGE]
+            udtf_packages,
+            custom_packages=["pandas", TELEMETRY_PACKAGE],
+            artifact_repository=artifact_repository,
         ),
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
+        artifact_repository=artifact_repository,
     )

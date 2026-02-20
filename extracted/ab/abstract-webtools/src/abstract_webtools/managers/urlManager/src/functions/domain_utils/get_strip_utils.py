@@ -106,4 +106,3 @@ def get_url_js(url):
 
 get_extention = get_extension
 
-input(for_dl_video("https://www.instagram.com/reel/DRXv6QOkd64/"))

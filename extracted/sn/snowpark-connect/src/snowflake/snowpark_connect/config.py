@@ -171,6 +171,10 @@ class GlobalConfig:
         # Control whether to convert decimal - to integral types and vice versa: DecimalType(p,0) <-> ByteType/ShortType/IntegerType/LongType
         # Values: "client_default" (behavior based on client type), "enabled", "disabled"
         "snowpark.connect.integralTypesEmulation": "client_default",
+        # Artifact Repository for UDF/UDTF/UDAF/Sproc package resolution
+        # Set to the name of an artifact repository created in Snowflake (e.g., "MY_PYPI_REPO")
+        # When set, packages will be resolved from the specified artifact repository instead of Anaconda
+        "snowpark.connect.artifact_repository": "",
         # Resource constraint for UDFs - when set to "x86", UDFs will be created with architecture constraint
         # This requires an x86-compatible warehouse for execution
         "snowpark.connect.udf.resource_constraint.architecture": None,
@@ -222,6 +226,10 @@ class GlobalConfig:
         ),
         "snowpark.connect.udf.java.imports": lambda session, imports: parse_imports(
             session, imports, "java"
+        ),
+        # When artifact repository changes, cached UDXFs need to be recreated with the new repository
+        "snowpark.connect.artifact_repository": lambda session, _: clear_external_udxf_cache(
+            session
         ),
     }
 
@@ -276,9 +284,10 @@ class GlobalConfig:
 
     def is_modifiable(self, key) -> bool:
         self._initialize_if_static_config_not_set(key)
-        is_in_config = self.is_set(key)
-        is_in_static_config = self.is_static_config(key)
-        return is_in_config and not is_in_static_config
+        return bool(
+            (key in self.default_global_config or valid_session_config_key(key))
+            and not self.is_static_config(key)
+        )
 
     def _initialize_if_static_config_not_set(self, key):
         """
@@ -322,6 +331,7 @@ SESSION_CONFIG_KEY_WHITELIST = {
     "parquet.enable.summary-metadata",
     "spark.sql.sources.partitionOverwriteMode",
     "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables",
+    "snowpark.connect.csv.continueOnError",
 }
 AZURE_ACCOUNT_KEY = re.compile(
     r"^fs\.azure\.sas\.[^\.]+\.[^\.]+\.blob\.core\.windows\.net$"
@@ -360,6 +370,7 @@ class SessionConfig:
         "spark.jars": None,
         "spark.sql.sources.partitionOverwriteMode": "static",
         "snowpark.connect.sql.emulatePartitionOverwritesForSnowflakeTables": "false",
+        "snowpark.connect.csv.continueOnError": "false",
     }
 
     def __init__(self) -> None:
@@ -502,12 +513,13 @@ def route_config_proto(
             config_items = global_config.get_all()
             for item in config_items.items():
                 if prefix is None or item[0].startswith(prefix):
+                    if item[1] is None:
+                        continue
                     pair = res.pairs.add()
                     pair.key = (
                         item[0] if prefix is None else item[0].removeprefix(prefix)
                     )
-                    if item[1]:
-                        pair.value = str(item[1])
+                    pair.value = str(item[1])
             return res
         case "is_modifiable":
             logger.debug("IS_MODIFIABLE")
@@ -962,6 +974,20 @@ def check_table_supports_operation(table_identifier: str, operation: str) -> boo
 
 def get_scala_version() -> str:
     return global_config.get("snowpark.connect.scala.version")
+
+
+def get_artifact_repository() -> Optional[str]:
+    """
+    Get the artifact repository to use for UDF/UDTF/UDAF/Sproc package resolution.
+
+    Returns:
+        The artifact repository name, or None if not configured.
+
+    Example usage via spark.conf.set():
+        spark.conf.set("snowpark.connect.artifact_repository", "MY_PYPI_REPO")
+    """
+    repo = global_config.get("snowpark.connect.artifact_repository", "")
+    return repo if repo else None
 
 
 _java_udf_creator_initialized = False

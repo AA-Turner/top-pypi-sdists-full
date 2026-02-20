@@ -866,7 +866,7 @@ class ChalkRecordBatch:
         use_threads
             Whether to use threads for the join
         use_polars
-            Whether to use polars for the join. If None, then heuristics will be used to determine if polars is faster
+            Whether to use polars for the join. If `None`, then heuristics will be used to determine if polars is faster
         unmatched_metadata
             In outer joins, what values to fill into the metadata for unmatched entries
         """

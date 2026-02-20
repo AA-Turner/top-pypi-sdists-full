@@ -32,43 +32,38 @@ __all__ = [
     'JobTemplateSpecArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class CronJobSpecPatchArgsDict(TypedDict):
-        """
-        CronJobSpec describes how the job execution will look like and when it will actually run.
-        """
-        concurrency_policy: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
-        """
-        failed_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of failed finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
-        """
-        job_template: NotRequired[pulumi.Input['JobTemplateSpecPatchArgsDict']]
-        """
-        Specifies the job that will be created when executing a CronJob.
-        """
-        schedule: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
-        """
-        starting_deadline_seconds: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Optional deadline in seconds for starting the job if it misses scheduled time for any reason.  Missed jobs executions will be counted as failed ones.
-        """
-        successful_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of successful finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 3.
-        """
-        suspend: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        This flag tells the controller to suspend subsequent executions, it does not apply to already started executions.  Defaults to false.
-        """
-elif False:
-    CronJobSpecPatchArgsDict: TypeAlias = Mapping[str, Any]
+class CronJobSpecPatchArgsDict(TypedDict):
+    """
+    CronJobSpec describes how the job execution will look like and when it will actually run.
+    """
+    concurrency_policy: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
+    """
+    failed_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of failed finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
+    """
+    job_template: NotRequired[pulumi.Input['JobTemplateSpecPatchArgsDict']]
+    """
+    Specifies the job that will be created when executing a CronJob.
+    """
+    schedule: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+    """
+    starting_deadline_seconds: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Optional deadline in seconds for starting the job if it misses scheduled time for any reason.  Missed jobs executions will be counted as failed ones.
+    """
+    successful_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of successful finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 3.
+    """
+    suspend: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    This flag tells the controller to suspend subsequent executions, it does not apply to already started executions.  Defaults to false.
+    """
 
 @pulumi.input_type
 class CronJobSpecPatchArgs:
@@ -82,6 +77,7 @@ class CronJobSpecPatchArgs:
                  suspend: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         CronJobSpec describes how the job execution will look like and when it will actually run.
+
         :param pulumi.Input[_builtins.str] concurrency_policy: Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
         :param pulumi.Input[_builtins.int] failed_jobs_history_limit: The number of failed finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
         :param pulumi.Input['JobTemplateSpecPatchArgs'] job_template: Specifies the job that will be created when executing a CronJob.
@@ -190,41 +186,38 @@ class CronJobSpecPatchArgs:
         pulumi.set(self, "suspend", value)
 
 
-if not MYPY:
-    class CronJobSpecArgsDict(TypedDict):
-        """
-        CronJobSpec describes how the job execution will look like and when it will actually run.
-        """
-        job_template: pulumi.Input['JobTemplateSpecArgsDict']
-        """
-        Specifies the job that will be created when executing a CronJob.
-        """
-        schedule: pulumi.Input[_builtins.str]
-        """
-        The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
-        """
-        concurrency_policy: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
-        """
-        failed_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of failed finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
-        """
-        starting_deadline_seconds: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        Optional deadline in seconds for starting the job if it misses scheduled time for any reason.  Missed jobs executions will be counted as failed ones.
-        """
-        successful_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
-        """
-        The number of successful finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 3.
-        """
-        suspend: NotRequired[pulumi.Input[_builtins.bool]]
-        """
-        This flag tells the controller to suspend subsequent executions, it does not apply to already started executions.  Defaults to false.
-        """
-elif False:
-    CronJobSpecArgsDict: TypeAlias = Mapping[str, Any]
+class CronJobSpecArgsDict(TypedDict):
+    """
+    CronJobSpec describes how the job execution will look like and when it will actually run.
+    """
+    job_template: pulumi.Input['JobTemplateSpecArgsDict']
+    """
+    Specifies the job that will be created when executing a CronJob.
+    """
+    schedule: pulumi.Input[_builtins.str]
+    """
+    The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+    """
+    concurrency_policy: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
+    """
+    failed_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of failed finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 1.
+    """
+    starting_deadline_seconds: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    Optional deadline in seconds for starting the job if it misses scheduled time for any reason.  Missed jobs executions will be counted as failed ones.
+    """
+    successful_jobs_history_limit: NotRequired[pulumi.Input[_builtins.int]]
+    """
+    The number of successful finished jobs to retain. This is a pointer to distinguish between explicit zero and not specified. Defaults to 3.
+    """
+    suspend: NotRequired[pulumi.Input[_builtins.bool]]
+    """
+    This flag tells the controller to suspend subsequent executions, it does not apply to already started executions.  Defaults to false.
+    """
 
 @pulumi.input_type
 class CronJobSpecArgs:
@@ -238,6 +231,7 @@ class CronJobSpecArgs:
                  suspend: Optional[pulumi.Input[_builtins.bool]] = None):
         """
         CronJobSpec describes how the job execution will look like and when it will actually run.
+
         :param pulumi.Input['JobTemplateSpecArgs'] job_template: Specifies the job that will be created when executing a CronJob.
         :param pulumi.Input[_builtins.str] schedule: The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
         :param pulumi.Input[_builtins.str] concurrency_policy: Specifies how to treat concurrent executions of a Job. Valid values are: - "Allow" (default): allows CronJobs to run concurrently; - "Forbid": forbids concurrent runs, skipping next run if previous run hasn't finished yet; - "Replace": cancels currently running job and replaces it with a new one
@@ -344,21 +338,18 @@ class CronJobSpecArgs:
         pulumi.set(self, "suspend", value)
 
 
-if not MYPY:
-    class CronJobStatusArgsDict(TypedDict):
-        """
-        CronJobStatus represents the current state of a cron job.
-        """
-        active: NotRequired[pulumi.Input[Sequence[pulumi.Input['_core.v1.ObjectReferenceArgsDict']]]]
-        """
-        A list of pointers to currently running jobs.
-        """
-        last_schedule_time: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Information when was the last time the job was successfully scheduled.
-        """
-elif False:
-    CronJobStatusArgsDict: TypeAlias = Mapping[str, Any]
+class CronJobStatusArgsDict(TypedDict):
+    """
+    CronJobStatus represents the current state of a cron job.
+    """
+    active: NotRequired[pulumi.Input[Sequence[pulumi.Input['_core.v1.ObjectReferenceArgsDict']]]]
+    """
+    A list of pointers to currently running jobs.
+    """
+    last_schedule_time: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Information when was the last time the job was successfully scheduled.
+    """
 
 @pulumi.input_type
 class CronJobStatusArgs:
@@ -367,6 +358,7 @@ class CronJobStatusArgs:
                  last_schedule_time: Optional[pulumi.Input[_builtins.str]] = None):
         """
         CronJobStatus represents the current state of a cron job.
+
         :param pulumi.Input[Sequence[pulumi.Input['_core.v1.ObjectReferenceArgs']]] active: A list of pointers to currently running jobs.
         :param pulumi.Input[_builtins.str] last_schedule_time: Information when was the last time the job was successfully scheduled.
         """
@@ -400,33 +392,30 @@ class CronJobStatusArgs:
         pulumi.set(self, "last_schedule_time", value)
 
 
-if not MYPY:
-    class CronJobArgsDict(TypedDict):
-        """
-        CronJob represents the configuration of a single cron job.
-        """
-        api_version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        """
-        kind: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        """
-        metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
-        """
-        Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-        """
-        spec: NotRequired[pulumi.Input['CronJobSpecArgsDict']]
-        """
-        Specification of the desired behavior of a cron job, including the schedule. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-        """
-        status: NotRequired[pulumi.Input['CronJobStatusArgsDict']]
-        """
-        Current status of a cron job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-        """
-elif False:
-    CronJobArgsDict: TypeAlias = Mapping[str, Any]
+class CronJobArgsDict(TypedDict):
+    """
+    CronJob represents the configuration of a single cron job.
+    """
+    api_version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+    """
+    kind: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+    """
+    metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
+    """
+    Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+    """
+    spec: NotRequired[pulumi.Input['CronJobSpecArgsDict']]
+    """
+    Specification of the desired behavior of a cron job, including the schedule. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+    """
+    status: NotRequired[pulumi.Input['CronJobStatusArgsDict']]
+    """
+    Current status of a cron job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+    """
 
 @pulumi.input_type
 class CronJobArgs:
@@ -438,6 +427,7 @@ class CronJobArgs:
                  status: Optional[pulumi.Input['CronJobStatusArgs']] = None):
         """
         CronJob represents the configuration of a single cron job.
+
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: Standard object's metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -516,21 +506,18 @@ class CronJobArgs:
         pulumi.set(self, "status", value)
 
 
-if not MYPY:
-    class JobTemplateSpecPatchArgsDict(TypedDict):
-        """
-        JobTemplateSpec describes the data a Job should have when created from a template
-        """
-        metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaPatchArgsDict']]
-        """
-        Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-        """
-        spec: NotRequired[pulumi.Input['_batch.v1.JobSpecPatchArgsDict']]
-        """
-        Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-        """
-elif False:
-    JobTemplateSpecPatchArgsDict: TypeAlias = Mapping[str, Any]
+class JobTemplateSpecPatchArgsDict(TypedDict):
+    """
+    JobTemplateSpec describes the data a Job should have when created from a template
+    """
+    metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaPatchArgsDict']]
+    """
+    Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+    """
+    spec: NotRequired[pulumi.Input['_batch.v1.JobSpecPatchArgsDict']]
+    """
+    Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+    """
 
 @pulumi.input_type
 class JobTemplateSpecPatchArgs:
@@ -539,6 +526,7 @@ class JobTemplateSpecPatchArgs:
                  spec: Optional[pulumi.Input['_batch.v1.JobSpecPatchArgs']] = None):
         """
         JobTemplateSpec describes the data a Job should have when created from a template
+
         :param pulumi.Input['_meta.v1.ObjectMetaPatchArgs'] metadata: Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param pulumi.Input['_batch.v1.JobSpecPatchArgs'] spec: Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """
@@ -572,21 +560,18 @@ class JobTemplateSpecPatchArgs:
         pulumi.set(self, "spec", value)
 
 
-if not MYPY:
-    class JobTemplateSpecArgsDict(TypedDict):
-        """
-        JobTemplateSpec describes the data a Job should have when created from a template
-        """
-        metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
-        """
-        Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-        """
-        spec: NotRequired[pulumi.Input['_batch.v1.JobSpecArgsDict']]
-        """
-        Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-        """
-elif False:
-    JobTemplateSpecArgsDict: TypeAlias = Mapping[str, Any]
+class JobTemplateSpecArgsDict(TypedDict):
+    """
+    JobTemplateSpec describes the data a Job should have when created from a template
+    """
+    metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
+    """
+    Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+    """
+    spec: NotRequired[pulumi.Input['_batch.v1.JobSpecArgsDict']]
+    """
+    Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+    """
 
 @pulumi.input_type
 class JobTemplateSpecArgs:
@@ -595,6 +580,7 @@ class JobTemplateSpecArgs:
                  spec: Optional[pulumi.Input['_batch.v1.JobSpecArgs']] = None):
         """
         JobTemplateSpec describes the data a Job should have when created from a template
+
         :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: Standard object's metadata of the jobs created from this template. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
         :param pulumi.Input['_batch.v1.JobSpecArgs'] spec: Specification of the desired behavior of the job. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
         """

@@ -938,10 +938,17 @@ def escape_sql_params(
 
     However this isn't valid sql -- we replace each occurrence of ${} w/ a placeholder name and
     return the escaped SQL string w/ additional info about the params & relevant Chalk features.
-    :param sql_string: String of hte original SQL resolver
-    :param path: For error reporting, filepath of the SQL resolver
-    :param error_builder: For LSP errors
-    :param parse_only: If True, skip feature registry lookups for default values
+
+    Parameters
+    ----------
+    sql_string
+        String of the original SQL resolver.
+    path
+        For error reporting, filepath of the SQL resolver.
+    error_builder
+        For LSP errors.
+    parse_only
+        If `True`, skip feature registry lookups for default values.
     """
     args = {}  # sql string -> input feature string
 
@@ -1704,7 +1711,7 @@ class GeneratedSQLFileResolverRegistry:
 
         Args:
             filter_by_directory: If provided, only yield resolvers whose filepath is under this directory.
-                                 If None, yield all generated resolvers (legacy behavior).
+                                 If `None`, yield all generated resolvers (legacy behavior).
         """
         for name, generated_info in self.resolver_name_to_generated_infos.items():
             # If filtering by directory is requested, check if the resolver's filepath is under that directory
@@ -1870,7 +1877,7 @@ def make_sql_file_resolver(
         Whether this resolver returns all ids of a given namespace. To have this annotation, the resolver must
         take no arguments and return a DataFrame.
     skip_sql_validation
-        If set to True, skips sqlglot validation of the SQL query. This is useful when the SQL contains
+        If set to `True`, skips sqlglot validation of the SQL query. This is useful when the SQL contains
         database-specific syntax that sqlglot cannot parse. When validation is skipped, you must provide
         the `fields` parameter to explicitly map SQL columns to Chalk features.
 

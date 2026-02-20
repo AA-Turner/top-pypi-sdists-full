@@ -106,9 +106,6 @@ def CP_KL(
     else:
         raise NotImplementedError("CPU Chambolle Pock (LS-KL) not implemented.")
 
-
-
-
 def CP_TV_dense(
     SMatrix,
     y,

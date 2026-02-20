@@ -1,3 +1,4 @@
+from chalk._gen.buf.validate import validate_pb2 as _validate_pb2
 from chalk._gen.chalk.auth.v1 import agent_pb2 as _agent_pb2
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import displayagent_pb2 as _displayagent_pb2
@@ -863,6 +864,18 @@ class ReactivateUserRequest(_message.Message):
     def __init__(self, user_id: _Optional[str] = ...) -> None: ...
 
 class ReactivateUserResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class AssignTeamRoleRequest(_message.Message):
+    __slots__ = ("user_id", "role_id")
+    USER_ID_FIELD_NUMBER: _ClassVar[int]
+    ROLE_ID_FIELD_NUMBER: _ClassVar[int]
+    user_id: str
+    role_id: str
+    def __init__(self, user_id: _Optional[str] = ..., role_id: _Optional[str] = ...) -> None: ...
+
+class AssignTeamRoleResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 

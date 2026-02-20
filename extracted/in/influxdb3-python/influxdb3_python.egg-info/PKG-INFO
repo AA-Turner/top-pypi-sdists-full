@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: influxdb3-python
-Version: 0.17.0
+Version: 0.18.0
 Summary: Community Python client for InfluxDB 3.0
 Home-page: https://github.com/InfluxCommunity/influxdb3-python
 Author: InfluxData
@@ -53,6 +53,9 @@ Dynamic: summary
 </p>
 
 <p align="center">
+    <a href="https://influxdb3-python.readthedocs.io/en/latest/">
+        <img src="https://img.shields.io/readthedocs/influxdb3-python/latest" alt="Readthedocs document">
+    </a>
     <a href="https://pypi.org/project/influxdb3-python/">
         <img src="https://img.shields.io/pypi/v/influxdb3-python.svg" alt="PyPI version">
     </a>

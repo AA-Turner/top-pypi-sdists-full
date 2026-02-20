@@ -158,6 +158,15 @@ class CfnConfig(
                     prefix="prefix",
                     role_arn="roleArn"
                 ),
+                telemetry_sink_config=groundstation.CfnConfig.TelemetrySinkConfigProperty(
+                    telemetry_sink_data=groundstation.CfnConfig.TelemetrySinkDataProperty(
+                        kinesis_data_stream_data=groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                            kinesis_data_stream_arn="kinesisDataStreamArn",
+                            kinesis_role_arn="kinesisRoleArn"
+                        )
+                    ),
+                    telemetry_sink_type="telemetrySinkType"
+                ),
                 tracking_config=groundstation.CfnConfig.TrackingConfigProperty(
                     autotrack="autotrack"
                 ),
@@ -637,6 +646,7 @@ class CfnConfig(
             "antenna_uplink_config": "antennaUplinkConfig",
             "dataflow_endpoint_config": "dataflowEndpointConfig",
             "s3_recording_config": "s3RecordingConfig",
+            "telemetry_sink_config": "telemetrySinkConfig",
             "tracking_config": "trackingConfig",
             "uplink_echo_config": "uplinkEchoConfig",
         },
@@ -650,6 +660,7 @@ class CfnConfig(
             antenna_uplink_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.AntennaUplinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             dataflow_endpoint_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.DataflowEndpointConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             s3_recording_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.S3RecordingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            telemetry_sink_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TelemetrySinkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             tracking_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TrackingConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             uplink_echo_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.UplinkEchoConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -660,6 +671,7 @@ class CfnConfig(
             :param antenna_uplink_config: Provides information for an uplink config object. Uplink config objects are used to provide parameters for uplink contacts.
             :param dataflow_endpoint_config: Provides information for a dataflow endpoint config object. Dataflow endpoint config objects are used to provide parameters about which IP endpoint(s) to use during a contact. Dataflow endpoints are where Ground Station sends data during a downlink contact and where Ground Station receives data to send to the satellite during an uplink contact.
             :param s3_recording_config: Provides information for an S3 recording config object. S3 recording config objects are used to provide parameters for S3 recording during downlink contacts.
+            :param telemetry_sink_config: 
             :param tracking_config: Provides information for a tracking config object. Tracking config objects are used to provide parameters about how to track the satellite through the sky during a contact.
             :param uplink_echo_config: Provides information for an uplink echo config object. Uplink echo config objects are used to provide parameters for uplink echo during uplink contacts.
 
@@ -728,6 +740,15 @@ class CfnConfig(
                         prefix="prefix",
                         role_arn="roleArn"
                     ),
+                    telemetry_sink_config=groundstation.CfnConfig.TelemetrySinkConfigProperty(
+                        telemetry_sink_data=groundstation.CfnConfig.TelemetrySinkDataProperty(
+                            kinesis_data_stream_data=groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                                kinesis_data_stream_arn="kinesisDataStreamArn",
+                                kinesis_role_arn="kinesisRoleArn"
+                            )
+                        ),
+                        telemetry_sink_type="telemetrySinkType"
+                    ),
                     tracking_config=groundstation.CfnConfig.TrackingConfigProperty(
                         autotrack="autotrack"
                     ),
@@ -744,6 +765,7 @@ class CfnConfig(
                 check_type(argname="argument antenna_uplink_config", value=antenna_uplink_config, expected_type=type_hints["antenna_uplink_config"])
                 check_type(argname="argument dataflow_endpoint_config", value=dataflow_endpoint_config, expected_type=type_hints["dataflow_endpoint_config"])
                 check_type(argname="argument s3_recording_config", value=s3_recording_config, expected_type=type_hints["s3_recording_config"])
+                check_type(argname="argument telemetry_sink_config", value=telemetry_sink_config, expected_type=type_hints["telemetry_sink_config"])
                 check_type(argname="argument tracking_config", value=tracking_config, expected_type=type_hints["tracking_config"])
                 check_type(argname="argument uplink_echo_config", value=uplink_echo_config, expected_type=type_hints["uplink_echo_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -757,6 +779,8 @@ class CfnConfig(
                 self._values["dataflow_endpoint_config"] = dataflow_endpoint_config
             if s3_recording_config is not None:
                 self._values["s3_recording_config"] = s3_recording_config
+            if telemetry_sink_config is not None:
+                self._values["telemetry_sink_config"] = telemetry_sink_config
             if tracking_config is not None:
                 self._values["tracking_config"] = tracking_config
             if uplink_echo_config is not None:
@@ -826,6 +850,16 @@ class CfnConfig(
             '''
             result = self._values.get("s3_recording_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.S3RecordingConfigProperty"]], result)
+
+        @builtins.property
+        def telemetry_sink_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-configdata.html#cfn-groundstation-config-configdata-telemetrysinkconfig
+            '''
+            result = self._values.get("telemetry_sink_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkConfigProperty"]], result)
 
         @builtins.property
         def tracking_config(
@@ -1268,6 +1302,77 @@ class CfnConfig(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig.KinesisDataStreamDataProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "kinesis_data_stream_arn": "kinesisDataStreamArn",
+            "kinesis_role_arn": "kinesisRoleArn",
+        },
+    )
+    class KinesisDataStreamDataProperty:
+        def __init__(
+            self,
+            *,
+            kinesis_data_stream_arn: builtins.str,
+            kinesis_role_arn: builtins.str,
+        ) -> None:
+            '''
+            :param kinesis_data_stream_arn: 
+            :param kinesis_role_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-kinesisdatastreamdata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_groundstation as groundstation
+                
+                kinesis_data_stream_data_property = groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                    kinesis_data_stream_arn="kinesisDataStreamArn",
+                    kinesis_role_arn="kinesisRoleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8404a4da0808f69df924b83fb04be36ff4bb64b3f47d3171ad59447f008bde60)
+                check_type(argname="argument kinesis_data_stream_arn", value=kinesis_data_stream_arn, expected_type=type_hints["kinesis_data_stream_arn"])
+                check_type(argname="argument kinesis_role_arn", value=kinesis_role_arn, expected_type=type_hints["kinesis_role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kinesis_data_stream_arn": kinesis_data_stream_arn,
+                "kinesis_role_arn": kinesis_role_arn,
+            }
+
+        @builtins.property
+        def kinesis_data_stream_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-kinesisdatastreamdata.html#cfn-groundstation-config-kinesisdatastreamdata-kinesisdatastreamarn
+            '''
+            result = self._values.get("kinesis_data_stream_arn")
+            assert result is not None, "Required property 'kinesis_data_stream_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def kinesis_role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-kinesisdatastreamdata.html#cfn-groundstation-config-kinesisdatastreamdata-kinesisrolearn
+            '''
+            result = self._values.get("kinesis_role_arn")
+            assert result is not None, "Required property 'kinesis_role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "KinesisDataStreamDataProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig.S3RecordingConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -1466,6 +1571,143 @@ class CfnConfig(
 
         def __repr__(self) -> str:
             return "SpectrumConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig.TelemetrySinkConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "telemetry_sink_data": "telemetrySinkData",
+            "telemetry_sink_type": "telemetrySinkType",
+        },
+    )
+    class TelemetrySinkConfigProperty:
+        def __init__(
+            self,
+            *,
+            telemetry_sink_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.TelemetrySinkDataProperty", typing.Dict[builtins.str, typing.Any]]],
+            telemetry_sink_type: builtins.str,
+        ) -> None:
+            '''
+            :param telemetry_sink_data: 
+            :param telemetry_sink_type: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_groundstation as groundstation
+                
+                telemetry_sink_config_property = groundstation.CfnConfig.TelemetrySinkConfigProperty(
+                    telemetry_sink_data=groundstation.CfnConfig.TelemetrySinkDataProperty(
+                        kinesis_data_stream_data=groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                            kinesis_data_stream_arn="kinesisDataStreamArn",
+                            kinesis_role_arn="kinesisRoleArn"
+                        )
+                    ),
+                    telemetry_sink_type="telemetrySinkType"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d715201c9e06f)
+                check_type(argname="argument telemetry_sink_data", value=telemetry_sink_data, expected_type=type_hints["telemetry_sink_data"])
+                check_type(argname="argument telemetry_sink_type", value=telemetry_sink_type, expected_type=type_hints["telemetry_sink_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "telemetry_sink_data": telemetry_sink_data,
+                "telemetry_sink_type": telemetry_sink_type,
+            }
+
+        @builtins.property
+        def telemetry_sink_data(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkDataProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkconfig.html#cfn-groundstation-config-telemetrysinkconfig-telemetrysinkdata
+            '''
+            result = self._values.get("telemetry_sink_data")
+            assert result is not None, "Required property 'telemetry_sink_data' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.TelemetrySinkDataProperty"], result)
+
+        @builtins.property
+        def telemetry_sink_type(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkconfig.html#cfn-groundstation-config-telemetrysinkconfig-telemetrysinktype
+            '''
+            result = self._values.get("telemetry_sink_type")
+            assert result is not None, "Required property 'telemetry_sink_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TelemetrySinkConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_groundstation.CfnConfig.TelemetrySinkDataProperty",
+        jsii_struct_bases=[],
+        name_mapping={"kinesis_data_stream_data": "kinesisDataStreamData"},
+    )
+    class TelemetrySinkDataProperty:
+        def __init__(
+            self,
+            *,
+            kinesis_data_stream_data: typing.Union["_IResolvable_da3f097b", typing.Union["CfnConfig.KinesisDataStreamDataProperty", typing.Dict[builtins.str, typing.Any]]],
+        ) -> None:
+            '''
+            :param kinesis_data_stream_data: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkdata.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_groundstation as groundstation
+                
+                telemetry_sink_data_property = groundstation.CfnConfig.TelemetrySinkDataProperty(
+                    kinesis_data_stream_data=groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                        kinesis_data_stream_arn="kinesisDataStreamArn",
+                        kinesis_role_arn="kinesisRoleArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__eec57bb86984cd668f6c0046d14ed740a9376233ea6b3cbfea85072ab02c0d84)
+                check_type(argname="argument kinesis_data_stream_data", value=kinesis_data_stream_data, expected_type=type_hints["kinesis_data_stream_data"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "kinesis_data_stream_data": kinesis_data_stream_data,
+            }
+
+        @builtins.property
+        def kinesis_data_stream_data(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnConfig.KinesisDataStreamDataProperty"]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-groundstation-config-telemetrysinkdata.html#cfn-groundstation-config-telemetrysinkdata-kinesisdatastreamdata
+            '''
+            result = self._values.get("kinesis_data_stream_data")
+            assert result is not None, "Required property 'kinesis_data_stream_data' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnConfig.KinesisDataStreamDataProperty"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TelemetrySinkDataProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -1765,6 +2007,15 @@ class CfnConfigProps:
                         bucket_arn="bucketArn",
                         prefix="prefix",
                         role_arn="roleArn"
+                    ),
+                    telemetry_sink_config=groundstation.CfnConfig.TelemetrySinkConfigProperty(
+                        telemetry_sink_data=groundstation.CfnConfig.TelemetrySinkDataProperty(
+                            kinesis_data_stream_data=groundstation.CfnConfig.KinesisDataStreamDataProperty(
+                                kinesis_data_stream_arn="kinesisDataStreamArn",
+                                kinesis_role_arn="kinesisRoleArn"
+                            )
+                        ),
+                        telemetry_sink_type="telemetrySinkType"
                     ),
                     tracking_config=groundstation.CfnConfig.TrackingConfigProperty(
                         autotrack="autotrack"
@@ -5069,7 +5320,8 @@ class CfnMissionProfile(
             tags=[CfnTag(
                 key="key",
                 value="value"
-            )]
+            )],
+            telemetry_sink_config_arn="telemetrySinkConfigArn"
         )
     '''
 
@@ -5087,6 +5339,7 @@ class CfnMissionProfile(
         streams_kms_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         streams_kms_role: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::GroundStation::MissionProfile``.
 
@@ -5101,6 +5354,7 @@ class CfnMissionProfile(
         :param streams_kms_key: KMS key to use for encrypting streams.
         :param streams_kms_role: Role to use for encrypting streams with KMS key.
         :param tags: Tags assigned to the mission profile.
+        :param telemetry_sink_config_arn: ARN of a Config resource of type TelemetrySinkConfig used for telemetry data sink configuration.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9502d0c4)
@@ -5116,6 +5370,7 @@ class CfnMissionProfile(
             streams_kms_key=streams_kms_key,
             streams_kms_role=streams_kms_role,
             tags=tags,
+            telemetry_sink_config_arn=telemetry_sink_config_arn,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -5374,6 +5629,19 @@ class CfnMissionProfile(
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "tagsRaw", value) # pyright: ignore[reportArgumentType]
 
+    @builtins.property
+    @jsii.member(jsii_name="telemetrySinkConfigArn")
+    def telemetry_sink_config_arn(self) -> typing.Optional[builtins.str]:
+        '''ARN of a Config resource of type TelemetrySinkConfig used for telemetry data sink configuration.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "telemetrySinkConfigArn"))
+
+    @telemetry_sink_config_arn.setter
+    def telemetry_sink_config_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__53a78164b0fde66230a941eaa17c2e247680de90b8a8b2f4cb37555cbe6ce81d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "telemetrySinkConfigArn", value) # pyright: ignore[reportArgumentType]
+
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_groundstation.CfnMissionProfile.DataflowEdgeProperty",
         jsii_struct_bases=[],
@@ -5551,6 +5819,7 @@ class CfnMissionProfile(
         "streams_kms_key": "streamsKmsKey",
         "streams_kms_role": "streamsKmsRole",
         "tags": "tags",
+        "telemetry_sink_config_arn": "telemetrySinkConfigArn",
     },
 )
 class CfnMissionProfileProps:
@@ -5566,6 +5835,7 @@ class CfnMissionProfileProps:
         streams_kms_key: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnMissionProfile.StreamsKmsKeyProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         streams_kms_role: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnMissionProfile``.
 
@@ -5578,6 +5848,7 @@ class CfnMissionProfileProps:
         :param streams_kms_key: KMS key to use for encrypting streams.
         :param streams_kms_role: Role to use for encrypting streams with KMS key.
         :param tags: Tags assigned to the mission profile.
+        :param telemetry_sink_config_arn: ARN of a Config resource of type TelemetrySinkConfig used for telemetry data sink configuration.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html
         :exampleMetadata: fixture=_generated
@@ -5610,7 +5881,8 @@ class CfnMissionProfileProps:
                 tags=[CfnTag(
                     key="key",
                     value="value"
-                )]
+                )],
+                telemetry_sink_config_arn="telemetrySinkConfigArn"
             )
         '''
         if __debug__:
@@ -5624,6 +5896,7 @@ class CfnMissionProfileProps:
             check_type(argname="argument streams_kms_key", value=streams_kms_key, expected_type=type_hints["streams_kms_key"])
             check_type(argname="argument streams_kms_role", value=streams_kms_role, expected_type=type_hints["streams_kms_role"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument telemetry_sink_config_arn", value=telemetry_sink_config_arn, expected_type=type_hints["telemetry_sink_config_arn"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dataflow_edges": dataflow_edges,
             "minimum_viable_contact_duration_seconds": minimum_viable_contact_duration_seconds,
@@ -5640,6 +5913,8 @@ class CfnMissionProfileProps:
             self._values["streams_kms_role"] = streams_kms_role
         if tags is not None:
             self._values["tags"] = tags
+        if telemetry_sink_config_arn is not None:
+            self._values["telemetry_sink_config_arn"] = telemetry_sink_config_arn
 
     @builtins.property
     def dataflow_edges(
@@ -5733,6 +6008,15 @@ class CfnMissionProfileProps:
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def telemetry_sink_config_arn(self) -> typing.Optional[builtins.str]:
+        '''ARN of a Config resource of type TelemetrySinkConfig used for telemetry data sink configuration.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-groundstation-missionprofile.html#cfn-groundstation-missionprofile-telemetrysinkconfigarn
+        '''
+        result = self._values.get("telemetry_sink_config_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5844,6 +6128,7 @@ def _typecheckingstub__c161ef31a785b644c7c9cc8f223e10dcb0af1ba0e4a29303d7c17d85b
     antenna_uplink_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.AntennaUplinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     dataflow_endpoint_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.DataflowEndpointConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     s3_recording_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.S3RecordingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_sink_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TelemetrySinkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     tracking_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TrackingConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     uplink_echo_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.UplinkEchoConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -5896,6 +6181,14 @@ def _typecheckingstub__54cacafc58427db742615b0fe5104ac687a9a80afc40f92de682c2897
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__8404a4da0808f69df924b83fb04be36ff4bb64b3f47d3171ad59447f008bde60(
+    *,
+    kinesis_data_stream_arn: builtins.str,
+    kinesis_role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a434f8f9b58e6e79e140ec69b10fe3b638c9dd796407130b206d6328c3b092d3(
     *,
     bucket_arn: typing.Optional[builtins.str] = None,
@@ -5910,6 +6203,21 @@ def _typecheckingstub__cdff7bad914262ea88134e28b4653bf1192cb3dab1012e32f318a75db
     bandwidth: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.FrequencyBandwidthProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     center_frequency: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.FrequencyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     polarization: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__df60eb402980976069ba8f56e727ac0f657e05b4a7af7256a99d715201c9e06f(
+    *,
+    telemetry_sink_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.TelemetrySinkDataProperty, typing.Dict[builtins.str, typing.Any]]],
+    telemetry_sink_type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__eec57bb86984cd668f6c0046d14ed740a9376233ea6b3cbfea85072ab02c0d84(
+    *,
+    kinesis_data_stream_data: typing.Union[_IResolvable_da3f097b, typing.Union[CfnConfig.KinesisDataStreamDataProperty, typing.Dict[builtins.str, typing.Any]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6315,6 +6623,7 @@ def _typecheckingstub__a8c20b1debe7b2cad3b5475e1d2b3d48fdf917b223b50d168e430ffa9
     streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     streams_kms_role: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6405,6 +6714,12 @@ def _typecheckingstub__1b63fbf7e02cfd3cabb495b47d8b525e2d0166b8195e578f79a444bec
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__53a78164b0fde66230a941eaa17c2e247680de90b8a8b2f4cb37555cbe6ce81d(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b247611cb700acbb2d198be2f48ab39f22bafbf3844a6363be6523b5edf8ed1c(
     *,
     destination: typing.Optional[builtins.str] = None,
@@ -6433,6 +6748,7 @@ def _typecheckingstub__cb791267f06ed92ca1c83c1b6ade129961c1c9de1a7d2ef1d57b3df27
     streams_kms_key: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnMissionProfile.StreamsKmsKeyProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     streams_kms_role: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    telemetry_sink_config_arn: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -11,58 +11,6 @@ import QuantConnect.Securities.Equity
 import System
 
 
-class EquityExchange(QuantConnect.Securities.SecurityExchange):
-    """Equity exchange information"""
-
-    @property
-    def trading_days_per_year(self) -> int:
-        """Number of trading days in an equity calendar year - 252"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Initializes a new instance of the EquityExchange class using market hours
-        derived from the market-hours-database for the USA Equity market
-        """
-        ...
-
-    @overload
-    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
-        """
-        Initializes a new instance of the EquityExchange class using the specified
-        exchange hours to determine open/close times
-        
-        :param exchange_hours: Contains the weekly exchange schedule plus holidays
-        """
-        ...
-
-
-class EquityCache(QuantConnect.Securities.SecurityCache):
-    """Equity cache override."""
-
-    def __init__(self) -> None:
-        """Start a new Cache for the set Index Code"""
-        ...
-
-
-class EquityDataFilter(QuantConnect.Securities.SecurityDataFilter):
-    """Equity security type data filter"""
-
-    def __init__(self) -> None:
-        """Initialize Data Filter Class:"""
-        ...
-
-    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
-        """
-        Equity filter the data: true - accept, false - fail.
-        
-        :param data: Data class
-        :param vehicle: Security asset
-        """
-        ...
-
-
 class Equity(QuantConnect.Securities.Security):
     """Equity Security Type : Extension of the underlying Security class for equity specific behaviours."""
 
@@ -110,6 +58,44 @@ class Equity(QuantConnect.Securities.Security):
         ...
 
 
+class EquityCache(QuantConnect.Securities.SecurityCache):
+    """Equity cache override."""
+
+    def __init__(self) -> None:
+        """Start a new Cache for the set Index Code"""
+        ...
+
+
+class EquityHolding(QuantConnect.Securities.SecurityHolding):
+    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Constructor for equities holdings.
+        
+        :param security: The security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+
+class EquityDataFilter(QuantConnect.Securities.SecurityDataFilter):
+    """Equity security type data filter"""
+
+    def __init__(self) -> None:
+        """Initialize Data Filter Class:"""
+        ...
+
+    def filter(self, vehicle: QuantConnect.Securities.Security, data: QuantConnect.Data.BaseData) -> bool:
+        """
+        Equity filter the data: true - accept, false - fail.
+        
+        :param data: Data class
+        :param vehicle: Security asset
+        """
+        ...
+
+
 class ShortMarginInterestRateModel(System.Object, QuantConnect.Securities.IMarginInterestRateModel):
     """
     Short margin interest rate model
@@ -141,15 +127,29 @@ class ShortMarginInterestRateModel(System.Object, QuantConnect.Securities.IMargi
         ...
 
 
-class EquityHolding(QuantConnect.Securities.SecurityHolding):
-    """Holdings class for equities securities: no specific properties here but it is a placeholder for future equities specific behaviours."""
+class EquityExchange(QuantConnect.Securities.SecurityExchange):
+    """Equity exchange information"""
 
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+    @property
+    def trading_days_per_year(self) -> int:
+        """Number of trading days in an equity calendar year - 252"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
         """
-        Constructor for equities holdings.
+        Initializes a new instance of the EquityExchange class using market hours
+        derived from the market-hours-database for the USA Equity market
+        """
+        ...
+
+    @overload
+    def __init__(self, exchange_hours: QuantConnect.Securities.SecurityExchangeHours) -> None:
+        """
+        Initializes a new instance of the EquityExchange class using the specified
+        exchange hours to determine open/close times
         
-        :param security: The security being held
-        :param currency_converter: A currency converter instance
+        :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
 

@@ -1,0 +1,322 @@
+__all__ = (
+    "PromisedType",
+    "ModuleType",
+    "type_mapping",
+    "resolve_type_hint",
+    "is_faithful",
+)
+
+import abc
+import sys
+import typing
+import warnings
+from collections.abc import Callable, Hashable
+from functools import reduce
+from operator import or_
+from types import UnionType
+from typing import Literal, TypeGuard, TypeVar, cast, final, get_args, get_origin
+
+from beartype.vale._core._valecore import BeartypeValidator
+
+T = TypeVar("T", bound="ResolvableType")
+
+
+class ResolvableType(type):
+    """A resolvable type that will resolve to `type` after `type` has been delivered via
+    :meth:`.ResolvableType.deliver`. Before then, it will resolve to itself.
+
+    Args:
+        name (str): Name of the type to be delivered.
+    """
+
+    def __init__(self, name: str, /) -> None:
+        type.__init__(self, name, (), {})
+        self._type: type | None = None
+
+    def __new__(cls: type[T], name: str) -> T:
+        return type.__new__(cls, name, (), {})
+
+    def deliver(self: T, delivered_type: type, /) -> T:
+        """Deliver the type.
+
+        Args:
+            delivered_type (type): Type to deliver.
+
+        Returns:
+            :class:`ResolvableType`: `self`.
+        """
+        self._type = delivered_type
+        return self
+
+    def resolve(self: T) -> type | T:
+        """Resolve the type.
+
+        Returns:
+            type: If no type has been delivered, this will return itself. If a type
+                `type` has been delivered via :meth:`.ResolvableType.deliver`, this will
+                return that type.
+        """
+        return self if self._type is None else self._type
+
+
+@final
+class PromisedType(ResolvableType):
+    """A type that is promised to be available when you will you need it.
+
+    Args:
+        name (str, optional): Name of the type that is promised. Defaults to
+            `"SomeType"`.
+    """
+
+    def __init__(self, name: str = "SomeType") -> None:
+        ResolvableType.__init__(self, f"PromisedType[{name}]")
+        self._name = name
+
+    def __new__(cls, name: str = "SomeType") -> "PromisedType":
+        return super().__new__(cls, f"PromisedType[{name}]")
+
+    def __repr__(self) -> str:
+        return f"<class 'plum.PromisedType[{self._name}]'>"
+
+
+@final
+class ModuleType(ResolvableType):
+    """A type from another module.
+
+    Args:
+        module (str): Module that the type lives in.
+        name (str): Name of the type that is promised.
+        allow_fail (bool, optional): If the type is does not exist in `module`,
+            do not raise an `AttributeError`.
+        condition (Callable[[], bool], optional): A callable that can check a condition,
+            like a package version. This callable will be run whenever `module` has been
+            imported. Only if the callable returns `True`, `name` will be imported
+            from `module`.
+    """
+
+    def __init__(
+        self,
+        module: str,
+        name: str,
+        allow_fail: bool = False,
+        condition: Callable[[], bool] | None = None,
+    ) -> None:
+        if module in {"__builtin__", "__builtins__"}:
+            module = "builtins"
+        super().__init__(f"ModuleType[{module}.{name}]")
+        self._name = name
+        self._module = module
+        self._allow_fail = allow_fail
+        self._condition = condition
+
+    def __new__(cls: type[T], module: str, name: str, **kwargs: object) -> T:
+        return ResolvableType.__new__(cls, f"ModuleType[{module}.{name}]")
+
+    def retrieve(self) -> bool:
+        """Attempt to retrieve the type from the reference module.
+
+        Returns:
+            bool: Whether the retrieval succeeded.
+        """
+        if self._type is None and self._module in sys.modules:
+            # If a condition is given, check the condition before attempting to import.
+            if self._condition is not None and not self._condition():
+                return False
+
+            retrieved: object = sys.modules[self._module]
+            for name in self._name.split("."):
+                # If `retrieved` does not contain `name` and `self._allow_fail` is
+                # set, then silently fail.
+                if not hasattr(retrieved, name) and self._allow_fail:
+                    return False
+                retrieved = getattr(retrieved, name)
+            # We expect this to be a type, so we cast it.
+            self.deliver(cast(type, retrieved))
+        return self._type is not None
+
+
+def _is_hint(x: object) -> bool:
+    """Check if an object is a type hint.
+
+    Args:
+        x (object): Object.
+
+    Returns:
+        bool: `True` if `x` is a type hint and `False` otherwise.
+    """
+    try:
+        if x.__module__ == "builtins":
+            # Check if `x` is a subscripted built-in. We do this by checking the module
+            # of the type of `x`.
+            x = type(x)
+        return x.__module__ in {
+            "types",  # E.g., `tuple[int]`
+            "typing",
+            "collections.abc",  # E.g., `Callable`
+            "typing_extensions",
+        }
+    except AttributeError:
+        return False
+
+
+def _hashable(x: object | type) -> TypeGuard[Hashable]:
+    """Check if an object is hashable.
+
+    Args:
+        x (object): Object to check.
+
+    Returns:
+        bool: `True` if `x` is hashable and `False` otherwise.
+    """
+    try:
+        hash(x)
+        return True
+    except TypeError:
+        return False
+
+
+type_mapping: dict[type, type] = {}
+"""dict: When running :func:`resolve_type_hint`, map keys in this dictionary to the
+values."""
+
+
+def resolve_type_hint(x: object, /) -> object:
+    """Resolve all :class:`ResolvableType` in a type or type hint.
+
+    Args:
+        x (type or type hint): Type hint.
+
+    Returns:
+        type or type hint: `x`, but with all :class:`ResolvableType`\\s resolved.
+    """
+    if _hashable(x) and isinstance(x, type) and x in type_mapping:
+        return resolve_type_hint(type_mapping[x])
+    elif _is_hint(x):
+        origin = get_origin(x)
+        args = get_args(x)
+        if args == ():
+            # `origin` might not make sense here. For example, `get_origin(Any)`
+            # is `None`. Since the hint wasn't subscripted, the right thing is
+            # to return the hint itself.
+            return x
+        if origin is UnionType:  # The new union syntax was used.
+            return reduce(or_, (resolve_type_hint(arg) for arg in args))
+        else:
+            # Do not resolve the arguments for `Literal`s.
+            if origin is not Literal:
+                resolved_args = resolve_type_hint(args)
+                assert isinstance(resolved_args, tuple)
+                args = resolved_args
+
+            # Ensure origin is not `None` before indexing.
+            assert origin is not None
+            return origin[args]
+
+    elif x is None or x is Ellipsis:
+        return x
+
+    elif isinstance(x, tuple):
+        return tuple(resolve_type_hint(arg) for arg in x)
+    elif isinstance(x, list):
+        return [resolve_type_hint(arg) for arg in x]
+    elif isinstance(x, type):
+        if isinstance(x, ResolvableType):
+            if isinstance(x, ModuleType) and not x.retrieve():
+                # If the type could not be retrieved, then just return the
+                # wrapper. Namely, `x.resolve()` will then return `x`, which means
+                # that the below call will result in an infinite recursion.
+                return x
+            return resolve_type_hint(x.resolve())
+        else:
+            return x
+
+    # For example, `Is[lambda x: x > 0]` is an example of a `BeartypeValidator`. We
+    # shouldn't resolve those.
+    elif isinstance(x, BeartypeValidator):
+        return x
+
+    else:
+        warnings.warn(
+            f"Could not resolve the type hint of `{x}`. "
+            f"I have ended the resolution here to not make your code break, but some "
+            f"types might not be working correctly. "
+            f"Please open an issue at https://github.com/beartype/plum.",
+            stacklevel=2,
+        )
+    return x
+
+
+def is_faithful(x: object, /) -> bool:
+    """Check whether a type hint is faithful.
+
+    A type or type hint `t` is defined _faithful_ if, for all `x`, the following holds
+    true::
+
+        isinstance(x, x) == issubclass(type(x), t)
+
+    You can control whether types are faithful or not by setting the attribute
+    `__faithful__`::
+
+        class UnfaithfulType:
+            __faithful__ = False
+
+    Args:
+        x (type or type hint): Type hint.
+
+    Returns:
+        bool: Whether `x` is faithful or not.
+    """
+    return _is_faithful(resolve_type_hint(x))
+
+
+UNION_TYPES = frozenset({typing.Union, UnionType, typing.Optional})
+
+
+class _SupportsDunderFaithful(typing.Protocol):
+    __faithful__: bool
+
+
+def _has_dunder_faithful(x: type, /) -> TypeGuard[_SupportsDunderFaithful]:
+    """Check whether `x` has the `__faithful__` attribute."""
+    return hasattr(x, "__faithful__")
+
+
+def _is_faithful(x: object, /) -> bool:
+    if _is_hint(x):
+        origin = get_origin(x)
+        args = get_args(x)
+        if args == ():
+            # Unsubscripted type hints tend to be faithful. For example, `Any`,
+            # `List`, `Tuple`, `Dict`, `Callable`, and `Generator` are. When we
+            # come across a counter-example, we will refine this logic.
+            return True
+
+        if origin in UNION_TYPES:
+            return all(is_faithful(arg) for arg in args)
+
+        return False
+
+    elif x is None or x == Ellipsis:
+        return True
+
+    elif isinstance(x, (tuple, list)):
+        return all(is_faithful(arg) for arg in x)
+    elif isinstance(x, type):
+        if _has_dunder_faithful(x):
+            return x.__faithful__
+        else:
+            # This is the fallback method. Check whether `__instancecheck__` is default
+            # or not. If it is, assume that it is faithful.
+            return type(x).__instancecheck__ in {
+                type.__instancecheck__,
+                abc.ABCMeta.__instancecheck__,
+            }
+    else:
+        warnings.warn(
+            f"Could not determine whether `{x}` is faithful or not. "
+            f"I have concluded that the type is not faithful, so your code might run "
+            f"with subpar performance. "
+            f"Please open an issue at https://github.com/beartype/plum.",
+            stacklevel=2,
+        )
+    return False

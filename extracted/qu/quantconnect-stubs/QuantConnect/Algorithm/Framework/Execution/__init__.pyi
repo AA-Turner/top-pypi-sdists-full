@@ -95,92 +95,6 @@ class ExecutionModel(QuantConnect.Python.BasePythonWrapper[QuantConnect_Algorith
         ...
 
 
-class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """
-    Provides an implementation of IExecutionModel that immediately submits
-    market orders to achieve the desired portfolio targets
-    """
-
-    def __init__(self, asynchronous: bool = True) -> None:
-        """
-        Initializes a new instance of the ImmediateExecutionModel class.
-        
-        :param asynchronous: If true, orders will be submitted asynchronously
-        """
-        ...
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Immediately submits orders for the specified portfolio targets.
-        
-        :param algorithm: The algorithm instance
-        :param targets: The portfolio targets to be ordered
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
-class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Provides an implementation of IExecutionModel that wraps a PyObject object"""
-
-    def __init__(self, model: typing.Any) -> None:
-        """
-        Constructor for initialising the IExecutionModel class with wrapped PyObject object
-        
-        :param model: Model defining how to execute trades to reach a portfolio target
-        """
-        ...
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Submit orders for the specified portfolio targets.
-        This model is free to delay or spread out these orders as it sees fit
-        
-        :param algorithm: The algorithm instance
-        :param targets: The portfolio targets to be ordered
-        """
-        ...
-
-    def on_order_event(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, order_event: QuantConnect.Orders.OrderEvent) -> None:
-        """
-        New order event handler
-        
-        :param algorithm: The algorithm instance
-        :param order_event: Order event to process
-        """
-        ...
-
-    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
-        """
-        Event fired each time the we add/remove securities from the data feed
-        
-        :param algorithm: The algorithm instance that experienced the change in securities
-        :param changes: The security additions and removals from the algorithm
-        """
-        ...
-
-
-class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
-    """Provides an implementation of IExecutionModel that does nothing"""
-
-    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
-        """
-        Execute the ExecutionModel
-        
-        :param algorithm: The Algorithm to execute this model on
-        :param targets: The portfolio targets
-        """
-        ...
-
-
 class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
     """Execution model that submits orders while the current market price is more favorable that the current volume weighted average price."""
 
@@ -405,6 +319,92 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
         
         
         This codeEntityType is protected.
+        """
+        ...
+
+
+class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """
+    Provides an implementation of IExecutionModel that immediately submits
+    market orders to achieve the desired portfolio targets
+    """
+
+    def __init__(self, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the ImmediateExecutionModel class.
+        
+        :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Immediately submits orders for the specified portfolio targets.
+        
+        :param algorithm: The algorithm instance
+        :param targets: The portfolio targets to be ordered
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+
+class ExecutionModelPythonWrapper(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Provides an implementation of IExecutionModel that wraps a PyObject object"""
+
+    def __init__(self, model: typing.Any) -> None:
+        """
+        Constructor for initialising the IExecutionModel class with wrapped PyObject object
+        
+        :param model: Model defining how to execute trades to reach a portfolio target
+        """
+        ...
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Submit orders for the specified portfolio targets.
+        This model is free to delay or spread out these orders as it sees fit
+        
+        :param algorithm: The algorithm instance
+        :param targets: The portfolio targets to be ordered
+        """
+        ...
+
+    def on_order_event(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, order_event: QuantConnect.Orders.OrderEvent) -> None:
+        """
+        New order event handler
+        
+        :param algorithm: The algorithm instance
+        :param order_event: Order event to process
+        """
+        ...
+
+    def on_securities_changed(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, changes: QuantConnect.Data.UniverseSelection.SecurityChanges) -> None:
+        """
+        Event fired each time the we add/remove securities from the data feed
+        
+        :param algorithm: The algorithm instance that experienced the change in securities
+        :param changes: The security additions and removals from the algorithm
+        """
+        ...
+
+
+class NullExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
+    """Provides an implementation of IExecutionModel that does nothing"""
+
+    def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
+        """
+        Execute the ExecutionModel
+        
+        :param algorithm: The Algorithm to execute this model on
+        :param targets: The portfolio targets
         """
         ...
 

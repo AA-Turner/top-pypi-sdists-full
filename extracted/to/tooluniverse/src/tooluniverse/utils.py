@@ -147,6 +147,12 @@ def evaluate_function_call(tool_definition, function_call):
         "pydantic": ModelMetaclass,
     }
 
+    # Normalise arguments: missing key, None, or non-dict types all become {}
+    raw_args = function_call.get("arguments")
+    if not isinstance(raw_args, dict):
+        function_call = dict(function_call)  # shallow copy so we don't mutate caller
+        function_call["arguments"] = {}
+
     # Check if the function name matches
     if tool_definition["name"] != function_call["name"]:
         return False, "Function name does not match."
@@ -190,6 +196,14 @@ def evaluate_function_call(tool_definition, function_call):
             # Case 1: Simple schema with direct "type" field
             if "type" in param_schema:
                 expected_type = param_schema["type"]
+                # Handle list-style type (e.g., ["string", "null"]) - treat as nullable
+                if isinstance(expected_type, list):
+                    # Allow None for nullable types
+                    if value is None and "null" in expected_type:
+                        continue
+                    # Extract primary non-null type
+                    non_null_types = [t for t in expected_type if t != "null"]
+                    expected_type = non_null_types[0] if non_null_types else None
 
             # Case 2: Complex schema with "anyOf" (common in MCP tools)
             elif "anyOf" in param_schema:

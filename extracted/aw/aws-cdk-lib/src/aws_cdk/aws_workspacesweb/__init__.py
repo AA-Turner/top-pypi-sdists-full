@@ -2798,6 +2798,7 @@ class CfnPortal(
             ip_access_settings_arn="ipAccessSettingsArn",
             max_concurrent_sessions=123,
             network_settings_arn="networkSettingsArn",
+            portal_custom_domain="portalCustomDomain",
             session_logger_arn="sessionLoggerArn",
             tags=[CfnTag(
                 key="key",
@@ -2824,6 +2825,7 @@ class CfnPortal(
         ip_access_settings_arn: typing.Optional[builtins.str] = None,
         max_concurrent_sessions: typing.Optional[jsii.Number] = None,
         network_settings_arn: typing.Optional[builtins.str] = None,
+        portal_custom_domain: typing.Optional[builtins.str] = None,
         session_logger_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
@@ -2844,6 +2846,7 @@ class CfnPortal(
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
+        :param portal_custom_domain: 
         :param session_logger_arn: The ARN of the session logger that is associated with the portal.
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
@@ -2865,6 +2868,7 @@ class CfnPortal(
             ip_access_settings_arn=ip_access_settings_arn,
             max_concurrent_sessions=max_concurrent_sessions,
             network_settings_arn=network_settings_arn,
+            portal_custom_domain=portal_custom_domain,
             session_logger_arn=session_logger_arn,
             tags=tags,
             trust_store_arn=trust_store_arn,
@@ -3158,6 +3162,18 @@ class CfnPortal(
         jsii.set(self, "networkSettingsArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="portalCustomDomain")
+    def portal_custom_domain(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "portalCustomDomain"))
+
+    @portal_custom_domain.setter
+    def portal_custom_domain(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5dd9655d65e74a08cbc0100798417e3b3794b65f35009e280ccbc41b8775e856)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "portalCustomDomain", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="sessionLoggerArn")
     def session_logger_arn(self) -> typing.Optional[builtins.str]:
         '''The ARN of the session logger that is associated with the portal.'''
@@ -3240,6 +3256,7 @@ class CfnPortal(
         "ip_access_settings_arn": "ipAccessSettingsArn",
         "max_concurrent_sessions": "maxConcurrentSessions",
         "network_settings_arn": "networkSettingsArn",
+        "portal_custom_domain": "portalCustomDomain",
         "session_logger_arn": "sessionLoggerArn",
         "tags": "tags",
         "trust_store_arn": "trustStoreArn",
@@ -3261,6 +3278,7 @@ class CfnPortalProps:
         ip_access_settings_arn: typing.Optional[builtins.str] = None,
         max_concurrent_sessions: typing.Optional[jsii.Number] = None,
         network_settings_arn: typing.Optional[builtins.str] = None,
+        portal_custom_domain: typing.Optional[builtins.str] = None,
         session_logger_arn: typing.Optional[builtins.str] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         trust_store_arn: typing.Optional[builtins.str] = None,
@@ -3279,6 +3297,7 @@ class CfnPortalProps:
         :param ip_access_settings_arn: The ARN of the IP access settings that is associated with the web portal.
         :param max_concurrent_sessions: The maximum number of concurrent sessions for the portal.
         :param network_settings_arn: The ARN of the network settings that is associated with the web portal.
+        :param portal_custom_domain: 
         :param session_logger_arn: The ARN of the session logger that is associated with the portal.
         :param tags: The tags to add to the web portal. A tag is a key-value pair.
         :param trust_store_arn: The ARN of the trust store that is associated with the web portal.
@@ -3308,6 +3327,7 @@ class CfnPortalProps:
                 ip_access_settings_arn="ipAccessSettingsArn",
                 max_concurrent_sessions=123,
                 network_settings_arn="networkSettingsArn",
+                portal_custom_domain="portalCustomDomain",
                 session_logger_arn="sessionLoggerArn",
                 tags=[CfnTag(
                     key="key",
@@ -3330,6 +3350,7 @@ class CfnPortalProps:
             check_type(argname="argument ip_access_settings_arn", value=ip_access_settings_arn, expected_type=type_hints["ip_access_settings_arn"])
             check_type(argname="argument max_concurrent_sessions", value=max_concurrent_sessions, expected_type=type_hints["max_concurrent_sessions"])
             check_type(argname="argument network_settings_arn", value=network_settings_arn, expected_type=type_hints["network_settings_arn"])
+            check_type(argname="argument portal_custom_domain", value=portal_custom_domain, expected_type=type_hints["portal_custom_domain"])
             check_type(argname="argument session_logger_arn", value=session_logger_arn, expected_type=type_hints["session_logger_arn"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument trust_store_arn", value=trust_store_arn, expected_type=type_hints["trust_store_arn"])
@@ -3356,6 +3377,8 @@ class CfnPortalProps:
             self._values["max_concurrent_sessions"] = max_concurrent_sessions
         if network_settings_arn is not None:
             self._values["network_settings_arn"] = network_settings_arn
+        if portal_custom_domain is not None:
+            self._values["portal_custom_domain"] = portal_custom_domain
         if session_logger_arn is not None:
             self._values["session_logger_arn"] = session_logger_arn
         if tags is not None:
@@ -3468,6 +3491,14 @@ class CfnPortalProps:
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-networksettingsarn
         '''
         result = self._values.get("network_settings_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def portal_custom_domain(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspacesweb-portal.html#cfn-workspacesweb-portal-portalcustomdomain
+        '''
+        result = self._values.get("portal_custom_domain")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
@@ -6924,6 +6955,7 @@ def _typecheckingstub__239c61bc87a1a693f01a28198d2d3000f7ef790e9684279e807a890b0
     ip_access_settings_arn: typing.Optional[builtins.str] = None,
     max_concurrent_sessions: typing.Optional[jsii.Number] = None,
     network_settings_arn: typing.Optional[builtins.str] = None,
+    portal_custom_domain: typing.Optional[builtins.str] = None,
     session_logger_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,
@@ -7017,6 +7049,12 @@ def _typecheckingstub__beaa575cd54d9de94a0201b4213524db5df052dd0b9e1605b88d4487f
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5dd9655d65e74a08cbc0100798417e3b3794b65f35009e280ccbc41b8775e856(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__799f778b7f3d528d4330acec14db7800e1877f11411b658cf7b11ad8463a43b6(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -7059,6 +7097,7 @@ def _typecheckingstub__aa147912cdfb0d9ea5356fccc59e7ae5b02c822d1e3f5ae2e4826ae39
     ip_access_settings_arn: typing.Optional[builtins.str] = None,
     max_concurrent_sessions: typing.Optional[jsii.Number] = None,
     network_settings_arn: typing.Optional[builtins.str] = None,
+    portal_custom_domain: typing.Optional[builtins.str] = None,
     session_logger_arn: typing.Optional[builtins.str] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     trust_store_arn: typing.Optional[builtins.str] = None,

@@ -118,9 +118,11 @@ class ReferenceNumber(BaseModel):
         "column_fx_quote_id",
         "column_reversal_pair_transfer_id",
         "column_transfer_id",
+        "cross_river_card_trace_number",
         "cross_river_core_transaction_id",
         "cross_river_fed_batch_id",
         "cross_river_payment_id",
+        "cross_river_retrieval_reference_id",
         "cross_river_service_message",
         "cross_river_transaction_id",
         "currencycloud_conversion_id",
@@ -175,8 +177,6 @@ class ReferenceNumber(BaseModel):
         "silvergate_payment_id",
         "svb_end_to_end_id",
         "svb_payment_id",
-        "svb_transaction_cleared_for_sanctions_review",
-        "svb_transaction_held_for_sanctions_review",
         "swift_mir",
         "swift_uetr",
         "umb_product_partner_account_number",
@@ -230,6 +230,12 @@ class PaymentOrder(BaseModel):
 
     e.g. $10 would be represented as 1000 (cents). For RTP, the maximum amount
     allowed by the network is $100,000.
+    """
+
+    batch_id: Optional[str] = None
+    """The ID of the batch in which the payment order is included.
+
+    Only populated after the payment order begins processing.
     """
 
     charge_bearer: Optional[Literal["shared", "sender", "receiver"]] = None

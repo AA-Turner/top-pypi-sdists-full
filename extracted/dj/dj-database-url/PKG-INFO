@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dj-database-url
-Version: 3.1.1
+Version: 3.1.2
 Summary: Use Database URLs in your Django Application.
 Author: Jazzband community
 License-Expression: BSD-3-Clause

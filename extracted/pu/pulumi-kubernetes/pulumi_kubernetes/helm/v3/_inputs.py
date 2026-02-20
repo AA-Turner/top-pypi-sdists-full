@@ -19,39 +19,34 @@ __all__ = [
     'RepositoryOptsArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class RepositoryOptsArgsDict(TypedDict):
-        """
-        Specification defining the Helm chart repository to use.
-        """
-        ca_file: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The Repository's CA File
-        """
-        cert_file: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The repository's cert file
-        """
-        key_file: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The repository's cert key file
-        """
-        password: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Password for HTTP basic authentication
-        """
-        repo: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Repository where to locate the requested chart. If it's a URL the chart is installed without installing the repository.
-        """
-        username: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Username for HTTP basic authentication
-        """
-elif False:
-    RepositoryOptsArgsDict: TypeAlias = Mapping[str, Any]
+class RepositoryOptsArgsDict(TypedDict):
+    """
+    Specification defining the Helm chart repository to use.
+    """
+    ca_file: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The Repository's CA File
+    """
+    cert_file: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The repository's cert file
+    """
+    key_file: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The repository's cert key file
+    """
+    password: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Password for HTTP basic authentication
+    """
+    repo: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Repository where to locate the requested chart. If it's a URL the chart is installed without installing the repository.
+    """
+    username: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Username for HTTP basic authentication
+    """
 
 @pulumi.input_type
 class RepositoryOptsArgs:
@@ -64,6 +59,7 @@ class RepositoryOptsArgs:
                  username: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Specification defining the Helm chart repository to use.
+
         :param pulumi.Input[_builtins.str] ca_file: The Repository's CA File
         :param pulumi.Input[_builtins.str] cert_file: The repository's cert file
         :param pulumi.Input[_builtins.str] key_file: The repository's cert key file

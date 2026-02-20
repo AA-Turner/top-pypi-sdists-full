@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: logfire
-Version: 4.24.0
+Version: 4.25.0
 Summary: The best Python observability tool! 🪵🔥
 Project-URL: Homepage, https://logfire.pydantic.dev/
 Project-URL: Source, https://github.com/pydantic/logfire
@@ -55,6 +55,10 @@ Provides-Extra: aws-lambda
 Requires-Dist: opentelemetry-instrumentation-aws-lambda>=0.42b0; extra == 'aws-lambda'
 Provides-Extra: celery
 Requires-Dist: opentelemetry-instrumentation-celery>=0.42b0; extra == 'celery'
+Provides-Extra: datasets
+Requires-Dist: httpx>=0.27.2; extra == 'datasets'
+Requires-Dist: pydantic-evals>=1.0.0; (python_version >= '3.10') and extra == 'datasets'
+Requires-Dist: pydantic>=2; extra == 'datasets'
 Provides-Extra: django
 Requires-Dist: opentelemetry-instrumentation-asgi>=0.42b0; extra == 'django'
 Requires-Dist: opentelemetry-instrumentation-django>=0.42b0; extra == 'django'

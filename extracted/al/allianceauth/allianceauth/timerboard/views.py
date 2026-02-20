@@ -93,7 +93,6 @@ class TimerView(BaseTimerView):
             Timer.Structure.ORBITALSKYHOOK.value,  # Orbital Skyhook
             Timer.Structure.PHAROLUX.value,  # Pharolux Cyno Beacon
             Timer.Structure.RAITARU.value,  # Raitaru
-            "Station",  # Legacy structure, remove in future update
             Timer.Structure.TATARA.value,  # Tatara
             Timer.Structure.TENEBREX.value,  # Tenebrex Cyno Jammer
         ]
@@ -103,7 +102,6 @@ class TimerView(BaseTimerView):
             Timer.Structure.IHUB.value,  # I-HUB
             Timer.Structure.KEEPSTAR.value,  # Keepstar
             Timer.Structure.SOTIYO.value,  # Sotiyo
-            Timer.Structure.TCU.value,  # TCU (Legacy structure, remove in future update)
         ]
         bg_secondary = [
             Timer.Structure.MOONPOP.value,  # Moon Mining Cycle

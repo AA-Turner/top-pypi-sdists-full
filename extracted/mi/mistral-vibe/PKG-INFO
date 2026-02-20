@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral-vibe
-Version: 2.2.0
+Version: 2.2.1
 Summary: Minimal CLI coding agent by Mistral
 Project-URL: Homepage, https://github.com/mistralai/mistral-vibe
 Project-URL: Repository, https://github.com/mistralai/mistral-vibe
@@ -41,7 +41,7 @@ Requires-Dist: pyyaml>=6.0.0
 Requires-Dist: requests>=2.20.0
 Requires-Dist: rich>=14.0.0
 Requires-Dist: textual-speedups>=0.2.1
-Requires-Dist: textual>=1.0.0
+Requires-Dist: textual>=7.4.0
 Requires-Dist: tomli-w>=1.2.0
 Requires-Dist: tree-sitter-bash>=0.25.1
 Requires-Dist: tree-sitter>=0.25.2

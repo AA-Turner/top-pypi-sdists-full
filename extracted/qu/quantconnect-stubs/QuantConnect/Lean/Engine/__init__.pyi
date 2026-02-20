@@ -18,62 +18,6 @@ import System
 import System.Threading
 
 
-class LeanEngineSystemHandlers(System.Object, System.IDisposable):
-    """Provides a container for the system level handlers"""
-
-    @property
-    def api(self) -> QuantConnect.Interfaces.IApi:
-        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
-        ...
-
-    @property
-    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
-        """
-        Gets the messaging handler instance used for communicating various packets to listeners, including
-        debug/log messages, email/sms/web messages, as well as results and run time errors
-        """
-        ...
-
-    @property
-    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
-        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
-        ...
-
-    @property
-    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
-        """Gets the ILeanManager implementation using to enhance the hosting environment"""
-        ...
-
-    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
-        """
-        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
-        
-        :param job_queue: The job queue used to acquire algorithm jobs
-        :param api: The api instance used for communicating limits and status
-        :param notify: The messaging handler user for passing messages from the algorithm to listeners
-        :param lean_manager: 
-        """
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    @staticmethod
-    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """
-        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
-        
-        :param composer: The composer instance to obtain implementations from
-        :returns: A fully hydrates LeanEngineSystemHandlers instance.
-        """
-        ...
-
-    def initialize(self) -> None:
-        """Initializes the Api, Messaging, and JobQueue components"""
-        ...
-
-
 class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
     """Provides a container for the algorithm specific handlers"""
 
@@ -173,22 +117,59 @@ class LeanEngineAlgorithmHandlers(System.Object, System.IDisposable):
         ...
 
 
-class Initializer(System.Object):
-    """Helper class to initialize a Lean engine"""
+class LeanEngineSystemHandlers(System.Object, System.IDisposable):
+    """Provides a container for the system level handlers"""
 
-    @staticmethod
-    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
-        """Get and initializes Algorithm Handler"""
+    @property
+    def api(self) -> QuantConnect.Interfaces.IApi:
+        """Gets the api instance used for communicating algorithm limits, status, and storing of log data"""
+        ...
+
+    @property
+    def notify(self) -> QuantConnect.Interfaces.IMessagingHandler:
+        """
+        Gets the messaging handler instance used for communicating various packets to listeners, including
+        debug/log messages, email/sms/web messages, as well as results and run time errors
+        """
+        ...
+
+    @property
+    def job_queue(self) -> QuantConnect.Interfaces.IJobQueueHandler:
+        """Gets the job queue responsible for acquiring and acknowledging an algorithm job"""
+        ...
+
+    @property
+    def lean_manager(self) -> QuantConnect.Lean.Engine.Server.ILeanManager:
+        """Gets the ILeanManager implementation using to enhance the hosting environment"""
+        ...
+
+    def __init__(self, job_queue: QuantConnect.Interfaces.IJobQueueHandler, api: QuantConnect.Interfaces.IApi, notify: QuantConnect.Interfaces.IMessagingHandler, lean_manager: QuantConnect.Lean.Engine.Server.ILeanManager) -> None:
+        """
+        Initializes a new instance of the LeanEngineSystemHandlers class with the specified handles
+        
+        :param job_queue: The job queue used to acquire algorithm jobs
+        :param api: The api instance used for communicating limits and status
+        :param notify: The messaging handler user for passing messages from the algorithm to listeners
+        :param lean_manager: 
+        """
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
     @staticmethod
-    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
-        """Get and initializes System Handler"""
+    def from_configuration(composer: QuantConnect.Util.Composer) -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """
+        Creates a new instance of the LeanEngineSystemHandlers class from the specified composer using type names from configuration
+        
+        :param composer: The composer instance to obtain implementations from
+        :returns: A fully hydrates LeanEngineSystemHandlers instance.
+        """
         ...
 
-    @staticmethod
-    def start() -> None:
-        """Basic common Lean initialization"""
+    def initialize(self) -> None:
+        """Initializes the Api, Messaging, and JobQueue components"""
         ...
 
 
@@ -382,6 +363,25 @@ class Engine(System.Object):
         :param assembly_path: The path to the algorithm's assembly
         :param worker_thread: The worker thread instance
         """
+        ...
+
+
+class Initializer(System.Object):
+    """Helper class to initialize a Lean engine"""
+
+    @staticmethod
+    def get_algorithm_handlers(research_mode: bool = False) -> QuantConnect.Lean.Engine.LeanEngineAlgorithmHandlers:
+        """Get and initializes Algorithm Handler"""
+        ...
+
+    @staticmethod
+    def get_system_handlers() -> QuantConnect.Lean.Engine.LeanEngineSystemHandlers:
+        """Get and initializes System Handler"""
+        ...
+
+    @staticmethod
+    def start() -> None:
+        """Basic common Lean initialization"""
         ...
 
 

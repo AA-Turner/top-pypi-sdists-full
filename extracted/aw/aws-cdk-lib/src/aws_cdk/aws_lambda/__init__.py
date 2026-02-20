@@ -3961,7 +3961,7 @@ class CfnAlias(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        function_name: builtins.str,
+        function_name: typing.Union[builtins.str, "_IFunctionRef_2601eb33"],
         function_version: builtins.str,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
@@ -4360,7 +4360,7 @@ class CfnAliasProps:
     def __init__(
         self,
         *,
-        function_name: builtins.str,
+        function_name: typing.Union[builtins.str, "_IFunctionRef_2601eb33"],
         function_version: builtins.str,
         name: builtins.str,
         description: typing.Optional[builtins.str] = None,
@@ -4424,7 +4424,7 @@ class CfnAliasProps:
             self._values["routing_config"] = routing_config
 
     @builtins.property
-    def function_name(self) -> builtins.str:
+    def function_name(self) -> typing.Union[builtins.str, "_IFunctionRef_2601eb33"]:
         '''The name or ARN of the Lambda function.
 
         **Name formats** - *Function name* - ``MyFunction`` .
@@ -4438,7 +4438,7 @@ class CfnAliasProps:
         '''
         result = self._values.get("function_name")
         assert result is not None, "Required property 'function_name' is missing"
-        return typing.cast(builtins.str, result)
+        return typing.cast(typing.Union[builtins.str, "_IFunctionRef_2601eb33"], result)
 
     @builtins.property
     def function_version(self) -> builtins.str:
@@ -35023,7 +35023,7 @@ def _typecheckingstub__681471c67952a7e725f76572ad9bf09e1c634a81914690dff68e934c0
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    function_name: builtins.str,
+    function_name: typing.Union[builtins.str, _IFunctionRef_2601eb33],
     function_version: builtins.str,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,
@@ -35117,7 +35117,7 @@ def _typecheckingstub__51ab1050cc208f8091f983384e5eac3f313d485d82781cb4d5345b0e5
 
 def _typecheckingstub__c720b06c69637819f49e584891d37db068ae9dfc03bd6ad67a979d3f6fb19bc8(
     *,
-    function_name: builtins.str,
+    function_name: typing.Union[builtins.str, _IFunctionRef_2601eb33],
     function_version: builtins.str,
     name: builtins.str,
     description: typing.Optional[builtins.str] = None,

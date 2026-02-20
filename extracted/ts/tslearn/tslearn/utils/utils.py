@@ -151,7 +151,7 @@ def check_dims(X, X_fit_dims=None, extend=True, check_n_features_only=False):
     return X
 
 
-def to_time_series(ts, remove_nans=False, be=None):
+def to_time_series(ts, remove_nans=False, be=None, dtype=float):
     """Transforms a time series so that it fits the format used in ``tslearn``
     models.
 
@@ -170,6 +170,8 @@ def to_time_series(ts, remove_nans=False, be=None):
         the PyTorch backend is used.
         If `be` is `None`, the backend is determined by the input arrays.
         See our :ref:`dedicated user-guide page <backend>` for more information.
+    dtype : data type (default: float)
+        Data type for the returned dataset, depending on the backend.
 
     Returns
     -------
@@ -195,14 +197,19 @@ def to_time_series(ts, remove_nans=False, be=None):
     to_time_series_dataset : Transforms a dataset of time series
     """
     be = instantiate_backend(be, ts)
-    ts_out = be.array(ts)
-    if ts_out.ndim <= 1:
-        ts_out = be.reshape(ts_out, (-1, 1))
-    if not be.is_float(ts_out):
-        ts_out = be.cast(ts_out, dtype=float)
+    ts_out = be.array(ts, dtype=dtype)
+    return _to_time_series(ts_out, remove_nans, be)
+
+
+def _to_time_series(ts, remove_nans=False, backend=None):
+    """Times series formatting for inputs already converted to a backend."""
+    if backend is None:
+        backend = instantiate_backend(ts)
+    if ts.ndim <= 1:
+        ts = ts.reshape(-1, 1)
     if remove_nans:
-        ts_out = ts_out[: ts_size(ts_out, be=be)]
-    return ts_out
+        ts = ts[:_ts_size(ts, backend=backend)]
+    return ts
 
 
 def to_time_series_dataset(dataset, dtype=float, be=None):
@@ -215,7 +222,14 @@ def to_time_series_dataset(dataset, dtype=float, be=None):
         The dataset of time series to be transformed. A single time series will
         be automatically wrapped into a dataset with a single entry.
     dtype : data type (default: float)
-        Data type for the returned dataset.
+        Data type for the returned dataset, depending on the backend.
+    be : Backend object or string or None
+        Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
+        the NumPy backend is used.
+        If `be` is an instance of the class `PyTorchBackend` or the string `"pytorch"`,
+        the PyTorch backend is used.
+        If `be` is `None`, the backend is determined by the input arrays.
+        See our :ref:`dedicated user-guide page <backend>` for more information.
 
     Returns
     -------
@@ -262,14 +276,14 @@ def to_time_series_dataset(dataset, dtype=float, be=None):
         dataset = [dataset]
     n_ts = len(dataset)
     max_sz = max(
-        [ts_size(to_time_series(ts, remove_nans=True, be=be)) for ts in dataset]
+        [ts_size(ts, be) for ts in dataset]
     )
     d = be.shape(to_time_series(dataset[0], be=be))[1]
-    dataset_out = be.zeros((n_ts, max_sz, d), dtype=dtype) + be.nan
+    dataset_out = be.full((n_ts, max_sz, d), be.nan, dtype=dtype)
     for i in range(n_ts):
-        ts = to_time_series(dataset[i], remove_nans=True, be=be)
+        ts = to_time_series(dataset[i], remove_nans=True, be=be, dtype=dtype)
         dataset_out[i, : ts.shape[0]] = ts
-    return be.cast(dataset_out, dtype=dtype)
+    return dataset_out
 
 
 def time_series_to_str(ts, fmt="%.18e"):
@@ -433,11 +447,19 @@ def check_equal_size(dataset, be=None):
     be = instantiate_backend(be, dataset)
 
     dataset_ = to_time_series_dataset(dataset, be=be)
-    if len(dataset_) == 0:
+    return _check_equal_size(dataset_, backend=be)
+
+
+def _check_equal_size(dataset, backend=None):
+    """Check equal size for already formatted dataset."""
+    if backend is None:
+        backend = instantiate_backend(dataset)
+    if len(dataset) == 0:
         return True
 
-    size = ts_size(dataset[0], be=be)
-    return all(ts_size(ds) == size for ds in dataset_[1:])
+    size = _ts_size(dataset[0], backend=backend)
+    return all(_ts_size(ds) == size for ds in dataset[1:])
+
 
 
 def ts_size(ts, be=None):
@@ -483,8 +505,15 @@ def ts_size(ts, be=None):
     """
     be = instantiate_backend(be, ts)
     ts_ = to_time_series(ts, be=be)
-    sz = be.shape(ts_)[0]
-    while sz > 0 and be.all(be.isnan(ts_[sz - 1])):
+    return _ts_size(ts_, backend=be)
+
+
+def _ts_size(ts, backend=None):
+    """Ts size computation for already formatted time series."""
+    if backend is None:
+        backend = instantiate_backend(ts)
+    sz = len(ts)
+    while sz > 0 and backend.all(backend.isnan(ts[sz - 1])):
         sz -= 1
     return sz
 
@@ -580,9 +609,9 @@ def check_dataset(
         raise ValueError(
             "Array should be univariate and is of shape: {}".format(X_.shape)
         )
-    if force_equal_length and not check_equal_size(X_):
+    if force_equal_length and not _check_equal_size(X_):
         raise ValueError(
-            "All the time series in the array should be of " "equal lengths"
+            "All the time series in the array should be of equal lengths"
         )
     if force_single_time_series and X_.shape[0] != 1:
         raise ValueError(

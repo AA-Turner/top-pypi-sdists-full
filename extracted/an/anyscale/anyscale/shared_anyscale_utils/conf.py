@@ -6,11 +6,17 @@ from typing import cast
 TEST_MODE = os.environ.get("TEST_MODE") == "1"
 
 ANYSCALE_ENDPOINTS = {
-    "development": "https://console.anyscale-dev.dev",
-    "staging": "https://console.anyscale-staging.com",
-    "production": "https://console.anyscale.com",
-    "predeploy": "https://console.predeploy.anyscale.dev",
-    "test": "",
+    "aws": {
+        "development": "https://console.anyscale-dev.dev",
+        "staging": "https://console.anyscale-staging.com",
+        "production": "https://console.anyscale.com",
+        "predeploy": "https://console.predeploy.anyscale.dev",
+        "test": "",
+    },
+    "azure": {
+        "staging": "https://console.azure.anyscale-staging.com",
+        "predeploy": "https://console.gcplane.azure.predeploy.anyscale.dev",
+    },
 }
 
 ANYSCALE_CORS_ORIGINS = {
@@ -35,10 +41,11 @@ ANYSCALE_EXTERNAL_API_ENDPOINTS = {
     "test": "",
 }
 
-if (
-    "ANYSCALE_HOST" in os.environ
-    and os.environ.get("ANYSCALE_HOST") not in ANYSCALE_ENDPOINTS.values()
-):
+if "ANYSCALE_HOST" in os.environ and os.environ.get("ANYSCALE_HOST") not in {
+    url
+    for provider_endpoints in ANYSCALE_ENDPOINTS.values()
+    for url in provider_endpoints.values()
+}:
     anyscale_env_default = "test"
 else:
     anyscale_env_default = "production"
@@ -46,12 +53,20 @@ else:
 ANYSCALE_ENV = cast(
     str,
     os.environ.get("ANYSCALE_DEPLOY_ENVIRONMENT")
-    or os.environ.get("DEPLOY_ENVIRONMENT", anyscale_env_default),
+    or os.environ.get("DEPLOY_ENVIRONMENT")
+    or os.environ.get("ANYSCALE_TEST_ENV", anyscale_env_default),
 )
-# NOTE: `ANYSCALE_HOST` here doesn't respect the `DEPLOY_INFRA_PROVIDER` environment variable.
-# Do not use this variable to construct URLs in the backend. Use the `ANYSCALE_HOST` variable in `backend.conf` instead.
-# TODO: Make this variable respect the `DEPLOY_INFRA_PROVIDER` environment variable.
-ANYSCALE_HOST = os.environ.get("ANYSCALE_HOST", ANYSCALE_ENDPOINTS[ANYSCALE_ENV])
+_DEPLOY_INFRA_PROVIDER = os.environ.get("DEPLOY_INFRA_PROVIDER", "aws")
+
+
+def _get_default_anyscale_host() -> str:
+    provider_endpoints = ANYSCALE_ENDPOINTS.get(_DEPLOY_INFRA_PROVIDER, {})
+    if ANYSCALE_ENV in provider_endpoints:
+        return provider_endpoints[ANYSCALE_ENV]
+    return ANYSCALE_ENDPOINTS["aws"][ANYSCALE_ENV]
+
+
+ANYSCALE_HOST = os.environ.get("ANYSCALE_HOST") or _get_default_anyscale_host()
 ANYSCALE_CORS_ORIGIN = ANYSCALE_CORS_ORIGINS.get(
     ANYSCALE_HOST, "https://*.anyscale-dev.dev"
 )

@@ -21,6 +21,7 @@ class AccessControlScope(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `API`None
+    * `Agent`None
     * `AirflowCallbacks`None
     * `AzureDevopsWebhook`None
     * `CircuitBreaker`None
@@ -35,6 +36,7 @@ class AccessControlScope(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "API",
+        "Agent",
         "AirflowCallbacks",
         "AzureDevopsWebhook",
         "CircuitBreaker",
@@ -1139,6 +1141,7 @@ class ComparisonType(sgqlc.types.Enum):
     * `FRESHNESS`None
     * `GROWTH_VOLUME`None
     * `LOOKBACK`None
+    * `NOOP`None
     * `QUERY_PERFORMANCE`None
     * `SOURCE_TARGET_DELTA`None
     * `THRESHOLD`None
@@ -1153,6 +1156,7 @@ class ComparisonType(sgqlc.types.Enum):
         "FRESHNESS",
         "GROWTH_VOLUME",
         "LOOKBACK",
+        "NOOP",
         "QUERY_PERFORMANCE",
         "SOURCE_TARGET_DELTA",
         "THRESHOLD",
@@ -1464,6 +1468,7 @@ class CustomRuleComparisonOperator(sgqlc.types.Enum):
     * `LT`None
     * `LTE`None
     * `NEQ`None
+    * `NOOP`None
     * `OUTSIDE_RANGE`None
     """
 
@@ -1481,6 +1486,7 @@ class CustomRuleComparisonOperator(sgqlc.types.Enum):
         "LT",
         "LTE",
         "NEQ",
+        "NOOP",
         "OUTSIDE_RANGE",
     )
 
@@ -11751,16 +11757,6 @@ class FilterValueInterface(sgqlc.types.Interface):
     id = sgqlc.types.Field(String, graphql_name="id")
 
 
-class IBaseRca(sgqlc.types.Interface):
-    __schema__ = schema
-    __field_names__ = ("rca_type", "rca_uuid")
-    rca_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="rcaType")
-    """RCA type"""
-
-    rca_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="rcaUuid")
-    """Unique identifier of an RCA"""
-
-
 class IComparisonMonitor(sgqlc.types.Interface):
     __schema__ = schema
     __field_names__ = ("source", "target")
@@ -12429,39 +12425,6 @@ class IMonitorStatus(sgqlc.types.Interface):
 
     exceptions = sgqlc.types.Field(String, graphql_name="exceptions")
     """Exceptions if any occurred during the last run"""
-
-
-class IQueryRca(sgqlc.types.Interface):
-    __schema__ = schema
-    __field_names__ = (
-        "query_log_group_hash",
-        "query_log_id",
-        "query_type",
-        "query_subtype",
-        "user",
-        "start_time",
-        "mcon",
-    )
-    query_log_group_hash = sgqlc.types.Field(String, graphql_name="queryLogGroupHash")
-    """Hash of query group the query belongs to"""
-
-    query_log_id = sgqlc.types.Field(String, graphql_name="queryLogId")
-    """UUID of specific query"""
-
-    query_type = sgqlc.types.Field(String, graphql_name="queryType")
-    """The type of query that failed"""
-
-    query_subtype = sgqlc.types.Field(String, graphql_name="querySubtype")
-    """The sub-type of the query that failed"""
-
-    user = sgqlc.types.Field(String, graphql_name="user")
-    """The user who ran the query that failed"""
-
-    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """The RCA start time"""
-
-    mcon = sgqlc.types.Field(String, graphql_name="mcon")
-    """The MCON of the table associated with the RCA"""
 
 
 class Node(sgqlc.types.Interface):
@@ -14818,18 +14781,6 @@ class AlertEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
-
-
-class AlertRcaData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("primary_rca", "event_rcas", "alert_rcas")
-    primary_rca = sgqlc.types.Field("PrimaryRcaData", graphql_name="primaryRca")
-
-    event_rcas = sgqlc.types.Field(sgqlc.types.list_of("EventRcaData"), graphql_name="eventRcas")
-
-    alert_rcas = sgqlc.types.Field(
-        sgqlc.types.list_of("AlertScopedRcaData"), graphql_name="alertRcas"
-    )
 
 
 class AlertReaction(sgqlc.types.Type):
@@ -23283,7 +23234,7 @@ class EventEdge(sgqlc.types.Type):
 
 class EventEvaluation(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("field", "function", "prompt", "output_type", "sql_expression")
+    __field_names__ = ("field", "function", "prompt", "output_type", "sql_expression", "model_name")
     field = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="field")
     """Field evaluated"""
 
@@ -23298,6 +23249,9 @@ class EventEvaluation(sgqlc.types.Type):
 
     sql_expression = sgqlc.types.Field(String, graphql_name="sqlExpression")
     """SQL expression used in the evaluation"""
+
+    model_name = sgqlc.types.Field(String, graphql_name="modelName")
+    """Model used in the evaluation"""
 
 
 class EventGroup(sgqlc.types.Type):
@@ -23422,14 +23376,6 @@ class EventOnbardingConfig(sgqlc.types.Type):
 
     config = sgqlc.types.Field(JSONString, graphql_name="config")
     """Onboarding Config meant to be shared between customers and MC"""
-
-
-class EventRcaData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("event_uuid", "rcas")
-    event_uuid = sgqlc.types.Field(UUID, graphql_name="eventUuid")
-
-    rcas = sgqlc.types.Field(sgqlc.types.list_of("ExtendedRca"), graphql_name="rcas")
 
 
 class EventRcaStatus(sgqlc.types.Type):
@@ -25393,18 +25339,6 @@ class IncidentEdge(sgqlc.types.Type):
 
     cursor = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="cursor")
     """A cursor for use in pagination"""
-
-
-class IncidentRcaData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("primary_rca", "event_rcas", "incident_rcas")
-    primary_rca = sgqlc.types.Field("PrimaryRcaData", graphql_name="primaryRca")
-
-    event_rcas = sgqlc.types.Field(sgqlc.types.list_of(EventRcaData), graphql_name="eventRcas")
-
-    incident_rcas = sgqlc.types.Field(
-        sgqlc.types.list_of("IncidentScopedRcaData"), graphql_name="incidentRcas"
-    )
 
 
 class IncidentSummary(sgqlc.types.Type):
@@ -41210,6 +41144,12 @@ class Mutation(sgqlc.types.Type):
                 ),
                 ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
                 (
+                    "sampling_config",
+                    sgqlc.types.Arg(
+                        MonitorSamplingConfigInput, graphql_name="samplingConfig", default=None
+                    ),
+                ),
+                (
                     "schedule_config",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(ScheduleConfigInput),
@@ -41296,6 +41236,8 @@ class Mutation(sgqlc.types.Type):
       failures occur.
     * `priority` (`String`): The default priority for alerts involving
       this monitor
+    * `sampling_config` (`MonitorSamplingConfigInput`): Sampling
+      configuration. Required when using eval_prompt transforms.
     * `schedule_config` (`ScheduleConfigInput!`): Schedule of monitor
     * `segment_count_hint` (`Int`): Segment count when then monitor
       was created. Can be returned as the segment count for the
@@ -49763,14 +49705,6 @@ class Predicate(sgqlc.types.Type):
     right_required_type = sgqlc.types.Field(PredicateRequiredType, graphql_name="rightRequiredType")
 
 
-class PrimaryRcaData(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("event_uuid", "rca_uuid")
-    event_uuid = sgqlc.types.Field(UUID, graphql_name="eventUuid")
-
-    rca_uuid = sgqlc.types.Field(UUID, graphql_name="rcaUuid")
-
-
 class PrivateLinkDetails(sgqlc.types.Type):
     """Private Link information"""
 
@@ -50133,11 +50067,7 @@ class Query(sgqlc.types.Type):
         "perform_field_health_sampling_v2",
         "perform_field_health_sampling_v3",
         "get_field_health_sampling_conditions",
-        "get_rca_result",
         "get_rca_job_result",
-        "get_incident_rcas",
-        "get_alert_rcas",
-        "get_table_rcas",
         "get_sensitivity",
         "thresholds",
         "get_thresholds",
@@ -57010,8 +56940,9 @@ class Query(sgqlc.types.Type):
     * `row_sampling_config` (`MonitorSamplingConfigInput`): Sampling
       configuration to only read a subset of the data
     * `include_explanation` (`Boolean`): Include the explanation field
-      in the results (only supported for agent monitors, and only
-      included when evaluating prompts) (default: `false`)
+      in the results (only supported for monitors with LLM
+      evaluations, e.g. agent monitors and metric monitors with
+      eval_prompt) (default: `false`)
     """
 
     get_field_health_sampling_conditions = sgqlc.types.Field(
@@ -57050,18 +56981,6 @@ class Query(sgqlc.types.Type):
       anomaly.
     """
 
-    get_rca_result = sgqlc.types.Field(
-        "RcaResult",
-        graphql_name="getRcaResult",
-        args=sgqlc.types.ArgDict(
-            (("event_uuid", sgqlc.types.Arg(UUID, graphql_name="eventUuid", default=None)),)
-        ),
-    )
-    """Arguments:
-
-    * `event_uuid` (`UUID`)None
-    """
-
     get_rca_job_result = sgqlc.types.Field(
         "RcaResult",
         graphql_name="getRcaJobResult",
@@ -57072,83 +56991,6 @@ class Query(sgqlc.types.Type):
     """Arguments:
 
     * `job_uuid` (`UUID`)None
-    """
-
-    get_incident_rcas = sgqlc.types.Field(
-        IncidentRcaData,
-        graphql_name="getIncidentRcas",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "incident_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="incidentUuid", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Fetches all RCAs of all types for an
-    incident and includes a primary rca which is the most important
-    one for the incident
-
-    Arguments:
-
-    * `incident_uuid` (`UUID!`): Incident identifier
-    """
-
-    get_alert_rcas = sgqlc.types.Field(
-        AlertRcaData,
-        graphql_name="getAlertRcas",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "alert_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="alertUuid", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) Fetches all RCAs of all types for an alert and
-    includes a primary rca which is the most important one for the
-    alert
-
-    Arguments:
-
-    * `alert_uuid` (`UUID!`): Alert identifier
-    """
-
-    get_table_rcas = sgqlc.types.Field(
-        sgqlc.types.list_of("ExtendedRca"),
-        graphql_name="getTableRcas",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "mcon",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="mcon", default=None
-                    ),
-                ),
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-            )
-        ),
-    )
-    """Fetches all RCAs for a table
-
-    Arguments:
-
-    * `mcon` (`String!`): MC table unique identifier
-    * `start_time` (`DateTime!`): Starting date to fetch RCAs from
-    * `end_time` (`DateTime`): Optional end date to fetch RCAs,
-      defaults to now
     """
 
     get_sensitivity = sgqlc.types.Field(
@@ -67011,6 +66853,15 @@ class Query(sgqlc.types.Type):
                         sgqlc.types.list_of(String), graphql_name="orderBy", default=None
                     ),
                 ),
+                (
+                    "authorization_groups",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String),
+                        graphql_name="authorizationGroups",
+                        default=None,
+                    ),
+                ),
+                ("user_id", sgqlc.types.Arg(String, graphql_name="userId", default=None)),
                 ("offset", sgqlc.types.Arg(Int, graphql_name="offset", default=None)),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
@@ -67030,6 +66881,9 @@ class Query(sgqlc.types.Type):
       address
     * `order_by` (`[String]`): Order by fields. Use camelCase and '-'
       for desc. e.g. ['email', '-role']
+    * `authorization_groups` (`[String]`): Filter by authorization
+      group names
+    * `user_id` (`String`): Filter by user's Cognito user ID
     * `offset` (`Int`)None
     * `before` (`String`)None
     * `after` (`String`)None
@@ -69672,7 +69526,7 @@ class RcaPlotData(sgqlc.types.Type):
 
 class RcaResult(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("status", "job_type", "status_reasons", "rca_data", "rca_data_v2")
+    __field_names__ = ("status", "job_type", "status_reasons", "rca_data_v2")
     status = sgqlc.types.Field(RcaStatus, graphql_name="status")
 
     job_type = sgqlc.types.Field(sgqlc.types.non_null(RcaJobsModelJobType), graphql_name="jobType")
@@ -69688,8 +69542,6 @@ class RcaResult(sgqlc.types.Type):
 
     * `event_uuid` (`UUID`)None
     """
-
-    rca_data = sgqlc.types.Field(FieldDistRcaResult, graphql_name="rcaData")
 
     rca_data_v2 = sgqlc.types.Field("RcaData", graphql_name="rcaDataV2")
 
@@ -75266,6 +75118,7 @@ class TransformFunction(sgqlc.types.Type):
         "output_type",
         "output_description",
         "supports_field_range",
+        "uses_response_format",
         "supported_output_types",
         "icon",
         "sql_expression_map",
@@ -75304,6 +75157,10 @@ class TransformFunction(sgqlc.types.Type):
 
     supports_field_range = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="supportsFieldRange"
+    )
+
+    uses_response_format = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="usesResponseFormat"
     )
 
     supported_output_types = sgqlc.types.Field(
@@ -78156,49 +78013,6 @@ class AirflowDagRun(sgqlc.types.Type, Node):
     """Dag associated with the event"""
 
 
-class AirflowRca(sgqlc.types.Type, IBaseRca):
-    __schema__ = schema
-    __field_names__ = (
-        "rca_subtype",
-        "dag_id",
-        "task_id",
-        "run_id",
-        "error_msg_base64",
-        "upstream_error_msg_base64",
-        "upstream_failed_task_id",
-        "start_time",
-        "mcon",
-    )
-    rca_subtype = sgqlc.types.Field(String, graphql_name="rcaSubtype")
-    """'skipped', 'failed' or 'upstream_failed' values"""
-
-    dag_id = sgqlc.types.Field(String, graphql_name="dagId")
-    """Airflow id of the DAG"""
-
-    task_id = sgqlc.types.Field(String, graphql_name="taskId")
-    """Airflow id of the task"""
-
-    run_id = sgqlc.types.Field(String, graphql_name="runId")
-    """Airflow specific run id of failed task"""
-
-    error_msg_base64 = sgqlc.types.Field(String, graphql_name="errorMsgBase64")
-    """Failed error msg in base 64 encoding"""
-
-    upstream_error_msg_base64 = sgqlc.types.Field(String, graphql_name="upstreamErrorMsgBase64")
-    """Failed upstream error msg in base 64 encoding"""
-
-    upstream_failed_task_id = sgqlc.types.Field(String, graphql_name="upstreamFailedTaskId")
-    """Relevant for failed failed upstream task status which caused the
-    task to not run
-    """
-
-    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """When the Airflow task started"""
-
-    mcon = sgqlc.types.Field(String, graphql_name="mcon")
-    """MCON of the associated table"""
-
-
 class AirflowTask(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
@@ -80475,11 +80289,6 @@ class CatalogObjectMetadata(sgqlc.types.Type, Node):
 
     source = sgqlc.types.Field(String, graphql_name="source")
     """The source of this metadata (e.g. dbt, snowflake, bigquery, etc.)"""
-
-
-class ChangeDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
-    __schema__ = schema
-    __field_names__ = ()
 
 
 class CollectionBlock(sgqlc.types.Type, CollectionPreferenceNode):
@@ -83125,47 +82934,6 @@ class DbtProject(sgqlc.types.Type, Node):
     """
 
 
-class DbtRca(sgqlc.types.Type, IBaseRca):
-    __schema__ = schema
-    __field_names__ = (
-        "rca_subtype",
-        "job_error_type",
-        "dbt_run_uuid",
-        "mcon",
-        "jobrun_root_error_type",
-        "failed_nodes",
-        "model_error_msg_base64",
-        "rca_mn_ts",
-        "start_time",
-    )
-    rca_subtype = sgqlc.types.Field(String, graphql_name="rcaSubtype")
-    """Type of issue connected to node"""
-
-    job_error_type = sgqlc.types.Field(String, graphql_name="jobErrorType")
-    """resolve from jobrun_root_error_type"""
-
-    dbt_run_uuid = sgqlc.types.Field(String, graphql_name="dbtRunUuid")
-    """UUID of the dbt run"""
-
-    mcon = sgqlc.types.Field(String, graphql_name="mcon")
-    """MCON of associated table"""
-
-    jobrun_root_error_type = sgqlc.types.Field(String, graphql_name="jobrunRootErrorType")
-    """The full root error type of the job"""
-
-    failed_nodes = sgqlc.types.Field(sgqlc.types.list_of(String), graphql_name="failedNodes")
-    """List of failed nodes in the run"""
-
-    model_error_msg_base64 = sgqlc.types.Field(String, graphql_name="modelErrorMsgBase64")
-    """The error description for the failed node"""
-
-    rca_mn_ts = sgqlc.types.Field(DateTime, graphql_name="rcaMnTs")
-    """When the Airflow task started"""
-
-    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
-    """The RCA start time"""
-
-
 class DbtRun(sgqlc.types.Type, Node):
     __schema__ = schema
     __field_names__ = (
@@ -83864,16 +83632,6 @@ class ExceptionActivityLogEntry(sgqlc.types.Type, Node):
     """User who performed the action"""
 
 
-class FailedDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
-    __schema__ = schema
-    __field_names__ = ("error_code", "error_msg")
-    error_code = sgqlc.types.Field(String, graphql_name="errorCode")
-    """The internal error code type"""
-
-    error_msg = sgqlc.types.Field(String, graphql_name="errorMsg")
-    """The error msg from the warehouse"""
-
-
 class FilterBinary(sgqlc.types.Type, FilterInterface):
     __schema__ = schema
     __field_names__ = ("predicate", "left", "right")
@@ -84146,11 +83904,6 @@ class FivetranDestination(sgqlc.types.Type, Node):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
-
-
-class FutileDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
-    __schema__ = schema
-    __field_names__ = ()
 
 
 class GithubPullRequest(sgqlc.types.Type, Node):
@@ -84533,13 +84286,6 @@ class JobPerformanceSummary(sgqlc.types.Type, IEtlAssetPerformanceSummary):
 
     __schema__ = schema
     __field_names__ = ()
-
-
-class JobRca(sgqlc.types.Type, IBaseRca):
-    __schema__ = schema
-    __field_names__ = ("mcon",)
-    mcon = sgqlc.types.Field(String, graphql_name="mcon")
-    """The MCON of the table associated with the RCA"""
 
 
 class MergedAlert(sgqlc.types.Type, NodeWithUUID):
@@ -85007,11 +84753,6 @@ class Project(sgqlc.types.Type, Node):
 
     table_count = sgqlc.types.Field(Int, graphql_name="tableCount")
     """Number of tables in the project"""
-
-
-class QdrDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
-    __schema__ = schema
-    __field_names__ = ()
 
 
 class RecommendationConfigMetricMonitor(sgqlc.types.Type, RecommendationConfigInterface):
@@ -85883,15 +85624,6 @@ class UnifiedUserAssignment(sgqlc.types.Type, Node):
     """Is row deleted?"""
 
     object_mcon = sgqlc.types.Field(String, graphql_name="objectMcon")
-
-
-class UpstreamDataRca(sgqlc.types.Type, IBaseRca, IQueryRca):
-    __schema__ = schema
-    __field_names__ = ("layer", "upstream_mcon")
-    layer = sgqlc.types.Field(Int, graphql_name="layer")
-
-    upstream_mcon = sgqlc.types.Field(String, graphql_name="upstreamMcon")
-    """The mcon of the upstream change rca table"""
 
 
 class User(sgqlc.types.Type, Node):
@@ -88644,11 +88376,6 @@ class WidgetOptionsText(sgqlc.types.Type, WidgetOptionsInterface):
 ########################################################################
 # Unions
 ########################################################################
-class AlertScopedRcaData(sgqlc.types.Union):
-    __schema__ = schema
-    __types__ = (GithubPullRequestInsight,)
-
-
 class ETLJobUnionType(sgqlc.types.Union):
     __schema__ = schema
     __types__ = (AirflowDag, DatabricksJob, AdfJob, DbtJob)
@@ -88664,20 +88391,6 @@ class ExceptionMetadataRowValue(sgqlc.types.Union):
     __types__ = (IntegerAttribute, DateTimeAttribute, UserAttribute, StringAttribute)
 
 
-class ExtendedRca(sgqlc.types.Union):
-    __schema__ = schema
-    __types__ = (
-        JobRca,
-        FailedDataRca,
-        FutileDataRca,
-        ChangeDataRca,
-        UpstreamDataRca,
-        DbtRca,
-        QdrDataRca,
-        AirflowRca,
-    )
-
-
 class FreshnessAlertConditionOutput(sgqlc.types.Union):
     __schema__ = schema
     __types__ = (FreshnessAutomatedAlertConditionOutput, FreshnessExplicitAlertConditionOutput)
@@ -88686,11 +88399,6 @@ class FreshnessAlertConditionOutput(sgqlc.types.Union):
 class GenericAlert(sgqlc.types.Union):
     __schema__ = schema
     __types__ = (Alert, MergedAlert)
-
-
-class IncidentScopedRcaData(sgqlc.types.Union):
-    __schema__ = schema
-    __types__ = (GithubPullRequestInsight,)
 
 
 class LineageJobAttributes(sgqlc.types.Union):

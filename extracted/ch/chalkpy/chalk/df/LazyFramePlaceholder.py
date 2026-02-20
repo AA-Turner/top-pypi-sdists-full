@@ -477,7 +477,7 @@ class LazyFramePlaceholder:
         start
             Zero-based index where the slice begins.
         length
-            Number of rows to include. If None, includes all remaining rows.
+            Number of rows to include. If `None`, includes all remaining rows.
 
         Returns
         -------
@@ -651,7 +651,7 @@ class LazyFramePlaceholder:
         *columns
             Names of columns to select.
         strict
-            If True, raise an error if any column doesn't exist. If False,
+            If `True`, raise an error if any column doesn't exist. If `False`,
             silently ignore missing columns.
 
         Returns
@@ -680,7 +680,7 @@ class LazyFramePlaceholder:
         *columns
             Names of columns to drop.
         strict
-            If True, raise an error if any column doesn't exist. If False,
+            If `True`, raise an error if any column doesn't exist. If `False`,
             silently ignore missing columns.
 
         Returns
@@ -748,7 +748,7 @@ class LazyFramePlaceholder:
             Join keys. Can be specified in multiple ways:
             - A sequence of column names (same names on both sides): ``on=["col1", "col2"]``
             - A mapping of left->right column names: ``on={"left_col": "right_col"}``
-            - If None, must specify ``left_on`` and ``right_on`` separately.
+            - If `None`, must specify ``left_on`` and ``right_on`` separately.
         left_on
             Column names for left DataFrame join keys. Only used when ``on`` is None.
             Must be paired with ``right_on``.
@@ -828,7 +828,7 @@ class LazyFramePlaceholder:
             before performing the as-of match on the ``on`` column. Can be specified as:
             - A sequence of column names (same names on both sides): ``by=["col1", "col2"]``
             - A mapping of left->right column names: ``by={"left_col": "right_col"}``
-            - If None, can specify ``left_by`` and ``right_by`` separately.
+            - If `None`, can specify ``left_by`` and ``right_by`` separately.
         left_by
             Column names in left DataFrame for exact-match conditions. Only used when
             ``by`` is None. Must be paired with ``right_by``.

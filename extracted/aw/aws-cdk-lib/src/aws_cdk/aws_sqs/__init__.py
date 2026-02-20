@@ -2909,6 +2909,8 @@ class QueueBase(
 
         - kms:Decrypt
 
+        The use of this method is discouraged. Please use ``grants.consumeMessages()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: Principal to grant consume rights to.
@@ -2945,6 +2947,8 @@ class QueueBase(
         - sqs:GetQueueAttributes
         - sqs:GetQueueUrl
 
+        The use of this method is discouraged. Please use ``grants.purge()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: Principal to grant send rights to.
@@ -2972,6 +2976,8 @@ class QueueBase(
         - kms:Encrypt
         - kms:ReEncrypt*
         - kms:GenerateDataKey*
+
+        The use of this method is discouraged. Please use ``grants.sendMessages()`` instead.
 
         [disable-awslint:no-grants]
 

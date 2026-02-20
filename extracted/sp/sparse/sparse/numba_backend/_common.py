@@ -10,7 +10,7 @@ from numba import literal_unroll
 
 import numpy as np
 
-from ._coo import as_coo
+from ._coo import as_coo, expand_dims
 from ._sparse_array import SparseArray
 from ._utils import (
     _zero_of_dtype,
@@ -2073,7 +2073,7 @@ def format_to_string(format):
 
 
 @_check_device
-def asarray(obj, /, *, dtype=None, format="coo", copy=False, device=None):
+def asarray(obj, /, *, dtype=None, format=None, copy=False, device=None):
     """
     Convert the input to a sparse array.
 
@@ -2085,6 +2085,8 @@ def asarray(obj, /, *, dtype=None, format="coo", copy=False, device=None):
         Output array data type.
     format : str, optional
         Output array sparse format.
+        Default: existing format if the input is a `SparseArray`,
+        else COO.
     device : str, optional
         Device on which to place the created array.
     copy : bool, optional
@@ -2102,7 +2104,7 @@ def asarray(obj, /, *, dtype=None, format="coo", copy=False, device=None):
     <COO: shape=(8, 8), dtype=int64, nnz=8, fill_value=0>
     """
 
-    if format not in {"coo", "dok", "gcxs", "csc", "csr"}:
+    if format not in {None, "coo", "dok", "gcxs", "csc", "csr"}:
         raise ValueError(f"{format} format not supported.")
 
     from ._compressed import CSC, CSR, GCXS
@@ -2111,8 +2113,10 @@ def asarray(obj, /, *, dtype=None, format="coo", copy=False, device=None):
 
     format_dict = {"coo": COO, "dok": DOK, "gcxs": GCXS, "csc": CSC, "csr": CSR}
 
-    if isinstance(obj, COO | DOK | GCXS | CSC | CSR):
-        return obj.asformat(format)
+    if isinstance(obj, SparseArray):
+        return obj.asformat(format) if format is not None else obj
+
+    format = "coo" if format is None else format
 
     if _is_scipy_sparse_obj(obj):
         sparse_obj = format_dict[format].from_scipy_sparse(obj)
@@ -3104,3 +3108,234 @@ def vecdot(x1, x2, /, *, axis=-1):
         x1 = np.conjugate(x1)
 
     return np.sum(x1 * x2, axis=axis, dtype=np.result_type(x1, x2))
+
+
+def repeat(a, repeats, axis=None):
+    """
+    Repeat each element of an array after themselves
+
+    Parameters
+    ----------
+    a : SparseArray
+        Input sparse arrays
+    repeats : int
+        The number of repetitions for each element.
+        (Uneven repeats are not yet Implemented.)
+    axis : int, optional
+        The axis along which to repeat values. Returns a flattened sparse array if not specified.
+
+    Returns
+    -------
+    out : SparseArray
+        A sparse array which has the same shape as a, except along the given axis.
+    """
+    if not isinstance(a, SparseArray):
+        raise TypeError("`a` must be a SparseArray.")
+
+    if not isinstance(repeats, int):
+        raise ValueError("`repeats` must be an integer, uneven repeats are not yet Implemented.")
+    axes = list(range(a.ndim))
+    new_shape = list(a.shape)
+    axis_is_none = False
+    if axis is None:
+        a = a.reshape(-1)
+        axis = 0
+        axis_is_none = True
+    if axis < 0:
+        axis = a.ndim + axis
+    axes[a.ndim - 1], axes[axis] = axes[axis], axes[a.ndim - 1]
+    new_shape[axis] *= repeats
+    a = expand_dims(a, axis=axis + 1)
+    shape_to_broadcast = a.shape[: axis + 1] + (a.shape[axis + 1] * repeats,) + a.shape[axis + 2 :]
+    a = broadcast_to(a, shape_to_broadcast)
+    if not axis_is_none:
+        return a.reshape(new_shape)
+    return a.reshape(new_shape).flatten()
+
+
+def tile(a, reps):
+    """
+    Constructs an array by tiling an input array.
+
+    Parameters
+    ----------
+    a : SparseArray
+        Input sparse arrays.
+    reps : int or tuple[int, ...]
+        The number of repetitions for each dimension.
+        If an integer, the same number of repetitions is applied to all dimensions.
+
+    Returns
+    -------
+    out : SparseArray
+        A tiled output array.
+    """
+    if not isinstance(a, SparseArray):
+        a = as_coo(a)
+
+    if isinstance(reps, int):
+        reps = (reps,)
+    reps = tuple(reps)
+
+    if a.ndim == 0:
+        a = a.reshape((1,))
+
+    if len(reps) < a.ndim:
+        reps = (1,) * (a.ndim - len(reps)) + reps
+    elif len(reps) > a.ndim:
+        a = a.reshape((1,) * (len(reps) - a.ndim) + a.shape)
+
+    shape = a.shape
+    ndim = len(reps)
+    a = a.reshape(tuple(np.column_stack(([1] * ndim, shape)).reshape(-1)))
+    a = a.broadcast_to(tuple(np.column_stack((reps, shape)).reshape(-1)))
+    return a.reshape(tuple(np.multiply(reps, shape)))
+
+
+def unstack(x, axis=0):
+    """
+    Splits an array into a sequence of arrays along the given axis.
+
+    Parameters
+    ----------
+    x : SparseArray
+        Input sparse arrays.
+    axis : int
+        Axis along which the array will be split
+
+    Returns
+    -------
+    out : Tuple[SparseArray,...]
+        Tuple of slices along the given dimension. All the arrays have the same shape.
+    """
+    ndim = x.ndim
+
+    if not (-ndim <= axis < ndim):
+        raise ValueError(f"axis must be in range [-{ndim}, {ndim}), got {axis}")
+
+    if not isinstance(x, SparseArray):
+        raise TypeError("`a` must be a SparseArray.")
+
+    if axis < 0:
+        axis = ndim + axis
+    new_order = (axis,) + tuple(i for i in range(ndim) if i != axis)
+    x = x.transpose(new_order)
+    return (*x,)
+
+
+def diff(x, axis=-1, n=1, prepend=None, append=None):
+    """
+    Calculates the n-th discrete difference along the given axis.
+
+    Parameters
+    ----------
+    x : SparseArray
+        Input sparse arrays.
+    n : int
+        The number of times values are differenced. Default: 1.
+    axis : int
+        The axis along which the difference is taken. Default: -1.
+
+    Returns
+    -------
+    out : SparseArray
+        An array containing the n-th discrete difference along the given axis.
+    """
+    if not isinstance(x, SparseArray):
+        raise TypeError("`x` must be a SparseArray.")
+
+    if axis < 0:
+        axis = x.ndim + axis
+    if prepend is not None:
+        x = concatenate([prepend, x], axis=axis)
+    if append is not None:
+        x = concatenate([x, append], axis=axis)
+    result = x
+    for _ in range(n):
+        result = result[(slice(None),) * axis + (slice(1, None),)] - result[(slice(None),) * axis + (slice(None, -1),)]
+    return result
+
+
+def interp(x, xp, fp, left=None, right=None, period=None):
+    """
+    An implementation of ``numpy.interp`` for sparse arrays.
+
+    Thanks to the function dispatch of numpy, this enables interpolation on sparse arrays
+    using the numpy universal function. This function effectively wraps ``np.interp`` by
+    calling it on the array data and the fill value. See the numpy documentation for
+    details on the parameters.
+
+    Parameters
+    ----------
+    x : SparseArray
+        The x-coordinates at which to evaluate the interpolated values.
+    xp : 1-D sequence or SparseArray
+        The x-coordinates of the data points.
+    fp : 1-D sequence or SparseArray
+        The y-coordinates of the data points, same length as ``xp``.
+    left : float or complex, optional
+        Value to return for ``x < xp[0]``, default is ``fp[0]``.
+    right : float or complex, optional
+        Value to return for ``x > xp[-1]``, default is ``fp[-1]``.
+    period : None or float, optional
+        A period for the x-coordinates.
+
+    Returns
+    -------
+    out : SparseArray
+        The interpolated values, same shape as x.
+
+    See Also
+    --------
+    https://numpy.org/doc/stable/reference/generated/numpy.interp.html
+
+    Examples
+    --------
+    When interpolating a sparse array, its data and the fill value are interpolated. The
+    returned array is pruned. Therefore, the fill value and the number of nonzero
+    elements might change.
+
+    >>> import numpy as np
+    >>> xp = [1, 2, 3]
+    >>> fp = [3, 2, 0]
+    >>> y = np.interp(sparse.COO.from_numpy(np.array([0, 1, 1.5, 2.72, 3.14])), xp, fp)
+    >>> y.todense()
+    array([3.  , 3.  , 2.5 , 0.56, 0.  ])
+    >>> y.fill_value
+    np.float64(3.0)
+    >>> y.nnz
+    3
+    """
+    from ._compressed import GCXS
+    from ._coo import COO
+    from ._dok import DOK
+
+    # Densify sparse interpolants
+    if isinstance(xp, SparseArray):
+        xp = xp.todense()
+    if isinstance(fp, SparseArray):
+        fp = fp.todense()
+
+    def interp_func(xx):
+        return np.interp(xx, xp, fp, left=left, right=right, period=period)
+
+    # Shortcut for dense arrays
+    if not isinstance(x, SparseArray):
+        return interp_func(x)
+
+    # Define output type
+    out_kwargs = {}
+    out_type = COO
+    if isinstance(x, GCXS):
+        out_type = GCXS
+        out_kwargs["compressed_axes"] = x.compressed_axes
+    elif isinstance(x, DOK):
+        out_type = DOK
+
+    # Perform interpolation on sparse object
+    arr = as_coo(x)
+    data = interp_func(arr.data)
+    fill_value = interp_func(arr.fill_value)
+    return COO(data=data, coords=arr.coords, shape=arr.shape, fill_value=fill_value, prune=True).asformat(
+        out_type, **out_kwargs
+    )

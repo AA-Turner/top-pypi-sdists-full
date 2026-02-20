@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langchain-core
-Version: 1.2.13
+Version: 1.2.14
 Summary: Building applications with LLMs through composability
 Project-URL: Homepage, https://docs.langchain.com/
 Project-URL: Documentation, https://reference.langchain.com/python/langchain_core/
@@ -42,8 +42,8 @@ Description-Content-Type: text/markdown
 
 Looking for the JS/TS version? Check out [LangChain.js](https://github.com/langchain-ai/langchainjs).
 
-To help you ship LangChain apps to production faster, check out [LangSmith](https://smith.langchain.com).
-[LangSmith](https://smith.langchain.com) is a unified developer platform for building, testing, and monitoring LLM applications.
+To help you ship LangChain apps to production faster, check out [LangSmith](https://www.langchain.com/langsmith).
+[LangSmith](https://www.langchain.com/langsmith) is a unified developer platform for building, testing, and monitoring LLM applications.
 
 ## Quick Install
 

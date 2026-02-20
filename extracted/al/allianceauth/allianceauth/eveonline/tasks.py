@@ -42,8 +42,8 @@ def update_character(character_id: int) -> None:
 def run_model_update() -> None:
     """Update all alliances, corporations and characters from ESI"""
 
-    # Queue update tasks for Known Corporation Models
-    for corp in EveCorporationInfo.objects.all().values('corporation_id'):
+    # Queue update tasks for Known Corporation Models, exluding closed corps (ceo_id=1)
+    for corp in EveCorporationInfo.objects.exclude(ceo_id=1).values('corporation_id'):
         update_corp.apply_async(
             args=[corp['corporation_id']],
             priority=TASK_PRIORITY,
@@ -56,8 +56,8 @@ def run_model_update() -> None:
             priority=TASK_PRIORITY,
             countdown=randint(1, EVEONLINE_TASK_JITTER))
 
-    # Queue update tasks for Known Character Models
-    character_ids = EveCharacter.objects.all().values_list('character_id', flat=True)
+    # Queue update tasks for Known Character Models, excluding characters in Doomheim (corporation_id=1000001)
+    character_ids = EveCharacter.objects.exclude(corporation_id=1000001).values_list('character_id', flat=True)
     for character_ids_chunk in chunks(character_ids, CHARACTER_AFFILIATION_CHUNK_SIZE):
         update_character_chunk.apply_async(
             args=[character_ids_chunk],

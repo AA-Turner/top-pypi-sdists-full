@@ -5,11 +5,14 @@ from gooddata_sdk.compute.model.attribute import Attribute
 from gooddata_sdk.compute.model.base import ObjId
 from gooddata_sdk.compute.model.filter import (
     AbsoluteDateFilter,
-    AllTimeFilter,
+    AllTimeDateFilter,
     BoundedFilter,
+    CompoundMetricValueFilter,
     Filter,
     InlineFilter,
+    MetricValueComparisonCondition,
     MetricValueFilter,
+    MetricValueRangeCondition,
     NegativeAttributeFilter,
     PositiveAttributeFilter,
     RankingFilter,
@@ -71,7 +74,11 @@ class ComputeToSdkConverter:
 
             # there is a filter present, but means all time
             if ("from" not in f) or ("to" not in f):
-                return AllTimeFilter(ref_extract_obj_id(f["dataset"]))
+                return AllTimeDateFilter(
+                    dataset=ref_extract_obj_id(f["dataset"]),
+                    granularity=f.get("granularity"),
+                    empty_value_handling=f.get("emptyValueHandling"),
+                )
 
             # Extract bounded filter if present
             bounded_filter = None
@@ -89,12 +96,26 @@ class ComputeToSdkConverter:
                 from_shift=f["from"],
                 to_shift=f["to"],
                 bounded_filter=bounded_filter,
+                empty_value_handling=f.get("emptyValueHandling"),
+            )
+
+        if "allTimeDateFilter" in filter_dict:
+            f = filter_dict["allTimeDateFilter"]
+            return AllTimeDateFilter(
+                dataset=ref_extract_obj_id(f["dataset"]),
+                granularity=f.get("granularity"),
+                empty_value_handling=f.get("emptyValueHandling"),
             )
 
         if "absoluteDateFilter" in filter_dict:
             f = filter_dict["absoluteDateFilter"]
 
-            return AbsoluteDateFilter(dataset=ref_extract_obj_id(f["dataset"]), from_date=f["from"], to_date=f["to"])
+            return AbsoluteDateFilter(
+                dataset=ref_extract_obj_id(f["dataset"]),
+                from_date=f["from"],
+                to_date=f["to"],
+                empty_value_handling=f.get("emptyValueHandling"),
+            )
 
         if "comparisonMeasureValueFilter" in filter_dict:
             f = filter_dict["comparisonMeasureValueFilter"]
@@ -113,6 +134,28 @@ class ComputeToSdkConverter:
                 metric=ref_extract(f["measure"]),
                 operator=f["operator"],
                 values=(f["from"], f["to"]),
+                treat_nulls_as=f.get("treatNullValuesAs"),
+            )
+
+        if "compoundMeasureValueFilter" in filter_dict:
+            f = filter_dict["compoundMeasureValueFilter"]
+
+            conditions: list[Union[MetricValueComparisonCondition, MetricValueRangeCondition]] = []
+            for condition in f.get("conditions", []):
+                if "comparison" in condition:
+                    c = condition["comparison"]
+                    conditions.append(MetricValueComparisonCondition(operator=c["operator"], value=c["value"]))
+                elif "range" in condition:
+                    c = condition["range"]
+                    conditions.append(
+                        MetricValueRangeCondition(operator=c["operator"], from_value=c["from"], to_value=c["to"])
+                    )
+                else:
+                    raise ValueError(f"Unsupported measure value condition type: {condition}")
+
+            return CompoundMetricValueFilter(
+                metric=ref_extract(f["measure"]),
+                conditions=conditions,
                 treat_nulls_as=f.get("treatNullValuesAs"),
             )
 

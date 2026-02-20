@@ -11,9 +11,19 @@ def convert_hex_to_binary(table: pa.Table, cols_to_convert: List[str]) -> pa.Tab
     """
     Redshift returns binary data as a hex string.
     Ideally we'd add SQLAlchemy compiler hooks to do this conversion, but I'm not sure how to add this in the Chalk client w/o potentially clobbering other Redshift clients the customer may have.
-    :param table: Table of data
-    :param cols_to_convert: Columns to convert
-    :return: Same table, but each column in cols_to_convert have been converterd from a hex string to binary
+
+    Parameters
+    ----------
+    table
+        Table of data.
+    cols_to_convert
+        Columns to convert.
+
+    Returns
+    -------
+    pa.Table
+        Same table, but each column in `cols_to_convert` has been converted from a hex string to
+        binary.
     """
     import polars as pl
 

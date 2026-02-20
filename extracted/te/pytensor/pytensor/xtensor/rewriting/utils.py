@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from pytensor.compile import optdb
 from pytensor.graph.rewriting.basic import NodeRewriter, dfs_rewriter
 from pytensor.graph.rewriting.db import EquilibriumDB, RewriteDatabase
+from pytensor.tensor.basic import infer_shape_db
 from pytensor.tensor.rewriting.ofg import inline_ofg_expansion
 from pytensor.tensor.variable import TensorVariable
 from pytensor.xtensor.type import XTensorVariable
@@ -11,13 +12,19 @@ from pytensor.xtensor.type import XTensorVariable
 
 lower_xtensor_db = EquilibriumDB(ignore_newtrees=False)
 
+infer_shape_db.register(
+    "lower_xtensor",
+    lower_xtensor_db,
+    "infer_shape",
+)
+
 optdb.register(
     "lower_xtensor",
     lower_xtensor_db,
     "fast_run",
     "fast_compile",
     "minimum_compile",
-    position=0.1,
+    position=0.09,  # before ShapeOpt, so we don't accidentally reintroduce xtensor Ops
 )
 
 # Register OFG inline again after lowering xtensor
@@ -26,7 +33,7 @@ optdb.register(
     dfs_rewriter(inline_ofg_expansion),
     "fast_run",
     "fast_compile",
-    position=0.11,
+    position=0.091,
 )
 
 
@@ -50,6 +57,7 @@ def register_lower_xtensor(
             "fast_run",
             "fast_compile",
             "minimum_compile",
+            "infer_shape",
             *tags,
             **kwargs,
         )

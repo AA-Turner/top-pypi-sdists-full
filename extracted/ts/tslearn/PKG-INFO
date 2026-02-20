@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tslearn
-Version: 0.7.0
+Version: 0.8.0
 Summary: A machine learning toolkit dedicated to time-series data
 Author-email: Romain Tavenard <romain.tavenard@univ-rennes2.fr>
 License-Expression: BSD-2-Clause

@@ -12211,7 +12211,11 @@ class StateMachine(
         identity: "_IGrantable_71c4f5de",
         *actions: builtins.str,
     ) -> "_Grant_a7ae64f8":
-        '''Grant the given identity permissions on all executions of the state machine [disable-awslint:no-grants].
+        '''Grant the given identity permissions on all executions of the state machine.
+
+        The use of this method is discouraged. Please use ``grants.execution()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         :param actions: -
@@ -12225,6 +12229,8 @@ class StateMachine(
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, identity: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Grant the given identity permissions to read results from state machine.
+
+        The use of this method is discouraged. Please use ``grants.read()`` instead.
 
         [disable-awslint:no-grants]
 
@@ -12242,6 +12248,8 @@ class StateMachine(
     ) -> "_Grant_a7ae64f8":
         '''Grant the given identity permission to redrive the execution of the state machine.
 
+        The use of this method is discouraged. Please use ``grants.redriveExecution()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: -
@@ -12257,6 +12265,8 @@ class StateMachine(
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
         '''Grant the given identity permissions to start an execution of this state machine.
+
+        The use of this method is discouraged. Please use ``grants.startExecution()`` instead.
 
         [disable-awslint:no-grants]
 
@@ -12274,6 +12284,8 @@ class StateMachine(
     ) -> "_Grant_a7ae64f8":
         '''Grant the given identity permissions to start a synchronous execution of this state machine.
 
+        The use of this method is discouraged. Please use ``grants.startSyncExecution()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: -
@@ -12288,7 +12300,11 @@ class StateMachine(
         self,
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
-        '''Grant the given identity task response permissions on a state machine [disable-awslint:no-grants].
+        '''Grant the given identity task response permissions on a state machine.
+
+        The use of this method is discouraged. Please use ``grants.taskResponse()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''

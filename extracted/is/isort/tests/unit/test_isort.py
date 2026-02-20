@@ -965,9 +965,6 @@ def test_explicitly_local_import() -> None:
     assert isort.code(test_input) == (
         "import lib1\nimport lib2\n\nimport .lib6\nfrom . import lib7\n"
     )
-    assert isort.code(test_input, old_finders=True) == (
-        "import lib1\nimport lib2\n\nimport .lib6\nfrom . import lib7\n"
-    )
 
 
 def test_quotes_in_file() -> None:
@@ -1069,7 +1066,6 @@ def test_forced_separate() -> None:
             known_third_party=["django"],
             line_length=120,
             order_by_type=False,
-            old_finders=True,
         )
         == test_input
     )
@@ -1077,16 +1073,6 @@ def test_forced_separate() -> None:
     test_input = "from .foo import bar\n\nfrom .y import ca\n"
     assert (
         isort.code(code=test_input, forced_separate=[".y"], line_length=120, order_by_type=False)
-        == test_input
-    )
-    assert (
-        isort.code(
-            code=test_input,
-            forced_separate=[".y"],
-            line_length=120,
-            order_by_type=False,
-            old_finders=True,
-        )
         == test_input
     )
 
@@ -1155,25 +1141,14 @@ def test_known_pattern_path_expansion(tmpdir) -> None:
         known_first_party=["src/", "this", "kate_plugin"],
         directory=str(tmpdir),
     )
-    test_output_old_finder = isort.code(
-        code=test_input,
-        default_section="FIRSTPARTY",
-        old_finders=True,
-        known_first_party=["src/", "this", "kate_plugin"],
-        directory=str(tmpdir),
-    )
-    assert (
-        test_output_old_finder
-        == test_output
-        == (
-            "import os\n"
-            "import sys\n"
-            "\n"
-            "import bar\n"
-            "import this\n"
-            "from foo import settings\n"
-            "from kate_plugin import isort_plugin\n"
-        )
+    assert test_output == (
+        "import os\n"
+        "import sys\n"
+        "\n"
+        "import bar\n"
+        "import this\n"
+        "from foo import settings\n"
+        "from kate_plugin import isort_plugin\n"
     )
 
 
@@ -1701,12 +1676,12 @@ def test_order_by_type() -> None:
     )
 
 
-def test_custom_lines_before_import_section() -> None:
-    """Test the case where the number of lines to output after imports has been explicitly set."""
-    test_input = """from a import b
-
-foo = 'bar'
-"""
+@pytest.mark.parametrize("has_body", [True, False])
+def test_custom_lines_before_import_section(has_body: bool) -> None:
+    """Test the case where the number of lines to output before imports has been explicitly set."""
+    test_input = "from a import b\n"
+    if has_body:
+        test_input += "\nfoo = 'bar'\n"
 
     ln = "\n"
 
@@ -3030,7 +3005,6 @@ def test_sys_path_mutation(tmpdir) -> None:
     expected_length = len(sys.path)
     isort.code(test_input, **options)
     assert len(sys.path) == expected_length
-    isort.code(test_input, old_finders=True, **options)
 
 
 def test_long_single_line() -> None:
@@ -3440,6 +3414,17 @@ def test_ensure_line_endings_are_preserved_issue_493() -> None:
     test_input = "from os import defpath\rfrom os import pathsep as separator\r"
     assert isort.code(test_input) == test_input
     test_input = "from os import defpath\nfrom os import pathsep as separator\n"
+    assert isort.code(test_input) == test_input
+
+
+@pytest.mark.parametrize("ws", [" ", "\t", "\f"])
+def test_line_endings_are_detected_ignoring_whitespace(ws: str) -> None:
+    """Test to ensure line endings are not converted"""
+    test_input = f"# foo{ws}\r\nimport a\r\n\r\ncimport z\r\n"
+    assert isort.code(test_input) == test_input
+    test_input = f"# foo{ws}\rimport a\r\rcimport z\r"
+    assert isort.code(test_input) == test_input
+    test_input = f"# foo{ws}\nimport a\n\ncimport z\n"
     assert isort.code(test_input) == test_input
 
 
@@ -4211,9 +4196,13 @@ def test_to_ensure_empty_line_not_added_to_file_start_issue_889() -> None:
     assert isort.code(test_input) == test_input
 
 
-def test_to_ensure_correctly_handling_of_whitespace_only_issue_811(capsys) -> None:
-    test_input = 'import os\nimport sys\n\n\x0c\ndef my_function():\n    print("hi")\n'
-    isort.code(test_input, ignore_whitespace=True)
+@pytest.mark.parametrize("ws", ["", " ", "\t", "\f", "\n"])
+def test_to_ensure_correctly_handling_of_whitespace_only_issue_811(
+    ws: str,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    test_input = f'import os\nimport sys\n\n{ws}\ndef my_function():\n    print("hi")\n'
+    assert isort.check_code(test_input, ignore_whitespace=True)
     out, err = capsys.readouterr()
     assert out == ""
     assert err == ""
@@ -4979,7 +4968,6 @@ IF CEF_VERSION == 3:
     from web_request_client_cef3 cimport *
 """
     assert isort.code(test_input).strip() == expected_output.strip()
-    assert isort.code(test_input, old_finders=True).strip() == expected_output.strip()
 
 
 def test_cdef_support():
@@ -5652,3 +5640,74 @@ def test_noqa_multiline_hanging_indent() -> None:
     )
     output = isort.code(test_input, line_length=120, multi_line_output=WrapModes.HANGING_INDENT)
     assert output == test_input
+
+
+@pytest.mark.parametrize(
+    (
+        "actual_imports",
+        "expected_sort",
+    ),
+    [
+        (
+            ("from __future__ import annotations\nimport __future__\n"),
+            ("from __future__ import annotations\nimport __future__\n"),
+        ),
+        (
+            (
+                "import __future__\n\n"
+                "from __future__ import generator_stop\n"
+                "from __future__ import annotations\n\n"
+                "from concurrent.futures import ThreadPoolExecutor\n\n"
+            ),
+            (
+                "from __future__ import annotations, generator_stop\n"
+                "import __future__\n\n"
+                "from concurrent.futures import ThreadPoolExecutor\n"
+            ),
+        ),
+        (
+            ("from __future__ import annotations\nimport sys\n"),
+            ("from __future__ import annotations\n\nimport sys\n"),
+        ),
+        (("import __future__\nimport sys\n"), ("import __future__\n\nimport sys\n")),
+        (
+            ("import __future__ as future\nfrom __future__ import annotations\n"),
+            ("from __future__ import annotations\nimport __future__ as future\n"),
+        ),
+        (
+            ("# Copyright 2026\nimport __future__\nfrom __future__ import annotations\n"),
+            ("# Copyright 2026\nfrom __future__ import annotations\nimport __future__\n"),
+        ),
+        (
+            ("import __future__\nfrom __future__ import *\n"),
+            ("from __future__ import *\nimport __future__\n"),
+        ),
+        (
+            (
+                "from __future__ import annotations\n"
+                "import __future__\n"
+                "from __future__ import annotations\n"
+            ),
+            ("from __future__ import annotations\nimport __future__\n"),
+        ),
+        (
+            (
+                "import sys\n"
+                "from __future__ import annotations\n"
+                "import os\n"
+                "import __future__\n"
+                "from pathlib import Path\n"
+            ),
+            (
+                "from __future__ import annotations\n"
+                "import __future__\n\n"
+                "import os\n"
+                "import sys\n"
+                "from pathlib import Path\n"
+            ),
+        ),
+    ],
+)
+def test_dunder_future_import(actual_imports: str, expected_sort: str) -> None:
+    output = isort.code(actual_imports)
+    assert output == expected_sort

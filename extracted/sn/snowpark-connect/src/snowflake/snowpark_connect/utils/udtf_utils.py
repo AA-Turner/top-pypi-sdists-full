@@ -57,11 +57,18 @@ def process_udtf_packages(
     packages_str: str,
     is_arrow_enabled: bool = False,
     custom_packages: list[str] | None = None,
+    artifact_repository: str | None = None,
 ) -> list[str]:
     packages = process_dependencies_string_array(packages_str)
     # Include pyarrow in packages when using Arrow-enabled UDTF
     if is_arrow_enabled and "pyarrow" not in packages:
         packages += ["pyarrow"]
+
+    # TODO: Remove this once Snowpark Python automatically includes cloudpickle when artifact_repository is set.
+    # cloudpickle is required for serialization/deserialization of UDTFs but is not automatically
+    # added by Snowflake when using a custom artifact_repository.
+    if artifact_repository and "cloudpickle" not in packages:
+        packages += ["cloudpickle"]
 
     if "pyspark" not in packages:
         # need this to support table argument in UDTF.
@@ -85,6 +92,7 @@ def create_udtf(
     is_arrow_enabled: bool,
     is_spark_compatible_udtf_mode_enabled: bool,
     called_from: str,
+    artifact_repository: str | None = None,
     resource_constraint: dict[str, str] | None = None,
 ) -> str | snowpark.udtf.UserDefinedTableFunction:
     udtf = udtf_proto.python_udtf
@@ -166,7 +174,10 @@ def create_udtf(
     # Add telemetry package if telemetry is enabled
     custom_packages = [TELEMETRY_PACKAGE] if ENABLE_UDTF_TELEMETRY else None
     packages = process_udtf_packages(
-        packages, is_arrow_enabled, custom_packages=custom_packages
+        packages,
+        is_arrow_enabled,
+        artifact_repository=artifact_repository,
+        custom_packages=custom_packages,
     )
     imports = process_dependencies_string_array(imports)
     match called_from:
@@ -178,6 +189,7 @@ def create_udtf(
                 replace=True,
                 packages=packages,
                 imports=imports,
+                artifact_repository=artifact_repository,
                 resource_constraint=resource_constraint,
             )
         case "map_common_inline_user_defined_table_function":
@@ -206,6 +218,7 @@ def create_udtf(
                 replace=True,
                 packages=packages,
                 imports=imports,
+                artifact_repository=artifact_repository,
                 resource_constraint=resource_constraint,
             )
         case _:
@@ -643,7 +656,7 @@ def spark_compatible_udtf_wrapper_with_arrow(
     convert_table_argument_to_row = _create_convert_table_argument_to_row()
 
     def _python_type_to_arrow_type_impl(
-        type_info_tuple: tuple[str, Any]
+        type_info_tuple: tuple[str, Any],
     ) -> pa.DataType:
         kind, type_marker = type_info_tuple
         if kind == "scalar":

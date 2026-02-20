@@ -25,6 +25,7 @@ def async_chat(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama async chat function call
@@ -44,6 +45,7 @@ def async_chat(
             server_address,
             server_port,
             args,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -53,6 +55,8 @@ def async_chat(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -64,6 +68,7 @@ def async_chat(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -98,6 +103,7 @@ def async_chat(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -130,6 +136,7 @@ def async_chat(
                 server_address,
                 server_port,
                 args,
+                event_provider,
             )
 
         else:
@@ -141,7 +148,6 @@ def async_chat(
                 try:
                     response = process_chat_response(
                         response=response,
-                        gen_ai_endpoint="ollama.chat",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -153,6 +159,7 @@ def async_chat(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
@@ -173,6 +180,7 @@ def async_generate(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama async generate function call
@@ -192,6 +200,7 @@ def async_generate(
             server_address,
             server_port,
             args,
+            event_provider=None,
         ):
             self.__wrapped__ = wrapped
             self._span = span
@@ -201,6 +210,8 @@ def async_generate(
             self._tools = []
             self._input_tokens = 0
             self._output_tokens = 0
+            self._cache_read_input_tokens = 0
+            self._cache_creation_input_tokens = 0
             self._response_role = ""
             self._span_name = span_name
             self._args = args
@@ -212,6 +223,7 @@ def async_generate(
             self._tbt = 0
             self._server_address = server_address
             self._server_port = server_port
+            self._event_provider = event_provider
 
         async def __aenter__(self):
             await self.__wrapped__.__aenter__()
@@ -246,6 +258,7 @@ def async_generate(
                             capture_message_content=capture_message_content,
                             disable_metrics=disable_metrics,
                             version=version,
+                            event_provider=self._event_provider,
                         )
                 except Exception as e:
                     handle_exception(self._span, e)
@@ -278,6 +291,7 @@ def async_generate(
                 server_address,
                 server_port,
                 args,
+                event_provider,
             )
 
         else:
@@ -289,7 +303,6 @@ def async_generate(
                 try:
                     response = process_generate_response(
                         response=response,
-                        gen_ai_endpoint="ollama.generate",
                         pricing_info=pricing_info,
                         server_port=server_port,
                         server_address=server_address,
@@ -301,6 +314,7 @@ def async_generate(
                         capture_message_content=capture_message_content,
                         disable_metrics=disable_metrics,
                         version=version,
+                        event_provider=event_provider,
                         **kwargs,
                     )
 
@@ -321,6 +335,7 @@ def async_embeddings(
     capture_message_content,
     metrics,
     disable_metrics,
+    event_provider=None,
 ):
     """
     Generates a telemetry wrapper for Ollama async embeddings function call
@@ -360,6 +375,7 @@ def async_embeddings(
                     capture_message_content=capture_message_content,
                     disable_metrics=disable_metrics,
                     version=version,
+                    event_provider=event_provider,
                     **kwargs,
                 )
 

@@ -2668,7 +2668,9 @@ class Repository(
 
     @jsii.member(jsii_name="grantPull")
     def grant_pull(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.pull()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -2679,7 +2681,9 @@ class Repository(
 
     @jsii.member(jsii_name="grantPullPush")
     def grant_pull_push(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.pullPush()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -2690,7 +2694,9 @@ class Repository(
 
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.read()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''

@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdk-monitoring-constructs",
-    "version": "9.19.1",
+    "version": "9.19.2",
     "description": "cdk-monitoring-constructs",
     "license": "Apache-2.0",
     "url": "https://github.com/cdklabs/cdk-monitoring-constructs",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdk_monitoring_constructs._jsii": [
-            "cdk-monitoring-constructs@9.19.1.jsii.tgz"
+            "cdk-monitoring-constructs@9.19.2.jsii.tgz"
         ],
         "cdk_monitoring_constructs": [
             "py.typed"

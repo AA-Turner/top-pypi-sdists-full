@@ -17,11 +17,8 @@ from exponent.core.graphql.client import GraphQLClient
 from exponent.core.graphql.generated_client import (
     RepositoryInput,
 )
-from exponent.core.graphql.generated_client.create_cloud_chat_from_repository import (
-    CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat,
-)
 from exponent.core.graphql.generated_client.enable_cloud_repository import (
-    EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult,
+    EnableCloudRepositoryEnableCloudRepository,
 )
 from exponent.utils.version import check_exponent_version_and_upgrade
 
@@ -47,7 +44,7 @@ async def enable_cloud_repository(
     enable_result = result.enable_cloud_repository
     if isinstance(
         enable_result,
-        EnableCloudRepositoryEnableCloudRepositoryEnableCloudRepositoriesResult,
+        EnableCloudRepositoryEnableCloudRepository,
     ):
         if enable_result.results and enable_result.results[0].success:
             repo_result = enable_result.results[0]
@@ -113,16 +110,10 @@ async def create_cloud_chat_from_repository(
     result = await graphql_client.create_cloud_chat_from_repository(repository_uuid=repository_uuid)
 
     chat_result = result.create_chat_with_resource_config
-    if isinstance(chat_result, CreateCloudChatFromRepositoryCreateChatWithResourceConfigChat):
-        return {
-            "__typename": "Chat",
-            "chatUuid": str(chat_result.chat_uuid),
-        }
-    else:
-        return {
-            "__typename": chat_result.typename__,
-            "message": chat_result.message if hasattr(chat_result, "message") else "Unknown error",
-        }
+    return {
+        "__typename": "Chat",
+        "chatUuid": str(chat_result.chat_uuid),
+    }
 
 
 async def start_chat_turn_with_prompt(

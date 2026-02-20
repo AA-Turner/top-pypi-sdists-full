@@ -7,7 +7,6 @@ from typing import Optional, Dict, Tuple
 from airflow.models import Connection
 from airflow.exceptions import AirflowException
 
-
 class MSFabricRestConnectionSPN:
     """
     Handles SPN-based authentication for Microsoft Fabric.
@@ -39,11 +38,9 @@ class MSFabricRestConnectionSPN:
         
         # Log connection configuration (mask sensitive data)
         self.log.info(
-            "SPN Connection configured - Tenant ID: %s, Client ID: %s, Client Secret: %s",
+            "SPN Connection configured - Tenant ID: %s, Client ID: %s, Client Secret: **",
             self.tenant_id,
-            self.client_id,
-            f"{self.client_secret[:4]}***{self.client_secret[-4:]}" if len(self.client_secret) > 8 else "***"
-        )
+            self.client_id)
         
         # Token cache - indexed by scope
         # Structure: {scope: (token, expires_at, acquired_at)}
@@ -167,7 +164,7 @@ class MSFabricRestConnectionSPN:
             # Cache the token for this specific scope
             self._cached_tokens[scope] = (access_token, expires_at, current_time)
             
-            self.log.info(
+            self.log.debug(
                 "Successfully acquired access token for scope '%s' (expires: %s, valid for: %d seconds, token: %s...)",
                 scope,
                 expires_utc,

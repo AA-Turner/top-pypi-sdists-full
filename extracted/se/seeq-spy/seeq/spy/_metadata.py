@@ -302,6 +302,7 @@ def _process_push_row(session: Session, status: Status, push_context: PushContex
 
     if not _common.present(row_dict, 'Name'):
         raise SPyRuntimeError('Metadata must have a "Name" column.')
+    row_dict['Name'] = row_dict['Name'].strip()
 
     if _common.get(row_dict, 'Reference') is True:
         already_is_reference = _common.present(row_dict, 'Referenced ID')

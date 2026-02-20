@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstract_webtools
-Version: 0.1.6.388
+Version: 0.1.6.393
 Summary: Utilities for fetching/parsing web content with requests/urllib3/BS4 and helpers.
 Home-page: https://github.com/AbstractEndeavors/abstract_webtools
 Author: putkoff

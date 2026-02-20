@@ -1329,7 +1329,7 @@ class FeatureConverter(PrimitiveFeatureConverter[_TPrim], Generic[_TPrim, _TRich
                     return cast(_TPrim, value)
             elif missing_value_strategy == "error":
                 raise MissingValueError(
-                    f"The value for feature '{self._name}' is missing, but `replace_missing_with_defaults` was set to False."
+                    f"The value for feature '{self._name}' is missing, but `replace_missing_with_defaults` was set to `False`."
                 )
             else:
                 raise ValueError(

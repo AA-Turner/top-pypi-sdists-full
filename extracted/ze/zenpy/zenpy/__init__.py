@@ -46,7 +46,8 @@ from zenpy.lib.api import (
     ZISApi,
     WebhooksApi,
     LocalesApi,
-    CustomStatusesApi
+    CustomStatusesApi,
+    EngagementApi
 )
 
 from zenpy.lib.cache import ZenpyCache, ZenpyCacheManager
@@ -60,7 +61,7 @@ if debug_log is not None:
 log = logging.getLogger()
 
 __author__ = "facetoe"
-__version__ = "2.0.56"
+__version__ = "2.0.57"
 
 
 class Zenpy(object):
@@ -192,6 +193,7 @@ class Zenpy(object):
         self.webhooks = WebhooksApi(config)
         self.locales = LocalesApi(config)
         self.custom_statuses = CustomStatusesApi(config)
+        self.engagements = EngagementApi(config)
 
     @staticmethod
     def http_adapter_kwargs():

@@ -4,6 +4,7 @@ import numpy as np
 import scipy.sparse as sp
 
 import pytensor.sparse.basic as psb
+from pytensor import config
 from pytensor.link.numba.dispatch import basic as numba_basic
 from pytensor.link.numba.dispatch.basic import (
     register_funcify_and_cache_key,
@@ -13,8 +14,22 @@ from pytensor.sparse import (
     Dot,
     SparseDenseMultiply,
     SparseDenseVectorMultiply,
+    SpSum,
     StructuredDot,
+    StructuredDotGradCSC,
+    StructuredDotGradCSR,
 )
+
+
+@register_funcify_default_op_cache_key(SpSum)
+def numba_funcify_SpSum(op, node, **kwargs):
+    axis = op.axis
+
+    @numba_basic.numba_njit
+    def perform(x):
+        return x.sum(axis)
+
+    return perform
 
 
 @register_funcify_default_op_cache_key(SparseDenseMultiply)
@@ -121,6 +136,7 @@ def numba_funcify_SparseDot(op, node, **kwargs):
     x_format = x.type.format if x_is_sparse else None
     y_format = y.type.format if y_is_sparse else None
 
+    cache_version = 2
     cache_key = sha256(
         str(
             (
@@ -130,6 +146,7 @@ def numba_funcify_SparseDot(op, node, **kwargs):
                 z_is_sparse,
                 y.type.ndim,
                 y.type.broadcastable,
+                cache_version,
             )
         ).encode()
     ).hexdigest()
@@ -137,12 +154,14 @@ def numba_funcify_SparseDot(op, node, **kwargs):
     if x_is_sparse and y_is_sparse:
         # General spmspm algorithm in CSR format
         @numba_basic.numba_njit
-        def _spmspm(n_row, n_col, x_ptr, x_ind, x_data, y_ptr, y_ind, y_data):
+        def _spmspm_csr(x, y, n_row, n_col):
             # Pass 1
-            x_ind = x_ind.view(np.uint32)
-            y_ind = y_ind.view(np.uint32)
-            x_ptr = x_ptr.view(np.uint32)
-            y_ptr = y_ptr.view(np.uint32)
+            x_ind = x.indices.view(np.uint32)
+            y_ind = y.indices.view(np.uint32)
+            x_ptr = x.indptr.view(np.uint32)
+            y_ptr = y.indptr.view(np.uint32)
+            x_data = x.data
+            y_data = y.data
 
             output_nnz = 0
             mask = np.full(n_col, -1, dtype=np.int32)
@@ -201,35 +220,63 @@ def numba_funcify_SparseDot(op, node, **kwargs):
 
             return z_ptr.view(np.int32), z_ind.view(np.int32), z_data
 
-        @numba_basic.numba_njit
-        def spmspm(x, y):
-            if x_format != "csr":
-                x = x.tocsr()
+        formats = (x_format, y_format)
+        if formats == ("csc", "csc"):
+            # In all cases, the output is dense when the op is Dot.
+            @numba_basic.numba_njit
+            def spmspm_csc_csc(x, y):
+                # Swap inputs
+                n_row, n_col = x.shape[0], y.shape[1]
+                z_ptr, z_ind, z_data = _spmspm_csr(x=y, y=x, n_row=n_col, n_col=n_row)
+                output = sp.csc_matrix((z_data, z_ind, z_ptr), shape=(n_row, n_col))
+                if not z_is_sparse:
+                    return output.toarray()
+                return output
 
-            if y_format != "csr":
-                y = y.tocsr()
+            return spmspm_csc_csc, cache_key
+        elif formats == ("csc", "csr"):
 
-            x_ptr, x_ind, x_data = x.indptr, x.indices, x.data
-            y_ptr, y_ind, y_data = y.indptr, y.indices, y.data
-            n_row, n_col = x.shape[0], y.shape[1]
+            @numba_basic.numba_njit
+            def spmspm_csc_csr(x, y):
+                # Convert csr to csc and swap
+                n_row, n_col = x.shape[0], y.shape[1]
+                z_ptr, z_ind, z_data = _spmspm_csr(
+                    x=y.tocsc(), y=x, n_row=n_col, n_col=n_row
+                )
+                output = sp.csc_matrix((z_data, z_ind, z_ptr), shape=(n_row, n_col))
+                if not z_is_sparse:
+                    return output.toarray()
+                return output
 
-            z_ptr, z_ind, z_data = _spmspm(
-                n_row, n_col, x_ptr, x_ind, x_data, y_ptr, y_ind, y_data
-            )
+            return spmspm_csc_csr, cache_key
+        elif formats == ("csr", "csc"):
 
-            output = sp.csr_matrix((z_data, z_ind, z_ptr), shape=(n_row, n_col))
+            @numba_basic.numba_njit
+            def spmspm_csr_csc(x, y):
+                # Convert csc to csr, no swap
+                n_row, n_col = x.shape[0], y.shape[1]
+                z_ptr, z_ind, z_data = _spmspm_csr(
+                    x=x, y=y.tocsr(), n_row=n_row, n_col=n_col
+                )
+                output = sp.csr_matrix((z_data, z_ind, z_ptr), shape=(n_row, n_col))
+                if not z_is_sparse:
+                    return output.toarray()
+                return output
 
-            # Dot returns a dense result even in spMspM
-            if not z_is_sparse:
-                return output.toarray()
+            return spmspm_csr_csc, cache_key
+        else:
 
-            # StructuredDot returns in the format of 'x'
-            if x_format == "csc":
-                return output.tocsc()
+            @numba_basic.numba_njit
+            def spmspm_csr_csr(x, y):
+                # No conversion, no swap
+                n_row, n_col = x.shape[0], y.shape[1]
+                z_ptr, z_ind, z_data = _spmspm_csr(x=x, y=y, n_row=n_row, n_col=n_col)
+                output = sp.csr_matrix((z_data, z_ind, z_ptr), shape=(n_row, n_col))
+                if not z_is_sparse:
+                    return output.toarray()
+                return output
 
-            return output
-
-        return spmspm, cache_key
+            return spmspm_csr_csr, cache_key
 
     # Only one of 'x' or 'y' is sparse, not both.
     # Before using a general dot(sparse-matrix, dense-matrix) algorithm,
@@ -370,3 +417,233 @@ def numba_funcify_SparseDot(op, node, **kwargs):
                 return spmdm_csr(y.T, x.T).T
 
         return dmspm, cache_key
+
+
+@register_funcify_and_cache_key(StructuredDotGradCSR)
+@register_funcify_and_cache_key(StructuredDotGradCSC)
+def numba_funcify_StructuredDotGrad(op, node, **kwargs):
+    """Overload StructuredDotGrad in Numba.
+
+    Let:
+      Z = structured_dot(X, Y)
+      L = L(Z), a scalar loss depending on Z.
+
+    This function computes the gradient of the loss with respect to X:
+
+      dL/dX = dot(dL/dZ, Y^T)
+
+    where G = dL/dZ is the accumulated (upstream) gradient.
+
+    The returned gradient is structured, preserving the sparsity pattern of X,
+    and only the `.data` component of the sparse matrix is computed.
+    If Y is sparse, the sparsity pattern of the result is not recomputed.
+    The output may contain explicit zeros at positions that would be structural zeros
+    if the sparsity structure were updated.
+
+    The core of the algorithm is:
+
+     dot(g_xy[i], y[j])
+
+    where g_xy[i] (row of G) and y[j] (column of Y^T) are vectors of length 'k'
+
+    Reminder:
+    x.shape        (n, p)
+    y.shape        (p, k)
+    g_xy.shape     (n, k)
+    """
+    _, _, y, g_xy = node.inputs
+
+    y_dtype = y.type.dtype
+    y_is_sparse = psb._is_sparse_variable(y)
+    y_format = y.type.format if y_is_sparse else None
+
+    g_xy_dtype = g_xy.type.dtype
+    g_xy_is_sparse = psb._is_sparse_variable(g_xy)
+    g_xy_format = g_xy.type.format if g_xy_is_sparse else None
+
+    x_format = "csc" if isinstance(op, StructuredDotGradCSC) else "csr"
+    out_dtype = g_xy_dtype
+
+    cache_key = sha256(
+        str(
+            (
+                type(op),
+                x_format,
+                y_format,
+                y_dtype,
+                g_xy_format,
+                out_dtype,
+                y.type.shape,
+            )
+        ).encode()
+    ).hexdigest()
+
+    if not g_xy_is_sparse:
+        # X is sparse, Y and G_xy are dense.
+        if x_format == "csr":
+            if y.type.shape[1] == 1:
+                # If Y is actually 1D, use more performant specialized algorithm
+                # Inputs with ndims > 2 will never appear in the StructuredDot Op
+                @numba_basic.numba_njit
+                def _grad_spmdv_csr(x_indices, x_ptr, y, g_xy):
+                    output = np.empty(len(x_indices), dtype=out_dtype)
+                    size = len(x_ptr) - 1
+                    x_indices = x_indices.view(np.uint32)
+                    x_ptr = x_ptr.view(np.uint32)
+                    for row_idx in range(size):
+                        for value_idx in range(x_ptr[row_idx], x_ptr[row_idx + 1]):
+                            output[value_idx] = g_xy[row_idx] * y[x_indices[value_idx]]
+                    return output
+
+                @numba_basic.numba_njit
+                def grad_spmdv_csr(x_indices, x_ptr, y, g_xy):
+                    return _grad_spmdv_csr(x_indices, x_ptr, y[:, 0], g_xy[:, 0])
+
+                return grad_spmdv_csr, cache_key
+            else:
+                # Y is a matrix
+                if config.compiler_verbose and y_dtype != out_dtype:
+                    print(  # noqa: T201
+                        "Numba StructuredDotGrad requires a type casting of inputs: "
+                        f"{y_dtype=}, {g_xy_dtype=}."
+                    )
+
+                @numba_basic.numba_njit
+                def grad_spmdm_csr(x_indices, x_ptr, y, g_xy):
+                    size = len(x_ptr) - 1
+                    x_indices = x_indices.view(np.uint32)
+                    x_ptr = x_ptr.view(np.uint32)
+
+                    if y_dtype != out_dtype:
+                        new_out_dtype = np.result_type(y, g_xy)
+                        output = np.zeros(len(x_indices), dtype=new_out_dtype)
+                        y = y.astype(out_dtype)
+                        g_xy = g_xy.astype(out_dtype)
+                    else:
+                        output = np.zeros(len(x_indices), dtype=out_dtype)
+
+                    for row_idx in range(size):
+                        for value_idx in range(x_ptr[row_idx], x_ptr[row_idx + 1]):
+                            output[value_idx] = np.dot(
+                                g_xy[row_idx], y[x_indices[value_idx]]
+                            )
+                    return output
+
+                return grad_spmdm_csr, cache_key
+        else:
+            # X is CSC
+            @numba_basic.numba_njit
+            def grad_spmdm_csc(x_indices, x_ptr, y, g_xy):
+                # len(x_indices) gives the number of non-zero elements in X.
+                output = np.zeros(len(x_indices), dtype=out_dtype)
+                size = len(x_ptr) - 1
+                x_indices = x_indices.view(np.uint32)
+                x_ptr = x_ptr.view(np.uint32)
+
+                for col_idx in range(size):
+                    for value_idx in range(x_ptr[col_idx], x_ptr[col_idx + 1]):
+                        output[value_idx] = np.dot(
+                            g_xy[x_indices[value_idx]], y[col_idx]
+                        )
+                return output
+
+            return grad_spmdm_csc, cache_key
+
+    # Y is sparse. In either case we need 'dot_csr_rows'
+    @numba_basic.numba_njit
+    def dot_csr_rows(x_ptr, x_indices, x_data, x_row, y_ptr, y_indices, y_data, y_row):
+        x_p = x_ptr[x_row]
+        x_end = x_ptr[x_row + 1]
+        y_p = y_ptr[y_row]
+        y_end = y_ptr[y_row + 1]
+
+        acc = 0.0
+        while x_p < x_end and y_p < y_end:
+            x_col = x_indices[x_p]
+            y_col = y_indices[y_p]
+            if x_col == y_col:
+                acc += x_data[x_p] * y_data[y_p]
+                x_p += 1
+                y_p += 1
+            elif x_col < y_col:
+                x_p += 1
+            else:
+                y_p += 1
+
+        return acc
+
+    if x_format == "csr":
+        assert g_xy_format == "csr"
+        assert psb._is_sparse_variable(y)
+
+        @numba_basic.numba_njit
+        def grad_spmspm_csr(x_indices, x_ptr, y, g_xy):
+            if y_format == "csc":
+                y = y.tocsr()
+
+            g_xy_data = g_xy.data
+            g_xy_indices = g_xy.indices.view(np.uint32)
+            g_xy_ptr = g_xy.indptr.view(np.uint32)
+
+            y_data = y.data
+            y_indices = y.indices.view(np.uint32)
+            y_ptr = y.indptr.view(np.uint32)
+
+            n_row = len(x_ptr) - 1
+            output = np.zeros(len(x_indices), dtype=out_dtype)
+
+            for x_row in range(n_row):
+                for data_idx in range(x_ptr[x_row], x_ptr[x_row + 1]):
+                    x_col = x_indices[data_idx]
+                    output[data_idx] = dot_csr_rows(
+                        g_xy_ptr,
+                        g_xy_indices,
+                        g_xy_data,
+                        x_row,
+                        y_ptr,
+                        y_indices,
+                        y_data,
+                        x_col,
+                    )
+            return output
+
+        return grad_spmspm_csr, cache_key
+    else:
+        assert g_xy_format == "csc"
+        assert psb._is_sparse_variable(y)
+
+        @numba_basic.numba_njit
+        def grad_spmspm_csc(x_indices, x_ptr, y, g_xy):
+            if y_format == "csc":
+                y = y.tocsr()
+
+            # Looping a CSC matrix rowwise is too painful, slow, and cryptic.
+            g_xy = g_xy.tocsr()
+
+            g_xy_data = g_xy.data
+            g_xy_indices = g_xy.indices.view(np.uint32)
+            g_xy_ptr = g_xy.indptr.view(np.uint32)
+
+            y_data = y.data
+            y_indices = y.indices.view(np.uint32)
+            y_ptr = y.indptr.view(np.uint32)
+
+            n_cols = len(x_ptr) - 1
+            output = np.empty(len(x_indices), dtype=out_dtype)
+
+            for x_col in range(n_cols):
+                for data_idx in range(x_ptr[x_col], x_ptr[x_col + 1]):
+                    x_row = x_indices[data_idx]
+                    output[data_idx] = dot_csr_rows(
+                        g_xy_ptr,
+                        g_xy_indices,
+                        g_xy_data,
+                        x_row,
+                        y_ptr,
+                        y_indices,
+                        y_data,
+                        x_col,
+                    )
+            return output
+
+        return grad_spmspm_csc, cache_key

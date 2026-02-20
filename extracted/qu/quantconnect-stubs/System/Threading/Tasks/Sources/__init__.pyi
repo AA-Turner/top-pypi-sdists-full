@@ -6,8 +6,18 @@ import typing
 import System
 import System.Threading.Tasks.Sources
 
-System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult = typing.TypeVar("System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult")
 System_Threading_Tasks_Sources_IValueTaskSource_TResult = typing.TypeVar("System_Threading_Tasks_Sources_IValueTaskSource_TResult")
+System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult = typing.TypeVar("System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult")
+
+
+class ValueTaskSourceOnCompletedFlags(IntEnum):
+    """This class has no documentation."""
+
+    NONE = 0
+
+    USE_SCHEDULING_CONTEXT = ...
+
+    FLOW_EXECUTION_CONTEXT = ...
 
 
 class ValueTaskSourceStatus(IntEnum):
@@ -22,14 +32,17 @@ class ValueTaskSourceStatus(IntEnum):
     CANCELED = 3
 
 
-class ValueTaskSourceOnCompletedFlags(IntEnum):
+class IValueTaskSource(typing.Generic[System_Threading_Tasks_Sources_IValueTaskSource_TResult], metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    NONE = 0
+    def get_result(self, token: int) -> None:
+        ...
 
-    USE_SCHEDULING_CONTEXT = ...
+    def get_status(self, token: int) -> System.Threading.Tasks.Sources.ValueTaskSourceStatus:
+        ...
 
-    FLOW_EXECUTION_CONTEXT = ...
+    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
+        ...
 
 
 class ManualResetValueTaskSourceCore(typing.Generic[System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult]):
@@ -63,19 +76,6 @@ class ManualResetValueTaskSourceCore(typing.Generic[System_Threading_Tasks_Sourc
         ...
 
     def set_result(self, result: System_Threading_Tasks_Sources_ManualResetValueTaskSourceCore_TResult) -> None:
-        ...
-
-
-class IValueTaskSource(typing.Generic[System_Threading_Tasks_Sources_IValueTaskSource_TResult], metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def get_result(self, token: int) -> None:
-        ...
-
-    def get_status(self, token: int) -> System.Threading.Tasks.Sources.ValueTaskSourceStatus:
-        ...
-
-    def on_completed(self, continuation: typing.Callable[[System.Object], typing.Any], state: typing.Any, token: int, flags: System.Threading.Tasks.Sources.ValueTaskSourceOnCompletedFlags) -> None:
         ...
 
 

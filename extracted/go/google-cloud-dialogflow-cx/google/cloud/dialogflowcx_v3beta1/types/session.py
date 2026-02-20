@@ -17,11 +17,11 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
-from google.type import latlng_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
+import google.type.latlng_pb2 as latlng_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dialogflowcx_v3beta1.types import (
@@ -84,7 +84,8 @@ class DetectIntentResponseView(proto.Enum):
 
     Values:
         DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED (0):
-            Not specified. ``FULL`` will be used.
+            Not specified. ``DETECT_INTENT_RESPONSE_VIEW_DEFAULT`` will
+            be used.
         DETECT_INTENT_RESPONSE_VIEW_FULL (1):
             Full response view includes all fields.
         DETECT_INTENT_RESPONSE_VIEW_BASIC (2):
@@ -95,10 +96,16 @@ class DetectIntentResponseView(proto.Enum):
             ---------------------------------------------------------------------------------------------
 
             [QueryResult.generative_info][google.cloud.dialogflow.cx.v3beta1.QueryResult.generative_info]
+        DETECT_INTENT_RESPONSE_VIEW_DEFAULT (3):
+            Default response view omits the following fields:
+            -------------------------------------------------
+
+            [QueryResult.trace_blocks][google.cloud.dialogflow.cx.v3beta1.QueryResult.trace_blocks]
     """
     DETECT_INTENT_RESPONSE_VIEW_UNSPECIFIED = 0
     DETECT_INTENT_RESPONSE_VIEW_FULL = 1
     DETECT_INTENT_RESPONSE_VIEW_BASIC = 2
+    DETECT_INTENT_RESPONSE_VIEW_DEFAULT = 3
 
 
 class AnswerFeedback(proto.Message):

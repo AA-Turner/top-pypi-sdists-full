@@ -12,7 +12,6 @@ def test_importable():
     import isort._version
     import isort.api
     import isort.comments
-    import isort.deprecated.finders
     import isort.exceptions
     import isort.format
     import isort.hooks
@@ -24,7 +23,6 @@ def test_importable():
     import isort.profiles
     import isort.sections
     import isort.settings
-    import isort.setuptools_commands
     import isort.sorting
     import isort.stdlibs
     import isort.stdlibs.all

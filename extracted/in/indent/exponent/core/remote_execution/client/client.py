@@ -635,6 +635,15 @@ class RemoteExecutionClient:
                 await connection_tracker.set_connected(False)
 
     @staticmethod
+    def _set_tcp_sockopt_if_available(sock: socket.socket, option_name: str, value: int) -> None:
+        option = cast(int | None, getattr(socket, option_name, None))
+        if option is None:
+            logger.debug("Skipping unsupported TCP socket option: %s", option_name)
+            return
+
+        sock.setsockopt(socket.IPPROTO_TCP, option, value)
+
+    @staticmethod
     def _configure_tcp_keepalive(websocket: ClientConnection) -> None:
         # Detect dead TCP connections quickly after E2B sandbox pause/resume by setting
         # aggressive keepalive probes (idle sockets) and TCP_USER_TIMEOUT (all states).
@@ -643,15 +652,15 @@ class RemoteExecutionClient:
             return
 
         try:
-            sock = websocket.transport.get_extra_info("socket")
+            sock = cast(socket.socket | None, websocket.transport.get_extra_info("socket"))
             if sock is None:
                 return
 
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 5)
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 3)
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
-            sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_USER_TIMEOUT, 14_000)
+            RemoteExecutionClient._set_tcp_sockopt_if_available(sock, "TCP_KEEPIDLE", 5)
+            RemoteExecutionClient._set_tcp_sockopt_if_available(sock, "TCP_KEEPINTVL", 3)
+            RemoteExecutionClient._set_tcp_sockopt_if_available(sock, "TCP_KEEPCNT", 3)
+            RemoteExecutionClient._set_tcp_sockopt_if_available(sock, "TCP_USER_TIMEOUT", 14_000)
         except OSError:
             logger.debug("Failed to set TCP keepalive options", exc_info=True)
 

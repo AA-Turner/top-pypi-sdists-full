@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.113294                                                            #
+# Generated on 2026-02-19T20:41:45.637968                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,13 +9,13 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
-    import typing
+    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
-    import datetime
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import typing
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor
@@ -48,6 +48,8 @@ from .exceptions import CodePackagingException as CodePackagingException
 from .dependencies import ImageBakingException as ImageBakingException
 
 CODE_PACKAGE_PREFIX: str
+
+UNASSIGNED_PROJECT_BRANCH: str
 
 def bake_image(pypi: typing.Optional[typing.Dict[str, str]] = None, conda: typing.Optional[typing.Dict[str, str]] = None, requirements_file: typing.Optional[str] = None, pyproject_toml: typing.Optional[str] = None, base_image: typing.Optional[str] = None, python: typing.Optional[str] = None, logger: typing.Optional[typing.Callable[[str], typing.Any]] = None, cache_name: typing.Optional[str] = None) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.config.unified_config.BakedImage:
     """
@@ -361,7 +363,7 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
     @property
     def _deploy_config(self) -> metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config.AppConfig:
         ...
-    def deploy(self, readiness_condition: str = 'at_least_one_running', max_wait_time = 600, readiness_wait_time = 10, logger_fn = ..., **kwargs) -> DeployedApp:
+    def deploy(self, readiness_condition: str = 'at_least_one_running', max_wait_time = 600, readiness_wait_time = 60, logger_fn = ..., **kwargs) -> DeployedApp:
         """
         Deploy the app to the Outerbounds Platform.
         
@@ -422,7 +424,13 @@ class AppDeployer(metaflow.mf_extensions.outerbounds.plugins.apps.core.config.ty
             Default is 600 (10 minutes).
         
         readiness_wait_time : int, optional
-            Time in seconds to wait between readiness checks. Default is 10.
+            Once the deployment meets the readiness_condition, workers are monitored
+            for an additional readiness_wait_time seconds to catch crashloops that
+            surface shortly after startup. If a worker enters a crashloop during this
+            window the deploy will fail with AppCrashLoopException. Increase this
+            value for apps with slow startups or when infrastructure may not be
+            quickly available for apps.
+            Default is 60.
         
         logger_fn : Callable, optional
             Function to use for logging progress messages. Default prints to stderr.

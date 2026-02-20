@@ -1,15 +1,16 @@
 # Minimum version required
-cmake_minimum_required (VERSION 3.2)
+cmake_minimum_required (VERSION 3.11)
 
 set(QDLDL_VERSION_MAJOR "0")
 set(QDLDL_VERSION_MINOR "1")
-set(QDLDL_VERSION_PATCH "7")
+set(QDLDL_VERSION_PATCH "9")
 set(QDLDL_VERSION "${QDLDL_VERSION_MAJOR}.${QDLDL_VERSION_MINOR}.${QDLDL_VERSION_PATCH}")
 
 # Project name
 project(qdldl VERSION ${QDLDL_VERSION})
 
 include( CMakeDependentOption )
+include( CheckCXXCompilerFlag )
 
 option( QDLDL_BUILD_STATIC_LIB "Build the static library" ON )
 option( QDLDL_BUILD_SHARED_LIB "Build the shared library" ON )
@@ -23,6 +24,14 @@ cmake_dependent_option( QDLDL_UNITTESTS
                         "Build the unit testing suite"
                         OFF    # Default to off
                         QDLDL_BUILD_STATIC_LIB OFF ) # Force off if the static library isn't built
+
+# Dev options
+option( QDLDL_DEV_COVERAGE "Include coverage information in the library" OFF )
+option( QDLDL_DEV_ANALYSIS "Run the compiler static analysis checks" OFF )
+option( QDLDL_DEV_ASAN "Build with ASAN" OFF )
+
+mark_as_advanced( OSQP_DEV_COVERAGE )
+mark_as_advanced( OSQP_DEV_ANALYSIS )
 
 # Set the output folder where your program will be created
 set(EXECUTABLE_OUTPUT_PATH ${PROJECT_BINARY_DIR}/out)
@@ -62,12 +71,33 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)  # -fPIC
 # Add compiler options if we are not on windows
 if (NOT MSVC)
 
-    if (COVERAGE)
+    if (QDLDL_DEV_COVERAGE)
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} --coverage")
 
 	      if(FORTRAN)
 		        set(CMAKE_FORTRAN_FLAGS "${CMAKE_FORTRAN_FLAGS} --coverage")
 	      endif(FORTRAN)
+    endif()
+
+    if (QDLDL_DEV_ANALYSIS)
+        check_cxx_compiler_flag( "-fanalyzer" COMPILER_SUPPORTS_FANALYZER )
+
+        if( COMPILER_SUPPORTS_FANALYZER )
+            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fanalyzer")
+
+            message( STATUS "Enabling -fanalyzer static analysis" )
+        endif()
+    endif()
+
+    if(OSQP_ASAN)
+        set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g -D_GLIBCXX_SANITIZE_VECTOR -fsanitize=address -fno-optimize-sibling-calls -fsanitize-address-use-after-scope -fno-omit-frame-pointer" )
+
+        # ASAN shouldn't be used with these options (https://github.com/google/sanitizers/wiki/AddressSanitizer#faq)
+        set( CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fno-stack-protector -U_FORTIFY_SOURCE" )
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fno-stack-protector -U_FORTIFY_SOURCE" )
+
+        message( STATUS "Enabling ASAN" )
     endif()
 
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
@@ -103,11 +133,11 @@ set(QDLDL_BOOL_TYPE "unsigned char")
 # Generate header file with the global options
 # ---------------------------------------------
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure/qdldl_types.h.in
-               ${CMAKE_CURRENT_SOURCE_DIR}/include/qdldl_types.h
+               ${CMAKE_CURRENT_BINARY_DIR}/include/qdldl_types.h
                NEWLINE_STYLE LF)
 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/configure/qdldl_version.h.in
-               ${CMAKE_CURRENT_SOURCE_DIR}/include/qdldl_version.h
+               ${CMAKE_CURRENT_BINARY_DIR}/include/qdldl_version.h
                NEWLINE_STYLE LF)
 
 
@@ -121,14 +151,16 @@ set(
 set(
 	qdldl_headers
 	include/qdldl.h
-	include/qdldl_types.h
-	include/qdldl_version.h
+	${CMAKE_CURRENT_BINARY_DIR}/include/qdldl_types.h
+	${CMAKE_CURRENT_BINARY_DIR}/include/qdldl_version.h
 	)
 
 # Create object library
 # ----------------------------------------------
 add_library (qdldlobject OBJECT ${qdldl_src} ${qdldl_headers})
-target_include_directories(qdldlobject PRIVATE ${PROJECT_SOURCE_DIR}/include)
+target_include_directories(qdldlobject PRIVATE
+                           ${CMAKE_CURRENT_SOURCE_DIR}/include
+                           ${CMAKE_CURRENT_BINARY_DIR}/include)
 
 
 # Create Static Library
@@ -147,6 +179,7 @@ if( QDLDL_BUILD_STATIC_LIB )
     # Declare include directories for the cmake exported target
     target_include_directories(qdldlstatic
                                PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
+                                      "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
                                       "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}/qdldl>")
 
     # Install Static Library
@@ -182,7 +215,8 @@ if( QDLDL_BUILD_SHARED_LIB )
     # Declare include directories for the cmake exported target
     target_include_directories(qdldl
         PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
-        "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}/qdldl>")
+               "$<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>"
+               "$<INSTALL_INTERFACE:$<INSTALL_PREFIX>/${CMAKE_INSTALL_INCLUDEDIR}/qdldl>")
 
     # Install qdldl shared library
     install(TARGETS qdldl

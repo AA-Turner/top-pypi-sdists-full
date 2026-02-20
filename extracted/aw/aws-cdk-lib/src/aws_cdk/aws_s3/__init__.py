@@ -154,13 +154,58 @@ from the bucket.
 
 ### Understanding "grant" Methods
 
-The S3 construct library provides several grant methods for the `Bucket` resource, but two of them have a special behavior. This two accept an `objectsKeyPattern` parameter to restrict granted permissions to specific resources:
+The S3 construct library provides several grant methods for `IBucketRef` instances, which can
+be accessed via the `BucketGrants` class:
 
-* `grantRead`
-* `grantReadWrite`
+```python
+# principal: iam.IPrincipal
+# bucket: s3.IBucketRef
 
-When examining the synthesized policy, you'll notice it includes both your specified object key patterns and the bucket itself.
-This is by design. Some permissions (like `s3:ListBucket`) apply at the bucket level, while others (like `s3:GetObject`) apply to specific objects.
+
+s3.BucketGrants.from_bucket(bucket).delete(principal)
+```
+
+If `bucket` is an instance of `CfnBucket`, and the grants process involves adding statements
+to the bucket policy, then the `BucketGrants` class will, by default, do the same thing it
+would do for an instance of `Bucket`: create a new bucket policy (or reuse an existing one)
+and add the necessary statements to it.
+
+But if you want to customize this behavior, you can register an instance of `IResourcePolicyFactory`
+for the `AWS::S3::Bucket` CloudFormation type:
+
+```python
+from aws_cdk.aws_iam import AddToResourcePolicyResult
+from aws_cdk import CfnResource
+from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
+from constructs import Construct, IConstruct
+
+# scope: Construct
+@jsii.implements(IResourcePolicyFactory)
+class MyFactory:
+    def for_resource(self, resource):
+        return {
+            "env": resource.env,
+            def add_to_resource_policy(self, statement):
+                # custom implementation to add the statement to the resource policy
+                return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
+        }
+
+ResourceWithPolicies.register(scope, "AWS::S3::Bucket", MyFactory())
+```
+
+`IResourcePolicyFactory` is responsible for converting a construct into a `IResourceWithPolicyV2`,
+effectively providing an ad-hoc way to extend the behavior of L1s to support grants the same way
+as L2s do.
+
+The `BucketGrants` class has many methods, but two of them have a special behavior. These two
+accept an `objectsKeyPattern` parameter to restrict granted permissions to specific resources:
+
+* `read`
+* `readWrite`
+
+When examining the synthesized policy, you'll notice it includes both your specified object key
+patterns and the bucket itself. This is by design. Some permissions (like `s3:ListBucket`) apply
+at the bucket level, while others (like `s3:GetObject`) apply to specific objects.
 
 Specifically, the [`s3:ListBucket` action operates on bucket resources](https://docs.aws.amazon.com/service-authorization/latest/reference/list_amazons3.html#amazons3-bucket)
 and requires the bucket ARN to work properly. This might be seen as a bug, giving the impression that more permissions were granted than the ones you intended, but the reality is that the policy does not ignore your `objectsKeyPattern` - object-specific actions like `s3:GetObject`
@@ -1705,18 +1750,15 @@ class BucketGrants(
 ):
     '''Collection of grant methods for a Bucket.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_s3 as s3
-        from aws_cdk.interfaces import aws_s3 as interfaces_s3
+        # principal: iam.IPrincipal
+        # bucket: s3.IBucketRef
         
-        # bucket_ref: interfaces_s3.IBucketRef
         
-        bucket_grants = s3.BucketGrants.from_bucket(bucket_ref)
+        s3.BucketGrants.from_bucket(bucket).delete(principal)
     '''
 
     @jsii.member(jsii_name="fromBucket")
@@ -2265,26 +2307,37 @@ class BucketPolicyProps:
         :param document: Policy document to apply to the bucket. Default: - A new empty PolicyDocument will be created.
         :param removal_policy: Policy to apply when the policy is removed from this stack. Default: - RemovalPolicy.DESTROY.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            import aws_cdk as cdk
-            from aws_cdk import aws_iam as iam
-            from aws_cdk import aws_s3 as s3
+            from aws_cdk.mixins_preview.with import
+            import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
+            # Create CloudFront distribution
             # bucket: s3.Bucket
-            # policy_document: iam.PolicyDocument
             
-            bucket_policy_props = s3.BucketPolicyProps(
-                bucket=bucket,
-            
-                # the properties below are optional
-                document=policy_document,
-                removal_policy=cdk.RemovalPolicy.DESTROY
+            distribution = cloudfront.Distribution(scope, "Distribution",
+                default_behavior=cloudfront.BehaviorOptions(
+                    origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+                )
             )
+            
+            # Create destination bucket
+            dest_bucket = s3.Bucket(scope, "DeliveryBucket")
+            # Add permissions to bucket to facilitate log delivery
+            bucket_policy = s3.BucketPolicy(scope, "DeliveryBucketPolicy",
+                bucket=dest_bucket,
+                document=iam.PolicyDocument()
+            )
+            # Create S3 delivery destination for logs
+            destination = logs.CfnDeliveryDestination(scope, "Destination",
+                destination_resource_arn=dest_bucket.bucket_arn,
+                name="unique-destination-name",
+                delivery_destination_type="S3"
+            )
+            
+            distribution.with(cloudfront_mixins.CfnDistributionLogsMixin.CONNECTION_LOGS.to_destination(destination))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4d7b9233434273933326211f004f27c2982fedd89ad904dc86d84c54f0f50ac6)
@@ -22363,6 +22416,8 @@ class BucketBase(
     ) -> "_Grant_a7ae64f8":
         '''Grants s3:DeleteObject* permission to an IAM principal for objects in this bucket.
 
+        The use of this method is discouraged. Please use ``grants.delete()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: The principal.
@@ -22418,6 +22473,8 @@ class BucketBase(
         managed by CloudFormation, this method will have no effect, since it's
         impossible to modify the policy of an existing bucket.
 
+        The use of this method is discouraged. Please use ``grants.publicAccess()`` instead.
+
         [disable-awslint:no-grants]
 
         :param key_prefix: the prefix of S3 object keys (e.g. ``home/*``). Default is "*".
@@ -22440,6 +22497,8 @@ class BucketBase(
         If encryption is used, permission to use the key to encrypt the contents
         of written files will also be granted to the same principal.
 
+        The use of this method is discouraged. Please use ``grants.put()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: The principal.
@@ -22457,7 +22516,9 @@ class BucketBase(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Optional[builtins.str] = None,
     ) -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.putAcl()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         :param objects_key_pattern: -
@@ -22479,6 +22540,8 @@ class BucketBase(
         If encryption is used, permission to use the key to decrypt the contents
         of the bucket will also be granted to the same principal.
 
+        The use of this method is discouraged. Please use ``grants.read()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: The principal.
@@ -22496,7 +22559,9 @@ class BucketBase(
         identity: "_IGrantable_71c4f5de",
         objects_key_pattern: typing.Any = None,
     ) -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.readWrite()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         :param objects_key_pattern: -
@@ -22520,6 +22585,8 @@ class BucketBase(
         Note that when calling this function for source or destination buckets that support KMS encryption,
         you need to specify the KMS key for encryption and the KMS key for decryption, respectively.
 
+        The use of this method is discouraged. Please use ``grants.replicationPermission()`` instead.
+
         [disable-awslint:no-grants]
 
         :param identity: The principal to grant replication permission to.
@@ -22542,7 +22609,9 @@ class BucketBase(
         objects_key_pattern: typing.Any = None,
         allowed_action_patterns: typing.Optional[typing.Sequence[builtins.str]] = None,
     ) -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.write()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         :param objects_key_pattern: -

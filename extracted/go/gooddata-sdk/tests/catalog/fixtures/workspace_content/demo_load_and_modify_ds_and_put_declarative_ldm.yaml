@@ -44,7 +44,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: a34b56bc4802552792f72d6d299cfcb7
+          traceId: bb7e5c8c337db523003b39dd19094abc
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/workspaces
@@ -122,7 +122,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '7113'
+          - '7019'
         Content-Type:
           - application/json
         DATE: *id001
@@ -314,15 +314,11 @@ interactions:
                     labels:
                       - description: Location
                         id: geo__state__location
-                        locale: en-US
                         sourceColumn: geo__state__location
                         sourceColumnDataType: STRING
                         tags:
                           - Customers
                         title: Location
-                        translations:
-                          - locale: cs-CZ
-                            sourceColumn: geo__state__location_cz
                         valueType: GEO
                     sourceColumn: state
                     sourceColumnDataType: STRING
@@ -560,8 +556,8 @@ interactions:
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
                 alternativeDataSourceId: ds-put-abc-id
-                type: POSTGRESQL
                 name: demo-test-ds
+                type: POSTGRESQL
                 schema: demo
               id: demo-test-ds
               links:
@@ -756,10 +752,6 @@ interactions:
                       tags:
                         - Customers
                       valueType: GEO
-                      locale: en-US
-                      translations:
-                        - locale: cs-CZ
-                          sourceColumn: geo__state__location_cz
                   sourceColumn: state
                   title: State
                   sourceColumnDataType: STRING
@@ -1019,8 +1011,8 @@ interactions:
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
                 alternativeDataSourceId: ds-put-abc-id
-                type: POSTGRESQL
                 name: demo-test-ds
+                type: POSTGRESQL
                 schema: demo
               id: demo-test-ds
               links:
@@ -1215,10 +1207,6 @@ interactions:
                       tags:
                         - Customers
                       valueType: GEO
-                      locale: en-US
-                      translations:
-                        - locale: cs-CZ
-                          sourceColumn: geo__state__location_cz
                   sourceColumn: state
                   title: State
                   sourceColumnDataType: STRING
@@ -1451,7 +1439,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '6955'
+          - '6861'
         Content-Type:
           - application/json
         DATE: *id001
@@ -1643,15 +1631,11 @@ interactions:
                     labels:
                       - description: Location
                         id: geo__state__location
-                        locale: en-US
                         sourceColumn: geo__state__location
                         sourceColumnDataType: STRING
                         tags:
                           - Customers
                         title: Location
-                        translations:
-                          - locale: cs-CZ
-                            sourceColumn: geo__state__location_cz
                         valueType: GEO
                     sourceColumn: state
                     sourceColumnDataType: STRING
@@ -3204,6 +3188,7 @@ interactions:
                       visualizationUrl: local:bar
                     id: top_10_products
                     title: Top 10 Products
+                memoryItems: []
               ldm:
                 datasets:
                   - grain:
@@ -3383,10 +3368,6 @@ interactions:
                             title: Location
                             description: Location
                             sourceColumnDataType: STRING
-                            locale: en-US
-                            translations:
-                              - locale: cs-CZ
-                                sourceColumn: geo__state__location_cz
                             tags:
                               - Customers
                             valueType: GEO
@@ -3605,6 +3586,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasetExtensions:
                   - id: order_lines
@@ -3638,6 +3620,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasets: []
                 dateInstances: []

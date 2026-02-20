@@ -3,6 +3,7 @@
 #
 
 import threading
+from typing import Union
 
 from snowflake import snowpark
 from snowflake.snowpark.types import (
@@ -135,3 +136,24 @@ def emulate_integral_types(t: DataType) -> DataType:
 
     ret._is_already_mapped = True
     return ret
+
+
+def emulate_decimal_type(t: _IntegralType) -> Union[DecimalType, _IntegralType]:
+    global _integral_types_conversion_enabled
+
+    with _client_mode_lock:
+        enabled = _integral_types_conversion_enabled
+
+    if not enabled:
+        return t
+
+    if isinstance(t, ByteType):
+        return DecimalType(3, 0)
+    if isinstance(t, ShortType):
+        return DecimalType(5, 0)
+    if isinstance(t, IntegerType):
+        return DecimalType(10, 0)
+    if isinstance(t, LongType):
+        return DecimalType(19, 0)
+
+    return DecimalType(t._precision, 0)

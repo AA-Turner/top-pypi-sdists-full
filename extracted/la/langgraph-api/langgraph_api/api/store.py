@@ -84,7 +84,9 @@ async def get_item(request: ApiRequest):
         "key": key,
     }
     await handle_event("get", handler_payload)
-    result = await (await get_store()).aget(namespace, key)
+    result = await (await get_store()).aget(
+        handler_payload["namespace"], handler_payload["key"]
+    )
     if result is None:
         return ApiResponse(None)
     return ApiResponse(

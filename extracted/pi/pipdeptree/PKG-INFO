@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: pipdeptree
-Version: 2.30.0
+Version: 2.31.0
 Summary: Command line utility to show dependency tree of packages.
 Project-URL: Changelog, https://github.com/tox-dev/pipdeptree/releases
 Project-URL: Documentation, https://github.com/tox-dev/pipdeptree/blob/main/README.md#pipdeptree
 Project-URL: Homepage, https://github.com/tox-dev/pipdeptree
 Project-URL: Source, https://github.com/tox-dev/pipdeptree
 Project-URL: Tracker, https://github.com/tox-dev/pipdeptree/issues
-Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>, Vineet Naik <naikvin@gmail.com>
+Maintainer-email: Bernát Gábor <gaborjbernat@gmail.com>, Kemal Zebari <kemalzebra@gmail.com>, Vineet Naik <naikvin@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Keywords: application,cache,directory,log,user
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
-Requires-Dist: packaging>=25
+Requires-Dist: packaging>=26
 Requires-Dist: pip>=25.2
 Provides-Extra: graphviz
 Requires-Dist: graphviz>=0.21; extra == 'graphviz'

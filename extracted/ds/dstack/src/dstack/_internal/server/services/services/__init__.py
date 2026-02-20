@@ -5,6 +5,7 @@ Application logic related to `type: service` runs.
 import json
 import uuid
 from datetime import datetime
+from functools import partial
 from typing import Optional
 
 import httpx
@@ -26,7 +27,14 @@ from dstack._internal.core.models.configurations import (
 )
 from dstack._internal.core.models.gateways import GatewayConfiguration, GatewayStatus
 from dstack._internal.core.models.instances import SSHConnectionParams
+from dstack._internal.core.models.routers import (
+    AnyServiceRouterConfig,
+    RouterType,
+    SGLangServiceRouterConfig,
+)
 from dstack._internal.core.models.runs import JobSpec, Run, RunSpec, ServiceModelSpec, ServiceSpec
+from dstack._internal.core.models.services import OpenAIChatModel
+from dstack._internal.proxy.gateway.const import SERVICE_ALREADY_REGISTERED_ERROR_TEMPLATE
 from dstack._internal.server import settings
 from dstack._internal.server.models import GatewayModel, JobModel, ProjectModel, RunModel
 from dstack._internal.server.services import events
@@ -42,6 +50,41 @@ from dstack._internal.server.services.services.options import get_service_option
 from dstack._internal.utils.logging import get_logger
 
 logger = get_logger(__name__)
+
+
+def _gateway_has_sglang_router(config: GatewayConfiguration) -> bool:
+    return config.router is not None and config.router.type == RouterType.SGLANG.value
+
+
+def _build_service_router_config(
+    gateway_configuration: GatewayConfiguration,
+    service_configuration: ServiceConfiguration,
+) -> Optional[AnyServiceRouterConfig]:
+    """
+    Build router config from gateway (type, policy) + service (pd_disaggregation, policy override).
+    Service's policy overrides gateway's if present. Keeps backward compat: SGLang enabled
+    automatically when gateway has it configured.
+    """
+    if not _gateway_has_sglang_router(gateway_configuration):
+        return None
+
+    gateway_router = gateway_configuration.router
+    assert gateway_router is not None  # ensured by _gateway_has_sglang_router
+    router_type = gateway_router.type
+    policy = gateway_router.policy
+
+    service_router = service_configuration.router
+    if service_router is not None and isinstance(service_router, SGLangServiceRouterConfig):
+        policy = service_router.policy
+        pd_disaggregation = service_router.pd_disaggregation
+    else:
+        pd_disaggregation = False
+
+    return SGLangServiceRouterConfig(
+        type=router_type,
+        policy=policy,
+        pd_disaggregation=pd_disaggregation,
+    )
 
 
 async def register_service(session: AsyncSession, run_model: RunModel, run_spec: RunSpec):
@@ -91,8 +134,20 @@ async def _register_service_in_gateway(
         raise ServerClientError("Gateway status is not running")
 
     gateway_configuration = get_gateway_configuration(gateway)
+
+    # Check: service specifies SGLang router but gateway does not have it
+    service_router = run_spec.configuration.router
+    service_wants_sglang = service_router is not None and isinstance(
+        service_router, SGLangServiceRouterConfig
+    )
+    if service_wants_sglang and not _gateway_has_sglang_router(gateway_configuration):
+        raise ServerClientError(
+            "Service requires gateway with SGLang router but gateway "
+            f"'{gateway.name}' does not have the SGLang router configured."
+        )
+
     service_https = _get_service_https(run_spec, gateway_configuration)
-    router = gateway_configuration.router
+    router = _build_service_router_config(gateway_configuration, run_spec.configuration)
     service_protocol = "https" if service_https else "http"
 
     if service_https and gateway_configuration.certificate is None:
@@ -106,10 +161,15 @@ async def _register_service_in_gateway(
     wildcard_domain = gateway.wildcard_domain.lstrip("*.") if gateway.wildcard_domain else None
     if wildcard_domain is None:
         raise ServerClientError("Domain is required for gateway")
+    service_url = f"{service_protocol}://{run_model.run_name}.{wildcard_domain}"
+    if isinstance(run_spec.configuration.model, OpenAIChatModel):
+        model_url = service_url + run_spec.configuration.model.prefix
+    else:
+        model_url = f"{gateway_protocol}://gateway.{wildcard_domain}"
     service_spec = get_service_spec(
         configuration=run_spec.configuration,
-        service_url=f"{service_protocol}://{run_model.run_name}.{wildcard_domain}",
-        model_url=f"{gateway_protocol}://gateway.{wildcard_domain}",
+        service_url=service_url,
+        model_url=model_url,
     )
 
     domain = service_spec.get_domain()
@@ -119,7 +179,8 @@ async def _register_service_in_gateway(
     try:
         logger.debug("%s: registering service as %s", fmt(run_model), service_spec.url)
         async with conn.client() as client:
-            await client.register_service(
+            do_register = partial(
+                client.register_service,
                 project=run_model.project.name,
                 run_name=run_model.run_name,
                 domain=domain,
@@ -132,6 +193,26 @@ async def _register_service_in_gateway(
                 ssh_private_key=run_model.project.ssh_private_key,
                 router=router,
             )
+            try:
+                await do_register()
+            except GatewayError as e:
+                if e.msg == SERVICE_ALREADY_REGISTERED_ERROR_TEMPLATE.format(
+                    ref=f"{run_model.project.name}/{run_model.run_name}"
+                ):
+                    # Happens if there was a communication issue with the gateway when last unregistering
+                    logger.warning(
+                        "Service %s/%s is dangling on gateway %s, unregistering and re-registering",
+                        run_model.project.name,
+                        run_model.run_name,
+                        gateway.name,
+                    )
+                    await client.unregister_service(
+                        project=run_model.project.name,
+                        run_name=run_model.run_name,
+                    )
+                    await do_register()
+                else:
+                    raise
     except SSHError:
         raise ServerClientError("Gateway tunnel is not working")
     except httpx.RequestError as e:
@@ -152,6 +233,14 @@ async def _register_service_in_gateway(
 
 def _register_service_in_server(run_model: RunModel, run_spec: RunSpec) -> ServiceSpec:
     assert run_spec.configuration.type == "service"
+    if (
+        run_spec.configuration.router is not None
+        and run_spec.configuration.router.type == RouterType.SGLANG
+    ):
+        raise ServerClientError(
+            "Service with SGLang router configuration requires a gateway. "
+            "Please configure a gateway with the SGLang router enabled."
+        )
     if run_spec.configuration.https != SERVICE_HTTPS_DEFAULT:
         # Note: if the user sets `https: <default-value>`, it will be ignored silently
         # TODO: in 0.19, make `https` Optional to be able to tell if it was set or omitted
@@ -173,10 +262,15 @@ def _register_service_in_server(run_model: RunModel, run_spec: RunSpec) -> Servi
             "Rate limits are not supported when running services without a gateway."
             " Please configure a gateway or remove `rate_limits` from the service configuration"
         )
+    service_url = f"/proxy/services/{run_model.project.name}/{run_model.run_name}/"
+    if isinstance(run_spec.configuration.model, OpenAIChatModel):
+        model_url = service_url.rstrip("/") + run_spec.configuration.model.prefix
+    else:
+        model_url = f"/proxy/models/{run_model.project.name}/"
     return get_service_spec(
         configuration=run_spec.configuration,
-        service_url=f"/proxy/services/{run_model.project.name}/{run_model.run_name}/",
-        model_url=f"/proxy/models/{run_model.project.name}/",
+        service_url=service_url,
+        model_url=model_url,
     )
 
 

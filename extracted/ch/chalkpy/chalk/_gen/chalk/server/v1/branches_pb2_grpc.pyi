@@ -8,6 +8,8 @@ from abc import (
     abstractmethod,
 )
 from chalk._gen.chalk.server.v1.branches_pb2 import (
+    GetBranchWithLatestDeploymentRequest,
+    GetBranchWithLatestDeploymentResponse,
     ListBranchWithLatestDeploymentsRequest,
     ListBranchWithLatestDeploymentsResponse,
 )
@@ -20,12 +22,22 @@ from grpc import (
 
 class BranchServiceStub:
     def __init__(self, channel: Channel) -> None: ...
+    GetBranchWithLatestDeployment: UnaryUnaryMultiCallable[
+        GetBranchWithLatestDeploymentRequest,
+        GetBranchWithLatestDeploymentResponse,
+    ]
     ListBranchWithLatestDeployments: UnaryUnaryMultiCallable[
         ListBranchWithLatestDeploymentsRequest,
         ListBranchWithLatestDeploymentsResponse,
     ]
 
 class BranchServiceServicer(metaclass=ABCMeta):
+    @abstractmethod
+    def GetBranchWithLatestDeployment(
+        self,
+        request: GetBranchWithLatestDeploymentRequest,
+        context: ServicerContext,
+    ) -> GetBranchWithLatestDeploymentResponse: ...
     @abstractmethod
     def ListBranchWithLatestDeployments(
         self,

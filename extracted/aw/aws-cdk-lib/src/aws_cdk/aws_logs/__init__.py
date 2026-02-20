@@ -663,6 +663,7 @@ from ..interfaces.aws_logs import (
     IMetricFilterRef as _IMetricFilterRef_6c88c020,
     IQueryDefinitionRef as _IQueryDefinitionRef_354d2c88,
     IResourcePolicyRef as _IResourcePolicyRef_e98ba18e,
+    IScheduledQueryRef as _IScheduledQueryRef_1eaa5d93,
     ISubscriptionFilterRef as _ISubscriptionFilterRef_df5771c6,
     ITransformerRef as _ITransformerRef_a1c41d2f,
     IntegrationReference as _IntegrationReference_77e719de,
@@ -672,6 +673,7 @@ from ..interfaces.aws_logs import (
     MetricFilterReference as _MetricFilterReference_d91b53f6,
     QueryDefinitionReference as _QueryDefinitionReference_58fa2b65,
     ResourcePolicyReference as _ResourcePolicyReference_85e7adfe,
+    ScheduledQueryReference as _ScheduledQueryReference_9af7f268,
     SubscriptionFilterReference as _SubscriptionFilterReference_afa178c8,
     TransformerReference as _TransformerReference_13f4f847,
 )
@@ -1602,33 +1604,37 @@ class CfnDeliveryDestination(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-deliverydestination.html
     :cloudformationResource: AWS::Logs::DeliveryDestination
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        from aws_cdk import CfnTag
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_logs as logs
+        from aws_cdk.mixins_preview.with import
+        import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
         
-        # delivery_destination_policy: Any
+        # Create CloudFront distribution
+        # bucket: s3.Bucket
         
-        cfn_delivery_destination = logs.CfnDeliveryDestination(self, "MyCfnDeliveryDestination",
-            name="name",
-        
-            # the properties below are optional
-            delivery_destination_policy=logs.CfnDeliveryDestination.DestinationPolicyProperty(
-                delivery_destination_name="deliveryDestinationName",
-                delivery_destination_policy=delivery_destination_policy
-            ),
-            delivery_destination_type="deliveryDestinationType",
-            destination_resource_arn="destinationResourceArn",
-            output_format="outputFormat",
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
+        distribution = cloudfront.Distribution(scope, "Distribution",
+            default_behavior=cloudfront.BehaviorOptions(
+                origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+            )
         )
+        
+        # Create destination bucket
+        dest_bucket = s3.Bucket(scope, "DeliveryBucket")
+        # Add permissions to bucket to facilitate log delivery
+        bucket_policy = s3.BucketPolicy(scope, "DeliveryBucketPolicy",
+            bucket=dest_bucket,
+            document=iam.PolicyDocument()
+        )
+        # Create S3 delivery destination for logs
+        destination = logs.CfnDeliveryDestination(scope, "Destination",
+            destination_resource_arn=dest_bucket.bucket_arn,
+            name="unique-destination-name",
+            delivery_destination_type="S3"
+        )
+        
+        distribution.with(cloudfront_mixins.CfnDistributionLogsMixin.CONNECTION_LOGS.to_destination(destination))
     '''
 
     def __init__(
@@ -1987,33 +1993,37 @@ class CfnDeliveryDestinationProps:
         :param tags: An array of key-value pairs to apply to the delivery destination. For more information, see `Tag <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-resource-tags.html>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-deliverydestination.html
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: infused
 
         Example::
 
-            from aws_cdk import CfnTag
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import aws_logs as logs
+            from aws_cdk.mixins_preview.with import
+            import aws_cdk.mixins_preview.aws_cloudfront.mixins as cloudfront_mixins
             
-            # delivery_destination_policy: Any
+            # Create CloudFront distribution
+            # bucket: s3.Bucket
             
-            cfn_delivery_destination_props = logs.CfnDeliveryDestinationProps(
-                name="name",
-            
-                # the properties below are optional
-                delivery_destination_policy=logs.CfnDeliveryDestination.DestinationPolicyProperty(
-                    delivery_destination_name="deliveryDestinationName",
-                    delivery_destination_policy=delivery_destination_policy
-                ),
-                delivery_destination_type="deliveryDestinationType",
-                destination_resource_arn="destinationResourceArn",
-                output_format="outputFormat",
-                tags=[CfnTag(
-                    key="key",
-                    value="value"
-                )]
+            distribution = cloudfront.Distribution(scope, "Distribution",
+                default_behavior=cloudfront.BehaviorOptions(
+                    origin=origins.S3BucketOrigin.with_origin_access_control(bucket)
+                )
             )
+            
+            # Create destination bucket
+            dest_bucket = s3.Bucket(scope, "DeliveryBucket")
+            # Add permissions to bucket to facilitate log delivery
+            bucket_policy = s3.BucketPolicy(scope, "DeliveryBucketPolicy",
+                bucket=dest_bucket,
+                document=iam.PolicyDocument()
+            )
+            # Create S3 delivery destination for logs
+            destination = logs.CfnDeliveryDestination(scope, "Destination",
+                destination_resource_arn=dest_bucket.bucket_arn,
+                name="unique-destination-name",
+                delivery_destination_type="S3"
+            )
+            
+            distribution.with(cloudfront_mixins.CfnDistributionLogsMixin.CONNECTION_LOGS.to_destination(destination))
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__53bbf04ee2b4b7e83a98258d41a973972fae20f7537731a0fbcda3e7c5f46c1c)
@@ -5930,6 +5940,868 @@ class CfnResourcePolicyProps:
 
     def __repr__(self) -> str:
         return "CfnResourcePolicyProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(_IInspectable_c2943556, _IScheduledQueryRef_1eaa5d93, _ITaggableV2_4e6798f8)
+class CfnScheduledQuery(
+    _CfnResource_9df397a6,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_logs.CfnScheduledQuery",
+):
+    '''Creates a new Scheduled Query that allows you to define a Logs Insights query that will run on a schedule and configure actions to take with the query results.
+
+    :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html
+    :cloudformationResource: AWS::Logs::ScheduledQuery
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_logs as logs
+        
+        cfn_scheduled_query = logs.CfnScheduledQuery(self, "MyCfnScheduledQuery",
+            execution_role_arn="executionRoleArn",
+            name="name",
+            query_language="queryLanguage",
+            query_string="queryString",
+            schedule_expression="scheduleExpression",
+        
+            # the properties below are optional
+            description="description",
+            destination_configuration=logs.CfnScheduledQuery.DestinationConfigurationProperty(
+                s3_configuration=logs.CfnScheduledQuery.S3ConfigurationProperty(
+                    destination_identifier="destinationIdentifier",
+                    role_arn="roleArn"
+                )
+            ),
+            log_group_identifiers=["logGroupIdentifiers"],
+            schedule_end_time=123,
+            schedule_start_time=123,
+            start_time_offset=123,
+            state="state",
+            tags=[logs.CfnScheduledQuery.TagsItemsProperty(
+                key="key",
+                value="value"
+            )],
+            timezone="timezone"
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        query_language: builtins.str,
+        query_string: builtins.str,
+        schedule_expression: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledQuery.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        schedule_end_time: typing.Optional[jsii.Number] = None,
+        schedule_start_time: typing.Optional[jsii.Number] = None,
+        start_time_offset: typing.Optional[jsii.Number] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnScheduledQuery.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        timezone: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Create a new ``AWS::Logs::ScheduledQuery``.
+
+        :param scope: Scope in which this resource is defined.
+        :param id: Construct identifier for this resource (unique in its scope).
+        :param execution_role_arn: 
+        :param name: 
+        :param query_language: 
+        :param query_string: 
+        :param schedule_expression: 
+        :param description: 
+        :param destination_configuration: 
+        :param log_group_identifiers: 
+        :param schedule_end_time: 
+        :param schedule_start_time: 
+        :param start_time_offset: 
+        :param state: 
+        :param tags: 
+        :param timezone: 
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5663fb3b8eeb0cc192643f4290fb0a5b818555040f312e8f4c60218ec400bf92)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = CfnScheduledQueryProps(
+            execution_role_arn=execution_role_arn,
+            name=name,
+            query_language=query_language,
+            query_string=query_string,
+            schedule_expression=schedule_expression,
+            description=description,
+            destination_configuration=destination_configuration,
+            log_group_identifiers=log_group_identifiers,
+            schedule_end_time=schedule_end_time,
+            schedule_start_time=schedule_start_time,
+            start_time_offset=start_time_offset,
+            state=state,
+            tags=tags,
+            timezone=timezone,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="arnForScheduledQuery")
+    @builtins.classmethod
+    def arn_for_scheduled_query(
+        cls,
+        resource: "_IScheduledQueryRef_1eaa5d93",
+    ) -> builtins.str:
+        '''
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__973e0adbcbccb16622421d6d15d070bae866ea5fda9ce1ee029f7eedf82a0e18)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForScheduledQuery", [resource]))
+
+    @jsii.member(jsii_name="isCfnScheduledQuery")
+    @builtins.classmethod
+    def is_cfn_scheduled_query(cls, x: typing.Any) -> builtins.bool:
+        '''Checks whether the given object is a CfnScheduledQuery.
+
+        :param x: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__a63cc612691731df6b941599858a0eb903a6304f39cdb0331c839aaa2a206fea)
+            check_type(argname="argument x", value=x, expected_type=type_hints["x"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isCfnScheduledQuery", [x]))
+
+    @jsii.member(jsii_name="inspect")
+    def inspect(self, inspector: "_TreeInspector_488e0dd5") -> None:
+        '''Examines the CloudFormation resource and discloses attributes.
+
+        :param inspector: tree inspector to collect and process attributes.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be824dfb96f2c53061bd3963f95193b6f2eff00a3174bc64158704c5d767b245)
+            check_type(argname="argument inspector", value=inspector, expected_type=type_hints["inspector"])
+        return typing.cast(None, jsii.invoke(self, "inspect", [inspector]))
+
+    @jsii.member(jsii_name="renderProperties")
+    def _render_properties(
+        self,
+        props: typing.Mapping[builtins.str, typing.Any],
+    ) -> typing.Mapping[builtins.str, typing.Any]:
+        '''
+        :param props: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9521e838cd4d5cbb16ce3b29ade6f205a1542d81fc59d64dd5fcca307de84e86)
+            check_type(argname="argument props", value=props, expected_type=type_hints["props"])
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.invoke(self, "renderProperties", [props]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="CFN_RESOURCE_TYPE_NAME")
+    def CFN_RESOURCE_TYPE_NAME(cls) -> builtins.str:
+        '''The CloudFormation resource type name for this resource class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreationTime")
+    def attr_creation_time(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: CreationTime
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrCreationTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastExecutionStatus")
+    def attr_last_execution_status(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: LastExecutionStatus
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrLastExecutionStatus"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastTriggeredTime")
+    def attr_last_triggered_time(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: LastTriggeredTime
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLastTriggeredTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrLastUpdatedTime")
+    def attr_last_updated_time(self) -> "_IResolvable_da3f097b":
+        '''
+        :cloudformationAttribute: LastUpdatedTime
+        '''
+        return typing.cast("_IResolvable_da3f097b", jsii.get(self, "attrLastUpdatedTime"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrScheduledQueryArn")
+    def attr_scheduled_query_arn(self) -> builtins.str:
+        '''
+        :cloudformationAttribute: ScheduledQueryArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrScheduledQueryArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cfnProperties")
+    def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
+        return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> "_ScheduledQueryReference_9af7f268":
+        '''A reference to a ScheduledQuery resource.'''
+        return typing.cast("_ScheduledQueryReference_9af7f268", jsii.get(self, "scheduledQueryRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="executionRoleArn")
+    def execution_role_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "executionRoleArn"))
+
+    @execution_role_arn.setter
+    def execution_role_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d1f7c3b3f3d6f980fe0977ba301d64a38355965fb09676406d7befff57e2f3cd)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "executionRoleArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="name")
+    def name(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "name"))
+
+    @name.setter
+    def name(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c39f14be9b780b974fe741ab22757baec773263f265ced627d96e86142f3da0e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "name", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryLanguage")
+    def query_language(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "queryLanguage"))
+
+    @query_language.setter
+    def query_language(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ba812c078a9b0d2a59f7466f929515ef3f8173077d08e05dd7f49e92aa30d4db)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryLanguage", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="queryString")
+    def query_string(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "queryString"))
+
+    @query_string.setter
+    def query_string(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__343a992bf5200143e11cda3df0aa83bddbc76ac751776e23916a70779e261035)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "queryString", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleExpression")
+    def schedule_expression(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "scheduleExpression"))
+
+    @schedule_expression.setter
+    def schedule_expression(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__845c3534d126ee58941acc92dc19d25ec31a8eb85accb5106c5b2cc07ffc203c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleExpression", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="description")
+    def description(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "description"))
+
+    @description.setter
+    def description(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__94aad67e6cc275a0db5caab8e5aefbadb6f1f03dbeb882e2a9a55f77c7e67361)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="destinationConfiguration")
+    def destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.DestinationConfigurationProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.DestinationConfigurationProperty"]], jsii.get(self, "destinationConfiguration"))
+
+    @destination_configuration.setter
+    def destination_configuration(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.DestinationConfigurationProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6d0b66f7da0e97227ef76acc31b795c4ac75463b50c5ff9053cb4f7c27ced16d)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "destinationConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="logGroupIdentifiers")
+    def log_group_identifiers(self) -> typing.Optional[typing.List[builtins.str]]:
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "logGroupIdentifiers"))
+
+    @log_group_identifiers.setter
+    def log_group_identifiers(
+        self,
+        value: typing.Optional[typing.List[builtins.str]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2c5fb05f7747b8a545615c527fc9339037b3c693d1d7250cf724b2db571d2dbe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "logGroupIdentifiers", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleEndTime")
+    def schedule_end_time(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "scheduleEndTime"))
+
+    @schedule_end_time.setter
+    def schedule_end_time(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e6494fe30bd38ab909667a64c81accc20a5535c2dd9191c0f5e1f317634fec23)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleEndTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduleStartTime")
+    def schedule_start_time(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "scheduleStartTime"))
+
+    @schedule_start_time.setter
+    def schedule_start_time(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dd6e670dd24d4a75ae21f17c5973717df148cfd82a44bbb6ef1124f4359a21be)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "scheduleStartTime", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="startTimeOffset")
+    def start_time_offset(self) -> typing.Optional[jsii.Number]:
+        return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "startTimeOffset"))
+
+    @start_time_offset.setter
+    def start_time_offset(self, value: typing.Optional[jsii.Number]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__85be0b47ce9fb3ad5c6947873b0de5863d5d1e156c34f996d38ea363f5b07312)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "startTimeOffset", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="state")
+    def state(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "state"))
+
+    @state.setter
+    def state(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__832c57a64ab7e4ef812da51ea8c36a73dbd2855203d3326874ef1b401504c7dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "state", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnScheduledQuery.TagsItemsProperty"]]:
+        return typing.cast(typing.Optional[typing.List["CfnScheduledQuery.TagsItemsProperty"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(
+        self,
+        value: typing.Optional[typing.List["CfnScheduledQuery.TagsItemsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__4f0062efaa8bf2e6ddccf30dc06e6e704253f305b55342739a99704c3dfacd0c)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="timezone")
+    def timezone(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "timezone"))
+
+    @timezone.setter
+    def timezone(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__56ae90918902b03b99993fca81f67eda08246aecea720a0300999c0731b4dab0)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "timezone", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_logs.CfnScheduledQuery.DestinationConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"s3_configuration": "s3Configuration"},
+    )
+    class DestinationConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            s3_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledQuery.S3ConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param s3_configuration: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-destinationconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_logs as logs
+                
+                destination_configuration_property = logs.CfnScheduledQuery.DestinationConfigurationProperty(
+                    s3_configuration=logs.CfnScheduledQuery.S3ConfigurationProperty(
+                        destination_identifier="destinationIdentifier",
+                        role_arn="roleArn"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0f2701ad88c3275390ca5c6451fcab8ae87c5942b861fef6039f8106a1c5751e)
+                check_type(argname="argument s3_configuration", value=s3_configuration, expected_type=type_hints["s3_configuration"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if s3_configuration is not None:
+                self._values["s3_configuration"] = s3_configuration
+
+        @builtins.property
+        def s3_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.S3ConfigurationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-destinationconfiguration.html#cfn-logs-scheduledquery-destinationconfiguration-s3configuration
+            '''
+            result = self._values.get("s3_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.S3ConfigurationProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DestinationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_logs.CfnScheduledQuery.S3ConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "destination_identifier": "destinationIdentifier",
+            "role_arn": "roleArn",
+        },
+    )
+    class S3ConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            destination_identifier: builtins.str,
+            role_arn: builtins.str,
+        ) -> None:
+            '''
+            :param destination_identifier: 
+            :param role_arn: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-s3configuration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_logs as logs
+                
+                s3_configuration_property = logs.CfnScheduledQuery.S3ConfigurationProperty(
+                    destination_identifier="destinationIdentifier",
+                    role_arn="roleArn"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__37d7315dcc8c05d81e7dbbe7485b9543826cbaa35bd6463ed95d92c52f1297ed)
+                check_type(argname="argument destination_identifier", value=destination_identifier, expected_type=type_hints["destination_identifier"])
+                check_type(argname="argument role_arn", value=role_arn, expected_type=type_hints["role_arn"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "destination_identifier": destination_identifier,
+                "role_arn": role_arn,
+            }
+
+        @builtins.property
+        def destination_identifier(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-s3configuration.html#cfn-logs-scheduledquery-s3configuration-destinationidentifier
+            '''
+            result = self._values.get("destination_identifier")
+            assert result is not None, "Required property 'destination_identifier' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def role_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-s3configuration.html#cfn-logs-scheduledquery-s3configuration-rolearn
+            '''
+            result = self._values.get("role_arn")
+            assert result is not None, "Required property 'role_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "S3ConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_logs.CfnScheduledQuery.TagsItemsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"key": "key", "value": "value"},
+    )
+    class TagsItemsProperty:
+        def __init__(self, *, key: builtins.str, value: builtins.str) -> None:
+            '''
+            :param key: 
+            :param value: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-tagsitems.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_logs as logs
+                
+                tags_items_property = logs.CfnScheduledQuery.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__863619708e1506db1ebd3661637c6a3459708960e2936bd5bc34d9a3d580b350)
+                check_type(argname="argument key", value=key, expected_type=type_hints["key"])
+                check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "key": key,
+                "value": value,
+            }
+
+        @builtins.property
+        def key(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-tagsitems.html#cfn-logs-scheduledquery-tagsitems-key
+            '''
+            result = self._values.get("key")
+            assert result is not None, "Required property 'key' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def value(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-logs-scheduledquery-tagsitems.html#cfn-logs-scheduledquery-tagsitems-value
+            '''
+            result = self._values.get("value")
+            assert result is not None, "Required property 'value' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "TagsItemsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_logs.CfnScheduledQueryProps",
+    jsii_struct_bases=[],
+    name_mapping={
+        "execution_role_arn": "executionRoleArn",
+        "name": "name",
+        "query_language": "queryLanguage",
+        "query_string": "queryString",
+        "schedule_expression": "scheduleExpression",
+        "description": "description",
+        "destination_configuration": "destinationConfiguration",
+        "log_group_identifiers": "logGroupIdentifiers",
+        "schedule_end_time": "scheduleEndTime",
+        "schedule_start_time": "scheduleStartTime",
+        "start_time_offset": "startTimeOffset",
+        "state": "state",
+        "tags": "tags",
+        "timezone": "timezone",
+    },
+)
+class CfnScheduledQueryProps:
+    def __init__(
+        self,
+        *,
+        execution_role_arn: builtins.str,
+        name: builtins.str,
+        query_language: builtins.str,
+        query_string: builtins.str,
+        schedule_expression: builtins.str,
+        description: typing.Optional[builtins.str] = None,
+        destination_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnScheduledQuery.DestinationConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        log_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+        schedule_end_time: typing.Optional[jsii.Number] = None,
+        schedule_start_time: typing.Optional[jsii.Number] = None,
+        start_time_offset: typing.Optional[jsii.Number] = None,
+        state: typing.Optional[builtins.str] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["CfnScheduledQuery.TagsItemsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        timezone: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for defining a ``CfnScheduledQuery``.
+
+        :param execution_role_arn: 
+        :param name: 
+        :param query_language: 
+        :param query_string: 
+        :param schedule_expression: 
+        :param description: 
+        :param destination_configuration: 
+        :param log_group_identifiers: 
+        :param schedule_end_time: 
+        :param schedule_start_time: 
+        :param start_time_offset: 
+        :param state: 
+        :param tags: 
+        :param timezone: 
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_logs as logs
+            
+            cfn_scheduled_query_props = logs.CfnScheduledQueryProps(
+                execution_role_arn="executionRoleArn",
+                name="name",
+                query_language="queryLanguage",
+                query_string="queryString",
+                schedule_expression="scheduleExpression",
+            
+                # the properties below are optional
+                description="description",
+                destination_configuration=logs.CfnScheduledQuery.DestinationConfigurationProperty(
+                    s3_configuration=logs.CfnScheduledQuery.S3ConfigurationProperty(
+                        destination_identifier="destinationIdentifier",
+                        role_arn="roleArn"
+                    )
+                ),
+                log_group_identifiers=["logGroupIdentifiers"],
+                schedule_end_time=123,
+                schedule_start_time=123,
+                start_time_offset=123,
+                state="state",
+                tags=[logs.CfnScheduledQuery.TagsItemsProperty(
+                    key="key",
+                    value="value"
+                )],
+                timezone="timezone"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__c947027b91ab136ae7c5b7152fae2d5ab6acb310b610204fd1e6335a6a4ff37b)
+            check_type(argname="argument execution_role_arn", value=execution_role_arn, expected_type=type_hints["execution_role_arn"])
+            check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument query_language", value=query_language, expected_type=type_hints["query_language"])
+            check_type(argname="argument query_string", value=query_string, expected_type=type_hints["query_string"])
+            check_type(argname="argument schedule_expression", value=schedule_expression, expected_type=type_hints["schedule_expression"])
+            check_type(argname="argument description", value=description, expected_type=type_hints["description"])
+            check_type(argname="argument destination_configuration", value=destination_configuration, expected_type=type_hints["destination_configuration"])
+            check_type(argname="argument log_group_identifiers", value=log_group_identifiers, expected_type=type_hints["log_group_identifiers"])
+            check_type(argname="argument schedule_end_time", value=schedule_end_time, expected_type=type_hints["schedule_end_time"])
+            check_type(argname="argument schedule_start_time", value=schedule_start_time, expected_type=type_hints["schedule_start_time"])
+            check_type(argname="argument start_time_offset", value=start_time_offset, expected_type=type_hints["start_time_offset"])
+            check_type(argname="argument state", value=state, expected_type=type_hints["state"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument timezone", value=timezone, expected_type=type_hints["timezone"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "execution_role_arn": execution_role_arn,
+            "name": name,
+            "query_language": query_language,
+            "query_string": query_string,
+            "schedule_expression": schedule_expression,
+        }
+        if description is not None:
+            self._values["description"] = description
+        if destination_configuration is not None:
+            self._values["destination_configuration"] = destination_configuration
+        if log_group_identifiers is not None:
+            self._values["log_group_identifiers"] = log_group_identifiers
+        if schedule_end_time is not None:
+            self._values["schedule_end_time"] = schedule_end_time
+        if schedule_start_time is not None:
+            self._values["schedule_start_time"] = schedule_start_time
+        if start_time_offset is not None:
+            self._values["start_time_offset"] = start_time_offset
+        if state is not None:
+            self._values["state"] = state
+        if tags is not None:
+            self._values["tags"] = tags
+        if timezone is not None:
+            self._values["timezone"] = timezone
+
+    @builtins.property
+    def execution_role_arn(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-executionrolearn
+        '''
+        result = self._values.get("execution_role_arn")
+        assert result is not None, "Required property 'execution_role_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def name(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-name
+        '''
+        result = self._values.get("name")
+        assert result is not None, "Required property 'name' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def query_language(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-querylanguage
+        '''
+        result = self._values.get("query_language")
+        assert result is not None, "Required property 'query_language' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def query_string(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-querystring
+        '''
+        result = self._values.get("query_string")
+        assert result is not None, "Required property 'query_string' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def schedule_expression(self) -> builtins.str:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-scheduleexpression
+        '''
+        result = self._values.get("schedule_expression")
+        assert result is not None, "Required property 'schedule_expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def description(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-description
+        '''
+        result = self._values.get("description")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def destination_configuration(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.DestinationConfigurationProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-destinationconfiguration
+        '''
+        result = self._values.get("destination_configuration")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnScheduledQuery.DestinationConfigurationProperty"]], result)
+
+    @builtins.property
+    def log_group_identifiers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-loggroupidentifiers
+        '''
+        result = self._values.get("log_group_identifiers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def schedule_end_time(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-scheduleendtime
+        '''
+        result = self._values.get("schedule_end_time")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def schedule_start_time(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-schedulestarttime
+        '''
+        result = self._values.get("schedule_start_time")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def start_time_offset(self) -> typing.Optional[jsii.Number]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-starttimeoffset
+        '''
+        result = self._values.get("start_time_offset")
+        return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def state(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-state
+        '''
+        result = self._values.get("state")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def tags(
+        self,
+    ) -> typing.Optional[typing.List["CfnScheduledQuery.TagsItemsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["CfnScheduledQuery.TagsItemsProperty"]], result)
+
+    @builtins.property
+    def timezone(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-scheduledquery.html#cfn-logs-scheduledquery-timezone
+        '''
+        result = self._values.get("timezone")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "CfnScheduledQueryProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -13584,6 +14456,8 @@ class LogGroup(
     def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Give permissions to read and filter events from this log group.
 
+        The use of this method is discouraged. Please use ``grants.read()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: -
@@ -13596,6 +14470,8 @@ class LogGroup(
     @jsii.member(jsii_name="grantWrite")
     def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Give permissions to create and write to streams in this log group.
+
+        The use of this method is discouraged. Please use ``grants.write()`` instead.
 
         [disable-awslint:no-grants]
 
@@ -18838,6 +19714,8 @@ __all__ = [
     "CfnQueryDefinitionProps",
     "CfnResourcePolicy",
     "CfnResourcePolicyProps",
+    "CfnScheduledQuery",
+    "CfnScheduledQueryProps",
     "CfnSubscriptionFilter",
     "CfnSubscriptionFilterProps",
     "CfnTransformer",
@@ -19959,6 +20837,179 @@ def _typecheckingstub__1ab184a479fd32db068d45168ec1b6bf45cf1a4a3d64847b519a08838
     *,
     policy_document: builtins.str,
     policy_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5663fb3b8eeb0cc192643f4290fb0a5b818555040f312e8f4c60218ec400bf92(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    query_language: builtins.str,
+    query_string: builtins.str,
+    schedule_expression: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    schedule_end_time: typing.Optional[jsii.Number] = None,
+    schedule_start_time: typing.Optional[jsii.Number] = None,
+    start_time_offset: typing.Optional[jsii.Number] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnScheduledQuery.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timezone: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__973e0adbcbccb16622421d6d15d070bae866ea5fda9ce1ee029f7eedf82a0e18(
+    resource: _IScheduledQueryRef_1eaa5d93,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a63cc612691731df6b941599858a0eb903a6304f39cdb0331c839aaa2a206fea(
+    x: typing.Any,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__be824dfb96f2c53061bd3963f95193b6f2eff00a3174bc64158704c5d767b245(
+    inspector: _TreeInspector_488e0dd5,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9521e838cd4d5cbb16ce3b29ade6f205a1542d81fc59d64dd5fcca307de84e86(
+    props: typing.Mapping[builtins.str, typing.Any],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d1f7c3b3f3d6f980fe0977ba301d64a38355965fb09676406d7befff57e2f3cd(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c39f14be9b780b974fe741ab22757baec773263f265ced627d96e86142f3da0e(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ba812c078a9b0d2a59f7466f929515ef3f8173077d08e05dd7f49e92aa30d4db(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__343a992bf5200143e11cda3df0aa83bddbc76ac751776e23916a70779e261035(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__845c3534d126ee58941acc92dc19d25ec31a8eb85accb5106c5b2cc07ffc203c(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__94aad67e6cc275a0db5caab8e5aefbadb6f1f03dbeb882e2a9a55f77c7e67361(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6d0b66f7da0e97227ef76acc31b795c4ac75463b50c5ff9053cb4f7c27ced16d(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnScheduledQuery.DestinationConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2c5fb05f7747b8a545615c527fc9339037b3c693d1d7250cf724b2db571d2dbe(
+    value: typing.Optional[typing.List[builtins.str]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e6494fe30bd38ab909667a64c81accc20a5535c2dd9191c0f5e1f317634fec23(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dd6e670dd24d4a75ae21f17c5973717df148cfd82a44bbb6ef1124f4359a21be(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__85be0b47ce9fb3ad5c6947873b0de5863d5d1e156c34f996d38ea363f5b07312(
+    value: typing.Optional[jsii.Number],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__832c57a64ab7e4ef812da51ea8c36a73dbd2855203d3326874ef1b401504c7dc(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__4f0062efaa8bf2e6ddccf30dc06e6e704253f305b55342739a99704c3dfacd0c(
+    value: typing.Optional[typing.List[CfnScheduledQuery.TagsItemsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__56ae90918902b03b99993fca81f67eda08246aecea720a0300999c0731b4dab0(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0f2701ad88c3275390ca5c6451fcab8ae87c5942b861fef6039f8106a1c5751e(
+    *,
+    s3_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.S3ConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__37d7315dcc8c05d81e7dbbe7485b9543826cbaa35bd6463ed95d92c52f1297ed(
+    *,
+    destination_identifier: builtins.str,
+    role_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__863619708e1506db1ebd3661637c6a3459708960e2936bd5bc34d9a3d580b350(
+    *,
+    key: builtins.str,
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c947027b91ab136ae7c5b7152fae2d5ab6acb310b610204fd1e6335a6a4ff37b(
+    *,
+    execution_role_arn: builtins.str,
+    name: builtins.str,
+    query_language: builtins.str,
+    query_string: builtins.str,
+    schedule_expression: builtins.str,
+    description: typing.Optional[builtins.str] = None,
+    destination_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnScheduledQuery.DestinationConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    log_group_identifiers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    schedule_end_time: typing.Optional[jsii.Number] = None,
+    schedule_start_time: typing.Optional[jsii.Number] = None,
+    start_time_offset: typing.Optional[jsii.Number] = None,
+    state: typing.Optional[builtins.str] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[CfnScheduledQuery.TagsItemsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timezone: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -1,15 +1,15 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.156477                                                            #
+# Generated on 2026-02-19T20:41:45.679964                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.capsule
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
     import typing
 
@@ -34,6 +34,8 @@ from .exceptions import OuterboundsBackendUnhealthyException as OuterboundsBacke
 from .exceptions import OuterboundsForbiddenException as OuterboundsForbiddenException
 
 CAPSULE_DEBUG: bool
+
+UNASSIGNED_PROJECT_BRANCH: str
 
 STATE_REFRESH_FREQUENCY: int
 
@@ -179,9 +181,7 @@ class CapsuleApi(object, metaclass=type):
         ...
     def get(self, capsule_id: str) -> typing.Dict[str, typing.Any]:
         ...
-    def get_by_name(self, name: str, most_recent_only: bool = True):
-        ...
-    def list(self):
+    def list(self, project = None, branch = None, name = None):
         ...
     def delete(self, capsule_id: str):
         ...

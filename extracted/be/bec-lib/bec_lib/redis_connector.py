@@ -44,10 +44,18 @@ from redis.backoff import ExponentialBackoff
 from redis.client import Pipeline, Redis
 from redis.retry import Retry
 
+from bec_lib import endpoints
 from bec_lib.connector import MessageObject
 from bec_lib.endpoints import EndpointInfo, MessageEndpoints, MessageOp
 from bec_lib.logger import bec_logger
-from bec_lib.messages import AlarmMessage, BECMessage, BundleMessage, ClientInfoMessage, ErrorInfo
+from bec_lib.messages import (
+    AlarmMessage,
+    BECMessage,
+    BundleMessage,
+    ClientInfoMessage,
+    DynamicMetricMessage,
+    ErrorInfo,
+)
 from bec_lib.serialization import MsgpackSerialization
 
 if TYPE_CHECKING:  # pragma: no cover
@@ -1092,6 +1100,13 @@ class RedisConnector:
         return ret
 
     @validate_endpoint("topic")
+    def llen(self, topic: str, pipe: Pipeline | None = None):
+        """Get the length of a list. If key does not exist, it is interpreted as an empty list and 0
+        is returned. An error is returned when the value stored at key is not a list."""
+        client = pipe if pipe is not None else self._redis_conn
+        return client.llen(topic)
+
+    @validate_endpoint("topic")
     def lrem(self, topic: str, count: int, msg, pipe: Pipeline | None = None):
         """Removes the first count occurrences of elements equal to element from the list stored at key.
         The count argument influences the operation in the following ways:
@@ -1395,6 +1410,11 @@ class RedisConnector:
         if raw_msg is None:
             return None
         return MsgpackSerialization.loads(raw_msg[1])  # type: ignore # list pop returns one item
+
+    def publish_metrics(self, group_name: str, metrics: dict[str, str | int | float | bool]):
+        msg = DynamicMetricMessage.from_dict(metrics)
+        ep = MessageEndpoints.dynamic_metric(group_name)
+        self._redis_conn.publish(ep.endpoint, MsgpackSerialization.dumps(msg))
 
     def can_connect(self) -> bool:
         """Check if the connector needs authentication"""

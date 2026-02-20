@@ -1,7 +1,7 @@
 import os
 import sys
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 
 from pydantic import JsonValue, ValidationError
@@ -13,9 +13,9 @@ from cognite_toolkit._cdf_tk.client import ToolkitClient
 from cognite_toolkit._cdf_tk.commands._base import ToolkitCommand
 from cognite_toolkit._cdf_tk.commands.build_v2._module_source_parser import ModuleSourceParser
 from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
-    BuildFiles,
     BuildFolder,
     BuildParameters,
+    BuildSourceFiles,
     BuiltModule,
     ConfigYAML,
     InsightList,
@@ -25,7 +25,8 @@ from cognite_toolkit._cdf_tk.commands.build_v2.data_classes import (
     ResourceType,
     ValidationType,
 )
-from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError, Recommendation
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._insights import ModelSyntaxError
+from cognite_toolkit._cdf_tk.commands.build_v2.data_classes._plugins import NeatPlugin
 from cognite_toolkit._cdf_tk.constants import HINT_LEAD_TEXT, MODULES
 from cognite_toolkit._cdf_tk.cruds import RESOURCE_CRUD_BY_FOLDER_NAME
 from cognite_toolkit._cdf_tk.cruds._resource_cruds.datamodel import DataModelCRUD
@@ -133,11 +134,8 @@ class BuildV2Command(ToolkitCommand):
             suggestion.append(f"-o {display_path}")
         return f"'{' '.join(suggestion)}'"
 
-    def _parse_module_sources(self, build: BuildFiles) -> list[ModuleSource]:
-        parser = ModuleSourceParser(
-            build.selected_modules,
-            build.organization_dir,
-        )
+    def _parse_module_sources(self, build: BuildSourceFiles) -> list[ModuleSource]:
+        parser = ModuleSourceParser(build.selected_modules, build.organization_dir)
         module_sources = parser.parse(build.yaml_files, build.variables)
         if parser.errors:
             # Todo: Nicer way of formatting errors.
@@ -147,7 +145,7 @@ class BuildV2Command(ToolkitCommand):
         return module_sources
 
     @classmethod
-    def _read_file_system(cls, parameters: BuildParameters) -> BuildFiles:
+    def _read_file_system(cls, parameters: BuildParameters) -> BuildSourceFiles:
         """Reads the file system to find the YAML files to build along with config.<name>.yaml if it exists."""
         selected: set[RelativeDirPath | str] = {
             parameters.modules_directory.relative_to(parameters.organization_dir)
@@ -183,7 +181,7 @@ class BuildV2Command(ToolkitCommand):
             yaml_file.relative_to(parameters.organization_dir)
             for yaml_file in parameters.modules_directory.rglob("*.y*ml")
         ]
-        return BuildFiles(
+        return BuildSourceFiles(
             yaml_files=yaml_files,
             selected_modules=selected,
             variables=variables,
@@ -226,7 +224,7 @@ class BuildV2Command(ToolkitCommand):
         return selected, errors
 
     def _build_modules(
-        self, module_sources: Iterable[ModuleSource], build_dir: Path, max_workers: int = 1
+        self, module_sources: Sequence[ModuleSource], build_dir: Path, max_workers: int = 1
     ) -> BuildFolder:
         folder: BuildFolder = BuildFolder(path=build_dir)
 
@@ -310,32 +308,12 @@ class BuildV2Command(ToolkitCommand):
                 continue
 
             if files_by_resource_type := built_module.resource_by_type.get(DataModelCRUD.folder_name):
-                built_module.insights.extend(self._validate_with_neat(files_by_resource_type, client))
-
-    def _validate_with_neat(
-        self, files_by_resource_type: dict[str, list[Path]], client: ToolkitClient | None
-    ) -> InsightList:
-        """Placeholder for NEAT validation."""
-
-        insights = InsightList()
-
-        try:
-            from cognite.neat._issues import Recommendation as NeatRecommendation
-
-            neat_insight = NeatRecommendation(
-                message="Good job! You are using Neat!",
-                code="NEAT-USER",
-            )
-            insights.append(Recommendation.model_validate(neat_insight.model_dump()))
-        except ImportError:
-            local_insight = Recommendation(
-                message="It is always a good idea to use Neat!",
-                code="NEAT-EVANGELISM",
-                fix="pip install cognite-toolkit[v08]",
-            )
-            insights.append(local_insight)
-
-        return insights
+                if NeatPlugin.installed() and client and DataModelCRUD.kind in files_by_resource_type:
+                    neat = NeatPlugin(client)
+                    for data_model_file in files_by_resource_type[DataModelCRUD.kind]:
+                        for insight in neat.validate(data_model_file.parent, data_model_file):
+                            if insight not in built_module.insights:
+                                built_module.insights.append(insight)
 
     def _write_results(self, build_folder: BuildFolder) -> None:
         return None

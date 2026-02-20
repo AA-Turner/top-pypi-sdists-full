@@ -1410,8 +1410,16 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         """
         Returns the host to use for data-plane requests to the engine. May fall back to
         the metadata plane api server host if no engine host can be determined.
-        :param environment_override: Optional user-provided environment name or id.
-        :return: Host for direct engine (data-plane) requests
+
+        Parameters
+        ----------
+        environment_override
+            Optional user-provided environment name or id.
+
+        Returns
+        -------
+        str | None
+            Host for direct engine (data-plane) requests.
         """
 
         # always respect user-provided query_server override
@@ -1449,12 +1457,22 @@ https://docs.chalk.ai/docs/debugging-queries#resolver-replay
         """
         Returns the hostname to use for any requests made by the Chalk Client, whether they are
         metadata-plane-only requests or data-plane requests (to the engine).
-        :param metadata_request: Is this a metadata-plane-only request? If so, we always use the API server.
-        :param environment_override: Optional user-provided environment name or id.
-        :param branch: Optional user-provided branch name or id, or ellipsis to indicate "use the branch if we have one configured".
-        If a branch name is available, then we must always use the api server, which is responsible for
-        resolving the correct branch deployment.
-        :return: Host to use for any request made by the Chalk Client
+
+        Parameters
+        ----------
+        metadata_request
+            Is this a metadata-plane-only request? If so, we always use the API server.
+        environment_override
+            Optional user-provided environment name or id.
+        branch
+            Optional user-provided branch name or id, or ellipsis to indicate "use the branch if we
+            have one configured". If a branch name is available, then we must always use the API server,
+            which is responsible for resolving the correct branch deployment.
+
+        Returns
+        -------
+        str
+            Host to use for any request made by the Chalk Client.
         """
         branch = self._resolve_branch(branch)
         if branch is not None:

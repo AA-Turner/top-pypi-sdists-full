@@ -67,6 +67,7 @@ from openapi_client.models.auth_resource_type import AuthResourceType
 from openapi_client.models.aws_region_and_zones import AwsRegionAndZones
 from openapi_client.models.aws_region_info import AwsRegionInfo
 from openapi_client.models.awsregionandzones_response import AwsregionandzonesResponse
+from openapi_client.models.azure_acr_config import AzureACRConfig
 from openapi_client.models.azure_config import AzureConfig
 from openapi_client.models.azure_operator_audience import AzureOperatorAudience
 from openapi_client.models.azureoperatoraudience_response import AzureoperatoraudienceResponse

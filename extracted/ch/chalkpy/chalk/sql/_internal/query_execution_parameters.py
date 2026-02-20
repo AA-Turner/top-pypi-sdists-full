@@ -33,7 +33,7 @@ class PostgresQueryExecutionParameters:
 class SnowflakeQueryExecutionParameters:
     snowflake_unload_stage: Optional[str]
     """
-    The name of the Snowflake stage to use for unloading data. If None, the default stage will be used.
+    The name of the Snowflake stage to use for unloading data. If `None`, the default stage will be used.
     I.e. '@CHALK_UNLOAD_STAGE/test_1'
     """
 
@@ -42,7 +42,7 @@ class SnowflakeQueryExecutionParameters:
 class BigqueryQueryExecutionParameters:
     bigquery_unload_path: Optional[str]
     """
-    The name of the GCS or S3 bucket to use for unloading data. If None, queries will be executed to a temp table.
+    The name of the GCS or S3 bucket to use for unloading data. If `None`, queries will be executed to a temp table.
     """
 
 

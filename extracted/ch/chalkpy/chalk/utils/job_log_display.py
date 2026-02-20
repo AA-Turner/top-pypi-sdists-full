@@ -306,7 +306,7 @@ class JobLogDisplay:
             Callback that returns True when polling should stop
         output_callback
             Optional callback function that receives (timestamp, message) for each log entry.
-            If None, logs are added to the display.
+            If `None`, logs are added to the display.
         """
         try:
             while not should_stop_callback():
@@ -475,7 +475,7 @@ class JobLogDisplay:
             Time in seconds between polling for status and logs. Defaults to 2.0 seconds.
         output_callback
             Optional callback function that receives (timestamp, message) for each log entry.
-            If None, logs are displayed using Rich live display.
+            If `None`, logs are displayed using Rich live display.
         """
         import threading
 

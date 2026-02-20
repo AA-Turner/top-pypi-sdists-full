@@ -612,10 +612,30 @@ class LLM:
             if self._base_url:
                 kwargs["api_base"] = self._base_url
 
-            _, acompletion, _, _ = _get_litellm()
-            response = await _retry_with_backoff(acompletion, **kwargs)
-            self._track_cost(response)
-            content = response.choices[0].message.content
+            try:
+                _, acompletion, _, _ = _get_litellm()
+                response = await _retry_with_backoff(acompletion, **kwargs)
+                self._track_cost(response)
+                content = response.choices[0].message.content
+            except Exception as e:
+                if "JSONSchemaValidationError" in type(e).__name__ or "schema" in str(e).lower():
+                    warnings.warn(
+                        f"Model '{self.model}' failed structured output validation. "
+                        f"Falling back to prompt-based JSON generation.",
+                        UserWarning,
+                    )
+                    schema_text = response_model.model_json_schema()
+                    fallback_prompt = _FALLBACK_PROMPT.format(
+                        schema=json.dumps(schema_text, indent=2),
+                        prompt=prompt,
+                    )
+                    if system:
+                        fallback_prompt = f"{system}\n\n{fallback_prompt}"
+                    content = await self.generate(fallback_prompt)
+                    if validation_retries == 0:
+                        validation_retries = 3
+                else:
+                    raise
 
         # Clean content once before validation loop
         content = _clean_json_content(content)
@@ -729,10 +749,49 @@ class LLM:
                 if self._base_url:
                     kwargs["api_base"] = self._base_url
 
-                _, acompletion, _, _ = _get_litellm()
-                response = await _retry_with_backoff(acompletion, **kwargs)
-                self._track_cost(response)
-                content = response.choices[0].message.content
+                try:
+                    _, acompletion, _, _ = _get_litellm()
+                    response = await _retry_with_backoff(acompletion, **kwargs)
+                    self._track_cost(response)
+                    content = response.choices[0].message.content
+                except Exception as e:
+                    if (
+                        "JSONSchemaValidationError" in type(e).__name__
+                        or "schema" in str(e).lower()
+                    ):
+                        warnings.warn(
+                            f"Model '{self.model}' failed structured output validation. "
+                            f"Falling back to prompt-based JSON generation.",
+                            UserWarning,
+                        )
+                        schema_text = response_model.model_json_schema()
+                        fallback_messages = list(messages)
+                        last_content = fallback_messages[-1].get("content", "")
+                        fallback_messages[-1] = {
+                            **fallback_messages[-1],
+                            "content": _FALLBACK_PROMPT.format(
+                                schema=json.dumps(schema_text, indent=2),
+                                prompt=last_content,
+                            ),
+                        }
+                        fb_kwargs = {
+                            "model": self.model,
+                            "messages": fallback_messages,
+                            "temperature": self.temperature,
+                            "api_key": self._api_key,
+                        }
+                        if self.max_tokens is not None:
+                            fb_kwargs["max_tokens"] = self.max_tokens
+                        if self._base_url:
+                            fb_kwargs["api_base"] = self._base_url
+                        _, acompletion, _, _ = _get_litellm()
+                        response = await _retry_with_backoff(acompletion, **fb_kwargs)
+                        self._track_cost(response)
+                        content = response.choices[0].message.content
+                        if validation_retries == 0:
+                            validation_retries = 3
+                    else:
+                        raise
 
             # Clean content once before validation loop
             content = _clean_json_content(content)

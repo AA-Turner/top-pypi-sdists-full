@@ -50,14 +50,14 @@ def get_ipython_or_none() -> Optional[Any]:
 _is_notebook_override: bool = env_var_bool("CHALK_IS_NOTEBOOK_OVERRIDE")
 
 """
-For testing, this variable can be set to simulate running inside a notebook. If None, ignored. If true/false, that value is returned by is_notebook().
+For testing, this variable can be set to simulate running inside a notebook. If `None`, ignored. If `True`/`False`, that value is returned by is_notebook().
 Note that `is_notebook()` caches its results to must be called _after_ setting this value.
 """
 
 
 @functools.lru_cache(maxsize=None)
 def _is_notebook() -> bool:
-    """:return: true if run inside a Jupyter notebook"""
+    """:return: `True` if running inside a Jupyter notebook"""
     if _is_notebook_override:
         return True
     shell = get_ipython_or_none()

@@ -24,7 +24,7 @@ from code_loader.contract.enums import MetricDirection, LeapDataType, DatasetMet
 from code_loader import leap_binder, LeapLoader
 from code_loader.contract.mapping import NodeMapping, NodeMappingType, NodeConnection
 from code_loader.contract.visualizer_classes import LeapImage, LeapImageMask, LeapTextMask, LeapText, LeapGraph, \
-    LeapHorizontalBar, LeapImageWithBBox, LeapImageWithHeatmap
+    LeapHorizontalBar, LeapImageWithBBox, LeapImageWithHeatmap, LeapVideo
 from code_loader.inner_leap_binder.leapbinder import mapping_runtime_mode_env_var_mame
 from code_loader.mixpanel_tracker import clear_integration_events, AnalyticsEvent, emit_integration_event_once
 
@@ -824,7 +824,8 @@ def tensorleap_custom_visualizer(name: str, visualizer_type: LeapDataType,
                 LeapDataType.Graph: LeapGraph,
                 LeapDataType.HorizontalBar: LeapHorizontalBar,
                 LeapDataType.ImageWithBBox: LeapImageWithBBox,
-                LeapDataType.ImageWithHeatmap: LeapImageWithHeatmap
+                LeapDataType.ImageWithHeatmap: LeapImageWithHeatmap,
+                LeapDataType.Video: LeapVideo
             }
             validate_output_structure(result, func_name=user_function.__name__,
                                       expected_type_name=result_type_map[visualizer_type])
@@ -1687,8 +1688,12 @@ def tensorleap_status_table():
         mandatory_ready_mess = "\nAll mandatory parts have been successfully set. If no errors accured, you can now push the project to the Tensorleap system or continue to the next optional reccomeded interface,adding: "
         code_mapping_failure_mes = "Tensorleap_integration_test code flow failed, check raised exception."
 
-        name_width = max(len(row["name"]) for row in table)
-        status_width = max(len(row["Added to integration"]) for row in table)
+        # Sort table: CHECK first, then CROSS, then UNKNOWN
+        status_order = {CHECK: 0, CROSS: 1, UNKNOWN: 2}
+        sorted_table = sorted(table, key=lambda row: status_order.get(row["Added to integration"], 3))
+
+        name_width = max(len(row["name"]) for row in sorted_table)
+        status_width = max(len(row["Added to integration"]) for row in sorted_table)
 
         header = f"{'Decorator Name'.ljust(name_width)} | {'Added to integration'.ljust(status_width)}"
         sep = "-" * len(header)
@@ -1696,11 +1701,13 @@ def tensorleap_status_table():
         print("\n" + header)
         print(sep)
 
+        for row in sorted_table:
+            print(f"{row['name'].ljust(name_width)} | {row['Added to integration'].ljust(status_width)}")
+
+        # Determine next_step based on original table order (recommended integration order)
         ready = True
         next_step = None
-
         for row in table:
-            print(f"{row['name'].ljust(name_width)} | {row['Added to integration'].ljust(status_width)}")
             if not _crashed["value"] and ready:
                 if row["Added to integration"] != CHECK:
                     ready = False

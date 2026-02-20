@@ -54,7 +54,7 @@ setup(
         # The following are dependencies for the vendored pyspark
         "py4j==0.10.9.7",
         "pandas>=1.0.5",
-        "pyarrow>=4.0.0",
+        "pyarrow>=4.0.0,<=18.1.0",  # Newer pyarrow versions have stricter checks for nullability which breaks scala code
         "grpcio>=1.56.0,<=1.76.0",
         "grpcio-status>=1.56.0,<=1.76.0",
         "googleapis-common-protos>=1.56.4",

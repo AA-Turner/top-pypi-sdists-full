@@ -22,7 +22,7 @@ class BinanceFutureMarginInterestRateModel(System.Object, QuantConnect.Securitie
         ...
 
 
-class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+class dYdXFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
     """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 
@@ -85,28 +85,8 @@ class CryptoFutureMarginModel(QuantConnect.Securities.SecurityMarginModel):
         ...
 
 
-class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
-    """Crypto Future holdings implementation of the base securities class"""
-
-    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
-        """
-        Crypto Future Holding Class constructor
-        
-        :param security: The crypto future security being held
-        :param currency_converter: A currency converter instance
-        """
-        ...
-
-    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
-        """
-        Gets the total value of the specified quantity of shares of this security
-        in the account currency
-        
-        :param quantity: The quantity of shares
-        :param price: The current price
-        :returns: The value of the quantity of shares in the account currency.
-        """
-        ...
+class BybitFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
+    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 
 class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
@@ -129,10 +109,6 @@ class CryptoFutureExchange(QuantConnect.Securities.SecurityExchange):
         :param exchange_hours: Contains the weekly exchange schedule plus holidays
         """
         ...
-
-
-class dYdXFutureMarginInterestRateModel(QuantConnect.Securities.CryptoFuture.BinanceFutureMarginInterestRateModel):
-    """The responsibility of this model is to apply future funding rate cash flows to the portfolio based on open positions"""
 
 
 class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBaseCurrencySymbol):
@@ -168,6 +144,30 @@ class CryptoFuture(QuantConnect.Securities.Security, QuantConnect.Securities.IBa
         Checks whether the security is a crypto coin future
         
         :returns: True if the security is a crypto coin future.
+        """
+        ...
+
+
+class CryptoFutureHolding(QuantConnect.Securities.SecurityHolding):
+    """Crypto Future holdings implementation of the base securities class"""
+
+    def __init__(self, security: QuantConnect.Securities.Security, currency_converter: QuantConnect.Securities.ICurrencyConverter) -> None:
+        """
+        Crypto Future Holding Class constructor
+        
+        :param security: The crypto future security being held
+        :param currency_converter: A currency converter instance
+        """
+        ...
+
+    def get_quantity_value(self, quantity: float, price: float) -> QuantConnect.Securities.ConvertibleCashAmount:
+        """
+        Gets the total value of the specified quantity of shares of this security
+        in the account currency
+        
+        :param quantity: The quantity of shares
+        :param price: The current price
+        :returns: The value of the quantity of shares in the account currency.
         """
         ...
 

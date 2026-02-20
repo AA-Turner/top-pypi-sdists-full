@@ -14,8 +14,7 @@ from testtools.matchers._dict import (
     MatchesDict,
     _SubDictOf,
 )
-
-from ..matchers.helpers import TestMatchersInterface
+from testtools.matchers.test import TestMatchersInterface
 
 
 class TestMatchesAllDictInterface(TestCase, TestMatchersInterface):

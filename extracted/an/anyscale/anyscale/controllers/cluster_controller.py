@@ -419,7 +419,9 @@ class ClusterController(BaseController):
         )
         print(f"Clusters:\n{table}")
 
-    def debug_networking(self, cluster_id: Optional[str],) -> bool:
+    def debug_networking(
+        self, cluster_id: Optional[str], skip_tls_no_sni: bool = False,
+    ) -> bool:
         cluster = self.anyscale_api_client.get_cluster(cluster_id).result
         if cluster.state != SessionState.RUNNING:
             raise click.ClickException(
@@ -434,7 +436,10 @@ class ClusterController(BaseController):
 
         success = True
         for test_result in debug_cluster(
-            self.log, urlparse(url).netloc, cluster.head_node_info.ip_address
+            self.log,
+            urlparse(url).netloc,
+            cluster.head_node_info.ip_address,
+            skip_tls_no_sni=skip_tls_no_sni,
         ):
             if test_result.success:
                 self.log.info(f"{test_result.name}: ✅")

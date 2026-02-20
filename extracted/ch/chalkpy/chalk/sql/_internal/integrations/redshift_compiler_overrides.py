@@ -133,10 +133,7 @@ class INTERVAL(NativeForEmulated, sqlalchemy.sql.sqltypes._AbstractInterval):  #
 @functools.lru_cache(None)
 def register_redshift_compiler_hooks():
     """
-    Parameters
-    ----------
-    :param backup_default: Default value for the `backup YES | NO` when creating a table, if the `redshift_backup` argument is not specified in the table
-    constructor
+    Register compiler hooks for Redshift-specific SQLAlchemy type handling.
     """
     colspecs = dict(RedshiftDialectMixin.colspecs)
     colspecs[ARRAY] = SUPER

@@ -78,11 +78,18 @@ def rich_to_pyarrow(
 ) -> pa.DataType:
     """
     Recursively convert a python type to a PyArrow dtype.
-    :param python_type:
-    :param name:
-    :param in_struct: Whether this function is being called recursively for a member of a struct type.
-                      Certain datatypes need to be handled differently if nested inside a struct.
-    :param respect_nullability: Whether this function should update pa.field() with correct nullability.
+
+    Parameters
+    ----------
+    python_type
+        Python type to convert.
+    name
+        Name for the resulting Arrow field.
+    in_struct
+        Whether this function is being called recursively for a member of a struct type. Certain
+        datatypes need to be handled differently if nested inside a struct.
+    respect_nullability
+        Whether this function should update `pa.field()` with correct nullability.
     """
     # Polars seems to allow optional for any dtype, so we ignore it when computing dtypes
     python_type = unwrap_optional_and_annotated_if_needed(python_type)

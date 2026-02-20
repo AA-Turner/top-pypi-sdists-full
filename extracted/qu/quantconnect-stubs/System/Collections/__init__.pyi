@@ -210,44 +210,47 @@ class ListDictionaryInternal(System.Object, System.Collections.IDictionary):
         ...
 
 
-class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
+class IComparer(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    @property
-    @abc.abstractmethod
-    def is_read_only(self) -> bool:
+    def compare(self, x: typing.Any, y: typing.Any) -> int:
         ...
 
-    @property
-    @abc.abstractmethod
-    def is_fixed_size(self) -> bool:
+
+class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
+    """This class has no documentation."""
+
+    DEFAULT: System.Collections.Comparer = ...
+
+    DEFAULT_INVARIANT: System.Collections.Comparer = ...
+
+    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
         ...
 
-    def __getitem__(self, index: int) -> typing.Any:
+    def compare(self, a: typing.Any, b: typing.Any) -> int:
         ...
 
-    def __setitem__(self, index: int, value: typing.Any) -> None:
+    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
+        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+
+
+class IEqualityComparer(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, x: typing.Any, y: typing.Any) -> bool:
         ...
 
-    def add(self, value: typing.Any) -> int:
+    def get_hash_code(self, obj: typing.Any) -> int:
         ...
 
-    def clear(self) -> None:
+
+class IStructuralEquatable(metaclass=abc.ABCMeta):
+    """This class has no documentation."""
+
+    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
         ...
 
-    def contains(self, value: typing.Any) -> bool:
-        ...
-
-    def index_of(self, value: typing.Any) -> int:
-        ...
-
-    def insert(self, index: int, value: typing.Any) -> None:
-        ...
-
-    def remove(self, value: typing.Any) -> None:
-        ...
-
-    def remove_at(self, index: int) -> None:
+    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
         ...
 
 
@@ -354,20 +357,10 @@ class BitArray(System.Object, System.Collections.ICollection, System.ICloneable,
         ...
 
 
-class IComparer(metaclass=abc.ABCMeta):
+class IStructuralComparable(metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def compare(self, x: typing.Any, y: typing.Any) -> int:
-        ...
-
-
-class IEqualityComparer(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
-
-    def equals(self, x: typing.Any, y: typing.Any) -> bool:
-        ...
-
-    def get_hash_code(self, obj: typing.Any) -> int:
+    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
         ...
 
 
@@ -542,37 +535,44 @@ class Hashtable(System.Object, System.Collections.IDictionary, System.Runtime.Se
         ...
 
 
-class IStructuralEquatable(metaclass=abc.ABCMeta):
+class IList(System.Collections.ICollection, metaclass=abc.ABCMeta):
     """This class has no documentation."""
 
-    def equals(self, other: typing.Any, comparer: System.Collections.IEqualityComparer) -> bool:
+    @property
+    @abc.abstractmethod
+    def is_read_only(self) -> bool:
         ...
 
-    def get_hash_code(self, comparer: System.Collections.IEqualityComparer) -> int:
+    @property
+    @abc.abstractmethod
+    def is_fixed_size(self) -> bool:
         ...
 
-
-class Comparer(System.Object, System.Collections.IComparer, System.Runtime.Serialization.ISerializable):
-    """This class has no documentation."""
-
-    DEFAULT: System.Collections.Comparer = ...
-
-    DEFAULT_INVARIANT: System.Collections.Comparer = ...
-
-    def __init__(self, culture: System.Globalization.CultureInfo) -> None:
+    def __getitem__(self, index: int) -> typing.Any:
         ...
 
-    def compare(self, a: typing.Any, b: typing.Any) -> int:
+    def __setitem__(self, index: int, value: typing.Any) -> None:
         ...
 
-    def get_object_data(self, info: System.Runtime.Serialization.SerializationInfo, context: System.Runtime.Serialization.StreamingContext) -> None:
-        warnings.warn("Obsoletions.LegacyFormatterImplMessage", DeprecationWarning)
+    def add(self, value: typing.Any) -> int:
+        ...
 
+    def clear(self) -> None:
+        ...
 
-class IStructuralComparable(metaclass=abc.ABCMeta):
-    """This class has no documentation."""
+    def contains(self, value: typing.Any) -> bool:
+        ...
 
-    def compare_to(self, other: typing.Any, comparer: System.Collections.IComparer) -> int:
+    def index_of(self, value: typing.Any) -> int:
+        ...
+
+    def insert(self, index: int, value: typing.Any) -> None:
+        ...
+
+    def remove(self, value: typing.Any) -> None:
+        ...
+
+    def remove_at(self, index: int) -> None:
         ...
 
 

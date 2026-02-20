@@ -12,6 +12,8 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from dstack._internal import settings
+from dstack._internal.core.errors import GatewayError
 from dstack._internal.core.models.backends.base import BackendType
 from dstack._internal.core.models.common import ApplyAction
 from dstack._internal.core.models.configurations import (
@@ -47,6 +49,10 @@ from dstack._internal.server.main import app
 from dstack._internal.server.models import JobModel, RunModel
 from dstack._internal.server.schemas.runs import ApplyRunPlanRequest
 from dstack._internal.server.services.projects import add_project_member
+from dstack._internal.server.services.resources import (
+    set_gpu_vendor_default,
+    set_resources_defaults,
+)
 from dstack._internal.server.services.runs import run_model_to_run
 from dstack._internal.server.services.runs.spec import validate_run_spec_and_set_defaults
 from dstack._internal.server.testing.common import (
@@ -67,7 +73,6 @@ from dstack._internal.server.testing.common import (
     list_events,
 )
 from dstack._internal.server.testing.matchers import SomeUUID4Str
-from tests._internal.server.background.tasks.test_process_running_jobs import settings
 
 pytestmark = pytest.mark.usefixtures("image_config_mock")
 
@@ -588,6 +593,7 @@ def get_service_run_spec(
     repo_id: str,
     run_name: Optional[str] = None,
     gateway: Optional[Union[bool, str]] = None,
+    model: Union[str, dict] = "test-model",
 ) -> dict:
     return {
         "configuration": {
@@ -595,7 +601,7 @@ def get_service_run_spec(
             "commands": ["python -m http.server"],
             "port": 8000,
             "gateway": gateway,
-            "model": "test-model",
+            "model": model,
             "repos": [
                 {
                     "url": "https://github.com/dstackai/dstack",
@@ -1534,6 +1540,13 @@ class TestGetRunPlan:
             run_spec=run_spec,
         )
         run = run_model_to_run(run_model)
+        # Apply the same defaults the server applies to current_resource
+        set_resources_defaults(run.run_spec.configuration.resources)
+        set_gpu_vendor_default(
+            run.run_spec.configuration.resources,
+            image=run.run_spec.configuration.image,
+            docker=getattr(run.run_spec.configuration, "docker", None),
+        )
         run_spec.configuration = new_conf
         response = await client.post(
             f"/api/project/{project.name}/runs/get_plan",
@@ -2287,13 +2300,13 @@ class TestDeleteRuns:
 @pytest.mark.parametrize("test_db", ["sqlite", "postgres"], indirect=True)
 class TestSubmitService:
     @pytest.fixture(autouse=True)
-    def mock_gateway_connections(self) -> Generator[None, None, None]:
+    def mock_gateway_connection(self) -> Generator[AsyncMock, None, None]:
         with patch(
             "dstack._internal.server.services.gateways.gateway_connections_pool.get_or_add"
         ) as get_conn_mock:
             get_conn_mock.return_value.client = Mock()
             get_conn_mock.return_value.client.return_value = AsyncMock()
-            yield
+            yield get_conn_mock
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
@@ -2303,47 +2316,68 @@ class TestSubmitService:
             "expected_service_url",
             "expected_model_url",
             "is_gateway",
+            "model",
         ),
         [
             pytest.param(
                 [("default-gateway", True), ("non-default-gateway", False)],
                 None,
                 "https://test-service.default-gateway.example",
-                "https://gateway.default-gateway.example",
+                "https://test-service.default-gateway.example/v1",
                 True,
+                "test-model",
                 id="submits-to-default-gateway",
             ),
             pytest.param(
                 [("default-gateway", True), ("non-default-gateway", False)],
                 True,
                 "https://test-service.default-gateway.example",
-                "https://gateway.default-gateway.example",
+                "https://test-service.default-gateway.example/v1",
                 True,
+                "test-model",
                 id="submits-to-default-gateway-when-gateway-true",
             ),
             pytest.param(
                 [("default-gateway", True), ("non-default-gateway", False)],
                 "non-default-gateway",
                 "https://test-service.non-default-gateway.example",
-                "https://gateway.non-default-gateway.example",
+                "https://test-service.non-default-gateway.example/v1",
                 True,
+                "test-model",
                 id="submits-to-specified-gateway",
             ),
             pytest.param(
                 [("non-default-gateway", False)],
                 None,
                 "/proxy/services/test-project/test-service/",
-                "/proxy/models/test-project/",
+                "/proxy/services/test-project/test-service/v1",
                 False,
+                "test-model",
                 id="submits-in-server-when-no-default-gateway",
             ),
             pytest.param(
                 [("default-gateway", True)],
                 False,
                 "/proxy/services/test-project/test-service/",
-                "/proxy/models/test-project/",
+                "/proxy/services/test-project/test-service/v1",
                 False,
+                "test-model",
                 id="submits-in-server-when-specified",
+            ),
+            pytest.param(
+                [("default-gateway", True)],
+                None,
+                "https://test-service.default-gateway.example",
+                "https://gateway.default-gateway.example",
+                True,
+                {
+                    "type": "chat",
+                    "name": "test-model",
+                    "format": "tgi",
+                    "chat_template": "test",
+                    "eos_token": "</s>",
+                },
+                id="submits-tgi-model-to-gateway",
             ),
         ],
     )
@@ -2357,6 +2391,7 @@ class TestSubmitService:
         expected_service_url: str,
         expected_model_url: str,
         is_gateway: bool,
+        model: Union[str, dict],
     ) -> None:
         user = await create_user(session=session, global_role=GlobalRole.USER)
         project = await create_project(session=session, owner=user, name="test-project")
@@ -2386,6 +2421,7 @@ class TestSubmitService:
             repo_id=repo.name,
             run_name="test-service",
             gateway=specified_gateway_in_run_conf,
+            model=model,
         )
         response = await client.post(
             f"/api/project/{project.name}/runs/submit",
@@ -2446,3 +2482,54 @@ class TestSubmitService:
                 }
             ]
         }
+
+    @pytest.mark.asyncio
+    async def test_unregister_dangling_service(
+        self,
+        test_db,
+        session: AsyncSession,
+        client: AsyncClient,
+        mock_gateway_connection: AsyncMock,
+    ) -> None:
+        user = await create_user(session=session, global_role=GlobalRole.USER)
+        project = await create_project(session=session, owner=user, name="test-project")
+        await add_project_member(
+            session=session, project=project, user=user, project_role=ProjectRole.USER
+        )
+        repo = await create_repo(session=session, project_id=project.id)
+        backend = await create_backend(session=session, project_id=project.id)
+        gateway_compute = await create_gateway_compute(session=session, backend_id=backend.id)
+        gateway = await create_gateway(
+            session=session,
+            project_id=project.id,
+            backend_id=backend.id,
+            gateway_compute_id=gateway_compute.id,
+            status=GatewayStatus.RUNNING,
+            wildcard_domain="example.com",
+        )
+        project.default_gateway_id = gateway.id
+        await session.commit()
+
+        client_mock = (
+            mock_gateway_connection.return_value.client.return_value.__aenter__.return_value
+        )
+        client_mock.register_service.side_effect = [
+            GatewayError("Service test-project/test-service is already registered"),
+            None,  # Second call succeeds
+        ]
+
+        response = await client.post(
+            "/api/project/test-project/runs/submit",
+            headers=get_auth_headers(user.token),
+            json={"run_spec": get_service_run_spec(repo_id=repo.name, run_name="test-service")},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["service"]["url"] == "https://test-service.example.com"
+        # Verify that unregister_service was called to clean up the dangling service
+        client_mock.unregister_service.assert_called_once_with(
+            project=project.name,
+            run_name="test-service",
+        )
+        # Verify that register_service was called twice (first failed, then succeeded)
+        assert client_mock.register_service.call_count == 2

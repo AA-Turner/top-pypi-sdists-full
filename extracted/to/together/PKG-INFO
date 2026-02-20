@@ -1,9 +1,11 @@
 Metadata-Version: 2.3
 Name: together
-Version: 2.1.1
+Version: 2.2.0
 Summary: The official Python library for the together API
 Project-URL: Homepage, https://github.com/togethercomputer/together-py
 Project-URL: Repository, https://github.com/togethercomputer/together-py
+Project-URL: Documentation, https://docs.together.ai/
+Project-URL: Changelog, https://github.com/togethercomputer/together-py/blob/main/CHANGELOG.md
 Author-email: Together <dev-feedback@TogetherAI.com>
 License: Apache-2.0
 Classifier: Intended Audience :: Developers

@@ -2,15 +2,18 @@
 Django system checks for Alliance Auth
 """
 
-from typing import List
-from django import db
-from django.core.checks import CheckMessage, Error, register, Warning
-from allianceauth.utils.cache import get_redis_client
-from django.utils import timezone
-from packaging.version import InvalidVersion, Version as Pep440Version
-from celery import current_app
-from django.conf import settings
 from sqlite3.dbapi2 import sqlite_version_info
+from typing import List
+
+from celery import current_app
+from packaging.version import InvalidVersion, Version as Pep440Version
+
+from django import db
+from django.conf import settings
+from django.core.checks import CheckMessage, Error, Warning, register
+from django.utils import timezone
+
+from allianceauth.utils.cache import get_redis_client
 
 """
 A = System Packages
@@ -126,17 +129,18 @@ def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
     errors: List[CheckMessage] = []
 
     try:
+        # Traditional Redis Version
         redis_version = Pep440Version(get_redis_client().info()["redis_version"])
+        # Exit early if Valkey, this will be handled in Valkey checks
+        if "valkey_version" in get_redis_client().info():
+            return errors
     except InvalidVersion:
         errors.append(Warning("Unable to confirm Redis Version"))
 
         return errors
 
     if (
-        redis_version.major == 7
-        and redis_version.minor == 2
-        and timezone.now()
-        > timezone.datetime(year=2025, month=8, day=31, tzinfo=timezone.utc)
+        redis_version.major == 7 and redis_version.minor == 2 and timezone.now() > timezone.datetime(year=2025, month=8, day=31, tzinfo=timezone.utc)
     ):
         errors.append(
             Error(
@@ -170,6 +174,71 @@ def system_package_redis(app_configs, **kwargs) -> List[CheckMessage]:
             )
         )
 
+    return errors
+
+
+@register()
+def system_package_valkey(app_configs, **kwargs) -> List[CheckMessage]:
+    """
+    Check that Valkey is a supported version
+
+    :param app_configs:
+    :type app_configs:
+    :param kwargs:
+    :type kwargs:
+    :return:
+    :rtype:
+    """
+
+    allianceauth_redis_install_link = "https://allianceauth.readthedocs.io/en/latest/installation/allianceauth.html#redis-and-other-tools"
+
+    errors: List[CheckMessage] = []
+
+    try:
+        # Valkey has both redis_version and valkey_version in info
+        if "valkey_version" in get_redis_client().info():
+            valkey_version: Pep440Version = Pep440Version(get_redis_client().info()["valkey_version"])
+        else:
+            # Just here to typehint the following code, this will return out of the check
+            valkey_version = Pep440Version("0.0.0")
+            return errors
+    except InvalidVersion:
+        errors.append(Warning("Unable to confirm Redis Version"))
+
+        return errors
+
+    if valkey_version.major == 7 and valkey_version.minor == 2 and timezone.now() > timezone.datetime(year=2027, month=4, day=16, tzinfo=timezone.utc):
+        errors.append(
+            Error(
+                msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
+                hint=allianceauth_redis_install_link,
+                id="allianceauth.checks.A021",
+            )
+        )
+    elif valkey_version.major == 8 and valkey_version.minor == 0 and timezone.now() > timezone.datetime(year=2027, month=9, day=15, tzinfo=timezone.utc):
+        errors.append(
+            Warning(
+                msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
+                hint=allianceauth_redis_install_link,
+                id="allianceauth.checks.A022",
+            )
+        )
+    elif valkey_version.major == 8 and valkey_version.minor == 1 and timezone.now() > timezone.datetime(year=2028, month=5, day=31, tzinfo=timezone.utc):
+        errors.append(
+            Warning(
+                msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
+                hint=allianceauth_redis_install_link,
+                id="allianceauth.checks.A023",
+            )
+        )
+    elif valkey_version.major == 9 and valkey_version.minor == 0 and timezone.now() > timezone.datetime(year=2028, month=10, day=21, tzinfo=timezone.utc):
+        errors.append(
+            Warning(
+                msg=f"Valkey {valkey_version.public} in Security Support only, Updating Suggested",
+                hint=allianceauth_redis_install_link,
+                id="allianceauth.checks.A024",
+            )
+        )
     return errors
 
 

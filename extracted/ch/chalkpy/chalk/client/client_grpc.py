@@ -398,7 +398,7 @@ class StubProvider:
             channel_options_merged.update(dict(channel_options))
         if skip_api_server:
             # Omits the auth handshake with the API server. Primarily for internal use/testing -- if used in production,
-            # this client will simply fail to connect. If True then query_server must be provided & point to
+            # this client will simply fail to connect. If `True` then query_server must be provided & point to
             # `localhost/127.0.0.1`.
             if query_server is None:
                 raise ValueError("If skipping API server auth, query_server URI must be provided.")
@@ -2230,7 +2230,7 @@ class ChalkGRPCClient:
         operation_id
             The ID of the operation to get summary for
         environment_id
-            The environment ID. If None, uses the client's environment.
+            The environment ID. If `None`, uses the client's environment.
         limit
             Maximum number of job rows to return. Defaults to 10000.
         offset
@@ -2283,7 +2283,7 @@ class ChalkGRPCClient:
             Time in seconds between polling for status and logs. Defaults to 2.0 seconds.
         output_callback
             Optional callback function that receives (timestamp, message) for each log entry.
-            If None, logs are displayed using Rich live display.
+            If `None`, logs are displayed using Rich live display.
 
         Examples
         --------

@@ -41,6 +41,7 @@ from .optimization.core.optimize import execute_optimize
 from .optimization.specific.optimize_classification import execute_optimize_classification
 from .optimization.specific.optimize_sample_size import execute_optimize_sample_size
 from .optimization.specific.optimize_weights import execute_optimize_weights
+from .optimization.specific.tune_recommendation import execute_tune_recommendation
 
 # Steering core
 from .steering.core.create_steering_object import execute_create_steering_object
@@ -91,4 +92,5 @@ __all__ = [
     'execute_per_concept_steering_viz',
     'execute_discover_steering',
     'execute_migrate_activations',
+    'execute_tune_recommendation',
 ]

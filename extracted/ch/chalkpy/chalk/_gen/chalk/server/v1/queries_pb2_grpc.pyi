@@ -14,6 +14,8 @@ from chalk._gen.chalk.server.v1.queries_pb2 import (
     GetMetaQueryByNameResponse,
     GetMetaQueryRequest,
     GetMetaQueryResponse,
+    GetPlanRunMetadataRequest,
+    GetPlanRunMetadataResponse,
     GetQueryErrorsChartRequest,
     GetQueryErrorsChartResponse,
     GetQueryPerformanceSummaryRequest,
@@ -132,6 +134,10 @@ class QueriesServiceStub:
         GetStreamingResolverMaterializedAggregationPlanRequest,
         GetStreamingResolverMaterializedAggregationPlanResponse,
     ]
+    GetPlanRunMetadata: UnaryUnaryMultiCallable[
+        GetPlanRunMetadataRequest,
+        GetPlanRunMetadataResponse,
+    ]
 
 class QueriesServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -248,5 +254,11 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: GetStreamingResolverMaterializedAggregationPlanRequest,
         context: ServicerContext,
     ) -> GetStreamingResolverMaterializedAggregationPlanResponse: ...
+    @abstractmethod
+    def GetPlanRunMetadata(
+        self,
+        request: GetPlanRunMetadataRequest,
+        context: ServicerContext,
+    ) -> GetPlanRunMetadataResponse: ...
 
 def add_QueriesServiceServicer_to_server(servicer: QueriesServiceServicer, server: Server) -> None: ...

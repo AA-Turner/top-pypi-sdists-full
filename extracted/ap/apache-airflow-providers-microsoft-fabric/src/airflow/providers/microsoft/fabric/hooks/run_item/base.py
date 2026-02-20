@@ -2,6 +2,7 @@ from abc import abstractmethod
 import asyncio
 import logging
 from datetime import datetime, timedelta
+from typing import Optional
 
 from airflow.exceptions import AirflowException
 from airflow.providers.microsoft.fabric.hooks.run_item.model import ItemDefinition, MSFabricRunItemStatus, RunItemConfig, RunItemOutput, RunItemTracker
@@ -40,18 +41,18 @@ class BaseFabricRunItemHook:
                 runItemConfig.fabric_conn_id,
                 tenacity_retry=runItemConfig.tenacity_retry,
             )
-            self.log.info("Successfully initialized MSFabricRunItemHook - conn_id: %s, poll interval (secs): %s, timeout (secs): %s, retry_config: %s",
+            self.log.debug("Successfully initialized BaseFabricRunItemHook - conn_id: %s, poll interval (secs): %s, timeout (secs): %s, retry_config: %s",
             runItemConfig.fabric_conn_id, runItemConfig.poll_interval_seconds, runItemConfig.timeout_seconds,  runItemConfig.tenacity_retry
         )
         except Exception as e:
-            self.log.error("Failed to initialize MS Fabric Run Item Hook: %s", str(e))
+            self.log.error("Failed to initialize BaseFabricRunItemHook: %s", str(e))
             raise
 
     @abstractmethod
     async def run_item(self, connection: MSFabricRestConnection, item: ItemDefinition) -> RunItemTracker: ...
 
     @abstractmethod
-    async def get_run_status(self, connection: MSFabricRestConnection, tracker: RunItemTracker) -> MSFabricRunItemStatus: ...
+    async def get_run_status(self, connection: MSFabricRestConnection, tracker: RunItemTracker) -> tuple[MSFabricRunItemStatus, Optional[str]]: ...
 
     @abstractmethod
     async def cancel_run(self, connection: MSFabricRestConnection, tracker: RunItemTracker) -> bool: ...
@@ -85,7 +86,7 @@ class BaseFabricRunItemHook:
         """
 
         # Start the item run
-        self.log.info(
+        self.log.debug(
             "Starting item run - workspace_id: %s, item_id: %s, job_type: %s",
             item.workspace_id, item.item_id, item.item_type, 
         )
@@ -151,14 +152,15 @@ class BaseFabricRunItemHook:
                 attempt, elapsed, remaining)
 
             # Get status and check if run has finished
-            status = await self.get_run_status(self.conn, tracker)
+            status, error_details = await self.get_run_status(self.conn, tracker)
             has_finished = status in self.TERMINAL_STATUSES
 
             if has_finished:
-                # Return success event data with payload
+                # Return event data with payload, including error details for failures
                 return RunItemOutput(
                     tracker=tracker,
                     status=status,
+                    failed_reason=error_details
                 )
 
             self.log.debug(

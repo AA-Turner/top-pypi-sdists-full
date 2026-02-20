@@ -92,6 +92,7 @@ def process_udf_in_sproc(
     udf_packages: str = "",
     udf_imports: str = "",
     original_return_type: DataType | None = None,
+    artifact_repository: str | None = None,
     resource_constraint: dict[str, str] | None = None,
 ) -> SnowparkUDF:
     """Helper method to call the sproc to create inline UDF and return the essential info of the UDF."""
@@ -138,6 +139,7 @@ def process_udf_in_sproc(
         udf_imports,
         udf_proto_encoded,
         original_return_type_json_str,
+        artifact_repository,
         resource_constraint_json_str,
     )
 
@@ -181,12 +183,13 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
     udf_imports VARCHAR,
     base64_str VARCHAR,
     original_return_type VARCHAR,
+    artifact_repository VARCHAR,
     resource_constraint_json VARCHAR
 )
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python==1.32.0', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$
@@ -218,7 +221,7 @@ def parse_resource_constraint(resource_constraint_json) -> Optional[dict[str, st
         return None
     return json.loads(resource_constraint_json)
 
-def create(session, called_from, return_type_json_str, input_types_json_str, input_column_names_json_str, udf_name, replace, udf_packages, udf_imports, b64_str, original_return_type, resource_constraint_json):
+def create(session, called_from, return_type_json_str, input_types_json_str, input_column_names_json_str, udf_name, replace, udf_packages, udf_imports, b64_str, original_return_type, artifact_repository, resource_constraint_json):
     session._use_scoped_temp_objects = False
     import snowflake.snowpark.context as context
     context._use_structured_type_semantics = True
@@ -238,6 +241,7 @@ def create(session, called_from, return_type_json_str, input_types_json_str, inp
         udf_packages=udf_packages,
         udf_imports=udf_imports,
         original_return_type=parse_return_type(original_return_type) if original_return_type else None,
+        artifact_repository=artifact_repository,
         resource_constraint=parse_resource_constraint(resource_constraint_json),
     )
     udf = udf_processor.create_udf()

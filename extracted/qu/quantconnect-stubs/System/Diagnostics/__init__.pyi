@@ -9,157 +9,6 @@ import System.Diagnostics
 import System.Reflection
 
 
-class DebugProvider(System.Object):
-    """This class has no documentation."""
-
-    def fail(self, message: str, detail_message: str) -> None:
-        ...
-
-    @staticmethod
-    def fail_core(stack_trace: str, message: str, detail_message: str, error_source: str) -> None:
-        ...
-
-    def on_indent_level_changed(self, indent_level: int) -> None:
-        ...
-
-    def on_indent_size_changed(self, indent_size: int) -> None:
-        ...
-
-    def write(self, message: str) -> None:
-        ...
-
-    @staticmethod
-    def write_core(message: str) -> None:
-        ...
-
-    def write_line(self, message: str) -> None:
-        ...
-
-
-class DebuggerDisplayAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def value(self) -> str:
-        ...
-
-    @property
-    def name(self) -> str:
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def type(self) -> str:
-        ...
-
-    @type.setter
-    def type(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    def __init__(self, value: str) -> None:
-        ...
-
-
-class DebuggerStepperBoundaryAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class Stopwatch(System.Object):
-    """This class has no documentation."""
-
-    FREQUENCY: int = ...
-
-    IS_HIGH_RESOLUTION: bool = True
-
-    @property
-    def is_running(self) -> bool:
-        ...
-
-    @property
-    def elapsed(self) -> datetime.timedelta:
-        ...
-
-    @property
-    def elapsed_milliseconds(self) -> int:
-        ...
-
-    @property
-    def elapsed_ticks(self) -> int:
-        ...
-
-    def __init__(self) -> None:
-        ...
-
-    @staticmethod
-    @overload
-    def get_elapsed_time(starting_timestamp: int) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    @overload
-    def get_elapsed_time(starting_timestamp: int, ending_timestamp: int) -> datetime.timedelta:
-        ...
-
-    @staticmethod
-    def get_timestamp() -> int:
-        ...
-
-    def reset(self) -> None:
-        ...
-
-    def restart(self) -> None:
-        ...
-
-    def start(self) -> None:
-        ...
-
-    @staticmethod
-    def start_new() -> System.Diagnostics.Stopwatch:
-        ...
-
-    def stop(self) -> None:
-        ...
-
-    def to_string(self) -> str:
-        ...
-
-
-class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
-    """This class has no documentation."""
-
-
-class Debugger(System.Object):
-    """This class has no documentation."""
-
-    DEFAULT_CATEGORY: str
-
-    @staticmethod
-    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
-        ...
-
-
 class StackFrame(System.Object):
     """This class has no documentation."""
 
@@ -208,6 +57,59 @@ class StackFrame(System.Object):
         ...
 
     def to_string(self) -> str:
+        ...
+
+
+class DiagnosticMethodInfo(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @property
+    def declaring_type_name(self) -> str:
+        ...
+
+    @property
+    def declaring_assembly_name(self) -> str:
+        ...
+
+    @staticmethod
+    @overload
+    def create(delegate: System.Delegate) -> System.Diagnostics.DiagnosticMethodInfo:
+        ...
+
+    @staticmethod
+    @overload
+    def create(frame: System.Diagnostics.StackFrame) -> System.Diagnostics.DiagnosticMethodInfo:
+        ...
+
+
+class DebugProvider(System.Object):
+    """This class has no documentation."""
+
+    def fail(self, message: str, detail_message: str) -> None:
+        ...
+
+    @staticmethod
+    def fail_core(stack_trace: str, message: str, detail_message: str, error_source: str) -> None:
+        ...
+
+    def on_indent_level_changed(self, indent_level: int) -> None:
+        ...
+
+    def on_indent_size_changed(self, indent_size: int) -> None:
+        ...
+
+    def write(self, message: str) -> None:
+        ...
+
+    @staticmethod
+    def write_core(message: str) -> None:
+        ...
+
+    def write_line(self, message: str) -> None:
         ...
 
 
@@ -458,6 +360,66 @@ class Debug(System.Object):
         ...
 
 
+class Stopwatch(System.Object):
+    """This class has no documentation."""
+
+    FREQUENCY: int = ...
+
+    IS_HIGH_RESOLUTION: bool = True
+
+    @property
+    def is_running(self) -> bool:
+        ...
+
+    @property
+    def elapsed(self) -> datetime.timedelta:
+        ...
+
+    @property
+    def elapsed_milliseconds(self) -> int:
+        ...
+
+    @property
+    def elapsed_ticks(self) -> int:
+        ...
+
+    def __init__(self) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def get_elapsed_time(starting_timestamp: int) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    @overload
+    def get_elapsed_time(starting_timestamp: int, ending_timestamp: int) -> datetime.timedelta:
+        ...
+
+    @staticmethod
+    def get_timestamp() -> int:
+        ...
+
+    def reset(self) -> None:
+        ...
+
+    def restart(self) -> None:
+        ...
+
+    def start(self) -> None:
+        ...
+
+    @staticmethod
+    def start_new() -> System.Diagnostics.Stopwatch:
+        ...
+
+    def stop(self) -> None:
+        ...
+
+    def to_string(self) -> str:
+        ...
+
+
 class DebuggerBrowsableState(IntEnum):
     """This class has no documentation."""
 
@@ -479,145 +441,7 @@ class DebuggerBrowsableAttribute(System.Attribute):
         ...
 
 
-class ConditionalAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def condition_string(self) -> str:
-        ...
-
-    def __init__(self, condition_string: str) -> None:
-        ...
-
-
-class DebuggerNonUserCodeAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class UnreachableException(System.Exception):
-    """This class has no documentation."""
-
-    @overload
-    def __init__(self) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, message: str, inner_exception: System.Exception) -> None:
-        ...
-
-
-class DebuggerVisualizerAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    @property
-    def visualizer_object_source_type_name(self) -> str:
-        ...
-
-    @property
-    def visualizer_type_name(self) -> str:
-        ...
-
-    @property
-    def description(self) -> str:
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def target(self) -> typing.Type:
-        ...
-
-    @target.setter
-    def target(self, value: typing.Type) -> None:
-        ...
-
-    @property
-    def target_type_name(self) -> str:
-        ...
-
-    @target_type_name.setter
-    def target_type_name(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
-        ...
-
-    @overload
-    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
-        ...
-
-
-class StackTraceHiddenAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    def __init__(self) -> None:
-        ...
-
-
-class DebuggableAttribute(System.Attribute):
-    """This class has no documentation."""
-
-    class DebuggingModes(IntEnum):
-        """This class has no documentation."""
-
-        NONE = ...
-
-        DEFAULT = ...
-
-        DISABLE_OPTIMIZATIONS = ...
-
-        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
-
-        ENABLE_EDIT_AND_CONTINUE = ...
-
-    @property
-    def is_jit_tracking_enabled(self) -> bool:
-        ...
-
-    @property
-    def is_jit_optimizer_disabled(self) -> bool:
-        ...
-
-    @property
-    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
-        ...
-
-    @overload
-    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
-        ...
-
-
-class DebuggerHiddenAttribute(System.Attribute):
+class DebuggerStepThroughAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:
@@ -683,6 +507,128 @@ class StackTrace(System.Object):
         ...
 
 
+class ConditionalAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def condition_string(self) -> str:
+        ...
+
+    def __init__(self, condition_string: str) -> None:
+        ...
+
+
+class StackFrameExtensions(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def get_native_image_base(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def get_native_ip(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
+        ...
+
+    @staticmethod
+    def has_il_offset(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_method(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_native_image(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+    @staticmethod
+    def has_source(stack_frame: System.Diagnostics.StackFrame) -> bool:
+        ...
+
+
+class DebuggerDisplayAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    @property
+    def value(self) -> str:
+        ...
+
+    @property
+    def name(self) -> str:
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def type(self) -> str:
+        ...
+
+    @type.setter
+    def type(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
+    def __init__(self, value: str) -> None:
+        ...
+
+
+class UnreachableException(System.Exception):
+    """This class has no documentation."""
+
+    @overload
+    def __init__(self) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, message: str, inner_exception: System.Exception) -> None:
+        ...
+
+
+class StackTraceHiddenAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class Debugger(System.Object):
+    """This class has no documentation."""
+
+    DEFAULT_CATEGORY: str
+
+    @staticmethod
+    def break_for_user_unhandled_exception(exception: System.Exception) -> None:
+        ...
+
+
+class DebuggerStepperBoundaryAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
 class DebuggerTypeProxyAttribute(System.Attribute):
     """This class has no documentation."""
 
@@ -715,61 +661,115 @@ class DebuggerTypeProxyAttribute(System.Attribute):
         ...
 
 
-class StackFrameExtensions(System.Object):
+class DebuggerDisableUserUnhandledExceptionsAttribute(System.Attribute):
     """This class has no documentation."""
 
-    @staticmethod
-    def get_native_image_base(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
-        ...
 
-    @staticmethod
-    def get_native_ip(stack_frame: System.Diagnostics.StackFrame) -> System.IntPtr:
-        ...
-
-    @staticmethod
-    def has_il_offset(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_method(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_native_image(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-    @staticmethod
-    def has_source(stack_frame: System.Diagnostics.StackFrame) -> bool:
-        ...
-
-
-class DiagnosticMethodInfo(System.Object):
+class DebuggerVisualizerAttribute(System.Attribute):
     """This class has no documentation."""
 
     @property
-    def name(self) -> str:
+    def visualizer_object_source_type_name(self) -> str:
         ...
 
     @property
-    def declaring_type_name(self) -> str:
+    def visualizer_type_name(self) -> str:
         ...
 
     @property
-    def declaring_assembly_name(self) -> str:
+    def description(self) -> str:
         ...
 
-    @staticmethod
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def target(self) -> typing.Type:
+        ...
+
+    @target.setter
+    def target(self, value: typing.Type) -> None:
+        ...
+
+    @property
+    def target_type_name(self) -> str:
+        ...
+
+    @target_type_name.setter
+    def target_type_name(self, value: str) -> None:
+        ...
+
     @overload
-    def create(delegate: System.Delegate) -> System.Diagnostics.DiagnosticMethodInfo:
+    def __init__(self, visualizer_type_name: str) -> None:
         ...
 
-    @staticmethod
     @overload
-    def create(frame: System.Diagnostics.StackFrame) -> System.Diagnostics.DiagnosticMethodInfo:
+    def __init__(self, visualizer_type_name: str, visualizer_object_source_type_name: str) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer_type_name: str, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source: typing.Type) -> None:
+        ...
+
+    @overload
+    def __init__(self, visualizer: typing.Type, visualizer_object_source_type_name: str) -> None:
         ...
 
 
-class DebuggerStepThroughAttribute(System.Attribute):
+class DebuggableAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    class DebuggingModes(IntEnum):
+        """This class has no documentation."""
+
+        NONE = ...
+
+        DEFAULT = ...
+
+        DISABLE_OPTIMIZATIONS = ...
+
+        IGNORE_SYMBOL_STORE_SEQUENCE_POINTS = ...
+
+        ENABLE_EDIT_AND_CONTINUE = ...
+
+    @property
+    def is_jit_tracking_enabled(self) -> bool:
+        ...
+
+    @property
+    def is_jit_optimizer_disabled(self) -> bool:
+        ...
+
+    @property
+    def debugging_flags(self) -> System.Diagnostics.DebuggableAttribute.DebuggingModes:
+        ...
+
+    @overload
+    def __init__(self, is_jit_tracking_enabled: bool, is_jit_optimizer_disabled: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self, modes: System.Diagnostics.DebuggableAttribute.DebuggingModes) -> None:
+        ...
+
+
+class DebuggerHiddenAttribute(System.Attribute):
+    """This class has no documentation."""
+
+    def __init__(self) -> None:
+        ...
+
+
+class DebuggerNonUserCodeAttribute(System.Attribute):
     """This class has no documentation."""
 
     def __init__(self) -> None:

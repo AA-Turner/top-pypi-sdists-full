@@ -8,7 +8,7 @@ from pyspark.sql.connect.proto.expressions_pb2 import CommonInlineUserDefinedFun
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark.types import StructField, StructType
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import get_artifact_repository, global_config
 from snowflake.snowpark_connect.constants import MAP_IN_ARROW_EVAL_TYPE
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.expression.map_unresolved_star import (
@@ -36,6 +36,7 @@ from snowflake.snowpark_connect.utils.udtf_helper import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
 
 
 def map_map_partitions(
@@ -162,14 +163,14 @@ def _map_with_udtf(
                 input_df_container.column_map,
                 ExpressionTyper(input_df),
             )
-            udtf_arg_column = typed_col.col
+            udtf_arg_column = to_variant_preserving_nulls(typed_col.col, typed_col.typ)
         else:
             udtf_arg_column = snowpark_fn.col(
                 input_df_container.column_map.get_snowpark_columns()[0]
             )
             spark_col_name = input_df_container.column_map.get_spark_columns()[0]
             arg_types = [input_schema.fields[0].datatype]
-            udtf_arg_column = snowpark_fn.to_variant(udtf_arg_column)
+            udtf_arg_column = to_variant_preserving_nulls(udtf_arg_column, arg_types[0])
 
         partition_hint = input_df_container.partition_hint
 
@@ -199,6 +200,7 @@ def _map_with_udtf(
     )
     udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
     udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
+    artifact_repository = get_artifact_repository()
     if require_creating_udtf_in_sproc(udf_proto):
         udtf_name = create_pandas_udtf_in_sproc(
             udf_proto,
@@ -207,6 +209,7 @@ def _map_with_udtf(
             return_type,
             udtf_packages,
             udtf_imports,
+            artifact_repository=artifact_repository,
         )
     else:
         if map_in_arrow:
@@ -217,6 +220,7 @@ def _map_with_udtf(
                 return_type,
                 udtf_packages,
                 udtf_imports,
+                artifact_repository=artifact_repository,
             )
         else:
             map_udtf = create_pandas_udtf(
@@ -226,6 +230,7 @@ def _map_with_udtf(
                 return_type,
                 udtf_packages,
                 udtf_imports,
+                artifact_repository=artifact_repository,
             )
         udtf_name = map_udtf.name
     return _call_udtf(udtf_name, input_df, return_type)

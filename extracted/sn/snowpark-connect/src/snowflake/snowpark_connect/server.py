@@ -1259,13 +1259,30 @@ def start_session(
         raise e
 
 
-def init_spark_session(conf: SparkConf = None) -> SparkSession:
-    _setup_spark_environment()
-    from snowflake.snowpark_connect.utils.session import _get_current_snowpark_session
+def _is_running_in_snowpark_submit() -> bool:
+    """Check if running inside a snowpark-submit job."""
+    return os.getenv("SNOWPARK_SUBMIT_JOB") == "true"
 
-    snowpark_session = _get_current_snowpark_session()
-    start_session(snowpark_session=snowpark_session)
-    return get_session(conf=conf)
+
+def init_spark_session(conf: SparkConf = None) -> SparkSession:
+    if _is_running_in_snowpark_submit():
+        # Running inside snowpark-submit - use existing Spark session
+        from pyspark.sql import SparkSession
+
+        builder = SparkSession.builder
+        if conf is not None:
+            for k, v in conf.getAll():
+                builder = builder.config(k, v)
+        return builder.getOrCreate()
+    else:
+        _setup_spark_environment()
+        from snowflake.snowpark_connect.utils.session import (
+            _get_current_snowpark_session,
+        )
+
+        snowpark_session = _get_current_snowpark_session()
+        start_session(snowpark_session=snowpark_session)
+        return get_session(conf=conf)
 
 
 def _get_files_metadata(data_source: relations_proto.Read.DataSource) -> List[str]:

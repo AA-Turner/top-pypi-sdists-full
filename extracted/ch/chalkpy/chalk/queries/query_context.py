@@ -47,7 +47,11 @@ class ChalkContext:
     def _set_context(cls, context: ContextJsonDict | None):
         """
         This is a context manager that will reset the ChalkContext upon __exit__.
-        :param context: If None, does nothing. Otherwise, sets the value of ChalkContext to the given dict.
+
+        Parameters
+        ----------
+        context
+            If `None`, does nothing. Otherwise, sets the value of ChalkContext to the given dict.
         """
         token: Token | None = None
         try:

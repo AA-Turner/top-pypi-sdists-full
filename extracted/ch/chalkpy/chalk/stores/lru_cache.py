@@ -23,7 +23,7 @@ class LRUCache:
             - a timedelta object,
     store_cache_misses : bool, optional
         Whether to cache misses (entries not found in online store).
-        If True, cache misses against the online store are stored in
+        If `True`, cache misses against the online store are stored in
         the LRU cache and subsequent requests for the same primary key
         will not hit the online store until the TTL expires.
         Defaults to False.

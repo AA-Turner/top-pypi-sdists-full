@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fugue-sql-antlr
-Version: 0.2.3
+Version: 0.2.4
 Summary: Fugue SQL Antlr Parser
 Home-page: http://github.com/fugue-project/fugue
 Author: The Fugue Development Team
@@ -26,7 +26,7 @@ Requires-Dist: antlr4-python3-runtime<4.14,>=4.13.2
 Requires-Dist: jinja2
 Requires-Dist: packaging
 Provides-Extra: cpp
-Requires-Dist: fugue-sql-antlr-cpp==0.2.3; extra == "cpp"
+Requires-Dist: fugue-sql-antlr-cpp==0.2.4; extra == "cpp"
 Provides-Extra: test
 Requires-Dist: speedy_antlr_tool; extra == "test"
 Dynamic: author

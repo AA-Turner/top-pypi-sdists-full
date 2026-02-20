@@ -9,11 +9,11 @@ from sklearn.utils.validation import check_is_fitted
 from tslearn.bases import BaseModelPackage, TimeSeriesMixin
 from tslearn.bases.bases import ALLOW_VARIABLE_LENGTH
 from tslearn.metrics import (
-    cdist_dtw,
-    cdist_ctw,
-    cdist_soft_dtw,
-    cdist_sax,
-    cdist_frechet,
+    _cdist_dtw,
+    _cdist_ctw,
+    _cdist_soft_dtw,
+    _cdist_sax,
+    _cdist_frechet,
     TSLEARN_VALID_METRICS
 )
 from tslearn.piecewise import SymbolicAggregateApproximation
@@ -37,8 +37,6 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
                 alphabet_size_avg=alphabet_size_avg,
                 scale=scale
             )
-
-        X = to_time_series_dataset(X)
         X_sax = self._sax.fit_transform(X)
 
         return X_sax
@@ -70,25 +68,25 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
         X = to_time_series_dataset(X)
 
         if self._ts_metric == "dtw":
-            X_ = cdist_dtw(
+            X_ = _cdist_dtw(
                 X,
                 other_X,
                 n_jobs=self.n_jobs,
                 **metric_params)
         elif self._ts_metric == "ctw":
-            X_ = cdist_ctw(X, other_X, **metric_params)
+            X_ = _cdist_ctw(X, other_X, **metric_params)
         elif self._ts_metric == "softdtw":
-            X_ = cdist_soft_dtw(X, other_X, **metric_params)
+            X_ = _cdist_soft_dtw(X, other_X, **metric_params)
         elif self._ts_metric == "sax":
             X = self._sax_preprocess(X, **metric_params)
-            X_ = cdist_sax(
+            X_ = _cdist_sax(
                 X,
                 self._sax.breakpoints_avg_,
                 self._sax._X_fit_dims_[1],
                 other_X,
                 n_jobs=self.n_jobs)
         elif self._ts_metric == "frechet":
-            X_ = cdist_frechet(
+            X_ = _cdist_frechet(
                 X,
                 other_X,
                 n_jobs=self.n_jobs,
@@ -201,6 +199,38 @@ class KNeighborsTimeSeriesMixin(TimeSeriesMixin):
         tags.input_tags.allow_nan = True
         tags.allow_variable_length = True
         return tags
+
+
+def _predict_generic(caller, X, predict_func):
+    """Predict the class labels or target (depending on predict_func) for the provided data
+
+    Parameters
+    ----------
+    X : array-like, shape (n_ts, sz, d)
+        Test samples.
+
+    Returns
+    -------
+    array, shape = (n_ts, ) or (n_ts, dim_y)
+        Returns the result of predict_func 
+    """
+    if caller.metric in TSLEARN_VALID_METRICS:
+        check_is_fitted(caller, '_ts_fit')
+        X = check_array(X, allow_nd=True, force_all_finite=False)
+        X = to_time_series_dataset(X)
+        X = check_dims(X, X_fit_dims=caller._ts_fit.shape, extend=True,
+                        check_n_features_only=True)
+        X_ = caller._precompute_cross_dist(X)
+        pred = predict_func(X_)
+        caller.metric = caller._ts_metric
+        return pred
+    else:
+        check_is_fitted(caller, '_X_fit')
+        X = check_array(X, allow_nd=True)
+        X = to_time_series_dataset(X)
+        X_ = to_sklearn_dataset(X)
+        X_ = check_dims(X_, X_fit_dims=caller._X_fit.shape, extend=False)
+        return predict_func(X_)
 
 
 class KNeighborsTimeSeries(KNeighborsTimeSeriesMixin,
@@ -353,7 +383,7 @@ class KNeighborsTimeSeries(KNeighborsTimeSeriesMixin,
             X = check_dims(X, X_fit_dims=self._ts_fit.shape, extend=True,
                            check_n_features_only=True)
             if self._ts_metric == "dtw":
-                X_ = cdist_dtw(
+                X_ = _cdist_dtw(
                     X,
                     self._ts_fit,
                     n_jobs=self.n_jobs,
@@ -361,11 +391,11 @@ class KNeighborsTimeSeries(KNeighborsTimeSeriesMixin,
                     **metric_params
                 )
             elif self._ts_metric == "ctw":
-                X_ = cdist_ctw(X, self._ts_fit, **metric_params)
+                X_ = _cdist_ctw(X, self._ts_fit, **metric_params)
             elif self._ts_metric == "softdtw":
-                X_ = cdist_soft_dtw(X, self._ts_fit, **metric_params)
+                X_ = _cdist_soft_dtw(X, self._ts_fit, **metric_params)
             elif self._ts_metric == "frechet":
-                X_ = cdist_frechet(
+                X_ = _cdist_frechet(
                     X,
                     self._ts_fit,
                     n_jobs=self.n_jobs,
@@ -563,23 +593,7 @@ class KNeighborsTimeSeriesClassifier(KNeighborsTimeSeriesMixin,
         array, shape = (n_ts, )
             Array of predicted class labels
         """
-        if self.metric in TSLEARN_VALID_METRICS:
-            check_is_fitted(self, '_ts_fit')
-            X = check_array(X, allow_nd=True, force_all_finite=False)
-            X = to_time_series_dataset(X)
-            X = check_dims(X, X_fit_dims=self._ts_fit.shape, extend=True,
-                           check_n_features_only=True)
-            X_ = self._precompute_cross_dist(X)
-            pred = super().predict(X_)
-            self.metric = self._ts_metric
-            return pred
-        else:
-            check_is_fitted(self, '_X_fit')
-            X = check_array(X, allow_nd=True)
-            X = to_time_series_dataset(X)
-            X_ = to_sklearn_dataset(X)
-            X_ = check_dims(X_, X_fit_dims=self._X_fit.shape, extend=False)
-            return super().predict(X_)
+        return _predict_generic(self, X, super().predict)
 
     def predict_proba(self, X):
         """Predict the class probabilities for the provided data
@@ -594,22 +608,7 @@ class KNeighborsTimeSeriesClassifier(KNeighborsTimeSeriesMixin,
         array, shape = (n_ts, n_classes)
             Array of predicted class probabilities
         """
-        if self.metric in TSLEARN_VALID_METRICS:
-            check_is_fitted(self, '_ts_fit')
-            X = check_array(X, allow_nd=True, force_all_finite=False)
-            X = check_dims(X, X_fit_dims=self._ts_fit.shape, extend=True,
-                           check_n_features_only=True)
-            X_ = self._precompute_cross_dist(X)
-            pred = super().predict_proba(X_)
-            self.metric = self._ts_metric
-            return pred
-        else:
-            check_is_fitted(self, '_X_fit')
-            X = check_array(X, allow_nd=True)
-            X = to_time_series_dataset(X)
-            X_ = to_sklearn_dataset(X)
-            X_ = check_dims(X_, X_fit_dims=self._X_fit.shape, extend=False)
-            return super().predict_proba(X_)
+        return _predict_generic(self, X, super().predict_proba)
 
 
 class KNeighborsTimeSeriesRegressor(KNeighborsTimeSeriesMixin,
@@ -748,20 +747,4 @@ class KNeighborsTimeSeriesRegressor(KNeighborsTimeSeriesMixin,
         array, shape = (n_ts, ) or (n_ts, dim_y)
             Array of predicted targets
         """
-        if self.metric in TSLEARN_VALID_METRICS:
-            check_is_fitted(self, '_ts_fit')
-            X = check_array(X, allow_nd=True, force_all_finite=False)
-            X = to_time_series_dataset(X)
-            X = check_dims(X, X_fit_dims=self._ts_fit.shape, extend=True,
-                           check_n_features_only=True)
-            X_ = self._precompute_cross_dist(X)
-            pred = super().predict(X_)
-            self.metric = self._ts_metric
-            return pred
-        else:
-            check_is_fitted(self, '_X_fit')
-            X = check_array(X, allow_nd=True)
-            X = to_time_series_dataset(X)
-            X_ = to_sklearn_dataset(X)
-            X_ = check_dims(X_, X_fit_dims=self._X_fit.shape, extend=False)
-            return super().predict(X_)
+        return _predict_generic(self, X, super().predict)

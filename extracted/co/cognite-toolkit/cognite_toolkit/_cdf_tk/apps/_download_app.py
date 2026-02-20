@@ -35,7 +35,9 @@ from cognite_toolkit._cdf_tk.storageio.selectors import (
     DataPointsDataSetSelector,
     DataSetSelector,
     FileIdentifierSelector,
+    InstanceSelector,
     InstanceSpaceSelector,
+    InstanceViewSelector,
     RawTableSelector,
     SelectedTable,
     SelectedView,
@@ -212,7 +214,10 @@ class DownloadApp(typer.Typer):
         cmd.run(
             lambda: cmd.download(
                 selectors=[
-                    RawTableSelector(table=SelectedTable(db_name=item.db_name, table_name=item.table_name))
+                    RawTableSelector(
+                        table=SelectedTable(db_name=item.db_name, table_name=item.table_name),
+                        download_dir_name=item.db_name,
+                    )
                     for item in selectors
                 ],
                 io=RawIO(client),
@@ -289,7 +294,14 @@ class DownloadApp(typer.Typer):
                 "assets",
             )
 
-        selectors = [DataSetSelector(kind="Assets", data_set_external_id=data_set) for data_set in data_sets]
+        selectors = [
+            DataSetSelector(
+                kind="Assets",
+                data_set_external_id=data_set,
+                download_dir_name="asset-centric-assets",
+            )
+            for data_set in data_sets
+        ]
         cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
@@ -407,7 +419,12 @@ class DownloadApp(typer.Typer):
                 "time series",
             )
 
-        selectors = [DataSetSelector(kind="TimeSeries", data_set_external_id=data_set) for data_set in data_sets]
+        selectors = [
+            DataSetSelector(
+                kind="TimeSeries", data_set_external_id=data_set, download_dir_name="asset-centric-timeseries"
+            )
+            for data_set in data_sets
+        ]
         cmd = DownloadCommand(client=client)
         cmd.run(
             lambda: cmd.download(
@@ -486,7 +503,10 @@ class DownloadApp(typer.Typer):
                 "events",
             )
 
-        selectors = [DataSetSelector(kind="Events", data_set_external_id=data_set) for data_set in data_sets]
+        selectors = [
+            DataSetSelector(kind="Events", data_set_external_id=data_set, download_dir_name="asset-centric-events")
+            for data_set in data_sets
+        ]
         cmd = DownloadCommand(client=client)
 
         cmd.run(
@@ -605,13 +625,20 @@ class DownloadApp(typer.Typer):
                 )
                 file_format = AssetCentricFormats.ndjson
             files = client.files.list(data_set_external_ids=data_sets, limit=limit)
+            download_dir_name = "asset-centric-files"
             selector = FileIdentifierSelector(
-                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files])
+                identifiers=tuple([FileInternalID(internal_id=file.id) for file in files]),
+                download_dir_name=download_dir_name,
             )
             selectors = [selector]
-            io = FileContentIO(client, output_dir / sanitize_filename(selector.group))
+            io = FileContentIO(client, output_dir / download_dir_name)
         else:
-            selectors = [DataSetSelector(kind="FileMetadata", data_set_external_id=data_set) for data_set in data_sets]
+            selectors = [
+                DataSetSelector(
+                    kind="FileMetadata", data_set_external_id=data_set, download_dir_name="asset-centric-files"
+                )
+                for data_set in data_sets
+            ]
             io = FileMetadataIO(client)
 
         cmd = DownloadCommand(client=client)
@@ -688,7 +715,7 @@ class DownloadApp(typer.Typer):
 
         selectors = [
             # MyPy cannot see that resource_type is one of the allowed literals.
-            AssetSubtreeSelector(hierarchy=hierarchy, kind=resource_type)  # type: ignore[arg-type]
+            AssetSubtreeSelector(hierarchy=hierarchy, kind=resource_type, download_dir_name=f"hierarchy-{hierarchy}")  # type: ignore[arg-type]
             for resource_type in ["Assets", "Events", "FileMetadata", "TimeSeries"]
         ]
         cmd.run(
@@ -703,8 +730,9 @@ class DownloadApp(typer.Typer):
             )
         )
 
-    @staticmethod
+    @classmethod
     def download_instances_cmd(
+        cls,
         ctx: typer.Context,
         instance_space: Annotated[
             str | None,
@@ -786,38 +814,60 @@ class DownloadApp(typer.Typer):
         client = EnvironmentVariables.create_from_environment().get_client()
         cmd = DownloadCommand(client=client)
 
-        client = EnvironmentVariables.create_from_environment().get_client()
+        selectors: list[InstanceSelector]
         if instance_space is None:
             selector = DataModelingSelect(client, "download instances")
-            selected_instance_space = selector.select_instance_space(multiselect=False)
-            selected_instance_type = selector.select_instance_type()
-            selected_schema_space = selector.select_schema_space(
-                include_global=True, message="In which space is the views with instance properties located?"
-            ).space
-
+            data_model = selector.select_data_model(
+                inline_views=False,
+                message="Select the data model through which to download instances:",
+                include_global=True,
+            )
             selected_views = selector.select_view(
                 multiselect=True,
                 message="Select views to download instance properties from.",
                 filter=ViewSelectFilter(
-                    instance_type=selected_instance_type,
+                    strategy="dataModel",
                     include_global=True,
-                    schema_space=selected_schema_space,
+                    data_model=data_model.as_id(),
                 ),
             )
-            selectors: list[InstanceSpaceSelector] = [
-                InstanceSpaceSelector(
-                    instance_space=selected_instance_space,
-                    view=SelectedView(
-                        space=selected_schema_space,
-                        external_id=view.external_id,
-                        version=view.version,
-                    ),
-                    instance_type=selected_instance_type,
+            select_instance_space = questionary.confirm(
+                "Do you want to select an instance space to download from? If no, all instances from the selected views will be downloaded.",
+                default=False,
+            ).unsafe_ask()
+            instance_spaces: tuple[str, ...] | None = None
+            if select_instance_space:
+                instance_spaces = tuple(selector.select_instance_space(multiselect=True))
+            selectors = []
+            download_dir_name = sanitize_filename(data_model.external_id)
+            for view in selected_views:
+                view_instance_type = selector.select_instance_type(
+                    view.used_for,
+                    message=f"Select instance type to download for view {view.space}:{view.external_id}(version={view.version})",
                 )
-                for view in selected_views
-            ]
+                selectors.append(
+                    InstanceViewSelector(
+                        view=SelectedView(
+                            space=view.space,
+                            external_id=view.external_id,
+                            version=view.version,
+                        ),
+                        instance_spaces=instance_spaces,
+                        instance_type=view_instance_type,
+                        download_dir_name=download_dir_name,
+                    )
+                )
+            output_dir, file_format, compression, limit = cls._interactive_select_shared(  # type: ignore[assignment]
+                output_dir, file_format, InstanceFormats, compression, limit, "instances", "view"
+            )
         elif schema_space is None and view_external_ids is None:
-            selectors = [InstanceSpaceSelector(instance_space=instance_space, instance_type=instance_type.value)]
+            selectors = [
+                InstanceSpaceSelector(
+                    instance_space=instance_space,
+                    instance_type=instance_type.value,
+                    download_dir_name=instance_space,
+                )
+            ]
         elif schema_space is not None and view_external_ids is not None:
             selectors = [
                 InstanceSpaceSelector(
@@ -828,6 +878,7 @@ class DownloadApp(typer.Typer):
                         version=view_id_str.split("/", maxsplit=1)[1] if "/" in view_id_str else None,
                     ),
                     instance_type=instance_type.value,
+                    download_dir_name=instance_space,
                 )
                 for view_id_str in view_external_ids
             ]
@@ -848,6 +899,46 @@ class DownloadApp(typer.Typer):
                 verbose=verbose,
             )
         )
+
+    @classmethod
+    def _interactive_select_shared(
+        cls,
+        output_dir: Path,
+        file_format: Enum,
+        file_format_options: type[Enum],
+        compression: CompressionFormat,
+        limit: int,
+        display_name: str,
+        selector_type: str,
+    ) -> tuple[Path, Enum, Enum, int]:
+        """Interactive selection of output_dir, file_format, compression and limit for the download commands."""
+        selected_output_dir = Path(
+            questionary.path("Where to download the data:", default=str(output_dir), only_directories=True).unsafe_ask()
+        )
+
+        file_formats = [Choice(title=format_.value, value=format_) for format_ in file_format_options]
+        if len(file_formats) == 1:
+            selected_file_format = file_formats[0].value
+        else:
+            selected_file_format = questionary.select(
+                "Select format to download the data in:",
+                choices=file_formats,
+                default=file_format,  # type: ignore[arg-type]
+            ).unsafe_ask()
+
+        selected_compression = questionary.select(
+            "Select compression format to use when downloading the data:",
+            choices=[Choice(title=comp.value, value=comp) for comp in CompressionFormat],
+            default=compression,
+        ).unsafe_ask()
+        selected_limit = int(
+            questionary.text(
+                f"The maximum number of {display_name} to download per {selector_type}. Use -1 to download all {display_name}.",
+                default=str(limit),
+                validate=lambda value: value.lstrip("-").isdigit() and (int(value) == -1 or int(value) > 0),
+            ).unsafe_ask()
+        )
+        return selected_output_dir, selected_file_format, selected_compression, selected_limit  # type: ignore[return-value]
 
     @staticmethod
     def download_datapoints_cmd(
@@ -968,6 +1059,7 @@ class DownloadApp(typer.Typer):
             start=start_time,
             end=end_time,
             data_type=datapoint_type.value,
+            download_dir_name=f"dataset-{dataset}",
         )
         cmd.run(
             lambda: cmd.download(
@@ -1038,9 +1130,9 @@ class DownloadApp(typer.Typer):
         selector: ChartSelector
         if external_ids is None:
             selected_external_ids = InteractiveChartSelect(client).select_external_ids()
-            selector = ChartExternalIdSelector(external_ids=tuple(selected_external_ids))
+            selector = ChartExternalIdSelector(external_ids=tuple(selected_external_ids), download_dir_name="charts")
         else:
-            selector = ChartExternalIdSelector(external_ids=tuple(external_ids))
+            selector = ChartExternalIdSelector(external_ids=tuple(external_ids), download_dir_name="charts")
 
         cmd.run(
             lambda: cmd.download(
@@ -1111,9 +1203,9 @@ class DownloadApp(typer.Typer):
         selector: CanvasSelector
         if external_ids is None:
             selected_external_ids = InteractiveCanvasSelect(client).select_external_ids()
-            selector = CanvasExternalIdSelector(external_ids=tuple(selected_external_ids))
+            selector = CanvasExternalIdSelector(external_ids=tuple(selected_external_ids), download_dir_name="canvas")
         else:
-            selector = CanvasExternalIdSelector(external_ids=tuple(external_ids))
+            selector = CanvasExternalIdSelector(external_ids=tuple(external_ids), download_dir_name="canvas")
 
         cmd.run(
             lambda: cmd.download(

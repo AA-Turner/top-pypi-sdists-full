@@ -1,2 +1,0 @@
-import{j as s}from"./vendor-tanstack-DE4ALVGD.js";import{B as a,g as r,h as i,q as t,I as c}from"./index-BZ-K-C9c.js";const n=({onAddVariableClick:e})=>s.jsxs("div",{className:"flex items-center gap-2",children:[s.jsx(a,{children:s.jsx(r,{children:s.jsx(i,{className:"text-xl font-semibold",children:"Variables"})})}),e&&s.jsx(t,{size:"icon",className:"size-7",variant:"outline",onClick:()=>e(),children:s.jsx(c,{id:"Plus",className:"size-4"})})]});export{n as V};
-//# sourceMappingURL=header-B5V-OUyi.js.map

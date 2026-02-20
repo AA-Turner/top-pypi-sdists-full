@@ -1,5 +1,5 @@
 [build-system]
-requires = ["uv_build>=0.9.16,<0.10.0"]
+requires = ["uv_build>=0.10,<0.11"]
 build-backend = "uv_build"
 
 [tool.uv.build-backend]
@@ -8,7 +8,7 @@ module-root = ""
 [project]
 name = "optype"
 description = "Building Blocks for Precise & Flexible Type Hints"
-version = "0.15.0"
+version = "0.16.0"
 authors = [{ name = "Joren Hammudoglu", email = "jhammudoglu@gmail.com" }]
 license = "BSD-3-Clause"
 license-files = ["LICENSE"]
@@ -51,13 +51,13 @@ dependencies = ["typing-extensions>=4.10; python_version<'3.13'"]
 
 [project.optional-dependencies]
 numpy = [
-  "numpy>=1.25",
+  "numpy>=1.26,<2.7",
   "numpy-typing-compat>=20250818.1.25,<20251207",
 ]
 
 [project.urls]
 Repository = "https://github.com/jorenham/optype/"
-Documentation = "https://github.com/jorenham/optype/blob/master/README.md"
+Documentation = "https://jorenham.github.io/optype/"
 Issues = "https://github.com/jorenham/optype/issues"
 Changelog = "https://github.com/jorenham/optype/releases"
 Funding = "https://github.com/sponsors/jorenham"
@@ -66,27 +66,33 @@ Funding = "https://github.com/sponsors/jorenham"
 extra = [
   "optype[numpy]",
 ]
+doc = [
+  "zensical>=0.0.23,<0.1",
+  "pymdown-extensions>=10.21,<11",
+  "pygments>=2.19.2,<3",
+]
 lint = [
-  "dprint-py>=0.50.2.0",
-  "ruff>=0.14.8",
+  "dprint-py>=0.51.1.0",
+  "ruff>=0.15.1",
   "sp-repo-review[cli]>=2025.11.21",
 ]
 test = [
   { include-group = "extra" },
-  "beartype>=0.22.8",
+  "beartype>=0.22.9",
   "pytest>=9.0.2",
   "typing-extensions>=4.15.0",
 ]
 type = [
   { include-group = "extra" },
   { include-group = "test" },
-  "basedpyright>=1.35.0",
-  "mypy[faster-cache]>=1.19.0",
-  "pyrefly==0.44.2",
-  "ty==0.0.1a32",
+  "basedpyright==1.38.1",
+  "mypy[faster-cache]==1.19.1",
+  "pyrefly==0.53.0",
+  "ty==0.0.17",
 ]
 dev = [
   { include-group = "extra" },
+  { include-group = "doc" },
   { include-group = "lint" },
   { include-group = "test" },
   { include-group = "type" },
@@ -116,6 +122,25 @@ warn_unreachable = false # numpy-typing-compat compat
 
 [tool.pyrefly]
 project-includes = ["optype", "examples", "tests"]
+
+[tool.pyrefly.errors]
+implicit-abstract-class = "error"
+implicit-any = "error"
+implicitly-defined-attribute = "error"
+missing-override-decorator = "error"
+missing-source = "error" # bugged?
+not-required-key-access = "error"
+open-unpacking = "error"
+unannotated-attribute = "error"
+unannotated-parameter = "error"
+unannotated-return = "error"
+untyped-import = "error"
+unused-ignore = "error"
+variance-mismatch = "error"
+
+[[tool.pyrefly.sub-config]]
+matches = "tests/**"
+errors = { implicit-any = "ignore" }
 
 # [based]pyright
 
@@ -153,8 +178,11 @@ include = [
   # "tests",
 ]
 
+[tool.ty.analysis]
+respect-type-ignore-comments = false # for mypy compat
+
 [tool.ty.rules]
-# unused-ignore-comment = "warn"  # will also complain about mypy `# type: ignore` comments
+unused-ignore-comment = "warn"
 possibly-unresolved-reference = "error"
 
 # pytest
@@ -200,6 +228,7 @@ ignore = [
   "D", # pydocstyle
   "DOC201", # pydoclint - docstring-missing-returns
   "TRY003", # tryceratops - raise-vanilla-args
+  "RUF067", # ruff - non-empty-init-module
 ]
 
 [tool.ruff.lint.flake8-builtins]

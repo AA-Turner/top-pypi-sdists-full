@@ -3,7 +3,6 @@ from os.path import join
 import warnings
 
 import numpy as np
-import pickle
 from numpy.testing import assert_allclose
 
 import pytest
@@ -114,3 +113,9 @@ def test_check_X_y():
     with warnings.catch_warnings():
         warnings.simplefilter("error", category=FutureWarning)
         tslearn.utils.check_X_y([[0]], [0], force_all_finite=False)
+
+
+def test_check_equal_size():
+    assert tslearn.utils.check_equal_size([])
+    assert tslearn.utils.check_equal_size([[0], [0]])
+    assert not tslearn.utils.check_equal_size([[0], [0, 0]])

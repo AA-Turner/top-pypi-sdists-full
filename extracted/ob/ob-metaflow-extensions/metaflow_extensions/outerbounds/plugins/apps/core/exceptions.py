@@ -123,16 +123,29 @@ class CapsuleCrashLoopException(CapsuleDeploymentException):
 
 
 class CapsuleReadinessException(CapsuleDeploymentException):
-    """Raised when capsule fails to meet readiness conditions within timeout."""
+    """Raised when capsule fails to meet readiness conditions within timeout.
+
+    Carries raw diagnostic data so higher-level callers can decide how to
+    present the failure reason.
+    """
 
     def __init__(
         self,
         capsule_id: str,
-        reason: Optional[str] = None,
+        capsule_status: Optional[Dict] = None,
+        worker_semantic_status: Optional[Dict] = None,
+        readiness_condition: Optional[str] = None,
+        min_replicas: Optional[int] = None,
+        max_wait_time: Optional[int] = None,
+        timed_out: bool = False,
     ):
+        self.capsule_status = capsule_status
+        self.worker_semantic_status = worker_semantic_status
+        self.readiness_condition = readiness_condition
+        self.min_replicas = min_replicas
+        self.max_wait_time = max_wait_time
+        self.timed_out = timed_out
         message = f"Capsule {capsule_id} failed to be ready to serve traffic"
-        if reason:
-            message += f": {reason}"
         super().__init__(capsule_id, message)
 
     def __str__(self):
@@ -287,11 +300,25 @@ class AppCrashLoopException(AppDeploymentException):
 
 class AppReadinessException(AppDeploymentException):
     """
-    Raised when the app does not become ready within `max_wait_time`.
+    Raised when the app fails to become ready to serve traffic.
 
-    This typically means workers are still starting up or stuck in a pending state.
-    Use `deployed_app.logs()` or `deployed_app.replicas()` to investigate.
-    Consider increasing `max_wait_time` if your app has a slow startup.
+    This can happen for two reasons:
+
+    1. **Timeout**: The deployment did not satisfy its ``readiness_condition``
+       within ``max_wait_time`` seconds.  Workers may still be starting up,
+       pulling images, or stuck in a pending state.
+    2. **Traffic routing failure**: Workers reached the readiness condition but
+       the platform did not assign a URL or mark the app as ready to serve.
+
+    The ``reason`` attribute contains diagnostic details including the
+    readiness condition that was requested, backend status flags, and a
+    snapshot of worker counts (running / pending / crashlooping / failed).
+
+    To investigate further, use ``deployed_app.logs()`` or
+    ``deployed_app.replicas()``.  If the failure is a timeout, consider
+    increasing ``max_wait_time``.  If workers crash shortly after startup,
+    consider increasing ``readiness_wait_time`` to widen the post-readiness
+    health-check window.
     """
 
     def __init__(self, app_id: str, reason: Optional[str] = None):

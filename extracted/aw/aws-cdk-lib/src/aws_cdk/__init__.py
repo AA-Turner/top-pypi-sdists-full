@@ -29,7 +29,7 @@ For example, let's say the minimum version your library needs is `2.38.0`. Your 
 {
   "peerDependencies": {
     "aws-cdk-lib": "^2.38.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.5.0"
   },
   "devDependencies": {
     /* Install the oldest version for testing so we don't accidentally use features from a newer version than we declare */
@@ -44,7 +44,7 @@ For CDK apps, declare them under the `dependencies` section. Use a caret so you 
 {
   "dependencies": {
     "aws-cdk-lib": "^2.38.0",
-    "constructs": "^10.0.0"
+    "constructs": "^10.5.0"
   }
 }
 ```
@@ -513,6 +513,12 @@ functions, it is important to know the format of the ARN you are dealing with.
 For an exhaustive list of ARN formats used in AWS, see [AWS ARNs and
 Namespaces](https://docs.aws.amazon.com/general/latest/gr/aws-arns-and-namespaces.html)
 in the AWS General Reference.
+
+Some L1 constructs also have an auto-generated static `arnFor<ResourceName>()`
+method that can be used to generate ARNs for resources of that type. For example,
+`sns.Topic.arnForTopic(topic)` can be used to generate an ARN for a given topic.
+Note that the parameter to this method is of type `ITopicRef`, which means that
+it can be used with both `Topic` (L2) and `CfnTopic` (L1) constructs.
 
 ## Dependencies
 
@@ -14166,6 +14172,7 @@ class Environment:
         Example::
 
             import aws_cdk as cdk
+            import aws_cdk.aws_cloudwatch as cloudwatch
             
             
             app = cdk.App()
@@ -14173,10 +14180,18 @@ class Environment:
             
             global_table = dynamodb.TableV2(stack, "GlobalTable",
                 partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")]
+                replicas=[dynamodb.ReplicaTableProps(region="us-east-1"), dynamodb.ReplicaTableProps(region="us-east-2")
+                ]
             )
             
-            global_table.add_replica(region="us-east-2", deletion_protection=True)
+            # metric is only for the table in us-west-2
+            metric = global_table.metric_consumed_read_capacity_units()
+            
+            cloudwatch.Alarm(self, "Alarm",
+                metric=metric,
+                evaluation_periods=1,
+                threshold=1
+            )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__779551ef0a4b144070fd2c3e88ff076e32ad12d30facdc65a940b7a8791f27c6)
@@ -28791,6 +28806,18 @@ class Token(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Token"):
             check_type(argname="argument possible_token2", value=possible_token2, expected_type=type_hints["possible_token2"])
         return typing.cast("TokenComparison", jsii.sinvoke(cls, "compareStrings", [possible_token1, possible_token2]))
 
+    @jsii.member(jsii_name="isResolved")
+    @builtins.classmethod
+    def is_resolved(cls, obj: typing.Any) -> builtins.bool:
+        '''The negation of ``Token.isUnresolved()``. In TypeScript, narrows the type to exclude ``IResolvable``.
+
+        :param obj: The object to test.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bbdeb1c92f91c810502c0d9e365f3a50f2eb07e3b32d8cc4de3e8959c17fc839)
+            check_type(argname="argument obj", value=obj, expected_type=type_hints["obj"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "isResolved", [obj]))
+
     @jsii.member(jsii_name="isUnresolved")
     @builtins.classmethod
     def is_unresolved(cls, obj: typing.Any) -> builtins.bool:
@@ -42593,6 +42620,12 @@ def _typecheckingstub__db344fa893ea01aebb0daf4414e4e6918cd43d1835880bb91832a97b3
 def _typecheckingstub__0b6f26fff2ad1a48069762db68ec7131333866e58fcfc9b3f254b422f7655420(
     possible_token1: builtins.str,
     possible_token2: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bbdeb1c92f91c810502c0d9e365f3a50f2eb07e3b32d8cc4de3e8959c17fc839(
+    obj: typing.Any,
 ) -> None:
     """Type checking stubs"""
     pass

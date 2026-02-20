@@ -163,6 +163,7 @@ from gooddata_sdk.catalog.validate_by_item import CatalogValidateByItem
 from gooddata_sdk.catalog.workspace.content_service import CatalogWorkspaceContent, CatalogWorkspaceContentService
 from gooddata_sdk.catalog.workspace.declarative_model.workspace.analytics_model.analytics_model import (
     CatalogDeclarativeAnalytics,
+    CatalogDeclarativeMemoryItem,
     CatalogDeclarativeMetric,
 )
 from gooddata_sdk.catalog.workspace.declarative_model.workspace.analytics_model.export_definition import (
@@ -251,12 +252,15 @@ from gooddata_sdk.compute.model.execution import (
 from gooddata_sdk.compute.model.filter import (
     AbsoluteDateFilter,
     AllMetricValueFilter,
-    AllTimeFilter,
+    AllTimeDateFilter,
     AttributeFilter,
     BoundedFilter,
+    CompoundMetricValueFilter,
     Filter,
     InlineFilter,
+    MetricValueComparisonCondition,
     MetricValueFilter,
+    MetricValueRangeCondition,
     NegativeAttributeFilter,
     PositiveAttributeFilter,
     RankingFilter,

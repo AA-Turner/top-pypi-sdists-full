@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: xarray-einstats
-Version: 0.9.1
+Version: 0.10.0
 Summary: Stats, linear algebra and einops for xarray
 Author-email: ArviZ team <arviz.devs@gmail.com>
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
@@ -18,9 +18,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
-Requires-Dist: numpy>=1.25
-Requires-Dist: scipy>=1.11
-Requires-Dist: xarray>=2023.06.0
+Requires-Dist: numpy>=2.0
+Requires-Dist: scipy>=1.13
+Requires-Dist: xarray>=2024.02.0
 Requires-Dist: furo ; extra == "doc"
 Requires-Dist: myst-parser[linkify] ; extra == "doc"
 Requires-Dist: myst-nb ; extra == "doc"
@@ -40,7 +40,7 @@ Requires-Dist: pytest-cov ; extra == "test"
 Requires-Dist: packaging ; extra == "test"
 Requires-Dist: scipy>=1.15 ; extra == "test"
 Requires-Dist: preliz>=0.19 ; extra == "test"
-Project-URL: documentation, https://xarray-einstats.readthedocs.io
+Project-URL: documentation, https://einstats.python.arviz.org
 Project-URL: funding, https://opencollective.com/arviz
 Project-URL: source, https://github.com/arviz-devs/xarray-einstats
 Project-URL: tracker, https://github.com/arviz-devs/xarray-einstats/issues

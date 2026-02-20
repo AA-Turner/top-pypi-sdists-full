@@ -32,24 +32,28 @@ from gooddata_api_client.exceptions import ApiAttributeError
 
 def lazy_import():
     from gooddata_api_client.model.absolute_date_filter_absolute_date_filter import AbsoluteDateFilterAbsoluteDateFilter
+    from gooddata_api_client.model.all_time_date_filter_all_time_date_filter import AllTimeDateFilterAllTimeDateFilter
     from gooddata_api_client.model.abstract_measure_value_filter import AbstractMeasureValueFilter
     from gooddata_api_client.model.comparison_measure_value_filter_comparison_measure_value_filter import ComparisonMeasureValueFilterComparisonMeasureValueFilter
     from gooddata_api_client.model.compound_measure_value_filter_compound_measure_value_filter import CompoundMeasureValueFilterCompoundMeasureValueFilter
     from gooddata_api_client.model.filter_definition_for_simple_measure import FilterDefinitionForSimpleMeasure
     from gooddata_api_client.model.inline_filter_definition import InlineFilterDefinition
     from gooddata_api_client.model.inline_filter_definition_inline import InlineFilterDefinitionInline
+    from gooddata_api_client.model.match_attribute_filter_match_attribute_filter import MatchAttributeFilterMatchAttributeFilter
     from gooddata_api_client.model.negative_attribute_filter_negative_attribute_filter import NegativeAttributeFilterNegativeAttributeFilter
     from gooddata_api_client.model.positive_attribute_filter_positive_attribute_filter import PositiveAttributeFilterPositiveAttributeFilter
     from gooddata_api_client.model.range_measure_value_filter_range_measure_value_filter import RangeMeasureValueFilterRangeMeasureValueFilter
     from gooddata_api_client.model.ranking_filter_ranking_filter import RankingFilterRankingFilter
     from gooddata_api_client.model.relative_date_filter_relative_date_filter import RelativeDateFilterRelativeDateFilter
     globals()['AbsoluteDateFilterAbsoluteDateFilter'] = AbsoluteDateFilterAbsoluteDateFilter
+    globals()['AllTimeDateFilterAllTimeDateFilter'] = AllTimeDateFilterAllTimeDateFilter
     globals()['AbstractMeasureValueFilter'] = AbstractMeasureValueFilter
     globals()['ComparisonMeasureValueFilterComparisonMeasureValueFilter'] = ComparisonMeasureValueFilterComparisonMeasureValueFilter
     globals()['CompoundMeasureValueFilterCompoundMeasureValueFilter'] = CompoundMeasureValueFilterCompoundMeasureValueFilter
     globals()['FilterDefinitionForSimpleMeasure'] = FilterDefinitionForSimpleMeasure
     globals()['InlineFilterDefinition'] = InlineFilterDefinition
     globals()['InlineFilterDefinitionInline'] = InlineFilterDefinitionInline
+    globals()['MatchAttributeFilterMatchAttributeFilter'] = MatchAttributeFilterMatchAttributeFilter
     globals()['NegativeAttributeFilterNegativeAttributeFilter'] = NegativeAttributeFilterNegativeAttributeFilter
     globals()['PositiveAttributeFilterPositiveAttributeFilter'] = PositiveAttributeFilterPositiveAttributeFilter
     globals()['RangeMeasureValueFilterRangeMeasureValueFilter'] = RangeMeasureValueFilterRangeMeasureValueFilter
@@ -108,9 +112,11 @@ class AFMFiltersInner(ModelComposed):
             'compound_measure_value_filter': (CompoundMeasureValueFilterCompoundMeasureValueFilter,),  # noqa: E501
             'ranking_filter': (RankingFilterRankingFilter,),  # noqa: E501
             'absolute_date_filter': (AbsoluteDateFilterAbsoluteDateFilter,),  # noqa: E501
+            'all_time_date_filter': (AllTimeDateFilterAllTimeDateFilter,),  # noqa: E501
             'relative_date_filter': (RelativeDateFilterRelativeDateFilter,),  # noqa: E501
             'negative_attribute_filter': (NegativeAttributeFilterNegativeAttributeFilter,),  # noqa: E501
             'positive_attribute_filter': (PositiveAttributeFilterPositiveAttributeFilter,),  # noqa: E501
+            'match_attribute_filter': (MatchAttributeFilterMatchAttributeFilter,),  # noqa: E501
             'inline': (InlineFilterDefinitionInline,),  # noqa: E501
         }
 
@@ -125,9 +131,11 @@ class AFMFiltersInner(ModelComposed):
         'compound_measure_value_filter': 'compoundMeasureValueFilter',  # noqa: E501
         'ranking_filter': 'rankingFilter',  # noqa: E501
         'absolute_date_filter': 'absoluteDateFilter',  # noqa: E501
+        'all_time_date_filter': 'allTimeDateFilter',  # noqa: E501
         'relative_date_filter': 'relativeDateFilter',  # noqa: E501
         'negative_attribute_filter': 'negativeAttributeFilter',  # noqa: E501
         'positive_attribute_filter': 'positiveAttributeFilter',  # noqa: E501
+        'match_attribute_filter': 'matchAttributeFilter',  # noqa: E501
         'inline': 'inline',  # noqa: E501
     }
 
@@ -178,6 +186,7 @@ class AFMFiltersInner(ModelComposed):
             relative_date_filter (RelativeDateFilterRelativeDateFilter): [optional]  # noqa: E501
             negative_attribute_filter (NegativeAttributeFilterNegativeAttributeFilter): [optional]  # noqa: E501
             positive_attribute_filter (PositiveAttributeFilterPositiveAttributeFilter): [optional]  # noqa: E501
+            match_attribute_filter (MatchAttributeFilterMatchAttributeFilter): [optional]  # noqa: E501
             inline (InlineFilterDefinitionInline): [optional]  # noqa: E501
         """
 
@@ -290,6 +299,7 @@ class AFMFiltersInner(ModelComposed):
             relative_date_filter (RelativeDateFilterRelativeDateFilter): [optional]  # noqa: E501
             negative_attribute_filter (NegativeAttributeFilterNegativeAttributeFilter): [optional]  # noqa: E501
             positive_attribute_filter (PositiveAttributeFilterPositiveAttributeFilter): [optional]  # noqa: E501
+            match_attribute_filter (MatchAttributeFilterMatchAttributeFilter): [optional]  # noqa: E501
             inline (InlineFilterDefinitionInline): [optional]  # noqa: E501
         """
 

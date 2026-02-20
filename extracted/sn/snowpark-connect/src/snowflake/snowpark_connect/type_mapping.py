@@ -630,10 +630,8 @@ class SnowparkToArrowMapper:
                     raise exception
 
             case snowpark.types.TimestampType:
-                unit = pa_type.unit if hasattr(pa_type, "unit") else "us"
+                unit = _get_normalized_unit(pa_type)
                 tz = pa_type.tz if hasattr(pa_type, "tz") else None
-                if unit == "ns":
-                    unit = "us"
                 return pa.timestamp(unit, tz=tz)
 
             case snowpark.types.VariantType:
@@ -643,7 +641,7 @@ class SnowparkToArrowMapper:
                 return pa.string()
 
             case snowpark.types.DayTimeIntervalType:
-                return pa.string()
+                return pa.duration(_get_normalized_unit(pa_type))
 
             case _:
                 exception = SnowparkConnectNotImplementedError(
@@ -1393,3 +1391,11 @@ def merge_different_types(
 
     # No common type found, default to StringType
     return snowpark_type.StringType()
+
+
+def _get_normalized_unit(pa_type: pa.DataType) -> str:
+    # spark uses "us" by default and doesn't handle "ns" part
+    unit = getattr(pa_type, "unit", "us")
+    if unit == "ns":
+        return "us"
+    return unit

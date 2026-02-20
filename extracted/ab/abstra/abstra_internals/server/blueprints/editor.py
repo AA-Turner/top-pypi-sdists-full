@@ -5,10 +5,13 @@ from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import PROJECT_ID
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.server.routes import access_control as ac_router
+from abstra_internals.server.routes import agents as agents_router
 from abstra_internals.server.routes import ai as ai_router
 from abstra_internals.server.routes import assets as assets_router
 from abstra_internals.server.routes import code_markers as code_markers_router
 from abstra_internals.server.routes import codebase as codebase_router
+from abstra_internals.server.routes import connectors as connectors_router
+from abstra_internals.server.routes import deploy as deploy_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
 from abstra_internals.server.routes import forms as forms_router
@@ -58,6 +61,9 @@ def _get_api_bp(controller: MainController):
 
     scripts_bp = scripts_router.get_editor_bp(controller)
     bp.register_blueprint(scripts_bp, url_prefix="/scripts")
+
+    agents_bp = agents_router.get_editor_bp(controller)
+    bp.register_blueprint(agents_bp, url_prefix="/agents")
 
     executions_bp = executions_router.get_editor_bp(controller)
     bp.register_blueprint(executions_bp, url_prefix="/executions")
@@ -115,6 +121,12 @@ def _get_api_bp(controller: MainController):
 
     code_markers_bp = code_markers_router.get_editor_bp(controller)
     bp.register_blueprint(code_markers_bp, url_prefix="/markers")
+
+    connectors_bp = connectors_router.get_editor_bp()
+    bp.register_blueprint(connectors_bp, url_prefix="/connectors")
+
+    deploy_bp = deploy_router.get_editor_bp(controller)
+    bp.register_blueprint(deploy_bp, url_prefix="/deploy")
 
     return bp
 

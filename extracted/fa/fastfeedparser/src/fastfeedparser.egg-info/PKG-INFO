@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastfeedparser
-Version: 0.5.4
+Version: 0.5.5
 Summary: High performance RSS, Atom, JSON and RDF feed parser in Python
 Home-page: https://github.com/kagisearch/fastfeedparser
 Author: Vladimir Prelovac
@@ -34,7 +34,7 @@ A high-performance feed parser for Python that handles RSS, Atom, and RDF. Built
 
 ### Why FastFeedParser?
 
-It's about 10x faster (check included `benchmark.py`) than popular feedparser
+It's about 25x faster (check included `benchmark.py`) than popular feedparser
 library while keeping a familiar API. This speed comes from:
 
 - lxml for efficient XML parsing

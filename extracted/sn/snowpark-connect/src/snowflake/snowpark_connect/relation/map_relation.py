@@ -199,7 +199,7 @@ def map_relation(
                     )
                     attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
                     raise exception
-                return cached_df
+                result = cached_df
             case "map_partitions":
                 result = map_map_partitions.map_map_partitions(rel)
             case "offset":

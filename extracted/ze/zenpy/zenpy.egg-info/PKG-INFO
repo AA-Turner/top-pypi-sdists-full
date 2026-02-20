@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zenpy
-Version: 2.0.56
+Version: 2.0.57
 Summary: Python wrapper for the Zendesk API
 Home-page: https://github.com/facetoe/zenpy
-Download-URL: https://github.com/facetoe/zenpy/releases/tag/2.0.56
+Download-URL: https://github.com/facetoe/zenpy/releases/tag/2.0.57
 Author: Face Toe
 Author-email: facetoe@facetoe.com.au
 License: GPLv3
@@ -28,6 +28,17 @@ Requires-Dist: python-dateutil>=2.7.5
 Requires-Dist: cachetools>=3.1.0
 Requires-Dist: pytz>=2018.9
 Requires-Dist: six>=1.14.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary
 
 [![Build Status](https://travis-ci.org/facetoe/zenpy.svg?branch=master)](https://travis-ci.org/facetoe/zenpy)
 
@@ -510,7 +521,7 @@ fields = zenpy_client.ticket_fields(cursor_pagination=50) # 50 results per page
 
 ## Documentation
 
-Check out the [documentation](http://docs.facetoe.com.au/) for more info.
+Check out the [documentation](https://zenpy.readthedocs.io/en/latest/zenpy.html) for more info.
 
 ### Contributions
 Contributions are very welcome. I've written an explanation of the core ideas of the wrapper in the [Contributors Guide](https://github.com/facetoe/zenpy/wiki/Contributors-Guide).

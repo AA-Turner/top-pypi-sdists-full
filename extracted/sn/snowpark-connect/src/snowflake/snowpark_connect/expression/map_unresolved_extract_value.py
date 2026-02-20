@@ -98,6 +98,17 @@ def map_unresolved_extract_value(
 
     else:
         result_exp = extract_fn(child_typed_column.col, extract_typed_column.col)
+        # Snowflake's GET/GET_IGNORE_CASE on structured types may return a value
+        # where JSON null != SQL NULL. Spark treats null struct fields as SQL NULL,
+        # so we convert JSON null -> SQL NULL here to match Spark semantics.
+        if isinstance(child_typed_column.typ, StructType):
+            result_exp = snowpark_fn.iff(
+                snowpark_fn.call_function(
+                    "IS_NULL_VALUE", snowpark_fn.to_variant(result_exp)
+                ),
+                snowpark_fn.lit(None),
+                result_exp,
+            )
 
     spark_sql_ansi_enabled = global_config.spark_sql_ansi_enabled
 

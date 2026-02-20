@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: localtileserver
-Version: 0.10.7
+Version: 0.11.0
 Summary: Locally serve geospatial raster tiles in the Slippy Map standard.
 Author-email: Bane Sullivan <hello@banesullivan.com>
+License-Expression: MIT
 Project-URL: Documentation, https://localtileserver.banesullivan.com
 Project-URL: Bug Tracker, https://github.com/banesullivan/localtileserver/issues
 Project-URL: Source Code, https://github.com/banesullivan/localtileserver
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Operating System :: OS Independent

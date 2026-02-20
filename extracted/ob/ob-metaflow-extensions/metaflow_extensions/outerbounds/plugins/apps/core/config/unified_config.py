@@ -14,6 +14,8 @@ import json
 from typing import Any, Dict, List, Optional, Union, Type
 import re
 
+UNASSIGNED_PROJECT_BRANCH = "__unassigned__"
+
 from .config_utils import (
     ConfigFieldContext,
     ConfigField,
@@ -855,7 +857,7 @@ How to read this schema:
             name="secrets", cli_option_str="--secret", multiple=True, click_type=str
         ),
         field_type=list,
-        help="Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code.",
+        help="Outerbounds integrations to attach to the app. You can use the value you set in the `@secrets` decorator in your code without the outerbounds prefix.",
         example=["hf-token"],
         validation_fn=BasicAppValidations.secrets,
     )
@@ -982,7 +984,8 @@ How to read this schema:
             cli_option_str="--skip-code-package",
             help=(
                 "When True, skip code packaging and rely on the container's embedded source code. "
-                "This option will ONLY work in conjunction with --no-deps on the CLI since images baked with fast-bakery require a code package."
+                "This option will ONLY work in conjunction with --no-deps on the CLI since images "
+                "baked with fast-bakery require a code package."
             ),
             is_flag=True,
         ),
@@ -990,7 +993,7 @@ How to read this schema:
         default=False,
         help=(
             "When True, skip code packaging and rely on the container's embedded source code. "
-            "When running the deployer programmatically, If this field is set, then the user cannot pass `package-code`"
+            "When running the deployer programmatically, If this field is set, then the user cannot pass `code_package` parameter to the AppDeployer"
         ),
     )
 
@@ -1019,8 +1022,8 @@ How to read this schema:
             cli_option_str="--project",
         ),
         field_type=str,
-        help="The project name to deploy the app to.",
-        is_experimental=True,
+        help="The project name for the app. Defaults to __unassigned__.",
+        default="__unassigned__",
         example="my-project",
     )
     branch = ConfigField(
@@ -1029,8 +1032,8 @@ How to read this schema:
             cli_option_str="--branch",
         ),
         field_type=str,
-        help="The branch name to deploy the app to.",
-        is_experimental=True,
+        help="The branch name for the app. Defaults to __unassigned__.",
+        default="__unassigned__",
         example="main",
     )
     models = ConfigField(

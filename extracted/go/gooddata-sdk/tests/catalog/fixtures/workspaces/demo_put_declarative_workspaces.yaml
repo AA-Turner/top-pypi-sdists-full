@@ -22,7 +22,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '37189'
+          - '37146'
         Content-Type:
           - application/json
         DATE: &id001
@@ -380,6 +380,7 @@ interactions:
                       description: ''
                       id: region_filter
                       title: filterContext
+                  memoryItems: []
                   metrics:
                     - content:
                         format: '#,##0'
@@ -1580,15 +1581,11 @@ interactions:
                           labels:
                             - description: Location
                               id: geo__state__location
-                              locale: en-US
                               sourceColumn: geo__state__location
                               sourceColumnDataType: STRING
                               tags:
                                 - Customers
                               title: Location
-                              translations:
-                                - locale: cs-CZ
-                                  sourceColumn: geo__state__location_cz
                               valueType: GEO
                           sourceColumn: state
                           sourceColumnDataType: STRING
@@ -1808,6 +1805,7 @@ interactions:
                   dashboardPlugins: []
                   exportDefinitions: []
                   filterContexts: []
+                  memoryItems: []
                   metrics: []
                   visualizationObjects: []
                 ldm:
@@ -1841,6 +1839,7 @@ interactions:
                   dashboardPlugins: []
                   exportDefinitions: []
                   filterContexts: []
+                  memoryItems: []
                   metrics: []
                   visualizationObjects: []
                 ldm:
@@ -2156,10 +2155,6 @@ interactions:
                             tags:
                               - Customers
                             valueType: GEO
-                            locale: en-US
-                            translations:
-                              - locale: cs-CZ
-                                sourceColumn: geo__state__location_cz
                         sourceColumn: state
                         title: State
                         sourceColumnDataType: STRING
@@ -3663,6 +3658,7 @@ interactions:
                     id: top_10_products
                     title: Top 10 Products
                 exportDefinitions: []
+                memoryItems: []
             permissions:
               - assignee:
                   id: demo2
@@ -3714,6 +3710,7 @@ interactions:
                 metrics: []
                 visualizationObjects: []
                 exportDefinitions: []
+                memoryItems: []
             parent:
               id: demo
               type: workspace
@@ -3739,6 +3736,7 @@ interactions:
                 metrics: []
                 visualizationObjects: []
                 exportDefinitions: []
+                memoryItems: []
             parent:
               id: demo_west
               type: workspace
@@ -3804,7 +3802,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '37189'
+          - '37146'
         Content-Type:
           - application/json
         DATE: *id001
@@ -4161,6 +4159,7 @@ interactions:
                       description: ''
                       id: region_filter
                       title: filterContext
+                  memoryItems: []
                   metrics:
                     - content:
                         format: '#,##0'
@@ -5361,15 +5360,11 @@ interactions:
                           labels:
                             - description: Location
                               id: geo__state__location
-                              locale: en-US
                               sourceColumn: geo__state__location
                               sourceColumnDataType: STRING
                               tags:
                                 - Customers
                               title: Location
-                              translations:
-                                - locale: cs-CZ
-                                  sourceColumn: geo__state__location_cz
                               valueType: GEO
                           sourceColumn: state
                           sourceColumnDataType: STRING
@@ -5589,6 +5584,7 @@ interactions:
                   dashboardPlugins: []
                   exportDefinitions: []
                   filterContexts: []
+                  memoryItems: []
                   metrics: []
                   visualizationObjects: []
                 ldm:
@@ -5622,6 +5618,7 @@ interactions:
                   dashboardPlugins: []
                   exportDefinitions: []
                   filterContexts: []
+                  memoryItems: []
                   metrics: []
                   visualizationObjects: []
                 ldm:
@@ -7003,6 +7000,7 @@ interactions:
                       visualizationUrl: local:bar
                     id: top_10_products
                     title: Top 10 Products
+                memoryItems: []
               ldm:
                 datasets:
                   - grain:
@@ -7182,10 +7180,6 @@ interactions:
                             title: Location
                             description: Location
                             sourceColumnDataType: STRING
-                            locale: en-US
-                            translations:
-                              - locale: cs-CZ
-                                sourceColumn: geo__state__location_cz
                             tags:
                               - Customers
                             valueType: GEO
@@ -7404,6 +7398,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasetExtensions:
                   - id: order_lines
@@ -7437,6 +7432,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasets: []
                 dateInstances: []

@@ -375,7 +375,7 @@ def substr(expr: Underscore | Any, start: int, length: int | None = None):
     start
         The starting index of the substring (0-indexed).
     length
-        The length of the substring. If None, the substring will extend to the end of the string.
+        The length of the substring. If `None`, the substring will extend to the end of the string.
 
     Examples
     --------
@@ -4617,7 +4617,7 @@ def round(value: Any, digits: int | None = None):
     value
         The number to round.
     digits
-        The number of significant digits to round to. If None, the number is rounded to the nearest integer.
+        The number of significant digits to round to. If `None`, the number is rounded to the nearest integer.
 
     Examples
     --------
@@ -4642,7 +4642,7 @@ def bankers_round(value: Any, digits: int | None = None):
     value
         The number to round.
     digits
-        The number of significant digits to round to. If None, the number is banker's rounded to the nearest integer.
+        The number of significant digits to round to. If `None`, the number is banker's rounded to the nearest integer.
 
     Examples
     --------

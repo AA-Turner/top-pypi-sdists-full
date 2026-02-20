@@ -3,7 +3,7 @@ Type annotations for bcm-dashboards service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_bcm_dashboards/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -381,15 +381,18 @@ SavingsPlansUtilizationQueryTypeDef = TypedDict(
         "filter": NotRequired[ExpressionUnionTypeDef],
     },
 )
-
-class WidgetOutputTypeDef(TypedDict):
-    title: str
-    configs: list[WidgetConfigOutputTypeDef]
-    description: NotRequired[str]
-    width: NotRequired[int]
-    height: NotRequired[int]
-    horizontalOffset: NotRequired[int]
-
+WidgetOutputTypeDef = TypedDict(
+    "WidgetOutputTypeDef",
+    {
+        "title": str,
+        "configs": list[WidgetConfigOutputTypeDef],
+        "id": NotRequired[str],
+        "description": NotRequired[str],
+        "width": NotRequired[int],
+        "height": NotRequired[int],
+        "horizontalOffset": NotRequired[int],
+    },
+)
 CostAndUsageQueryUnionTypeDef = Union[CostAndUsageQueryTypeDef, CostAndUsageQueryOutputTypeDef]
 ReservationCoverageQueryUnionTypeDef = Union[
     ReservationCoverageQueryTypeDef, ReservationCoverageQueryOutputTypeDef
@@ -431,15 +434,18 @@ class WidgetConfigTypeDef(TypedDict):
     displayConfig: DisplayConfigUnionTypeDef
 
 WidgetConfigUnionTypeDef = Union[WidgetConfigTypeDef, WidgetConfigOutputTypeDef]
-
-class WidgetTypeDef(TypedDict):
-    title: str
-    configs: Sequence[WidgetConfigUnionTypeDef]
-    description: NotRequired[str]
-    width: NotRequired[int]
-    height: NotRequired[int]
-    horizontalOffset: NotRequired[int]
-
+WidgetTypeDef = TypedDict(
+    "WidgetTypeDef",
+    {
+        "title": str,
+        "configs": Sequence[WidgetConfigUnionTypeDef],
+        "id": NotRequired[str],
+        "description": NotRequired[str],
+        "width": NotRequired[int],
+        "height": NotRequired[int],
+        "horizontalOffset": NotRequired[int],
+    },
+)
 WidgetUnionTypeDef = Union[WidgetTypeDef, WidgetOutputTypeDef]
 
 class CreateDashboardRequestTypeDef(TypedDict):

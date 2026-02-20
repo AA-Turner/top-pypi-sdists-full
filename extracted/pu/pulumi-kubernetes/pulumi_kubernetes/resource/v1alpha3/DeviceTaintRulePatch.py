@@ -28,6 +28,7 @@ class DeviceTaintRulePatchArgs:
                  spec: Optional[pulumi.Input['DeviceTaintRuleSpecPatchArgs']] = None):
         """
         The set of arguments for constructing a DeviceTaintRulePatch resource.
+
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param pulumi.Input['_meta.v1.ObjectMetaPatchArgs'] metadata: Standard object metadata
@@ -115,6 +116,7 @@ class DeviceTaintRulePatch(pulumi.CustomResource):
         additional information about using Server-Side Apply to manage Kubernetes resources with Pulumi.
         DeviceTaintRule adds one taint to all devices which match the selector. This has the same effect as if the taint was specified directly in the ResourceSlice by the DRA driver.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -138,6 +140,7 @@ class DeviceTaintRulePatch(pulumi.CustomResource):
         [Server-Side Apply Docs](https://www.pulumi.com/registry/packages/kubernetes/how-to-guides/managing-resources-with-server-side-apply/) for
         additional information about using Server-Side Apply to manage Kubernetes resources with Pulumi.
         DeviceTaintRule adds one taint to all devices which match the selector. This has the same effect as if the taint was specified directly in the ResourceSlice by the DRA driver.
+
 
         :param str resource_name: The name of the resource.
         :param DeviceTaintRulePatchArgs args: The arguments to use to populate this resource's properties.
@@ -171,6 +174,7 @@ class DeviceTaintRulePatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'DeviceTaintRule'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
+            __props__.__dict__["status"] = None
         super(DeviceTaintRulePatch, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha3:DeviceTaintRulePatch',
             resource_name,
@@ -197,6 +201,7 @@ class DeviceTaintRulePatch(pulumi.CustomResource):
         __props__.__dict__["kind"] = None
         __props__.__dict__["metadata"] = None
         __props__.__dict__["spec"] = None
+        __props__.__dict__["status"] = None
         return DeviceTaintRulePatch(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -232,4 +237,12 @@ class DeviceTaintRulePatch(pulumi.CustomResource):
         Changing the spec automatically increments the metadata.generation number.
         """
         return pulumi.get(self, "spec")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> pulumi.Output[Optional['outputs.DeviceTaintRuleStatusPatch']]:
+        """
+        Status provides information about what was requested in the spec.
+        """
+        return pulumi.get(self, "status")
 

@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='kaqing',
-    version='2.2.7',
+    version='2.2.40',
     include_package_data=True,
     packages=find_packages(),
     entry_points={

@@ -9,15 +9,15 @@ from typing import (
     TypeAlias,
     runtime_checkable,
 )
-from typing_extensions import deprecated
 
 if TYPE_CHECKING:
     import enum
 
 if sys.version_info >= (3, 13):
     from typing import TypedDict, TypeVar
+    from warnings import deprecated
 else:
-    from typing_extensions import TypedDict, TypeVar
+    from typing_extensions import TypedDict, TypeVar, deprecated
 
 from ._core import _can as _c, _just
 
@@ -72,7 +72,7 @@ class Just(  # type: ignore[misc]
     "and will be removed in optype 0.10.0",
 )
 @runtime_checkable
-class JustInt(_just.JustInt, Protocol, just=int): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
+class JustInt(_just.JustInt, Protocol, just=int): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]  # ty:ignore[subclass-of-final-class]
 
 
 @deprecated(
@@ -80,7 +80,7 @@ class JustInt(_just.JustInt, Protocol, just=int): ...  # type: ignore[misc]  # p
     "and will be removed in optype 0.10.0",
 )
 @runtime_checkable
-class JustFloat(_just.JustFloat, Protocol, just=float): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
+class JustFloat(_just.JustFloat, Protocol, just=float): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]  # ty:ignore[subclass-of-final-class]
 
 
 @deprecated(
@@ -88,7 +88,7 @@ class JustFloat(_just.JustFloat, Protocol, just=float): ...  # type: ignore[misc
     "and will be removed in optype 0.10.0",
 )
 @runtime_checkable
-class JustComplex(_just.JustComplex, Protocol, just=complex): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]
+class JustComplex(_just.JustComplex, Protocol, just=complex): ...  # type: ignore[misc]  # pyright: ignore[reportGeneralTypeIssues]  # ty:ignore[subclass-of-final-class]
 
 
 Just.__doc__ = _just.Just.__doc__  # pyright: ignore[reportDeprecated]  # ty:ignore[deprecated]

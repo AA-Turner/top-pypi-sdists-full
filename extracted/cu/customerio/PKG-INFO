@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: customerio
-Version: 2.2
+Version: 2.3
 Summary: Customer.io Python bindings.
 Home-page: https://github.com/customerio/customerio-python
 Author: Peaberry Software Inc.
@@ -17,3 +17,11 @@ Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 License-File: LICENSE
 License-File: AUTHORS
+Requires-Dist: requests>=2.20.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: home-page
+Dynamic: license
+Dynamic: requires-dist
+Dynamic: summary

@@ -45,7 +45,14 @@ from packaging.utils import canonicalize_name, parse_wheel_filename
 from packaging.version import Version
 
 # this package
-from pypi_json.typehints import DistributionPackageDict, FileURL, ProjectInfoDict, Self, VulnerabilityInfoDict
+from pypi_json.typehints import (
+		DistributionPackageDict,
+		FileURL,
+		OwnershipInfoDict,
+		ProjectInfoDict,
+		Self,
+		VulnerabilityInfoDict
+		)
 
 # from urllib.parse import urlparse, urlunparse
 
@@ -56,7 +63,7 @@ if TYPE_CHECKING:
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2021 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "0.4.0"
+__version__: str = "0.5.0.post1"
 __email__: str = "dominic@davis-foster.co.uk"
 
 __all__ = ["PyPIJSON", "ProjectMetadata", "USER_AGENT"]
@@ -117,6 +124,13 @@ class ProjectMetadata(NamedTuple):
 	(*New in version 0.2.0*)
 	"""
 
+	ownership: Optional[OwnershipInfoDict] = None
+	"""
+	Information about the project's roles and organization membership.
+
+	(*New in version 0.5.0*)
+	"""
+
 	@property
 	def name(self) -> str:
 		"""
@@ -136,7 +150,7 @@ class ProjectMetadata(NamedTuple):
 	def _raise_missing_releases_key(self) -> "NoReturn":
 		raise DeprecationWarning(
 				"The 'releases' key is no longer included in the JSON responses for individual versions. "
-				"Please call the .metadata() method without supplying a version."
+				"Please call the .get_metadata() method without supplying a version.",
 				)
 
 	def get_latest_version(self) -> Version:
@@ -274,7 +288,7 @@ class PyPIJSON:
 			self,
 			endpoint: Union[str, URL] = "https://pypi.org/pypi",
 			auth: Any = None,
-			session: Optional[requests.Session] = None
+			session: Optional[requests.Session] = None,
 			) -> None:
 
 		if isinstance(endpoint, RequestsURL):

@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
     from synkro.remediation.types import Violation
-    from synkro.verify.types import Report, Result, Verdict
+    from synkro.verify.types import Report, Result
 
 
 @dataclass

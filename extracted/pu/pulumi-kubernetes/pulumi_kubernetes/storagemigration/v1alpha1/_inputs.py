@@ -32,27 +32,22 @@ __all__ = [
     'StorageVersionMigrationArgsDict',
 ]
 
-MYPY = False
-
-if not MYPY:
-    class GroupVersionResourcePatchArgsDict(TypedDict):
-        """
-        The names of the group, the version, and the resource.
-        """
-        group: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the group.
-        """
-        resource: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the resource.
-        """
-        version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the version.
-        """
-elif False:
-    GroupVersionResourcePatchArgsDict: TypeAlias = Mapping[str, Any]
+class GroupVersionResourcePatchArgsDict(TypedDict):
+    """
+    The names of the group, the version, and the resource.
+    """
+    group: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the group.
+    """
+    resource: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the resource.
+    """
+    version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the version.
+    """
 
 @pulumi.input_type
 class GroupVersionResourcePatchArgs:
@@ -62,6 +57,7 @@ class GroupVersionResourcePatchArgs:
                  version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The names of the group, the version, and the resource.
+
         :param pulumi.Input[_builtins.str] group: The name of the group.
         :param pulumi.Input[_builtins.str] resource: The name of the resource.
         :param pulumi.Input[_builtins.str] version: The name of the version.
@@ -110,25 +106,22 @@ class GroupVersionResourcePatchArgs:
         pulumi.set(self, "version", value)
 
 
-if not MYPY:
-    class GroupVersionResourceArgsDict(TypedDict):
-        """
-        The names of the group, the version, and the resource.
-        """
-        group: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the group.
-        """
-        resource: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the resource.
-        """
-        version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The name of the version.
-        """
-elif False:
-    GroupVersionResourceArgsDict: TypeAlias = Mapping[str, Any]
+class GroupVersionResourceArgsDict(TypedDict):
+    """
+    The names of the group, the version, and the resource.
+    """
+    group: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the group.
+    """
+    resource: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the resource.
+    """
+    version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The name of the version.
+    """
 
 @pulumi.input_type
 class GroupVersionResourceArgs:
@@ -138,6 +131,7 @@ class GroupVersionResourceArgs:
                  version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         The names of the group, the version, and the resource.
+
         :param pulumi.Input[_builtins.str] group: The name of the group.
         :param pulumi.Input[_builtins.str] resource: The name of the resource.
         :param pulumi.Input[_builtins.str] version: The name of the version.
@@ -186,33 +180,30 @@ class GroupVersionResourceArgs:
         pulumi.set(self, "version", value)
 
 
-if not MYPY:
-    class MigrationConditionArgsDict(TypedDict):
-        """
-        Describes the state of a migration at a certain point.
-        """
-        status: pulumi.Input[_builtins.str]
-        """
-        Status of the condition, one of True, False, Unknown.
-        """
-        type: pulumi.Input[_builtins.str]
-        """
-        Type of the condition.
-        """
-        last_update_time: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The last time this condition was updated.
-        """
-        message: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        A human readable message indicating details about the transition.
-        """
-        reason: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The reason for the condition's last transition.
-        """
-elif False:
-    MigrationConditionArgsDict: TypeAlias = Mapping[str, Any]
+class MigrationConditionArgsDict(TypedDict):
+    """
+    Describes the state of a migration at a certain point.
+    """
+    status: pulumi.Input[_builtins.str]
+    """
+    Status of the condition, one of True, False, Unknown.
+    """
+    type: pulumi.Input[_builtins.str]
+    """
+    Type of the condition.
+    """
+    last_update_time: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The last time this condition was updated.
+    """
+    message: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    A human readable message indicating details about the transition.
+    """
+    reason: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The reason for the condition's last transition.
+    """
 
 @pulumi.input_type
 class MigrationConditionArgs:
@@ -224,6 +215,7 @@ class MigrationConditionArgs:
                  reason: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Describes the state of a migration at a certain point.
+
         :param pulumi.Input[_builtins.str] status: Status of the condition, one of True, False, Unknown.
         :param pulumi.Input[_builtins.str] type: Type of the condition.
         :param pulumi.Input[_builtins.str] last_update_time: The last time this condition was updated.
@@ -300,21 +292,18 @@ class MigrationConditionArgs:
         pulumi.set(self, "reason", value)
 
 
-if not MYPY:
-    class StorageVersionMigrationSpecPatchArgsDict(TypedDict):
-        """
-        Spec of the storage version migration.
-        """
-        continue_token: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
-        """
-        resource: NotRequired[pulumi.Input['GroupVersionResourcePatchArgsDict']]
-        """
-        The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
-        """
-elif False:
-    StorageVersionMigrationSpecPatchArgsDict: TypeAlias = Mapping[str, Any]
+class StorageVersionMigrationSpecPatchArgsDict(TypedDict):
+    """
+    Spec of the storage version migration.
+    """
+    continue_token: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
+    """
+    resource: NotRequired[pulumi.Input['GroupVersionResourcePatchArgsDict']]
+    """
+    The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
+    """
 
 @pulumi.input_type
 class StorageVersionMigrationSpecPatchArgs:
@@ -323,6 +312,7 @@ class StorageVersionMigrationSpecPatchArgs:
                  resource: Optional[pulumi.Input['GroupVersionResourcePatchArgs']] = None):
         """
         Spec of the storage version migration.
+
         :param pulumi.Input[_builtins.str] continue_token: The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
         :param pulumi.Input['GroupVersionResourcePatchArgs'] resource: The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
         """
@@ -356,21 +346,18 @@ class StorageVersionMigrationSpecPatchArgs:
         pulumi.set(self, "resource", value)
 
 
-if not MYPY:
-    class StorageVersionMigrationSpecArgsDict(TypedDict):
-        """
-        Spec of the storage version migration.
-        """
-        resource: pulumi.Input['GroupVersionResourceArgsDict']
-        """
-        The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
-        """
-        continue_token: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
-        """
-elif False:
-    StorageVersionMigrationSpecArgsDict: TypeAlias = Mapping[str, Any]
+class StorageVersionMigrationSpecArgsDict(TypedDict):
+    """
+    Spec of the storage version migration.
+    """
+    resource: pulumi.Input['GroupVersionResourceArgsDict']
+    """
+    The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
+    """
+    continue_token: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
+    """
 
 @pulumi.input_type
 class StorageVersionMigrationSpecArgs:
@@ -379,6 +366,7 @@ class StorageVersionMigrationSpecArgs:
                  continue_token: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Spec of the storage version migration.
+
         :param pulumi.Input['GroupVersionResourceArgs'] resource: The resource that is being migrated. The migrator sends requests to the endpoint serving the resource. Immutable.
         :param pulumi.Input[_builtins.str] continue_token: The token used in the list options to get the next chunk of objects to migrate. When the .status.conditions indicates the migration is "Running", users can use this token to check the progress of the migration.
         """
@@ -411,21 +399,18 @@ class StorageVersionMigrationSpecArgs:
         pulumi.set(self, "continue_token", value)
 
 
-if not MYPY:
-    class StorageVersionMigrationStatusArgsDict(TypedDict):
-        """
-        Status of the storage version migration.
-        """
-        conditions: NotRequired[pulumi.Input[Sequence[pulumi.Input['MigrationConditionArgsDict']]]]
-        """
-        The latest available observations of the migration's current state.
-        """
-        resource_version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        ResourceVersion to compare with the GC cache for performing the migration. This is the current resource version of given group, version and resource when kube-controller-manager first observes this StorageVersionMigration resource.
-        """
-elif False:
-    StorageVersionMigrationStatusArgsDict: TypeAlias = Mapping[str, Any]
+class StorageVersionMigrationStatusArgsDict(TypedDict):
+    """
+    Status of the storage version migration.
+    """
+    conditions: NotRequired[pulumi.Input[Sequence[pulumi.Input['MigrationConditionArgsDict']]]]
+    """
+    The latest available observations of the migration's current state.
+    """
+    resource_version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    ResourceVersion to compare with the GC cache for performing the migration. This is the current resource version of given group, version and resource when kube-controller-manager first observes this StorageVersionMigration resource.
+    """
 
 @pulumi.input_type
 class StorageVersionMigrationStatusArgs:
@@ -434,6 +419,7 @@ class StorageVersionMigrationStatusArgs:
                  resource_version: Optional[pulumi.Input[_builtins.str]] = None):
         """
         Status of the storage version migration.
+
         :param pulumi.Input[Sequence[pulumi.Input['MigrationConditionArgs']]] conditions: The latest available observations of the migration's current state.
         :param pulumi.Input[_builtins.str] resource_version: ResourceVersion to compare with the GC cache for performing the migration. This is the current resource version of given group, version and resource when kube-controller-manager first observes this StorageVersionMigration resource.
         """
@@ -467,33 +453,30 @@ class StorageVersionMigrationStatusArgs:
         pulumi.set(self, "resource_version", value)
 
 
-if not MYPY:
-    class StorageVersionMigrationArgsDict(TypedDict):
-        """
-        StorageVersionMigration represents a migration of stored data to the latest storage version.
-        """
-        api_version: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
-        """
-        kind: NotRequired[pulumi.Input[_builtins.str]]
-        """
-        Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-        """
-        metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
-        """
-        Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-        """
-        spec: NotRequired[pulumi.Input['StorageVersionMigrationSpecArgsDict']]
-        """
-        Specification of the migration.
-        """
-        status: NotRequired[pulumi.Input['StorageVersionMigrationStatusArgsDict']]
-        """
-        Status of the migration.
-        """
-elif False:
-    StorageVersionMigrationArgsDict: TypeAlias = Mapping[str, Any]
+class StorageVersionMigrationArgsDict(TypedDict):
+    """
+    StorageVersionMigration represents a migration of stored data to the latest storage version.
+    """
+    api_version: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+    """
+    kind: NotRequired[pulumi.Input[_builtins.str]]
+    """
+    Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+    """
+    metadata: NotRequired[pulumi.Input['_meta.v1.ObjectMetaArgsDict']]
+    """
+    Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+    """
+    spec: NotRequired[pulumi.Input['StorageVersionMigrationSpecArgsDict']]
+    """
+    Specification of the migration.
+    """
+    status: NotRequired[pulumi.Input['StorageVersionMigrationStatusArgsDict']]
+    """
+    Status of the migration.
+    """
 
 @pulumi.input_type
 class StorageVersionMigrationArgs:
@@ -505,6 +488,7 @@ class StorageVersionMigrationArgs:
                  status: Optional[pulumi.Input['StorageVersionMigrationStatusArgs']] = None):
         """
         StorageVersionMigration represents a migration of stored data to the latest storage version.
+
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata

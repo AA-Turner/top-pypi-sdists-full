@@ -19,9 +19,9 @@ class InputEncodeOptions:
 
     json_encode: bool
     """
-    If True, encode feature values into JSON. Specifically, structs/datetimes/bytes/etc. are encoded
+    If `True`, encode feature values into JSON. Specifically, structs/datetimes/bytes/etc. are encoded
     into a JSON-compatible format.
-    If False, encode features values into a 'primitive' type (TPrimitive) but don't apply json encoding.
+    If `False`, encode features values into a 'primitive' type (TPrimitive) but don't apply json encoding.
     This is needed for the HTTP client which sends feature data in JSON requests. However, the GRPC
     client transmits Arrow data which supports a richer set of types.
     """
@@ -45,9 +45,13 @@ def validate_iterable_values_in_mapping(inputs: Mapping[str, Sequence[Any]], met
     If a method expects inputs of the form Mapping[str, Sequence[Any]], this function will confirm that the values are in fact sequences.
     In particular, because strings are considered sequences, an input `{"user.name": "Raphael"}` will typecheck but then be converted into a list of
     seven users "R", "a", ...
-    :param inputs:
-    :param method_name:
-    :return:
+
+    Parameters
+    ----------
+    inputs
+        Mapping from feature FQN to a sequence of values.
+    method_name
+        Optional method name used to improve warning messages.
     """
     try:
         import polars as pl
@@ -233,8 +237,8 @@ def features_to_columnar(instances: Sequence[Features], strip_namespace: bool = 
     instances
         A list of feature class instances, e.g. [User(id=1, name="Alice"), User(id=2, name="Bob")]
     strip_namespace
-        If True, strip the root namespace from the keys. e.g. "user.name" becomes "name".
-        If False, keep the full FQN as keys.
+        If `True`, strip the root namespace from the keys. e.g. "user.name" becomes "name".
+        If `False`, keep the full FQN as keys.
 
     Returns
     -------

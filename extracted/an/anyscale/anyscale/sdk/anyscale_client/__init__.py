@@ -34,6 +34,7 @@ from anyscale_client.models.app_config_config_schema import AppConfigConfigSchem
 from anyscale_client.models.apply_production_service_v2_model import ApplyProductionServiceV2Model
 from anyscale_client.models.apply_service_model import ApplyServiceModel
 from anyscale_client.models.archive_status import ArchiveStatus
+from anyscale_client.models.azure_acr_config import AzureACRConfig
 from anyscale_client.models.baseimagesenum import BASEIMAGESENUM
 from anyscale_client.models.base_job_status import BaseJobStatus
 from anyscale_client.models.build import Build

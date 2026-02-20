@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama_stack
-Version: 0.5.0
+Version: 0.5.1
 Summary: Llama Stack
 Author-email: Meta Llama <llama-oss@meta.com>
 License: MIT
@@ -34,10 +34,11 @@ Requires-Dist: termcolor
 Requires-Dist: tiktoken
 Requires-Dist: pillow
 Requires-Dist: h11>=0.16.0
-Requires-Dist: python-multipart>=0.0.20
+Requires-Dist: python-multipart>=0.0.22
 Requires-Dist: uvicorn>=0.34.0
 Requires-Dist: opentelemetry-sdk>=1.30.0
 Requires-Dist: opentelemetry-exporter-otlp-proto-http>=1.30.0
+Requires-Dist: opentelemetry-distro>=0.60b1
 Requires-Dist: aiosqlite>=0.21.0
 Requires-Dist: asyncpg
 Requires-Dist: sqlalchemy[asyncio]>=2.0.41
@@ -50,7 +51,7 @@ Requires-Dist: oci>=2.165.0
 Requires-Dist: numpy>=2.3.2
 Requires-Dist: mcp>=1.23.0
 Provides-Extra: client
-Requires-Dist: llama-stack-client==0.5.0; extra == "client"
+Requires-Dist: llama-stack-client==0.5.1; extra == "client"
 Dynamic: license-file
 
 # Llama Stack

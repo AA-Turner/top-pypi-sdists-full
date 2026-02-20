@@ -116,6 +116,7 @@ class ProcessCommonInlineUserDefinedFunction:
         udf_packages: str = "",
         udf_imports: str = "",
         original_return_type: DataType | None = None,
+        artifact_repository: str | None = None,
         resource_constraint: dict[str, str] | None = None,
     ) -> None:
         context._use_structured_type_semantics = True
@@ -142,6 +143,7 @@ class ProcessCommonInlineUserDefinedFunction:
         self._udf_imports = udf_imports
         self._original_return_type = original_return_type
         self._return_type = return_type
+        self._artifact_repository = artifact_repository
         self._resource_constraint = resource_constraint
         match self._function_type:
             case "python_udf":
@@ -243,6 +245,11 @@ class ProcessCommonInlineUserDefinedFunction:
             packages = [p.strip() for p in self._udf_packages.strip("[]").split(",")]
         else:
             packages = []
+        # TODO: Remove this once Snowpark Python automatically includes cloudpickle when artifact_repository is set.
+        # cloudpickle is required for serialization/deserialization of UDFs but is not automatically
+        # added by Snowflake when using a custom artifact_repository.
+        if self._artifact_repository and "cloudpickle" not in packages:
+            packages.append("cloudpickle")
 
         # Add telemetry package for UDF tracing (only if telemetry is enabled)
         if ENABLE_UDF_TELEMETRY and TELEMETRY_PACKAGE not in packages:
@@ -368,6 +375,7 @@ class ProcessCommonInlineUserDefinedFunction:
                 packages=packages,
                 imports=imports,
                 immutable=self._is_deterministic,
+                artifact_repository=self._artifact_repository,
                 resource_constraint=self._resource_constraint,
             )
 
@@ -456,6 +464,7 @@ class ProcessCommonInlineUserDefinedFunction:
             packages=packages,
             imports=imports,
             immutable=self._is_deterministic,
+            artifact_repository=self._artifact_repository,
             resource_constraint=self._resource_constraint,
         )
 

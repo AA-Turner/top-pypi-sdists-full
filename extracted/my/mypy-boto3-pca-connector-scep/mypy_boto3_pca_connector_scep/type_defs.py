@@ -3,7 +3,7 @@ Type annotations for pca-connector-scep service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pca_connector_scep/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -246,6 +246,7 @@ ConnectorTypeDef = TypedDict(
 class CreateConnectorRequestTypeDef(TypedDict):
     CertificateAuthorityArn: str
     MobileDeviceManagement: NotRequired[MobileDeviceManagementTypeDef]
+    VpcEndpointId: NotRequired[str]
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 

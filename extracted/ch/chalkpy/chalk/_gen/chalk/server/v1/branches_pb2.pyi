@@ -59,6 +59,20 @@ class BranchWithLatestDeployment(_message.Message):
         latest_deployment_id: _Optional[str] = ...,
     ) -> None: ...
 
+class GetBranchWithLatestDeploymentRequest(_message.Message):
+    __slots__ = ("name",)
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    def __init__(self, name: _Optional[str] = ...) -> None: ...
+
+class GetBranchWithLatestDeploymentResponse(_message.Message):
+    __slots__ = ("branch_with_latest_deployment",)
+    BRANCH_WITH_LATEST_DEPLOYMENT_FIELD_NUMBER: _ClassVar[int]
+    branch_with_latest_deployment: BranchWithLatestDeployment
+    def __init__(
+        self, branch_with_latest_deployment: _Optional[_Union[BranchWithLatestDeployment, _Mapping]] = ...
+    ) -> None: ...
+
 class ListBranchWithLatestDeploymentsRequest(_message.Message):
     __slots__ = ("cursor", "limit")
     CURSOR_FIELD_NUMBER: _ClassVar[int]

@@ -4,13 +4,14 @@ import pytest
 
 from sklearn.model_selection import cross_validate
 
-from tslearn.utils import to_time_series, to_time_series_dataset
+from tslearn.utils import to_time_series_dataset
+from tslearn.utils.utils import _to_time_series
 
 __author__ = 'Romain Tavenard romain.tavenard[at]univ-rennes2.fr'
 
 
 def test_shapelets():
-    shapelets = pytest.importorskip('tslearn.shapelets')
+    shapelets = pytest.importorskip('tslearn.shapelets', exc_type=ImportError)
     from keras.optimizers import Adam
 
     n, sz, d = 15, 10, 2
@@ -37,7 +38,7 @@ def test_shapelets():
     for shp, shp_bis in zip(model.shapelets_,
                             model.shapelets_as_time_series_):
         np.testing.assert_allclose(shp,
-                                   to_time_series(shp_bis, remove_nans=True))
+                                   _to_time_series(shp_bis, remove_nans=True))
 
     # Test set_weights / get_weights
     clf = shapelets.LearningShapelets(n_shapelets_per_size={2: 5},
@@ -63,7 +64,7 @@ def test_shapelets():
 
 
 def test_shapelet_lengths():
-    shapelets = pytest.importorskip('tslearn.shapelets')
+    shapelets = pytest.importorskip('tslearn.shapelets', exc_type=ImportError)
 
     # Test variable-length
     y = [0, 1]
@@ -120,7 +121,7 @@ def test_shapelet_lengths():
 
 
 def test_series_lengths():
-    shapelets = pytest.importorskip('tslearn.shapelets')
+    shapelets = pytest.importorskip('tslearn.shapelets', exc_type=ImportError)
 
     # Test long shapelets
     y = [0, 1]
@@ -143,7 +144,7 @@ def test_series_lengths():
 
 
 def test_locate():
-    shapelets = pytest.importorskip('tslearn.shapelets')
+    shapelets = pytest.importorskip('tslearn.shapelets', exc_type=ImportError)
     from keras.backend import backend
 
     y = [0, 1]

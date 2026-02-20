@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: zExceptions
-Version: 5.0
+Version: 6.0
 Summary: zExceptions contains common exceptions used in Zope.
 Home-page: https://github.com/zopefoundation/zExceptions
 Author: Zope Foundation and Contributors
 Author-email: zope-dev@zope.dev
-License: ZPL 2.1
+License: ZPL-2.1
 Project-URL: Issue Tracker, https://github.com/zopefoundation/zExceptions/issues
 Project-URL: Sources, https://github.com/zopefoundation/zExceptions
 Classifier: Development Status :: 6 - Mature
@@ -15,15 +15,32 @@ Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Requires-Dist: setuptools
+Requires-Dist: zope.interface
+Requires-Dist: zope.publisher
+Requires-Dist: zope.security
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Overview
 ========
@@ -34,11 +51,19 @@ exceptions as used in Zope.
 Changelog
 =========
 
+6.0 (2026-02-19)
+----------------
+
+- Add support for Python 3.12, 3.13, and 3.14.
+
+- Drop support for Python 3.7, 3.8, and 3.9.
+
+
 5.0 (2023-06-28)
 ----------------
 
-
 - Drop support for Python 2.7, 3.5, 3.6.
+
 
 4.3 (2022-12-18)
 ----------------

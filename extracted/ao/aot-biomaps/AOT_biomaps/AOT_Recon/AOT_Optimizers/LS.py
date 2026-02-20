@@ -17,10 +17,7 @@ def LS(
     numIterations=100,
     isSavingEachIteration=True,
     withTumor=True,
-    alpha=1e-1,
     device=None,
-    use_numba=False,
-    denominator_threshold=1e-6,
     max_saves=5000,
     show_logs=True,
     smatrixType=SMatrixType.SELL
@@ -32,7 +29,7 @@ def LS(
     tumor_str = "WITH" if withTumor else "WITHOUT"
     # Auto-select device and method
     if device is None:
-        if torch.cuda.is_available() and check_gpu_memory(config.select_best_gpu(), calculate_memory_requirement(SMatrix, y), show_logs=show_logs):
+        if torch.cuda.is_available():
             device = torch.device(f"cuda:{config.select_best_gpu()}")
             use_gpu = True
         else:
@@ -43,11 +40,11 @@ def LS(
     # Dispatch to the appropriate implementation
     if use_gpu:
             if smatrixType == SMatrixType.CSR:
-                return _LS_CG_sparseCSR_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold, show_logs)
+                return _LS_CG_sparseCSR_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, show_logs)
             elif smatrixType == SMatrixType.SELL:
-                return _LS_CG_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold, show_logs)
+                return _LS_CG_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, show_logs)
             elif smatrixType == SMatrixType.DENSE:
-                return _LS_GPU_stable(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold,show_logs)
+                return _LS_GPU_stable(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves,show_logs)
             else:
                 raise ValueError("Unsupported SMatrixType for GPU LS.")
     else:
@@ -128,7 +125,7 @@ def _LS_CPU_opti(*args, **kwargs):
 def _LS_CPU_basic(*args, **kwargs):
     raise NotImplementedError("Only _LS_GPU_stable is implemented for now.")
 
-def _LS_CG_sparseCSR_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold, show_logs=True):
+def _LS_CG_sparseCSR_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, show_logs=True):
     """
     Reconstruction par Moindres Carrés (LS) via Gradient Conjugué (CG) sur format CSR.
     Utilise les mêmes arguments que la fonction MLEM, sans sous-fonctions Python.
@@ -314,7 +311,7 @@ def _LS_CG_sparseCSR_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tu
         if SMatrix and hasattr(SMatrix, 'ctx') and SMatrix.ctx:
             SMatrix.ctx.pop()
 
-def _LS_CG_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold, show_logs=True):
+def _LS_CG_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, show_logs=True):
     """
     Reconstruction par Moindres Carrés (LS) via Gradient Conjugué (CG) sur format SELL-C-sigma.
     Utilise les mêmes arguments que la fonction MLEM, sans sous-fonctions Python.

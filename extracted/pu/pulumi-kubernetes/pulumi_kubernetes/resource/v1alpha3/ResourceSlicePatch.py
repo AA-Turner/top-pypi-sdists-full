@@ -29,6 +29,7 @@ class ResourceSlicePatchArgs:
                  spec: Optional[pulumi.Input['ResourceSliceSpecPatchArgs']] = None):
         """
         The set of arguments for constructing a ResourceSlicePatch resource.
+
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param pulumi.Input['_meta.v1.ObjectMetaPatchArgs'] metadata: Standard object metadata
@@ -126,6 +127,7 @@ class ResourceSlicePatch(pulumi.CustomResource):
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -160,6 +162,7 @@ class ResourceSlicePatch(pulumi.CustomResource):
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
 
+
         :param str resource_name: The name of the resource.
         :param ResourceSlicePatchArgs args: The arguments to use to populate this resource's properties.
         :param pulumi.ResourceOptions opts: Options for the resource.
@@ -192,7 +195,7 @@ class ResourceSlicePatch(pulumi.CustomResource):
             __props__.__dict__["kind"] = 'ResourceSlice'
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceSlicePatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceSlicePatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceSlicePatch")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1:ResourceSlicePatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceSlicePatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceSlicePatch"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceSlicePatch")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ResourceSlicePatch, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha3:ResourceSlicePatch',

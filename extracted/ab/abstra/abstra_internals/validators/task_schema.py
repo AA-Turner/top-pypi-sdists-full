@@ -109,6 +109,10 @@ class TaskSchemaValidator:
         stage_schemas = self._registry[stage_id]
         schema = stage_schemas.get(task_type)
 
+        # Fall back to "default" schema if the exact task_type is not found
+        if schema is None:
+            schema = stage_schemas.get("default")
+
         # Stage has schema but task_type is not defined - fail
         if schema is None:
             available_types = list(stage_schemas.keys())

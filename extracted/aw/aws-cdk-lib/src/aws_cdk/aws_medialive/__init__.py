@@ -3635,6 +3635,7 @@ class CfnChannel(
             "spatial_aq": "spatialAq",
             "temporal_aq": "temporalAq",
             "timecode_burnin_settings": "timecodeBurninSettings",
+            "timecode_insertion": "timecodeInsertion",
         },
     )
     class Av1SettingsProperty:
@@ -3663,6 +3664,7 @@ class CfnChannel(
             spatial_aq: typing.Optional[builtins.str] = None,
             temporal_aq: typing.Optional[builtins.str] = None,
             timecode_burnin_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.TimecodeBurninSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            timecode_insertion: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
             :param afd_signaling: 
@@ -3687,6 +3689,7 @@ class CfnChannel(
             :param spatial_aq: 
             :param temporal_aq: 
             :param timecode_burnin_settings: 
+            :param timecode_insertion: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html
             :exampleMetadata: fixture=_generated
@@ -3735,7 +3738,8 @@ class CfnChannel(
                         font_size="fontSize",
                         position="position",
                         prefix="prefix"
-                    )
+                    ),
+                    timecode_insertion="timecodeInsertion"
                 )
             '''
             if __debug__:
@@ -3762,6 +3766,7 @@ class CfnChannel(
                 check_type(argname="argument spatial_aq", value=spatial_aq, expected_type=type_hints["spatial_aq"])
                 check_type(argname="argument temporal_aq", value=temporal_aq, expected_type=type_hints["temporal_aq"])
                 check_type(argname="argument timecode_burnin_settings", value=timecode_burnin_settings, expected_type=type_hints["timecode_burnin_settings"])
+                check_type(argname="argument timecode_insertion", value=timecode_insertion, expected_type=type_hints["timecode_insertion"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if afd_signaling is not None:
                 self._values["afd_signaling"] = afd_signaling
@@ -3807,6 +3812,8 @@ class CfnChannel(
                 self._values["temporal_aq"] = temporal_aq
             if timecode_burnin_settings is not None:
                 self._values["timecode_burnin_settings"] = timecode_burnin_settings
+            if timecode_insertion is not None:
+                self._values["timecode_insertion"] = timecode_insertion
 
         @builtins.property
         def afd_signaling(self) -> typing.Optional[builtins.str]:
@@ -3987,6 +3994,14 @@ class CfnChannel(
             '''
             result = self._values.get("timecode_burnin_settings")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.TimecodeBurninSettingsProperty"]], result)
+
+        @builtins.property
+        def timecode_insertion(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-av1settings.html#cfn-medialive-channel-av1settings-timecodeinsertion
+            '''
+            result = self._values.get("timecode_insertion")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6687,6 +6702,59 @@ class CfnChannel(
 
         def __repr__(self) -> str:
             return "ColorSpacePassthroughSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.DisabledLockingSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"custom_epoch": "customEpoch"},
+    )
+    class DisabledLockingSettingsProperty:
+        def __init__(
+            self,
+            *,
+            custom_epoch: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param custom_epoch: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-disabledlockingsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                disabled_locking_settings_property = medialive.CfnChannel.DisabledLockingSettingsProperty(
+                    custom_epoch="customEpoch"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__e4986de3eb6d2cc95526c6d7b64a51876071888bcf7d3f87888676d9a7576aab)
+                check_type(argname="argument custom_epoch", value=custom_epoch, expected_type=type_hints["custom_epoch"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_epoch is not None:
+                self._values["custom_epoch"] = custom_epoch
+
+        @builtins.property
+        def custom_epoch(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-disabledlockingsettings.html#cfn-medialive-channel-disabledlockingsettings-customepoch
+            '''
+            result = self._values.get("custom_epoch")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DisabledLockingSettingsProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -9727,11 +9795,15 @@ class CfnChannel(
                     ),
                     output_locking_mode="outputLockingMode",
                     output_locking_settings=medialive.CfnChannel.OutputLockingSettingsProperty(
+                        disabled_locking_settings=medialive.CfnChannel.DisabledLockingSettingsProperty(
+                            custom_epoch="customEpoch"
+                        ),
                         epoch_locking_settings=medialive.CfnChannel.EpochLockingSettingsProperty(
                             custom_epoch="customEpoch",
                             jam_sync_time="jamSyncTime"
                         ),
                         pipeline_locking_settings=medialive.CfnChannel.PipelineLockingSettingsProperty(
+                            custom_epoch="customEpoch",
                             pipeline_locking_method="pipelineLockingMethod"
                         )
                     ),
@@ -16539,6 +16611,63 @@ class CfnChannel(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"destination": "destination"},
+    )
+    class MediaPackageAdditionalDestinationsProperty:
+        def __init__(
+            self,
+            *,
+            destination: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.OutputLocationRefProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param destination: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageadditionaldestinations.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_medialive as medialive
+                
+                media_package_additional_destinations_property = medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                    destination=medialive.CfnChannel.OutputLocationRefProperty(
+                        destination_ref_id="destinationRefId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__0e8b10ee21ff2438e6fb9561b09663137ff1b02db22819c6e3f84e41e12a8f6c)
+                check_type(argname="argument destination", value=destination, expected_type=type_hints["destination"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if destination is not None:
+                self._values["destination"] = destination
+
+        @builtins.property
+        def destination(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageadditionaldestinations.html#cfn-medialive-channel-mediapackageadditionaldestinations-destination
+            '''
+            result = self._values.get("destination")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.OutputLocationRefProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "MediaPackageAdditionalDestinationsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageGroupSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -16574,6 +16703,11 @@ class CfnChannel(
                         destination_ref_id="destinationRefId"
                     ),
                     mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                        additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                            destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                destination_ref_id="destinationRefId"
+                            )
+                        )],
                         caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
                             caption_channel=123,
                             language_code="languageCode",
@@ -16637,26 +16771,32 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageOutputDestinationSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "channel_endpoint_id": "channelEndpointId",
             "channel_group": "channelGroup",
             "channel_id": "channelId",
             "channel_name": "channelName",
+            "media_package_region_name": "mediaPackageRegionName",
         },
     )
     class MediaPackageOutputDestinationSettingsProperty:
         def __init__(
             self,
             *,
+            channel_endpoint_id: typing.Optional[builtins.str] = None,
             channel_group: typing.Optional[builtins.str] = None,
             channel_id: typing.Optional[builtins.str] = None,
             channel_name: typing.Optional[builtins.str] = None,
+            media_package_region_name: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Destination settings for a MediaPackage output.
 
             The parent of this entity is OutputDestination.
 
+            :param channel_endpoint_id: 
             :param channel_group: 
             :param channel_id: The ID of the channel in MediaPackage that is the destination for this output group. You don't need to specify the individual inputs in MediaPackage; MediaLive handles the connection of the two MediaLive pipelines to the two MediaPackage inputs. The MediaPackage channel and MediaLive channel must be in the same Region.
             :param channel_name: 
+            :param media_package_region_name: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputdestinationsettings.html
             :exampleMetadata: fixture=_generated
@@ -16668,23 +16808,39 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 media_package_output_destination_settings_property = medialive.CfnChannel.MediaPackageOutputDestinationSettingsProperty(
+                    channel_endpoint_id="channelEndpointId",
                     channel_group="channelGroup",
                     channel_id="channelId",
-                    channel_name="channelName"
+                    channel_name="channelName",
+                    media_package_region_name="mediaPackageRegionName"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__874df17e03aca6480b8e3f6dcef1562be61cb009cf5db8263599bb5c44819718)
+                check_type(argname="argument channel_endpoint_id", value=channel_endpoint_id, expected_type=type_hints["channel_endpoint_id"])
                 check_type(argname="argument channel_group", value=channel_group, expected_type=type_hints["channel_group"])
                 check_type(argname="argument channel_id", value=channel_id, expected_type=type_hints["channel_id"])
                 check_type(argname="argument channel_name", value=channel_name, expected_type=type_hints["channel_name"])
+                check_type(argname="argument media_package_region_name", value=media_package_region_name, expected_type=type_hints["media_package_region_name"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if channel_endpoint_id is not None:
+                self._values["channel_endpoint_id"] = channel_endpoint_id
             if channel_group is not None:
                 self._values["channel_group"] = channel_group
             if channel_id is not None:
                 self._values["channel_id"] = channel_id
             if channel_name is not None:
                 self._values["channel_name"] = channel_name
+            if media_package_region_name is not None:
+                self._values["media_package_region_name"] = media_package_region_name
+
+        @builtins.property
+        def channel_endpoint_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputdestinationsettings.html#cfn-medialive-channel-mediapackageoutputdestinationsettings-channelendpointid
+            '''
+            result = self._values.get("channel_endpoint_id")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def channel_group(self) -> typing.Optional[builtins.str]:
@@ -16711,6 +16867,14 @@ class CfnChannel(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputdestinationsettings.html#cfn-medialive-channel-mediapackageoutputdestinationsettings-channelname
             '''
             result = self._values.get("channel_name")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def media_package_region_name(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackageoutputdestinationsettings.html#cfn-medialive-channel-mediapackageoutputdestinationsettings-mediapackageregionname
+            '''
+            result = self._values.get("media_package_region_name")
             return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -16893,6 +17057,7 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.MediaPackageV2GroupSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "additional_destinations": "additionalDestinations",
             "caption_language_mappings": "captionLanguageMappings",
             "id3_behavior": "id3Behavior",
             "klv_behavior": "klvBehavior",
@@ -16909,6 +17074,7 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            additional_destinations: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.MediaPackageAdditionalDestinationsProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             caption_language_mappings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.CaptionLanguageMappingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             id3_behavior: typing.Optional[builtins.str] = None,
             klv_behavior: typing.Optional[builtins.str] = None,
@@ -16921,6 +17087,7 @@ class CfnChannel(
             timed_metadata_passthrough: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param additional_destinations: 
             :param caption_language_mappings: 
             :param id3_behavior: 
             :param klv_behavior: 
@@ -16942,6 +17109,11 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 media_package_v2_group_settings_property = medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                    additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                        destination=medialive.CfnChannel.OutputLocationRefProperty(
+                            destination_ref_id="destinationRefId"
+                        )
+                    )],
                     caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
                         caption_channel=123,
                         language_code="languageCode",
@@ -16960,6 +17132,7 @@ class CfnChannel(
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4)
+                check_type(argname="argument additional_destinations", value=additional_destinations, expected_type=type_hints["additional_destinations"])
                 check_type(argname="argument caption_language_mappings", value=caption_language_mappings, expected_type=type_hints["caption_language_mappings"])
                 check_type(argname="argument id3_behavior", value=id3_behavior, expected_type=type_hints["id3_behavior"])
                 check_type(argname="argument klv_behavior", value=klv_behavior, expected_type=type_hints["klv_behavior"])
@@ -16971,6 +17144,8 @@ class CfnChannel(
                 check_type(argname="argument timed_metadata_id3_period", value=timed_metadata_id3_period, expected_type=type_hints["timed_metadata_id3_period"])
                 check_type(argname="argument timed_metadata_passthrough", value=timed_metadata_passthrough, expected_type=type_hints["timed_metadata_passthrough"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if additional_destinations is not None:
+                self._values["additional_destinations"] = additional_destinations
             if caption_language_mappings is not None:
                 self._values["caption_language_mappings"] = caption_language_mappings
             if id3_behavior is not None:
@@ -16991,6 +17166,16 @@ class CfnChannel(
                 self._values["timed_metadata_id3_period"] = timed_metadata_id3_period
             if timed_metadata_passthrough is not None:
                 self._values["timed_metadata_passthrough"] = timed_metadata_passthrough
+
+        @builtins.property
+        def additional_destinations(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageAdditionalDestinationsProperty"]]]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-mediapackagev2groupsettings.html#cfn-medialive-channel-mediapackagev2groupsettings-additionaldestinations
+            '''
+            result = self._values.get("additional_destinations")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnChannel.MediaPackageAdditionalDestinationsProperty"]]]], result)
 
         @builtins.property
         def caption_language_mappings(
@@ -19281,9 +19466,11 @@ class CfnChannel(
                     id="id",
                     logical_interface_names=["logicalInterfaceNames"],
                     media_package_settings=[medialive.CfnChannel.MediaPackageOutputDestinationSettingsProperty(
+                        channel_endpoint_id="channelEndpointId",
                         channel_group="channelGroup",
                         channel_id="channelId",
-                        channel_name="channelName"
+                        channel_name="channelName",
+                        media_package_region_name="mediaPackageRegionName"
                     )],
                     multiplex_settings=medialive.CfnChannel.MultiplexProgramChannelDestinationSettingsProperty(
                         multiplex_id="multiplexId",
@@ -19802,6 +19989,11 @@ class CfnChannel(
                             destination_ref_id="destinationRefId"
                         ),
                         mediapackage_v2_group_settings=medialive.CfnChannel.MediaPackageV2GroupSettingsProperty(
+                            additional_destinations=[medialive.CfnChannel.MediaPackageAdditionalDestinationsProperty(
+                                destination=medialive.CfnChannel.OutputLocationRefProperty(
+                                    destination_ref_id="destinationRefId"
+                                )
+                            )],
                             caption_language_mappings=[medialive.CfnChannel.CaptionLanguageMappingProperty(
                                 caption_channel=123,
                                 language_code="languageCode",
@@ -20078,6 +20270,7 @@ class CfnChannel(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.OutputLockingSettingsProperty",
         jsii_struct_bases=[],
         name_mapping={
+            "disabled_locking_settings": "disabledLockingSettings",
             "epoch_locking_settings": "epochLockingSettings",
             "pipeline_locking_settings": "pipelineLockingSettings",
         },
@@ -20086,10 +20279,12 @@ class CfnChannel(
         def __init__(
             self,
             *,
+            disabled_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.DisabledLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             epoch_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.EpochLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             pipeline_locking_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnChannel.PipelineLockingSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
+            :param disabled_locking_settings: 
             :param epoch_locking_settings: 
             :param pipeline_locking_settings: 
 
@@ -20103,24 +20298,41 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 output_locking_settings_property = medialive.CfnChannel.OutputLockingSettingsProperty(
+                    disabled_locking_settings=medialive.CfnChannel.DisabledLockingSettingsProperty(
+                        custom_epoch="customEpoch"
+                    ),
                     epoch_locking_settings=medialive.CfnChannel.EpochLockingSettingsProperty(
                         custom_epoch="customEpoch",
                         jam_sync_time="jamSyncTime"
                     ),
                     pipeline_locking_settings=medialive.CfnChannel.PipelineLockingSettingsProperty(
+                        custom_epoch="customEpoch",
                         pipeline_locking_method="pipelineLockingMethod"
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__91d4fff7a9a1aba5da0f0ac1b509a8ddbcfbb4e071e4401a2dcf97e150353724)
+                check_type(argname="argument disabled_locking_settings", value=disabled_locking_settings, expected_type=type_hints["disabled_locking_settings"])
                 check_type(argname="argument epoch_locking_settings", value=epoch_locking_settings, expected_type=type_hints["epoch_locking_settings"])
                 check_type(argname="argument pipeline_locking_settings", value=pipeline_locking_settings, expected_type=type_hints["pipeline_locking_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if disabled_locking_settings is not None:
+                self._values["disabled_locking_settings"] = disabled_locking_settings
             if epoch_locking_settings is not None:
                 self._values["epoch_locking_settings"] = epoch_locking_settings
             if pipeline_locking_settings is not None:
                 self._values["pipeline_locking_settings"] = pipeline_locking_settings
+
+        @builtins.property
+        def disabled_locking_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DisabledLockingSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-outputlockingsettings.html#cfn-medialive-channel-outputlockingsettings-disabledlockingsettings
+            '''
+            result = self._values.get("disabled_locking_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnChannel.DisabledLockingSettingsProperty"]], result)
 
         @builtins.property
         def epoch_locking_settings(
@@ -21155,15 +21367,20 @@ class CfnChannel(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_medialive.CfnChannel.PipelineLockingSettingsProperty",
         jsii_struct_bases=[],
-        name_mapping={"pipeline_locking_method": "pipelineLockingMethod"},
+        name_mapping={
+            "custom_epoch": "customEpoch",
+            "pipeline_locking_method": "pipelineLockingMethod",
+        },
     )
     class PipelineLockingSettingsProperty:
         def __init__(
             self,
             *,
+            custom_epoch: typing.Optional[builtins.str] = None,
             pipeline_locking_method: typing.Optional[builtins.str] = None,
         ) -> None:
             '''
+            :param custom_epoch: 
             :param pipeline_locking_method: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-pipelinelockingsettings.html
@@ -21176,15 +21393,27 @@ class CfnChannel(
                 from aws_cdk import aws_medialive as medialive
                 
                 pipeline_locking_settings_property = medialive.CfnChannel.PipelineLockingSettingsProperty(
+                    custom_epoch="customEpoch",
                     pipeline_locking_method="pipelineLockingMethod"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__2f1e948036e67357b7bd1db61646b8f0a9ce253ff1ecd646fd36aad60030c5d6)
+                check_type(argname="argument custom_epoch", value=custom_epoch, expected_type=type_hints["custom_epoch"])
                 check_type(argname="argument pipeline_locking_method", value=pipeline_locking_method, expected_type=type_hints["pipeline_locking_method"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if custom_epoch is not None:
+                self._values["custom_epoch"] = custom_epoch
             if pipeline_locking_method is not None:
                 self._values["pipeline_locking_method"] = pipeline_locking_method
+
+        @builtins.property
+        def custom_epoch(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-medialive-channel-pipelinelockingsettings.html#cfn-medialive-channel-pipelinelockingsettings-customepoch
+            '''
+            result = self._values.get("custom_epoch")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def pipeline_locking_method(self) -> typing.Optional[builtins.str]:
@@ -23730,7 +23959,8 @@ class CfnChannel(
                             font_size="fontSize",
                             position="position",
                             prefix="prefix"
-                        )
+                        ),
+                        timecode_insertion="timecodeInsertion"
                     ),
                     frame_capture_settings=medialive.CfnChannel.FrameCaptureSettingsProperty(
                         capture_interval=123,
@@ -24072,7 +24302,8 @@ class CfnChannel(
                                 font_size="fontSize",
                                 position="position",
                                 prefix="prefix"
-                            )
+                            ),
+                            timecode_insertion="timecodeInsertion"
                         ),
                         frame_capture_settings=medialive.CfnChannel.FrameCaptureSettingsProperty(
                             capture_interval=123,
@@ -34680,6 +34911,7 @@ def _typecheckingstub__1911156090a37730cd16cc0d13076f448f8b192dca9427883cf77e884
     spatial_aq: typing.Optional[builtins.str] = None,
     temporal_aq: typing.Optional[builtins.str] = None,
     timecode_burnin_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.TimecodeBurninSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    timecode_insertion: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -34890,6 +35122,13 @@ def _typecheckingstub__8b62ed6aaafdef63c746b1b2a7a4cb11082ac71229b8cce59b11a12f6
 def _typecheckingstub__5b163cf0a2805bc3b9ba83732ec2d31be65417627bae2ea0d1358c23777292cf(
     *,
     global_color_corrections: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.ColorCorrectionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e4986de3eb6d2cc95526c6d7b64a51876071888bcf7d3f87888676d9a7576aab(
+    *,
+    custom_epoch: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35623,6 +35862,13 @@ def _typecheckingstub__c9392d58176c012cd3edcfd8cba809739bf0435a5bf1d6a207b2696cd
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__0e8b10ee21ff2438e6fb9561b09663137ff1b02db22819c6e3f84e41e12a8f6c(
+    *,
+    destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__85fb14a458ec20936e4659288aff4ca667c9931c1d403d6a189b9b390fa82420(
     *,
     destination: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.OutputLocationRefProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -35633,9 +35879,11 @@ def _typecheckingstub__85fb14a458ec20936e4659288aff4ca667c9931c1d403d6a189b9b390
 
 def _typecheckingstub__874df17e03aca6480b8e3f6dcef1562be61cb009cf5db8263599bb5c44819718(
     *,
+    channel_endpoint_id: typing.Optional[builtins.str] = None,
     channel_group: typing.Optional[builtins.str] = None,
     channel_id: typing.Optional[builtins.str] = None,
     channel_name: typing.Optional[builtins.str] = None,
+    media_package_region_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -35659,6 +35907,7 @@ def _typecheckingstub__f3d603bf777a51fcd4a655ef17dcc1a5fa66a4fa5fe69e9918522175d
 
 def _typecheckingstub__8189ecb41c1c07836a410e8f437062328cb6483c38d02ea4abcb3be57ed148e4(
     *,
+    additional_destinations: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.MediaPackageAdditionalDestinationsProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     caption_language_mappings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.CaptionLanguageMappingProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     id3_behavior: typing.Optional[builtins.str] = None,
     klv_behavior: typing.Optional[builtins.str] = None,
@@ -35910,6 +36159,7 @@ def _typecheckingstub__d9a83db324046f2d43b5ec241310d3cc50795f2e43fe0806f8d04b7c3
 
 def _typecheckingstub__91d4fff7a9a1aba5da0f0ac1b509a8ddbcfbb4e071e4401a2dcf97e150353724(
     *,
+    disabled_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.DisabledLockingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     epoch_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.EpochLockingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     pipeline_locking_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnChannel.PipelineLockingSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -35945,6 +36195,7 @@ def _typecheckingstub__f51710b013df89803afb3f2517730a72a64c710d2e8f52fa7b934290b
 
 def _typecheckingstub__2f1e948036e67357b7bd1db61646b8f0a9ce253ff1ecd646fd36aad60030c5d6(
     *,
+    custom_epoch: typing.Optional[builtins.str] = None,
     pipeline_locking_method: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

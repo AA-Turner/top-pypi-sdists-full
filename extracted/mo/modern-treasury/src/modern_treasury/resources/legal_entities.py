@@ -19,7 +19,6 @@ from ..pagination import SyncPage, AsyncPage
 from .._base_client import AsyncPaginator, make_request_options
 from ..types.legal_entity import LegalEntity
 from ..types.shared_params.identification_create_request import IdentificationCreateRequest
-from ..types.shared_params.legal_entity_compliance_detail import LegalEntityComplianceDetail
 from ..types.shared_params.legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from ..types.shared_params.legal_entity_industry_classification import LegalEntityIndustryClassification
 from ..types.shared_params.legal_entity_association_inline_create import LegalEntityAssociationInlineCreate
@@ -56,7 +55,7 @@ class LegalEntities(SyncAPIResource):
         business_description: Optional[str] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
-        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        connection_id: Optional[str] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
         date_formed: Union[str, date, None] | Omit = omit,
         date_of_birth: Union[str, date, None] | Omit = omit,
@@ -73,6 +72,7 @@ class LegalEntities(SyncAPIResource):
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
         | Omit = omit,
+        listed_exchange: Optional[str] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         middle_name: Optional[str] | Omit = omit,
         operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
@@ -81,8 +81,12 @@ class LegalEntities(SyncAPIResource):
         preferred_name: Optional[str] | Omit = omit,
         prefix: Optional[str] | Omit = omit,
         primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        regulators: Optional[Iterable[legal_entity_create_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        status: Optional[Literal["active", "closed", "pending", "suspended"]] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
+        third_party_verification: Optional[legal_entity_create_params.ThirdPartyVerification] | Omit = omit,
+        ticker_symbol: Optional[str] | Omit = omit,
         wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails] | Omit = omit,
         website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -107,6 +111,12 @@ class LegalEntities(SyncAPIResource):
 
           citizenship_country: The country of citizenship for an individual.
 
+          connection_id: The connection ID for the connection the legal entity is associated with.
+              Defaults to the id of the connection designated with an is_default value of true
+              or the id of an existing operational connection if only one is available. Pass
+              in a value of null to prevent the connection from being associated with the
+              legal entity.
+
           country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
               alpha-3 formats.
 
@@ -116,7 +126,7 @@ class LegalEntities(SyncAPIResource):
 
           email: The entity's primary email.
 
-          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+          expected_activity_volume: Monthly expected transaction volume in USD.
 
           first_name: An individual's first name.
 
@@ -131,6 +141,8 @@ class LegalEntities(SyncAPIResource):
           legal_entity_associations: The legal entity associations and its child legal entities.
 
           legal_structure: The business's legal structure.
+
+          listed_exchange: ISO 10383 market identifier code.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -148,9 +160,18 @@ class LegalEntities(SyncAPIResource):
 
           primary_social_media_sites: A list of primary social media URLs for the business.
 
+          regulators: Array of regulatory bodies overseeing this institution.
+
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
+          status: The activation status of the legal entity. One of pending, active, suspended, or
+              closed.
+
           suffix: An individual's suffix.
+
+          third_party_verification: Information describing a third-party verification run by an external vendor.
+
+          ticker_symbol: Stock ticker symbol for publicly traded companies.
 
           website: The entity's primary website URL.
 
@@ -174,7 +195,7 @@ class LegalEntities(SyncAPIResource):
                     "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
-                    "compliance_details": compliance_details,
+                    "connection_id": connection_id,
                     "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
@@ -188,6 +209,7 @@ class LegalEntities(SyncAPIResource):
                     "last_name": last_name,
                     "legal_entity_associations": legal_entity_associations,
                     "legal_structure": legal_structure,
+                    "listed_exchange": listed_exchange,
                     "metadata": metadata,
                     "middle_name": middle_name,
                     "operating_jurisdictions": operating_jurisdictions,
@@ -196,8 +218,12 @@ class LegalEntities(SyncAPIResource):
                     "preferred_name": preferred_name,
                     "prefix": prefix,
                     "primary_social_media_sites": primary_social_media_sites,
+                    "regulators": regulators,
                     "risk_rating": risk_rating,
+                    "status": status,
                     "suffix": suffix,
+                    "third_party_verification": third_party_verification,
+                    "ticker_symbol": ticker_symbol,
                     "wealth_and_employment_details": wealth_and_employment_details,
                     "website": website,
                 },
@@ -255,7 +281,6 @@ class LegalEntities(SyncAPIResource):
         business_description: Optional[str] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
-        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
         date_formed: Union[str, date, None] | Omit = omit,
         date_of_birth: Union[str, date, None] | Omit = omit,
@@ -271,6 +296,7 @@ class LegalEntities(SyncAPIResource):
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
         | Omit = omit,
+        listed_exchange: Optional[str] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         middle_name: Optional[str] | Omit = omit,
         operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
@@ -279,8 +305,12 @@ class LegalEntities(SyncAPIResource):
         preferred_name: Optional[str] | Omit = omit,
         prefix: Optional[str] | Omit = omit,
         primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        regulators: Optional[Iterable[legal_entity_update_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        status: Optional[Literal["active", "closed", "pending", "suspended"]] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
+        third_party_verification: Optional[legal_entity_update_params.ThirdPartyVerification] | Omit = omit,
+        ticker_symbol: Optional[str] | Omit = omit,
         wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails] | Omit = omit,
         website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -312,7 +342,7 @@ class LegalEntities(SyncAPIResource):
 
           email: The entity's primary email.
 
-          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+          expected_activity_volume: Monthly expected transaction volume in USD.
 
           first_name: An individual's first name.
 
@@ -325,6 +355,8 @@ class LegalEntities(SyncAPIResource):
           last_name: An individual's last name.
 
           legal_structure: The business's legal structure.
+
+          listed_exchange: ISO 10383 market identifier code.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -342,9 +374,18 @@ class LegalEntities(SyncAPIResource):
 
           primary_social_media_sites: A list of primary social media URLs for the business.
 
+          regulators: Array of regulatory bodies overseeing this institution.
+
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
+          status: The activation status of the legal entity. One of pending, active, suspended, or
+              closed.
+
           suffix: An individual's suffix.
+
+          third_party_verification: Information describing a third-party verification run by an external vendor.
+
+          ticker_symbol: Stock ticker symbol for publicly traded companies.
 
           website: The entity's primary website URL.
 
@@ -369,7 +410,6 @@ class LegalEntities(SyncAPIResource):
                     "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
-                    "compliance_details": compliance_details,
                     "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
@@ -382,6 +422,7 @@ class LegalEntities(SyncAPIResource):
                     "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_structure": legal_structure,
+                    "listed_exchange": listed_exchange,
                     "metadata": metadata,
                     "middle_name": middle_name,
                     "operating_jurisdictions": operating_jurisdictions,
@@ -390,8 +431,12 @@ class LegalEntities(SyncAPIResource):
                     "preferred_name": preferred_name,
                     "prefix": prefix,
                     "primary_social_media_sites": primary_social_media_sites,
+                    "regulators": regulators,
                     "risk_rating": risk_rating,
+                    "status": status,
                     "suffix": suffix,
+                    "third_party_verification": third_party_verification,
+                    "ticker_symbol": ticker_symbol,
                     "wealth_and_employment_details": wealth_and_employment_details,
                     "website": website,
                 },
@@ -415,6 +460,7 @@ class LegalEntities(SyncAPIResource):
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
         show_deleted: str | Omit = omit,
+        status: Literal["pending", "active", "suspended", "closed"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -453,6 +499,7 @@ class LegalEntities(SyncAPIResource):
                         "metadata": metadata,
                         "per_page": per_page,
                         "show_deleted": show_deleted,
+                        "status": status,
                     },
                     legal_entity_list_params.LegalEntityListParams,
                 ),
@@ -490,7 +537,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         business_description: Optional[str] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
-        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
+        connection_id: Optional[str] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
         date_formed: Union[str, date, None] | Omit = omit,
         date_of_birth: Union[str, date, None] | Omit = omit,
@@ -507,6 +554,7 @@ class AsyncLegalEntities(AsyncAPIResource):
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
         | Omit = omit,
+        listed_exchange: Optional[str] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         middle_name: Optional[str] | Omit = omit,
         operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
@@ -515,8 +563,12 @@ class AsyncLegalEntities(AsyncAPIResource):
         preferred_name: Optional[str] | Omit = omit,
         prefix: Optional[str] | Omit = omit,
         primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        regulators: Optional[Iterable[legal_entity_create_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        status: Optional[Literal["active", "closed", "pending", "suspended"]] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
+        third_party_verification: Optional[legal_entity_create_params.ThirdPartyVerification] | Omit = omit,
+        ticker_symbol: Optional[str] | Omit = omit,
         wealth_and_employment_details: Optional[legal_entity_create_params.WealthAndEmploymentDetails] | Omit = omit,
         website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -541,6 +593,12 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           citizenship_country: The country of citizenship for an individual.
 
+          connection_id: The connection ID for the connection the legal entity is associated with.
+              Defaults to the id of the connection designated with an is_default value of true
+              or the id of an existing operational connection if only one is available. Pass
+              in a value of null to prevent the connection from being associated with the
+              legal entity.
+
           country_of_incorporation: The country code where the business is incorporated in the ISO 3166-1 alpha-2 or
               alpha-3 formats.
 
@@ -550,7 +608,7 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           email: The entity's primary email.
 
-          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+          expected_activity_volume: Monthly expected transaction volume in USD.
 
           first_name: An individual's first name.
 
@@ -565,6 +623,8 @@ class AsyncLegalEntities(AsyncAPIResource):
           legal_entity_associations: The legal entity associations and its child legal entities.
 
           legal_structure: The business's legal structure.
+
+          listed_exchange: ISO 10383 market identifier code.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -582,9 +642,18 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           primary_social_media_sites: A list of primary social media URLs for the business.
 
+          regulators: Array of regulatory bodies overseeing this institution.
+
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
+          status: The activation status of the legal entity. One of pending, active, suspended, or
+              closed.
+
           suffix: An individual's suffix.
+
+          third_party_verification: Information describing a third-party verification run by an external vendor.
+
+          ticker_symbol: Stock ticker symbol for publicly traded companies.
 
           website: The entity's primary website URL.
 
@@ -608,7 +677,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
-                    "compliance_details": compliance_details,
+                    "connection_id": connection_id,
                     "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
@@ -622,6 +691,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "last_name": last_name,
                     "legal_entity_associations": legal_entity_associations,
                     "legal_structure": legal_structure,
+                    "listed_exchange": listed_exchange,
                     "metadata": metadata,
                     "middle_name": middle_name,
                     "operating_jurisdictions": operating_jurisdictions,
@@ -630,8 +700,12 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "preferred_name": preferred_name,
                     "prefix": prefix,
                     "primary_social_media_sites": primary_social_media_sites,
+                    "regulators": regulators,
                     "risk_rating": risk_rating,
+                    "status": status,
                     "suffix": suffix,
+                    "third_party_verification": third_party_verification,
+                    "ticker_symbol": ticker_symbol,
                     "wealth_and_employment_details": wealth_and_employment_details,
                     "website": website,
                 },
@@ -689,7 +763,6 @@ class AsyncLegalEntities(AsyncAPIResource):
         business_description: Optional[str] | Omit = omit,
         business_name: Optional[str] | Omit = omit,
         citizenship_country: Optional[str] | Omit = omit,
-        compliance_details: Optional[LegalEntityComplianceDetail] | Omit = omit,
         country_of_incorporation: Optional[str] | Omit = omit,
         date_formed: Union[str, date, None] | Omit = omit,
         date_of_birth: Union[str, date, None] | Omit = omit,
@@ -705,6 +778,7 @@ class AsyncLegalEntities(AsyncAPIResource):
             Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
         ]
         | Omit = omit,
+        listed_exchange: Optional[str] | Omit = omit,
         metadata: Dict[str, str] | Omit = omit,
         middle_name: Optional[str] | Omit = omit,
         operating_jurisdictions: SequenceNotStr[str] | Omit = omit,
@@ -713,8 +787,12 @@ class AsyncLegalEntities(AsyncAPIResource):
         preferred_name: Optional[str] | Omit = omit,
         prefix: Optional[str] | Omit = omit,
         primary_social_media_sites: SequenceNotStr[str] | Omit = omit,
+        regulators: Optional[Iterable[legal_entity_update_params.Regulator]] | Omit = omit,
         risk_rating: Optional[Literal["low", "medium", "high"]] | Omit = omit,
+        status: Optional[Literal["active", "closed", "pending", "suspended"]] | Omit = omit,
         suffix: Optional[str] | Omit = omit,
+        third_party_verification: Optional[legal_entity_update_params.ThirdPartyVerification] | Omit = omit,
+        ticker_symbol: Optional[str] | Omit = omit,
         wealth_and_employment_details: Optional[legal_entity_update_params.WealthAndEmploymentDetails] | Omit = omit,
         website: Optional[str] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -746,7 +824,7 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           email: The entity's primary email.
 
-          expected_activity_volume: Monthly expected transaction volume in entity's local currency.
+          expected_activity_volume: Monthly expected transaction volume in USD.
 
           first_name: An individual's first name.
 
@@ -759,6 +837,8 @@ class AsyncLegalEntities(AsyncAPIResource):
           last_name: An individual's last name.
 
           legal_structure: The business's legal structure.
+
+          listed_exchange: ISO 10383 market identifier code.
 
           metadata: Additional data represented as key-value pairs. Both the key and value must be
               strings.
@@ -776,9 +856,18 @@ class AsyncLegalEntities(AsyncAPIResource):
 
           primary_social_media_sites: A list of primary social media URLs for the business.
 
+          regulators: Array of regulatory bodies overseeing this institution.
+
           risk_rating: The risk rating of the legal entity. One of low, medium, high.
 
+          status: The activation status of the legal entity. One of pending, active, suspended, or
+              closed.
+
           suffix: An individual's suffix.
+
+          third_party_verification: Information describing a third-party verification run by an external vendor.
+
+          ticker_symbol: Stock ticker symbol for publicly traded companies.
 
           website: The entity's primary website URL.
 
@@ -803,7 +892,6 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "business_description": business_description,
                     "business_name": business_name,
                     "citizenship_country": citizenship_country,
-                    "compliance_details": compliance_details,
                     "country_of_incorporation": country_of_incorporation,
                     "date_formed": date_formed,
                     "date_of_birth": date_of_birth,
@@ -816,6 +904,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "intended_use": intended_use,
                     "last_name": last_name,
                     "legal_structure": legal_structure,
+                    "listed_exchange": listed_exchange,
                     "metadata": metadata,
                     "middle_name": middle_name,
                     "operating_jurisdictions": operating_jurisdictions,
@@ -824,8 +913,12 @@ class AsyncLegalEntities(AsyncAPIResource):
                     "preferred_name": preferred_name,
                     "prefix": prefix,
                     "primary_social_media_sites": primary_social_media_sites,
+                    "regulators": regulators,
                     "risk_rating": risk_rating,
+                    "status": status,
                     "suffix": suffix,
+                    "third_party_verification": third_party_verification,
+                    "ticker_symbol": ticker_symbol,
                     "wealth_and_employment_details": wealth_and_employment_details,
                     "website": website,
                 },
@@ -849,6 +942,7 @@ class AsyncLegalEntities(AsyncAPIResource):
         metadata: Dict[str, str] | Omit = omit,
         per_page: int | Omit = omit,
         show_deleted: str | Omit = omit,
+        status: Literal["pending", "active", "suspended", "closed"] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
         # The extra values given here take precedence over values defined on the client or passed to this method.
         extra_headers: Headers | None = None,
@@ -887,6 +981,7 @@ class AsyncLegalEntities(AsyncAPIResource):
                         "metadata": metadata,
                         "per_page": per_page,
                         "show_deleted": show_deleted,
+                        "status": status,
                     },
                     legal_entity_list_params.LegalEntityListParams,
                 ),

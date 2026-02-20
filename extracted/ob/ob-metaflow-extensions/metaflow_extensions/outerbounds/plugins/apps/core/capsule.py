@@ -10,6 +10,7 @@ import shlex
 from typing import Optional, List, Dict, Any, Tuple, Union, Callable
 from .utils import TODOException, safe_requests_wrapper, MaximumRetriesExceeded
 from .app_config import AppConfig, CAPSULE_DEBUG, AuthType
+from .config.unified_config import UNASSIGNED_PROJECT_BRANCH
 from . import experimental
 from ._state_machine import (
     _capsule_worker_semantic_status,
@@ -317,8 +318,23 @@ class CapsuleInput:
                 )
             }
 
+        _project = app_config.get_state("project", UNASSIGNED_PROJECT_BRANCH)
+        _branch = app_config.get_state("branch", UNASSIGNED_PROJECT_BRANCH)
+
+        _tags = [
+            dict(key=k, value=v)
+            for tag in app_config.get_state("tags", [])
+            for k, v in tag.items()
+        ]
+        if _project != UNASSIGNED_PROJECT_BRANCH:
+            _tags.append(dict(key="project", value=_project))
+        if _branch != UNASSIGNED_PROJECT_BRANCH:
+            _tags.append(dict(key="branch", value=_branch))
+
         return {
             "perimeter": app_config.get_state("perimeter"),
+            "project": _project,
+            "branch": _branch,
             **_final_info,
             **_code_package_config,
             "image": app_config.get_state("image"),
@@ -339,16 +355,11 @@ class CapsuleInput:
             **_scheduling_config,
             **_startup_config,
             "environmentVariables": cls._marshal_environment_variables(app_config),
-            # "assets": [{"name": "startup-script.sh"}],
             "authConfig": {
                 "authType": app_config.get_state("auth").get("type"),
                 "publicToDeployment": app_config.get_state("auth").get("public"),
             },
-            "tags": [
-                dict(key=k, value=v)
-                for tag in app_config.get_state("tags", [])
-                for k, v in tag.items()
-            ],
+            "tags": _tags,
             "port": app_config.get_state("port"),
             "displayName": app_config.get_state("name"),
             "forceUpdate": app_config.get_state("force_upgrade", False),
@@ -554,35 +565,19 @@ class CapsuleApi:
                 message="Capsule JSON decode failed",
             )
 
-    # TODO: refactor me since name *currently(9/8/25)* is unique across capsules.
-    def get_by_name(self, name: str, most_recent_only: bool = True):
-        _url = os.path.join(self._base_url, f"?displayName={name}")
+    def list(self, project=None, branch=None, name=None):
+        params = {}
+        if project:
+            params["project"] = project
+        if branch:
+            params["branch"] = branch
+        if name:
+            params["displayName"] = name
         response = self._wrapped_api_caller(
-            requests.get, _url, **self._retry_parameters([409], 3)
-        )
-        try:
-            if most_recent_only:
-                result = response.json()
-                candidates = result["capsules"]
-                if not candidates:
-                    return None
-                return sorted(
-                    candidates, key=lambda x: x["metadata"]["createdAt"], reverse=True
-                )[0]
-            else:
-                return response.json()
-        except json.JSONDecodeError as e:
-            raise CapsuleApiException(
-                _url,
-                "get",
-                response.status_code,
-                response.text,
-                message="Capsule JSON decode failed",
-            )
-
-    def list(self):
-        response = self._wrapped_api_caller(
-            requests.get, self._base_url, **self._retry_parameters([409], 3)
+            requests.get,
+            self._base_url,
+            params=params,
+            **self._retry_parameters([409], 3),
         )
         try:
             response_json = response.json()
@@ -682,7 +677,7 @@ class CapsuleApi:
 def list_and_filter_capsules(
     capsule_api: CapsuleApi, project, branch, name, tags, auth_type, capsule_id
 ):
-    capsules = capsule_api.list()
+    capsules = capsule_api.list(project=project, branch=branch, name=name)
 
     def _tags_match(tags, key, value):
         for t in tags:
@@ -693,23 +688,16 @@ def list_and_filter_capsules(
     def _all_tags_match(tags, tags_to_match):
         return all([_tags_match(tags, t["key"], t["value"]) for t in tags_to_match])
 
-    def _filter_capsules(capsules, project, branch, name, tags, auth_type, capsule_id):
+    def _filter_capsules(capsules, tags, auth_type, capsule_id):
         _filtered_capsules = []
         for capsule in capsules:
             set_tags = capsule.get("spec", {}).get("tags", [])
-            display_name = capsule.get("spec", {}).get("displayName", None)
             set_id = capsule.get("id", None)
             set_auth_type = (
                 capsule.get("spec", {}).get("authConfig", {}).get("authType", None)
             )
 
             if auth_type and set_auth_type != auth_type:
-                continue
-            if project and not _tags_match(set_tags, "project", project):
-                continue
-            if branch and not _tags_match(set_tags, "branch", branch):
-                continue
-            if name and display_name != name:
                 continue
             if tags and not _all_tags_match(set_tags, tags):
                 continue
@@ -719,9 +707,7 @@ def list_and_filter_capsules(
             _filtered_capsules.append(capsule)
         return _filtered_capsules
 
-    return _filter_capsules(
-        capsules, project, branch, name, tags, auth_type, capsule_id
-    )
+    return _filter_capsules(capsules, tags, auth_type, capsule_id)
 
 
 from collections import namedtuple
@@ -951,6 +937,7 @@ class CapsuleDeployer:
         # We will first keep checking for terminal conditions or outright failure conditions
         # If we reach a teminal condition like described in `DEPLOYMENT_READY_CONDITIONS`, then
         # we will further check for readiness conditions.
+        _timed_out = False
         for i in range(self._create_timeout):
             time.sleep(STATE_REFRESH_FREQUENCY)
             capsule_response, _ = self._update_capsule_and_worker_sm(  # [2 API calls]
@@ -1052,6 +1039,8 @@ class CapsuleDeployer:
                 logger(
                     f"[debug] 💊 {self.capsule_type} {self.identifier} deployment status: {state_machine.current_status} | worker states: {workers_state_machine.current_status} | capsule_ready : {capsule_ready} | further_check_worker_readiness {further_check_worker_readiness}"
                 )
+        else:
+            _timed_out = True
 
         self._publish_capsule_debug_info(
             state_machine, workers_state_machine, capsule_response
@@ -1070,6 +1059,12 @@ class CapsuleDeployer:
         ):
             raise CapsuleReadinessException(
                 self.identifier,
+                capsule_status=state_machine.current_status,
+                worker_semantic_status=workers_state_machine.current_version_deployment_status(),
+                readiness_condition=self._success_terminal_state_condition,
+                min_replicas=min_replicas,
+                max_wait_time=self._create_timeout,
+                timed_out=_timed_out,
             )
         auth_type = self._app_config.get_state("auth", {}).get("type", AuthType.default)
         return dict(

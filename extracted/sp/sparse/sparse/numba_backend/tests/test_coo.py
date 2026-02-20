@@ -6,7 +6,7 @@ import sys
 import sparse
 from sparse import COO, DOK
 from sparse.numba_backend._settings import NEP18_ENABLED
-from sparse.numba_backend._utils import assert_eq, html_table, random_value_array
+from sparse.numba_backend._utils import assert_eq, check_zero_fill_value, html_table, random_value_array
 
 import pytest
 
@@ -637,25 +637,41 @@ def test_sizeof():
     assert 400 < nb < x.nbytes / 10
 
 
-def test_scipy_sparse_interface(rng):
+@pytest.mark.parametrize("sps_class", [scipy.sparse.coo_array, scipy.sparse.coo_matrix])
+def test_scipy_sparse_interface(rng, sps_class):
     n = 100
     m = 10
     row = rng.integers(0, n, size=n, dtype=np.uint16)
     col = rng.integers(0, m, size=n, dtype=np.uint16)
     data = np.ones(n, dtype=np.uint8)
 
-    inp = (data, (row, col))
+    if sps_class is scipy.sparse.coo_array:
+        stack = np.zeros(n, dtype=np.uint8)
+        inp = (data, (stack, row, col))
+        shape = (1, n, m)
+    else:
+        inp = (data, (row, col))
+        shape = (n, m)
 
-    x = scipy.sparse.coo_matrix(inp, shape=(n, m))
-    xx = sparse.COO(inp, shape=(n, m))
+    x = sps_class(inp, shape=shape)
+    xx = sparse.COO(inp, shape=shape)
+
+    def mT(x):
+        match x.ndim:
+            case 0 | 1:
+                return x
+            case 2:
+                return x.T
+            case _:
+                return np.moveaxis(x, -1, -2)
 
     assert_eq(x, xx, check_nnz=False)
-    assert_eq(x.T, xx.T, check_nnz=False)
+    assert_eq(mT(x), xx.mT, check_nnz=False)
     assert_eq(xx.to_scipy_sparse(), x, check_nnz=False)
     assert_eq(COO.from_scipy_sparse(xx.to_scipy_sparse()), xx, check_nnz=False)
 
     assert_eq(x, xx, check_nnz=False)
-    assert_eq(x.T.dot(x), xx.T.dot(xx), check_nnz=False)
+    assert_eq(mT(x).dot(x), xx.mT.dot(xx), check_nnz=False)
     assert isinstance(x + xx, COO)
     assert isinstance(xx + x, COO)
 
@@ -663,7 +679,7 @@ def test_scipy_sparse_interface(rng):
 @pytest.mark.parametrize("scipy_format", ["coo", "csr", "dok", "csc"])
 def test_scipy_sparse_interaction(scipy_format):
     x = sparse.random((10, 20), density=0.2).todense()
-    sp = getattr(scipy.sparse, scipy_format + "_matrix")(x)
+    sp = getattr(scipy.sparse, scipy_format + "_array")(x)
     coo = COO(x)
     assert isinstance(sp + coo, COO)
     assert isinstance(coo + sp, COO)
@@ -678,7 +694,7 @@ def test_op_scipy_sparse(func):
     xs = sparse.random((3, 4), density=0.5)
     y = sparse.random((3, 4), density=0.5).todense()
 
-    ys = scipy.sparse.csr_matrix(y)
+    ys = scipy.sparse.csr_array(y)
     x = xs.todense()
 
     assert_eq(func(x, y), func(xs, ys))
@@ -711,7 +727,7 @@ def test_op_scipy_sparse_left(func):
     ys = sparse.random((3, 4), density=0.5)
     x = sparse.random((3, 4), density=0.5).todense()
 
-    xs = scipy.sparse.csr_matrix(x)
+    xs = scipy.sparse.csr_array(x)
     y = ys.todense()
 
     assert_eq(func(x, y), func(xs, ys))
@@ -721,8 +737,8 @@ def test_cache_csr():
     x = sparse.random((10, 5), density=0.5).todense()
     s = COO(x, cache=True)
 
-    assert isinstance(s.tocsr(), scipy.sparse.csr_matrix)
-    assert isinstance(s.tocsc(), scipy.sparse.csc_matrix)
+    assert isinstance(s.tocsr(), scipy.sparse.csr_array)
+    assert isinstance(s.tocsc(), scipy.sparse.csc_array)
     assert s.tocsr() is s.tocsr()
     assert s.tocsc() is s.tocsc()
 
@@ -998,7 +1014,7 @@ def test_asformat(format):
     assert_eq(s, s2)
 
 
-@pytest.mark.parametrize("format", [sparse.COO, sparse.DOK, scipy.sparse.csr_matrix, np.asarray])
+@pytest.mark.parametrize("format", [sparse.COO, sparse.DOK, scipy.sparse.csr_array, np.asarray])
 def test_as_coo(format):
     x = format(sparse.random((3, 4), density=0.5, format="coo").todense())
 
@@ -1388,7 +1404,7 @@ def test_diagonalize():
     assert_eq(sparse.diagonalize(np.ones(3)), sparse.eye(3))
 
     assert_eq(
-        sparse.diagonalize(scipy.sparse.coo_matrix(np.eye(3))),
+        sparse.diagonalize(scipy.sparse.coo_array(np.eye(3))),
         sparse.diagonalize(sparse.eye(3)),
     )
 
@@ -1918,6 +1934,16 @@ def test_to_invalid_device():
         s.to_device("invalid_device")
 
 
+# regression test for gh-877
+def test_check_zero_fill_value():
+    a = sparse.zeros((1, 0))
+    b = a - sparse.mean(a, axis=1)
+    b @ b.T  # should not raise an error
+    with pytest.raises(ValueError, match="This operation requires zero fill values"):
+        s1 = sparse.random((10,), density=0.5, fill_value=1.0)
+        check_zero_fill_value(s1)
+
+
 # regression test for gh-869
 def test_xH_x():
     Y = np.array([[0, -1j], [+1j, 0]])
@@ -1926,3 +1952,178 @@ def test_xH_x():
     assert_eq(Ysp.conj().T @ Y, Y.conj().T @ Y)
     assert_eq(Ysp.conj().T @ Ysp, Y.conj().T @ Y)
     assert_eq(Y.conj().T @ Ysp.conj().T, Y.conj().T @ Y.conj().T)
+
+
+def test_repeat_invalid_input():
+    a = np.eye(3)
+    with pytest.raises(TypeError, match="`a` must be a SparseArray"):
+        sparse.repeat(a, repeats=2)
+    with pytest.raises(ValueError, match="`repeats` must be an integer"):
+        sparse.repeat(COO.from_numpy(a), repeats=[2, 2, 2])
+
+
+@pytest.mark.parametrize("ndim", range(1, 5))
+@pytest.mark.parametrize("repeats", [1, 2, 3])
+def test_repeat(ndim, repeats):
+    rng = np.random.default_rng()
+    shape = tuple(rng.integers(1, 4) for _ in range(ndim))
+    a = rng.integers(1, 10, size=shape)
+    sparse_a = COO.from_numpy(a)
+    for axis in [*range(-ndim, ndim), None]:
+        expected = np.repeat(a, repeats=repeats, axis=axis)
+        result_sparse = sparse.repeat(sparse_a, repeats=repeats, axis=axis)
+        actual = result_sparse.todense()
+        assert actual.shape == expected.shape, f"Shape mismatch on axis {axis}: {actual.shape} vs {expected.shape}"
+        np.testing.assert_array_equal(actual, expected)
+
+    expected = np.repeat(a, repeats=repeats, axis=None)
+    result_sparse = sparse.repeat(sparse_a, repeats=repeats, axis=None)
+    actual = result_sparse.todense()
+    print(f"Expected: {expected}, Actual: {actual}")
+    assert actual.shape == expected.shape
+    np.testing.assert_array_equal(actual, expected)
+
+
+def test_tile_invalid_input():
+    a = np.eye(3)
+    assert isinstance(sparse.tile(a, 2), sparse.COO)
+
+
+@pytest.mark.parametrize(
+    "arr,reps",
+    [
+        (np.array([1, 2, 3]), (3,)),
+        (np.array([4, 5, 6, 7]), 3),
+        (np.array(1), 3),
+        (np.array([[1, 2], [3, 4]]), (2, 2)),
+        (np.array([[[1], [2]], [[3], [4]]]), (2, 1, 2)),
+        (np.random.default_rng(0).integers(0, 10, (2, 1, 3)), (2, 2, 2)),
+        (np.random.default_rng(1).integers(0, 5, (1, 3, 1, 2)), (2, 1, 3, 1)),
+    ],
+)
+def test_tile(arr, reps):
+    sparse_arr = sparse.COO.from_numpy(arr)
+    expected = np.tile(arr, reps)
+    result = sparse.tile(sparse_arr, reps).todense()
+
+    np.testing.assert_array_equal(result, expected, err_msg=f"Mismatch for shape={arr.shape}, reps={reps}")
+
+
+@pytest.mark.parametrize("ndim", range(1, 5))
+@pytest.mark.parametrize("shape_range", [3])
+def test_unstack_matches_numpy(ndim, shape_range):
+    rng = np.random.default_rng(42)
+    shape = tuple(rng.integers(2, shape_range + 2) for _ in range(ndim))
+    a = rng.integers(0, 10, size=shape)
+    sparse_a = COO.from_numpy(a)
+
+    for axis in range(-ndim, ndim):
+        sparse_parts = sparse.unstack(sparse_a, axis=axis)
+        np_parts = np.moveaxis(a, axis, 0)
+
+        assert len(sparse_parts) == np_parts.shape[0], f"Wrong number of slices on axis {axis}"
+
+        for i, part in enumerate(sparse_parts):
+            expected = np_parts[i]
+            if isinstance(part, COO):
+                actual = part.todense()
+            elif np.isscalar(part):
+                actual = np.array(part)
+            else:
+                raise TypeError(f"Unexpected type returned from unstack: {type(part)}")
+
+            np.testing.assert_array_equal(actual, expected, err_msg=f"Mismatch at slice {i} on axis {axis}")
+
+
+@pytest.mark.parametrize("axis", [-10, 10, 100, -100])
+def test_unstack_invalid_axis(axis):
+    a = COO.from_numpy(np.arange(6).reshape(2, 3))
+    with pytest.raises(ValueError, match="axis must be in range"):
+        sparse.unstack(a, axis)
+
+
+def test_unstack_invalid_type():
+    a = np.arange(6).reshape(2, 3)  # not a sparse array
+    with pytest.raises(TypeError, match="must be a SparseArray"):
+        sparse.unstack(a, axis=0)
+
+
+@pytest.mark.parametrize("ndim", range(1, 4))
+@pytest.mark.parametrize("shape_range", [3])
+@pytest.mark.parametrize("n", [1, 2])
+@pytest.mark.parametrize("use_prepend, use_append", [(False, False), (True, False), (False, True), (True, True)])
+def test_diff_matches_numpy(ndim, shape_range, n, use_prepend, use_append):
+    rng = np.random.default_rng(42)
+    shape = tuple(rng.integers(2, shape_range + 2) for _ in range(ndim))
+    x = rng.integers(0, 10, size=shape)
+    sparse_x = COO.from_numpy(x)
+
+    for axis in range(-ndim, ndim):
+        prepend = rng.integers(0, 10, size=x.shape).astype(x.dtype) if use_prepend else None
+        append = rng.integers(0, 10, size=x.shape).astype(x.dtype) if use_append else None
+
+        sparse_prepend = COO.from_numpy(prepend) if prepend is not None else None
+        sparse_append = COO.from_numpy(append) if append is not None else None
+
+        sparse_result = sparse.diff(sparse_x, axis=axis, n=n, prepend=sparse_prepend, append=sparse_append)
+
+        kwargs = {}
+        if prepend is not None:
+            kwargs["prepend"] = prepend
+        if append is not None:
+            kwargs["append"] = append
+
+        dense_result = np.diff(x, axis=axis, n=n, **kwargs)
+
+        np.testing.assert_array_equal(
+            sparse_result.todense(),
+            dense_result,
+            err_msg=f"Mismatch at axis={axis}, n={n}, prepend={use_prepend}, append={use_append}",
+        )
+
+
+def test_diff_invalid_type():
+    a = np.arange(6).reshape(2, 3)
+    with pytest.raises(TypeError, match="must be a SparseArray"):
+        sparse.diff(a)
+
+
+class TestInterp:
+    xp = [-1, 0, 1]
+    fp = [3, 2, 0]
+
+    @pytest.fixture(params=["coo", "dok", "gcxs", "dense"])
+    def x(self, request):
+        arr = sparse.random((10, 10, 10), fill_value=0)
+        if request.param == "dense":
+            return arr.todense()
+        return arr.asformat(request.param)
+
+    @pytest.mark.parametrize(
+        "xp",
+        [
+            xp,
+            sparse.COO.from_numpy(np.array(xp)),
+        ],
+    )
+    @pytest.mark.parametrize(
+        "fp",
+        [
+            fp,
+            sparse.COO.from_numpy(np.array(fp)),
+            sparse.COO.from_numpy(np.array(fp) + 1j),
+        ],
+    )
+    def test_interp(self, x, xp, fp):
+        def to_dense(arr):
+            if isinstance(x, sparse.SparseArray):
+                return arr.todense()
+            return arr
+
+        actual = sparse.interp(x, xp, fp)
+        expected = np.interp(to_dense(x), xp, fp)
+
+        assert isinstance(actual, type(x))
+        if isinstance(x, sparse.SparseArray):
+            assert actual.fill_value == fp[1]
+        np.testing.assert_array_equal(to_dense(actual), expected)

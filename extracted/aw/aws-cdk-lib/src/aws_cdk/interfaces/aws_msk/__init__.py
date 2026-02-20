@@ -500,6 +500,51 @@ class _IServerlessClusterRefProxy(
 typing.cast(typing.Any, IServerlessClusterRef).__jsii_proxy_class__ = lambda : _IServerlessClusterRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.ITopicRef")
+class ITopicRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a Topic.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRef")
+    def topic_ref(self) -> "TopicReference":
+        '''(experimental) A reference to a Topic resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _ITopicRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a Topic.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_msk.ITopicRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="topicRef")
+    def topic_ref(self) -> "TopicReference":
+        '''(experimental) A reference to a Topic resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("TopicReference", jsii.get(self, "topicRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, ITopicRef).__jsii_proxy_class__ = lambda : _ITopicRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_msk.IVpcConnectionRef")
 class IVpcConnectionRef(
     _constructs_77d1e7e8.IConstruct,
@@ -644,6 +689,55 @@ class ServerlessClusterReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_msk.TopicReference",
+    jsii_struct_bases=[],
+    name_mapping={"topic_arn": "topicArn"},
+)
+class TopicReference:
+    def __init__(self, *, topic_arn: builtins.str) -> None:
+        '''A reference to a Topic resource.
+
+        :param topic_arn: The TopicArn of the Topic resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_msk as interfaces_msk
+            
+            topic_reference = interfaces_msk.TopicReference(
+                topic_arn="topicArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2099850b9885f27ffe5c85b2a40f22d4b54b7f7c42e467c067cb92ef2e2a1713)
+            check_type(argname="argument topic_arn", value=topic_arn, expected_type=type_hints["topic_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "topic_arn": topic_arn,
+        }
+
+    @builtins.property
+    def topic_arn(self) -> builtins.str:
+        '''The TopicArn of the Topic resource.'''
+        result = self._values.get("topic_arn")
+        assert result is not None, "Required property 'topic_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TopicReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_msk.VpcConnectionReference",
     jsii_struct_bases=[],
     name_mapping={"vpc_connection_arn": "vpcConnectionArn"},
@@ -703,9 +797,11 @@ __all__ = [
     "IConfigurationRef",
     "IReplicatorRef",
     "IServerlessClusterRef",
+    "ITopicRef",
     "IVpcConnectionRef",
     "ReplicatorReference",
     "ServerlessClusterReference",
+    "TopicReference",
     "VpcConnectionReference",
 ]
 
@@ -753,6 +849,13 @@ def _typecheckingstub__3321e6aad062bb2681b8b3ca453afdbe7ce171d7e0f9708f642675a5e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__2099850b9885f27ffe5c85b2a40f22d4b54b7f7c42e467c067cb92ef2e2a1713(
+    *,
+    topic_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__558a2bbe85670dfe0fc92872489481ed10c7f008336d8079d1585447114a3ca8(
     *,
     vpc_connection_arn: builtins.str,
@@ -760,5 +863,5 @@ def _typecheckingstub__558a2bbe85670dfe0fc92872489481ed10c7f008336d8079d15854471
     """Type checking stubs"""
     pass
 
-for cls in [IBatchScramSecretRef, IClusterPolicyRef, IClusterRef, IConfigurationRef, IReplicatorRef, IServerlessClusterRef, IVpcConnectionRef]:
+for cls in [IBatchScramSecretRef, IClusterPolicyRef, IClusterRef, IConfigurationRef, IReplicatorRef, IServerlessClusterRef, ITopicRef, IVpcConnectionRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

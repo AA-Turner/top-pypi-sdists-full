@@ -924,6 +924,51 @@ class _IResourcePolicyRefProxy(
 typing.cast(typing.Any, IResourcePolicyRef).__jsii_proxy_class__ = lambda : _IResourcePolicyRefProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_logs.IScheduledQueryRef")
+class IScheduledQueryRef(
+    _constructs_77d1e7e8.IConstruct,
+    _IEnvironmentAware_f39049ee,
+    typing_extensions.Protocol,
+):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledQuery.
+
+    :stability: experimental
+    '''
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> "ScheduledQueryReference":
+        '''(experimental) A reference to a ScheduledQuery resource.
+
+        :stability: experimental
+        '''
+        ...
+
+
+class _IScheduledQueryRefProxy(
+    jsii.proxy_for(_constructs_77d1e7e8.IConstruct), # type: ignore[misc]
+    jsii.proxy_for(_IEnvironmentAware_f39049ee), # type: ignore[misc]
+):
+    '''(experimental) Indicates that this resource can be referenced as a ScheduledQuery.
+
+    :stability: experimental
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.interfaces.aws_logs.IScheduledQueryRef"
+
+    @builtins.property
+    @jsii.member(jsii_name="scheduledQueryRef")
+    def scheduled_query_ref(self) -> "ScheduledQueryReference":
+        '''(experimental) A reference to a ScheduledQuery resource.
+
+        :stability: experimental
+        '''
+        return typing.cast("ScheduledQueryReference", jsii.get(self, "scheduledQueryRef"))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IScheduledQueryRef).__jsii_proxy_class__ = lambda : _IScheduledQueryRefProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.interfaces.aws_logs.ISubscriptionFilterRef")
 class ISubscriptionFilterRef(
     _constructs_77d1e7e8.IConstruct,
@@ -1409,6 +1454,55 @@ class ResourcePolicyReference:
 
 
 @jsii.data_type(
+    jsii_type="aws-cdk-lib.interfaces.aws_logs.ScheduledQueryReference",
+    jsii_struct_bases=[],
+    name_mapping={"scheduled_query_arn": "scheduledQueryArn"},
+)
+class ScheduledQueryReference:
+    def __init__(self, *, scheduled_query_arn: builtins.str) -> None:
+        '''A reference to a ScheduledQuery resource.
+
+        :param scheduled_query_arn: The ScheduledQueryArn of the ScheduledQuery resource.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk.interfaces import aws_logs as interfaces_logs
+            
+            scheduled_query_reference = interfaces_logs.ScheduledQueryReference(
+                scheduled_query_arn="scheduledQueryArn"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__090fd04987a985f7f1ab057e746857042cf4b0d5ad8e6b821b8000c6ab14b7ec)
+            check_type(argname="argument scheduled_query_arn", value=scheduled_query_arn, expected_type=type_hints["scheduled_query_arn"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "scheduled_query_arn": scheduled_query_arn,
+        }
+
+    @builtins.property
+    def scheduled_query_arn(self) -> builtins.str:
+        '''The ScheduledQueryArn of the ScheduledQuery resource.'''
+        result = self._values.get("scheduled_query_arn")
+        assert result is not None, "Required property 'scheduled_query_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "ScheduledQueryReference(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
     jsii_type="aws-cdk-lib.interfaces.aws_logs.SubscriptionFilterReference",
     jsii_struct_bases=[],
     name_mapping={"filter_name": "filterName", "log_group_name": "logGroupName"},
@@ -1540,6 +1634,7 @@ __all__ = [
     "IMetricFilterRef",
     "IQueryDefinitionRef",
     "IResourcePolicyRef",
+    "IScheduledQueryRef",
     "ISubscriptionFilterRef",
     "ITransformerRef",
     "IntegrationReference",
@@ -1549,6 +1644,7 @@ __all__ = [
     "MetricFilterReference",
     "QueryDefinitionReference",
     "ResourcePolicyReference",
+    "ScheduledQueryReference",
     "SubscriptionFilterReference",
     "TransformerReference",
 ]
@@ -1648,6 +1744,13 @@ def _typecheckingstub__7dd0a9d7208bca48cbe9ee31cf0855b2cfe4bf47b854d644fb162df8b
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__090fd04987a985f7f1ab057e746857042cf4b0d5ad8e6b821b8000c6ab14b7ec(
+    *,
+    scheduled_query_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e03b9321b3853e172ea485b7f87ee05500da31635f70cfb3931308cf53d5b7c9(
     *,
     filter_name: builtins.str,
@@ -1663,5 +1766,5 @@ def _typecheckingstub__15e0e35db8a493355cc50017a7dbec5573a8aaa6167649b1ea54abc2a
     """Type checking stubs"""
     pass
 
-for cls in [IAccountPolicyRef, IDeliveryDestinationRef, IDeliveryRef, IDeliverySourceRef, IDestinationRef, IIntegrationRef, ILogAnomalyDetectorRef, ILogGroupRef, ILogStreamRef, IMetricFilterRef, IQueryDefinitionRef, IResourcePolicyRef, ISubscriptionFilterRef, ITransformerRef]:
+for cls in [IAccountPolicyRef, IDeliveryDestinationRef, IDeliveryRef, IDeliverySourceRef, IDestinationRef, IIntegrationRef, ILogAnomalyDetectorRef, ILogGroupRef, ILogStreamRef, IMetricFilterRef, IQueryDefinitionRef, IResourcePolicyRef, IScheduledQueryRef, ISubscriptionFilterRef, ITransformerRef]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

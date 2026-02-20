@@ -701,6 +701,7 @@ class CssConfiguration:
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
         "quote_style": "quoteStyle",
+        "trailing_newline": "trailingNewline",
     },
 )
 class CssFormatterConfiguration:
@@ -713,6 +714,7 @@ class CssFormatterConfiguration:
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
         quote_style: typing.Optional["QuoteStyle"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options that changes how the CSS formatter behaves.
 
@@ -722,6 +724,7 @@ class CssFormatterConfiguration:
         :param line_ending: (experimental) The type of line ending applied to CSS (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to CSS (and its super languages) files. Defaults to 80. Default: 80.
         :param quote_style: (experimental) The type of quotes used in CSS code. Defaults to double. Default: double.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: CssFormatterConfiguration
@@ -734,6 +737,7 @@ class CssFormatterConfiguration:
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
             check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
             self._values["enabled"] = enabled
@@ -747,6 +751,8 @@ class CssFormatterConfiguration:
             self._values["line_width"] = line_width
         if quote_style is not None:
             self._values["quote_style"] = quote_style
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -821,6 +827,28 @@ class CssFormatterConfiguration:
         '''
         result = self._values.get("quote_style")
         return typing.cast(typing.Optional["QuoteStyle"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: CssFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -897,7 +925,7 @@ class CssParserConfiguration:
         '''(experimental) Options that changes how the CSS parser behaves.
 
         :param allow_wrong_line_comments: (experimental) Allow comments to appear on incorrect lines in ``.css`` files.
-        :param css_modules: (experimental) Enables parsing of CSS Modules specific features.
+        :param css_modules: (experimental) Enables parsing of CSS Modules specific features. Enable this feature only when your files don't end in ``.module.css``.
         :param tailwind_directives: (experimental) Enables parsing of Tailwind CSS 4.0 directives and functions.
 
         :stability: experimental
@@ -929,6 +957,9 @@ class CssParserConfiguration:
     @builtins.property
     def css_modules(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Enables parsing of CSS Modules specific features.
+
+        Enable this feature only
+        when your files don't end in ``.module.css``.
 
         :stability: experimental
         :schema: CssParserConfiguration#cssModules
@@ -1114,6 +1145,7 @@ class FilesConfiguration:
         "indent_width": "indentWidth",
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
+        "trailing_newline": "trailingNewline",
         "use_editorconfig": "useEditorconfig",
     },
 )
@@ -1132,6 +1164,7 @@ class FormatterConfiguration:
         indent_width: typing.Optional[jsii.Number] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
         use_editorconfig: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Generic options applied to all files.
@@ -1147,7 +1180,8 @@ class FormatterConfiguration:
         :param indent_width: (experimental) The size of the indentation, 2 by default.
         :param line_ending: (experimental) The type of line ending.
         :param line_width: (experimental) What's the max width of a line. Defaults to 80. Default: 80.
-        :param use_editorconfig: (experimental) Use any ``.editorconfig`` files to configure the formatter. Configuration in ``biome.json`` will override ``.editorconfig`` configuration. Default: ``true``.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
+        :param use_editorconfig: (experimental) Use any ``.editorconfig`` files to configure the formatter. Configuration in ``biome.json`` will override ``.editorconfig`` configuration. Default: ``false``.
 
         :stability: experimental
         :schema: FormatterConfiguration
@@ -1165,6 +1199,7 @@ class FormatterConfiguration:
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
             check_type(argname="argument use_editorconfig", value=use_editorconfig, expected_type=type_hints["use_editorconfig"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if attribute_position is not None:
@@ -1189,6 +1224,8 @@ class FormatterConfiguration:
             self._values["line_ending"] = line_ending
         if line_width is not None:
             self._values["line_width"] = line_width
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
         if use_editorconfig is not None:
             self._values["use_editorconfig"] = use_editorconfig
 
@@ -1325,10 +1362,32 @@ class FormatterConfiguration:
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: FormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
     def use_editorconfig(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Use any ``.editorconfig`` files to configure the formatter. Configuration in ``biome.json`` will override ``.editorconfig`` configuration.
 
-        Default: ``true``.
+        Default: ``false``.
 
         :stability: experimental
         :schema: FormatterConfiguration#useEditorconfig
@@ -1484,6 +1543,7 @@ class GraphqlConfiguration:
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
         "quote_style": "quoteStyle",
+        "trailing_newline": "trailingNewline",
     },
 )
 class GraphqlFormatterConfiguration:
@@ -1497,6 +1557,7 @@ class GraphqlFormatterConfiguration:
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
         quote_style: typing.Optional["QuoteStyle"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Options that changes how the GraphQL formatter behaves.
 
@@ -1507,6 +1568,7 @@ class GraphqlFormatterConfiguration:
         :param line_ending: (experimental) The type of line ending applied to GraphQL files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to GraphQL files. Defaults to 80. Default: 80.
         :param quote_style: (experimental) The type of quotes used in GraphQL code. Defaults to double. Default: double.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: GraphqlFormatterConfiguration
@@ -1520,6 +1582,7 @@ class GraphqlFormatterConfiguration:
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
             check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
@@ -1535,6 +1598,8 @@ class GraphqlFormatterConfiguration:
             self._values["line_width"] = line_width
         if quote_style is not None:
             self._values["quote_style"] = quote_style
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
@@ -1623,6 +1688,28 @@ class GraphqlFormatterConfiguration:
         '''
         result = self._values.get("quote_style")
         return typing.cast(typing.Optional["QuoteStyle"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: GraphqlFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -1813,6 +1900,7 @@ class GritConfiguration:
         "indent_width": "indentWidth",
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
+        "trailing_newline": "trailingNewline",
     },
 )
 class GritFormatterConfiguration:
@@ -1824,6 +1912,7 @@ class GritFormatterConfiguration:
         indent_width: typing.Optional[jsii.Number] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param enabled: (experimental) Control the formatter for Grit files.
@@ -1831,6 +1920,7 @@ class GritFormatterConfiguration:
         :param indent_width: (experimental) The size of the indentation applied to Grit files. Default to 2. Default: 2.
         :param line_ending: (experimental) The type of line ending applied to Grit files.
         :param line_width: (experimental) What's the max width of a line applied to Grit files. Defaults to 80. Default: 80.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: GritFormatterConfiguration
@@ -1842,6 +1932,7 @@ class GritFormatterConfiguration:
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
             self._values["enabled"] = enabled
@@ -1853,6 +1944,8 @@ class GritFormatterConfiguration:
             self._values["line_ending"] = line_ending
         if line_width is not None:
             self._values["line_width"] = line_width
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def enabled(self) -> typing.Optional[builtins.bool]:
@@ -1911,6 +2004,28 @@ class GritFormatterConfiguration:
         '''
         result = self._values.get("line_width")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: GritFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2142,6 +2257,7 @@ class HtmlConfiguration:
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
         "self_close_void_elements": "selfCloseVoidElements",
+        "trailing_newline": "trailingNewline",
         "whitespace_sensitivity": "whitespaceSensitivity",
     },
 )
@@ -2158,6 +2274,7 @@ class HtmlFormatterConfiguration:
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
         self_close_void_elements: typing.Optional["SelfCloseVoidElements"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
         whitespace_sensitivity: typing.Optional["WhitespaceSensitivity"] = None,
     ) -> None:
         '''(experimental) Options that changes how the HTML formatter behaves.
@@ -2171,6 +2288,7 @@ class HtmlFormatterConfiguration:
         :param line_ending: (experimental) The type of line ending applied to HTML (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to HTML (and its super languages) files. Defaults to 80. Default: 80.
         :param self_close_void_elements: (experimental) Whether void elements should be self-closed. Defaults to never. Default: never.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
         :param whitespace_sensitivity: (experimental) Whether to account for whitespace sensitivity when formatting HTML (and its super languages). Defaults to "css". Default: css".
 
         :stability: experimental
@@ -2187,6 +2305,7 @@ class HtmlFormatterConfiguration:
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
             check_type(argname="argument self_close_void_elements", value=self_close_void_elements, expected_type=type_hints["self_close_void_elements"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
             check_type(argname="argument whitespace_sensitivity", value=whitespace_sensitivity, expected_type=type_hints["whitespace_sensitivity"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if attribute_position is not None:
@@ -2207,6 +2326,8 @@ class HtmlFormatterConfiguration:
             self._values["line_width"] = line_width
         if self_close_void_elements is not None:
             self._values["self_close_void_elements"] = self_close_void_elements
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
         if whitespace_sensitivity is not None:
             self._values["whitespace_sensitivity"] = whitespace_sensitivity
 
@@ -2325,6 +2446,28 @@ class HtmlFormatterConfiguration:
         '''
         result = self._values.get("self_close_void_elements")
         return typing.cast(typing.Optional["SelfCloseVoidElements"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: HtmlFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def whitespace_sensitivity(self) -> typing.Optional["WhitespaceSensitivity"]:
@@ -2505,6 +2648,7 @@ class JsAssistConfiguration:
     jsii_struct_bases=[],
     name_mapping={
         "assist": "assist",
+        "experimental_embedded_snippets_enabled": "experimentalEmbeddedSnippetsEnabled",
         "formatter": "formatter",
         "globals": "globals",
         "jsx_runtime": "jsxRuntime",
@@ -2517,6 +2661,7 @@ class JsConfiguration:
         self,
         *,
         assist: typing.Optional[typing.Union["JsAssistConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
+        experimental_embedded_snippets_enabled: typing.Optional[builtins.bool] = None,
         formatter: typing.Optional[typing.Union["JsFormatterConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
         globals: typing.Optional[typing.Sequence[builtins.str]] = None,
         jsx_runtime: typing.Optional["JsxRuntime"] = None,
@@ -2526,6 +2671,7 @@ class JsConfiguration:
         '''(experimental) A set of options applied to the JavaScript files.
 
         :param assist: (experimental) Assist options.
+        :param experimental_embedded_snippets_enabled: (experimental) Enables support for embedding snippets.
         :param formatter: (experimental) Formatting options.
         :param globals: (experimental) A list of global bindings that should be ignored by the analyzers. If defined here, they should not emit diagnostics.
         :param jsx_runtime: (experimental) Indicates the type of runtime or transformation used for interpreting JSX.
@@ -2546,6 +2692,7 @@ class JsConfiguration:
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7024c16b)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
+            check_type(argname="argument experimental_embedded_snippets_enabled", value=experimental_embedded_snippets_enabled, expected_type=type_hints["experimental_embedded_snippets_enabled"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument globals", value=globals, expected_type=type_hints["globals"])
             check_type(argname="argument jsx_runtime", value=jsx_runtime, expected_type=type_hints["jsx_runtime"])
@@ -2554,6 +2701,8 @@ class JsConfiguration:
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if assist is not None:
             self._values["assist"] = assist
+        if experimental_embedded_snippets_enabled is not None:
+            self._values["experimental_embedded_snippets_enabled"] = experimental_embedded_snippets_enabled
         if formatter is not None:
             self._values["formatter"] = formatter
         if globals is not None:
@@ -2574,6 +2723,16 @@ class JsConfiguration:
         '''
         result = self._values.get("assist")
         return typing.cast(typing.Optional["JsAssistConfiguration"], result)
+
+    @builtins.property
+    def experimental_embedded_snippets_enabled(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Enables support for embedding snippets.
+
+        :stability: experimental
+        :schema: JsConfiguration#experimentalEmbeddedSnippetsEnabled
+        '''
+        result = self._values.get("experimental_embedded_snippets_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def formatter(self) -> typing.Optional["JsFormatterConfiguration"]:
@@ -2659,6 +2818,7 @@ class JsConfiguration:
         "quote_style": "quoteStyle",
         "semicolons": "semicolons",
         "trailing_commas": "trailingCommas",
+        "trailing_newline": "trailingNewline",
     },
 )
 class JsFormatterConfiguration:
@@ -2681,6 +2841,7 @@ class JsFormatterConfiguration:
         quote_style: typing.Optional["QuoteStyle"] = None,
         semicolons: typing.Optional["Semicolons"] = None,
         trailing_commas: typing.Optional["JsTrailingCommas"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) Formatting options specific to the JavaScript files.
 
@@ -2700,6 +2861,7 @@ class JsFormatterConfiguration:
         :param quote_style: (experimental) The type of quotes used in JavaScript code. Defaults to double. Default: double.
         :param semicolons: (experimental) Whether the formatter prints semicolons for all statements or only in for statements where it is necessary because of ASI.
         :param trailing_commas: (experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures. Defaults to "all". Default: all".
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: JsFormatterConfiguration
@@ -2722,6 +2884,7 @@ class JsFormatterConfiguration:
             check_type(argname="argument quote_style", value=quote_style, expected_type=type_hints["quote_style"])
             check_type(argname="argument semicolons", value=semicolons, expected_type=type_hints["semicolons"])
             check_type(argname="argument trailing_commas", value=trailing_commas, expected_type=type_hints["trailing_commas"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if arrow_parentheses is not None:
             self._values["arrow_parentheses"] = arrow_parentheses
@@ -2755,6 +2918,8 @@ class JsFormatterConfiguration:
             self._values["semicolons"] = semicolons
         if trailing_commas is not None:
             self._values["trailing_commas"] = trailing_commas
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def arrow_parentheses(self) -> typing.Optional["ArrowParentheses"]:
@@ -2969,6 +3134,28 @@ class JsFormatterConfiguration:
         '''
         result = self._values.get("trailing_commas")
         return typing.cast(typing.Optional["JsTrailingCommas"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: JsFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3301,6 +3488,7 @@ class JsonConfiguration:
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
         "trailing_commas": "trailingCommas",
+        "trailing_newline": "trailingNewline",
     },
 )
 class JsonFormatterConfiguration:
@@ -3315,6 +3503,7 @@ class JsonFormatterConfiguration:
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
         trailing_commas: typing.Optional["JsonTrailingCommas"] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param bracket_spacing: (experimental) Whether to insert spaces around brackets in object literals. Defaults to true. Default: true.
@@ -3325,6 +3514,7 @@ class JsonFormatterConfiguration:
         :param line_ending: (experimental) The type of line ending applied to JSON (and its super languages) files. ``auto`` uses CRLF on Windows and LF on other platforms.
         :param line_width: (experimental) What's the max width of a line applied to JSON (and its super languages) files. Defaults to 80. Default: 80.
         :param trailing_commas: (experimental) Print trailing commas wherever possible in multi-line comma-separated syntactic structures. Defaults to "none". Default: none".
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: JsonFormatterConfiguration
@@ -3339,6 +3529,7 @@ class JsonFormatterConfiguration:
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
             check_type(argname="argument trailing_commas", value=trailing_commas, expected_type=type_hints["trailing_commas"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if bracket_spacing is not None:
             self._values["bracket_spacing"] = bracket_spacing
@@ -3356,6 +3547,8 @@ class JsonFormatterConfiguration:
             self._values["line_width"] = line_width
         if trailing_commas is not None:
             self._values["trailing_commas"] = trailing_commas
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def bracket_spacing(self) -> typing.Optional[builtins.bool]:
@@ -3462,6 +3655,28 @@ class JsonFormatterConfiguration:
         '''
         result = self._values.get("trailing_commas")
         return typing.cast(typing.Optional["JsonTrailingCommas"], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: JsonFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3908,6 +4123,7 @@ class OverrideFilesConfiguration:
         "indent_width": "indentWidth",
         "line_ending": "lineEnding",
         "line_width": "lineWidth",
+        "trailing_newline": "trailingNewline",
     },
 )
 class OverrideFormatterConfiguration:
@@ -3925,6 +4141,7 @@ class OverrideFormatterConfiguration:
         indent_width: typing.Optional[jsii.Number] = None,
         line_ending: typing.Optional["LineEnding"] = None,
         line_width: typing.Optional[jsii.Number] = None,
+        trailing_newline: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''
         :param attribute_position: (experimental) The attribute position style.
@@ -3938,6 +4155,7 @@ class OverrideFormatterConfiguration:
         :param indent_width: (experimental) The size of the indentation, 2 by default.
         :param line_ending: (experimental) The type of line ending.
         :param line_width: (experimental) What's the max width of a line. Defaults to 80. Default: 80.
+        :param trailing_newline: (experimental) Whether to add a trailing newline at the end of the file. Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools: - https://thoughtbot.com/blog/no-newline-at-end-of-file - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804 - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files Disable the option at your own risk. Defaults to true. Default: true.
 
         :stability: experimental
         :schema: OverrideFormatterConfiguration
@@ -3955,6 +4173,7 @@ class OverrideFormatterConfiguration:
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
             check_type(argname="argument line_ending", value=line_ending, expected_type=type_hints["line_ending"])
             check_type(argname="argument line_width", value=line_width, expected_type=type_hints["line_width"])
+            check_type(argname="argument trailing_newline", value=trailing_newline, expected_type=type_hints["trailing_newline"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if attribute_position is not None:
             self._values["attribute_position"] = attribute_position
@@ -3978,6 +4197,8 @@ class OverrideFormatterConfiguration:
             self._values["line_ending"] = line_ending
         if line_width is not None:
             self._values["line_width"] = line_width
+        if trailing_newline is not None:
+            self._values["trailing_newline"] = trailing_newline
 
     @builtins.property
     def attribute_position(self) -> typing.Optional["AttributePosition"]:
@@ -4103,6 +4324,28 @@ class OverrideFormatterConfiguration:
         '''
         result = self._values.get("line_width")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def trailing_newline(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to add a trailing newline at the end of the file.
+
+        Setting this option to ``false`` is **highly discouraged** because it could cause many problems with other tools:
+
+        - https://thoughtbot.com/blog/no-newline-at-end-of-file
+        - https://callmeryan.medium.com/no-newline-at-end-of-file-navigating-gits-warning-for-android-developers-af14e73dd804
+        - https://unix.stackexchange.com/questions/345548/how-to-cat-files-together-adding-missing-newlines-at-end-of-some-files
+
+        Disable the option at your own risk.
+
+        Defaults to true.
+
+        :default: true.
+
+        :stability: experimental
+        :schema: OverrideFormatterConfiguration#trailingNewline
+        '''
+        result = self._values.get("trailing_newline")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4720,9 +4963,11 @@ class Semicolons(enum.Enum):
     jsii_type="projen.javascript.biome_config.Source",
     jsii_struct_bases=[],
     name_mapping={
+        "no_duplicate_classes": "noDuplicateClasses",
         "organize_imports": "organizeImports",
         "recommended": "recommended",
         "use_sorted_attributes": "useSortedAttributes",
+        "use_sorted_interface_members": "useSortedInterfaceMembers",
         "use_sorted_keys": "useSortedKeys",
         "use_sorted_properties": "useSortedProperties",
     },
@@ -4731,17 +4976,21 @@ class Source:
     def __init__(
         self,
         *,
+        no_duplicate_classes: typing.Any = None,
         organize_imports: typing.Any = None,
         recommended: typing.Optional[builtins.bool] = None,
         use_sorted_attributes: typing.Any = None,
+        use_sorted_interface_members: typing.Any = None,
         use_sorted_keys: typing.Any = None,
         use_sorted_properties: typing.Any = None,
     ) -> None:
         '''(experimental) A list of rules that belong to this group.
 
+        :param no_duplicate_classes: (experimental) Remove duplicate CSS classes. See https://biomejs.dev/assist/actions/no-duplicate-classes
         :param organize_imports: (experimental) Provides a code action to sort the imports and exports in the file using a built-in or custom order. See https://biomejs.dev/assist/actions/organize-imports
         :param recommended: (experimental) Enables the recommended rules for this group.
         :param use_sorted_attributes: (experimental) Enforce attribute sorting in JSX elements. See https://biomejs.dev/assist/actions/use-sorted-attributes
+        :param use_sorted_interface_members: (experimental) Sort interface members by key. See https://biomejs.dev/assist/actions/use-sorted-interface-members
         :param use_sorted_keys: (experimental) Sort the keys of a JSON object in natural order. See https://biomejs.dev/assist/actions/use-sorted-keys
         :param use_sorted_properties: (experimental) Enforce ordering of CSS properties and nested rules. See https://biomejs.dev/assist/actions/use-sorted-properties
 
@@ -4750,22 +4999,40 @@ class Source:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3c7237b7)
+            check_type(argname="argument no_duplicate_classes", value=no_duplicate_classes, expected_type=type_hints["no_duplicate_classes"])
             check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
             check_type(argname="argument use_sorted_attributes", value=use_sorted_attributes, expected_type=type_hints["use_sorted_attributes"])
+            check_type(argname="argument use_sorted_interface_members", value=use_sorted_interface_members, expected_type=type_hints["use_sorted_interface_members"])
             check_type(argname="argument use_sorted_keys", value=use_sorted_keys, expected_type=type_hints["use_sorted_keys"])
             check_type(argname="argument use_sorted_properties", value=use_sorted_properties, expected_type=type_hints["use_sorted_properties"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if no_duplicate_classes is not None:
+            self._values["no_duplicate_classes"] = no_duplicate_classes
         if organize_imports is not None:
             self._values["organize_imports"] = organize_imports
         if recommended is not None:
             self._values["recommended"] = recommended
         if use_sorted_attributes is not None:
             self._values["use_sorted_attributes"] = use_sorted_attributes
+        if use_sorted_interface_members is not None:
+            self._values["use_sorted_interface_members"] = use_sorted_interface_members
         if use_sorted_keys is not None:
             self._values["use_sorted_keys"] = use_sorted_keys
         if use_sorted_properties is not None:
             self._values["use_sorted_properties"] = use_sorted_properties
+
+    @builtins.property
+    def no_duplicate_classes(self) -> typing.Any:
+        '''(experimental) Remove duplicate CSS classes.
+
+        See https://biomejs.dev/assist/actions/no-duplicate-classes
+
+        :stability: experimental
+        :schema: Source#noDuplicateClasses
+        '''
+        result = self._values.get("no_duplicate_classes")
+        return typing.cast(typing.Any, result)
 
     @builtins.property
     def organize_imports(self) -> typing.Any:
@@ -4799,6 +5066,18 @@ class Source:
         :schema: Source#useSortedAttributes
         '''
         result = self._values.get("use_sorted_attributes")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def use_sorted_interface_members(self) -> typing.Any:
+        '''(experimental) Sort interface members by key.
+
+        See https://biomejs.dev/assist/actions/use-sorted-interface-members
+
+        :stability: experimental
+        :schema: Source#useSortedInterfaceMembers
+        '''
+        result = self._values.get("use_sorted_interface_members")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -5163,6 +5442,7 @@ def _typecheckingstub__e1fb0cc7e8e9a8ff6796060277e93271c00edf3f8878cd107fe3a211c
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
     quote_style: typing.Optional[QuoteStyle] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5206,6 +5486,7 @@ def _typecheckingstub__d250053b03cd738e71599a16d0b903766c0befb7557dadc7ffee79923
     indent_width: typing.Optional[jsii.Number] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
     use_editorconfig: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5236,6 +5517,7 @@ def _typecheckingstub__dc9ad6152bf4d6cec4d40f5bfd9a8d0247f6c53cda4876e24cc83741f
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
     quote_style: typing.Optional[QuoteStyle] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5270,6 +5552,7 @@ def _typecheckingstub__7eb20c598594405c2626c0973407324d66863625354188a196be6d256
     indent_width: typing.Optional[jsii.Number] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5310,6 +5593,7 @@ def _typecheckingstub__bcbf243ebdc0f288a10a4e6b68dc5a1ff88f4d8abe5566f57f212bf10
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
     self_close_void_elements: typing.Optional[SelfCloseVoidElements] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
     whitespace_sensitivity: typing.Optional[WhitespaceSensitivity] = None,
 ) -> None:
     """Type checking stubs"""
@@ -5339,6 +5623,7 @@ def _typecheckingstub__a425594ed8c46868c14fe924e8346d0d10c110ecabdc7f0d160d30bb0
 def _typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7024c16b(
     *,
     assist: typing.Optional[typing.Union[JsAssistConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
+    experimental_embedded_snippets_enabled: typing.Optional[builtins.bool] = None,
     formatter: typing.Optional[typing.Union[JsFormatterConfiguration, typing.Dict[builtins.str, typing.Any]]] = None,
     globals: typing.Optional[typing.Sequence[builtins.str]] = None,
     jsx_runtime: typing.Optional[JsxRuntime] = None,
@@ -5366,6 +5651,7 @@ def _typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e0118365
     quote_style: typing.Optional[QuoteStyle] = None,
     semicolons: typing.Optional[Semicolons] = None,
     trailing_commas: typing.Optional[JsTrailingCommas] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5413,6 +5699,7 @@ def _typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
     trailing_commas: typing.Optional[JsonTrailingCommas] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5470,6 +5757,7 @@ def _typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1
     indent_width: typing.Optional[jsii.Number] = None,
     line_ending: typing.Optional[LineEnding] = None,
     line_width: typing.Optional[jsii.Number] = None,
+    trailing_newline: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -5518,9 +5806,11 @@ def _typecheckingstub__d509a5cc6f981426e8c0771a7bcfe4b66092b008a57a49a58a2d172ec
 
 def _typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3c7237b7(
     *,
+    no_duplicate_classes: typing.Any = None,
     organize_imports: typing.Any = None,
     recommended: typing.Optional[builtins.bool] = None,
     use_sorted_attributes: typing.Any = None,
+    use_sorted_interface_members: typing.Any = None,
     use_sorted_keys: typing.Any = None,
     use_sorted_properties: typing.Any = None,
 ) -> None:

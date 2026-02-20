@@ -1006,10 +1006,19 @@ def _get_py_files_fast(
     or any .chalkignore file has negation, we revert to checking every filepath
     against each .*ignore file.
 
-    :param resolved_root: Project root absolute path
-    :param venv_path: Path of the venv folder to skip importing from.
-    :param ignore_config: An optional CombinedIgnoreConfig object. If None, we simply don't check for ignores.
-    :return: An iterable of Path each representing a .py file
+    Parameters
+    ----------
+    resolved_root
+        Project root absolute path.
+    venv_path
+        Path of the venv folder to skip importing from.
+    ignore_config
+        An optional CombinedIgnoreConfig object. If `None`, we simply don't check for ignores.
+
+    Returns
+    -------
+    Iterable[Path]
+        An iterable of `Path`, each representing a `.py` file.
     """
 
     for dirpath_str, dirnames, filenames in os.walk(resolved_root):
@@ -1159,9 +1168,17 @@ class ChalkImporter:
         additional_diagnostics: Optional[List[PublishDiagnosticsParams]] = None,
     ) -> List[PublishDiagnosticsParams]:
         """
-        :param failed_imports: Errors encountered when importing customer code. This method converts them into LSP errors.
-        :param diagnostics: this list is modified in-place with additioanl diagnostics
-        :return: The same object as the input `diagnostics`
+        Parameters
+        ----------
+        failed_imports
+            Errors encountered when importing customer code. This method converts them into LSP errors.
+        diagnostics
+            This list is modified in-place with additional diagnostics.
+
+        Returns
+        -------
+        List[PublishDiagnosticsParams]
+            The same object as the input `diagnostics`.
         """
         diagnostic_uris = {diagnostic.uri for diagnostic in diagnostics}
         for failed_import in failed_imports:

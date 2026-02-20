@@ -1,26 +1,34 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-betterforms
-Version: 2.0.0
+Version: 3.0.0
 Summary: App for Django featuring improved form base classes.
 Home-page: https://django-betterforms.readthedocs.org/en/latest/
 Author: Fusionbox
 Author-email: programmers@fusionbox.com
-License: UNKNOWN
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Django
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
 License-File: LICENSE
+Requires-Dist: Django>=4.2
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 django-betterforms
 ------------------
@@ -44,10 +52,5 @@ Installation
     $ pip install django-betterforms
 
 2.  Add ``betterforms`` to your ``INSTALLED_APPS``.
-
-
-
-For information on the release process, refer to `django-authtools <https://github.com/fusionbox/django-authtools/blob/master/RELEASES.rst>`_.
-
 
 

@@ -6,6 +6,7 @@ from abstra_internals.repositories.linter.models import (
     LinterRule,
 )
 from abstra_internals.repositories.project.project import (
+    AgentStage,
     FormStage,
     HookStage,
     JobStage,
@@ -14,6 +15,7 @@ from abstra_internals.repositories.project.project import (
     StageWithFile,
 )
 from abstra_internals.templates import (
+    new_agent_code,
     new_form_code,
     new_hook_code,
     new_job_code,
@@ -41,6 +43,8 @@ class AddEntrypoint(LinterFix):
             self.stage.file_path.write_text(new_job_code, "utf-8")
         elif isinstance(self.stage, ScriptStage):
             self.stage.file_path.write_text(new_script_code, "utf-8")
+        elif isinstance(self.stage, AgentStage):
+            self.stage.file_path.write_text(new_agent_code, "utf-8")
         else:
             raise Exception(f"Unknown stage: {self.stage}")
 
@@ -79,5 +83,9 @@ class MissingEntrypoint(LinterRule):
         for script in project.scripts:
             if not script.file_path.exists():
                 issues.append(NoEntrypointFound(script))
+
+        for agent in project.agents:
+            if not agent.file_path.exists():
+                issues.append(NoEntrypointFound(agent))
 
         return issues

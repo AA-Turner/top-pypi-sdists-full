@@ -4,19 +4,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from ..app_config import AppConfig
 
-DEFAULT_BRANCH = "test"
 
-
-# Account for project / branch and the capsule input.
 def capsule_input_overrides(app_config: "AppConfig", capsule_input: dict):
-    project = app_config.get_state("project", None)
-    # Update the project/branch related configurations.
-    if project is not None:
-        branch = app_config.get_state("branch", DEFAULT_BRANCH)
-        capsule_input["tags"].extend(
-            [dict(key="project", value=project), dict(key="branch", value=branch)]
-        )
-
     persistence = app_config.get_state("persistence", None)
     if persistence is not None and persistence != "none":
         capsule_input["persistence"] = persistence

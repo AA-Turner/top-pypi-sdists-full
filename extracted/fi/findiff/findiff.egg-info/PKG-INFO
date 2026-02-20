@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: findiff
-Version: 0.12.2
+Version: 0.13.1
 Summary: A Python package for finite difference derivatives in any number of dimensions.
 Author: Matthias Baer
 Maintainer-email: Matthias Baer <matthias.r.baer@googlemail.com>
@@ -28,12 +28,12 @@ Requires-Dist: scipy
 Requires-Dist: sympy
 Dynamic: license-file
 
-# <img src="docs/frontpage/findiff_logo.png" width="100px"> findiff
+# <img src="docs/assets/findiff_logo.png" width="100px"> findiff
 
 [![PyPI version](https://badge.fury.io/py/findiff.svg)](https://img.shields.io/pypi/v/findiff.png?style=flat-square&color=brightgreen)
 ![build](https://github.com/maroba/findiff/actions/workflows/check.yml/badge.svg)
 ![Coverage](https://img.shields.io/codecov/c/github/maroba/findiff/master.svg)
-[![Doc Status](https://readthedocs.org/projects/findiff/badge/?version=latest)](https://findiff.readthedocs.io/en/latest/index.html)
+[![Doc Status](https://github.com/maroba/findiff/actions/workflows/docs.yml/badge.svg)](https://maroba.github.io/findiff/)
 [![PyPI downloads](https://img.shields.io/pypi/dm/findiff.svg)]()
 [![Downloads](https://static.pepy.tech/personalized-badge/findiff?period=total&units=international_system&left_color=black&right_color=blue&left_text=Downloads)](https://pepy.tech/project/findiff)
 
@@ -51,6 +51,7 @@ any number of dimensions.
 * Symbolic representation of finite difference schemes
 * **New in version 0.11**: More comfortable API (keeping the old API available)
 * **New in version 0.12**: Periodic boundary conditions for differential operators and PDEs.
+* **New in version 0.13**: Compact (implicit) finite differences with spectral-like resolution.
 
 ## Installation
 
@@ -60,7 +61,7 @@ pip install --upgrade findiff
 
 ## Documentation and Examples
 
-You can find the documentation of the code including examples of application at https://findiff.readthedocs.io/en/stable/.
+You can find the documentation of the code including examples of application at https://maroba.github.io/findiff/.
 
 ## Taking Derivatives
 
@@ -139,7 +140,7 @@ d_dx = Diff(0)
 d_dx.set_grid({0: {"h": dx, "periodic": True}})
 ```
 
-More examples can be found [here](https://findiff.readthedocs.io/en/latest/source/examples.html) and in [this blog](https://medium.com/p/7e54132a73a3).
+More examples can be found [here](https://maroba.github.io/findiff/examples.html) and in [this blog](https://medium.com/p/7e54132a73a3).
 
 ### Accuracy Control
 
@@ -163,6 +164,45 @@ which comes in handy if you have a complicated expression of differential operat
 can specify it on the whole expression and it will be passed down to all basic operators.
 
 If not specified, second order accuracy will be taken by default.
+
+### Compact Finite Differences
+
+Standard finite differences only use function values to approximate a derivative. Compact (or implicit)
+finite differences also couple derivative values at neighboring points, which gives you spectral-like
+resolution from small stencils. The tradeoff is that applying the operator requires solving a banded linear
+system — but for tridiagonal systems that's $O(N)$ and very fast.
+
+You can define a compact scheme explicitly by specifying the left-hand side coefficients and right-hand side offsets:
+
+```python
+from findiff import Diff, CompactScheme
+
+scheme = CompactScheme(
+    deriv=1,
+    left={-1: 1/3, 0: 1, 1: 1/3},     # tridiagonal LHS
+    right=[-3, -2, -1, 0, 1, 2, 3],    # RHS offsets (coefficients computed automatically)
+)
+
+d_dx = Diff(0, dx, scheme=scheme, periodic=True)
+df_dx = d_dx(np.sin(x))  # 6th-order accurate first derivative
+```
+
+Or let findiff pick a scheme for you:
+
+```python
+d_dx = Diff(0, dx, compact=3, acc=6, periodic=True)
+```
+
+Here `compact=3` sets the LHS bandwidth (must be odd), and findiff widens the RHS stencil until
+the requested accuracy is reached. Higher derivatives work the same as usual:
+
+```python
+d2_dx2 = d_dx ** 2
+```
+
+Non-periodic grids are handled automatically — findiff uses one-sided compact stencils near the
+boundaries. The `matrix()` method is also supported. For more details, see the
+[compact finite differences documentation](https://maroba.github.io/findiff/compact.html).
 
 ## Finite Difference Coefficients
 
@@ -251,7 +291,7 @@ However, you can design your own stencil. A picture says more than a thousand wo
 look at the following example for a standard second order accurate stencil for the
 2D Laplacian $\displaystyle \frac{\partial^2}{\partial x^2} + \frac{\partial^2}{\partial y^2}$:
 
-<img src="docs/frontpage/laplace2d.png" width="400">
+<img src="docs/assets/laplace2d.png" width="400">
 
 This can be reproduced by *findiff* writing
 
@@ -268,7 +308,7 @@ The attribute `stencil.values` contains the coefficients
 
 Now for a some more exotic stencil. Consider this one:
 
-<img src="docs/frontpage/laplace2d-x.png" width="400">
+<img src="docs/assets/laplace2d-x.png" width="400">
 
 With *findiff* you can get it easily:
 
@@ -359,7 +399,7 @@ u = pde.solve()
 Result:
 
 <p align="center">
-<img src="docs/frontpage/ho_bvp.jpg" alt="ResultHOBVP" height="300"/>
+<img src="docs/assets/ho_bvp.jpg" alt="ResultHOBVP" height="300"/>
 </p>
 
 #### Example 2: 2D heat conduction
@@ -411,7 +451,7 @@ u = pde.solve()
 Result:
 
 <p align="center">
-<img src="docs/frontpage/heat.png"/>
+<img src="docs/assets/heat.png"/>
 </p>
 
 ## Citations

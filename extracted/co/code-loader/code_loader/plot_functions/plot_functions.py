@@ -20,7 +20,7 @@ from textwrap import wrap
 import math
 
 from code_loader.contract.visualizer_classes import LeapImage, LeapImageWithBBox, LeapGraph, LeapText, \
-    LeapHorizontalBar, LeapImageMask, LeapTextMask, LeapImageWithHeatmap
+    LeapHorizontalBar, LeapImageMask, LeapTextMask, LeapImageWithHeatmap, LeapVideo
 
 def run_only_on_non_mapping_mode():
     """
@@ -389,6 +389,18 @@ def plot_text_mask(leap_data: LeapTextMask, title: str) -> None:
     plt.show()
 
 @run_only_on_non_mapping_mode()
+def plot_video(leap_data: LeapVideo, title: str) -> None:
+    video_data = leap_data.data
+    fig, ax = plt.subplots()
+    fig.patch.set_facecolor('black')
+    ax.set_facecolor('black')
+    ax.set_title(title, color='white')
+    for frame in video_data:
+        ax.imshow(frame)
+        plt.pause(0.1)  # Adjust the pause duration as needed
+    plt.show()
+
+@run_only_on_non_mapping_mode()
 def plot_image_with_heatmap(leap_data: LeapImageWithHeatmap, title: str) -> None:
     """
         Display the image with overlaid heatmaps contained in the LeapImageWithHeatmap object.
@@ -441,4 +453,5 @@ plot_switch = {
     LeapDataType.TextMask: plot_text_mask,
     LeapDataType.ImageWithHeatmap: plot_image_with_heatmap,
     LeapDataType.ImageWithBBox: plot_image_with_b_box,
+    LeapDataType.Video: plot_video,
 }

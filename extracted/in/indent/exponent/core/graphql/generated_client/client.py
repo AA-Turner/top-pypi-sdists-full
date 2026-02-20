@@ -72,9 +72,6 @@ class IndentGraphQLClient(AsyncBaseClient):
                 ... on Chat {
                   chatUuid
                 }
-                ... on InputValidationError {
-                  message
-                }
               }
             }
             """)

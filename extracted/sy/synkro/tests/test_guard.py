@@ -49,7 +49,10 @@ Company Expense Policy (effective 2024):
 # ---------------------------------------------------------------------------
 
 COMPLIANT_MESSAGES = [
-    {"role": "user", "content": "I had a $35 lunch with a client. I have the receipt. Can I expense it?"},
+    {
+        "role": "user",
+        "content": "I had a $35 lunch with a client. I have the receipt. Can I expense it?",
+    },
     {
         "role": "assistant",
         "content": (
@@ -71,7 +74,10 @@ VIOLATING_MESSAGES = [
 ]
 
 ALCOHOL_VIOLATION_MESSAGES = [
-    {"role": "user", "content": "I bought a $40 bottle of wine for a team dinner. Can I expense this?"},
+    {
+        "role": "user",
+        "content": "I bought a $40 bottle of wine for a team dinner. Can I expense this?",
+    },
     {
         "role": "assistant",
         "content": (

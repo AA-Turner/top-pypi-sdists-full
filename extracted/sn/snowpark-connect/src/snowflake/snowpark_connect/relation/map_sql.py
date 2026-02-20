@@ -38,6 +38,7 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
 from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
 from snowflake.snowpark._internal.utils import is_sql_select_statement, quote_name
 from snowflake.snowpark.functions import when_matched, when_not_matched
+from snowflake.snowpark.types import ByteType, IntegerType, LongType, ShortType
 from snowflake.snowpark_connect.config import (
     auto_uppercase_column_identifiers,
     auto_uppercase_non_column_identifiers,
@@ -68,6 +69,7 @@ from snowflake.snowpark_connect.relation.map_relation import (
     NATURAL_JOIN_TYPE_BASE,
     map_relation,
 )
+from snowflake.snowpark_connect.relation.read.map_read_table import post_process_df
 
 # Import from utils for consistency
 from snowflake.snowpark_connect.relation.utils import is_aggregate_function
@@ -107,6 +109,7 @@ from ..expression.map_sql_expression import (
     map_logical_plan_expression,
     sql_parser,
 )
+from ..type_support import emulate_decimal_type
 from ..typed_column import TypedColumn
 from ..utils.identifiers import (
     spark_to_sf_single_id,
@@ -723,6 +726,14 @@ def _spark_field_to_sql(field: jpype.JObject, is_column: bool) -> str:
     return f"{name} {data_type_str}"
 
 
+_SPARK_INTEGRAL_SIMPLE_STRING_TO_SNOWPARK_TYPE_MAP = {
+    "tinyint": ByteType(),
+    "smallint": ShortType(),
+    "int": IntegerType(),
+    "bigint": LongType(),
+}
+
+
 def _spark_datatype_to_sql(data_type: jpype.JObject) -> str:
     match data_type.typeName():
         case "array":
@@ -738,6 +749,14 @@ def _spark_datatype_to_sql(data_type: jpype.JObject) -> str:
             )
             return f"OBJECT({field_types_str})"
         case _:
+            snowpark_integral_data_type = (
+                _SPARK_INTEGRAL_SIMPLE_STRING_TO_SNOWPARK_TYPE_MAP.get(
+                    data_type.simpleString().lower()
+                )
+            )
+            if snowpark_integral_data_type:
+                return emulate_decimal_type(snowpark_integral_data_type).simple_string()
+
             return data_type.sql()
 
 
@@ -2041,13 +2060,17 @@ def map_sql(
         return execute_logical_plan(logical_plan)
     else:
         session = snowpark.Session.get_active_session()
+        # Remove trailing semicolons and whitespace to prevent "unexpected ';'" errors when performing operations
+        # on the resulting DataFrame
+        # Example: session.sql("SELECT 1;").show() would fail without this sanitization.
+        sql_stmt = sql_stmt.rstrip().rstrip(";")
         sql_df = session.sql(sql_stmt)
-        columns = sql_df.columns
-        return DataFrameContainer.create_with_column_mapping(
-            dataframe=sql_df,
-            spark_column_names=columns,
-            snowpark_column_names=columns,
-        )
+
+        if not rel.common.HasField("plan_id"):
+            plan_id = gen_sql_plan_id()
+            rel.common.plan_id = plan_id
+
+        return post_process_df(sql_df, rel.common.plan_id)
 
 
 def map_logical_plan_relation(

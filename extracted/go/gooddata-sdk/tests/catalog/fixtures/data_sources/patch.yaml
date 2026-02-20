@@ -22,7 +22,7 @@ interactions:
         Cache-Control:
           - no-cache, no-store, max-age=0, must-revalidate
         Content-Length:
-          - '491'
+          - '533'
         Content-Type:
           - application/json
         DATE: &id001
@@ -49,8 +49,9 @@ interactions:
                 url: jdbc:postgresql://postgres:5432/tiger?sslmode=prefer
                 username: postgres
                 authenticationType: USERNAME_PASSWORD
-                type: POSTGRESQL
+                alternativeDataSourceId: ds-put-abc-id
                 name: demo-test-ds
+                type: POSTGRESQL
                 schema: demo
               id: demo-test-ds
               links:
@@ -105,7 +106,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: 53b771424ff67149623782276f80070a
+          traceId: 6edc01acd4632fd5df20b6097e53e244
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/dataSources
@@ -165,8 +166,8 @@ interactions:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              type: POSTGRESQL
               name: Test
+              type: POSTGRESQL
               schema: demo
             id: test
             type: dataSource
@@ -219,8 +220,8 @@ interactions:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              type: POSTGRESQL
               name: Test
+              type: POSTGRESQL
               schema: demo
             id: test
             type: dataSource
@@ -273,8 +274,8 @@ interactions:
               url: jdbc:postgresql://localhost:5432/demo?autosave=true&sslmode=prefer
               username: demouser
               authenticationType: USERNAME_PASSWORD
-              type: POSTGRESQL
               name: Test
+              type: POSTGRESQL
               schema: demo
             id: test
             type: dataSource
@@ -338,8 +339,8 @@ interactions:
               username: demouser
               authenticationType: USERNAME_PASSWORD
               alternativeDataSourceId: ds-patch-abc-id
-              type: POSTGRESQL
               name: Test2
+              type: POSTGRESQL
               schema: demo
             id: test
             type: dataSource
@@ -393,8 +394,8 @@ interactions:
               username: demouser
               authenticationType: USERNAME_PASSWORD
               alternativeDataSourceId: ds-patch-abc-id
-              type: POSTGRESQL
               name: Test2
+              type: POSTGRESQL
               schema: demo
             id: test
             type: dataSource

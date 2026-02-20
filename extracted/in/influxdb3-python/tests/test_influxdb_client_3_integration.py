@@ -1,16 +1,18 @@
 import logging
 import os
-import pyarrow
-import pytest
 import random
 import string
 import time
 import unittest
 
+import pandas as pd
+import pyarrow
+import pytest
 from urllib3.exceptions import MaxRetryError, TimeoutError as Url3TimeoutError
 
 from influxdb_client_3 import InfluxDBClient3, write_client_options, WriteOptions, \
     WriteType, InfluxDB3ClientQueryError
+from influxdb_client_3.write_client.rest import ApiException
 from influxdb_client_3.exceptions import InfluxDBError
 from tests.util import asyncio_run, lp_to_py_object
 
@@ -48,6 +50,68 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
         if self.client:
             self.client.close()
 
+    def test_write_dataframe(self):
+        measurement = f'test{random_hex(3)}'.lower()
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01', '2024-01-02']),
+            'city': ['London', 'Paris'],
+            'temperature': [15.0, 18.5]
+        })
+        self.client.write_dataframe(df, measurement=measurement, timestamp_column='time', tags=['city'])
+        self.client.flush()
+
+        result = self.client.query(query=f"select * from {measurement}", mode="pandas")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(2, len(result.get('city')))
+        self.assertEqual(2, len(result.get('temperature')))
+
+    def test_write_dataframe_with_batch(self):
+        self.client = InfluxDBClient3(host=self.host,
+                                      database=self.database,
+                                      token=self.token,
+                                      write_client_options=write_client_options(
+                                          write_options=WriteOptions(batch_size=100)
+                                      ))
+        measurement = f'test{random_hex(3)}'.lower()
+        df = pd.DataFrame({
+            'time': pd.to_datetime(['2024-01-01', '2024-01-02']),
+            'city': ['London', 'Paris'],
+            'temperature': [15.0, 18.5]
+        })
+        self.client.write_dataframe(
+            df,
+            measurement=measurement,
+            timestamp_column='time',
+            tags=['city']
+        )
+        self.client.flush()
+
+        result = self.client.query(query=f"select * from {measurement}", mode="pandas")
+
+        self.assertIsNotNone(result)
+        self.assertEqual(2, len(result.get('city')))
+        self.assertEqual(2, len(result.get('temperature')))
+
+    def test_write_csv_file_with_batch(self):
+        client = InfluxDBClient3(host=self.host,
+                                 database=self.database,
+                                 token=self.token,
+                                 write_client_options=write_client_options(
+                                     write_options=WriteOptions(batch_size=100)
+                                 ))
+        measurement = f'test{random_hex(3)}'.lower()
+        client.write_file(
+            measurement_name=measurement,
+            file='tests/data/iot.csv',
+            timestamp_column='time', tag_columns=["name"])
+        client.flush()
+
+        result = client.query(query=f"select * from {measurement}", mode="pandas")
+        self.assertIsNotNone(result)
+        self.assertEqual(3, len(result.get('building')))
+        self.assertEqual(3, len(result.get('temperature')))
+
     def test_write_and_query(self):
         test_id = time.time_ns()
         self.client.write(f"integration_test_python,type=used value=123.0,test_id={test_id}i")
@@ -60,6 +124,39 @@ class TestInfluxDBClient3Integration(unittest.TestCase):
         self.assertEqual(1, len(df))
         self.assertEqual(test_id, df['test_id'][0])
         self.assertEqual(123.0, df['value'][0])
+
+    def test_v3_error(self):
+        measurement = f'test{random_hex(3)}'.lower()
+        lp = "\n".join([
+            f"{measurement} v=1i 1770291280",
+            f"{measurement} v=1 1770291281",
+        ])
+
+        with InfluxDBClient3(
+            host=self.host,
+            database=self.database,
+            token=self.token,
+            write_client_options=write_client_options(
+                write_options=WriteOptions(
+                    write_type=WriteType.synchronous,
+                    no_sync=True
+                )
+            )
+        ) as client:
+            try:
+                client.write(lp)
+                self.fail("Expected InfluxDBError from invalid line protocol.")
+            except ApiException as err:
+                if "Server doesn't support write with no_sync=true" in str(err):
+                    self.skipTest("no_sync not supported by this server.")
+                msg = err.message
+                self.assertIn("partial write of line protocol occurred", msg)
+                self.assertIn((
+                    "invalid column type for column 'v', expected iox::column_type::field::integer, "
+                    "got iox::column_type::field::float"
+                ), msg)
+                self.assertIn("line 2", msg)
+                self.assertIn(measurement, msg)
 
     def test_auth_error_token(self):
         self.client = InfluxDBClient3(host=self.host, database=self.database, token='fake token')

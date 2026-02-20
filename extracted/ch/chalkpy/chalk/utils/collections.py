@@ -193,7 +193,11 @@ class BidirectionalMap(Generic[T, U]):
     def __init__(self, value_pairs: Sequence[Tuple[T, U]]):
         """
         Takes a sequence of pairs (t,u) to build the mapping t_i <--> u_i. Must be a bijection.
-        :param value_pairs:
+
+        Parameters
+        ----------
+        value_pairs
+            Sequence of `(t, u)` pairs used to build the bidirectional mapping.
         """
         super().__init__()
         self._t_to_u: Dict[T, U] = dict(value_pairs)

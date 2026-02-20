@@ -110,6 +110,11 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.FromString,
         )
+        self.GetPlanRunMetadata = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetPlanRunMetadata",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.FromString,
+        )
 
 
 class QueriesServiceServicer(object):
@@ -229,6 +234,12 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetPlanRunMetadata(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -326,6 +337,11 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.GetStreamingResolverMaterializedAggregationPlan,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.SerializeToString,
+        ),
+        "GetPlanRunMetadata": grpc.unary_unary_rpc_method_handler(
+            servicer.GetPlanRunMetadata,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.QueriesService", rpc_method_handlers)
@@ -877,6 +893,35 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/GetStreamingResolverMaterializedAggregationPlan",
             chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.GetStreamingResolverMaterializedAggregationPlanResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetPlanRunMetadata(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetPlanRunMetadata",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetPlanRunMetadataResponse.FromString,
             options,
             channel_credentials,
             insecure,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdk-monitoring-constructs
-Version: 9.19.1
+Version: 9.19.2
 Summary: cdk-monitoring-constructs
 Home-page: https://github.com/cdklabs/cdk-monitoring-constructs
 Author: Amazon Web Services<aws-cdk-dev@amazon.com>

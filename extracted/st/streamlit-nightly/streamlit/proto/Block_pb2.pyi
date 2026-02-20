@@ -302,14 +302,27 @@ class Block(_message.Message):
         DESCRIPTOR: _descriptor.Descriptor
 
         DEFAULT_TAB_INDEX_FIELD_NUMBER: _builtins.int
+        ID_FIELD_NUMBER: _builtins.int
         default_tab_index: _builtins.int
+        id: _builtins.str
+        """Widget ID for dynamic tabs. Only set when on_change="rerun",
+        signaling the frontend to treat this as a stateful widget.
+        When absent, tabs may still have a block-level id for CSS key
+        styling but should not trigger reruns on tab change.
+        """
         def __init__(
             self,
             *,
             default_tab_index: _builtins.int = ...,
+            id: _builtins.str | None = ...,
         ) -> None: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["default_tab_index", b"default_tab_index"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "id", b"id"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_id", b"_id", "default_tab_index", b"default_tab_index", "id", b"id"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
+        _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__id) -> _WhichOneofReturnType__id | None: ...
 
     @_typing.final
     class Tab(_message.Message):

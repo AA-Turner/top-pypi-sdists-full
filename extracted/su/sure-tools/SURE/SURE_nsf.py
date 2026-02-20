@@ -722,6 +722,54 @@ class SURENF(nn.Module):
         A = np.concatenate(A)
         return A
     
+    def decode(self, xs:np.array, zbs:np.array, zcs:np.array, zps:np.array, zfs:np.array, batch_size=1024, show_progress=True):
+        """
+        Generate gene expression prediction from given cell data and covariates.
+        This function can be used for simulating cells' transcription profiles at new conditions.
+        
+        :param self: SURE model
+        :param xs: Cell data at the source condition
+        :param cs: Covariates specifying the target condition for generation
+        :param batch_size: Data size per batch
+        :param show_progress: Toggle on or off message output
+        """
+        xs = self.preprocess(xs)
+        xs = convert_to_tensor(xs, dtype=self.dtype, device='cpu')
+        zbs = convert_to_tensor(zbs, dtype=self.dtype, device='cpu')
+        zcs = convert_to_tensor(zcs, dtype=self.dtype, device='cpu')
+        zps = convert_to_tensor(zps, dtype=self.dtype, device='cpu')
+        zfs = convert_to_tensor(zfs, dtype=self.dtype, device='cpu')
+        
+        dataset = CustomDataset(xs)
+        dataloader = DataLoader(dataset, batch_size=batch_size, shuffle=False)
+
+        A = []
+        with tqdm(total=len(dataloader), disable=not show_progress, desc='', unit='batch') as pbar:
+            for X_batch, idx in dataloader:
+                X_batch = X_batch.to(self.get_device())
+                library_size = torch.sum(X_batch, 1, keepdim=True)
+                
+                z_basal = zbs[idx].to(self.get_device())
+                z_context = zcs[idx].to(self.get_device())
+                z_perturb = zps[idx].to(self.get_device())
+                z_covariate = zfs[idx].to(self.get_device())
+                
+                zus = torch.zeros_like(z_basal)
+                
+                log_mu = self.decoder_log_mu([z_basal,z_context,z_perturb,z_covariate,zus])
+                if self.loss_func == 'bernoulli':
+                    counts = dist.Bernoulli(logits=log_mu).to_event(1).mean
+                else:
+                    rate = log_mu.exp()
+                    theta = dist.DirichletMultinomial(total_count=1, concentration=rate).mean
+                    counts = theta * library_size
+            
+                A.append(tensor_to_numpy(counts))
+                pbar.update(1)
+
+        A = np.concatenate(A)
+        return A
+    
     def preprocess(self, xs, threshold=0):
         if self.loss_func == 'bernoulli':
             ad = sc.AnnData(xs)

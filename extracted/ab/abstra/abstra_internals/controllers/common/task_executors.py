@@ -1,10 +1,11 @@
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 
 from abstra_internals.email_templates import task_waiting_template
 from abstra_internals.entities.execution import Execution
 from abstra_internals.entities.execution_context import ScriptContext
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import (
+    AgentStage,
     ComponentStage,
     FormStage,
     ScriptStage,
@@ -16,6 +17,28 @@ from abstra_internals.validators.task_schema import (
     TaskSchemaValidationException,
     TaskSchemaValidator,
 )
+
+_JSON_SCHEMA_TYPES = {
+    "object",
+    "array",
+    "string",
+    "number",
+    "integer",
+    "boolean",
+    "null",
+}
+
+
+def _normalize_task_schema(schema: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize a task schema to the {task_type: json_schema} format.
+
+    If the schema is a flat JSON Schema (has "type" with a JSON Schema type value),
+    wrap it as {"default": schema} so the validator's "default" fallback works.
+    Otherwise assume it's already in {task_type: json_schema} format.
+    """
+    if schema.get("type") in _JSON_SCHEMA_TYPES:
+        return {"default": schema}
+    return schema
 
 
 class TaskExecutor:
@@ -82,7 +105,8 @@ class TaskExecutor:
         for stage in target_stages:
             task_schema = getattr(stage, "task_schema", None)
             if task_schema:
-                validator.register_stage_schema(stage.id, task_schema)
+                normalized = _normalize_task_schema(task_schema)
+                validator.register_stage_schema(stage.id, normalized)
 
         # Validate against each target stage
         for stage in target_stages:
@@ -126,7 +150,7 @@ class TaskExecutor:
             self._send_waiting_thread_notification(task)
             if execution:
                 execution.context.sent_tasks.append(task.id)
-            if isinstance(stage, ScriptStage):
+            if isinstance(stage, (ScriptStage, AgentStage)):
                 self.repos.producer.enqueue_fire_and_forget(
                     context=ScriptContext(task_id=task.id),
                     stage_id=stage.id,

@@ -54,8 +54,8 @@ from google.api_core import (
 )
 from google.api_core import client_options
 from google.api_core import exceptions as core_exceptions
-from google.api_core import operation_async  # type: ignore
 from google.api_core import retry as retries
+import google.api_core.operation_async as operation_async  # type: ignore
 import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
@@ -64,11 +64,11 @@ from google.iam.v1 import options_pb2  # type: ignore
 from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
 from google.oauth2 import service_account
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import empty_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import interval_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.empty_pb2 as empty_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 
 from google.cloud.dataproc_v1.services.cluster_controller import (
     ClusterControllerAsyncClient,
@@ -6362,6 +6362,7 @@ def test_create_cluster_rest_call_success(request_type):
         "project_id": "project_id_value",
         "cluster_name": "cluster_name_value",
         "config": {
+            "cluster_type": 1,
             "cluster_tier": 1,
             "config_bucket": "config_bucket_value",
             "temp_bucket": "temp_bucket_value",
@@ -6774,6 +6775,7 @@ def test_update_cluster_rest_call_success(request_type):
         "project_id": "project_id_value",
         "cluster_name": "cluster_name_value",
         "config": {
+            "cluster_type": 1,
             "cluster_tier": 1,
             "config_bucket": "config_bucket_value",
             "temp_bucket": "temp_bucket_value",

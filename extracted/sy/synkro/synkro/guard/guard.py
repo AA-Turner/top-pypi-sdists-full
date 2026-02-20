@@ -148,9 +148,7 @@ class PolicyGuard:
         concurrency: int = 20,
     ) -> PolicyGuard:
         """Create a PolicyGuard synchronously. See from_policy for docs."""
-        return asyncio.run(
-            cls.from_policy(policy, model, base_url, sql_configs, dsn, concurrency)
-        )
+        return asyncio.run(cls.from_policy(policy, model, base_url, sql_configs, dsn, concurrency))
 
     # =========================================================================
     # PROPERTIES

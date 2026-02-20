@@ -1799,6 +1799,19 @@ class CfnCluster(
                         root_volume=False,
                         volume_kms_key_id="volumeKmsKeyId",
                         volume_size_in_gb=123
+                    ),
+                    fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                        dns_name="dnsName",
+                        mount_name="mountName",
+        
+                        # the properties below are optional
+                        mount_path="mountPath"
+                    ),
+                    fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                        dns_name="dnsName",
+        
+                        # the properties below are optional
+                        mount_path="mountPath"
                     )
                 )],
                 kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
@@ -1842,6 +1855,12 @@ class CfnCluster(
                         wait_interval_in_seconds=123
                     )
                 ),
+                slurm_config=sagemaker.CfnCluster.ClusterSlurmConfigProperty(
+                    node_type="nodeType",
+        
+                    # the properties below are optional
+                    partition_names=["partitionNames"]
+                ),
                 threads_per_core=123,
                 training_plan_arn="trainingPlanArn"
             )],
@@ -1850,6 +1869,9 @@ class CfnCluster(
             orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                 eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
                     cluster_arn="clusterArn"
+                ),
+                slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                    slurm_config_strategy="slurmConfigStrategy"
                 )
             ),
             restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
@@ -1871,6 +1893,19 @@ class CfnCluster(
                         root_volume=False,
                         volume_kms_key_id="volumeKmsKeyId",
                         volume_size_in_gb=123
+                    ),
+                    fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                        dns_name="dnsName",
+                        mount_name="mountName",
+        
+                        # the properties below are optional
+                        mount_path="mountPath"
+                    ),
+                    fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                        dns_name="dnsName",
+        
+                        # the properties below are optional
+                        mount_path="mountPath"
                     )
                 )],
                 on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -2610,6 +2645,171 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterFsxLustreConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "dns_name": "dnsName",
+            "mount_name": "mountName",
+            "mount_path": "mountPath",
+        },
+    )
+    class ClusterFsxLustreConfigProperty:
+        def __init__(
+            self,
+            *,
+            dns_name: builtins.str,
+            mount_name: builtins.str,
+            mount_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for mounting an Amazon FSx Lustre file system to the instances in the SageMaker HyperPod cluster instance group.
+
+            :param dns_name: The DNS name of the FSx for Lustre file system.
+            :param mount_name: The mount name of the FSx for Lustre file system.
+            :param mount_path: The mount path for the FSx for Lustre file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxlustreconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_fsx_lustre_config_property = sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                    dns_name="dnsName",
+                    mount_name="mountName",
+                
+                    # the properties below are optional
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__002c28ba3730fdf5b81fe1307b6df8bce76653ec1b818b81ea33db60c66eabd0)
+                check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
+                check_type(argname="argument mount_name", value=mount_name, expected_type=type_hints["mount_name"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dns_name": dns_name,
+                "mount_name": mount_name,
+            }
+            if mount_path is not None:
+                self._values["mount_path"] = mount_path
+
+        @builtins.property
+        def dns_name(self) -> builtins.str:
+            '''The DNS name of the FSx for Lustre file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxlustreconfig.html#cfn-sagemaker-cluster-clusterfsxlustreconfig-dnsname
+            '''
+            result = self._values.get("dns_name")
+            assert result is not None, "Required property 'dns_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_name(self) -> builtins.str:
+            '''The mount name of the FSx for Lustre file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxlustreconfig.html#cfn-sagemaker-cluster-clusterfsxlustreconfig-mountname
+            '''
+            result = self._values.get("mount_name")
+            assert result is not None, "Required property 'mount_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> typing.Optional[builtins.str]:
+            '''The mount path for the FSx for Lustre file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxlustreconfig.html#cfn-sagemaker-cluster-clusterfsxlustreconfig-mountpath
+            '''
+            result = self._values.get("mount_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterFsxLustreConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"dns_name": "dnsName", "mount_path": "mountPath"},
+    )
+    class ClusterFsxOpenZfsConfigProperty:
+        def __init__(
+            self,
+            *,
+            dns_name: builtins.str,
+            mount_path: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Configuration for mounting an Amazon FSx OpenZFS file system to the instances in the SageMaker HyperPod cluster instance group.
+
+            :param dns_name: The DNS name of the FSx for OpenZFS file system.
+            :param mount_path: The mount path for the FSx for OpenZFS file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxopenzfsconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_fsx_open_zfs_config_property = sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                    dns_name="dnsName",
+                
+                    # the properties below are optional
+                    mount_path="mountPath"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__a57399417ea5af05b070f9b50f3b1fd8757276562ccdac6f33dfe87ab4f28692)
+                check_type(argname="argument dns_name", value=dns_name, expected_type=type_hints["dns_name"])
+                check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "dns_name": dns_name,
+            }
+            if mount_path is not None:
+                self._values["mount_path"] = mount_path
+
+        @builtins.property
+        def dns_name(self) -> builtins.str:
+            '''The DNS name of the FSx for OpenZFS file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxopenzfsconfig.html#cfn-sagemaker-cluster-clusterfsxopenzfsconfig-dnsname
+            '''
+            result = self._values.get("dns_name")
+            assert result is not None, "Required property 'dns_name' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def mount_path(self) -> typing.Optional[builtins.str]:
+            '''The mount path for the FSx for OpenZFS file system.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterfsxopenzfsconfig.html#cfn-sagemaker-cluster-clusterfsxopenzfsconfig-mountpath
+            '''
+            result = self._values.get("mount_path")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterFsxOpenZfsConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterInstanceGroupProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -2627,6 +2827,7 @@ class CfnCluster(
             "on_start_deep_health_checks": "onStartDeepHealthChecks",
             "override_vpc_config": "overrideVpcConfig",
             "scheduled_update_config": "scheduledUpdateConfig",
+            "slurm_config": "slurmConfig",
             "threads_per_core": "threadsPerCore",
             "training_plan_arn": "trainingPlanArn",
         },
@@ -2649,6 +2850,7 @@ class CfnCluster(
             on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
             override_vpc_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.VpcConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             scheduled_update_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ScheduledUpdateConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slurm_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterSlurmConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             threads_per_core: typing.Optional[jsii.Number] = None,
             training_plan_arn: typing.Optional[builtins.str] = None,
         ) -> None:
@@ -2668,6 +2870,7 @@ class CfnCluster(
             :param on_start_deep_health_checks: A flag indicating whether deep health checks should be performed when the HyperPod cluster instance group is created or updated. Deep health checks are comprehensive, invasive tests that validate the health of the underlying hardware and infrastructure components.
             :param override_vpc_config: The customized Amazon VPC configuration at the instance group level that overrides the default Amazon VPC configuration of the SageMaker HyperPod cluster.
             :param scheduled_update_config: The configuration object of the schedule that SageMaker follows when updating the AMI.
+            :param slurm_config: Slurm configuration for the instance group.
             :param threads_per_core: The number of threads per CPU core you specified under ``CreateCluster`` .
             :param training_plan_arn: The Amazon Resource Name (ARN) of the training plan to use for this cluster instance group. For more information about how to reserve GPU capacity for your SageMaker HyperPod clusters using Amazon SageMaker Training Plan, see CreateTrainingPlan.
 
@@ -2705,6 +2908,19 @@ class CfnCluster(
                             root_volume=False,
                             volume_kms_key_id="volumeKmsKeyId",
                             volume_size_in_gb=123
+                        ),
+                        fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                            dns_name="dnsName",
+                            mount_name="mountName",
+                
+                            # the properties below are optional
+                            mount_path="mountPath"
+                        ),
+                        fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                            dns_name="dnsName",
+                
+                            # the properties below are optional
+                            mount_path="mountPath"
                         )
                     )],
                     kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
@@ -2748,6 +2964,12 @@ class CfnCluster(
                             wait_interval_in_seconds=123
                         )
                     ),
+                    slurm_config=sagemaker.CfnCluster.ClusterSlurmConfigProperty(
+                        node_type="nodeType",
+                
+                        # the properties below are optional
+                        partition_names=["partitionNames"]
+                    ),
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
                 )
@@ -2768,6 +2990,7 @@ class CfnCluster(
                 check_type(argname="argument on_start_deep_health_checks", value=on_start_deep_health_checks, expected_type=type_hints["on_start_deep_health_checks"])
                 check_type(argname="argument override_vpc_config", value=override_vpc_config, expected_type=type_hints["override_vpc_config"])
                 check_type(argname="argument scheduled_update_config", value=scheduled_update_config, expected_type=type_hints["scheduled_update_config"])
+                check_type(argname="argument slurm_config", value=slurm_config, expected_type=type_hints["slurm_config"])
                 check_type(argname="argument threads_per_core", value=threads_per_core, expected_type=type_hints["threads_per_core"])
                 check_type(argname="argument training_plan_arn", value=training_plan_arn, expected_type=type_hints["training_plan_arn"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2795,6 +3018,8 @@ class CfnCluster(
                 self._values["override_vpc_config"] = override_vpc_config
             if scheduled_update_config is not None:
                 self._values["scheduled_update_config"] = scheduled_update_config
+            if slurm_config is not None:
+                self._values["slurm_config"] = slurm_config
             if threads_per_core is not None:
                 self._values["threads_per_core"] = threads_per_core
             if training_plan_arn is not None:
@@ -2950,6 +3175,17 @@ class CfnCluster(
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ScheduledUpdateConfigProperty"]], result)
 
         @builtins.property
+        def slurm_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterSlurmConfigProperty"]]:
+            '''Slurm configuration for the instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancegroup.html#cfn-sagemaker-cluster-clusterinstancegroup-slurmconfig
+            '''
+            result = self._values.get("slurm_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterSlurmConfigProperty"]], result)
+
+        @builtins.property
         def threads_per_core(self) -> typing.Optional[jsii.Number]:
             '''The number of threads per CPU core you specified under ``CreateCluster`` .
 
@@ -2983,19 +3219,27 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterInstanceStorageConfigProperty",
         jsii_struct_bases=[],
-        name_mapping={"ebs_volume_config": "ebsVolumeConfig"},
+        name_mapping={
+            "ebs_volume_config": "ebsVolumeConfig",
+            "fsx_lustre_config": "fsxLustreConfig",
+            "fsx_open_zfs_config": "fsxOpenZfsConfig",
+        },
     )
     class ClusterInstanceStorageConfigProperty:
         def __init__(
             self,
             *,
             ebs_volume_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterEbsVolumeConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fsx_lustre_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterFsxLustreConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            fsx_open_zfs_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterFsxOpenZfsConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''Defines the configuration for attaching additional storage to the instances in the SageMaker HyperPod cluster instance group.
 
             To learn more, see `SageMaker HyperPod release notes: June 20, 2024 <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-hyperpod-release-notes.html#sagemaker-hyperpod-release-notes-20240620>`_ .
 
             :param ebs_volume_config: Defines the configuration for attaching additional Amazon Elastic Block Store (EBS) volumes to the instances in the SageMaker HyperPod cluster instance group. The additional EBS volume is attached to each instance within the SageMaker HyperPod cluster instance group and mounted to ``/opt/sagemaker`` .
+            :param fsx_lustre_config: Configuration for mounting an Amazon FSx Lustre file system to the instances in the SageMaker HyperPod cluster instance group.
+            :param fsx_open_zfs_config: Configuration for mounting an Amazon FSx OpenZFS file system to the instances in the SageMaker HyperPod cluster instance group.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancestorageconfig.html
             :exampleMetadata: fixture=_generated
@@ -3011,15 +3255,34 @@ class CfnCluster(
                         root_volume=False,
                         volume_kms_key_id="volumeKmsKeyId",
                         volume_size_in_gb=123
+                    ),
+                    fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                        dns_name="dnsName",
+                        mount_name="mountName",
+                
+                        # the properties below are optional
+                        mount_path="mountPath"
+                    ),
+                    fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                        dns_name="dnsName",
+                
+                        # the properties below are optional
+                        mount_path="mountPath"
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__43caf7c774c2545f8cff945a7d450e1acd83d6c11b7011b4cab6d25bea696218)
                 check_type(argname="argument ebs_volume_config", value=ebs_volume_config, expected_type=type_hints["ebs_volume_config"])
+                check_type(argname="argument fsx_lustre_config", value=fsx_lustre_config, expected_type=type_hints["fsx_lustre_config"])
+                check_type(argname="argument fsx_open_zfs_config", value=fsx_open_zfs_config, expected_type=type_hints["fsx_open_zfs_config"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if ebs_volume_config is not None:
                 self._values["ebs_volume_config"] = ebs_volume_config
+            if fsx_lustre_config is not None:
+                self._values["fsx_lustre_config"] = fsx_lustre_config
+            if fsx_open_zfs_config is not None:
+                self._values["fsx_open_zfs_config"] = fsx_open_zfs_config
 
         @builtins.property
         def ebs_volume_config(
@@ -3033,6 +3296,28 @@ class CfnCluster(
             '''
             result = self._values.get("ebs_volume_config")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterEbsVolumeConfigProperty"]], result)
+
+        @builtins.property
+        def fsx_lustre_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterFsxLustreConfigProperty"]]:
+            '''Configuration for mounting an Amazon FSx Lustre file system to the instances in the SageMaker HyperPod cluster instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancestorageconfig.html#cfn-sagemaker-cluster-clusterinstancestorageconfig-fsxlustreconfig
+            '''
+            result = self._values.get("fsx_lustre_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterFsxLustreConfigProperty"]], result)
+
+        @builtins.property
+        def fsx_open_zfs_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterFsxOpenZfsConfigProperty"]]:
+            '''Configuration for mounting an Amazon FSx OpenZFS file system to the instances in the SageMaker HyperPod cluster instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterinstancestorageconfig.html#cfn-sagemaker-cluster-clusterinstancestorageconfig-fsxopenzfsconfig
+            '''
+            result = self._values.get("fsx_open_zfs_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterFsxOpenZfsConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -3349,6 +3634,61 @@ class CfnCluster(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"slurm_config_strategy": "slurmConfigStrategy"},
+    )
+    class ClusterOrchestratorSlurmConfigProperty:
+        def __init__(
+            self,
+            *,
+            slurm_config_strategy: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Specifies parameter(s) related to Slurm as orchestrator.
+
+            :param slurm_config_strategy: The strategy for managing Slurm configuration on the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterorchestratorslurmconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_orchestrator_slurm_config_property = sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                    slurm_config_strategy="slurmConfigStrategy"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__c26797bd93cd7f8db64f992faf8467f4712b6ac3db043444a37316f7e0f1fb07)
+                check_type(argname="argument slurm_config_strategy", value=slurm_config_strategy, expected_type=type_hints["slurm_config_strategy"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if slurm_config_strategy is not None:
+                self._values["slurm_config_strategy"] = slurm_config_strategy
+
+        @builtins.property
+        def slurm_config_strategy(self) -> typing.Optional[builtins.str]:
+            '''The strategy for managing Slurm configuration on the cluster.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterorchestratorslurmconfig.html#cfn-sagemaker-cluster-clusterorchestratorslurmconfig-slurmconfigstrategy
+            '''
+            result = self._values.get("slurm_config_strategy")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterOrchestratorSlurmConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -3423,6 +3763,19 @@ class CfnCluster(
                             root_volume=False,
                             volume_kms_key_id="volumeKmsKeyId",
                             volume_size_in_gb=123
+                        ),
+                        fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                            dns_name="dnsName",
+                            mount_name="mountName",
+                
+                            # the properties below are optional
+                            mount_path="mountPath"
+                        ),
+                        fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                            dns_name="dnsName",
+                
+                            # the properties below are optional
+                            mount_path="mountPath"
                         )
                     )],
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -3593,6 +3946,81 @@ class CfnCluster(
 
         def __repr__(self) -> str:
             return "ClusterRestrictedInstanceGroupProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.ClusterSlurmConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"node_type": "nodeType", "partition_names": "partitionNames"},
+    )
+    class ClusterSlurmConfigProperty:
+        def __init__(
+            self,
+            *,
+            node_type: builtins.str,
+            partition_names: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ) -> None:
+            '''Slurm configuration for the instance group.
+
+            :param node_type: The type of Slurm node for this instance group.
+            :param partition_names: The Slurm partitions that this instance group belongs to. Maximum of 1 partition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterslurmconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_sagemaker as sagemaker
+                
+                cluster_slurm_config_property = sagemaker.CfnCluster.ClusterSlurmConfigProperty(
+                    node_type="nodeType",
+                
+                    # the properties below are optional
+                    partition_names=["partitionNames"]
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__5ed4b20a1c0df89552a72e8a81a8887e051d75f9280937b2fdb4a2a80d69544a)
+                check_type(argname="argument node_type", value=node_type, expected_type=type_hints["node_type"])
+                check_type(argname="argument partition_names", value=partition_names, expected_type=type_hints["partition_names"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "node_type": node_type,
+            }
+            if partition_names is not None:
+                self._values["partition_names"] = partition_names
+
+        @builtins.property
+        def node_type(self) -> builtins.str:
+            '''The type of Slurm node for this instance group.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterslurmconfig.html#cfn-sagemaker-cluster-clusterslurmconfig-nodetype
+            '''
+            result = self._values.get("node_type")
+            assert result is not None, "Required property 'node_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def partition_names(self) -> typing.Optional[typing.List[builtins.str]]:
+            '''The Slurm partitions that this instance group belongs to.
+
+            Maximum of 1 partition.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-clusterslurmconfig.html#cfn-sagemaker-cluster-clusterslurmconfig-partitionnames
+            '''
+            result = self._values.get("partition_names")
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ClusterSlurmConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3839,17 +4267,19 @@ class CfnCluster(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_sagemaker.CfnCluster.OrchestratorProperty",
         jsii_struct_bases=[],
-        name_mapping={"eks": "eks"},
+        name_mapping={"eks": "eks", "slurm": "slurm"},
     )
     class OrchestratorProperty:
         def __init__(
             self,
             *,
-            eks: typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterOrchestratorEksConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            eks: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterOrchestratorEksConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            slurm: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnCluster.ClusterOrchestratorSlurmConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The orchestrator for a SageMaker HyperPod cluster.
 
             :param eks: The configuration of the Amazon EKS orchestrator cluster for the SageMaker HyperPod cluster.
+            :param slurm: Specifies parameter(s) related to Slurm as orchestrator.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-orchestrator.html
             :exampleMetadata: fixture=_generated
@@ -3863,27 +4293,43 @@ class CfnCluster(
                 orchestrator_property = sagemaker.CfnCluster.OrchestratorProperty(
                     eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
                         cluster_arn="clusterArn"
+                    ),
+                    slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                        slurm_config_strategy="slurmConfigStrategy"
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__bd76c8323d4b86bae18d24faa04bdbae1945db1d8ba5ca351b2ce27ff07f8aa6)
                 check_type(argname="argument eks", value=eks, expected_type=type_hints["eks"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "eks": eks,
-            }
+                check_type(argname="argument slurm", value=slurm, expected_type=type_hints["slurm"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if eks is not None:
+                self._values["eks"] = eks
+            if slurm is not None:
+                self._values["slurm"] = slurm
 
         @builtins.property
         def eks(
             self,
-        ) -> typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorEksConfigProperty"]:
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorEksConfigProperty"]]:
             '''The configuration of the Amazon EKS orchestrator cluster for the SageMaker HyperPod cluster.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-orchestrator.html#cfn-sagemaker-cluster-orchestrator-eks
             '''
             result = self._values.get("eks")
-            assert result is not None, "Required property 'eks' is missing"
-            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorEksConfigProperty"], result)
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorEksConfigProperty"]], result)
+
+        @builtins.property
+        def slurm(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorSlurmConfigProperty"]]:
+            '''Specifies parameter(s) related to Slurm as orchestrator.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-cluster-orchestrator.html#cfn-sagemaker-cluster-orchestrator-slurm
+            '''
+            result = self._values.get("slurm")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnCluster.ClusterOrchestratorSlurmConfigProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4326,6 +4772,19 @@ class CfnClusterProps:
                             root_volume=False,
                             volume_kms_key_id="volumeKmsKeyId",
                             volume_size_in_gb=123
+                        ),
+                        fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                            dns_name="dnsName",
+                            mount_name="mountName",
+            
+                            # the properties below are optional
+                            mount_path="mountPath"
+                        ),
+                        fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                            dns_name="dnsName",
+            
+                            # the properties below are optional
+                            mount_path="mountPath"
                         )
                     )],
                     kubernetes_config=sagemaker.CfnCluster.ClusterKubernetesConfigProperty(
@@ -4369,6 +4828,12 @@ class CfnClusterProps:
                             wait_interval_in_seconds=123
                         )
                     ),
+                    slurm_config=sagemaker.CfnCluster.ClusterSlurmConfigProperty(
+                        node_type="nodeType",
+            
+                        # the properties below are optional
+                        partition_names=["partitionNames"]
+                    ),
                     threads_per_core=123,
                     training_plan_arn="trainingPlanArn"
                 )],
@@ -4377,6 +4842,9 @@ class CfnClusterProps:
                 orchestrator=sagemaker.CfnCluster.OrchestratorProperty(
                     eks=sagemaker.CfnCluster.ClusterOrchestratorEksConfigProperty(
                         cluster_arn="clusterArn"
+                    ),
+                    slurm=sagemaker.CfnCluster.ClusterOrchestratorSlurmConfigProperty(
+                        slurm_config_strategy="slurmConfigStrategy"
                     )
                 ),
                 restricted_instance_groups=[sagemaker.CfnCluster.ClusterRestrictedInstanceGroupProperty(
@@ -4398,6 +4866,19 @@ class CfnClusterProps:
                             root_volume=False,
                             volume_kms_key_id="volumeKmsKeyId",
                             volume_size_in_gb=123
+                        ),
+                        fsx_lustre_config=sagemaker.CfnCluster.ClusterFsxLustreConfigProperty(
+                            dns_name="dnsName",
+                            mount_name="mountName",
+            
+                            # the properties below are optional
+                            mount_path="mountPath"
+                        ),
+                        fsx_open_zfs_config=sagemaker.CfnCluster.ClusterFsxOpenZfsConfigProperty(
+                            dns_name="dnsName",
+            
+                            # the properties below are optional
+                            mount_path="mountPath"
                         )
                     )],
                     on_start_deep_health_checks=["onStartDeepHealthChecks"],
@@ -57524,6 +58005,23 @@ def _typecheckingstub__9c3cafd59fbc880606685f87e0e67d5a5ce5428cfebf3db8838122cd5
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__002c28ba3730fdf5b81fe1307b6df8bce76653ec1b818b81ea33db60c66eabd0(
+    *,
+    dns_name: builtins.str,
+    mount_name: builtins.str,
+    mount_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__a57399417ea5af05b070f9b50f3b1fd8757276562ccdac6f33dfe87ab4f28692(
+    *,
+    dns_name: builtins.str,
+    mount_path: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd47bcc03(
     *,
     execution_role: builtins.str,
@@ -57540,6 +58038,7 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
     on_start_deep_health_checks: typing.Optional[typing.Sequence[builtins.str]] = None,
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     scheduled_update_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ScheduledUpdateConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slurm_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterSlurmConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threads_per_core: typing.Optional[jsii.Number] = None,
     training_plan_arn: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -57549,6 +58048,8 @@ def _typecheckingstub__3a19719ba9f3f785eebfbcc6ee996f6178944dfe9cbd5d5cdf73341bd
 def _typecheckingstub__43caf7c774c2545f8cff945a7d450e1acd83d6c11b7011b4cab6d25bea696218(
     *,
     ebs_volume_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterEbsVolumeConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fsx_lustre_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterFsxLustreConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    fsx_open_zfs_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterFsxOpenZfsConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -57585,6 +58086,13 @@ def _typecheckingstub__3b374679c88beb50318d8d8daa787c0b2f669d656010f29c3a5f6b1e4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__c26797bd93cd7f8db64f992faf8467f4712b6ac3db043444a37316f7e0f1fb07(
+    *,
+    slurm_config_strategy: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13341f9df(
     *,
     environment_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.EnvironmentConfigProperty, typing.Dict[builtins.str, typing.Any]]],
@@ -57598,6 +58106,14 @@ def _typecheckingstub__b93ff4f69c672c7cfa634445653e3f5eacc520b4a55f74e9e45bbbb13
     override_vpc_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.VpcConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     threads_per_core: typing.Optional[jsii.Number] = None,
     training_plan_arn: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__5ed4b20a1c0df89552a72e8a81a8887e051d75f9280937b2fdb4a2a80d69544a(
+    *,
+    node_type: builtins.str,
+    partition_names: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -57628,7 +58144,8 @@ def _typecheckingstub__899364a165a53139f902fa4a999dd968cdc29639285dacf831f16633b
 
 def _typecheckingstub__bd76c8323d4b86bae18d24faa04bdbae1945db1d8ba5ca351b2ce27ff07f8aa6(
     *,
-    eks: typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterOrchestratorEksConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    eks: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterOrchestratorEksConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    slurm: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnCluster.ClusterOrchestratorSlurmConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

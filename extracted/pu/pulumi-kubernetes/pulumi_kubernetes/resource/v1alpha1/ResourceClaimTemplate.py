@@ -28,6 +28,7 @@ class ResourceClaimTemplateInitArgs:
                  metadata: Optional[pulumi.Input['_meta.v1.ObjectMetaArgs']] = None):
         """
         The set of arguments for constructing a ResourceClaimTemplate resource.
+
         :param pulumi.Input['ResourceClaimTemplateSpecArgs'] spec: Describes the ResourceClaim that is to be generated.
                
                This field is immutable. A ResourceClaim will get created by the control plane for a Pod when needed and then not get updated anymore.
@@ -108,6 +109,7 @@ class ResourceClaimTemplate(pulumi.CustomResource):
         """
         ResourceClaimTemplate is used to produce ResourceClaim objects.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -125,6 +127,7 @@ class ResourceClaimTemplate(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         ResourceClaimTemplate is used to produce ResourceClaim objects.
+
 
         :param str resource_name: The name of the resource.
         :param ResourceClaimTemplateInitArgs args: The arguments to use to populate this resource's properties.
@@ -160,7 +163,7 @@ class ResourceClaimTemplate(pulumi.CustomResource):
             if spec is None and not opts.urn:
                 raise TypeError("Missing required property 'spec'")
             __props__.__dict__["spec"] = spec
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceClaimTemplate")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceClaimTemplate"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceClaimTemplate")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ResourceClaimTemplate, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha1:ResourceClaimTemplate',

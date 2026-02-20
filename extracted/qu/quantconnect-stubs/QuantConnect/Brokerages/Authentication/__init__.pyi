@@ -17,52 +17,6 @@ QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TRequest = typing.TypeV
 QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse = typing.TypeVar("QuantConnect_Brokerages_Authentication_OAuthTokenHandler_TResponse")
 
 
-class TokenType(IntEnum):
-    """Defines the supported types of access tokens used for authentication."""
-
-    BEARER = 0
-    """A Bearer token, typically used for standard HTTP Authorization headers."""
-
-    SESSION_TOKEN = 1
-    """A Session token, typically used for username/password authorization headers."""
-
-
-class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.ABCMeta):
-    """Represents a response containing metadata about an access token issued by Lean."""
-
-    @property
-    def access_token(self) -> str:
-        """Gets the access token provided by Lean."""
-        ...
-
-    @property
-    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
-        """Gets the type of the token (e.g., "Bearer")."""
-        ...
-
-    @property
-    def expiration(self) -> datetime.datetime:
-        """Gets the UTC expiration timestamp of the access token, with a 1-minute safety buffer applied."""
-        ...
-
-    @expiration.setter
-    def expiration(self, value: datetime.datetime) -> None:
-        ...
-
-    def __init__(self, access_token: str, token_type: QuantConnect.Brokerages.Authentication.TokenType, expires: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Initializes a new instance of the AccessTokenMetaDataResponse class.
-        
-        
-        This codeEntityType is protected.
-        
-        :param access_token: The access token string provided by the authentication service.
-        :param token_type: The type of the token (e.g., Bearer).
-        :param expires: The expiration time of the access token (in UTC), with safety buffer applied.
-        """
-        ...
-
-
 class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
     """Represents the base request for obtaining an access token, including brokerage and account information."""
 
@@ -98,6 +52,16 @@ class AccessTokenMetaDataRequest(System.Object, metaclass=abc.ABCMeta):
         :returns: A JSON string representing the current request.
         """
         ...
+
+
+class TokenType(IntEnum):
+    """Defines the supported types of access tokens used for authentication."""
+
+    BEARER = 0
+    """A Bearer token, typically used for standard HTTP Authorization headers."""
+
+    SESSION_TOKEN = 1
+    """A Session token, typically used for username/password authorization headers."""
 
 
 class TokenCredentials(System.Object):
@@ -208,6 +172,42 @@ class OAuthTokenHandler(typing.Generic[QuantConnect_Brokerages_Authentication_OA
         
         :param cancellation_token: A token used to observe cancellation requests.
         :returns: A tuple containing the token type and access token string.
+        """
+        ...
+
+
+class AccessTokenMetaDataResponse(QuantConnect.Api.RestResponse, metaclass=abc.ABCMeta):
+    """Represents a response containing metadata about an access token issued by Lean."""
+
+    @property
+    def access_token(self) -> str:
+        """Gets the access token provided by Lean."""
+        ...
+
+    @property
+    def token_type(self) -> QuantConnect.Brokerages.Authentication.TokenType:
+        """Gets the type of the token (e.g., "Bearer")."""
+        ...
+
+    @property
+    def expiration(self) -> datetime.datetime:
+        """Gets the UTC expiration timestamp of the access token, with a 1-minute safety buffer applied."""
+        ...
+
+    @expiration.setter
+    def expiration(self, value: datetime.datetime) -> None:
+        ...
+
+    def __init__(self, access_token: str, token_type: QuantConnect.Brokerages.Authentication.TokenType, expires: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Initializes a new instance of the AccessTokenMetaDataResponse class.
+        
+        
+        This codeEntityType is protected.
+        
+        :param access_token: The access token string provided by the authentication service.
+        :param token_type: The type of the token (e.g., Bearer).
+        :param expires: The expiration time of the access token (in UTC), with safety buffer applied.
         """
         ...
 

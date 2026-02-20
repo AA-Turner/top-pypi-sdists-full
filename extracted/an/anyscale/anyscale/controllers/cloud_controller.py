@@ -2041,7 +2041,8 @@ class CloudController(BaseController):
                 new_policy = _update_external_ids_for_policy(
                     iam_role_original_policy, cloud_id
                 )
-                role.AssumeRolePolicy().update(PolicyDocument=json.dumps(new_policy))  # type: ignore
+                if new_policy != iam_role_original_policy:
+                    role.AssumeRolePolicy().update(PolicyDocument=json.dumps(new_policy))  # type: ignore
             except ClientError as e:
                 self.log.log_resource_exception(
                     CloudAnalyticsEventCloudResource.AWS_IAM_ROLE, e
@@ -4090,9 +4091,6 @@ class CloudController(BaseController):
                     cloud_id=cloud_id, state=CloudState.DELETING,
                 )
 
-            # Get the default cloud resource for cleanup
-            primary_cloud_resource = cloud_resources[0]
-
             if cloud_provider == CloudProviders.AWS:
                 if not (cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S):
                     # Delete services resources
@@ -4102,14 +4100,14 @@ class CloudController(BaseController):
                             api_client=self.api_client, cloud_id=cloud_id
                         )
                     self.delete_aws_tls_certificates(cloud=cloud)
-
-                self.delete_all_aws_resources(cloud, primary_cloud_resource)
             elif cloud_provider == CloudProviders.GCP:
                 with self.log.spinner("Deleting load balancing resources..."):
                     wait_for_lb_resource_termination(
                         api_client=self.api_client, cloud_id=cloud_id
                     )
-                self.delete_all_gcp_resources(cloud, primary_cloud_resource)
+
+            self.delete_all_managed_aws_resources(cloud, cloud_resources)
+            self.delete_all_managed_gcp_resources(cloud, cloud_resources)
         except Exception as e:  # noqa: BLE001
             confirm(
                 f"Error while trying to clean up {cloud_provider} resources:\n{e}\n"
@@ -4132,54 +4130,84 @@ class CloudController(BaseController):
         self.log.info(f"Deleted cloud with name {cloud_name}.")
         return True
 
-    def delete_all_gcp_resources(
-        self, cloud: Cloud, cloud_resource: Optional[DecoratedCloudResource]
-    ):
-        if cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S:
-            # No resources to delete for hosted and k8s clouds
-            return True
+    def _is_managed_resource(self, cloud_resource: DecoratedCloudResource) -> bool:
+        if cloud_resource.provider == CloudProviders.AWS and cloud_resource.aws_config:
+            return bool(cloud_resource.aws_config.cloudformation_id)
 
-        if not cloud_resource or not cloud_resource.gcp_config:
-            raise ClickException(
-                f"This cloud {cloud.id} does not have GCP cloud resource configuration."
+        if cloud_resource.provider == CloudProviders.GCP and cloud_resource.gcp_config:
+            return bool(
+                cloud_resource.gcp_config.deployment_manager_id
+                or cloud_resource.gcp_config.infrastructure_manager_id
             )
+
+        return False
+
+    def delete_all_managed_gcp_resources(
+        self, cloud: Cloud, cloud_resources: List[DecoratedCloudResource]
+    ):
+        if cloud.is_aioa:
+            return True
 
         setup_utils = try_import_gcp_managed_setup_utils()
         gcp_utils = try_import_gcp_utils()
-        gcp_config = cloud_resource.gcp_config
-        provider = gcp_config.provider_name
-        service_account = gcp_config.anyscale_service_account_email
-        project_id = gcp_config.project_id
-        factory = gcp_utils.get_google_cloud_client_factory(self.log, project_id)
 
-        # Delete services resources
-        setup_utils.delete_gcp_tls_certificates(factory, project_id, cloud.id)
+        gcp_managed_resources = [
+            resource
+            for resource in cloud_resources
+            if (
+                resource.compute_stack == ComputeStack.VM
+                and self._is_managed_resource(resource)
+                and resource.provider == CloudProviders.GCP
+                and resource.gcp_config
+            )
+        ]
 
-        # Clean up cloud resources
-        if cloud.is_bring_your_own_resource is False:  # managed cloud
-            self.delete_gcp_managed_cloud(cloud=cloud, cloud_resource=cloud_resource)
-        else:
+        if not gcp_managed_resources:
+            return True
+
+        for resource in gcp_managed_resources:
+            # Delete TLS certificates for each resource
+            project_id = resource.gcp_config.project_id
+            factory = gcp_utils.get_google_cloud_client_factory(self.log, project_id)
+            setup_utils.delete_gcp_tls_certificates(factory, project_id, cloud.id)
+
+            # Delete managed resource
+            self.delete_gcp_managed_cloud_resource(cloud_resource=resource)
+
+        # Warn about BYOC resources (if any exist)
+        byoc_resources = [
+            resource
+            for resource in cloud_resources
+            if (
+                resource.compute_stack == ComputeStack.VM
+                and not self._is_managed_resource(resource)
+                and resource.provider == CloudProviders.GCP
+                and resource.gcp_config
+            )
+        ]
+
+        for resource in byoc_resources:
+            gcp_config = resource.gcp_config
+            assert gcp_config is not None  # Guaranteed by byoc_resources filter
             self.log.warning(
-                f"The workload identity federation provider pool {provider} and service account {service_account} that allows Anyscale to access your GCP account is still in place. Please delete it manually if you no longer wish anyscale to have access."
+                f"The workload identity federation provider pool {gcp_config.provider_name} and service account {gcp_config.anyscale_service_account_email} that allows Anyscale to access your GCP account is still in place. Please delete it manually if you no longer wish anyscale to have access."
             )
 
         return True
 
-    def delete_all_aws_resources(
-        self, cloud: Cloud, cloud_resource: Optional[DecoratedCloudResource]
+    def delete_all_managed_aws_resources(
+        self, cloud: Cloud, cloud_resources: List[DecoratedCloudResource]
     ) -> bool:
-        if cloud.is_aioa or cloud.compute_stack == ComputeStack.K8S:
-            # No resources to delete for hosted and k8s clouds
+        if cloud.is_aioa:
             return True
 
-        # Clean up cloud resources
-        if cloud.is_bring_your_own_resource is False:  # managed cloud
-            # Delete AWS cloud resources by deleting the cfn stack
-            self.delete_aws_managed_cloud(cloud=cloud, cloud_resource=cloud_resource)
-        else:  # registered cloud
-            self.log.warning(
-                f"The trust policy that allows Anyscale to assume {cloud.credentials} is still in place. Please delete it manually if you no longer wish anyscale to have access."
-            )
+        for resource in cloud_resources:
+            if (
+                resource.compute_stack == ComputeStack.VM
+                and self._is_managed_resource(resource)
+                and resource.provider == CloudProviders.AWS
+            ):
+                self.delete_aws_managed_cloud(cloud=cloud, cloud_resource=resource)
 
         return True
 
@@ -4275,9 +4303,9 @@ class CloudController(BaseController):
 
         cfn_stack_arn = cloud_resource.aws_config.cloudformation_id
 
-        # If the cloud is updated, the cross account IAM role might have an inline policy for customer drifts
+        # If the cloud or resource is updated, the cross account IAM role might have an inline policy for customer drifts
         # We delete the inline policy first otherwise cfn stack deletion would fail
-        try_delete_customer_drifts_policy(cloud=cloud)
+        try_delete_customer_drifts_policy(cloud=cloud, cloud_resource=cloud_resource)
 
         bucket_name = (
             cloud_resource.object_storage.bucket_name
@@ -4291,13 +4319,19 @@ class CloudController(BaseController):
             )
 
         return self.delete_aws_cloudformation_stack(
-            cfn_stack_arn=cfn_stack_arn, cloud=cloud
+            cfn_stack_arn=cfn_stack_arn, cloud=cloud, cloud_resource=cloud_resource
         )
 
-    def delete_aws_cloudformation_stack(self, cfn_stack_arn: str, cloud: Cloud) -> bool:
-        cfn_client = _client("cloudformation", cloud.region)
+    def delete_aws_cloudformation_stack(
+        self,
+        cfn_stack_arn: str,
+        cloud: Cloud,
+        cloud_resource: Optional[DecoratedCloudResource] = None,
+    ) -> bool:
+        region = cloud_resource.region if cloud_resource else cloud.region
+        cfn_client = _client("cloudformation", region)
 
-        cfn_stack_url = f"https://{cloud.region}.console.aws.amazon.com/cloudformation/home?region={cloud.region}#/stacks/stackinfo?stackId={cfn_stack_arn}"
+        cfn_stack_url = f"https://{region}.console.aws.amazon.com/cloudformation/home?region={region}#/stacks/stackinfo?stackId={cfn_stack_arn}"
 
         try:
             cfn_client.delete_stack(StackName=cfn_stack_arn)
@@ -4353,51 +4387,70 @@ class CloudController(BaseController):
 
         return True
 
-    def delete_gcp_managed_cloud(
-        self, cloud: Cloud, cloud_resource: Optional[DecoratedCloudResource]
+    def delete_gcp_managed_cloud_resource(
+        self, cloud_resource: Optional[DecoratedCloudResource]
     ) -> bool:
         if (
             not cloud_resource
             or not cloud_resource.gcp_config
-            or not cloud_resource.gcp_config.deployment_manager_id
+            or (
+                not bool(cloud_resource.gcp_config.deployment_manager_id)
+                and not bool(cloud_resource.gcp_config.infrastructure_manager_id)
+            )
         ):
+            resource_name = (
+                cloud_resource.name or cloud_resource.cloud_resource_id
+                if cloud_resource
+                else "unknown"
+            )
             raise ClickException(
-                f"This cloud {cloud.id} does not have a deployment in GCP deployment manager."
+                f"This cloud resource {resource_name} does not have a deployment in GCP deployment manager or infrastructure manager."
             )
         setup_utils = try_import_gcp_managed_setup_utils()
         gcp_utils = try_import_gcp_utils()
 
         project_id = cloud_resource.gcp_config.project_id
         factory = gcp_utils.get_google_cloud_client_factory(self.log, project_id)
-        deployment_name = cloud_resource.gcp_config.deployment_manager_id
-        deployment_url = f"https://console.cloud.google.com/dm/deployments/details/{deployment_name}?project={project_id}"
 
-        self.log.info(f"\nTrack progress of Deployment Manager at {deployment_url}")
-
-        with self.log.spinner("Deleting cloud resources through Deployment Manager..."):
-            # Remove firewall policies
-            if cloud_resource.gcp_config.firewall_policy_names:
-                for firewall_policy in cloud_resource.gcp_config.firewall_policy_names:
-                    # try delete the associations
-                    setup_utils.remove_firewall_policy_associations(
-                        factory, project_id, firewall_policy
-                    )
-
-            # Delete the deployment
-            setup_utils.update_deployment_with_bucket_only(
-                factory, project_id, deployment_name
+        if cloud_resource.gcp_config.infrastructure_manager_id:
+            infra_manager_id = cloud_resource.gcp_config.infrastructure_manager_id
+            setup_utils.delete_infra_manager_deployment(
+                factory, project_id, cloud_resource.region or "", infra_manager_id
             )
+        else:
+            deployment_name = cloud_resource.gcp_config.deployment_manager_id
+            deployment_url = f"https://console.cloud.google.com/dm/deployments/details/{deployment_name}?project={project_id}"
 
-        bucket_name = (
-            cloud_resource.object_storage.bucket_name
-            if cloud_resource.object_storage
-            else None
-        )
-        if bucket_name:
-            self.log.info(
-                f"\nThe cloud bucket ({bucket_name}) associated with this cloud still exists."
-                "\nIf you no longer need the data associated with this bucket, please delete it."
+            self.log.info(f"\nTrack progress of Deployment Manager at {deployment_url}")
+
+            with self.log.spinner(
+                "Deleting cloud resources through Deployment Manager..."
+            ):
+                # Remove firewall policies
+                if cloud_resource.gcp_config.firewall_policy_names:
+                    for (
+                        firewall_policy
+                    ) in cloud_resource.gcp_config.firewall_policy_names:
+                        # try delete the associations
+                        setup_utils.remove_firewall_policy_associations(
+                            factory, project_id, firewall_policy
+                        )
+
+                # Delete the deployment
+                setup_utils.update_deployment_with_bucket_only(
+                    factory, project_id, deployment_name
+                )
+
+            bucket_name = (
+                cloud_resource.object_storage.bucket_name
+                if cloud_resource.object_storage
+                else None
             )
+            if bucket_name:
+                self.log.info(
+                    f"\nThe cloud bucket ({bucket_name}) associated with this cloud still exists."
+                    "\nIf you no longer need the data associated with this bucket, please delete it."
+                )
         return True
 
     ### Edit cloud ###

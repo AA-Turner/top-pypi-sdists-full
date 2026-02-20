@@ -710,6 +710,9 @@ def _update_external_ids_for_policy(
     # remove duplicate external IDs
     external_ids = [sorted(set(ids)) for ids in external_ids]
 
+    # Convert single-item lists to strings to match AWS format
+    external_ids = [ids[0] if len(ids) == 1 else ids for ids in external_ids]
+
     _ = [
         policy["Statement"][i]["Condition"]["StringEquals"].update(
             {"sts:ExternalId": external_ids[i]}

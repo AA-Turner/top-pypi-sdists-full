@@ -2,14 +2,12 @@
 Models for the custom_css app
 """
 
-import os
 import re
 
 # Django Solo
 from solo.models import SingletonModel
 
 # Django
-from django.conf import settings
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
@@ -25,11 +23,17 @@ class CustomCSS(SingletonModel):
         verbose_name=_("Your custom CSS"),
         help_text=_("This CSS will be added to the site after the default CSS."),
     )
+    css_compressed = models.TextField(
+        blank=True,
+        null=True,
+        verbose_name=_("Compressed custom CSS"),
+        help_text=_("This field is automatically generated and should not be edited."),
+    )
     timestamp = models.DateTimeField(auto_now=True)
 
     class Meta:
         """
-        Meta for CustomCSS
+        Meta for CustomCSS model
         """
 
         default_permissions = ()
@@ -38,7 +42,7 @@ class CustomCSS(SingletonModel):
 
     def __str__(self) -> str:
         """
-        String representation of CustomCSS
+        String representation of the CustomCSS instance
 
         :return:
         :rtype:
@@ -48,7 +52,7 @@ class CustomCSS(SingletonModel):
 
     def save(self, *args, **kwargs):
         """
-        Save method for CustomCSS
+        Save the CustomCSS instance
 
         :param args:
         :type args:
@@ -59,20 +63,7 @@ class CustomCSS(SingletonModel):
         """
 
         self.pk = 1
-
-        if self.css and len(self.css.replace(" ", "")) > 0:
-            # Write the custom CSS to a file
-            custom_css_file = open(
-                f"{settings.STATIC_ROOT}allianceauth/custom-styles.css", "w+"
-            )
-            custom_css_file.write(self.compress_css())
-            custom_css_file.close()
-        else:
-            # Remove the custom CSS file
-            try:
-                os.remove(f"{settings.STATIC_ROOT}allianceauth/custom-styles.css")
-            except FileNotFoundError:
-                pass
+        self.css_compressed = self.compress_css()
 
         super().save(*args, **kwargs)
 
@@ -84,7 +75,7 @@ class CustomCSS(SingletonModel):
         :rtype:
         """
 
-        css = self.css
+        css = self.css or ""
         new_css = ""
 
         # Remove comments

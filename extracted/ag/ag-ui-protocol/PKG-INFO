@@ -1,19 +1,12 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: ag-ui-protocol
-Version: 0.1.11
+Version: 0.1.13
 Summary: 
-License: MIT
 Author: Markus Ecker
-Author-email: markus.ecker@gmail.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: pydantic (>=2.11.2,<3.0.0)
+Author-email: Markus Ecker <markus.ecker@gmail.com>
+License-Expression: MIT
+Requires-Dist: pydantic>=2.11.2
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 # ag-ui-protocol
@@ -90,4 +83,3 @@ Bug reports and pull requests are welcome! Please read our [contributing guide](
 ## License
 
 MIT © 2025 AG-UI Protocol Contributors
-

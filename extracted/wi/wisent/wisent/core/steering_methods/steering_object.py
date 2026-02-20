@@ -135,16 +135,17 @@ class BaseSteeringObject(ABC):
         else:
             h_flat = hidden_state.mean(dim=1)  # [batch, hidden]
         
+        original_dtype = hidden_state.dtype
         gate = self.compute_gate(h_flat)
         intensity = self.compute_intensity(h_flat, layer)
         direction = self.get_steering_vector(layer, h_flat)
-        
+
         # Ensure direction matches hidden state device/dtype
-        direction = direction.to(hidden_state.device, hidden_state.dtype)
-        
-        # Compute steering delta
-        scale = gate * intensity * base_strength
-        
+        direction = direction.to(hidden_state.device, original_dtype)
+
+        # Compute steering delta - cast scale to match hidden state dtype
+        scale = (gate * intensity * base_strength).to(original_dtype)
+
         # Broadcast direction to match hidden_state shape
         if hidden_state.dim() == 1:
             delta = scale.squeeze() * direction
@@ -152,8 +153,8 @@ class BaseSteeringObject(ABC):
             delta = scale.unsqueeze(-1) * direction.unsqueeze(0)
         else:
             delta = scale.unsqueeze(-1).unsqueeze(-1) * direction.unsqueeze(0).unsqueeze(0)
-        
-        return hidden_state + delta
+
+        return (hidden_state + delta).to(original_dtype)
     
     def to_steering_plan(self, scale: float = 1.0, normalize: bool = True) -> "SteeringPlan":
         """
@@ -261,6 +262,9 @@ class BaseSteeringObject(ABC):
         elif method == 'concept_flow':
             from wisent.core.steering_methods.methods.concept_flow import ConceptFlowSteeringObject
             return ConceptFlowSteeringObject.from_dict(data)
+        elif method == 'geodesic_ot':
+            from wisent.core.steering_methods.methods.geodesic_ot import GeodesicOTSteeringObject
+            return GeodesicOTSteeringObject.from_dict(data)
         else:
             raise ValueError(f"Unknown steering method: {method}")
 
@@ -291,11 +295,11 @@ class SimpleSteeringObject(BaseSteeringObject):
     def compute_gate(self, hidden_state: torch.Tensor) -> torch.Tensor:
         # Always steer
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.ones(batch_size, device=hidden_state.device)
+        return torch.ones(batch_size, device=hidden_state.device, dtype=hidden_state.dtype)
     
     def compute_intensity(self, hidden_state: torch.Tensor, layer: int) -> torch.Tensor:
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.full((batch_size,), self.default_intensity, device=hidden_state.device)
+        return torch.full((batch_size,), self.default_intensity, device=hidden_state.device, dtype=hidden_state.dtype)
     
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -402,11 +406,11 @@ class PRISMSteeringObject(BaseSteeringObject):
     
     def compute_gate(self, hidden_state: torch.Tensor) -> torch.Tensor:
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.ones(batch_size, device=hidden_state.device)
+        return torch.ones(batch_size, device=hidden_state.device, dtype=hidden_state.dtype)
     
     def compute_intensity(self, hidden_state: torch.Tensor, layer: int) -> torch.Tensor:
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.ones(batch_size, device=hidden_state.device)
+        return torch.ones(batch_size, device=hidden_state.device, dtype=hidden_state.dtype)
     
     def get_all_directions(self, layer: int) -> torch.Tensor:
         """Get all directions for a layer."""
@@ -503,7 +507,7 @@ class PULSESteeringObject(BaseSteeringObject):
     def compute_gate(self, hidden_state: torch.Tensor) -> torch.Tensor:
         """Compute gate based on similarity to condition vector."""
         h_norm = F.normalize(hidden_state, dim=-1)
-        c_norm = F.normalize(self.condition_vector.to(hidden_state.device), dim=-1)
+        c_norm = F.normalize(self.condition_vector.to(device=hidden_state.device, dtype=hidden_state.dtype), dim=-1)
         
         similarity = (h_norm * c_norm).sum(dim=-1)
         gate = torch.sigmoid((similarity - self.threshold) / self.gate_temperature)
@@ -512,7 +516,7 @@ class PULSESteeringObject(BaseSteeringObject):
     def compute_intensity(self, hidden_state: torch.Tensor, layer: int) -> torch.Tensor:
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
         scale = self.layer_scales.get(layer, 1.0)
-        return torch.full((batch_size,), scale, device=hidden_state.device)
+        return torch.full((batch_size,), scale, device=hidden_state.device, dtype=hidden_state.dtype)
     
     def should_steer(self, hidden_state: torch.Tensor) -> bool:
         """Hard decision on whether to steer."""
@@ -808,6 +812,9 @@ def create_steering_object(
     elif method == 'concept_flow':
         from wisent.core.steering_methods.methods.concept_flow import ConceptFlowSteeringObject
         return ConceptFlowSteeringObject(metadata, **kwargs)
+    elif method == 'geodesic_ot':
+        from wisent.core.steering_methods.methods.geodesic_ot import GeodesicOTSteeringObject
+        return GeodesicOTSteeringObject(metadata, **kwargs)
     else:
         raise ValueError(f"Unknown steering method: {method}")
 

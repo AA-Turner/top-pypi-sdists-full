@@ -6,7 +6,7 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry]
 name = "cyclonedx-bom"
-version = "7.2.1"
+version = "7.2.2"
 description = "CycloneDX Software Bill of Materials (SBOM) generator for Python projects and environments"
 authors = [
   "Jan Kowalleck <jan.kowalleck@gmail.com>",
@@ -73,7 +73,7 @@ python = "^3.9"
 cyclonedx-python-lib = { version = "^8.0 || ^9.0 || ^10 || ^11", extras = ["validation"] }
 packageurl-python = ">=0.11, <2"  # keep in sync with same dep in `cyclonedx-python-lib`
 pip-requirements-parser = "^32.0"
-packaging = "^22 || ^23 || ^24 || ^25"
+packaging = "^22 || ^23 || ^24 || ^25 || ^26"
 tomli = { version = "^2.0.1", python = "<3.11" }
 chardet = "^5.1"
 
@@ -92,11 +92,14 @@ pep8-naming = "0.15.1"
 flake8-logging = "1.8.0"
 isort = "6.1.0"
 autopep8 = "2.3.2"
-mypy = "1.18.2"
+mypy = "1.19.1"
 bandit = "1.8.6"
 tomli = { version = "^2.0.1", python = "<3.11" }
 tox = "4.30.3"
-pyupgrade = "3.21.0"
+pyupgrade = [
+  { version = "3.21.0", python = "<3.10" },
+  { version = "3.21.2", python = ">=3.10" },
+]
 deptry = "0.23.1"
 # for tests, use the GPL-version of jsonschema format validators - they are faster
 jsonschema = { version = "*", extras = ["format"] }
@@ -111,7 +114,7 @@ pip = ">=23.0"
 pipenv = ">=2023.11.5"
 poetry = "^1.7"
 pdm = "^2.11"
-uv = "0.9.5"  # keep pinned to exact version, until a v1.0.0 is released
+uv = "0.10.2"  # keep pinned to exact version, until a v1.0.0 is released
 
 
 

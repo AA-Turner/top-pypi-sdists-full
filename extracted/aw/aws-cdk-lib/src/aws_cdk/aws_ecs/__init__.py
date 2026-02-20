@@ -9858,52 +9858,19 @@ class CfnCluster(
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-cluster.html
     :cloudformationResource: AWS::ECS::Cluster
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        from aws_cdk import CfnTag
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_ecs as ecs
+        import aws_cdk.aws_ecs as ecs
+        from aws_cdk.mixins_preview.aws_ecs.mixins import ClusterSettings
         
-        cfn_cluster = ecs.CfnCluster(self, "MyCfnCluster",
-            capacity_providers=["capacityProviders"],
-            cluster_name="clusterName",
-            cluster_settings=[ecs.CfnCluster.ClusterSettingsProperty(
-                name="name",
-                value="value"
-            )],
-            configuration=ecs.CfnCluster.ClusterConfigurationProperty(
-                execute_command_configuration=ecs.CfnCluster.ExecuteCommandConfigurationProperty(
-                    kms_key_id="kmsKeyId",
-                    log_configuration=ecs.CfnCluster.ExecuteCommandLogConfigurationProperty(
-                        cloud_watch_encryption_enabled=False,
-                        cloud_watch_log_group_name="cloudWatchLogGroupName",
-                        s3_bucket_name="s3BucketName",
-                        s3_encryption_enabled=False,
-                        s3_key_prefix="s3KeyPrefix"
-                    ),
-                    logging="logging"
-                ),
-                managed_storage_configuration=ecs.CfnCluster.ManagedStorageConfigurationProperty(
-                    fargate_ephemeral_storage_kms_key_id="fargateEphemeralStorageKmsKeyId",
-                    kms_key_id="kmsKeyId"
-                )
-            ),
-            default_capacity_provider_strategy=[ecs.CfnCluster.CapacityProviderStrategyItemProperty(
-                base=123,
-                capacity_provider="capacityProvider",
-                weight=123
-            )],
-            service_connect_defaults=ecs.CfnCluster.ServiceConnectDefaultsProperty(
-                namespace="namespace"
-            ),
-            tags=[CfnTag(
-                key="key",
-                value="value"
-            )]
-        )
+        
+        cluster = ecs.CfnCluster(scope, "Cluster")
+        Mixins.of(cluster).apply(ClusterSettings([
+            name="containerInsights",
+            value="enhanced"
+        ]))
     '''
 
     def __init__(

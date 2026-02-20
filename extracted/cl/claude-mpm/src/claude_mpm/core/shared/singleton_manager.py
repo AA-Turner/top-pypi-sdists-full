@@ -197,17 +197,19 @@ if __name__ == "__main__":
     # Test the patterns
     config1 = ConfigService("config1.yaml")
     config2 = ConfigService("config2.yaml")  # Same instance as config1
-    assert config1 is config2
-    assert config1.config_path == "config1.yaml"  # First initialization wins
+    assert config1 is config2  # nosec B101 - Example code only
+    assert config1.config_path == "config1.yaml"  # nosec B101 - Example code only
 
     logger1 = LoggerService("DEBUG")
     logger2 = LoggerService("ERROR")  # Same instance as logger1
-    assert logger1 is logger2
-    assert logger1.log_level == "DEBUG"  # First initialization wins
+    assert logger1 is logger2  # nosec B101 - Example code only
+    assert logger1.log_level == "DEBUG"  # nosec B101 - Example code only
 
     db1 = SingletonManager.get_instance(DatabaseService, "postgres://localhost")
     db2 = SingletonManager.get_instance(
         DatabaseService, "mysql://localhost"
     )  # Same instance
-    assert db1 is db2
-    assert db1.connection_string == "postgres://localhost"  # First initialization wins
+    assert db1 is db2  # nosec B101 - Example code only
+    assert (  # nosec B101 - Example code only
+        db1.connection_string == "postgres://localhost"
+    )  # First initialization wins

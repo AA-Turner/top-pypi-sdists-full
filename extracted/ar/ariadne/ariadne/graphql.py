@@ -6,7 +6,6 @@ from typing import (
     Any,
     cast,
 )
-from warnings import warn
 
 from graphql import (
     DocumentNode,
@@ -43,16 +42,6 @@ from .types import (
     ValidationRules,
 )
 from .validation.introspection_disabled import IntrospectionDisabledRule
-
-
-def root_value_two_args_deprecated():  # TODO: remove in 0.20
-    warn(
-        "'root_value(context, document)' has been deprecated and will raise a type "
-        "error in Ariadne 0.20. Change definition to "
-        "'root_value(context, operation_name, variables, document)'.",
-        DeprecationWarning,
-        stacklevel=2,
-    )
 
 
 async def graphql(
@@ -188,13 +177,9 @@ async def graphql(
                 validate_operation_is_not_subscription(document, operation_name)
 
             if callable(root_value):
-                try:
-                    root_value = root_value(  # type: ignore
-                        context_value, operation_name, variables, document
-                    )
-                except TypeError:  # TODO: remove in 0.20
-                    root_value_two_args_deprecated()
-                    root_value = root_value(context_value, document)  # type: ignore
+                root_value = root_value(
+                    context_value, operation_name, variables, document
+                )
 
                 if isawaitable(root_value):
                     root_value = await root_value
@@ -218,7 +203,7 @@ async def graphql(
             )
 
             if isawaitable(exec_result):
-                exec_result = await cast(Awaitable[ExecutionResult], exec_result)
+                exec_result = await exec_result
         except GraphQLError as error:
             error_result = handle_graphql_errors(
                 [error],
@@ -380,13 +365,9 @@ def graphql_sync(
                 validate_operation_is_not_subscription(document, operation_name)
 
             if callable(root_value):
-                try:
-                    root_value = root_value(  # type: ignore
-                        context_value, operation_name, variables, document
-                    )
-                except TypeError:  # TODO: remove in 0.20
-                    root_value_two_args_deprecated()
-                    root_value = root_value(context_value, document)  # type: ignore
+                root_value = root_value(
+                    context_value, operation_name, variables, document
+                )
 
                 if isawaitable(root_value):
                     ensure_future(root_value).cancel()
@@ -547,13 +528,7 @@ async def subscribe(
             )
 
         if callable(root_value):
-            try:
-                root_value = root_value(  # type: ignore
-                    context_value, operation_name, variables, document
-                )
-            except TypeError:  # TODO: remove in 0.20
-                root_value_two_args_deprecated()
-                root_value = root_value(context_value, document)  # type: ignore
+            root_value = root_value(context_value, operation_name, variables, document)
 
             if isawaitable(root_value):
                 root_value = await root_value
@@ -668,7 +643,7 @@ def validate_query(
     return validate_fn(schema, document_ast, rules=specified_rules, type_info=type_info)
 
 
-def validate_data(data: dict | None) -> None:
+def validate_data(data: dict | list | None) -> None:
     if not isinstance(data, dict):
         raise GraphQLError("Operation data should be a JSON object")
     validate_query_body(data.get("query"))

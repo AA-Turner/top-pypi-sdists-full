@@ -1668,6 +1668,7 @@ class CfnBot(
             "intents": "intents",
             "slot_types": "slotTypes",
             "speech_detection_sensitivity": "speechDetectionSensitivity",
+            "speech_recognition_settings": "speechRecognitionSettings",
             "unified_speech_settings": "unifiedSpeechSettings",
             "voice_settings": "voiceSettings",
         },
@@ -1684,6 +1685,7 @@ class CfnBot(
             intents: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.IntentProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             slot_types: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SlotTypeProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             speech_detection_sensitivity: typing.Optional[builtins.str] = None,
+            speech_recognition_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SpeechRecognitionSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             unified_speech_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.UnifiedSpeechSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             voice_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.VoiceSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
@@ -1697,6 +1699,7 @@ class CfnBot(
             :param intents: One or more intents defined for the locale.
             :param slot_types: One or more slot types defined for the locale.
             :param speech_detection_sensitivity: 
+            :param speech_recognition_settings: 
             :param unified_speech_settings: 
             :param voice_settings: Defines settings for using an Amazon Polly voice to communicate with a user. Valid values include: - ``standard`` - ``neural`` - ``long-form`` - ``generative``
 
@@ -1717,6 +1720,7 @@ class CfnBot(
                 check_type(argname="argument intents", value=intents, expected_type=type_hints["intents"])
                 check_type(argname="argument slot_types", value=slot_types, expected_type=type_hints["slot_types"])
                 check_type(argname="argument speech_detection_sensitivity", value=speech_detection_sensitivity, expected_type=type_hints["speech_detection_sensitivity"])
+                check_type(argname="argument speech_recognition_settings", value=speech_recognition_settings, expected_type=type_hints["speech_recognition_settings"])
                 check_type(argname="argument unified_speech_settings", value=unified_speech_settings, expected_type=type_hints["unified_speech_settings"])
                 check_type(argname="argument voice_settings", value=voice_settings, expected_type=type_hints["voice_settings"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1735,6 +1739,8 @@ class CfnBot(
                 self._values["slot_types"] = slot_types
             if speech_detection_sensitivity is not None:
                 self._values["speech_detection_sensitivity"] = speech_detection_sensitivity
+            if speech_recognition_settings is not None:
+                self._values["speech_recognition_settings"] = speech_recognition_settings
             if unified_speech_settings is not None:
                 self._values["unified_speech_settings"] = unified_speech_settings
             if voice_settings is not None:
@@ -1823,6 +1829,16 @@ class CfnBot(
             '''
             result = self._values.get("speech_detection_sensitivity")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def speech_recognition_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechRecognitionSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-botlocale.html#cfn-lex-bot-botlocale-speechrecognitionsettings
+            '''
+            result = self._values.get("speech_recognition_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechRecognitionSettingsProperty"]], result)
 
         @builtins.property
         def unified_speech_settings(
@@ -3357,6 +3373,79 @@ class CfnBot(
 
         def __repr__(self) -> str:
             return "DataSourceConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.DeepgramSpeechModelConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "api_token_secret_arn": "apiTokenSecretArn",
+            "model_id": "modelId",
+        },
+    )
+    class DeepgramSpeechModelConfigProperty:
+        def __init__(
+            self,
+            *,
+            api_token_secret_arn: builtins.str,
+            model_id: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param api_token_secret_arn: 
+            :param model_id: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-deepgramspeechmodelconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                deepgram_speech_model_config_property = lex.CfnBot.DeepgramSpeechModelConfigProperty(
+                    api_token_secret_arn="apiTokenSecretArn",
+                
+                    # the properties below are optional
+                    model_id="modelId"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__8d818f7f5920d9591e3a171f245bdd4129c68fe1b6c4bc9df5d3351821a9ac23)
+                check_type(argname="argument api_token_secret_arn", value=api_token_secret_arn, expected_type=type_hints["api_token_secret_arn"])
+                check_type(argname="argument model_id", value=model_id, expected_type=type_hints["model_id"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "api_token_secret_arn": api_token_secret_arn,
+            }
+            if model_id is not None:
+                self._values["model_id"] = model_id
+
+        @builtins.property
+        def api_token_secret_arn(self) -> builtins.str:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-deepgramspeechmodelconfig.html#cfn-lex-bot-deepgramspeechmodelconfig-apitokensecretarn
+            '''
+            result = self._values.get("api_token_secret_arn")
+            assert result is not None, "Required property 'api_token_secret_arn' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def model_id(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-deepgramspeechmodelconfig.html#cfn-lex-bot-deepgramspeechmodelconfig-modelid
+            '''
+            result = self._values.get("model_id")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "DeepgramSpeechModelConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -11312,6 +11401,145 @@ class CfnBot(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.SpeechModelConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"deepgram_config": "deepgramConfig"},
+    )
+    class SpeechModelConfigProperty:
+        def __init__(
+            self,
+            *,
+            deepgram_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.DeepgramSpeechModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''
+            :param deepgram_config: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechmodelconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                speech_model_config_property = lex.CfnBot.SpeechModelConfigProperty(
+                    deepgram_config=lex.CfnBot.DeepgramSpeechModelConfigProperty(
+                        api_token_secret_arn="apiTokenSecretArn",
+                
+                        # the properties below are optional
+                        model_id="modelId"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__09cb6d736f7dcf98f4065dc4d619cd6ca8ce2ddf2236528d228443a5a9607f7d)
+                check_type(argname="argument deepgram_config", value=deepgram_config, expected_type=type_hints["deepgram_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if deepgram_config is not None:
+                self._values["deepgram_config"] = deepgram_config
+
+        @builtins.property
+        def deepgram_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DeepgramSpeechModelConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechmodelconfig.html#cfn-lex-bot-speechmodelconfig-deepgramconfig
+            '''
+            result = self._values.get("deepgram_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.DeepgramSpeechModelConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SpeechModelConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_lex.CfnBot.SpeechRecognitionSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "speech_model_config": "speechModelConfig",
+            "speech_model_preference": "speechModelPreference",
+        },
+    )
+    class SpeechRecognitionSettingsProperty:
+        def __init__(
+            self,
+            *,
+            speech_model_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnBot.SpeechModelConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            speech_model_preference: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param speech_model_config: 
+            :param speech_model_preference: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechrecognitionsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_lex as lex
+                
+                speech_recognition_settings_property = lex.CfnBot.SpeechRecognitionSettingsProperty(
+                    speech_model_config=lex.CfnBot.SpeechModelConfigProperty(
+                        deepgram_config=lex.CfnBot.DeepgramSpeechModelConfigProperty(
+                            api_token_secret_arn="apiTokenSecretArn",
+                
+                            # the properties below are optional
+                            model_id="modelId"
+                        )
+                    ),
+                    speech_model_preference="speechModelPreference"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__15bcb53a301fc16dc3c9e5f60d457d71d46c6e789d34321264e05f67eba415d2)
+                check_type(argname="argument speech_model_config", value=speech_model_config, expected_type=type_hints["speech_model_config"])
+                check_type(argname="argument speech_model_preference", value=speech_model_preference, expected_type=type_hints["speech_model_preference"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if speech_model_config is not None:
+                self._values["speech_model_config"] = speech_model_config
+            if speech_model_preference is not None:
+                self._values["speech_model_preference"] = speech_model_preference
+
+        @builtins.property
+        def speech_model_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechModelConfigProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechrecognitionsettings.html#cfn-lex-bot-speechrecognitionsettings-speechmodelconfig
+            '''
+            result = self._values.get("speech_model_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnBot.SpeechModelConfigProperty"]], result)
+
+        @builtins.property
+        def speech_model_preference(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lex-bot-speechrecognitionsettings.html#cfn-lex-bot-speechrecognitionsettings-speechmodelpreference
+            '''
+            result = self._values.get("speech_model_preference")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SpeechRecognitionSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_lex.CfnBot.StillWaitingResponseSpecificationProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -15682,6 +15910,7 @@ def _typecheckingstub__2ad20956b5309c4b6154f09c947ce4023f20ed7a602b3cfa60f2bd3cf
     intents: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.IntentProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     slot_types: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SlotTypeProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     speech_detection_sensitivity: typing.Optional[builtins.str] = None,
+    speech_recognition_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SpeechRecognitionSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     unified_speech_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.UnifiedSpeechSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     voice_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.VoiceSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
@@ -15805,6 +16034,14 @@ def _typecheckingstub__55ead587e63d852969958fc0497aa8018f78e4fea5717b5e6e7303509
     bedrock_knowledge_store_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.BedrockKnowledgeStoreConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kendra_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.QnAKendraConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     opensearch_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.OpensearchConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8d818f7f5920d9591e3a171f245bdd4129c68fe1b6c4bc9df5d3351821a9ac23(
+    *,
+    api_token_secret_arn: builtins.str,
+    model_id: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16445,6 +16682,21 @@ def _typecheckingstub__7a5854d9b1e4446804bf41f18570871a0df3820af105ded4f6b65346f
     *,
     model_arn: builtins.str,
     voice_id: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__09cb6d736f7dcf98f4065dc4d619cd6ca8ce2ddf2236528d228443a5a9607f7d(
+    *,
+    deepgram_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.DeepgramSpeechModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__15bcb53a301fc16dc3c9e5f60d457d71d46c6e789d34321264e05f67eba415d2(
+    *,
+    speech_model_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnBot.SpeechModelConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    speech_model_preference: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

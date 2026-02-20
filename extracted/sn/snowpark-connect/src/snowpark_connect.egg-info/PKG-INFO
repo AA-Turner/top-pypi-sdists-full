@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowpark-connect
-Version: 1.13.0
+Version: 1.14.0
 Summary: Snowpark Connect for Spark
 Author: Snowflake, Inc
 License: Apache License, Version 2.0
@@ -25,7 +25,7 @@ Requires-Dist: sqlglot>=26.3.8
 Requires-Dist: aiobotocore<=2.26.0,>=2.23.0
 Requires-Dist: py4j==0.10.9.7
 Requires-Dist: pandas>=1.0.5
-Requires-Dist: pyarrow>=4.0.0
+Requires-Dist: pyarrow<=18.1.0,>=4.0.0
 Requires-Dist: grpcio<=1.76.0,>=1.56.0
 Requires-Dist: grpcio-status<=1.76.0,>=1.56.0
 Requires-Dist: googleapis-common-protos>=1.56.4

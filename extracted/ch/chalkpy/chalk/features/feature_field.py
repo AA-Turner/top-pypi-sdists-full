@@ -805,10 +805,17 @@ class Feature(Generic[_TPrim, _TRich]):
     @functools.lru_cache(None)
     def _from_root_fqn(cls, root_fqn: str, registry_ref: weakref.ReferenceType[FeatureRegistryProtocol]) -> Feature:
         """
-        :param root_fqn:
-        :param registry_ref: weakref to a feature registry from which the feature  object is pulled.
-        Weakref is used to avoid keeping around references to the registry objects in teh lru_cache decorator
-        :return:
+        Parameters
+        ----------
+        root_fqn
+            Root FQN of the feature to resolve.
+        registry_ref
+            Weakref to a feature registry from which the feature object is pulled. Weakref is used to
+            avoid keeping around references to the registry objects in the `lru_cache` decorator.
+
+        Returns
+        -------
+        Feature
         """
         from chalk.features.pseudofeatures import FQN_OR_NAME_TO_PSEUDOFEATURE
 

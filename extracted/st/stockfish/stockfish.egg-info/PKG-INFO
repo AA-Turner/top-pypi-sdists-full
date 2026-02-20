@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: stockfish
-Version: 4.0.7
+Version: 4.0.8
 Summary: Wraps the open-source Stockfish chess engine for easy integration into python.
 Author-email: Ilya Zhelyabuzhsky <zhelyabuzhsky@icloud.com>
 License-Expression: MIT

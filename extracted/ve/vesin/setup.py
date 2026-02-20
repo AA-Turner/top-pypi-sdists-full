@@ -1,13 +1,15 @@
 import os
+import re
 import shutil
 import subprocess
 import sys
+import urllib.request
 
 from setuptools import Extension, setup
 from setuptools.command.bdist_egg import bdist_egg
+from setuptools.command.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
 from setuptools.command.sdist import sdist
-from wheel.bdist_wheel import bdist_wheel
 
 
 ROOT = os.path.realpath(os.path.dirname(__file__))
@@ -56,16 +58,25 @@ class cmake_ext(build_ext):
         ]
 
         CUDA_HOME = os.environ.get("CUDA_HOME")
+        VESIN_ENABLE_NVTX = os.environ.get("VESIN_ENABLE_NVTX", "OFF")
 
         if CUDA_HOME is not None:
             cmake_options.append(f"-DCUDA_TOOLKIT_ROOT_DIR={CUDA_HOME}")
             cmake_options.append("-DVESIN_ENABLE_CUDA=ON")
+            if VESIN_ENABLE_NVTX.upper() in ["ON", "1", "TRUE", "YES"]:
+                cmake_options.append("-DVESIN_ENABLE_NVTX=ON")
+
+            # fix for https://github.com/pytorch/pytorch/issues/113948, it does not
+            # matter which architecture we put here since we are not actually compiling
+            # any CUDA code, just linking against cudart
+            cmake_options.append("-DTORCH_CUDA_ARCH_LIST=9.0")
 
         subprocess.run(
             ["cmake", source_dir, *cmake_options],
             cwd=build_dir,
             check=True,
         )
+
         subprocess.run(
             [
                 "cmake",
@@ -103,6 +114,33 @@ class sdist_with_lib(sdist):
     def run(self):
         # generate extra files
         shutil.copytree(os.path.join(ROOT, "..", "..", "vesin"), "lib")
+
+        # include gpulite in the sdist
+        gpulite_dir = os.path.join("lib", "external")
+        os.makedirs(gpulite_dir, exist_ok=True)
+        gpulite_archive = os.path.join(gpulite_dir, "gpulite.tar.gz")
+        assert not os.path.exists(gpulite_archive)
+
+        with open(os.path.join("lib", "CMakeLists.txt")) as fd:
+            content = fd.read()
+            # FetchContent_Declare(
+            #     gpulite
+            #     ...
+            #     GIT_TAG <hash>
+            match = re.search(
+                r"FetchContent_Declare\s*\(\s*gpulite.*?GIT_TAG\s+([a-f0-9]+)",
+                content,
+                re.DOTALL,
+            )
+            if match is None:
+                raise Exception("Could not find gpulite GIT_TAG in CMakeLists.txt")
+            commit = match.group(1)
+
+        print("downloading gpulite source code")
+        urllib.request.urlretrieve(
+            f"https://github.com/rubber-duck-debug/gpu-lite/archive/{commit}.tar.gz",
+            gpulite_archive,
+        )
 
         # run original sdist
         super().run()

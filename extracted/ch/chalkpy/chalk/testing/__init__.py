@@ -65,8 +65,8 @@ def check_expression(
     assertions
         A list of feature instances containing the input values and expected output values.
     show_table
-        If True, always display a table showing the comparison results.
-        If False (default), only display the table when there are mismatches.
+        If `True`, always display a table showing the comparison results.
+        If `False` (default), only display the table when there are mismatches.
     float_rel_tolerance
         Relative tolerance for float comparisons. Two floats are considered equal if
         `abs(a - b) <= float_rel_tolerance * max(abs(a), abs(b))`. Default is 1e-6.

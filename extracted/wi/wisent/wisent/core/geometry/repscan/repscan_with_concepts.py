@@ -89,6 +89,18 @@ def run_repscan_with_concept_naming(
     neg_concat = torch.cat(neg_list, dim=1)
     n_pairs = len(pos_concat)
 
+    # Single PCA reduction shared by signal + geometry (consistency fix)
+    from sklearn.decomposition import PCA as _PCA
+    _pca_dims = min(n_pairs - 1, pos_concat.shape[1], 50)
+    if _pca_dims < pos_concat.shape[1] and _pca_dims >= 2:
+        _comb = torch.cat([pos_concat, neg_concat], dim=0).cpu().numpy()
+        _comb_pca = _PCA(n_components=_pca_dims, random_state=42).fit_transform(_comb)
+        pos_pca = torch.tensor(_comb_pca[:n_pairs], dtype=pos_concat.dtype)
+        neg_pca = torch.tensor(_comb_pca[n_pairs:], dtype=pos_concat.dtype)
+        _log(f"PCA: {pos_concat.shape[1]} -> {_pca_dims} dims (shared for signal+geometry)")
+    else:
+        pos_pca, neg_pca = pos_concat, neg_concat
+
     # Resume metrics from checkpoint if available
     if "metrics" in existing and existing["metrics"]:
         metrics = existing["metrics"]
@@ -129,7 +141,7 @@ def run_repscan_with_concept_naming(
             results["signal_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
         else:
             metric_keys = ["knn_accuracy", "knn_pca_accuracy", "mlp_probe_accuracy"]
-            signal_result = test_signal(pos_concat, neg_concat, metric_keys)
+            signal_result = test_signal(pos_pca, neg_pca, metric_keys)
             results["signal_test"] = {
                 "max_z_score": signal_result.max_z_score,
                 "min_p_value": signal_result.min_p_value,
@@ -165,21 +177,14 @@ def run_repscan_with_concept_naming(
             results["geometry_test"] = {"status": "insufficient_data", "n_pairs": n_pairs, "min_required": min_pairs_for_probes}
         else:
             _t0 = _time.time()
-            from sklearn.decomposition import PCA as _PCA
             _n_geo = min(n_pairs, 1000)
             if n_pairs > 1000:
                 _idx = np.random.RandomState(42).choice(n_pairs, 1000, replace=False)
                 _idx.sort()
-                _pg, _ng = pos_concat[_idx], neg_concat[_idx]
+                _pg, _ng = pos_pca[_idx], neg_pca[_idx]
             else:
-                _pg, _ng = pos_concat, neg_concat
-            _cb = torch.cat([_pg, _ng], dim=0).cpu().numpy()
-            _pd = min(2 * _n_geo - 1, _cb.shape[1], 50)
-            if _pd < _cb.shape[1] and _pd >= 2:
-                _cb = _PCA(n_components=_pd, random_state=42).fit_transform(_cb)
-            _pg = torch.tensor(_cb[:_n_geo], dtype=pos_concat.dtype)
-            _ng = torch.tensor(_cb[_n_geo:], dtype=pos_concat.dtype)
-            _log(f"Geometry: {_n_geo} pairs, {_pg.shape[1]} dims (pre-reduced in {_time.time()-_t0:.1f}s)")
+                _pg, _ng = pos_pca, neg_pca
+            _log(f"Geometry: {_n_geo} pairs, {_pg.shape[1]} dims")
             geometry_result = test_geometry(_pg, _ng)
             _log(f"Geometry completed in {_time.time()-_t0:.1f}s")
             results["geometry_test"] = {
@@ -236,21 +241,20 @@ def run_repscan_with_concept_naming(
                 generate_visualizations=generate_visualizations, llm_model=llm_model,
             )
             decomposition["n_layers_used"] = n_layers
-            if decomposition_result.n_concepts > 1:
-                labels_arr = np.array(decomposition_result.cluster_labels)
-                per_concept_layers = find_optimal_layer_per_concept(activations_by_layer, labels_arr, decomposition_result.n_concepts)
-                for concept in decomposition.get("concepts", []):
-                    idx = concept["id"] - 1
-                    if idx in per_concept_layers:
-                        concept["optimal_layer"] = per_concept_layers[idx]["best_layer"]
-                        concept["optimal_layer_accuracy"] = per_concept_layers[idx]["best_accuracy"]
-                decomposition["per_concept_layers"] = per_concept_layers
+            labels_arr = np.array(decomposition_result.cluster_labels)
+            per_concept_layers = find_optimal_layer_per_concept(activations_by_layer, labels_arr, decomposition_result.n_concepts)
+            for concept in decomposition.get("concepts", []):
+                idx = concept["id"] - 1
+                if idx in per_concept_layers:
+                    concept["optimal_layer"] = per_concept_layers[idx]["best_layer"]
+                    concept["optimal_layer_accuracy"] = per_concept_layers[idx]["best_accuracy"]
+            decomposition["per_concept_layers"] = per_concept_layers
             results["concept_decomposition"] = decomposition
         _save_checkpoint(results, output_path)
 
     # Step 4: Intervention Selection
     if "intervention" in steps_to_run and signal_result and geometry_result and decomposition_result:
-        intervention = select_intervention(signal_result, geometry_result, decomposition_result)
+        intervention = select_intervention(signal_result, geometry_result, decomposition_result, metrics=metrics)
         results["intervention"] = {
             "recommended_method": intervention.recommended_method,
             "confidence": intervention.confidence,

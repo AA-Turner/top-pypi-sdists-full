@@ -29,6 +29,7 @@ class ResourceSliceInitArgs:
                  metadata: Optional[pulumi.Input['_meta.v1.ObjectMetaArgs']] = None):
         """
         The set of arguments for constructing a ResourceSlice resource.
+
         :param pulumi.Input['ResourceSliceSpecArgs'] spec: Contains the information published by the driver.
                
                Changing the spec automatically increments the metadata.generation number.
@@ -119,6 +120,7 @@ class ResourceSlice(pulumi.CustomResource):
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -146,6 +148,7 @@ class ResourceSlice(pulumi.CustomResource):
         For resources that are not local to a node, the node name is not set. Instead, the driver may use a node selector to specify where the devices are available.
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
+
 
         :param str resource_name: The name of the resource.
         :param ResourceSliceInitArgs args: The arguments to use to populate this resource's properties.
@@ -181,7 +184,7 @@ class ResourceSlice(pulumi.CustomResource):
             if spec is None and not opts.urn:
                 raise TypeError("Missing required property 'spec'")
             __props__.__dict__["spec"] = spec
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceSlice"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceSlice"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceSlice")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1:ResourceSlice"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha2:ResourceSlice"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceSlice"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceSlice")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ResourceSlice, __self__).__init__(
             'kubernetes:resource.k8s.io/v1beta1:ResourceSlice',

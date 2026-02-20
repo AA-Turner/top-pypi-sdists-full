@@ -29,7 +29,7 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
                 typeguard.check_type(value=value, expected_type=expected_type, collection_check_strategy=typeguard.CollectionCheckStrategy.ALL_ITEMS) # type:ignore
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "constructs", "10.5.0", __name__[0:-6], "constructs@10.5.0.jsii.tgz"
+    "constructs", "10.5.1", __name__[0:-6], "constructs@10.5.1.jsii.tgz"
 )
 
 __all__ = [

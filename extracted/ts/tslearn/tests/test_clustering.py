@@ -1,4 +1,5 @@
 import math
+import warnings
 
 import numpy as np
 
@@ -10,7 +11,8 @@ from tslearn.clustering import (
     EmptyClusterError,
     TimeSeriesKMeans,
     KernelKMeans,
-    KShape
+    KShape,
+    TimeSeriesDBSCAN
 )
 from tslearn.clustering.utils import (
     _check_full_length,
@@ -46,23 +48,36 @@ def test_kernel_kmeans():
     rng = np.random.RandomState(0)
     time_series = rng.randn(n, sz, d)
 
-    gak_km = KernelKMeans(n_clusters=3, verbose=False,
+    gak_km = KernelKMeans(n_clusters=3,
+                          verbose=False,
+                          max_iter=5,
+                          kernel_params={"sigma": "auto"},
+                          random_state=0).fit(time_series)
+    np.testing.assert_allclose(gak_km.labels_, gak_km.predict(time_series))
+    assert gak_km.sigma_gak_ == 6.7384149084372655
+
+    gak_km = KernelKMeans(n_clusters=3,
+                          verbose=False,
                           max_iter=5,
                           random_state=rng).fit(time_series)
     np.testing.assert_allclose(gak_km.labels_, gak_km.predict(time_series))
 
-    gak_km = KernelKMeans(n_clusters=101, verbose=False,
+    gak_km = KernelKMeans(n_clusters=101,
+                          verbose=False,
                           max_iter=5,
                           random_state=rng).fit(time_series)
     assert gak_km._X_fit is None
 
     with pytest.raises(RuntimeError):
-        KernelKMeans(n_clusters=101, verbose=False,
+        KernelKMeans(n_clusters=101,
+                     verbose=False,
                      max_iter=5,
                      kernel_params={"sigma": 0},
                      random_state=rng).fit(time_series)
 
-    gak_km = KernelKMeans(n_clusters=2, verbose=False, kernel="rbf",
+    gak_km = KernelKMeans(n_clusters=2,
+                          verbose=False,
+                          kernel="rbf",
                           kernel_params={"gamma": 1.},
                           max_iter=5,
                           random_state=rng).fit(time_series)
@@ -80,6 +95,34 @@ def test_kmeans():
                   km.cluster_centers_.reshape((3, -1)))
     np.testing.assert_allclose(km.labels_, dists.argmin(axis=1))
     np.testing.assert_allclose(km.labels_, km.predict(time_series))
+    expected_inertia = np.sum(
+        np.fromiter(
+            (dists[i, km.labels_[i]] ** 2 for i in range(n)),
+            dtype=float
+        )
+    ) / n
+
+    assert km.inertia_ == expected_inertia
+
+    km_dtw_inertia = TimeSeriesKMeans(
+        n_clusters=3,
+        metric="euclidean",
+        max_iter=5,
+        verbose=False,
+        dtw_inertia=True,
+        random_state=rng
+    ).fit(time_series)
+    dists = cdist_dtw(time_series, km_dtw_inertia.cluster_centers_)
+    expected_inertia = np.sum(
+        np.fromiter(
+            (dists[i, km_dtw_inertia.labels_[i]]**2 for i in range(n)),
+            dtype=float
+        )
+    ) / n
+    assert km_dtw_inertia.inertia_ == expected_inertia
+    assert km.inertia_ >= km_dtw_inertia.inertia_
+
+    assert km_dtw_inertia.inertia_ < km.inertia_
 
     km_dba = TimeSeriesKMeans(n_clusters=3,
                               metric="dtw",
@@ -211,6 +254,23 @@ def test_kshape():
     with pytest.raises(ValueError):
         KShape(n_clusters=2, verbose=False, init="invalid").fit(time_series)
 
+    # Test that shape extraction operates on second features
+    feature_1 = rng.randn(1, 10, 1)
+    feature_2_0 = rng.randn(1, 10, 1) + 10
+    feature_2_1 = rng.randn(1, 10, 1) - 10
+    X1 = np.dstack((feature_1, feature_2_0))
+    X2 = np.dstack((feature_1, feature_2_1))
+    X = np.vstack((
+        np.repeat(X1, 10, axis=0),
+        np.repeat(X2, 10, axis=0),
+    ))
+
+    X = TimeSeriesScalerMeanVariance().fit_transform(X)
+    kshape = KShape(n_clusters=2, n_init=5, random_state=rng).fit(X)
+    assert all(kshape.labels_[0] == kshape.labels_[:10])
+    assert all(kshape.labels_[10] == kshape.labels_[10:])
+    assert kshape.labels_[0] != kshape.labels_[10]
+
 
 def test_silhouette():
     np.random.seed(0)
@@ -241,3 +301,89 @@ def test_silhouette():
         0.17953934,
         rel_tol=1e-07
     )
+
+
+def test_dbscan():
+    # Basic clustering
+    X = np.vstack((
+        np.eye(3).reshape(-1, 3),
+        -1 * np.eye(3).reshape(-1, 3)
+    ))
+    X = np.insert(X, 0, 0, axis=1)
+    X = np.append(X, np.zeros((X.shape[0], 1)), axis=1)
+    X = to_time_series_dataset(X)
+
+    db = TimeSeriesDBSCAN(eps=1e-6, min_ts=3)
+
+    # Test invalid metric
+    db.set_params(metric='gak')
+    with pytest.raises(ValueError, match="Metric must be one of"):
+        db.fit(X)
+
+    # Test TSlearn metrics
+    metrics = ['dtw', 'ctw', 'frechet']
+    for metric in metrics:
+        db.set_params(metric=metric)
+        db.fit(X)
+        np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1])
+        np.testing.assert_equal(db.components_, X)
+        np.testing.assert_equal(db.core_ts_indices_, np.arange(X.shape[0]))
+
+    # Euclidean, no clustering performed
+    db.set_params(metric='euclidean')
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [-1, -1, -1, -1, -1, -1])
+    np.testing.assert_equal(db.components_, np.array([]).reshape((0, 5)))
+    np.testing.assert_equal(db.core_ts_indices_, np.array([]))
+
+    # Test precomputed
+    db.set_params(metric='precomputed')
+    db.fit(cdist_dtw(X))
+    np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1])
+    np.testing.assert_equal(db.core_ts_indices_, np.arange(X.shape[0]))
+
+    # Softdtw-normalized with gamma metric param
+    db.set_params(metric='softdtw_normalized')
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [-1, -1, -1, -1, -1, -1])
+    db.set_params(eps=0.1)
+    db.set_params(metric_params={'gamma': 0.1})
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1])
+    np.testing.assert_equal(db.core_ts_indices_, [1, 4])
+
+    # Clustering with outliers
+    X = np.append(X, np.array([[0], [1.5], [0], [0], [0]])).reshape(-1, 5)
+    X = to_time_series_dataset(X)
+    db = TimeSeriesDBSCAN(eps=1e-6, min_ts=3)
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1, -1])
+    np.testing.assert_equal(db.components_, X[:-1])
+    np.testing.assert_equal(db.core_ts_indices_, np.arange(X.shape[0] - 1))
+
+    # Check eps: increase eps so that last point is clustered
+    db.set_params(eps=0.5)
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1, 0])
+    np.testing.assert_equal(db.components_, X)
+    np.testing.assert_equal(db.core_ts_indices_, np.arange(X.shape[0]))
+
+    # Check min_ts: last point only has 1 neighboor within the eps range.
+    # Therefore, it is not considered a core component
+    X[0, 1, 0] = 0.9
+    X[1, 2, 0] = 0.9
+    db.fit(X)
+    np.testing.assert_equal(db.labels_, [0, 0, 0, 1, 1, 1, 0])
+    np.testing.assert_equal(db.components_, X[:-1])
+    np.testing.assert_equal(db.core_ts_indices_, np.arange(X.shape[0] -1))
+
+    # Check nb_jobs
+    db = TimeSeriesDBSCAN(n_jobs=5, metric_params={'n_jobs': 1}).fit(X)
+    assert db._get_metric_params() == {'n_jobs': 5}
+
+    # Ensure unused params don't raise
+    TimeSeriesDBSCAN(metric="softdtw_normalized", n_jobs=1, metric_params={'n_jobs': 1}).fit(X)
+    TimeSeriesDBSCAN(metric="dtw", metric_params={'gamma': 2}).fit(X)
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", UserWarning)
+        TimeSeriesDBSCAN(metric="euclidean", metric_params={'whatever': "trimmed"}).fit(X)

@@ -759,3 +759,54 @@ class GetStreamingResolverMaterializedAggregationPlanResponse(_message.Message):
     QUERY_PLAN_FIELD_NUMBER: _ClassVar[int]
     query_plan: QueryPlan
     def __init__(self, query_plan: _Optional[_Union[QueryPlan, _Mapping]] = ...) -> None: ...
+
+class PlanRunMetadataBlock(_message.Message):
+    __slots__ = (
+        "operator_id",
+        "start_time",
+        "end_time",
+        "output_byte_size",
+        "output_groups_byte_size",
+        "output_num_rows",
+        "num_groups",
+        "group_num_rows",
+    )
+    OPERATOR_ID_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_BYTE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_GROUPS_BYTE_SIZE_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_NUM_ROWS_FIELD_NUMBER: _ClassVar[int]
+    NUM_GROUPS_FIELD_NUMBER: _ClassVar[int]
+    GROUP_NUM_ROWS_FIELD_NUMBER: _ClassVar[int]
+    operator_id: str
+    start_time: float
+    end_time: float
+    output_byte_size: int
+    output_groups_byte_size: int
+    output_num_rows: int
+    num_groups: int
+    group_num_rows: int
+    def __init__(
+        self,
+        operator_id: _Optional[str] = ...,
+        start_time: _Optional[float] = ...,
+        end_time: _Optional[float] = ...,
+        output_byte_size: _Optional[int] = ...,
+        output_groups_byte_size: _Optional[int] = ...,
+        output_num_rows: _Optional[int] = ...,
+        num_groups: _Optional[int] = ...,
+        group_num_rows: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetPlanRunMetadataRequest(_message.Message):
+    __slots__ = ("operation_id",)
+    OPERATION_ID_FIELD_NUMBER: _ClassVar[int]
+    operation_id: str
+    def __init__(self, operation_id: _Optional[str] = ...) -> None: ...
+
+class GetPlanRunMetadataResponse(_message.Message):
+    __slots__ = ("metadata",)
+    METADATA_FIELD_NUMBER: _ClassVar[int]
+    metadata: _containers.RepeatedCompositeFieldContainer[PlanRunMetadataBlock]
+    def __init__(self, metadata: _Optional[_Iterable[_Union[PlanRunMetadataBlock, _Mapping]]] = ...) -> None: ...

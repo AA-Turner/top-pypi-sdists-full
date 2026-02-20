@@ -50,7 +50,7 @@ class HolidayDayOfMonth:
     """The day of the month on which the holiday occurs, 1 to 31"""
 
     nearest_workday: bool
-    """If True, the holiday is observed on the nearest workday if it falls on a weekend"""
+    """If `True`, the holiday is observed on the nearest workday if it falls on a weekend"""
 
     start_date: Optional[date] = None
     """The first year in which the holiday is observed"""

@@ -27,7 +27,7 @@ from wisent.core.cli import (
     execute_check_linearity, execute_cluster_benchmarks, execute_geometry_search,
     execute_verify_steering, execute_repscan, execute_steering_viz,
     execute_per_concept_steering_viz, execute_discover_steering,
-    execute_migrate_activations,
+    execute_migrate_activations, execute_tune_recommendation,
 )
 
 
@@ -126,6 +126,8 @@ def main():
         execute_discover_steering(args)
     elif args.command == 'migrate-activations':
         execute_migrate_activations(args)
+    elif args.command == 'tune-recommendation':
+        execute_tune_recommendation(args)
     else:
         print(f"\n✗ Command '{args.command}' is not yet implemented")
         sys.exit(1)

@@ -29,6 +29,7 @@ class ResourceClaimInitArgs:
                  metadata: Optional[pulumi.Input['_meta.v1.ObjectMetaArgs']] = None):
         """
         The set of arguments for constructing a ResourceClaim resource.
+
         :param pulumi.Input['ResourceClaimSpecArgs'] spec: Spec describes the desired attributes of a resource that then needs to be allocated. It can only be set once when creating the ResourceClaim.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
@@ -107,6 +108,7 @@ class ResourceClaim(pulumi.CustomResource):
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -124,6 +126,7 @@ class ResourceClaim(pulumi.CustomResource):
         ResourceClaim describes which resources are needed by a resource consumer. Its status tracks whether the resource has been allocated and what the resulting attributes are.
 
         This is an alpha type and requires enabling the DynamicResourceAllocation feature gate.
+
 
         :param str resource_name: The name of the resource.
         :param ResourceClaimInitArgs args: The arguments to use to populate this resource's properties.
@@ -160,7 +163,7 @@ class ResourceClaim(pulumi.CustomResource):
                 raise TypeError("Missing required property 'spec'")
             __props__.__dict__["spec"] = spec
             __props__.__dict__["status"] = None
-        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha1:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceClaim")])
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:resource.k8s.io/v1:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha1:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1alpha3:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta1:ResourceClaim"), pulumi.Alias(type_="kubernetes:resource.k8s.io/v1beta2:ResourceClaim")])
         opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(ResourceClaim, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha2:ResourceClaim',

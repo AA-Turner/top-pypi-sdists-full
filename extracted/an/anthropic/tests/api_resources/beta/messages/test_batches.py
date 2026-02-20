@@ -62,6 +62,10 @@ class TestBatches:
                             }
                         ],
                         "model": "claude-opus-4-6",
+                        "cache_control": {
+                            "type": "ephemeral",
+                            "ttl": "5m",
+                        },
                         "container": {
                             "id": "id",
                             "skills": [
@@ -442,7 +446,7 @@ class TestBatches:
         assert i == 1
         assert results.http_response.is_stream_consumed
 
-    @pytest.mark.skip(reason="Prism doesn't support application/x-jsonl responses")
+    @pytest.mark.skip(reason="Mock server doesn't support application/x-jsonl responses")
     @parametrize
     def test_path_params_results(self, client: Anthropic) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_batch_id` but received ''"):
@@ -494,6 +498,10 @@ class TestAsyncBatches:
                             }
                         ],
                         "model": "claude-opus-4-6",
+                        "cache_control": {
+                            "type": "ephemeral",
+                            "ttl": "5m",
+                        },
                         "container": {
                             "id": "id",
                             "skills": [
@@ -875,7 +883,7 @@ class TestAsyncBatches:
         assert i == 1
         assert results.http_response.is_stream_consumed
 
-    @pytest.mark.skip(reason="Prism doesn't support application/x-jsonl responses")
+    @pytest.mark.skip(reason="Mock server doesn't support application/x-jsonl responses")
     @parametrize
     async def test_path_params_results(self, async_client: AsyncAnthropic) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `message_batch_id` but received ''"):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: testtools
-Version: 2.8.3
+Version: 2.8.4
 Summary: Extensions to the Python standard library unit testing framework
 Project-URL: Homepage, https://github.com/testing-cabal/testtools
 Author-email: "Jonathan M. Lange" <jml+testtools@mumak.net>
@@ -27,6 +27,7 @@ Requires-Python: >=3.10
 Provides-Extra: dev
 Requires-Dist: mypy>=1.0.0; extra == 'dev'
 Requires-Dist: ruff==0.14.11; extra == 'dev'
+Requires-Dist: typing-extensions; (python_version < '3.11') and extra == 'dev'
 Provides-Extra: test
 Requires-Dist: testresources; extra == 'test'
 Requires-Dist: testscenarios; extra == 'test'

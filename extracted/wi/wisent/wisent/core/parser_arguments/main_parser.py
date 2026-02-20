@@ -46,6 +46,7 @@ from wisent.core.parser_arguments.optimization.steering import (
     setup_classification_optimizer_parser,
     setup_steering_optimizer_parser,
     setup_sample_size_optimizer_parser,
+    setup_tune_recommendation_parser,
 )
 from wisent.core.parser_arguments.optimization import (
     setup_optimize_all_parser,
@@ -72,7 +73,6 @@ from wisent.core.parser_arguments.analysis import (
     setup_repscan_parser,
 )
 from wisent.core.parser_arguments.data import setup_migrate_activations_parser
-
 
 def setup_parser() -> argparse.ArgumentParser:
     """Set up the main CLI parser with subcommands."""
@@ -292,8 +292,9 @@ def setup_parser() -> argparse.ArgumentParser:
         help="Discover optimal steering directions using behavioral probing, direction search, and layer search"
     )
     setup_discover_steering_parser(discover_steering_parser)
-
     migrate_activations_parser = subparsers.add_parser("migrate-activations", help="Migrate activation data from Supabase to HuggingFace Hub")
     setup_migrate_activations_parser(migrate_activations_parser)
 
+    tune_rec_parser = subparsers.add_parser("tune-recommendation", help="Tune steering recommendation weights from empirical ground truth")
+    setup_tune_recommendation_parser(tune_rec_parser)
     return parser

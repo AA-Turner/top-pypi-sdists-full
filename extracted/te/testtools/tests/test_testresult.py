@@ -1314,6 +1314,148 @@ class TestExtendedToStreamDecorator(TestCase):
             log._events,
         )
 
+    def test_subtest_failure(self):
+        # Test that addSubTest collects failures and reports them in stopTest
+
+        # Create a mock subtest that mimics unittest's _SubTest
+        class MockSubTest:
+            def __init__(self, parent, description):
+                self._parent = parent
+                self._description = description
+
+            def id(self):
+                return f"{self._parent.id()} {self._description}"
+
+            def _subDescription(self):
+                return self._description
+
+        log = LoggingStreamResult()
+        result = ExtendedToStreamDecorator(log)
+        result.startTestRun()
+        now = datetime.datetime.now(utc)
+        result.time(now)
+        result.startTest(self)
+
+        # Simulate a failing subtest
+        subtest = MockSubTest(self, "(i=1)")
+        try:
+            raise AssertionError("subtest failed")
+        except AssertionError:
+            err = sys.exc_info()
+        result.addSubTest(self, subtest, err)
+
+        result.stopTest(self)
+        result.stopTestRun()
+
+        # Filter events to check structure
+        test_id = self.id()
+        events = log._events
+
+        # Should have: startTestRun, inprogress, traceback attachment, fail, stopTestRun
+        self.assertEqual(events[0], ("startTestRun",))
+        self.assertEqual(events[1].test_id, test_id)
+        self.assertEqual(events[1].test_status, "inprogress")
+
+        # The traceback attachment for the subtest
+        self.assertEqual(events[2].test_id, test_id)
+        self.assertEqual(events[2].file_name, "traceback (i=1)")
+        self.assertIn(b"AssertionError: subtest failed", events[2].file_bytes)
+
+        # The final fail status
+        self.assertEqual(events[3].test_id, test_id)
+        self.assertEqual(events[3].test_status, "fail")
+
+        self.assertEqual(events[4], ("stopTestRun",))
+
+    def test_subtest_success_no_events(self):
+        # Test that successful subtests don't generate events
+        class MockSubTest:
+            def __init__(self, parent, description):
+                self._parent = parent
+                self._description = description
+
+            def id(self):
+                return f"{self._parent.id()} {self._description}"
+
+            def _subDescription(self):
+                return self._description
+
+        log = LoggingStreamResult()
+        result = ExtendedToStreamDecorator(log)
+        result.startTestRun()
+        now = datetime.datetime.now(utc)
+        result.time(now)
+        result.startTest(self)
+
+        # Simulate a passing subtest (err=None)
+        subtest = MockSubTest(self, "(i=0)")
+        result.addSubTest(self, subtest, None)
+
+        # Simulate the success callback that unittest sends when all subtests pass
+        result.addSuccess(self)
+        result.stopTest(self)
+        result.stopTestRun()
+
+        test_id = self.id()
+        events = log._events
+
+        # Should have: startTestRun, inprogress, success, stopTestRun
+        # No subtest-specific events since it passed
+        self.assertEqual(events[0], ("startTestRun",))
+        self.assertEqual(events[1].test_id, test_id)
+        self.assertEqual(events[1].test_status, "inprogress")
+        self.assertEqual(events[2].test_id, test_id)
+        self.assertEqual(events[2].test_status, "success")
+        self.assertEqual(events[3], ("stopTestRun",))
+
+    def test_multiple_subtest_failures(self):
+        # Test that multiple subtest failures are all reported
+        class MockSubTest:
+            def __init__(self, parent, description):
+                self._parent = parent
+                self._description = description
+
+            def id(self):
+                return f"{self._parent.id()} {self._description}"
+
+            def _subDescription(self):
+                return self._description
+
+        log = LoggingStreamResult()
+        result = ExtendedToStreamDecorator(log)
+        result.startTestRun()
+        now = datetime.datetime.now(utc)
+        result.time(now)
+        result.startTest(self)
+
+        # Simulate two failing subtests
+        for i in [1, 2]:
+            subtest = MockSubTest(self, f"(i={i})")
+            try:
+                raise AssertionError(f"subtest {i} failed")
+            except AssertionError:
+                err = sys.exc_info()
+            result.addSubTest(self, subtest, err)
+
+        result.stopTest(self)
+        result.stopTestRun()
+
+        events = log._events
+
+        # Should have: startTestRun, inprogress, 2x traceback, fail, stopTestRun
+        self.assertEqual(events[0], ("startTestRun",))
+        self.assertEqual(events[1].test_status, "inprogress")
+
+        # Two traceback attachments
+        self.assertEqual(events[2].file_name, "traceback (i=1)")
+        self.assertIn(b"subtest 1 failed", events[2].file_bytes)
+        self.assertEqual(events[3].file_name, "traceback (i=2)")
+        self.assertIn(b"subtest 2 failed", events[3].file_bytes)
+
+        # Final fail status
+        self.assertEqual(events[4].test_status, "fail")
+        self.assertEqual(events[5], ("stopTestRun",))
+
 
 class TestResourcedToStreamDecorator(TestCase):
     def setUp(self):

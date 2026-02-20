@@ -7,8 +7,8 @@ import pyspark.sql.connect.proto.relations_pb2 as relation_proto
 
 import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
-from snowflake.snowpark.types import VariantType
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark.types import ArrayType, MapType, StructType, VariantType
+from snowflake.snowpark_connect.config import get_artifact_repository, global_config
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.expression.map_expression import (
     map_single_column_expression,
@@ -22,6 +22,7 @@ from snowflake.snowpark_connect.utils.udf_helper import require_creating_udf_in_
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
 
 KEY_COL_PREFIX = "__SC_COGROUP_KEY_"
 VALUE_COL_NAME = "__SC_COGROUP_VALUE__"
@@ -141,26 +142,39 @@ def _build_value_expression(
     container: DataFrameContainer,
     value_type_kind: str,
     expected_type=None,
+    proto_type: StructType | None = None,
 ) -> snowpark.Column:
-    """Build a value expression based on the value type."""
+    """Build a value expression based on the value type, preserving nulls in arrays."""
     snowpark_cols = container.column_map.get_snowpark_columns()
-    spark_names = container.column_map.get_spark_columns()
+    col_type_lookup = {f.name: f.datatype for f in container.dataframe.schema.fields}
 
     if value_type_kind == "struct":
+        # Typed datasets (e.g. as[K, (String, Int)]) encode values with proto
+        # field names (_1, _2) that the Java UDTF deserializer expects. Untyped
+        # Row values have an empty proto struct, so we fall back to DataFrame
+        # column names which the UDTF accesses via getAs("colName").
+        if proto_type is not None and len(proto_type.fields) > 0:
+            field_names = [f.name for f in proto_type.fields]
+        else:
+            field_names = container.column_map.get_spark_columns()
         expr = snowpark_fn.object_construct_keep_null(
             *[
                 item
-                for spark_name, snowpark_name in zip(spark_names, snowpark_cols)
+                for field_name, snowpark_name in zip(field_names, snowpark_cols)
                 for item in (
-                    snowpark_fn.lit(spark_name),
-                    snowpark_fn.to_variant(snowpark_fn.col(snowpark_name)),
+                    snowpark_fn.lit(field_name),
+                    to_variant_preserving_nulls(
+                        snowpark_fn.col(snowpark_name),
+                        col_type_lookup.get(snowpark_name, VariantType()),
+                    ),
                 )
             ]
         )
         return snowpark_fn.to_variant(expr)
 
     if value_type_kind in ("map", "array"):
-        return snowpark_fn.to_variant(snowpark_fn.col(snowpark_cols[0]))
+        col_type = col_type_lookup.get(snowpark_cols[0], VariantType())
+        return to_variant_preserving_nulls(snowpark_fn.col(snowpark_cols[0]), col_type)
 
     expr = snowpark_fn.col(snowpark_cols[0])
     return expr.cast(expected_type) if expected_type else expr
@@ -245,27 +259,37 @@ def _map_co_group_map_scala(
         len(input_types) == 3
     ), "Co-group map function should have exactly 3 input types"
 
+    key_expected_type = proto_to_snowpark_type(input_types[0])
     value1_type_kind = input_types[1].WhichOneof("kind")
     value2_type_kind = input_types[2].WhichOneof("kind")
 
     num_keys = len(snowpark_input_grouping_exprs)
 
+    value1_proto_type = proto_to_snowpark_type(input_types[1])
+    value2_proto_type = proto_to_snowpark_type(input_types[2])
+
     value1_expected = (
-        proto_to_snowpark_type(input_types[1])
+        value1_proto_type
         if value1_type_kind not in ("struct", "map", "array")
         else None
     )
     value2_expected = (
-        proto_to_snowpark_type(input_types[2])
+        value2_proto_type
         if value2_type_kind not in ("struct", "map", "array")
         else None
     )
 
     value1_expr = _build_value_expression(
-        input_container, value1_type_kind, value1_expected
+        input_container,
+        value1_type_kind,
+        value1_expected,
+        proto_type=value1_proto_type if value1_type_kind == "struct" else None,
     )
     value2_expr = _build_value_expression(
-        other_container, value2_type_kind, value2_expected
+        other_container,
+        value2_type_kind,
+        value2_expected,
+        proto_type=value2_proto_type if value2_type_kind == "struct" else None,
     )
 
     input_sorting_cols = _map_sorting_expressions(
@@ -309,17 +333,19 @@ def _map_co_group_map_scala(
     # For multi-key grouping, we must construct a composite key using object_construct
     # because the Scala function expects a single key value (tuple/struct), not multiple
     # separate values.
-    key_for_udtf = (
-        key_cols[0]
-        if num_keys == 1
-        else snowpark_fn.object_construct(
+    if num_keys == 1:
+        if isinstance(key_expected_type, (ArrayType, MapType, StructType, VariantType)):
+            key_for_udtf = snowpark_fn.to_variant(key_cols[0])
+        else:
+            key_for_udtf = key_cols[0].cast(key_expected_type)
+    else:
+        key_for_udtf = snowpark_fn.object_construct(
             *[
                 item
                 for name, col in zip(input_group_names, key_cols)
                 for item in (snowpark_fn.lit(name), col)
             ]
         )
-    )
 
     tfc = snowpark_fn.call_table_function(
         udtf_name,
@@ -361,6 +387,7 @@ def _map_co_group_map_python(
 
     udtf_packages = global_config.get("snowpark.connect.udf.packages", "")
     udtf_imports = get_python_udxf_import_files(snowpark.Session.get_active_session())
+    artifact_repository = get_artifact_repository()
 
     if require_creating_udf_in_sproc(func_proto):
         cogroup_udtf_name = create_cogroup_udtf_in_sproc(
@@ -370,6 +397,7 @@ def _map_co_group_map_python(
             output_type,
             udtf_packages,
             udtf_imports,
+            artifact_repository=artifact_repository,
         )
     else:
         cogroup_udtf = create_cogroup_pandas_udtf(
@@ -379,6 +407,7 @@ def _map_co_group_map_python(
             output_type,
             udtf_packages,
             udtf_imports,
+            artifact_repository=artifact_repository,
         )
         cogroup_udtf_name = cogroup_udtf.name
 

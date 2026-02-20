@@ -360,9 +360,10 @@ def _load_file_with_copy_into(
     schema: "snowpark.types.StructType",
     file_format_options: dict[str, Any],
     file_format: Literal["csv", "json"],
-) -> None:
+    on_error: str | None = None,
+) -> List[Any]:
     """
-    Load multiple files from the same stage using COPY INTO with FILES parameter.
+    Load files from a stage using COPY INTO.
 
     Supports CSV and JSON file formats for parallel execution.
 
@@ -371,10 +372,15 @@ def _load_file_with_copy_into(
         session: The Snowpark session.
         target: The name of the temporary table to load the data into.
         stage_file_paths: List of full stage paths like ['@stage/file1.csv', '@stage/file2.csv'] to load.
-        stage: The common stage name like '@stage_name'.
+            Pass an empty list when loading from a single file (stage param is the full path).
+        stage: The common stage name like '@stage_name', or full path for single-file loads.
         schema: The StructType schema for the table.
         file_format_options: File format options for the file type.
         file_format: The file format type, either "csv" or "json".
+        on_error: Optional ON_ERROR strategy (e.g. "CONTINUE") passed to COPY INTO.
+
+    Returns:
+        The result rows from the COPY INTO command.
 
     TODO: SNOW-3002469 copy_into_table does not enable INCLUDE_METADATA even though add_filename_metadata_to_reader
         has been called before.
@@ -426,9 +432,11 @@ def _load_file_with_copy_into(
     copy_options: dict[str, Any] = {"force": True}
     if file_format == "json":
         copy_options["MATCH_BY_COLUMN_NAME"] = "CASE_INSENSITIVE"
+    if on_error is not None:
+        copy_options["ON_ERROR"] = on_error
 
     # Use Snowpark's copy_into_table API with the files parameter for parallel loading
-    source_df.copy_into_table(
+    return source_df.copy_into_table(
         target,
         files=relative_files,
         format_type_options=file_format_options,

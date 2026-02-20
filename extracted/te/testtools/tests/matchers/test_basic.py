@@ -24,9 +24,9 @@ from testtools.matchers._basic import (
     _BinaryMismatch,
     _NotNearlyEqual,
 )
+from testtools.matchers.test import TestMatchersInterface
 
 from ..helpers import FullStackRunTest
-from ..matchers.helpers import TestMatchersInterface
 
 
 class Test_BinaryMismatch(TestCase):

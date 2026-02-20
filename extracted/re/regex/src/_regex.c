@@ -18297,6 +18297,9 @@ Py_LOCAL_INLINE(BOOL) state_init_2(RE_State* state, PatternObject* pattern,
     else if (end > str_info->length)
         end = str_info->length;
 
+    if (end < start)
+        end = start;
+
     state->overlapped = overlapped;
     state->min_width = pattern->min_width;
 
@@ -22358,6 +22361,10 @@ PyDoc_STRVAR(pattern_match_doc,
     "match(string, pos=None, endpos=None, concurrent=None, timeout=None) --> MatchObject or None.\n\
     Match zero or more characters at the beginning of the string.");
 
+PyDoc_STRVAR(pattern_prefixmatch_doc,
+    "prefixmatch(string, pos=None, endpos=None, concurrent=None, timeout=None) --> MatchObject or None.\n\
+    Match zero or more characters at the beginning of the string. Alias of match()");
+
 PyDoc_STRVAR(pattern_fullmatch_doc,
     "fullmatch(string, pos=None, endpos=None, concurrent=None, timeout=None) --> MatchObject or None.\n\
     Match zero or more characters against all of the string.");
@@ -22419,6 +22426,8 @@ PyDoc_STRVAR(pattern_scanner_doc,
 static PyMethodDef pattern_methods[] = {
     {"match", (PyCFunction)pattern_match, METH_VARARGS|METH_KEYWORDS,
       pattern_match_doc},
+    {"prefixmatch", (PyCFunction)pattern_match, METH_VARARGS|METH_KEYWORDS,
+      pattern_prefixmatch_doc},
     {"fullmatch", (PyCFunction)pattern_fullmatch, METH_VARARGS|METH_KEYWORDS,
       pattern_fullmatch_doc},
     {"search", (PyCFunction)pattern_search, METH_VARARGS|METH_KEYWORDS,

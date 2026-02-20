@@ -1,31 +1,29 @@
 Metadata-Version: 2.4
 Name: mink
-Version: 1.0.0
+Version: 1.1.0
 Summary: Python inverse kinematics based on MuJoCo
 Keywords: inverse,kinematics,mujoco
-Author: Kevin Zakka
-Author-email: Kevin Zakka <zakka@berkeley.edu>
+Author-Email: Kevin Zakka <zakka@berkeley.edu>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Robot Framework :: Library
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
-Requires-Dist: mujoco>=3.3.6
-Requires-Dist: qpsolvers[daqp]>=4.3.1
-Requires-Dist: typing-extensions
-Requires-Python: >=3.10, <3.14
-Project-URL: Changelog, https://github.com/kevinzakka/mink/blob/main/CHANGELOG.md
-Project-URL: Documentation, https://kevinzakka.github.io/mink/
-Project-URL: Homepage, https://kevinzakka.github.io/mink/
 Project-URL: Source, https://github.com/kevinzakka/mink
 Project-URL: Tracker, https://github.com/kevinzakka/mink/issues
+Project-URL: Changelog, https://github.com/kevinzakka/mink/blob/main/CHANGELOG.md
+Project-URL: Homepage, https://kevinzakka.github.io/mink/
+Project-URL: Documentation, https://kevinzakka.github.io/mink/
+Requires-Python: <3.14,>=3.10
+Requires-Dist: mujoco>=3.3.6
+Requires-Dist: qpsolvers[daqp]>=4.3.1
+Requires-Dist: typing_extensions
 Description-Content-Type: text/markdown
 
 # mink
@@ -33,6 +31,7 @@ Description-Content-Type: text/markdown
 [![Build](https://img.shields.io/github/actions/workflow/status/kevinzakka/mink/ci.yml?branch=main)](https://github.com/kevinzakka/mink/actions)
 [![Coverage Status](https://coveralls.io/repos/github/kevinzakka/mink/badge.svg)](https://coveralls.io/github/kevinzakka/mink?branch=main)
 [![PyPI version](https://img.shields.io/pypi/v/mink)](https://pypi.org/project/mink/)
+[![PyPI downloads](https://img.shields.io/pypi/dm/mink?color=blue)](https://pypistats.org/packages/mink)
 ![Banner for mink](https://github.com/kevinzakka/mink/blob/assets/banner.png?raw=true)
 
 mink is a library for differential inverse kinematics in Python, based on the [MuJoCo](https://github.com/google-deepmind/mujoco) physics engine.

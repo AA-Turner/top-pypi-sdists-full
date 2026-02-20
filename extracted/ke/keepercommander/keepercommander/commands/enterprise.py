@@ -100,11 +100,12 @@ def register_command_info(aliases, command_info):
 
 
 SUPPORTED_NODE_COLUMNS = ['parent_node', 'parent_id', 'user_count', 'users', 'team_count', 'teams', 'role_count', 'roles',
-                          'provisioning']
+                          'provisioning', 'isolated']
 SUPPORTED_USER_COLUMNS = ['name', 'status', 'transfer_status', 'node', 'team_count', 'teams', 'role_count',
-                          'roles', 'alias', '2fa_enabled']
+                          'roles', 'alias', '2fa_enabled', 'job_title']
 SUPPORTED_TEAM_COLUMNS = ['restricts', 'node', 'user_count', 'users', 'queued_user_count', 'queued_users', 'role_count', 'roles']
-SUPPORTED_ROLE_COLUMNS = ['visible_below', 'default_role', 'admin', 'node', 'user_count', 'users', 'team_count', 'teams']
+SUPPORTED_ROLE_COLUMNS = ['visible_below', 'default_role', 'admin', 'node', 'user_count', 'users', 'team_count', 'teams',
+                          'enforcement_count', 'enforcements', 'managed_node_count', 'managed_nodes', 'managed_nodes_permissions']
 
 enterprise_data_parser = argparse.ArgumentParser(prog='enterprise-down',
                                                  description='Download & decrypt enterprise data.')
@@ -459,6 +460,8 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                 }
                 if 'account_share_expiration' in user:
                     u['account_share_expiration'] = user['account_share_expiration']
+                if 'job_title' in user:
+                    u['job_title'] = user['job_title']
                 users[user_id] = u
                 if node_id in nodes:
                     nodes[node_id]['users'].append(user_id)
@@ -662,7 +665,15 @@ class EnterpriseInfoCommand(EnterpriseCommand):
         else:
             columns = set()
             if kwargs.get('columns'):
-                columns.update((x.strip() for x in kwargs.get('columns').split(',')))
+                raw_columns = kwargs.get('columns')
+                # Handle role(...) or roles(...) syntax by stripping the prefix and suffix
+                for prefix in ['roles(', 'role(', 'teams(', 'team(', 'users(', 'user(', 'nodes(', 'node(']:
+                    if raw_columns.startswith(prefix):
+                        raw_columns = raw_columns[len(prefix):]
+                        if raw_columns.endswith(')'):
+                            raw_columns = raw_columns[:-1]
+                        break
+                columns.update((x.strip() for x in raw_columns.split(',')))
             pattern = (kwargs.get('pattern') or '').lower()
             if show_nodes:
                 supported_columns = SUPPORTED_NODE_COLUMNS
@@ -751,6 +762,8 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                         elif column == 'sso_provisioning':
                             status = sso_provisioning.get(node_id) if sso_provisioning else None
                             row.append(status)
+                        elif column == 'isolated':
+                            row.append(n.get('isolated', False))
                         else:
                             row.append(None)
 
@@ -837,6 +850,8 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                                         if x['enterprise_user_id'] == user_id and x['username'] != email])
                         elif column == '2fa_enabled':
                             row.append(u.get('tfa_enabled') or '')
+                        elif column == 'job_title':
+                            row.append(u.get('job_title') or '')
                     if pattern:
                         if not any(1 for x in row if x and str(x).lower().find(pattern) >= 0):
                             continue
@@ -928,9 +943,54 @@ class EnterpriseInfoCommand(EnterpriseCommand):
 
                 displayed_columns = [x for x in supported_columns if x in columns]
 
+                role_enforcements = {}  # type: Dict[int, dict]
+                if 'role_enforcements' in params.enterprise:
+                    for re_entry in params.enterprise['role_enforcements']:
+                        role_id = re_entry.get('role_id')
+                        if role_id:
+                            role_enforcements[role_id] = re_entry.get('enforcements', {})
+
+                role_managed_nodes = {}  # type: Dict[int, List[dict]]
+                if 'managed_nodes' in params.enterprise:
+                    node_names = {x['node_id']: x['data'].get('displayname') or params.enterprise['enterprise_name']
+                                  for x in params.enterprise['nodes']}
+                    for mn in params.enterprise['managed_nodes']:
+                        role_id = mn['role_id']
+                        if role_id not in role_managed_nodes:
+                            role_managed_nodes[role_id] = []
+                        node_id = mn['managed_node_id']
+                        role_managed_nodes[role_id].append({
+                            'node_id': node_id,
+                            'node_name': node_names.get(node_id, str(node_id)),
+                            'cascade': mn.get('cascade_node_management', False)
+                        })
+
+                role_privileges = {}  # type: Dict[int, Dict[int, List[str]]]
+                is_msp = EnterpriseCommand.is_msp(params)
+                supported_privileges = {x[1].lower(): x[2] for x in constants.ROLE_PRIVILEGES}
+                if 'role_privileges' in params.enterprise:
+                    for rp in params.enterprise['role_privileges']:
+                        privilege = rp['privilege'].lower()
+                        if privilege not in supported_privileges:
+                            continue
+                        if supported_privileges[privilege] == constants.PrivilegeScope.Hidden:
+                            continue
+                        if supported_privileges[privilege] == constants.PrivilegeScope.MSP and not is_msp:
+                            continue
+                        role_id = rp['role_id']
+                        node_id = rp['managed_node_id']
+                        if role_id not in role_privileges:
+                            role_privileges[role_id] = {}
+                        if node_id not in role_privileges[role_id]:
+                            role_privileges[role_id][node_id] = []
+                        role_privileges[role_id][node_id].append(privilege)
+
                 rows = []
                 for r in roles.values():
                     row = [r['id'], r['name']]
+                    role_id = r['id']
+                    managed_nodes_list = role_managed_nodes.get(role_id, [])
+                    
                     for column in displayed_columns:
                         if column == 'visible_below':
                             row.append(r['visible_below'])
@@ -949,6 +1009,46 @@ class EnterpriseInfoCommand(EnterpriseCommand):
                         elif column == 'teams':
                             team_names = [teams[team_uid]['name'] for team_uid in r['teams'] if team_uid in teams]
                             row.append(team_names)
+                        elif column == 'enforcement_count':
+                            enforcements = role_enforcements.get(role_id, {})
+                            row.append(len(enforcements))
+                        elif column == 'enforcements':
+                            enforcements = role_enforcements.get(role_id, {})
+                            row.append(list(enforcements.keys()))
+                        elif column == 'managed_node_count':
+                            row.append(len(managed_nodes_list))
+                        elif column == 'managed_nodes':
+                            managed_node_info = []
+                            for mn in managed_nodes_list:
+                                node_name = mn.get('node_name', '')
+                                managed_node_info.append(node_name)
+                            row.append(managed_node_info)
+                        elif column == 'managed_nodes_permissions':
+                            privileges_for_role = role_privileges.get(role_id, {})
+                            is_json = kwargs.get('format') == 'json'
+                            permissions_info = []
+                            
+                            for mn in managed_nodes_list:
+                                node_id = mn.get('node_id')
+                                node_name = mn.get('node_name', '')
+                                cascade = mn.get('cascade', False)
+                                privs = privileges_for_role.get(node_id, [])
+                                
+                                if is_json:
+                                    permissions_info.append({
+                                        'node_name': node_name,
+                                        'node_id': node_id,
+                                        'cascade': cascade,
+                                        'privileges': privs
+                                    })
+                                else:
+                                    if privs:
+                                        permissions_info.append(f"{node_name} (cascade: {cascade}):")
+                                        for priv in privs:
+                                            permissions_info.append(f"  {priv}")
+                                    else:
+                                        permissions_info.append(f"{node_name} (cascade: {cascade}): none")
+                            row.append(permissions_info)
                     if pattern:
                         if not any(1 for x in row if x and str(x).lower().find(pattern) >= 0):
                             continue
@@ -1870,9 +1970,13 @@ class EnterpriseUserCommand(EnterpriseCommand):
                 command = rq.get('command')
                 if command == 'enterprise_user_add':
                     if rs['result'] == 'success':
-                        logging.info('%s user invited', rq['enterprise_user_username'])
+                        logging.info('%s user invited with Enterprise User ID : %s',
+                                     rq['enterprise_user_username'], rq['enterprise_user_id'])
                     else:
-                        logging.warning('%s failed to invite user: %s', rq['enterprise_user_username'], rs['message'])
+                        error_msg = rs['message']
+                        if error_msg and ';' in error_msg:
+                            error_msg = error_msg.split(';')[0].strip()
+                        logging.warning('%s failed to invite user: %s', rq['enterprise_user_username'], error_msg)
                 else:
                     user = None
                     if not user and 'username' in rq:

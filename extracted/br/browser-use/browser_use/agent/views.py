@@ -62,7 +62,7 @@ class AgentSettings(BaseModel):
 	vision_detail_level: Literal['auto', 'low', 'high'] = 'auto'
 	save_conversation_path: str | Path | None = None
 	save_conversation_path_encoding: str | None = 'utf-8'
-	max_failures: int = 3
+	max_failures: int = 5
 	generate_gif: bool | str = False
 	override_system_message: str | None = None
 	extend_system_message: str | None = None
@@ -88,6 +88,7 @@ class AgentSettings(BaseModel):
 	# Loop detection settings
 	loop_detection_window: int = 20  # Rolling window size for action similarity tracking
 	loop_detection_enabled: bool = True  # Whether to enable loop detection nudges
+	max_clickable_elements_length: int = 40000  # Max characters for clickable elements in prompt
 
 
 class PageFingerprint(BaseModel):

@@ -12,6 +12,8 @@ from chalk._gen.chalk.server.v1.team_pb2 import (
     ArchiveEnvironmentResponse,
     ArchiveProjectRequest,
     ArchiveProjectResponse,
+    AssignTeamRoleRequest,
+    AssignTeamRoleResponse,
     CreateCustomRoleRequest,
     CreateCustomRoleResponse,
     CreateEnvironmentRequest,
@@ -193,6 +195,11 @@ class TeamServiceStub:
         ReactivateUserRequest,
         ReactivateUserResponse,
     ]
+    AssignTeamRole: UnaryUnaryMultiCallable[
+        AssignTeamRoleRequest,
+        AssignTeamRoleResponse,
+    ]
+    """Assigns a team-scoped role to a user (i.e. role assignment with no environment)."""
     CreateCustomRole: UnaryUnaryMultiCallable[
         CreateCustomRoleRequest,
         CreateCustomRoleResponse,
@@ -378,6 +385,13 @@ class TeamServiceServicer(metaclass=ABCMeta):
         request: ReactivateUserRequest,
         context: ServicerContext,
     ) -> ReactivateUserResponse: ...
+    @abstractmethod
+    def AssignTeamRole(
+        self,
+        request: AssignTeamRoleRequest,
+        context: ServicerContext,
+    ) -> AssignTeamRoleResponse:
+        """Assigns a team-scoped role to a user (i.e. role assignment with no environment)."""
     @abstractmethod
     def CreateCustomRole(
         self,

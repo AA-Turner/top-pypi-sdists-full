@@ -18,6 +18,7 @@ from snowflake.snowpark.types import (
 )
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
+    get_artifact_repository,
     get_boolean_session_config_param,
     global_config,
 )
@@ -220,6 +221,7 @@ def register_udtf(
             "called_from": "register_udtf",
             "is_arrow_enabled": is_arrow_enabled_in_udtf(),
             "is_spark_compatible_udtf_mode_enabled": is_spark_compatible_udtf_mode_enabled(),
+            "artifact_repository": get_artifact_repository(),
             "resource_constraint": _get_resource_constraint(),
         }
 
@@ -282,6 +284,7 @@ def map_common_inline_user_defined_table_function(
             "called_from": "map_common_inline_user_defined_table_function",
             "is_arrow_enabled": is_arrow_enabled_in_udtf(),
             "is_spark_compatible_udtf_mode_enabled": is_spark_compatible_udtf_mode_enabled(),
+            "artifact_repository": get_artifact_repository(),
             "resource_constraint": _get_resource_constraint(),
         }
 

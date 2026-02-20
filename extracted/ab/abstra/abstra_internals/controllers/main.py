@@ -47,6 +47,7 @@ from abstra_internals.repositories.keyvalue import KVRepository
 from abstra_internals.repositories.passwordless import PasswordlessRepository
 from abstra_internals.repositories.producer import ProducerRepository
 from abstra_internals.repositories.project.project import (
+    AgentStage,
     FormStage,
     HookStage,
     JobStage,
@@ -64,6 +65,7 @@ from abstra_internals.settings import Settings
 from abstra_internals.templates import (
     ensure_dotenv,
     ensure_gitignore,
+    new_agent_code,
     new_form_code,
     new_hook_code,
     new_job_code,
@@ -1486,6 +1488,31 @@ class MainController:
         self.repositories.project.save(project)
         return job
 
+    def create_agent(
+        self,
+        title: str,
+        file: str,
+        workflow_position: Tuple[int, int] = (0, 0),
+        id: Optional[str] = None,
+    ) -> AgentStage:
+        project = self.repositories.project.load()
+        agent = AgentStage.create(
+            title, file, workflow_position=workflow_position, id=id
+        )
+        self.init_code_file(agent.file, new_agent_code)
+        project.add_stage(agent)
+        self.repositories.project.save(project)
+        return agent
+
+    def get_agents(self) -> List[AgentStage]:
+        project = self.repositories.project.load()
+        agents = project.get_agents()
+        return sorted(agents, key=lambda a: a.title.lower())
+
+    def get_agent(self, id: str) -> Optional[AgentStage]:
+        project = self.repositories.project.load()
+        return project.get_agent(id)
+
     def update_stage(self, id: str, changes: Dict[str, Any]) -> Stage:
         """
         Update properties of an existing workflow stage.
@@ -1561,6 +1588,10 @@ class MainController:
 
         if not stage:
             raise Exception(f"Stage with id {id} not found")
+
+        # Agents use prompt_content instead of code_content
+        if "prompt_content" in changes:
+            changes["code_content"] = changes.pop("prompt_content")
 
         if isinstance(stage, StageWithFile) and (
             code_content := changes.pop("code_content", None)
@@ -2111,6 +2142,40 @@ class MainController:
         finally:
             if not hand_off:
                 conn.close()
+
+    def run_agent(self, id: str, task_id: str):
+        """Run an agent stage immediately by its ID.
+
+        Enqueues the agent for execution via the producer/executor pool.
+        The agent's .md template is rendered with task data and executed
+        through the ReAct loop.
+
+        Args:
+            id: Unique identifier of the agent stage to run.
+            task_id: ID of the task that triggers this agent.
+
+        Returns:
+            Dict with ok=True and execution_id on success.
+        """
+        agent = self.get_agent(id)
+        if not agent:
+            raise Exception(f"Agent with id {id} not found")
+
+        conn = self.repositories.producer.enqueue(
+            id, context=ScriptContext(task_id=task_id)
+        )
+
+        try:
+            start_msg = conn.recv()
+
+            if isinstance(start_msg, str):
+                start_msg = json.loads(start_msg)
+
+            start_msg = ExecutionStartedMessage(execution_id=start_msg["executionId"])
+
+            return {"ok": True, "execution_id": start_msg.execution_id}
+        finally:
+            conn.close()
 
     def execute_code_snippet(self, code: str, title: str = "Debug Snippet"):
         """

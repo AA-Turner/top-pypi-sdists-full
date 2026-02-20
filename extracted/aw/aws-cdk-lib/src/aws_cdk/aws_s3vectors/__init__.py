@@ -70,8 +70,11 @@ from .._jsii import *
 import constructs as _constructs_77d1e7e8
 from .. import (
     CfnResource as _CfnResource_9df397a6,
+    CfnTag as _CfnTag_f6864754,
     IInspectable as _IInspectable_c2943556,
     IResolvable as _IResolvable_da3f097b,
+    ITaggableV2 as _ITaggableV2_4e6798f8,
+    TagManager as _TagManager_0a598cb3,
     TreeInspector as _TreeInspector_488e0dd5,
 )
 from ..interfaces.aws_s3vectors import (
@@ -84,7 +87,7 @@ from ..interfaces.aws_s3vectors import (
 )
 
 
-@jsii.implements(_IInspectable_c2943556, _IIndexRef_4272045e)
+@jsii.implements(_IInspectable_c2943556, _IIndexRef_4272045e, _ITaggableV2_4e6798f8)
 class CfnIndex(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -116,6 +119,7 @@ class CfnIndex(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_s3vectors as s3vectors
@@ -134,6 +138,10 @@ class CfnIndex(
             metadata_configuration=s3vectors.CfnIndex.MetadataConfigurationProperty(
                 non_filterable_metadata_keys=["nonFilterableMetadataKeys"]
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vector_bucket_arn="vectorBucketArn",
             vector_bucket_name="vectorBucketName"
         )
@@ -150,6 +158,7 @@ class CfnIndex(
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         index_name: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_arn: typing.Optional[builtins.str] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -163,6 +172,7 @@ class CfnIndex(
         :param encryption_configuration: The encryption configuration for a vector index. By default, if you don't specify, all new vectors in the vector index will use the encryption configuration of the vector bucket.
         :param index_name: The name of the vector index to create. The index name must be between 3 and 63 characters long and can contain only lowercase letters, numbers, hyphens (-), and dots (.). The index name must be unique within the vector bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the index name. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param metadata_configuration: The metadata configuration for the vector index.
+        :param tags: User tags (key-value pairs) to associate with the index.
         :param vector_bucket_arn: The Amazon Resource Name (ARN) of the vector bucket that contains the vector index.
         :param vector_bucket_name: The name of the vector bucket that contains the vector index.
         '''
@@ -177,6 +187,7 @@ class CfnIndex(
             encryption_configuration=encryption_configuration,
             index_name=index_name,
             metadata_configuration=metadata_configuration,
+            tags=tags,
             vector_bucket_arn=vector_bucket_arn,
             vector_bucket_name=vector_bucket_name,
         )
@@ -257,6 +268,12 @@ class CfnIndex(
         :cloudformationAttribute: IndexArn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrIndexArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
 
     @builtins.property
     @jsii.member(jsii_name="cfnProperties")
@@ -359,6 +376,19 @@ class CfnIndex(
             type_hints = typing.get_type_hints(_typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a9638c6ce3)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "metadataConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''User tags (key-value pairs) to associate with the index.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketArn")
@@ -540,6 +570,7 @@ class CfnIndex(
         "encryption_configuration": "encryptionConfiguration",
         "index_name": "indexName",
         "metadata_configuration": "metadataConfiguration",
+        "tags": "tags",
         "vector_bucket_arn": "vectorBucketArn",
         "vector_bucket_name": "vectorBucketName",
     },
@@ -554,6 +585,7 @@ class CfnIndexProps:
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         index_name: typing.Optional[builtins.str] = None,
         metadata_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnIndex.MetadataConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_arn: typing.Optional[builtins.str] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
@@ -565,6 +597,7 @@ class CfnIndexProps:
         :param encryption_configuration: The encryption configuration for a vector index. By default, if you don't specify, all new vectors in the vector index will use the encryption configuration of the vector bucket.
         :param index_name: The name of the vector index to create. The index name must be between 3 and 63 characters long and can contain only lowercase letters, numbers, hyphens (-), and dots (.). The index name must be unique within the vector bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the index name. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param metadata_configuration: The metadata configuration for the vector index.
+        :param tags: User tags (key-value pairs) to associate with the index.
         :param vector_bucket_arn: The Amazon Resource Name (ARN) of the vector bucket that contains the vector index.
         :param vector_bucket_name: The name of the vector bucket that contains the vector index.
 
@@ -573,6 +606,7 @@ class CfnIndexProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_s3vectors as s3vectors
@@ -591,6 +625,10 @@ class CfnIndexProps:
                 metadata_configuration=s3vectors.CfnIndex.MetadataConfigurationProperty(
                     non_filterable_metadata_keys=["nonFilterableMetadataKeys"]
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vector_bucket_arn="vectorBucketArn",
                 vector_bucket_name="vectorBucketName"
             )
@@ -603,6 +641,7 @@ class CfnIndexProps:
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
             check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
             check_type(argname="argument metadata_configuration", value=metadata_configuration, expected_type=type_hints["metadata_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vector_bucket_arn", value=vector_bucket_arn, expected_type=type_hints["vector_bucket_arn"])
             check_type(argname="argument vector_bucket_name", value=vector_bucket_name, expected_type=type_hints["vector_bucket_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -616,6 +655,8 @@ class CfnIndexProps:
             self._values["index_name"] = index_name
         if metadata_configuration is not None:
             self._values["metadata_configuration"] = metadata_configuration
+        if tags is not None:
+            self._values["tags"] = tags
         if vector_bucket_arn is not None:
             self._values["vector_bucket_arn"] = vector_bucket_arn
         if vector_bucket_name is not None:
@@ -701,6 +742,15 @@ class CfnIndexProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnIndex.MetadataConfigurationProperty"]], result)
 
     @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''User tags (key-value pairs) to associate with the index.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-index.html#cfn-s3vectors-index-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
     def vector_bucket_arn(self) -> typing.Optional[builtins.str]:
         '''The Amazon Resource Name (ARN) of the vector bucket that contains the vector index.
 
@@ -730,7 +780,7 @@ class CfnIndexProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _IVectorBucketRef_238bcb24)
+@jsii.implements(_IInspectable_c2943556, _IVectorBucketRef_238bcb24, _ITaggableV2_4e6798f8)
 class CfnVectorBucket(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -767,6 +817,7 @@ class CfnVectorBucket(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_s3vectors as s3vectors
@@ -776,6 +827,10 @@ class CfnVectorBucket(
                 kms_key_arn="kmsKeyArn",
                 sse_type="sseType"
             ),
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             vector_bucket_name="vectorBucketName"
         )
     '''
@@ -786,6 +841,7 @@ class CfnVectorBucket(
         id: builtins.str,
         *,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Create a new ``AWS::S3Vectors::VectorBucket``.
@@ -793,6 +849,7 @@ class CfnVectorBucket(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param encryption_configuration: The encryption configuration for the vector bucket.
+        :param tags: User tags (key-value pairs) to associate with the vector bucket.
         :param vector_bucket_name: A name for the vector bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). The bucket name must be unique in the same AWS account for each AWS Region. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must be between 3 and 63 characters long and must not contain uppercase characters or underscores. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         '''
         if __debug__:
@@ -801,6 +858,7 @@ class CfnVectorBucket(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnVectorBucketProps(
             encryption_configuration=encryption_configuration,
+            tags=tags,
             vector_bucket_name=vector_bucket_name,
         )
 
@@ -885,6 +943,12 @@ class CfnVectorBucket(
         return typing.cast(builtins.str, jsii.get(self, "attrVectorBucketArn"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -912,6 +976,19 @@ class CfnVectorBucket(
             type_hints = typing.get_type_hints(_typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "encryptionConfiguration", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''User tags (key-value pairs) to associate with the vector bucket.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="vectorBucketName")
@@ -1285,6 +1362,7 @@ class CfnVectorBucketPolicyProps:
     jsii_struct_bases=[],
     name_mapping={
         "encryption_configuration": "encryptionConfiguration",
+        "tags": "tags",
         "vector_bucket_name": "vectorBucketName",
     },
 )
@@ -1293,11 +1371,13 @@ class CfnVectorBucketProps:
         self,
         *,
         encryption_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnVectorBucket.EncryptionConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         vector_bucket_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''Properties for defining a ``CfnVectorBucket``.
 
         :param encryption_configuration: The encryption configuration for the vector bucket.
+        :param tags: User tags (key-value pairs) to associate with the vector bucket.
         :param vector_bucket_name: A name for the vector bucket. The bucket name must contain only lowercase letters, numbers, and hyphens (-). The bucket name must be unique in the same AWS account for each AWS Region. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must be between 3 and 63 characters long and must not contain uppercase characters or underscores. .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-vectorbucket.html
@@ -1305,6 +1385,7 @@ class CfnVectorBucketProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_s3vectors as s3vectors
@@ -1314,16 +1395,23 @@ class CfnVectorBucketProps:
                     kms_key_arn="kmsKeyArn",
                     sse_type="sseType"
                 ),
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 vector_bucket_name="vectorBucketName"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__557f3461f0c9f94a1c325dd824a3303ad88eff46565842be7f5c9f62ac2ce7dc)
             check_type(argname="argument encryption_configuration", value=encryption_configuration, expected_type=type_hints["encryption_configuration"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument vector_bucket_name", value=vector_bucket_name, expected_type=type_hints["vector_bucket_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if encryption_configuration is not None:
             self._values["encryption_configuration"] = encryption_configuration
+        if tags is not None:
+            self._values["tags"] = tags
         if vector_bucket_name is not None:
             self._values["vector_bucket_name"] = vector_bucket_name
 
@@ -1337,6 +1425,15 @@ class CfnVectorBucketProps:
         '''
         result = self._values.get("encryption_configuration")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnVectorBucket.EncryptionConfigurationProperty"]], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''User tags (key-value pairs) to associate with the vector bucket.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-s3vectors-vectorbucket.html#cfn-s3vectors-vectorbucket-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def vector_bucket_name(self) -> typing.Optional[builtins.str]:
@@ -1387,6 +1484,7 @@ def _typecheckingstub__87bd43a194666dd054aecee5dc42b978d33dae31b98b1bacec49341d4
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     index_name: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_arn: typing.Optional[builtins.str] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1453,6 +1551,12 @@ def _typecheckingstub__adf0789238c3ff54ec752516d17506a5dc3025daf5543ed37b3703a96
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__be4bbbd8df829f30f21de18dbcd012115700ffb27edd6ce3da3b491d6d136392(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dac369cc81e6a72eae40497750fec7e4bb88a8f4e2eb0a59dcbce3ecef2449ec(
     value: typing.Optional[builtins.str],
 ) -> None:
@@ -1488,6 +1592,7 @@ def _typecheckingstub__1ea84a5df8ebf668282b156128f8a09e7618a68ade5fffdf6ff86d391
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     index_name: typing.Optional[builtins.str] = None,
     metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnIndex.MetadataConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_arn: typing.Optional[builtins.str] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
@@ -1499,6 +1604,7 @@ def _typecheckingstub__a52d66a4aae762d071703714133bff3215199691ee6f06fec05144ec7
     id: builtins.str,
     *,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1530,6 +1636,12 @@ def _typecheckingstub__1ac846d2ab15e1003f215128393cef109784fe6985ec04a5d2e373121
 
 def _typecheckingstub__476996e4c3089c3364c3345d4c51c4d606b950b97248fc4afa1b8517c670f8f6(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnVectorBucket.EncryptionConfigurationProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7b052022df884995ff323390b18015ff823b8b7d5553482a7666cc8e2bfda4e2(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -1607,6 +1719,7 @@ def _typecheckingstub__1f526fb025093579ae7085ed34610b038bedad50bc4dda479dea96c21
 def _typecheckingstub__557f3461f0c9f94a1c325dd824a3303ad88eff46565842be7f5c9f62ac2ce7dc(
     *,
     encryption_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnVectorBucket.EncryptionConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     vector_bucket_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""

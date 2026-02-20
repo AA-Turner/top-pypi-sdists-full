@@ -239,6 +239,23 @@ topic_policy = sns.TopicPolicy(self, "Policy",
 )
 ```
 
+A simpler and more general way of achieving the same result is to use the
+`TopicGrants` class:
+
+```python
+topic = sns.Topic(self, "Topic")
+
+# This would work the same way if topic was a CfnTopic (L1)
+sns.TopicGrants.from_topic(topic).subscribe(iam.AnyPrincipal())
+```
+
+For convenience, if you are using an L2, you can also call `grants` on the topic:
+
+```python
+topic = sns.Topic(self, "Topic")
+topic.grants.subscribe(iam.AnyPrincipal())
+```
+
 ### Enforce encryption of data in transit when publishing to a topic
 
 You can enforce SSL when creating a topic policy by setting the `enforceSSL` flag:
@@ -5544,7 +5561,11 @@ class TopicBase(
 
     @jsii.member(jsii_name="grantPublish")
     def grant_publish(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Grant topic publishing permissions to the given identity [disable-awslint:no-grants].
+        '''Grant topic publishing permissions to the given identity.
+
+        The use of this method is discouraged. Please use ``grants.publish()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -5555,7 +5576,11 @@ class TopicBase(
 
     @jsii.member(jsii_name="grantSubscribe")
     def grant_subscribe(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Grant topic subscribing permissions to the given identity [disable-awslint:no-grants].
+        '''Grant topic subscribing permissions to the given identity.
+
+        The use of this method is discouraged. Please use ``grants.subscribe()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -6210,18 +6235,14 @@ typing.cast(typing.Any, TopicBase).__jsii_proxy_class__ = lambda : _TopicBasePro
 class TopicGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sns.TopicGrants"):
     '''Collection of grant methods for a ITopicRef.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_sns as sns
-        from aws_cdk.interfaces import aws_sns as interfaces_sns
+        topic = sns.Topic(self, "Topic")
         
-        # topic_ref: interfaces_sns.ITopicRef
-        
-        topic_grants = sns.TopicGrants.from_topic(topic_ref)
+        # This would work the same way if topic was a CfnTopic (L1)
+        sns.TopicGrants.from_topic(topic).subscribe(iam.AnyPrincipal())
     '''
 
     @jsii.member(jsii_name="fromTopic")
@@ -7056,15 +7077,12 @@ class Topic(TopicBase, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_sns.T
         import aws_cdk.aws_sns as sns
         
         
-        topic = sns.Topic(self, "MyTopic")
-        
-        topic_rule = iot.TopicRule(self, "TopicRule",
-            sql=iot.IotSql.from_string_as_ver20160323("SELECT topic(2) as device_id, year, month, day FROM 'device/+/data'"),
-            actions=[
-                actions.SnsTopicAction(topic,
-                    message_format=actions.SnsActionMessageFormat.JSON
-                )
-            ]
+        dlt = sns.Topic(self, "DLQ")
+        fn = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.NODEJS_18_X,
+            handler="index.handler",
+            code=lambda_.Code.from_inline("// your code here"),
+            dead_letter_topic=dlt
         )
     '''
 

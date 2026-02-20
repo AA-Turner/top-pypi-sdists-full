@@ -1475,7 +1475,19 @@ class SMCP(FastMCP):
             return cls._resolve_oneof_type(param_info)
 
         param_type = param_info.get("type", "string")
-        python_type = cls._SIMPLE_TYPE_MAP.get(param_type, str)
+
+        # Handle nullable types like ["string", "null"]
+        if isinstance(param_type, list):
+            non_null = [t for t in param_type if t != "null"]
+            is_nullable = "null" in param_type
+            base_type = non_null[0] if non_null else "string"
+            base_python_type = cls._SIMPLE_TYPE_MAP.get(base_type, str)
+            python_type = (
+                Optional[base_python_type] if is_nullable else base_python_type
+            )
+            param_type = base_type
+        else:
+            python_type = cls._SIMPLE_TYPE_MAP.get(param_type, str)
 
         if param_type == "array":
             items_info = param_info.get("items", {})
@@ -1612,6 +1624,7 @@ class SMCP(FastMCP):
                 """Execute ToolUniverse tool with provided arguments."""
                 import json
 
+                stream_callback = None
                 try:
                     # Remove ctx if present (legacy support)
                     ctx = kwargs.pop("ctx", None) if "ctx" in kwargs else None
@@ -1688,9 +1701,6 @@ class SMCP(FastMCP):
                         loop = asyncio.get_running_loop()
                     except RuntimeError:
                         loop = asyncio.get_event_loop()
-
-                    # Initialize stream_callback to None by default
-                    stream_callback = None
 
                     if stream_flag and ctx is not None:
 

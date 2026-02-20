@@ -3304,6 +3304,17 @@ class AuroraMysqlEngineVersion(
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_4"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_3_04_6")
+    def VER_3_04_6(cls) -> "AuroraMysqlEngineVersion":
+        '''(deprecated) Version "8.0.mysql_aurora.3.04.6".
+
+        :deprecated: Aurora MySQL 8.0.mysql_aurora.3.04.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_04_6"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_05_0")
     def VER_3_05_0(cls) -> "AuroraMysqlEngineVersion":
         '''(deprecated) Version "8.0.mysql_aurora.3.05.0".
@@ -3421,6 +3432,17 @@ class AuroraMysqlEngineVersion(
     def VER_3_10_2(cls) -> "AuroraMysqlEngineVersion":
         '''Version "8.0.mysql_aurora.3.10.2".'''
         return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_2"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_3_10_3")
+    def VER_3_10_3(cls) -> "AuroraMysqlEngineVersion":
+        '''(deprecated) Version "8.0.mysql_aurora.3.10.3".
+
+        :deprecated: Aurora MySQL 8.0.mysql_aurora.3.10.3 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
+        return typing.cast("AuroraMysqlEngineVersion", jsii.sget(cls, "VER_3_10_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_3_11_0")
@@ -4230,19 +4252,34 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_14")
     def VER_13_14(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.14".'''
+        '''(deprecated) Version "13.14".
+
+        :deprecated: Version 13.14 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_14"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_15")
     def VER_13_15(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.15".'''
+        '''(deprecated) Version "13.15".
+
+        :deprecated: Version 13.15 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_16")
     def VER_13_16(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.16".'''
+        '''(deprecated) Version "13.16".
+
+        :deprecated: Version 13.16 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_16"))
 
     @jsii.python.classproperty
@@ -4259,26 +4296,52 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
     def VER_13_18(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.18".'''
+        '''(deprecated) Version "13.18".
+
+        :deprecated: Version 13.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
     def VER_13_20(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.20".'''
+        '''(deprecated) Version "13.20".
+
+        :deprecated: Version 13.20 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
     def VER_13_21(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.21".'''
+        '''(deprecated) Version "13.21".
+
+        :deprecated: Version 13.21 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
     def VER_13_22(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "13.22".'''
+        '''(deprecated) Version "13.22".
+
+        :deprecated: Version 13.22 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_13_23")
+    def VER_13_23(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "13.23".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_13_23"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_3")
@@ -4366,19 +4429,34 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_11")
     def VER_14_11(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.11".'''
+        '''(deprecated) Version "14.11".
+
+        :deprecated: Version 14.11 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_12")
     def VER_14_12(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.12".'''
+        '''(deprecated) Version "14.12".
+
+        :deprecated: Version 14.12 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_13")
     def VER_14_13(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.13".'''
+        '''(deprecated) Version "14.13".
+
+        :deprecated: Version 14.13 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_13"))
 
     @jsii.python.classproperty
@@ -4395,31 +4473,56 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
     def VER_14_15(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.15".'''
+        '''(deprecated) Version "14.15".
+
+        :deprecated: Version 14.15 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
     def VER_14_17(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.17".'''
+        '''(deprecated) Version "14.17".
+
+        :deprecated: Version 14.17 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
     def VER_14_18(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.18".'''
+        '''(deprecated) Version "14.18".
+
+        :deprecated: Version 14.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
     def VER_14_19(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.19".'''
+        '''(deprecated) Version "14.19".
+
+        :deprecated: Version 14.19 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
     def VER_14_20(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "14.20".'''
+        '''(deprecated) Version "14.20".
+
+        :deprecated: Version 14.20 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
@@ -4497,26 +4600,52 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
     def VER_15_10(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.10".'''
+        '''(deprecated) Version "15.10".
+
+        :deprecated: Version 15.10 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
     def VER_15_12(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.12".'''
+        '''(deprecated) Version "15.12".
+
+        :deprecated: Version 15.12 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
     def VER_15_13(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.13".'''
+        '''(deprecated) Version "15.13".
+
+        :deprecated: Version 15.13 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
     def VER_15_14(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.14".'''
+        '''(deprecated) Version "15.14".
+
+        :deprecated: Version 15.14 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_15_15")
+    def VER_15_15(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "15.15".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_15"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_2")
@@ -4565,19 +4694,34 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_6")
     def VER_15_6(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.6".'''
+        '''(deprecated) Version "15.6".
+
+        :deprecated: Version 15.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_7")
     def VER_15_7(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.7".'''
+        '''(deprecated) Version "15.7".
+
+        :deprecated: Version 15.7 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_8")
     def VER_15_8(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "15.8".'''
+        '''(deprecated) Version "15.8".
+
+        :deprecated: Version 15.8 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_15_8"))
 
     @jsii.python.classproperty
@@ -4605,43 +4749,78 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_1")
     def VER_16_1(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.1".'''
+        '''(deprecated) Version "16.1".
+
+        :deprecated: Version 16.1 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_1"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
     def VER_16_10(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.10".'''
+        '''(deprecated) Version "16.10".
+
+        :deprecated: Version 16.10 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
     def VER_16_11(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.11".'''
+        '''(deprecated) Version "16.11".
+
+        :deprecated: Version 16.11 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_2")
     def VER_16_2(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.2".'''
+        '''(deprecated) Version "16.2".
+
+        :deprecated: Version 16.2 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_2"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_3")
     def VER_16_3(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.3".'''
+        '''(deprecated) Version "16.3".
+
+        :deprecated: Version 16.3 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_3"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4")
     def VER_16_4(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.4".'''
+        '''(deprecated) Version "16.4".
+
+        :deprecated: Version 16.4 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_4_LIMITLESS")
     def VER_16_4_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.4 limitless".'''
+        '''(deprecated) Version "16.4 limitless".
+
+        :deprecated: Version 16.4 limitless is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_4_LIMITLESS"))
 
     @jsii.python.classproperty
@@ -4658,37 +4837,67 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
     def VER_16_6(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.6".'''
+        '''(deprecated) Version "16.6".
+
+        :deprecated: Version 16.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6_LIMITLESS")
     def VER_16_6_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.6 limitless".'''
+        '''(deprecated) Version "16.6 limitless".
+
+        :deprecated: Version 16.6 limitless is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_6_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
     def VER_16_8(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.8".'''
+        '''(deprecated) Version "16.8".
+
+        :deprecated: Version 16.8 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8_LIMITLESS")
     def VER_16_8_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.8 limitless".'''
+        '''(deprecated) Version "16.8 limitless".
+
+        :deprecated: Version 16.8 limitless is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_8_LIMITLESS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
     def VER_16_9(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.9".'''
+        '''(deprecated) Version "16.9".
+
+        :deprecated: Version 16.9 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9_LIMITLESS")
     def VER_16_9_LIMITLESS(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "16.9 limitless".'''
+        '''(deprecated) Version "16.9 limitless".
+
+        :deprecated: Version 16.9 limitless is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_16_9_LIMITLESS"))
 
     @jsii.python.classproperty
@@ -4716,20 +4925,41 @@ class AuroraPostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
     def VER_17_4(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "17.4".'''
+        '''(deprecated) Version "17.4".
+
+        :deprecated: Version 17.4 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
     def VER_17_5(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "17.5".'''
+        '''(deprecated) Version "17.5".
+
+        :deprecated: Version 17.5 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
     def VER_17_6(cls) -> "AuroraPostgresEngineVersion":
-        '''Version "17.6".'''
+        '''(deprecated) Version "17.6".
+
+        :deprecated: Version 17.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_17_7")
+    def VER_17_7(cls) -> "AuroraPostgresEngineVersion":
+        '''Version "17.7".'''
+        return typing.cast("AuroraPostgresEngineVersion", jsii.sget(cls, "VER_17_7"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_9_6_11")
@@ -35887,8 +36117,14 @@ class MysqlEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_5_7_44_RDS_20250818")
     def VER_5_7_44_RDS_20250818(cls) -> "MysqlEngineVersion":
-        '''Version "5.7.44-RDS.20250818".'''
+        '''Version "5.7.44-rds.20250818".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20250818"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_5_7_44_RDS_20251212")
+    def VER_5_7_44_RDS_20251212(cls) -> "MysqlEngineVersion":
+        '''Version "5.7.44-rds.20251212".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_5_7_44_RDS_20251212"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0")
@@ -36130,13 +36366,23 @@ class MysqlEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_37")
     def VER_8_0_37(cls) -> "MysqlEngineVersion":
-        '''Version "8.0.37".'''
+        '''(deprecated) Version "8.0.37".
+
+        :deprecated: MySQL 8.0.37 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_37"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_0_39")
     def VER_8_0_39(cls) -> "MysqlEngineVersion":
-        '''Version "8.0.39".'''
+        '''(deprecated) Version "8.0.39".
+
+        :deprecated: MySQL 8.0.39 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_39"))
 
     @jsii.python.classproperty
@@ -36170,6 +36416,12 @@ class MysqlEngineVersion(
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_44"))
 
     @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_0_45")
+    def VER_8_0_45(cls) -> "MysqlEngineVersion":
+        '''Version "8.0.45".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_0_45"))
+
+    @jsii.python.classproperty
     @jsii.member(jsii_name="VER_8_4_3")
     def VER_8_4_3(cls) -> "MysqlEngineVersion":
         '''Version "8.4.3".'''
@@ -36198,6 +36450,12 @@ class MysqlEngineVersion(
     def VER_8_4_7(cls) -> "MysqlEngineVersion":
         '''Version "8.4.7".'''
         return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_7"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_8_4_8")
+    def VER_8_4_8(cls) -> "MysqlEngineVersion":
+        '''Version "8.4.8".'''
+        return typing.cast("MysqlEngineVersion", jsii.sget(cls, "VER_8_4_8"))
 
     @builtins.property
     @jsii.member(jsii_name="mysqlFullVersion")
@@ -38997,26 +39255,63 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20240808")
     def VER_11_22_RDS_20240808(cls) -> "PostgresEngineVersion":
-        '''Version "11.22-rds.20240808".'''
+        '''(deprecated) Version "11.22-rds.20240808".
+
+        :deprecated: PostgreSQL 11.22-rds.20240808 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20240808"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20241121")
     def VER_11_22_RDS_20241121(cls) -> "PostgresEngineVersion":
-        '''Version "11.22-RDS.20241121".'''
+        '''(deprecated) Version "11.22-RDS.20241121".
+
+        :deprecated: PostgreSQL 11.22-RDS.20241121 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20241121"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_22_RDS_20250220")
+    def VER_11_22_RDS_20250220(cls) -> "PostgresEngineVersion":
+        '''(deprecated) Version "11.22-rds.20250220".
+
+        :deprecated: PostgreSQL 11.22-rds.20250220 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20250220"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20250508")
     def VER_11_22_RDS_20250508(cls) -> "PostgresEngineVersion":
-        '''Version "11.22-rds.20250508".'''
+        '''(deprecated) Version "11.22-rds.20250508".
+
+        :deprecated: PostgreSQL 11.22-rds.20250508 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20250508"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_22_RDS_20250814")
     def VER_11_22_RDS_20250814(cls) -> "PostgresEngineVersion":
-        '''Version "11.22-rds.20250814".'''
+        '''(deprecated) Version "11.22-rds.20250814".
+
+        :deprecated: PostgreSQL 11.22-rds.20250814 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20250814"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_11_22_RDS_20251114")
+    def VER_11_22_RDS_20251114(cls) -> "PostgresEngineVersion":
+        '''Version "11.22-rds.20251114".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_11_22_RDS_20251114"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_11_4")
@@ -39242,20 +39537,41 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250220")
     def VER_12_22_RDS_20250220(cls) -> "PostgresEngineVersion":
-        '''Version "12.22-rds.20250220".'''
+        '''(deprecated) Version "12.22-rds.20250220".
+
+        :deprecated: PostgreSQL 12.22-rds.20250220 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20250220"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250508")
     def VER_12_22_RDS_20250508(cls) -> "PostgresEngineVersion":
-        '''Version "12.22-rds.20250508".'''
+        '''(deprecated) Version "12.22-rds.20250508".
+
+        :deprecated: PostgreSQL 12.22-rds.20250508 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20250508"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_22_RDS_20250814")
     def VER_12_22_RDS_20250814(cls) -> "PostgresEngineVersion":
-        '''Version "12.22-rds.20250814".'''
+        '''(deprecated) Version "12.22-rds.20250814".
+
+        :deprecated: PostgreSQL 12.22-rds.20250814 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20250814"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="VER_12_22_RDS_20251114")
+    def VER_12_22_RDS_20251114(cls) -> "PostgresEngineVersion":
+        '''Version "12.22-rds.20251114".'''
+        return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_12_22_RDS_20251114"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_12_3")
@@ -39442,7 +39758,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_18")
     def VER_13_18(cls) -> "PostgresEngineVersion":
-        '''Version "13.18".'''
+        '''(deprecated) Version "13.18".
+
+        :deprecated: PostgreSQL 13.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_18"))
 
     @jsii.python.classproperty
@@ -39470,19 +39791,34 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_20")
     def VER_13_20(cls) -> "PostgresEngineVersion":
-        '''Version "13.20".'''
+        '''(deprecated) Version "13.20".
+
+        :deprecated: PostgreSQL 13.20 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_20"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_21")
     def VER_13_21(cls) -> "PostgresEngineVersion":
-        '''Version "13.21".'''
+        '''(deprecated) Version "13.21".
+
+        :deprecated: PostgreSQL 13.21 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_21"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_13_22")
     def VER_13_22(cls) -> "PostgresEngineVersion":
-        '''Version "13.22".'''
+        '''(deprecated) Version "13.22".
+
+        :deprecated: PostgreSQL 13.22 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_13_22"))
 
     @jsii.python.classproperty
@@ -39623,7 +39959,7 @@ class PostgresEngineVersion(
     def VER_14_13(cls) -> "PostgresEngineVersion":
         '''(deprecated) Version "14.13".
 
-        :deprecated: PostgreSQL 14.14 is no longer supported by Amazon RDS.
+        :deprecated: PostgreSQL 14.13 is no longer supported by Amazon RDS.
 
         :stability: deprecated
         '''
@@ -39643,7 +39979,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_15")
     def VER_14_15(cls) -> "PostgresEngineVersion":
-        '''Version "14.15".'''
+        '''(deprecated) Version "14.15".
+
+        :deprecated: PostgreSQL 14.15 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_15"))
 
     @jsii.python.classproperty
@@ -39660,19 +40001,34 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_17")
     def VER_14_17(cls) -> "PostgresEngineVersion":
-        '''Version "14.17".'''
+        '''(deprecated) Version "14.17".
+
+        :deprecated: PostgreSQL 14.17 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_17"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_18")
     def VER_14_18(cls) -> "PostgresEngineVersion":
-        '''Version "14.18".'''
+        '''(deprecated) Version "14.18".
+
+        :deprecated: PostgreSQL 14.18 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_18"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_19")
     def VER_14_19(cls) -> "PostgresEngineVersion":
-        '''Version "14.19".'''
+        '''(deprecated) Version "14.19".
+
+        :deprecated: PostgreSQL 14.19 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_19"))
 
     @jsii.python.classproperty
@@ -39689,7 +40045,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_14_20")
     def VER_14_20(cls) -> "PostgresEngineVersion":
-        '''Version "14.20".'''
+        '''(deprecated) Version "14.20".
+
+        :deprecated: PostgreSQL 14.20 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_14_20"))
 
     @jsii.python.classproperty
@@ -39778,7 +40139,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_10")
     def VER_15_10(cls) -> "PostgresEngineVersion":
-        '''Version "15.10".'''
+        '''(deprecated) Version "15.10".
+
+        :deprecated: PostgreSQL 15.10 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_10"))
 
     @jsii.python.classproperty
@@ -39795,19 +40161,34 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_12")
     def VER_15_12(cls) -> "PostgresEngineVersion":
-        '''Version "15.12".'''
+        '''(deprecated) Version "15.12".
+
+        :deprecated: PostgreSQL 15.12 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_12"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_13")
     def VER_15_13(cls) -> "PostgresEngineVersion":
-        '''Version "15.13".'''
+        '''(deprecated) Version "15.13".
+
+        :deprecated: PostgreSQL 15.13 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_13"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_15_14")
     def VER_15_14(cls) -> "PostgresEngineVersion":
-        '''Version "15.14".'''
+        '''(deprecated) Version "15.14".
+
+        :deprecated: PostgreSQL 15.14 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_15_14"))
 
     @jsii.python.classproperty
@@ -39924,13 +40305,23 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_10")
     def VER_16_10(cls) -> "PostgresEngineVersion":
-        '''Version "16.10".'''
+        '''(deprecated) Version "16.10".
+
+        :deprecated: PostgreSQL 16.10 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_10"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_11")
     def VER_16_11(cls) -> "PostgresEngineVersion":
-        '''Version "16.11".'''
+        '''(deprecated) Version "16.11".
+
+        :deprecated: PostgreSQL 16.11 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_11"))
 
     @jsii.python.classproperty
@@ -39980,7 +40371,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_6")
     def VER_16_6(cls) -> "PostgresEngineVersion":
-        '''Version "16.6".'''
+        '''(deprecated) Version "16.6".
+
+        :deprecated: PostgreSQL 16.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_6"))
 
     @jsii.python.classproperty
@@ -39997,13 +40393,23 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_8")
     def VER_16_8(cls) -> "PostgresEngineVersion":
-        '''Version "16.8".'''
+        '''(deprecated) Version "16.8".
+
+        :deprecated: PostgreSQL 16.8 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_8"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_16_9")
     def VER_16_9(cls) -> "PostgresEngineVersion":
-        '''Version "16.9".'''
+        '''(deprecated) Version "16.9".
+
+        :deprecated: PostgreSQL 16.9 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_16_9"))
 
     @jsii.python.classproperty
@@ -40026,7 +40432,12 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_2")
     def VER_17_2(cls) -> "PostgresEngineVersion":
-        '''Version "17.2".'''
+        '''(deprecated) Version "17.2".
+
+        :deprecated: PostgreSQL 17.2 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_2"))
 
     @jsii.python.classproperty
@@ -40043,19 +40454,34 @@ class PostgresEngineVersion(
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_4")
     def VER_17_4(cls) -> "PostgresEngineVersion":
-        '''Version "17.4".'''
+        '''(deprecated) Version "17.4".
+
+        :deprecated: PostgreSQL 17.4 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_5")
     def VER_17_5(cls) -> "PostgresEngineVersion":
-        '''Version "17.5".'''
+        '''(deprecated) Version "17.5".
+
+        :deprecated: PostgreSQL 17.5 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_5"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VER_17_6")
     def VER_17_6(cls) -> "PostgresEngineVersion":
-        '''Version "17.6".'''
+        '''(deprecated) Version "17.6".
+
+        :deprecated: PostgreSQL 17.6 is no longer supported by Amazon RDS.
+
+        :stability: deprecated
+        '''
         return typing.cast("PostgresEngineVersion", jsii.sget(cls, "VER_17_6"))
 
     @jsii.python.classproperty

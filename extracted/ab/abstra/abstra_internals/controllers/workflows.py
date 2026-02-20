@@ -5,6 +5,7 @@ from typing import Dict, List, Optional, TypedDict
 from abstra_internals.controllers.main import UnknownNodeTypeError
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import (
+    AgentStage,
     ComponentStage,
     FormStage,
     HookStage,
@@ -132,7 +133,7 @@ class WorkflowController:
     def make_stage_dto(self, stage: Stage) -> StageDTO:
         filename = None
         props = {}
-        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage)):
+        if isinstance(stage, (HookStage, ScriptStage, FormStage, JobStage, AgentStage)):
             filename = stage.file
             props["filename"] = filename
         path = None
@@ -167,6 +168,7 @@ class WorkflowController:
                 or isinstance(stage, ScriptStage)
                 or isinstance(stage, HookStage)
                 or isinstance(stage, JobStage)
+                or isinstance(stage, AgentStage)
             ):
                 stage_dto["props"]["filename"] = stage.file
 
@@ -540,6 +542,7 @@ class WorkflowController:
                     or isinstance(stage, ScriptStage)
                     or isinstance(stage, HookStage)
                     or isinstance(stage, JobStage)
+                    or isinstance(stage, AgentStage)
                 ):
                     stage.update({"file": f"{stage_dto['props']['filename']}"})
                     stage.file = f"{stage_dto['props']['filename']}"
@@ -621,6 +624,19 @@ class WorkflowController:
                     package_name=None,
                 )
                 project.components.append(stage)
+            elif stage_dto["type"] == "agents":
+                stage = AgentStage(
+                    id=stage_dto["id"],
+                    file=stage_dto["props"]["filename"],
+                    title=stage_dto["title"],
+                    workflow_position=(
+                        stage_dto["position"]["x"],
+                        stage_dto["position"]["y"],
+                    ),
+                    workflow_transitions=[],
+                    is_initial=False,
+                )
+                project.agents.append(stage)
             else:
                 raise UnknownNodeTypeError(stage_dto["type"])
 

@@ -12,28 +12,32 @@ Features:
 - Fully vectorized for speed
 - Calculate raw finite difference coefficients for any order and accuracy for uniform and non-uniform grids
 - Generate matrix representations of arbitrary linear differential operators
-- Solve partial differential equations with Dirichlet or Neumann boundary conditions
+- Solve partial differential equations with Dirichlet, Neumann or Robin boundary conditions
 - Generate differential operators for generic stencils
 - Create symbolic representations of finite difference schemes
 - Version 0.11.*: Completely remodeled API (backward compatibility is maintained, though)
 - Version 0.12.*: Periodic boundary conditions for differential operators and PDEs
+- Version 0.13.*: Compact finite difference schemes for interior and boundary points
 """
 
-__version__ = "0.12.2"
+__version__ = "0.13.1"
 
 
 from .coefs import coefficients
+from .compact import CompactScheme
 from .compatible import Coef, Coefficient, FinDiff, Id
 from .interface import Diff
-from .operators import Identity
+from .operators import ErrorEstimate, Identity
 from .pde import PDE, BoundaryConditions
 from .symbolic import SymbolicDiff, SymbolicMesh
 from .vector import Curl, Divergence, Gradient, Laplacian
 
 __all__ = [
     "coefficients",
+    "CompactScheme",
     "Coef",
     "Coefficient",
+    "ErrorEstimate",
     "FinDiff",
     "Id",
     "Diff",

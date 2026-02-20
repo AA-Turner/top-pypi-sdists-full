@@ -21,28 +21,28 @@ class Timer(models.Model):
         Choices for Structure Type
         """
 
+        OTHER = "Other", _("Other")
+
+        ASTRAHUS = "Astrahus", _("Astrahus")
+        ATHANOR = "Athanor", _("Athanor")
+        AZBEL = "Azbel", _("Azbel")
+        PHAROLUX = "Pharolux Cyno Beacon", _("Cyno Beacon")
+        TENEBREX = "Tenebrex Cyno Jammer", _("Cyno Jammer")
+        FORTIZAR = "Fortizar", _("Fortizar")
+        ANSIBLEX = "Ansiblex Jump Gate", _("Jump Bridge")
+        KEEPSTAR = "Keepstar", _("Keepstar")
+        MERCDEN = "Mercenary Den", _("Mercenary Den")
+        METENOX = "Metenox Moon Drill", _("Moon Drill")
+        MOONPOP = "Moon Mining Cycle", _("Moon Mining Cycle")
         POCO = "POCO", _("POCO")
-        ORBITALSKYHOOK = "Orbital Skyhook", _("Orbital Skyhook")
-        IHUB = "I-HUB", _("Sovereignty Hub")
-        TCU = "TCU", _("TCU")  # Pending Remval
         POSS = "POS[S]", _("POS [S]")
         POSM = "POS[M]", _("POS [M]")
         POSL = "POS[L]", _("POS [L]")
-        ASTRAHUS = "Astrahus", _("Astrahus")
-        FORTIZAR = "Fortizar", _("Fortizar")
-        KEEPSTAR = "Keepstar", _("Keepstar")
         RAITARU = "Raitaru", _("Raitaru")
-        AZBEL = "Azbel", _("Azbel")
+        ORBITALSKYHOOK = "Orbital Skyhook", _("Skyhook")
         SOTIYO = "Sotiyo", _("Sotiyo")
-        ATHANOR = "Athanor", _("Athanor")
+        IHUB = "I-HUB", _("Sovereignty Hub")
         TATARA = "Tatara", _("Tatara")
-        PHAROLUX = "Pharolux Cyno Beacon", _("Cyno Beacon")
-        TENEBREX = "Tenebrex Cyno Jammer", _("Cyno Jammer")
-        ANSIBLEX = "Ansiblex Jump Gate", _("Ansiblex Jump Gate")
-        MERCDEN = "Mercenary Den", _("Mercenary Den")
-        MOONPOP = "Moon Mining Cycle", _("Moon Mining Cycle")
-        METENOX = "Metenox Moon Drill", _("Metenox Moon Drill")
-        OTHER = "Other", _("Other")
 
     class TimerType(models.TextChoices):
         """

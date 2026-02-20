@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: abstra
-Version: 3.26.14
+Version: 3.27.0
 Summary: Abstra Lib
 Home-page: https://abstra.io
 License: MIT
@@ -37,14 +37,16 @@ Requires-Dist: Pillow
 Requires-Dist: pika==1.3.2
 Requires-Dist: puremagic==1.28
 Requires-Dist: psutil
+Requires-Dist: jinja2>=3.1.0
+Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: pypdfium2==4.30.0
 Requires-Dist: watchdog==4.0.2
 Requires-Dist: mail-parser==4.1.2
 Requires-Dist: certifi
 Requires-Dist: abstra-json-sql>=0.0.12
-Requires-Dist: jsonschema>=4.20.0
 Requires-Dist: filelock>=3.12.0
-Requires-Dist: ty
+Requires-Dist: playwright>=1.40.0
+Requires-Dist: abstra-lua>=0.0.1
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page

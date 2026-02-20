@@ -79,11 +79,16 @@ class ProgressService:
         caller_method: Optional[str],
     ):
         """
-        :param operation_id: The ID of the operation that the ProgressService
-            is polling for. This is commonly a `DatasetRevision` ID.
-        :param client: A ChalkClient instance
-        :param caller_method: Passed only if the caller is a Dataset method. When we call Dataset methods,
-            the ProgressService is implicitly called, so we want to explain to the user that their method
+        Parameters
+        ----------
+        operation_id
+            The ID of the operation that the ProgressService is polling for. This is commonly a
+            `DatasetRevision` ID.
+        client
+            A ChalkClient instance.
+        caller_method
+            Passed only if the caller is a Dataset method. When we call Dataset methods, the
+            ProgressService is implicitly called, so we want to explain to the user that their method
             will be executed once the ProgressService finishes polling for the operation to complete.
         """
         super().__init__()
@@ -216,7 +221,10 @@ class ProgressService:
 
     def _get_failing_resolver(self, batch_report: BatchReport) -> Optional[str]:
         """
-        :return: The name of the resolver that failed, or None if no resolver failed.
+        Returns
+        -------
+        Optional[str]
+            The name of the resolver that failed, or None if no resolver failed.
         """
         for resolver in batch_report.resolvers:
             if resolver.status == BatchOpStatus.FAILED:

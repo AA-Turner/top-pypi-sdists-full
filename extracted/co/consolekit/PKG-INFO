@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: consolekit
-Version: 1.12.0
+Version: 1.13.0
 Summary: Additional utilities for click.
 Keywords: click,terminal
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
@@ -134,12 +134,12 @@ consolekit
 	:target: https://pypi.org/project/consolekit/
 	:alt: PyPI - Wheel
 
-.. |conda-version| image:: https://img.shields.io/conda/v/domdfcoding/consolekit?logo=anaconda
-	:target: https://anaconda.org/domdfcoding/consolekit
+.. |conda-version| image:: https://img.shields.io/conda/v/conda-forge/consolekit?logo=anaconda
+	:target: https://anaconda.org/conda-forge/consolekit
 	:alt: Conda - Package Version
 
-.. |conda-platform| image:: https://img.shields.io/conda/pn/domdfcoding/consolekit?label=conda%7Cplatform
-	:target: https://anaconda.org/domdfcoding/consolekit
+.. |conda-platform| image:: https://img.shields.io/conda/pn/conda-forge/consolekit?label=conda%7Cplatform
+	:target: https://anaconda.org/conda-forge/consolekit
 	:alt: Conda - Platform
 
 .. |license| image:: https://img.shields.io/github/license/domdfcoding/consolekit
@@ -149,7 +149,7 @@ consolekit
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/consolekit
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/consolekit/v1.12.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/consolekit/v1.13.0
 	:target: https://github.com/domdfcoding/consolekit/pulse
 	:alt: GitHub commits since tagged version
 
@@ -161,7 +161,7 @@ consolekit
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/consolekit
-	:target: https://pypi.org/project/consolekit/
+	:target: https://pypistats.org/packages/consolekit
 	:alt: PyPI - Downloads
 
 .. end shields
@@ -181,18 +181,9 @@ To install with ``pip``:
 
 To install with ``conda``:
 
-	* First add the required channels
+.. code-block:: bash
 
-	.. code-block:: bash
-
-		$ conda config --add channels https://conda.anaconda.org/conda-forge
-		$ conda config --add channels https://conda.anaconda.org/domdfcoding
-
-	* Then install
-
-	.. code-block:: bash
-
-		$ conda install consolekit
+	$ conda install -c conda-forge consolekit
 
 .. end installation
 

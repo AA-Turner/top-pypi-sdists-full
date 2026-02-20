@@ -530,7 +530,7 @@ class CfnRegistry(
         id: builtins.str,
         *,
         description: typing.Optional[builtins.str] = None,
-        registry_name: typing.Optional[builtins.str] = None,
+        registry_name: typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::EventSchemas::Registry``.
@@ -1015,7 +1015,7 @@ class CfnRegistryProps:
         self,
         *,
         description: typing.Optional[builtins.str] = None,
-        registry_name: typing.Optional[builtins.str] = None,
+        registry_name: typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["CfnRegistry.TagsEntryProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnRegistry``.
@@ -1065,13 +1065,15 @@ class CfnRegistryProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
-    def registry_name(self) -> typing.Optional[builtins.str]:
+    def registry_name(
+        self,
+    ) -> typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]]:
         '''The name of the schema registry.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eventschemas-registry.html#cfn-eventschemas-registry-registryname
         '''
         result = self._values.get("registry_name")
-        return typing.cast(typing.Optional[builtins.str], result)
+        return typing.cast(typing.Optional[typing.Union[builtins.str, "_IRegistryPolicyRef_a1fe7d28"]], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List["CfnRegistry.TagsEntryProperty"]]:
@@ -1670,7 +1672,7 @@ def _typecheckingstub__afa8b8787bb752aaa6ea6c7d930a60af4b640432a5163a02767bd01c6
     id: builtins.str,
     *,
     description: typing.Optional[builtins.str] = None,
-    registry_name: typing.Optional[builtins.str] = None,
+    registry_name: typing.Optional[typing.Union[builtins.str, _IRegistryPolicyRef_a1fe7d28]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -1785,7 +1787,7 @@ def _typecheckingstub__4135569dfec488bd5fc791f6abd204e6685e6f0164234565f9892897a
 def _typecheckingstub__98dc1608c2765effd97dc8e5664e8320916290dab365bc424710db12203fb1d2(
     *,
     description: typing.Optional[builtins.str] = None,
-    registry_name: typing.Optional[builtins.str] = None,
+    registry_name: typing.Optional[typing.Union[builtins.str, _IRegistryPolicyRef_a1fe7d28]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[CfnRegistry.TagsEntryProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

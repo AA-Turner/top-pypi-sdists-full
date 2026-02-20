@@ -23158,7 +23158,11 @@ class RateLimitedApiKey(
 
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all read operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all read operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.read()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -23169,7 +23173,11 @@ class RateLimitedApiKey(
 
     @jsii.member(jsii_name="grantReadWrite")
     def grant_read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all read and write operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all read and write operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.readWrite()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -23180,7 +23188,11 @@ class RateLimitedApiKey(
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all write operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all write operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.write()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -26444,19 +26456,29 @@ class RestApiProps(ResourceOptions, RestApiBaseProps):
         :param min_compression_size: A Size(in bytes, kibibytes, mebibytes etc) that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
         :param minimum_compression_size: (deprecated) A nullable integer that is used to enable compression (with non-negative between 0 and 10485760 (10M) bytes, inclusive) or disable compression (when undefined) on an API. When compression is enabled, compression or decompression is not applied on the payload if the payload size is smaller than this value. Setting it to zero allows compression for any payload size. Default: - Compression is disabled.
 
-        :exampleMetadata: infused
+        :exampleMetadata: fixture=default infused
 
         Example::
 
-            state_machine = stepfunctions.StateMachine(self, "MyStateMachine",
-                state_machine_type=stepfunctions.StateMachineType.EXPRESS,
-                definition=stepfunctions.Chain.start(stepfunctions.Pass(self, "Pass"))
+            gateway = agentcore.Gateway(self, "MyGateway",
+                gateway_name="my-gateway"
             )
             
-            api = apigateway.RestApi(self, "Api",
-                rest_api_name="MyApi"
+            api = apigateway.RestApi(self, "MyApi",
+                rest_api_name="my-api"
             )
-            api.root.add_method("GET", apigateway.StepFunctionsIntegration.start_execution(state_machine))
+            
+            # Uses IAM authorization for outbound auth by default
+            api_gateway_target = gateway.add_api_gateway_target("MyApiGatewayTarget",
+                rest_api=api,
+                api_gateway_tool_configuration=agentcore.ApiGatewayToolConfiguration(
+                    tool_filters=[agentcore.ApiGatewayToolFilter(
+                        filter_path="/pets/*",
+                        methods=[agentcore.ApiGatewayHttpMethod.GET]
+                    )
+                    ]
+                )
+            )
         '''
         if isinstance(default_cors_preflight_options, dict):
             default_cors_preflight_options = CorsOptions(**default_cors_preflight_options)
@@ -31309,7 +31331,11 @@ class ApiKey(
 
     @jsii.member(jsii_name="grantRead")
     def grant_read(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all read operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all read operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.read()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -31320,7 +31346,11 @@ class ApiKey(
 
     @jsii.member(jsii_name="grantReadWrite")
     def grant_read_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all read and write operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all read and write operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.readWrite()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -31331,7 +31361,11 @@ class ApiKey(
 
     @jsii.member(jsii_name="grantWrite")
     def grant_write(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''Permits the IAM principal all write operations through this key [disable-awslint:no-grants].
+        '''Permits the IAM principal all write operations through this key.
+
+        The use of this method is discouraged. Please use ``grants.write()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
         '''
@@ -33845,19 +33879,29 @@ class RestApi(
     By default, the API will automatically be deployed and accessible from a
     public endpoint.
 
-    :exampleMetadata: infused
+    :exampleMetadata: fixture=default infused
 
     Example::
 
-        state_machine = stepfunctions.StateMachine(self, "MyStateMachine",
-            state_machine_type=stepfunctions.StateMachineType.EXPRESS,
-            definition=stepfunctions.Chain.start(stepfunctions.Pass(self, "Pass"))
+        gateway = agentcore.Gateway(self, "MyGateway",
+            gateway_name="my-gateway"
         )
         
-        api = apigateway.RestApi(self, "Api",
-            rest_api_name="MyApi"
+        api = apigateway.RestApi(self, "MyApi",
+            rest_api_name="my-api"
         )
-        api.root.add_method("GET", apigateway.StepFunctionsIntegration.start_execution(state_machine))
+        
+        # Uses IAM authorization for outbound auth by default
+        api_gateway_target = gateway.add_api_gateway_target("MyApiGatewayTarget",
+            rest_api=api,
+            api_gateway_tool_configuration=agentcore.ApiGatewayToolConfiguration(
+                tool_filters=[agentcore.ApiGatewayToolFilter(
+                    filter_path="/pets/*",
+                    methods=[agentcore.ApiGatewayHttpMethod.GET]
+                )
+                ]
+            )
+        )
     '''
 
     def __init__(

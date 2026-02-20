@@ -28,6 +28,7 @@ class DeviceTaintRuleInitArgs:
                  metadata: Optional[pulumi.Input['_meta.v1.ObjectMetaArgs']] = None):
         """
         The set of arguments for constructing a DeviceTaintRule resource.
+
         :param pulumi.Input['DeviceTaintRuleSpecArgs'] spec: Spec specifies the selector and one taint.
                
                Changing the spec automatically increments the metadata.generation number.
@@ -108,6 +109,7 @@ class DeviceTaintRule(pulumi.CustomResource):
         """
         DeviceTaintRule adds one taint to all devices which match the selector. This has the same effect as if the taint was specified directly in the ResourceSlice by the DRA driver.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -125,6 +127,7 @@ class DeviceTaintRule(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         DeviceTaintRule adds one taint to all devices which match the selector. This has the same effect as if the taint was specified directly in the ResourceSlice by the DRA driver.
+
 
         :param str resource_name: The name of the resource.
         :param DeviceTaintRuleInitArgs args: The arguments to use to populate this resource's properties.
@@ -160,6 +163,7 @@ class DeviceTaintRule(pulumi.CustomResource):
             if spec is None and not opts.urn:
                 raise TypeError("Missing required property 'spec'")
             __props__.__dict__["spec"] = spec
+            __props__.__dict__["status"] = None
         super(DeviceTaintRule, __self__).__init__(
             'kubernetes:resource.k8s.io/v1alpha3:DeviceTaintRule',
             resource_name,
@@ -186,6 +190,7 @@ class DeviceTaintRule(pulumi.CustomResource):
         __props__.__dict__["kind"] = None
         __props__.__dict__["metadata"] = None
         __props__.__dict__["spec"] = None
+        __props__.__dict__["status"] = None
         return DeviceTaintRule(resource_name, opts=opts, __props__=__props__)
 
     @_builtins.property
@@ -221,4 +226,12 @@ class DeviceTaintRule(pulumi.CustomResource):
         Changing the spec automatically increments the metadata.generation number.
         """
         return pulumi.get(self, "spec")
+
+    @_builtins.property
+    @pulumi.getter
+    def status(self) -> pulumi.Output[Optional['outputs.DeviceTaintRuleStatus']]:
+        """
+        Status provides information about what was requested in the spec.
+        """
+        return pulumi.get(self, "status")
 

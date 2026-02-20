@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-ollama
-Version: 1.0.0b260212
+Version: 1.0.0b260219
 Summary: Ollama integration for Microsoft Agent Framework.
 Author: Microsoft
 Author-email: Microsoft <af-support@microsoft.com>
@@ -15,7 +15,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Framework :: Pydantic :: 2
 Classifier: Typing :: Typed
-Requires-Dist: agent-framework-core>=1.0.0b260212
+Requires-Dist: agent-framework-core>=1.0.0rc1
 Requires-Dist: ollama>=0.5.3
 Requires-Python: >=3.10
 Project-URL: homepage, https://learn.microsoft.com/en-us/agent-framework/

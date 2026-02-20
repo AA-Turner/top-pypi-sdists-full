@@ -1462,9 +1462,13 @@ This occurred during the actual execution of resolver {resolver.fqn}.
         self, show_progress: bool | ellipsis, caller_method: Optional[str], timeout: float | timedelta | ellipsis | None
     ) -> None:
         """
-        :param show_progress: Pass `True` to show a progress bar while waiting for the operation to complete.
-        :param caller_method: Caller method name. This will be used to display a user-facing message explaining
-        the implicit showing of computation progress.
+        Parameters
+        ----------
+        show_progress
+            Pass `True` to show a progress bar while waiting for the operation to complete.
+        caller_method
+            Caller method name. This will be used to display a user-facing message explaining the
+            implicit showing of computation progress.
         """
         if show_progress is not ...:
             show_progress_bool = show_progress

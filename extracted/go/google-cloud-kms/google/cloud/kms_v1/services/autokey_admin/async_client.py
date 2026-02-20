@@ -48,7 +48,7 @@ from google.cloud.location import locations_pb2  # type: ignore
 from google.iam.v1 import iam_policy_pb2  # type: ignore
 from google.iam.v1 import policy_pb2  # type: ignore
 from google.longrunning import operations_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
 
 from google.cloud.kms_v1.types import autokey_admin
 
@@ -69,13 +69,15 @@ _LOGGER = std_logging.getLogger(__name__)
 class AutokeyAdminAsyncClient:
     """Provides interfaces for managing `Cloud KMS
     Autokey <https://cloud.google.com/kms/help/autokey>`__ folder-level
-    configurations. A configuration is inherited by all descendent
-    projects. A configuration at one folder overrides any other
-    configurations in its ancestry. Setting a configuration on a folder
-    is a prerequisite for Cloud KMS Autokey, so that users working in a
-    descendant project can request provisioned
-    [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for Customer
-    Managed Encryption Key (CMEK) use, on-demand.
+    or project-level configurations. A configuration is inherited by all
+    descendent folders and projects. A configuration at a folder or
+    project overrides any other configurations in its ancestry. Setting
+    a configuration on a folder is a prerequisite for Cloud KMS Autokey,
+    so that users working in a descendant project can request
+    provisioned [CryptoKeys][google.cloud.kms.v1.CryptoKey], ready for
+    Customer Managed Encryption Key (CMEK) use, on-demand when using the
+    dedicated key project mode. This is not required when using the
+    delegated key management mode for same-project keys.
     """
 
     _client: AutokeyAdminClient
@@ -310,7 +312,7 @@ class AutokeyAdminAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> autokey_admin.AutokeyConfig:
         r"""Updates the [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-        for a folder. The caller must have both
+        for a folder or a project. The caller must have both
         ``cloudkms.autokeyConfigs.update`` permission on the parent
         folder and ``cloudkms.cryptoKeys.setIamPolicy`` permission on
         the provided key project. A
@@ -441,7 +443,7 @@ class AutokeyAdminAsyncClient:
         metadata: Sequence[Tuple[str, Union[str, bytes]]] = (),
     ) -> autokey_admin.AutokeyConfig:
         r"""Returns the [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-        for a folder.
+        for a folder or project.
 
         .. code-block:: python
 
@@ -476,8 +478,8 @@ class AutokeyAdminAsyncClient:
             name (:class:`str`):
                 Required. Name of the
                 [AutokeyConfig][google.cloud.kms.v1.AutokeyConfig]
-                resource, e.g.
-                ``folders/{FOLDER_NUMBER}/autokeyConfig``.
+                resource, e.g. ``folders/{FOLDER_NUMBER}/autokeyConfig``
+                or ``projects/{PROJECT_NUMBER}/autokeyConfig``.
 
                 This corresponds to the ``name`` field
                 on the ``request`` instance; if ``request`` is provided, this

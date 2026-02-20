@@ -1210,6 +1210,12 @@ class CfnContainerFleet(
         
                     # the properties below are optional
                     desired_ec2_instances=123,
+                    managed_capacity_configuration=gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty(
+                        zero_capacity_strategy="zeroCapacityStrategy",
+        
+                        # the properties below are optional
+                        scale_in_after_inactivity_minutes=123
+                    ),
                     min_size=123
                 ),
                 stopped_actions=["stoppedActions"]
@@ -2211,6 +2217,7 @@ class CfnContainerFleet(
         name_mapping={
             "max_size": "maxSize",
             "desired_ec2_instances": "desiredEc2Instances",
+            "managed_capacity_configuration": "managedCapacityConfiguration",
             "min_size": "minSize",
         },
     )
@@ -2220,6 +2227,7 @@ class CfnContainerFleet(
             *,
             max_size: jsii.Number,
             desired_ec2_instances: typing.Optional[jsii.Number] = None,
+            managed_capacity_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnContainerFleet.ManagedCapacityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_size: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Current resource capacity settings in a specified fleet or location.
@@ -2228,6 +2236,7 @@ class CfnContainerFleet(
 
             :param max_size: The maximum value that is allowed for the fleet's instance count for a location.
             :param desired_ec2_instances: Defaults to MinSize if not defined. The number of EC2 instances you want to maintain in the specified fleet location. This value must fall between the minimum and maximum size limits. If any auto-scaling policy is defined for the container fleet, the desired instance will only be applied once during fleet creation and will be ignored in updates to avoid conflicts with auto-scaling. During updates with any auto-scaling policy defined, if current desired instance is lower than the new MinSize, it will be increased to the new MinSize; if current desired instance is larger than the new MaxSize, it will be decreased to the new MaxSize.
+            :param managed_capacity_configuration: Configuration options for GameLift-managed capacity behavior.
             :param min_size: The minimum value allowed for the fleet's instance count for a location.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationcapacity.html
@@ -2244,6 +2253,12 @@ class CfnContainerFleet(
                 
                     # the properties below are optional
                     desired_ec2_instances=123,
+                    managed_capacity_configuration=gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty(
+                        zero_capacity_strategy="zeroCapacityStrategy",
+                
+                        # the properties below are optional
+                        scale_in_after_inactivity_minutes=123
+                    ),
                     min_size=123
                 )
             '''
@@ -2251,12 +2266,15 @@ class CfnContainerFleet(
                 type_hints = typing.get_type_hints(_typecheckingstub__cfdc01eeb9f739a54f304b9e5cb1f66114e55233f5383f018ef7dd086a28ed10)
                 check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
                 check_type(argname="argument desired_ec2_instances", value=desired_ec2_instances, expected_type=type_hints["desired_ec2_instances"])
+                check_type(argname="argument managed_capacity_configuration", value=managed_capacity_configuration, expected_type=type_hints["managed_capacity_configuration"])
                 check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_size": max_size,
             }
             if desired_ec2_instances is not None:
                 self._values["desired_ec2_instances"] = desired_ec2_instances
+            if managed_capacity_configuration is not None:
+                self._values["managed_capacity_configuration"] = managed_capacity_configuration
             if min_size is not None:
                 self._values["min_size"] = min_size
 
@@ -2280,6 +2298,17 @@ class CfnContainerFleet(
             '''
             result = self._values.get("desired_ec2_instances")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def managed_capacity_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerFleet.ManagedCapacityConfigurationProperty"]]:
+            '''Configuration options for GameLift-managed capacity behavior.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-locationcapacity.html#cfn-gamelift-containerfleet-locationcapacity-managedcapacityconfiguration
+            '''
+            result = self._values.get("managed_capacity_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnContainerFleet.ManagedCapacityConfigurationProperty"]], result)
 
         @builtins.property
         def min_size(self) -> typing.Optional[jsii.Number]:
@@ -2342,6 +2371,12 @@ class CfnContainerFleet(
                 
                         # the properties below are optional
                         desired_ec2_instances=123,
+                        managed_capacity_configuration=gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty(
+                            zero_capacity_strategy="zeroCapacityStrategy",
+                
+                            # the properties below are optional
+                            scale_in_after_inactivity_minutes=123
+                        ),
                         min_size=123
                     ),
                     stopped_actions=["stoppedActions"]
@@ -2497,6 +2532,84 @@ class CfnContainerFleet(
 
         def __repr__(self) -> str:
             return "LogConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "zero_capacity_strategy": "zeroCapacityStrategy",
+            "scale_in_after_inactivity_minutes": "scaleInAfterInactivityMinutes",
+        },
+    )
+    class ManagedCapacityConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            zero_capacity_strategy: builtins.str,
+            scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration options for GameLift-managed capacity behavior.
+
+            :param zero_capacity_strategy: The strategy Amazon GameLift Servers will use to automatically scale your capacity to and from zero in response to game session activity. Game session activity refers to any active running sessions or game session requests. When set to SCALE_TO_AND_FROM_ZERO, MinSize must not be specified and will be managed automatically. When set to MANUAL, MinSize is required.
+            :param scale_in_after_inactivity_minutes: Length of time, in minutes, that Amazon GameLift Servers will wait before scaling in your MinSize and DesiredInstances to 0 after a period with no game session activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-managedcapacityconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                managed_capacity_configuration_property = gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty(
+                    zero_capacity_strategy="zeroCapacityStrategy",
+                
+                    # the properties below are optional
+                    scale_in_after_inactivity_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__31fbc4661855b913c7837c0bf6c1858e987a8792a4a86a0e22ce4d58e7e4f330)
+                check_type(argname="argument zero_capacity_strategy", value=zero_capacity_strategy, expected_type=type_hints["zero_capacity_strategy"])
+                check_type(argname="argument scale_in_after_inactivity_minutes", value=scale_in_after_inactivity_minutes, expected_type=type_hints["scale_in_after_inactivity_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "zero_capacity_strategy": zero_capacity_strategy,
+            }
+            if scale_in_after_inactivity_minutes is not None:
+                self._values["scale_in_after_inactivity_minutes"] = scale_in_after_inactivity_minutes
+
+        @builtins.property
+        def zero_capacity_strategy(self) -> builtins.str:
+            '''The strategy Amazon GameLift Servers will use to automatically scale your capacity to and from zero in response to game session activity.
+
+            Game session activity refers to any active running sessions or game session requests. When set to SCALE_TO_AND_FROM_ZERO, MinSize must not be specified and will be managed automatically. When set to MANUAL, MinSize is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-managedcapacityconfiguration.html#cfn-gamelift-containerfleet-managedcapacityconfiguration-zerocapacitystrategy
+            '''
+            result = self._values.get("zero_capacity_strategy")
+            assert result is not None, "Required property 'zero_capacity_strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def scale_in_after_inactivity_minutes(self) -> typing.Optional[jsii.Number]:
+            '''Length of time, in minutes, that Amazon GameLift Servers will wait before scaling in your MinSize and DesiredInstances to 0 after a period with no game session activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-containerfleet-managedcapacityconfiguration.html#cfn-gamelift-containerfleet-managedcapacityconfiguration-scaleinafterinactivityminutes
+            '''
+            result = self._values.get("scale_in_after_inactivity_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedCapacityConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2885,6 +2998,12 @@ class CfnContainerFleetProps:
             
                         # the properties below are optional
                         desired_ec2_instances=123,
+                        managed_capacity_configuration=gamelift.CfnContainerFleet.ManagedCapacityConfigurationProperty(
+                            zero_capacity_strategy="zeroCapacityStrategy",
+            
+                            # the properties below are optional
+                            scale_in_after_inactivity_minutes=123
+                        ),
                         min_size=123
                     ),
                     stopped_actions=["stoppedActions"]
@@ -5022,6 +5141,12 @@ class CfnFleet(
         
                     # the properties below are optional
                     desired_ec2_instances=123,
+                    managed_capacity_configuration=gamelift.CfnFleet.ManagedCapacityConfigurationProperty(
+                        zero_capacity_strategy="zeroCapacityStrategy",
+        
+                        # the properties below are optional
+                        scale_in_after_inactivity_minutes=123
+                    ),
                     min_size=123
                 )
             )],
@@ -5983,6 +6108,7 @@ class CfnFleet(
         name_mapping={
             "max_size": "maxSize",
             "desired_ec2_instances": "desiredEc2Instances",
+            "managed_capacity_configuration": "managedCapacityConfiguration",
             "min_size": "minSize",
         },
     )
@@ -5992,6 +6118,7 @@ class CfnFleet(
             *,
             max_size: jsii.Number,
             desired_ec2_instances: typing.Optional[jsii.Number] = None,
+            managed_capacity_configuration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnFleet.ManagedCapacityConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             min_size: typing.Optional[jsii.Number] = None,
         ) -> None:
             '''Current resource capacity settings for managed EC2 fleets and managed container fleets.
@@ -6002,6 +6129,7 @@ class CfnFleet(
 
             :param max_size: The maximum number of instances that are allowed in the specified fleet location. If this parameter is not set, the default is 1.
             :param desired_ec2_instances: The number of Amazon EC2 instances you want to maintain in the specified fleet location. This value must fall between the minimum and maximum size limits. Changes in desired instance value can take up to 1 minute to be reflected when viewing the fleet's capacity settings.
+            :param managed_capacity_configuration: Configuration options for Amazon GameLift Servers-managed capacity behavior.
             :param min_size: The minimum number of instances that are allowed in the specified fleet location. If this parameter is not set, the default is 0.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-locationcapacity.html
@@ -6018,6 +6146,12 @@ class CfnFleet(
                 
                     # the properties below are optional
                     desired_ec2_instances=123,
+                    managed_capacity_configuration=gamelift.CfnFleet.ManagedCapacityConfigurationProperty(
+                        zero_capacity_strategy="zeroCapacityStrategy",
+                
+                        # the properties below are optional
+                        scale_in_after_inactivity_minutes=123
+                    ),
                     min_size=123
                 )
             '''
@@ -6025,12 +6159,15 @@ class CfnFleet(
                 type_hints = typing.get_type_hints(_typecheckingstub__76847ac983ab72ef92adc1b0579d769ca62af002ef71c76165cbd879da8645fc)
                 check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
                 check_type(argname="argument desired_ec2_instances", value=desired_ec2_instances, expected_type=type_hints["desired_ec2_instances"])
+                check_type(argname="argument managed_capacity_configuration", value=managed_capacity_configuration, expected_type=type_hints["managed_capacity_configuration"])
                 check_type(argname="argument min_size", value=min_size, expected_type=type_hints["min_size"])
             self._values: typing.Dict[builtins.str, typing.Any] = {
                 "max_size": max_size,
             }
             if desired_ec2_instances is not None:
                 self._values["desired_ec2_instances"] = desired_ec2_instances
+            if managed_capacity_configuration is not None:
+                self._values["managed_capacity_configuration"] = managed_capacity_configuration
             if min_size is not None:
                 self._values["min_size"] = min_size
 
@@ -6056,6 +6193,17 @@ class CfnFleet(
             '''
             result = self._values.get("desired_ec2_instances")
             return typing.cast(typing.Optional[jsii.Number], result)
+
+        @builtins.property
+        def managed_capacity_configuration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ManagedCapacityConfigurationProperty"]]:
+            '''Configuration options for Amazon GameLift Servers-managed capacity behavior.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-locationcapacity.html#cfn-gamelift-fleet-locationcapacity-managedcapacityconfiguration
+            '''
+            result = self._values.get("managed_capacity_configuration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnFleet.ManagedCapacityConfigurationProperty"]], result)
 
         @builtins.property
         def min_size(self) -> typing.Optional[jsii.Number]:
@@ -6114,6 +6262,12 @@ class CfnFleet(
                 
                         # the properties below are optional
                         desired_ec2_instances=123,
+                        managed_capacity_configuration=gamelift.CfnFleet.ManagedCapacityConfigurationProperty(
+                            zero_capacity_strategy="zeroCapacityStrategy",
+                
+                            # the properties below are optional
+                            scale_in_after_inactivity_minutes=123
+                        ),
                         min_size=123
                     )
                 )
@@ -6163,6 +6317,84 @@ class CfnFleet(
 
         def __repr__(self) -> str:
             return "LocationConfigurationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_gamelift.CfnFleet.ManagedCapacityConfigurationProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "zero_capacity_strategy": "zeroCapacityStrategy",
+            "scale_in_after_inactivity_minutes": "scaleInAfterInactivityMinutes",
+        },
+    )
+    class ManagedCapacityConfigurationProperty:
+        def __init__(
+            self,
+            *,
+            zero_capacity_strategy: builtins.str,
+            scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''Configuration options for Amazon GameLift Servers-managed capacity behavior.
+
+            :param zero_capacity_strategy: The strategy Amazon GameLift Servers will use to automatically scale your capacity to and from zero in response to game session activity. Game session activity refers to any active running sessions or game session requests. When set to SCALE_TO_AND_FROM_ZERO, MinSize must not be specified and will be managed automatically. When set to MANUAL, MinSize is required.
+            :param scale_in_after_inactivity_minutes: Length of time, in minutes, that Amazon GameLift Servers will wait before scaling in your MinSize and DesiredInstances to 0 after a period with no game session activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-managedcapacityconfiguration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_gamelift as gamelift
+                
+                managed_capacity_configuration_property = gamelift.CfnFleet.ManagedCapacityConfigurationProperty(
+                    zero_capacity_strategy="zeroCapacityStrategy",
+                
+                    # the properties below are optional
+                    scale_in_after_inactivity_minutes=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__1df3c9befa1272c64766d7457b696cc00ada4353893f58bcab08029968269421)
+                check_type(argname="argument zero_capacity_strategy", value=zero_capacity_strategy, expected_type=type_hints["zero_capacity_strategy"])
+                check_type(argname="argument scale_in_after_inactivity_minutes", value=scale_in_after_inactivity_minutes, expected_type=type_hints["scale_in_after_inactivity_minutes"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "zero_capacity_strategy": zero_capacity_strategy,
+            }
+            if scale_in_after_inactivity_minutes is not None:
+                self._values["scale_in_after_inactivity_minutes"] = scale_in_after_inactivity_minutes
+
+        @builtins.property
+        def zero_capacity_strategy(self) -> builtins.str:
+            '''The strategy Amazon GameLift Servers will use to automatically scale your capacity to and from zero in response to game session activity.
+
+            Game session activity refers to any active running sessions or game session requests. When set to SCALE_TO_AND_FROM_ZERO, MinSize must not be specified and will be managed automatically. When set to MANUAL, MinSize is required.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-managedcapacityconfiguration.html#cfn-gamelift-fleet-managedcapacityconfiguration-zerocapacitystrategy
+            '''
+            result = self._values.get("zero_capacity_strategy")
+            assert result is not None, "Required property 'zero_capacity_strategy' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def scale_in_after_inactivity_minutes(self) -> typing.Optional[jsii.Number]:
+            '''Length of time, in minutes, that Amazon GameLift Servers will wait before scaling in your MinSize and DesiredInstances to 0 after a period with no game session activity.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-gamelift-fleet-managedcapacityconfiguration.html#cfn-gamelift-fleet-managedcapacityconfiguration-scaleinafterinactivityminutes
+            '''
+            result = self._values.get("scale_in_after_inactivity_minutes")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ManagedCapacityConfigurationProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -6938,6 +7170,12 @@ class CfnFleetProps:
             
                         # the properties below are optional
                         desired_ec2_instances=123,
+                        managed_capacity_configuration=gamelift.CfnFleet.ManagedCapacityConfigurationProperty(
+                            zero_capacity_strategy="zeroCapacityStrategy",
+            
+                            # the properties below are optional
+                            scale_in_after_inactivity_minutes=123
+                        ),
                         min_size=123
                     )
                 )],
@@ -11890,6 +12128,7 @@ def _typecheckingstub__cfdc01eeb9f739a54f304b9e5cb1f66114e55233f5383f018ef7dd086
     *,
     max_size: jsii.Number,
     desired_ec2_instances: typing.Optional[jsii.Number] = None,
+    managed_capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnContainerFleet.ManagedCapacityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_size: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -11909,6 +12148,14 @@ def _typecheckingstub__287854cb20cec032892a9072e611adf774cd43dcc343c3ffdda539be7
     log_destination: typing.Optional[builtins.str] = None,
     log_group_arn: typing.Optional[builtins.str] = None,
     s3_bucket_name: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__31fbc4661855b913c7837c0bf6c1858e987a8792a4a86a0e22ce4d58e7e4f330(
+    *,
+    zero_capacity_strategy: builtins.str,
+    scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -12431,6 +12678,7 @@ def _typecheckingstub__76847ac983ab72ef92adc1b0579d769ca62af002ef71c76165cbd879d
     *,
     max_size: jsii.Number,
     desired_ec2_instances: typing.Optional[jsii.Number] = None,
+    managed_capacity_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.ManagedCapacityConfigurationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     min_size: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
@@ -12440,6 +12688,14 @@ def _typecheckingstub__716ff23eda74da42620dc64832ed27ab5a267661bd90b16577ee48991
     *,
     location: builtins.str,
     location_capacity: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnFleet.LocationCapacityProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__1df3c9befa1272c64766d7457b696cc00ada4353893f58bcab08029968269421(
+    *,
+    zero_capacity_strategy: builtins.str,
+    scale_in_after_inactivity_minutes: typing.Optional[jsii.Number] = None,
 ) -> None:
     """Type checking stubs"""
     pass

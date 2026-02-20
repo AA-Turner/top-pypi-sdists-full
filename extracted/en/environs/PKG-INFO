@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: environs
-Version: 14.5.0
+Version: 14.6.0
 Summary: simplified environment variable parsing
 Author-email: Steven Loria <oss@stevenloria.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
 Requires-Dist: python-dotenv
-Requires-Dist: marshmallow>=3.18.0
+Requires-Dist: marshmallow>=3.26.2
 Requires-Dist: typing-extensions; python_version < '3.11'
 Requires-Dist: environs[tests] ; extra == "dev"
 Requires-Dist: tox ; extra == "dev"
@@ -412,7 +412,7 @@ To strip leading and trailing whitespaces from the value:
 from environs import FileAwareEnv
 
 # printf '  value with leading and trailing whitespaces \n' >/run/secrets/password
-# export PASSWORD_SECRET=/run/secrets/password
+# export PASSWORD_FILE=/run/secrets/password
 
 env: FileAwareEnv = FileAwareEnv(strip_whitespace=True)
 password: str = env.str("PASSWORD")  # => `value with leading and trailing whitespaces`

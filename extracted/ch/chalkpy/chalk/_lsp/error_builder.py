@@ -500,16 +500,28 @@ class ResolverErrorBuilder:
         uri: str | None = None,
     ) -> DiagnosticBuilder:
         """
+        Parameters
+        ----------
+        message
+            Longform description of error with names of attributes, etc.
+        label
+            Shortform category of error.
+        code
+            Unique identifier of error kind.
+        range
+            Line number and offsets of the start and end of text with error.
+        code_href
+            Link to docs.
+        severity
+            Whether this is an error or warning.
+        raise_error
+            If we cannot proceed, raise with this error kind and message.
+        uri
+            Filepath.
 
-        :param message: longform description of error with names of attributes, etc.
-        :param label: shortform category of error
-        :param code: unique identifier of error kind
-        :param range: line number + offset of start and end of text with error
-        :param code_href: code_href: link to doc
-        :param severity: is it an error? a warning?
-        :param raise_error: if we cannot proceed, raise with this error kind and the message.
-        :param uri: filepath
-        :return:
+        Returns
+        -------
+        DiagnosticBuilder
         """
         if not LSPErrorBuilder.lsp:
             if raise_error is not None:
@@ -695,16 +707,28 @@ class SQLFileResolverErrorBuilder:
         uri: str | None = None,
     ) -> DiagnosticBuilder:
         """
+        Parameters
+        ----------
+        message
+            Longform description of error with names of attributes, etc.
+        label
+            Shortform category of error.
+        code
+            Unique identifier of error kind.
+        range
+            Line number and offsets of the start and end of text with error.
+        code_href
+            Link to docs.
+        severity
+            Whether this is an error or warning.
+        raise_error
+            If we cannot proceed, raise with this error kind and message.
+        uri
+            Filepath.
 
-        :param message: longform description of error with names of attributes, etc.
-        :param label: shortform category of error
-        :param code: unique identifier of error kind
-        :param range: line number + offset of start and end of text with error
-        :param code_href: code_href: link to doc
-        :param severity: is it an error? a warning?
-        :param raise_error: if we cannot proceed, raise with this error kind and the message.
-        :param uri: filepath
-        :return:
+        Returns
+        -------
+        DiagnosticBuilder
         """
         if self.has_import_errors:
             # pass: we don't need lsp
@@ -964,15 +988,29 @@ class FunctionCallErrorBuilder:
     ) -> DiagnosticBuilder:
         """Add a diagnostic for validation errors in function calls.
 
-        :param message: longform description of error with names of attributes, etc.
-        :param label: shortform category of error
-        :param code: unique identifier of error kind
-        :param range: line number + offset of start and end of text with error
-        :param code_href: link to doc
-        :param severity: is it an error? a warning?
-        :param raise_error: if we cannot proceed, raise with this error kind and the message.
-        :param uri: filepath
-        :return: DiagnosticBuilder for chaining additional ranges
+        Parameters
+        ----------
+        message
+            Longform description of error with names of attributes, etc.
+        label
+            Shortform category of error.
+        code
+            Unique identifier of error kind.
+        range
+            Line number and offsets of the start and end of text with error.
+        code_href
+            Link to docs.
+        severity
+            Whether this is an error or warning.
+        raise_error
+            If we cannot proceed, raise with this error kind and message.
+        uri
+            Filepath.
+
+        Returns
+        -------
+        DiagnosticBuilder
+            DiagnosticBuilder for chaining additional ranges.
         """
         uri = self.uri if uri is None else uri
         if not LSPErrorBuilder.lsp:

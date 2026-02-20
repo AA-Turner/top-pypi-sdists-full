@@ -1,9 +1,9 @@
 [build-system]
-requires = ["maturin == 1.11.4"]
+requires = ["maturin == 1.12.3"]
 build-backend = "maturin"
 
 [tool.maturin]
-python-source = "python"
+python-source = "py-src"
 module-name = "yaml_rs._yaml_rs"
 
 [project]
@@ -37,29 +37,29 @@ classifiers = [
 ]
 
 [dependency-groups]
-typos = ["typos == 1.42.0"]
-zizmor = ["zizmor == 1.20.0"]
+typos = ["typos == 1.43.5"]
+zizmor = ["zizmor == 1.22.0"]
 ci = [
     "pytest == 9.0.2",
-    "dirty-equals == 0.11.0",
-    "maturin == 1.11.4",
-    "ruff == 0.14.11",
-    "rumdl == 0.0.212",
+    "dirty-equals == 0.11",
+    "maturin == 1.12.3",
+    "ruff == 0.15.1",
+    "rumdl == 0.1.23",
 ]
 dev = [
-    {include-group = "ci"},
-    {include-group = "typos"},
-    {include-group = "zizmor"},
+    { include-group = "ci" },
+    { include-group = "typos" },
+    { include-group = "zizmor" },
 ]
 bench = [
     "oyaml",
     "pyyaml",
     "ryaml",
     "ruamel-yaml",
-    "polars == 1.36.1",
+    "polars == 1.38.1",
     "altair == 6.0.0",
     "py-cpuinfo == 9.0.0",
-    "vl-convert-python == 1.8.0",
+    "vl-convert-python == 1.9.0.post1",
 ]
 
 [project.urls]

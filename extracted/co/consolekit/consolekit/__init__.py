@@ -57,7 +57,7 @@ from consolekit.options import PromptOption
 __author__: str = "Dominic Davis-Foster"
 __copyright__: str = "2020 Dominic Davis-Foster"
 __license__: str = "MIT License"
-__version__: str = "1.12.0"
+__version__: str = "1.13.0"
 __email__: str = "dominic@davis-foster.co.uk"
 
 __all__ = (
@@ -146,5 +146,5 @@ click.Parameter.__module__ = "click"
 click.Context.__module__ = "click"
 click.HelpFormatter.__module__ = "click"
 click.Group.__module__ = "click"
-if tuple(map(int, (importlib_metadata.version("click").split('.')))) < (8, 2):
+if tuple(map(int, (importlib_metadata.version("click").split('.')[:2]))) < (8, 2):
 	click.OptionParser.__module__ = "click"

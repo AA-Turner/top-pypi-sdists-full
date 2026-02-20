@@ -28,6 +28,7 @@ class StorageVersionMigrationInitArgs:
                  spec: Optional[pulumi.Input['StorageVersionMigrationSpecArgs']] = None):
         """
         The set of arguments for constructing a StorageVersionMigration resource.
+
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
         :param pulumi.Input[_builtins.str] kind: Kind is a string value representing the REST resource this object represents. Servers may infer this from the endpoint the client submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
         :param pulumi.Input['_meta.v1.ObjectMetaArgs'] metadata: Standard object metadata. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
@@ -105,6 +106,7 @@ class StorageVersionMigration(pulumi.CustomResource):
         """
         StorageVersionMigration represents a migration of stored data to the latest storage version.
 
+
         :param str resource_name: The name of the resource.
         :param pulumi.ResourceOptions opts: Options for the resource.
         :param pulumi.Input[_builtins.str] api_version: APIVersion defines the versioned schema of this representation of an object. Servers should convert recognized schemas to the latest internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
@@ -120,6 +122,7 @@ class StorageVersionMigration(pulumi.CustomResource):
                  opts: Optional[pulumi.ResourceOptions] = None):
         """
         StorageVersionMigration represents a migration of stored data to the latest storage version.
+
 
         :param str resource_name: The name of the resource.
         :param StorageVersionMigrationInitArgs args: The arguments to use to populate this resource's properties.
@@ -154,6 +157,8 @@ class StorageVersionMigration(pulumi.CustomResource):
             __props__.__dict__["metadata"] = metadata
             __props__.__dict__["spec"] = spec
             __props__.__dict__["status"] = None
+        alias_opts = pulumi.ResourceOptions(aliases=[pulumi.Alias(type_="kubernetes:storagemigration.k8s.io/v1beta1:StorageVersionMigration")])
+        opts = pulumi.ResourceOptions.merge(opts, alias_opts)
         super(StorageVersionMigration, __self__).__init__(
             'kubernetes:storagemigration.k8s.io/v1alpha1:StorageVersionMigration',
             resource_name,

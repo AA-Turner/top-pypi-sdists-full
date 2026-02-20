@@ -28,6 +28,7 @@ from dstack._internal.core.models.profiles import (
     parse_off_duration,
 )
 from dstack._internal.core.models.resources import Range, ResourcesSpec
+from dstack._internal.core.models.routers import AnyServiceRouterConfig
 from dstack._internal.core.models.services import AnyModel, OpenAIChatModel
 from dstack._internal.core.models.unix import UnixUser
 from dstack._internal.core.models.volumes import MountPoint, VolumeConfiguration, parse_mount_point
@@ -57,8 +58,7 @@ DEFAULT_PROBE_METHOD = "get"
 DEFAULT_PROBE_UNTIL_READY = False
 MAX_PROBE_URL_LEN = 2048
 DEFAULT_REPLICA_GROUP_NAME = "0"
-DEFAULT_MODEL_PROBE_TIMEOUT = 30
-DEFAULT_MODEL_PROBE_URL = "/v1/chat/completions"
+OPENAI_MODEL_PROBE_TIMEOUT = 30
 
 
 class RunConfigurationType(str, Enum):
@@ -886,6 +886,14 @@ class ServiceConfigurationParams(CoreModel):
                 "When `replicas` is a list of replica groups, top-level `scaling`, `commands`, "
                 "and `resources` are not allowed and must be specified in each replica group instead. "
             )
+        ),
+    ] = None
+    router: Annotated[
+        Optional[AnyServiceRouterConfig],
+        Field(
+            description=(
+                "Router configuration for the service. Requires a gateway with matching router enabled. "
+            ),
         ),
     ] = None
 

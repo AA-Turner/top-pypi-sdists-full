@@ -2,6 +2,7 @@ import tempfile
 import zipfile
 import pytest
 
+from uuid import UUID
 from onfido import (
     TimelineFileReference,
     WorkflowRun,
@@ -23,7 +24,7 @@ def applicant_id(onfido_api):
 
 @pytest.fixture(scope="function")
 def workflow_id():
-    return "e8c921eb-0495-44fe-b655-bcdcaffdafe5"
+    return UUID("e8c921eb-0495-44fe-b655-bcdcaffdafe5")
 
 
 @pytest.fixture(scope="function")
@@ -41,7 +42,7 @@ def test_create_workflow_run(workflow_run, workflow_id):
 
 
 def test_create_workflow_run_with_custom_inputs(onfido_api, applicant_id):
-    workflow_id = "45092b29-f220-479e-aa6f-a6f989baac4c"
+    workflow_id = UUID("45092b29-f220-479e-aa6f-a6f989baac4c")
 
     workflow_run_builder = WorkflowRunBuilder(
         applicant_id=applicant_id,
@@ -71,7 +72,9 @@ def test_find_workflow_run(onfido_api, workflow_run):
 
 
 def test_download_evidence_file(onfido_api, workflow_run):
-    file = onfido_api.download_signed_evidence_file(workflow_run.id)
+    file = repeat_request_until_http_code_changes(
+        onfido_api.download_signed_evidence_file, [workflow_run.id], sleep_time=2
+    )
 
     assert len(file) > 0
     assert file[:4] == b"%PDF"
@@ -87,7 +90,7 @@ def test_download_evidence_folder(onfido_api, applicant_id):
     )
 
     file = repeat_request_until_http_code_changes(
-        onfido_api.download_evidence_folder, [workflow_run_id]
+        onfido_api.download_evidence_folder, [workflow_run_id], sleep_time=2
     )
 
     assert len(file) > 0

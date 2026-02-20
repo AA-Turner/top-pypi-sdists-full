@@ -36,17 +36,19 @@ class CloudConfig(object):
         'max_stopped_instances': 'int',
         'vpc_peering_ip_range': 'str',
         'vpc_peering_target_project_id': 'str',
-        'vpc_peering_target_vpc_id': 'str'
+        'vpc_peering_target_vpc_id': 'str',
+        'acr_config': 'AzureACRConfig'
     }
 
     attribute_map = {
         'max_stopped_instances': 'max_stopped_instances',
         'vpc_peering_ip_range': 'vpc_peering_ip_range',
         'vpc_peering_target_project_id': 'vpc_peering_target_project_id',
-        'vpc_peering_target_vpc_id': 'vpc_peering_target_vpc_id'
+        'vpc_peering_target_vpc_id': 'vpc_peering_target_vpc_id',
+        'acr_config': 'acr_config'
     }
 
-    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, local_vars_configuration=None):  # noqa: E501
+    def __init__(self, max_stopped_instances=0, vpc_peering_ip_range=None, vpc_peering_target_project_id=None, vpc_peering_target_vpc_id=None, acr_config=None, local_vars_configuration=None):  # noqa: E501
         """CloudConfig - a model defined in OpenAPI"""  # noqa: E501
         if local_vars_configuration is None:
             local_vars_configuration = Configuration()
@@ -56,6 +58,7 @@ class CloudConfig(object):
         self._vpc_peering_ip_range = None
         self._vpc_peering_target_project_id = None
         self._vpc_peering_target_vpc_id = None
+        self._acr_config = None
         self.discriminator = None
 
         if max_stopped_instances is not None:
@@ -66,6 +69,8 @@ class CloudConfig(object):
             self.vpc_peering_target_project_id = vpc_peering_target_project_id
         if vpc_peering_target_vpc_id is not None:
             self.vpc_peering_target_vpc_id = vpc_peering_target_vpc_id
+        if acr_config is not None:
+            self.acr_config = acr_config
 
     @property
     def max_stopped_instances(self):
@@ -158,6 +163,29 @@ class CloudConfig(object):
         """
 
         self._vpc_peering_target_vpc_id = vpc_peering_target_vpc_id
+
+    @property
+    def acr_config(self):
+        """Gets the acr_config of this CloudConfig.  # noqa: E501
+
+        Azure Container Registry configuration for image builds. Only applicable to Anyscale Azure Control Plane.  # noqa: E501
+
+        :return: The acr_config of this CloudConfig.  # noqa: E501
+        :rtype: AzureACRConfig
+        """
+        return self._acr_config
+
+    @acr_config.setter
+    def acr_config(self, acr_config):
+        """Sets the acr_config of this CloudConfig.
+
+        Azure Container Registry configuration for image builds. Only applicable to Anyscale Azure Control Plane.  # noqa: E501
+
+        :param acr_config: The acr_config of this CloudConfig.  # noqa: E501
+        :type: AzureACRConfig
+        """
+
+        self._acr_config = acr_config
 
     def to_dict(self):
         """Returns the model properties as a dict"""

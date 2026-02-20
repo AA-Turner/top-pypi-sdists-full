@@ -9,7 +9,7 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
 from snowflake.snowpark.types import MapType, StructType, VariantType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import get_artifact_repository, global_config
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
@@ -37,6 +37,7 @@ from snowflake.snowpark_connect.utils.udf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
+from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
 
 
 def cache_external_udf_wrapper(from_register_udf: bool):
@@ -152,6 +153,7 @@ def register_udf(
         "udf_packages": global_config.get("snowpark.connect.udf.packages", ""),
         "udf_imports": get_python_udxf_import_files(session),
         "original_return_type": original_return_type,
+        "artifact_repository": get_artifact_repository(),
         "resource_constraint": _get_resource_constraint(),
     }
 
@@ -218,6 +220,7 @@ def map_common_inline_user_defined_udf(
             "udf_packages": global_config.get("snowpark.connect.udf.packages", ""),
             "udf_imports": get_python_udxf_import_files(session),
             "original_return_type": original_return_type,
+            "artifact_repository": get_artifact_repository(),
             "resource_constraint": _get_resource_constraint(),
         }
         use_sproc = require_creating_udf_in_sproc(udf_proto)
@@ -243,7 +246,7 @@ def map_common_inline_user_defined_udf(
     converted_args = []
     for tc in snowpark_udf_typed_args:
         if is_scala_udf:
-            converted_args.append(snowpark_fn.cast(tc.col, VariantType()))
+            converted_args.append(to_variant_preserving_nulls(tc.col, tc.typ))
         else:
             converted_args.append(tc.col)
 

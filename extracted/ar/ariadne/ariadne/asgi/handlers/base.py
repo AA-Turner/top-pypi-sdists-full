@@ -21,14 +21,13 @@ from ...types import (
     RootValue,
     ValidationRules,
 )
-from ...utils import context_value_one_arg_deprecated
 
 
 class GraphQLHandler(ABC):
     """Base class for ASGI connection handlers."""
 
     def __init__(self) -> None:
-        """Initialize the handler instance with empty configuration."""
+        """Initialize the handler instance with an empty configuration."""
         self.schema: GraphQLSchema | None = None
         self.context_value: ContextValue | None = None
         self.debug: bool = False
@@ -127,11 +126,7 @@ class GraphQLHandler(ABC):
         `data`: a GraphQL data from connection.
         """
         if callable(self.context_value):
-            try:
-                context = self.context_value(request, data)  # type: ignore
-            except TypeError:  # TODO: remove in 0.20
-                context_value_one_arg_deprecated()
-                context = self.context_value(request)  # type: ignore
+            context = self.context_value(request, data)
 
             if isawaitable(context):
                 context = await context

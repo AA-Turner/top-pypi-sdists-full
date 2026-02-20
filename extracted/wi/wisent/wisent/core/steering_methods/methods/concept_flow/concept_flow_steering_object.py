@@ -71,12 +71,12 @@ class ConceptFlowSteeringObject(BaseSteeringObject):
     def compute_gate(self, hidden_state: torch.Tensor) -> torch.Tensor:
         """Flow naturally handles no-op via t_max=0; always returns 1.0."""
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.ones(batch_size, device=hidden_state.device)
+        return torch.ones(batch_size, device=hidden_state.device, dtype=hidden_state.dtype)
 
     def compute_intensity(self, hidden_state: torch.Tensor, layer: int) -> torch.Tensor:
         """Strength is controlled via t_max, not intensity; always returns 1.0."""
         batch_size = hidden_state.shape[0] if hidden_state.dim() > 1 else 1
-        return torch.ones(batch_size, device=hidden_state.device)
+        return torch.ones(batch_size, device=hidden_state.device, dtype=hidden_state.dtype)
 
     def apply_steering(
         self, hidden_state: torch.Tensor, layer: int, base_strength: float = 1.0,

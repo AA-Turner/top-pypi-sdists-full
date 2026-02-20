@@ -81,6 +81,7 @@ class SteeringMethodType(Enum):
     PULSE = "pulse"
     TITAN = "titan"
     CONCEPT_FLOW = "concept_flow"
+    GEODESIC_OT = "geodesic_ot"
 
 
 @dataclass
@@ -660,6 +661,52 @@ CONCEPT_FLOW_DEFINITION = SteeringMethodDefinition(
 
 
 # =============================================================================
+
+GEODESIC_OT_DEFINITION = SteeringMethodDefinition(
+    name="geodesic_ot",
+    method_type=SteeringMethodType.GEODESIC_OT,
+    description="Geodesic Optimal Transport - manifold-aware transport via k-NN geodesic distances and Sinkhorn OT.",
+    method_class_path="wisent.core.steering_methods.methods.geodesic_ot.GeodesicOTMethod",
+    parameters=[
+        SteeringMethodParameter(
+            name="k_neighbors",
+            type=int,
+            default=10,
+            help="Number of nearest neighbors for k-NN graph construction",
+            cli_flag="--geodesic-ot-k-neighbors",
+        ),
+        SteeringMethodParameter(
+            name="sinkhorn_reg",
+            type=float,
+            default=0.1,
+            help="Entropic regularization for Sinkhorn solver",
+            cli_flag="--geodesic-ot-sinkhorn-reg",
+        ),
+        SteeringMethodParameter(
+            name="sinkhorn_max_iter",
+            type=int,
+            default=100,
+            help="Maximum iterations for Sinkhorn convergence",
+            cli_flag="--geodesic-ot-sinkhorn-max-iter",
+        ),
+        SteeringMethodParameter(
+            name="inference_k",
+            type=int,
+            default=5,
+            help="Number of nearest source points for inference interpolation",
+            cli_flag="--geodesic-ot-inference-k",
+        ),
+    ],
+    optimization_config={
+        "strength_search_range": (0.1, 3.0),
+        "default_strength": 1.0,
+    },
+    default_strength=1.0,
+    strength_range=(0.1, 3.0),
+)
+
+
+# =============================================================================
 # REGISTRY CLASS
 # =============================================================================
 
@@ -689,6 +736,7 @@ class SteeringMethodRegistry:
         "pulse": PULSE_DEFINITION,
         "titan": TITAN_DEFINITION,
         "concept_flow": CONCEPT_FLOW_DEFINITION,
+        "geodesic_ot": GEODESIC_OT_DEFINITION,
     }
     
     @classmethod

@@ -2149,7 +2149,7 @@ class DataFrame(metaclass=DataFrameMeta):
         Parameters
         ----------
         string_names
-            If True, use strings for column names. If False, use `Feature` objects.
+            If `True`, use strings for column names. If `False`, use `Feature` objects.
 
         prefixed
             Whether to prefix the column names with the feature namespace (i.e. if prefixed=True, `user.name`, if
@@ -2270,7 +2270,7 @@ class DataFrame(metaclass=DataFrameMeta):
         offset
             The offset to start at.
         length
-            The number of rows in the slice. If None (the default), include all rows from `offset`
+            The number of rows in the slice. If `None` (the default), include all rows from `offset`
             to the end of the `DataFrame`.
 
         Returns

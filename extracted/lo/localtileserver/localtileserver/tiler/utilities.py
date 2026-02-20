@@ -2,7 +2,6 @@ import os
 import pathlib
 import shutil
 import tempfile
-from typing import Optional
 from urllib.parse import urlencode, urlparse
 
 from rasterio import CRS
@@ -13,7 +12,7 @@ from localtileserver.tiler.data import clean_url, get_data_path
 class ImageBytes(bytes):
     """Wrapper class to make repr of image bytes better in ipython."""
 
-    def __new__(cls, source: bytes, mimetype: str = None):
+    def __new__(cls, source: bytes, mimetype: str | None = None):
         self = super().__new__(cls, source)
         self._mime_type = mimetype
         return self
@@ -87,6 +86,12 @@ def get_clean_filename(filename: str):
 
     if str(filename).startswith("/vsi"):
         return filename
+    # GDAL driver connection prefixes (e.g., GTI:/path/to/file.gpkg) use a
+    # colon that urlparse misinterprets as a URL scheme. Pass these through
+    # directly — rasterio/GDAL handles them natively.
+    _GDAL_PREFIXES = ("GTI:", "WMTS:", "DAAS:", "EEDAI:", "NGW:", "PLMOSAIC:", "PLSCENES:")
+    if str(filename).startswith(_GDAL_PREFIXES):
+        return str(filename)
     parsed = urlparse(str(filename))
     if parsed.scheme in ["http", "https", "s3"]:
         return make_vsi(filename)
@@ -97,7 +102,7 @@ def get_clean_filename(filename: str):
     return filename
 
 
-def format_to_encoding(fmt: Optional[str]) -> str:
+def format_to_encoding(fmt: str | None) -> str:
     """Validate encoding."""
     if not fmt:
         return "png"

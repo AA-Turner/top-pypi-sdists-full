@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyaedt
-Version: 0.25.0
+Version: 0.25.1
 Summary: High-level Python API for Ansys Electronics Desktop Framework
 Author-email: "ANSYS, Inc." <pyansys.core@ansys.com>
 Maintainer-email: "ANSYS, Inc." <pyansys.core@ansys.com>
@@ -27,7 +27,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: <4,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: grpcio<1.77,>=1.50.0
+Requires-Dist: grpcio<1.79,>=1.50.0
 Requires-Dist: jsonschema
 Requires-Dist: psutil
 Requires-Dist: pyedb!=0.28.0,>=0.24.0
@@ -37,51 +37,11 @@ Requires-Dist: pyyaml
 Requires-Dist: defusedxml<8.0,>=0.7
 Requires-Dist: numpy<2.3,>=1.20.0
 Requires-Dist: pydantic<2.13,>=2.6.4
-Provides-Extra: unit-tests
-Requires-Dist: pytest<9.1,>=7.4.0; extra == "unit-tests"
-Requires-Dist: pytest-cov<7.1,>=4.0.0; extra == "unit-tests"
-Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "unit-tests"
-Requires-Dist: mock<5.3,>=5.1.0; extra == "unit-tests"
-Requires-Dist: fpdf2; extra == "unit-tests"
-Requires-Dist: requests; extra == "unit-tests"
-Requires-Dist: rpyc<6.1,>=6.0.0; extra == "unit-tests"
-Requires-Dist: typer>=0.20.0; extra == "unit-tests"
-Requires-Dist: openpyxl<3.3,>=3.1.0; extra == "unit-tests"
-Provides-Extra: integration-tests
-Requires-Dist: matplotlib<3.11,>=3.5.0; extra == "integration-tests"
-Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "integration-tests"
-Requires-Dist: pandas<2.4,>=1.1.0; extra == "integration-tests"
-Requires-Dist: pyaedt[unit-tests]; extra == "integration-tests"
-Provides-Extra: tests
-Requires-Dist: ansys-tools-visualization-interface; extra == "tests"
-Requires-Dist: osmnx<2.1,>=1.1.0; extra == "tests"
-Requires-Dist: pyaedt[integration-tests]; extra == "tests"
-Requires-Dist: pytest-timeout<2.5,>=2.3.0; extra == "tests"
-Requires-Dist: pytest-xdist<3.9,>=3.5.0; extra == "tests"
-Requires-Dist: pytest-testmon<3.0,>=2.0.0; extra == "tests"
-Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "tests"
-Requires-Dist: scikit-rf<1.11,>=0.30.0; extra == "tests"
-Requires-Dist: tables; extra == "tests"
-Requires-Dist: cryptography; extra == "tests"
 Provides-Extra: dotnet
 Requires-Dist: ansys-pythonnet>=3.1.0rc3; extra == "dotnet"
 Requires-Dist: cffi<2.1,>=1.16.0; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: dotnetcore2==3.1.23; platform_system == "Linux" and extra == "dotnet"
 Requires-Dist: pywin32>=303; platform_system == "Windows" and extra == "dotnet"
-Provides-Extra: doc
-Requires-Dist: ansys-sphinx-theme<1.8,>=1.0.0; extra == "doc"
-Requires-Dist: jupyter; extra == "doc"
-Requires-Dist: numpydoc==1.10.0; extra == "doc"
-Requires-Dist: recommonmark; extra == "doc"
-Requires-Dist: Sphinx<8.3,>=7.1.0; extra == "doc"
-Requires-Dist: sphinx-autobuild==2024.10.3; extra == "doc"
-Requires-Dist: sphinx-copybutton<0.6,>=0.5.0; extra == "doc"
-Requires-Dist: sphinx-gallery<0.21,>=0.14.0; extra == "doc"
-Requires-Dist: sphinx_design<0.7,>=0.4.0; extra == "doc"
-Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "doc"
-Requires-Dist: ansys-tools-visualization-interface; extra == "doc"
-Requires-Dist: fpdf2; extra == "doc"
-Requires-Dist: rpyc<6.1,>=6.0.0; extra == "doc"
 Provides-Extra: graphics
 Requires-Dist: ansys-tools-visualization-interface; extra == "graphics"
 Requires-Dist: pyvista[io]<0.47,>=0.38.0; extra == "graphics"
@@ -362,9 +322,9 @@ Usage examples follow.
 from ansys.aedt.core import Desktop, Circuit
 
 with Desktop(
-    specified_version="2022.2",
+    version="2022.2",
     non_graphical=False,
-    new_desktop_session=True,
+    new_desktop=True,
     close_on_exit=True,
     student_version=False,
 ):
@@ -383,7 +343,7 @@ with Desktop(
 
 from ansys.aedt.core import Circuit
 
-with Circuit(specified_version="2022.2", non_graphical=False) as circuit:
+with Circuit(version="2022.2", non_graphical=False) as circuit:
     ...
     # Any error here will be caught by Desktop.
     ...

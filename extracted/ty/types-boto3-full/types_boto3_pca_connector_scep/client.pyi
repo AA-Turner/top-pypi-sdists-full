@@ -129,7 +129,7 @@ class PrivateCAConnectorforSCEPClient(BaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Deletes the specified <a
-        href="https://docs.aws.amazon.com/C4SCEP_API/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
+        href="https://docs.aws.amazon.com/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pca-connector-scep/client/delete_challenge.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pca_connector_scep/client/#delete_challenge)
@@ -140,7 +140,7 @@ class PrivateCAConnectorforSCEPClient(BaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Deletes the specified <a
-        href="https://docs.aws.amazon.com/C4SCEP_API/pca-connector-scep/latest/APIReference/API_Connector.html">Connector</a>.
+        href="https://docs.aws.amazon.com/pca-connector-scep/latest/APIReference/API_Connector.html">Connector</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pca-connector-scep/client/delete_connector.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pca_connector_scep/client/#delete_connector)
@@ -151,7 +151,7 @@ class PrivateCAConnectorforSCEPClient(BaseClient):
     ) -> GetChallengeMetadataResponseTypeDef:
         """
         Retrieves the metadata for the specified <a
-        href="https://docs.aws.amazon.com/C4SCEP_API/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
+        href="https://docs.aws.amazon.com/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pca-connector-scep/client/get_challenge_metadata.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pca_connector_scep/client/#get_challenge_metadata)
@@ -162,7 +162,7 @@ class PrivateCAConnectorforSCEPClient(BaseClient):
     ) -> GetChallengePasswordResponseTypeDef:
         """
         Retrieves the challenge password for the specified <a
-        href="https://docs.aws.amazon.com/C4SCEP_API/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
+        href="https://docs.aws.amazon.com/pca-connector-scep/latest/APIReference/API_Challenge.html">Challenge</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pca-connector-scep/client/get_challenge_password.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pca_connector_scep/client/#get_challenge_password)
@@ -173,7 +173,7 @@ class PrivateCAConnectorforSCEPClient(BaseClient):
     ) -> GetConnectorResponseTypeDef:
         """
         Retrieves details about the specified <a
-        href="https://docs.aws.amazon.com/C4SCEP_API/pca-connector-scep/latest/APIReference/API_Connector.html">Connector</a>.
+        href="https://docs.aws.amazon.com/pca-connector-scep/latest/APIReference/API_Connector.html">Connector</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/pca-connector-scep/client/get_connector.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_pca_connector_scep/client/#get_connector)

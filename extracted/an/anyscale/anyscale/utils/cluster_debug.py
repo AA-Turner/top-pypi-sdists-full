@@ -17,11 +17,28 @@ class DebugTestResult:
 
 
 def debug_cluster(
-    logger: BlockLogger, cluster_domain_name: str, anyscale_ip: str
+    logger: BlockLogger,
+    cluster_domain_name: str,
+    anyscale_ip: str,
+    skip_tls_no_sni: bool = False,
 ) -> Iterator[DebugTestResult]:
+    """Debug networking for an Anyscale Cluster.
+
+    Args:
+        logger: Logger instance for output
+        cluster_domain_name: Hostname of the cluster
+        anyscale_ip: Expected IP address from Anyscale
+        skip_tls_no_sni: Skip the tls-no-sni test and direct IP fallback tests.
+            Set to True for SNI-based load balancers (e.g., Envoy Gateway) where
+            non-SNI connections are expected to fail.
+    """
     has_experienced_a_failure: bool = False
 
-    tests = list(_tests_for(cluster_domain_name, anyscale_ip).items())
+    tests = list(
+        _tests_for(
+            cluster_domain_name, anyscale_ip, skip_tls_no_sni=skip_tls_no_sni
+        ).items()
+    )
 
     for name, test in tests:
         try:
@@ -31,7 +48,7 @@ def debug_cluster(
         except Exception as e:  # noqa: BLE001
             yield DebugTestResult(name, False, e)
 
-            if not has_experienced_a_failure:
+            if not has_experienced_a_failure and not skip_tls_no_sni:
                 has_experienced_a_failure = True
 
                 try:
@@ -50,19 +67,26 @@ def debug_cluster(
                 )
                 tests.extend(
                     _tests_for(
-                        cluster_ip_addr, anyscale_ip, tls_sni=cluster_domain_name
+                        cluster_ip_addr,
+                        anyscale_ip,
+                        tls_sni=cluster_domain_name,
+                        skip_tls_no_sni=skip_tls_no_sni,
                     ).items()
                 )
 
 
 def _tests_for(
-    endpoint: str, anyscale_ip: str, tls_sni: Optional[str] = None
+    endpoint: str,
+    anyscale_ip: str,
+    tls_sni: Optional[str] = None,
+    skip_tls_no_sni: bool = False,
 ) -> Dict[str, Callable[[], Optional[str]]]:
     """Attempt to debug networking for an Anyscale Cluster.
 
     Arguments:
         endpoint: Hostname or IP address of the cluster
         tls_sni: Hostname to use for TLS SNI (used if used to directly dial the IP address)
+        skip_tls_no_sni: Skip the tls-no-sni test (useful for SNI-based routing like Envoy Gateway)
 
     Also ask for the IP from the control Plane
 
@@ -70,20 +94,21 @@ def _tests_for(
     1. Try directly using different IPs + hostname
 
     """
-    return {
-        **(
-            {
-                "dns-lookup": lambda: _dns_test(endpoint, anyscale_ip),
-                "dns-over-https": lambda: _dns_over_https_test(endpoint, anyscale_ip),
-            }
-            if tls_sni is None
-            else {}
-        ),
-        "tcp-connect": lambda: _tcp_test(endpoint),
-        "tls-no-sni": lambda: _tls_no_sni(endpoint),
-        "tls-connect": lambda: _tls_test(endpoint, tls_sni),
-        "https-get": lambda: _https_test(endpoint, tls_sni),
-    }
+    tests: Dict[str, Callable[[], Optional[str]]] = {}
+
+    if tls_sni is None:
+        tests["dns-lookup"] = lambda: _dns_test(endpoint, anyscale_ip)
+        tests["dns-over-https"] = lambda: _dns_over_https_test(endpoint, anyscale_ip)
+
+    tests["tcp-connect"] = lambda: _tcp_test(endpoint)
+
+    if not skip_tls_no_sni:
+        tests["tls-no-sni"] = lambda: _tls_no_sni(endpoint)
+
+    tests["tls-connect"] = lambda: _tls_test(endpoint, tls_sni)
+    tests["https-get"] = lambda: _https_test(endpoint, tls_sni)
+
+    return tests
 
 
 def _dns_test(endpoint: str, anyscale_ip: str) -> Optional[str]:

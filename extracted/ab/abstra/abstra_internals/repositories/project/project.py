@@ -13,6 +13,8 @@ from typing import Any, Dict, Generator, List, Literal, Optional, Tuple, Union
 from abstra_internals.constants import ABSTRA_LOGO_URL, get_project_url
 from abstra_internals.contracts_generated import (
     CommonAbstraJsonV17,
+    CommonAbstraJsonV17DefinitionsAgentPermission,
+    CommonAbstraJsonV17DefinitionsAgentStage,
     CommonAbstraJsonV17DefinitionsComponentStage,
     CommonAbstraJsonV17DefinitionsFormStage,
     CommonAbstraJsonV17DefinitionsFormStageAccessControl,
@@ -42,7 +44,41 @@ from abstra_internals.utils.graph import Edge, Graph, Node
 from abstra_internals.utils.string import to_kebab_case
 
 ServedStage = Union["FormStage", "HookStage"]
-StageType = Literal["form", "hook", "job", "script", "component"]
+StageType = Literal["form", "hook", "job", "script", "component", "agent"]
+
+
+@dataclass
+class AgentPermission:
+    """Represents a permission granted to an Agent."""
+
+    type: Literal["tables", "files", "connections", "source_code"]
+    action: str
+    table_name: Optional[str] = None
+    connection_name: Optional[str] = None
+    condition: Optional[str] = None
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> "AgentPermission":
+        return AgentPermission(
+            type=data["type"],
+            action=data["action"],
+            table_name=data.get("tableName"),
+            connection_name=data.get("connectionName"),
+            condition=data.get("condition"),
+        )
+
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "type": self.type,
+            "action": self.action,
+        }
+        if self.table_name is not None:
+            result["tableName"] = self.table_name
+        if self.connection_name is not None:
+            result["connectionName"] = self.connection_name
+        if self.condition is not None:
+            result["condition"] = self.condition
+        return result
 
 
 class Stage(ABC):
@@ -181,6 +217,8 @@ class WorkflowTransition:
             return "scripts:finished"
         elif source_type == "component":
             return "component:finished"
+        elif source_type == "agent":
+            return "agents:finished"
         else:
             raise Exception(f"Invalid source type {source_type}")
 
@@ -470,6 +508,139 @@ class ComponentStage(Stage):
 
 
 @dataclass
+class AgentStage(StageWithFile):
+    """A stage that executes an AI agent with a Jinja2 prompt template."""
+
+    id: str
+    file: str  # Path to .md prompt template file
+    title: str
+    workflow_transitions: List[WorkflowTransition]
+    workflow_position: Tuple[float, float]
+    permissions: List[AgentPermission] = field(default_factory=list)
+    is_initial: bool = True
+    type_name = "agent"
+    input: bool = False
+    output: bool = False
+    task_schema: Optional[Dict[str, Any]] = None
+    max_steps: int = 30
+
+    @staticmethod
+    def create(
+        title: str,
+        file: str,
+        id: Union[str, None] = None,
+        workflow_position: Tuple[int, int] = (0, 0),
+        permissions: Optional[List[AgentPermission]] = None,
+    ) -> "AgentStage":
+        _id = id or str(uuid.uuid4())
+        return AgentStage(
+            id=_id,
+            file=file,
+            title=title,
+            workflow_transitions=[],
+            workflow_position=workflow_position,
+            permissions=permissions or [],
+            is_initial=True,
+            input=False,
+            output=False,
+        )
+
+    @staticmethod
+    def from_dict(data: Dict) -> "AgentStage":
+        x, y = data["workflow_position"]
+        return AgentStage(
+            id=data["id"],
+            file=data["file"],
+            title=data["title"],
+            workflow_position=(x, y),
+            is_initial=data.get("is_initial", True),
+            workflow_transitions=[
+                WorkflowTransition.from_dict(t) for t in data.get("transitions", [])
+            ],
+            permissions=[
+                AgentPermission.from_dict(p) for p in data.get("permissions", [])
+            ],
+            input=data.get("input", False),
+            output=data.get("output", False),
+            task_schema=data.get("task_schema"),
+            max_steps=data.get("max_steps", 30),
+        )
+
+    @property
+    def as_dict(self):
+        return {
+            "id": self.id,
+            "file": self.file,
+            "title": self.title,
+            "is_initial": self.is_initial,
+            "workflow_position": self.workflow_position,
+            "transitions": [t.as_dict for t in self.workflow_transitions],
+            "permissions": [p.to_dict() for p in self.permissions],
+            "input": self.input,
+            "output": self.output,
+            "task_schema": self.task_schema,
+            "max_steps": self.max_steps,
+        }
+
+    @property
+    def editor_dto(self):
+        dto = {**self.as_dict}
+        try:
+            dto["prompt_content"] = self.file_path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            dto["prompt_content"] = ""
+        return dto
+
+    @property
+    def file_path(self):
+        return Settings.root_path.joinpath(self.file)
+
+    def update(self, changes: Dict[str, Any]) -> None:
+        for attr, value in changes.items():
+            if attr in [
+                "title",
+                "is_initial",
+                "input",
+                "output",
+                "task_schema",
+                "max_steps",
+            ]:
+                setattr(self, attr, value)
+            elif attr == "file":
+                _update_file(self, value)
+            elif attr == "permissions":
+                self.permissions = [AgentPermission.from_dict(p) for p in value]
+            elif attr == "workflow_position":
+                self.workflow_position = tuple(value)
+            else:
+                raise Exception(f"Cannot update {attr} of agent")
+
+    def to_abstra_json_dto(self) -> CommonAbstraJsonV17DefinitionsAgentStage:
+        return CommonAbstraJsonV17DefinitionsAgentStage(
+            id=self.id,
+            file=self.file,
+            title=self.title,
+            workflow_position=[self.workflow_position[0], self.workflow_position[1]],
+            is_initial=self.is_initial,
+            transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
+            permissions=[
+                CommonAbstraJsonV17DefinitionsAgentPermission(
+                    type=p.type,  # type: ignore[arg-type]
+                    action=p.action,
+                    table_name=p.table_name,
+                    connection_name=p.connection_name,
+                    condition=p.condition,
+                )
+                for p in self.permissions
+            ],
+            input=self.input,
+            output=self.output,
+            task_schema=self.task_schema,
+            max_steps=self.max_steps,
+        )
+
+
+@dataclass
 class InstalledModule:
     name: str
     path: Path
@@ -665,7 +836,7 @@ class JobStage(StageWithFile):
             transitions=[t.to_abstra_json_dto() for t in self.workflow_transitions],
             input=self.input,
             output=self.output,
-            task_schema=self.task_schema,
+            task_schema=self.task_schema,  # type: ignore[call-arg]
         )
 
 
@@ -851,7 +1022,7 @@ class FormStage(StageWithFile):
             access_control=self.access_control.to_abstra_json_dto(),
             input=self.input,
             output=self.output,
-            task_schema=self.task_schema,
+            task_schema=self.task_schema,  # type: ignore[call-arg]
         )
 
 
@@ -1121,6 +1292,7 @@ class Project:
     hooks: List[HookStage]
     jobs: List[JobStage]
     components: List[ComponentStage]
+    agents: List[AgentStage]
 
     _graph: Graph
 
@@ -1134,7 +1306,12 @@ class Project:
                 target_stages.add(transition.target_id)
 
         for stage in (
-            self.jobs + self.forms + self.scripts + self.hooks + self.components
+            self.jobs
+            + self.forms
+            + self.scripts
+            + self.hooks
+            + self.components
+            + self.agents
         ):
             if stage.id in target_stages:
                 stage.is_initial = False
@@ -1149,6 +1326,7 @@ class Project:
             "forms": [form.as_dict for form in self.forms],
             "scripts": [script.as_dict for script in self.scripts],
             "components": [component.as_dict for component in self.components],
+            "agents": [agent.as_dict for agent in self.agents],
         }
 
     def to_abstra_json_dto(self):
@@ -1163,6 +1341,7 @@ class Project:
             components=[
                 component.to_abstra_json_dto() for component in self.components
             ],
+            agents=[agent.to_abstra_json_dto() for agent in self.agents],  # type: ignore[call-arg]
         )
 
     @property
@@ -1173,6 +1352,7 @@ class Project:
             *self.hooks,
             *self.scripts,
             *self.components,
+            *self.agents,
         ]
 
     @property
@@ -1183,7 +1363,13 @@ class Project:
         return module_stages
 
     def get_stages_by_file_path(self, file_path: Path) -> List[StageWithFile]:
-        stage_with_file_classes = (FormStage, HookStage, JobStage, ScriptStage)
+        stage_with_file_classes = (
+            FormStage,
+            HookStage,
+            JobStage,
+            ScriptStage,
+            AgentStage,
+        )
 
         all_stages = self.workflow_stages + self.module_stages
 
@@ -1201,14 +1387,14 @@ class Project:
 
     def iter_entrypoints(self) -> Generator[Path, None, None]:
         for stage in self.workflow_stages:
-            if isinstance(stage, StageWithFile):
+            if isinstance(stage, StageWithFile) and not isinstance(stage, AgentStage):
                 yield Path(stage.file)
 
     def iter_entrypointed_stages(
         self,
     ) -> Generator[Tuple[Path, StageWithFile], None, None]:
         for stage in self.workflow_stages:
-            if isinstance(stage, StageWithFile):
+            if isinstance(stage, StageWithFile) and not isinstance(stage, AgentStage):
                 yield Path(stage.file), stage
 
     @property
@@ -1242,6 +1428,8 @@ class Project:
             self.scripts.append(stage)
         elif isinstance(stage, ComponentStage):
             self.components.append(stage)
+        elif isinstance(stage, AgentStage):
+            self.agents.append(stage)
         else:
             raise Exception(f"Cannot add stage of type {type(stage)}")
 
@@ -1446,6 +1634,15 @@ class Project:
 
         return None
 
+    def get_agents(self) -> List[AgentStage]:
+        return self.agents
+
+    def get_agent(self, id: str) -> Optional[AgentStage]:
+        for agent in self.agents:
+            if agent.id == id:
+                return agent
+        return None
+
     def get_hook_by_path(self, path: str) -> Optional[HookStage]:
         for hook in self.hooks:
             if hook.path == path:
@@ -1597,6 +1794,7 @@ class Project:
         self.jobs = [j for j in self.jobs if j.id != id]
         self.scripts = [s for s in self.scripts if s.id != id]
         self.components = [p for p in self.components if p.id != id]
+        self.agents = [a for a in self.agents if a.id != id]
 
     @staticmethod
     def _deduplicate_transitions(data: dict) -> dict:
@@ -1619,7 +1817,7 @@ class Project:
         Returns:
             The project dictionary with deduplicated and cleaned transitions
         """
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
 
         # First, collect all valid stage IDs
         valid_stage_ids = set()
@@ -1697,7 +1895,7 @@ class Project:
             The project dictionary with deduplicated stages
         """
         seen_ids = set()
-        stage_keys = ["scripts", "forms", "hooks", "jobs", "components"]
+        stage_keys = ["scripts", "forms", "hooks", "jobs", "components", "agents"]
 
         for key in stage_keys:
             stages = data.get(key, [])
@@ -1724,7 +1922,7 @@ class Project:
         nodes = []
         edges = []
 
-        stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+        stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
 
         data = Project._deduplicate_stages(data)
         data = Project._deduplicate_transitions(data)
@@ -1753,6 +1951,7 @@ class Project:
             ComponentStage.from_dict(component)
             for component in data.get("components", [])
         ]
+        agents = [AgentStage.from_dict(agent) for agent in data.get("agents", [])]
 
         workspace = StyleSettings.from_dict(data["workspace"])
         home = Home.from_dict(data.get("home", {}))
@@ -1764,6 +1963,7 @@ class Project:
             hooks=hooks,
             jobs=jobs,
             components=components,
+            agents=agents,
             home=home,
             _graph=Graph.from_primitives(nodes=nodes, edges=edges),
         )
@@ -1794,6 +1994,7 @@ class Project:
             hooks=[],
             jobs=[],
             components=[],
+            agents=[],
             home=Home.create(),
             _graph=Graph.from_primitives([], []),
         )
@@ -1924,7 +2125,7 @@ def filter_stages_from_data(
     if disabled_stages_ids is None or len(disabled_stages_ids) == 0:
         return data
 
-    stage_keys = ["forms", "hooks", "scripts", "jobs", "components"]
+    stage_keys = ["forms", "hooks", "scripts", "jobs", "components", "agents"]
 
     copy_data = data.copy()
 

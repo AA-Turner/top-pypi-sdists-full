@@ -24,6 +24,7 @@ from urllib.error import URLError
 
 import joblib
 import torch
+from filelock import FileLock
 from tabpfn_common_utils.telemetry import set_model_config
 from torch import nn
 
@@ -306,70 +307,6 @@ def _try_direct_downloads(
     raise Exception("Direct download failed!") from last_error
 
 
-def download_model(
-    to: Path,
-    *,
-    version: ModelVersion,
-    which: Literal["classifier", "regressor"],
-    model_name: str | None = None,
-) -> Literal["ok"] | list[Exception]:
-    """Download a TabPFN model, trying all available sources.
-
-    Args:
-        to: The file path to download the model to.
-        version: The version of the model to download.
-        which: The type of model to download.
-        model_name: Optional specific model name to download.
-
-    Returns:
-        "ok" if the model was downloaded successfully, otherwise a list of
-        exceptions that occurred that can be handled as desired.
-    """
-    errors: list[Exception] = []
-
-    try:
-        model_source = _get_model_source(version, ModelType(which))
-    except ValueError as e:
-        return [e]
-
-    try:
-        _try_huggingface_downloads(to, model_source, model_name, suppress_warnings=True)
-        return "ok"
-    except Exception as e:  # noqa: BLE001
-        if isinstance(
-            e, TabPFNHuggingFaceGatedRepoError
-        ) and not _version_has_direct_download_option(version):
-            filename_for_logs = model_name or model_source.default_filename
-            # We wrap the HF error in the RuntimeError with a commercial message
-            # to make it easier for the user to see the instructions about
-            # authenticating with HuggingFace.
-            errors.append(
-                RuntimeError(
-                    f"Failed to download TabPFN {version} model '{filename_for_logs}'."
-                    f"\n\nDetails and instructions:\n{e!s}\n\n"
-                    f"For commercial usage, we provide alternative download options "
-                    f"for TabPFN {version}; please reach out to us at "
-                    "sales@priorlabs.ai."
-                )
-            )
-            return errors
-
-        logger.warning("HuggingFace download failed.")
-        errors.append(e)
-
-    # For Version 2.5 we require gating, which we don't have in place for direct
-    # downloads.
-    if _version_has_direct_download_option(version):
-        try:
-            _try_direct_downloads(to, model_source, model_name)
-            return "ok"
-        except Exception as e:  # noqa: BLE001
-            logger.warning(f"Direct URL downloads failed: {e!s}")
-            errors.append(e)
-
-    return errors
-
-
 def download_all_models(to: Path) -> None:
     """Download all available classifier and regressor models into a local directory."""
     to.mkdir(parents=True, exist_ok=True)
@@ -451,6 +388,89 @@ def get_cache_dir() -> Path:  # noqa: PLR0911
         stacklevel=2,
     )
     return use_instead_path
+
+
+def download_model(
+    to: Path,
+    *,
+    version: ModelVersion,
+    which: Literal["classifier", "regressor"],
+    model_name: str | None = None,
+) -> Literal["ok"] | list[Exception]:
+    """Download a TabPFN model, trying all available sources.
+
+    Args:
+        to: The file path to download the model to.
+        version: The version of the model to download.
+        which: The type of model to download.
+        model_name: Optional specific model name to download.
+
+    Returns:
+        "ok" if the model was downloaded successfully, otherwise a list of
+        exceptions that occurred that can be handled as desired.
+    """
+    lock_path = to.parent / f".{to.name}.lock"
+    lock_path.parent.mkdir(parents=True, exist_ok=True)
+    lock = FileLock(lock_path, timeout=-1)
+    logger.debug(f"Acquiring download lock: {lock.lock_file}")
+    with lock:
+        logger.debug(f"Acquired download lock: {lock.lock_file}")
+        if to.exists():
+            logger.debug(f"Model already downloaded by another thread: {to}")
+            return "ok"
+        return _download_model(to, version=version, which=which, model_name=model_name)
+
+
+def _download_model(
+    to: Path,
+    *,
+    version: ModelVersion,
+    which: Literal["classifier", "regressor"],
+    model_name: str | None = None,
+) -> Literal["ok"] | list[Exception]:
+    errors: list[Exception] = []
+
+    try:
+        model_source = _get_model_source(version, ModelType(which))
+    except ValueError as e:
+        return [e]
+
+    try:
+        _try_huggingface_downloads(to, model_source, model_name, suppress_warnings=True)
+        return "ok"
+    except Exception as e:  # noqa: BLE001
+        if isinstance(
+            e, TabPFNHuggingFaceGatedRepoError
+        ) and not _version_has_direct_download_option(version):
+            filename_for_logs = model_name or model_source.default_filename
+            # We wrap the HF error in the RuntimeError with a commercial message
+            # to make it easier for the user to see the instructions about
+            # authenticating with HuggingFace.
+            errors.append(
+                RuntimeError(
+                    f"Failed to download TabPFN {version} model '{filename_for_logs}'."
+                    f"\n\nDetails and instructions:\n{e!s}\n\n"
+                    f"For commercial usage, we provide alternative download options "
+                    f"for TabPFN {version}; please reach out to us at "
+                    "sales@priorlabs.ai."
+                )
+            )
+            return errors
+
+        logger.warning("HuggingFace download failed.")
+        errors.append(e)
+
+    # For Version 2.5 we require gating, which we don't have in place for direct
+    # downloads.
+    if _version_has_direct_download_option(version):
+        try:
+            _try_direct_downloads(to, model_source, model_name)
+            return "ok"
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"Direct URL downloads failed: {e!s}")
+            errors.append(e)
+
+    return errors
 
 
 P = TypeVar("P", bound=Union[str, list[str]])

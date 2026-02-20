@@ -1,6 +1,6 @@
 import typing
 import warnings
-from collections.abc import Hashable, Sequence
+from collections.abc import Sequence
 from types import EllipsisType
 from typing import Literal
 
@@ -12,6 +12,7 @@ from pytensor.tensor import as_tensor, get_scalar_constant_value
 from pytensor.tensor.exceptions import NotScalarConstantError
 from pytensor.tensor.type import integer_dtypes
 from pytensor.tensor.utils import get_static_shape_from_size_variables
+from pytensor.utils import unzip
 from pytensor.xtensor.basic import XOp
 from pytensor.xtensor.math import cast, second
 from pytensor.xtensor.type import XTensorVariable, as_xtensor, xtensor
@@ -66,6 +67,9 @@ class Stack(XOp):
             dims=(*batch_dims, self.new_dim_name),
         )
         return Apply(self, [x], [output])
+
+    def vectorize_node(self, node, new_x, new_dim):
+        return [self(new_x)]
 
 
 def stack(x, dim: dict[str, Sequence[str]] | None = None, **dims: Sequence[str]):
@@ -145,6 +149,14 @@ class UnStack(XOp):
         )
         return Apply(self, [x, *unstacked_lengths], [output])
 
+    def vectorize_node(self, node, new_x, *new_unstacked_length, new_dim):
+        new_unstacked_length = [ul.squeeze() for ul in new_unstacked_length]
+        if not all(ul.type.ndim == 0 for ul in new_unstacked_length):
+            raise NotImplementedError(
+                f"Vectorization of {self} with batched unstacked_length not implemented, "
+            )
+        return [self(new_x, *new_unstacked_length)]
+
 
 def unstack(x, dim: dict[str, dict[str, int]] | None = None, **dims: dict[str, int]):
     if dim is not None:
@@ -187,6 +199,11 @@ class Transpose(XOp):
             dims=transpose_dims,
         )
         return Apply(self, [x], [output])
+
+    def vectorize_node(self, node, new_x, new_dim):
+        old_dims = self.dims
+        new_dims = tuple(dim for dim in new_x.dims if dim not in old_dims)
+        return [type(self)(dims=(*new_dims, *old_dims))(new_x)]
 
 
 def transpose(
@@ -296,10 +313,13 @@ class Concat(XOp):
                 if concat_dim not in inp.type.dims:
                     dims_and_shape[concat_dim] += 1
 
-        dims, shape = zip(*dims_and_shape.items())
+        dims, shape = unzip(dims_and_shape.items(), n=2)
         dtype = upcast(*[x.type.dtype for x in inputs])
         output = xtensor(dtype=dtype, dims=dims, shape=shape)
         return Apply(self, inputs, [output])
+
+    def vectorize_node(self, node, *new_inputs, new_dim):
+        return [self(*new_inputs)]
 
 
 def concat(xtensors, dim: str):
@@ -382,28 +402,13 @@ class Squeeze(XOp):
         )
         return Apply(self, [x], [out])
 
+    def vectorize_node(self, node, new_x, new_dim):
+        return [self(new_x)]
 
-def squeeze(x, dim=None, drop=False, axis=None):
+
+def squeeze(x, dim: str | Sequence[str] | None = None):
     """Remove dimensions of size 1 from an XTensorVariable."""
     x = as_xtensor(x)
-
-    # drop parameter is ignored in pytensor.xtensor
-    if drop is not None:
-        warnings.warn("drop parameter has no effect in pytensor.xtensor", UserWarning)
-
-    # dim and axis are mutually exclusive
-    if dim is not None and axis is not None:
-        raise ValueError("Cannot specify both `dim` and `axis`")
-
-    # if axis is specified, it must be a sequence of ints
-    if axis is not None:
-        if not isinstance(axis, Sequence):
-            axis = [axis]
-        if not all(isinstance(a, int) for a in axis):
-            raise ValueError("axis must be an integer or a sequence of integers")
-
-        # convert axis to dims
-        dims = tuple(x.type.dims[i] for i in axis)
 
     # if dim is specified, it must be a string or a sequence of strings
     if dim is None:
@@ -459,33 +464,26 @@ class ExpandDims(XOp):
         )
         return Apply(self, [x, size], [out])
 
+    def vectorize_node(self, node, new_x, new_size, new_dim):
+        new_size = new_size.squeeze()
+        if new_size.type.ndim != 0:
+            raise NotImplementedError(
+                f"Vectorization of {self} with batched new_size not implemented, "
+            )
+        return [self(new_x, new_size)]
 
-def expand_dims(x, dim=None, create_index_for_new_dim=None, axis=None, **dim_kwargs):
+
+def expand_dims(x, dim=None, axis=None, **dim_kwargs):
     """Add one or more new dimensions to an XTensorVariable."""
     x = as_xtensor(x)
 
     # Store original dimensions for axis handling
     original_dims = x.type.dims
 
-    # Warn if create_index_for_new_dim is used (not supported)
-    if create_index_for_new_dim is not None:
-        warnings.warn(
-            "create_index_for_new_dim=False has no effect in pytensor.xtensor",
-            UserWarning,
-            stacklevel=2,
-        )
-
     if dim is None:
         dim = dim_kwargs
     elif dim_kwargs:
         raise ValueError("Cannot specify both `dim` and `**dim_kwargs`")
-
-    # Check that dim is Hashable or a sequence of Hashable or dict
-    if not isinstance(dim, Hashable):
-        if not isinstance(dim, Sequence | dict):
-            raise TypeError(f"unhashable type: {type(dim).__name__}")
-        if not all(isinstance(d, Hashable) for d in dim):
-            raise TypeError(f"unhashable type in {type(dim).__name__}")
 
     # Normalize to a dimension-size mapping
     if isinstance(dim, str):
@@ -495,9 +493,7 @@ def expand_dims(x, dim=None, create_index_for_new_dim=None, axis=None, **dim_kwa
     elif isinstance(dim, dict):
         dims_dict = {}
         for name, val in dim.items():
-            if isinstance(val, str):
-                raise TypeError(f"Dimension size cannot be a string: {val}")
-            if isinstance(val, Sequence | np.ndarray):
+            if isinstance(val, list | tuple | np.ndarray):
                 warnings.warn(
                     "When a sequence is provided as a dimension size, only its length is used. "
                     "The actual values (which would be coordinates in xarray) are ignored.",
@@ -553,7 +549,6 @@ class Broadcast(XOp):
 
         broadcast_dims = tuple(dims_and_shape.keys())
         broadcast_shape = tuple(dims_and_shape.values())
-        dtype = upcast(*[x.type.dtype for x in inputs])
 
         outputs = []
         for x in inputs:
@@ -564,13 +559,26 @@ class Broadcast(XOp):
             excluded_shape = tuple(x_shape[x_dims.index(d)] for d in excluded_dims)
 
             output = xtensor(
-                dtype=dtype,
+                dtype=x.type.dtype,
                 shape=broadcast_shape + excluded_shape,
                 dims=broadcast_dims + excluded_dims,
             )
             outputs.append(output)
 
         return Apply(self, inputs, outputs)
+
+    def vectorize_node(self, node, *new_inputs, new_dim):
+        if exclude_set := set(self.exclude):
+            for new_x, old_x in zip(node.inputs, new_inputs, strict=True):
+                if invalid_excluded := (
+                    (set(new_x.dims) - set(old_x.dims)) & exclude_set
+                ):
+                    raise NotImplementedError(
+                        f"Vectorize of {self} is undefined because one of the inputs {new_x} "
+                        f"has an excluded dimension {sorted(invalid_excluded)} that it did not have before."
+                    )
+
+        return self(*new_inputs, return_list=True)
 
 
 def broadcast(

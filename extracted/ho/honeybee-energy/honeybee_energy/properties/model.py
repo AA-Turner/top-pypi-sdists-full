@@ -42,7 +42,7 @@ from ..generator.loadcenter import ElectricLoadCenter
 from ..config import folders
 from ..lib.constructions import generic_context
 from ..lib.constructionsets import generic_construction_set
-from ..lib.schedules import always_on
+from ..lib.schedules import always_on, IMMUTABLE_SCHEDULES
 from ..lib.scheduletypelimits import fractional
 
 
@@ -309,8 +309,8 @@ class ModelEnergyProperties(object):
                 self._check_and_add_schedule(shw.schedule, scheds)
             if infiltration is not None:
                 self._check_and_add_schedule(infiltration.schedule, scheds)
-            if ventilation is not None and ventilation.schedule is not None:
-                self._check_and_add_schedule(ventilation.schedule, scheds)
+            if ventilation is not None and ventilation._schedule is not None:
+                self._check_and_add_schedule(ventilation._schedule, scheds)
             if setpoint is not None:
                 self._check_and_add_schedule(setpoint.heating_schedule, scheds)
                 self._check_and_add_schedule(setpoint.cooling_schedule, scheds)
@@ -409,7 +409,7 @@ class ModelEnergyProperties(object):
 
     @property
     def electric_load_center(self):
-        """Get or set global parameters for ventilation cooling simulation."""
+        """Get or set global parameters for a building electric loads center."""
         return self._electric_load_center
 
     @electric_load_center.setter
@@ -1743,9 +1743,8 @@ class ModelEnergyProperties(object):
 
         # change the identifiers of the schedules
         if reset_schedules:
-            sch_skip = ('Seated Adult Activity', 'HumidNoLimit', 'DeHumidNoLimit')
             for sch in self.schedules:
-                if sch.identifier in sch_skip:
+                if sch.identifier in IMMUTABLE_SCHEDULES:
                     continue
                 sch.unlock()
                 sch.identifier = res_func(sch.display_name, sch_dict)
@@ -2387,10 +2386,9 @@ class ModelEnergyProperties(object):
 
         # change the identifiers of the schedules
         if reset_schedules:
-            sch_skip = ('Seated Adult Activity', 'HumidNoLimit', 'DeHumidNoLimit')
             model_sch = set()
             for sch in model.properties.energy.schedules:
-                if sch.identifier in sch_skip:
+                if sch.identifier in IMMUTABLE_SCHEDULES:
                     schedules[sch.identifier] = sch
                     model_sch.add(sch.identifier)
                     continue

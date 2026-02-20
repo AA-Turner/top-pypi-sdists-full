@@ -21,6 +21,8 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
+from uuid import UUID
+from onfido.models.webhook_event_resource_status import WebhookEventResourceStatus
 from onfido.models.workflow_run_error import WorkflowRunError
 from onfido.models.workflow_run_link import WorkflowRunLink
 from typing import Optional, Set
@@ -31,24 +33,26 @@ class WebhookEventPayloadResource(BaseModel):
     The resource affected by this event.
     """ # noqa: E501
     id: Optional[StrictStr] = Field(default=None, description="The identifier of the resource.")
-    applicant_id: Optional[StrictStr] = Field(default=None, description="The unique identifier for the Applicant.")
+    applicant_id: Optional[UUID] = Field(default=None, description="The unique identifier for the Applicant.")
+    status: Optional[WebhookEventResourceStatus] = None
     created_at: Optional[datetime] = Field(default=None, description="The date and time when the resource was created.")
     updated_at: Optional[datetime] = Field(default=None, description="The date and time when the resource was last updated.")
     dashboard_url: Optional[StrictStr] = Field(default=None, description="The URL for viewing the resource on Onfido Dashboard.")
-    workflow_id: Optional[StrictStr] = Field(default=None, description="The unique identifier for the Workflow.")
-    workflow_run_id: Optional[StrictStr] = None
+    workflow_id: Optional[UUID] = Field(default=None, description="The unique identifier for the Workflow.")
+    workflow_run_id: Optional[UUID] = None
     workflow_version_id: Optional[StrictInt] = Field(default=None, description="The identifier for the Workflow version.")
     task_def_id: Optional[Annotated[str, Field(strict=True)]] = Field(default=None, description="The identifier for the Task Definition.")
     task_def_version: Optional[StrictStr] = Field(default=None, description="The task definition version.")
     input: Optional[Dict[str, Any]] = Field(default=None, description="Input object with the fields used by the Task execution.")
     output: Any = Field(default=None, description="Value field (it can be an Object, List, etc.) with the fields produced by the Task execution.")
     reasons: Optional[List[StrictStr]] = Field(default=None, description="The reasons the Workflow Run outcome was reached. Configurable when creating the Workflow Version.")
+    tags: Optional[List[StrictStr]] = Field(default=None, description="A list of tags associated with the Workflow Run.")
     link: Optional[WorkflowRunLink] = Field(default=None, description="Object for the configuration of the Workflow Run link.")
     error: Optional[WorkflowRunError] = Field(default=None, description="Error object that details why a Workflow Run is in Error status.")
     customer_user_id: Optional[Annotated[str, Field(strict=True, max_length=256)]] = Field(default=None, description="Customer-provided user identifier.")
     timeline_file_download_url: Optional[StrictStr] = Field(default=None, description="Pre-signed URL to download the timeline file for the Workflow Run.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["id", "applicant_id", "created_at", "updated_at", "dashboard_url", "workflow_id", "workflow_run_id", "workflow_version_id", "task_def_id", "task_def_version", "input", "output", "reasons", "link", "error", "customer_user_id", "timeline_file_download_url"]
+    __properties: ClassVar[List[str]] = ["id", "applicant_id", "status", "created_at", "updated_at", "dashboard_url", "workflow_id", "workflow_run_id", "workflow_version_id", "task_def_id", "task_def_version", "input", "output", "reasons", "tags", "link", "error", "customer_user_id", "timeline_file_download_url"]
 
     @field_validator('task_def_id')
     def task_def_id_validate_regular_expression(cls, value):
@@ -136,6 +140,7 @@ class WebhookEventPayloadResource(BaseModel):
         _obj = cls.model_validate({
             "id": obj.get("id"),
             "applicant_id": obj.get("applicant_id"),
+            "status": obj.get("status"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),
             "dashboard_url": obj.get("dashboard_url"),
@@ -147,6 +152,7 @@ class WebhookEventPayloadResource(BaseModel):
             "input": obj.get("input"),
             "output": obj.get("output"),
             "reasons": obj.get("reasons"),
+            "tags": obj.get("tags"),
             "link": WorkflowRunLink.from_dict(obj["link"]) if obj.get("link") is not None else None,
             "error": WorkflowRunError.from_dict(obj["error"]) if obj.get("error") is not None else None,
             "customer_user_id": obj.get("customer_user_id"),

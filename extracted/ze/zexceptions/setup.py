@@ -18,9 +18,9 @@ from setuptools import setup
 
 setup(
     name='zExceptions',
-    version='5.0',
+    version='6.0',
     url='https://github.com/zopefoundation/zExceptions',
-    license='ZPL 2.1',
+    license='ZPL-2.1',
     description="zExceptions contains common exceptions used in Zope.",
     author='Zope Foundation and Contributors',
     author_email='zope-dev@zope.dev',
@@ -32,9 +32,10 @@ setup(
 
     long_description=(open('README.rst').read() + '\n' +
                       open('CHANGES.rst').read()),
+    long_description_content_type='text/x-rst',
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    python_requires='>=3.7',
+    python_requires='>=3.10',
     install_requires=[
         'setuptools',
         'zope.interface',
@@ -49,11 +50,11 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.7",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
     ],

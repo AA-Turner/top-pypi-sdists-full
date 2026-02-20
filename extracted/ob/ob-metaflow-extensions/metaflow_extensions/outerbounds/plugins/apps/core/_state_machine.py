@@ -504,3 +504,51 @@ def _capsule_worker_semantic_status(
         "status": status_dict,
         "worker_info": worker_info,
     }
+
+
+def _build_readiness_failure_reason(
+    capsule_status: CapsuleStatus,
+    worker_semantic_status: CapsuleWorkerSemanticStatus,
+    readiness_condition: str,
+    max_wait_time: int,
+    timed_out: bool,
+    emoji: bool = False,
+) -> List[str]:
+    _e = "❌ " if emoji else "- "
+    parts = []
+
+    if timed_out:
+        parts.append(
+            f"{_e}Timed out after {max_wait_time}s waiting for "
+            f"readiness condition '{readiness_condition}'"
+        )
+    else:
+        parts.append(
+            f"{_e}Readiness condition was met but traffic routing is not ready"
+        )
+
+    if capsule_status.get("updateInProgress"):
+        parts.append(f"{_e}Backend still reports update still in progress")
+
+    ready_flag = capsule_status.get("readyToServeTraffic", False)
+    access = capsule_status.get("accessInfo") or {}
+    has_url = bool(access.get("outOfClusterURL") or access.get("inClusterURL"))
+    if not ready_flag:
+        parts.append(
+            f"{_e}Backend has also not marked the app as ready to serve traffic"
+        )
+    elif not has_url:
+        parts.append(f"{_e}App is marked ready but no URL has been assigned yet")
+
+    counts = worker_semantic_status["status"]["current_info"]
+    version = worker_semantic_status["final_version"]
+    parts.append(
+        (
+            f"{_e}Workers (version {version}): "
+            f"{counts['running']} running, "
+            f"{counts['pending']} pending, "
+            f"{counts['crashlooping']} crashlooping, "
+        )
+    )
+
+    return parts

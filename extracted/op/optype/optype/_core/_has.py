@@ -63,7 +63,7 @@ _NameT = TypeVar("_NameT", bound=str, default=str)
 _QualNameT = TypeVar(
     "_QualNameT",
     bound=str,
-    default=_NameT,  # pyrefly: ignore[invalid-type-var]
+    default=_NameT,
 )
 _StrT_co = TypeVar("_StrT_co", bound=str, default=str, covariant=True)
 
@@ -87,8 +87,9 @@ class HasDict(Protocol[_DictT]):  # type: ignore[misc]
     __dict__: _DictT  # type: ignore[assignment]  # pyright: ignore[reportIncompatibleVariableOverride]
 
 
+# https://github.com/facebook/pyrefly/issues/2469
 @runtime_checkable
-class HasClass(Protocol[_TypeT]):
+class HasClass(Protocol[_TypeT]):  # pyrefly: ignore[variance-mismatch]
     """
     Can be seen as the **invariant** inverse of `type[T]`, i.e. `HasClass[type[T]]`
     represents (but is not equivalent to) `T`. However, `HasClass` is stricter, and

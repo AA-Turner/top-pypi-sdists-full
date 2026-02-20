@@ -7,18 +7,21 @@ from sklearn.base import ClusterMixin, TransformerMixin, BaseEstimator
 from sklearn.cluster._kmeans import _kmeans_plusplus
 from sklearn.metrics.pairwise import pairwise_kernels
 from sklearn.utils import check_random_state
-from sklearn.utils.extmath import stable_cumsum
 from sklearn.utils.validation import _check_sample_weight
 from sklearn.utils.validation import check_is_fitted
 
 from tslearn.barycenters import (
-    dtw_barycenter_averaging,
-    euclidean_barycenter,
+    dtw_barycenter_averaging_petitjean,
     softdtw_barycenter,
 )
 from tslearn.bases import BaseModelPackage, TimeSeriesMixin
 from tslearn.bases.bases import ALLOW_VARIABLE_LENGTH
-from tslearn.metrics import cdist_dtw, cdist_gak, cdist_soft_dtw, sigma_gak
+from tslearn.metrics import (
+    _cdist_dtw,
+    _cdist_gak,
+    _cdist_soft_dtw,
+    _sigma_gak as sigma_gak
+)
 from tslearn.utils import (
     check_array,
     check_dims,
@@ -98,7 +101,7 @@ def _k_init_metric(X, n_clusters, cdist_metric, random_state, n_local_trials=Non
         # Choose center candidates by sampling with probability proportional
         # to the squared distance to the closest existing center
         rand_vals = random_state.random_sample(n_local_trials) * current_pot
-        candidate_ids = numpy.searchsorted(stable_cumsum(closest_dist_sq), rand_vals)
+        candidate_ids = numpy.searchsorted(numpy.cumsum(closest_dist_sq, dtype=numpy.float64), rand_vals)
         # XXX: numerical imprecision can result in a candidate_id out of range
         numpy.clip(candidate_ids, None, closest_dist_sq.size - 1, out=candidate_ids)
 
@@ -265,7 +268,7 @@ class KernelKMeans(TimeSeriesMixin, ClusterMixin, BaseEstimator, BaseModelPackag
         kernel_params = self._get_kernel_params()
         if self.kernel == "gak":
             try:
-                return cdist_gak(
+                return _cdist_gak(
                     X, Y, n_jobs=self.n_jobs, verbose=self.verbose, **kernel_params
                 )
             except ZeroDivisionError:
@@ -335,12 +338,14 @@ class KernelKMeans(TimeSeriesMixin, ClusterMixin, BaseEstimator, BaseModelPackag
 
         sample_weight = _check_sample_weight(sample_weight=sample_weight, X=X)
 
+        rs = check_random_state(self.random_state)
+
         max_attempts = max(self.n_init, 10)
         kernel_params = self._get_kernel_params()
         if self.kernel == "gak":
             self.sigma_gak_ = kernel_params.get("sigma", 1.0)
             if self.sigma_gak_ == "auto":
-                self.sigma_gak_ = sigma_gak(X)
+                self.sigma_gak_ = sigma_gak(X, random_state=rs)
         else:
             self.sigma_gak_ = None
 
@@ -356,7 +361,6 @@ class KernelKMeans(TimeSeriesMixin, ClusterMixin, BaseEstimator, BaseModelPackag
         K = self._get_kernel(X)
         sw = sample_weight if sample_weight is not None else numpy.ones(n_samples)
         self.sample_weight_ = sw
-        rs = check_random_state(self.random_state)
 
         last_correct_labels = None
         min_inertia = numpy.inf
@@ -654,7 +658,7 @@ class TimeSeriesKMeans(
                 if self.metric == "dtw":
 
                     def metric_fun(x, y):
-                        return cdist_dtw(
+                        return _cdist_dtw(
                             x,
                             y,
                             n_jobs=self.n_jobs,
@@ -665,7 +669,7 @@ class TimeSeriesKMeans(
                 elif self.metric == "softdtw":
 
                     def metric_fun(x, y):
-                        return cdist_soft_dtw(x, y, **metric_params)
+                        return _cdist_soft_dtw(x, y, **metric_params)
 
                 else:
                     raise ValueError(
@@ -708,7 +712,7 @@ class TimeSeriesKMeans(
                 metric="euclidean",
             )
         elif self.metric == "dtw":
-            return cdist_dtw(
+            return _cdist_dtw(
                 X,
                 self.cluster_centers_,
                 n_jobs=self.n_jobs,
@@ -716,7 +720,7 @@ class TimeSeriesKMeans(
                 **metric_params
             )
         elif self.metric == "softdtw":
-            return cdist_soft_dtw(X, self.cluster_centers_, **metric_params)
+            return _cdist_soft_dtw(X, self.cluster_centers_, **metric_params)
         else:
             raise ValueError(
                 "Incorrect metric: %s (should be one of 'dtw', "
@@ -730,7 +734,7 @@ class TimeSeriesKMeans(
             self.labels_ = matched_labels
             _check_no_empty_cluster(self.labels_, self.n_clusters)
             if self.dtw_inertia and self.metric != "dtw":
-                inertia_dists = cdist_dtw(
+                inertia_dists = _cdist_dtw(
                     X, self.cluster_centers_, n_jobs=self.n_jobs, verbose=self.verbose
                 )
             else:
@@ -744,7 +748,7 @@ class TimeSeriesKMeans(
         metric_params = self._get_metric_params()
         for k in range(self.n_clusters):
             if self.metric == "dtw":
-                self.cluster_centers_[k] = dtw_barycenter_averaging(
+                self.cluster_centers_[k] = dtw_barycenter_averaging_petitjean(
                     X=X[self.labels_ == k],
                     barycenter_size=None,
                     init_barycenter=self.cluster_centers_[k],
@@ -759,7 +763,8 @@ class TimeSeriesKMeans(
                     **metric_params
                 )
             else:
-                self.cluster_centers_[k] = euclidean_barycenter(X=X[self.labels_ == k])
+                self.cluster_centers_[k] = numpy.average(X[self.labels_ == k],
+                                                         axis=0)
 
     def fit(self, X, y=None):
         """Compute k-means clustering.

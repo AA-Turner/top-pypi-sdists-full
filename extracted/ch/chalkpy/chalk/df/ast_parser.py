@@ -114,8 +114,12 @@ def _parse_annotation_for_ast(node: ast.AnnAssign, globals_dict: dict[str, Any])
     Given an AST node representing a type annotation, attempt parse its value.
     Currently only supports named (e.g. x: int) and names with a subscript (e.g. x: dict[int, str])
 
-    :param node: The ndoe to parse
-    :param globals_dict: Dictionary of values from which to pull the types. Also looks at builtins if availble
+    Parameters
+    ----------
+    node
+        The node to parse.
+    globals_dict
+        Dictionary of values from which to pull the types. Also looks at builtins if available.
     """
 
     def _get_obj_by_name(name: str):

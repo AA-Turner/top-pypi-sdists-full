@@ -1,22 +1,22 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.296201                                                            #
+# Generated on 2026-02-19T20:41:45.798941                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
-    import metaflow.events
-    import metaflow.metaflow_current
-    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow
     import metaflow.plugins.cards.component_serializer
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.modeling_utils.core
-    import typing
+    import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.hf_hub.decorator
+    import metaflow.events
+    import metaflow.metaflow_current
     import metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator
-    import metaflow
+    import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator
 
 
 TYPE_CHECKING: bool
@@ -258,17 +258,6 @@ class Current(object, metaclass=type):
         """
         ...
     @property
-    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
-        """
-        (only in the presence of the @app_deploy_internal decorator)
-        
-        
-        Returns
-        ----------
-        FlowAppManager
-        """
-        ...
-    @property
     def checkpoint(self) -> "metaflow.mf_extensions.obcheckpoint.plugins.machine_learning_utilities.checkpoints.decorator.CurrentCheckpointer":
         """
         (only in the presence of the @checkpoint decorator)
@@ -284,6 +273,17 @@ class Current(object, metaclass=type):
         ----------
         CurrentCheckpointer
             The object for handling checkpointing within a step.
+        """
+        ...
+    @property
+    def apps(self) -> "metaflow.mf_extensions.outerbounds.plugins.apps.core.app_deploy_decorator.FlowAppManager":
+        """
+        (only in the presence of the @app_deploy_internal decorator)
+        
+        
+        Returns
+        ----------
+        FlowAppManager
         """
         ...
     @property
@@ -371,6 +371,19 @@ class Current(object, metaclass=type):
         """
         ...
     @property
+    def trigger(self) -> "metaflow.events.Trigger":
+        """
+        (only in the presence of the @trigger, or @trigger_on_finish decorators)
+        
+        Returns `Trigger` if the current run is triggered by an event
+        
+        Returns
+        -------
+        Trigger
+            `Trigger` if triggered by an event
+        """
+        ...
+    @property
     def project_name(self) -> str:
         """
         (only in the presence of the @project decorator)
@@ -435,19 +448,6 @@ class Current(object, metaclass=type):
         -------
         bool
             True if the flow is deployed with `--production`.
-        """
-        ...
-    @property
-    def trigger(self) -> "metaflow.events.Trigger":
-        """
-        (only in the presence of the @trigger_on_finish, or @trigger decorators)
-        
-        Returns `Trigger` if the current run is triggered by an event
-        
-        Returns
-        -------
-        Trigger
-            `Trigger` if triggered by an event
         """
         ...
     ...

@@ -3876,11 +3876,11 @@ def make_stream_resolver(
         without publishing to an auxiliary stream. Mutually exclusive with `sink`.
         Use this when you want to enrich features without setting up stream publishing infrastructure.
     skip_online
-        If True, skip online persistence (no writes to Redis/DynamoDB/etc).
+        If `True`, skip online persistence (no writes to Redis/DynamoDB/etc).
         Results will still be processed but not stored in online stores.
         Note: Only applies to native streaming. Default: False
     skip_offline
-        If True, skip offline persistence (no result bus publishing for offline storage).
+        If `True`, skip offline persistence (no result bus publishing for offline storage).
         Results will still be processed but not stored in offline stores (S3/BigQuery/etc).
         Note: Only applies to native streaming. Default: False
     update_aggregates

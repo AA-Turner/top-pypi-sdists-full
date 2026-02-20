@@ -99,8 +99,8 @@ class NeighborList:
             )
 
         # cached Labels
-        self._components = [Labels("xyz", torch.tensor([[0], [1], [2]]))]
-        self._properties = Labels(["distance"], torch.tensor([[0]]))
+        self._components = Labels("xyz", torch.tensor([[0], [1], [2]]))
+        self._properties = Labels("distance", torch.tensor([[0]]))
 
     def compute(self, system: System) -> TensorBlock:
         """
@@ -114,9 +114,8 @@ class NeighborList:
             :py:class:`NeighborList` calculator.
         """
 
-        # move to float64, as vesin only works in torch64
-        points = system.positions.to(torch.float64).detach()
-        box = system.cell.to(torch.float64).detach()
+        points = system.positions.detach()
+        box = system.cell.detach()
         if torch.all(system.pbc):
             periodic = True
         elif not torch.any(system.pbc):
@@ -133,11 +132,14 @@ class NeighborList:
         )
         P = torch.as_tensor(P, dtype=torch.int32)
         S = torch.as_tensor(S, dtype=torch.int32)
-        D = torch.as_tensor(D, dtype=system.positions.dtype)
+        D = torch.as_tensor(D)
+
+        self._components = self._components.to(device=D.device)
+        self._properties = self._properties.to(device=D.device)
 
         # converts to a suitable TensorBlock format
         neighbors = TensorBlock(
-            D.reshape(-1, 3, 1).to(system.positions.dtype),
+            D.reshape(-1, 3, 1),
             samples=Labels(
                 names=[
                     "first_atom",
@@ -148,7 +150,7 @@ class NeighborList:
                 ],
                 values=torch.hstack([P, S]),
             ),
-            components=self._components,
+            components=[self._components],
             properties=self._properties,
         )
 

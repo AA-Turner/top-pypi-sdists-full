@@ -20044,20 +20044,29 @@ class CfnUser(
         
         cfn_user = connect.CfnUser(self, "MyCfnUser",
             instance_arn="instanceArn",
-            phone_config=connect.CfnUser.UserPhoneConfigProperty(
-                phone_type="phoneType",
-        
-                # the properties below are optional
-                after_contact_work_time_limit=123,
-                auto_accept=False,
-                desk_phone_number="deskPhoneNumber",
-                persistent_connection=False
-            ),
             routing_profile_arn="routingProfileArn",
             security_profile_arns=["securityProfileArns"],
             username="username",
         
             # the properties below are optional
+            after_contact_work_configs=[connect.CfnUser.AfterContactWorkConfigPerChannelProperty(
+                after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                    after_contact_work_time_limit=123
+                ),
+                channel="channel",
+        
+                # the properties below are optional
+                agent_first_callback_after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                    after_contact_work_time_limit=123
+                )
+            )],
+            auto_accept_configs=[connect.CfnUser.AutoAcceptConfigProperty(
+                auto_accept=False,
+                channel="channel",
+        
+                # the properties below are optional
+                agent_first_callback_auto_accept=False
+            )],
             directory_user_id="directoryUserId",
             hierarchy_group_arn="hierarchyGroupArn",
             identity_info=connect.CfnUser.UserIdentityInfoProperty(
@@ -20068,6 +20077,24 @@ class CfnUser(
                 secondary_email="secondaryEmail"
             ),
             password="password",
+            persistent_connection_configs=[connect.CfnUser.PersistentConnectionConfigProperty(
+                channel="channel",
+                persistent_connection=False
+            )],
+            phone_config=connect.CfnUser.UserPhoneConfigProperty(
+                after_contact_work_time_limit=123,
+                auto_accept=False,
+                desk_phone_number="deskPhoneNumber",
+                persistent_connection=False,
+                phone_type="phoneType"
+            ),
+            phone_number_configs=[connect.CfnUser.PhoneNumberConfigProperty(
+                channel="channel",
+                phone_type="phoneType",
+        
+                # the properties below are optional
+                phone_number="phoneNumber"
+            )],
             tags=[CfnTag(
                 key="key",
                 value="value"
@@ -20076,6 +20103,10 @@ class CfnUser(
                 attribute_name="attributeName",
                 attribute_value="attributeValue",
                 level=123
+            )],
+            voice_enhancement_configs=[connect.CfnUser.VoiceEnhancementConfigProperty(
+                channel="channel",
+                voice_enhancement_mode="voiceEnhancementMode"
             )]
         )
     '''
@@ -20086,32 +20117,42 @@ class CfnUser(
         id: builtins.str,
         *,
         instance_arn: builtins.str,
-        phone_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserPhoneConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         routing_profile_arn: builtins.str,
         security_profile_arns: typing.Sequence[builtins.str],
         username: builtins.str,
+        after_contact_work_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AfterContactWorkConfigPerChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        auto_accept_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AutoAcceptConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         directory_user_id: typing.Optional[builtins.str] = None,
         hierarchy_group_arn: typing.Optional[builtins.str] = None,
         identity_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserIdentityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         password: typing.Optional[builtins.str] = None,
+        persistent_connection_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PersistentConnectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        phone_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserPhoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        phone_number_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PhoneNumberConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_proficiencies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserProficiencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        voice_enhancement_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.VoiceEnhancementConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Create a new ``AWS::Connect::User``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param phone_config: Information about the phone configuration for the user.
         :param routing_profile_arn: The Amazon Resource Name (ARN) of the user's routing profile.
         :param security_profile_arns: The Amazon Resource Name (ARN) of the user's security profile.
         :param username: The user name assigned to the user account.
+        :param after_contact_work_configs: After Contact Work configurations of a user.
+        :param auto_accept_configs: Auto-accept configurations of a user.
         :param directory_user_id: The identifier of the user account in the directory used for identity management.
         :param hierarchy_group_arn: The Amazon Resource Name (ARN) of the user's hierarchy group.
         :param identity_info: Information about the user identity.
         :param password: The user's password.
+        :param persistent_connection_configs: Persistent Connection configurations of a user.
+        :param phone_config: Information about the phone configuration for the user.
+        :param phone_number_configs: Phone Number configurations of a user.
         :param tags: The tags.
         :param user_proficiencies: One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
+        :param voice_enhancement_configs: Voice Enhancement configurations of a user.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__05b3c171d418de057737855a6729454df2138450ce49f656f47804ab286addf6)
@@ -20119,16 +20160,21 @@ class CfnUser(
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnUserProps(
             instance_arn=instance_arn,
-            phone_config=phone_config,
             routing_profile_arn=routing_profile_arn,
             security_profile_arns=security_profile_arns,
             username=username,
+            after_contact_work_configs=after_contact_work_configs,
+            auto_accept_configs=auto_accept_configs,
             directory_user_id=directory_user_id,
             hierarchy_group_arn=hierarchy_group_arn,
             identity_info=identity_info,
             password=password,
+            persistent_connection_configs=persistent_connection_configs,
+            phone_config=phone_config,
+            phone_number_configs=phone_number_configs,
             tags=tags,
             user_proficiencies=user_proficiencies,
+            voice_enhancement_configs=voice_enhancement_configs,
         )
 
         jsii.create(self.__class__, self, [scope, id, props])
@@ -20226,24 +20272,6 @@ class CfnUser(
         jsii.set(self, "instanceArn", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
-    @jsii.member(jsii_name="phoneConfig")
-    def phone_config(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]:
-        '''Information about the phone configuration for the user.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"], jsii.get(self, "phoneConfig"))
-
-    @phone_config.setter
-    def phone_config(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f182c7afc61ebf14606fef1a70e2527bc3c149561eed985aa3c521e419741e73)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "phoneConfig", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="routingProfileArn")
     def routing_profile_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the user's routing profile.'''
@@ -20281,6 +20309,42 @@ class CfnUser(
             type_hints = typing.get_type_hints(_typecheckingstub__a0d3c1f0374209b5f9480c6b6571b89c26495747acd0440d47b7b3d3a95f28f5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "username", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="afterContactWorkConfigs")
+    def after_contact_work_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigPerChannelProperty"]]]]:
+        '''After Contact Work configurations of a user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigPerChannelProperty"]]]], jsii.get(self, "afterContactWorkConfigs"))
+
+    @after_contact_work_configs.setter
+    def after_contact_work_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigPerChannelProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cee2b4a413b465d2efc7f708315506725f2bdb0be41e122cd8740f4d92ae57a7)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "afterContactWorkConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="autoAcceptConfigs")
+    def auto_accept_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AutoAcceptConfigProperty"]]]]:
+        '''Auto-accept configurations of a user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AutoAcceptConfigProperty"]]]], jsii.get(self, "autoAcceptConfigs"))
+
+    @auto_accept_configs.setter
+    def auto_accept_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AutoAcceptConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58e1e0cf183293eb8034814ba5bf6759f874c1e2308149d8182da3ee424caaa2)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "autoAcceptConfigs", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="directoryUserId")
@@ -20340,6 +20404,60 @@ class CfnUser(
         jsii.set(self, "password", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="persistentConnectionConfigs")
+    def persistent_connection_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PersistentConnectionConfigProperty"]]]]:
+        '''Persistent Connection configurations of a user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PersistentConnectionConfigProperty"]]]], jsii.get(self, "persistentConnectionConfigs"))
+
+    @persistent_connection_configs.setter
+    def persistent_connection_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PersistentConnectionConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7213372861ff496051a1a9a0c396c47cf7ab2df9e5f20ec8937f2a8f77c5d4b4)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "persistentConnectionConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="phoneConfig")
+    def phone_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]]:
+        '''Information about the phone configuration for the user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]], jsii.get(self, "phoneConfig"))
+
+    @phone_config.setter
+    def phone_config(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f182c7afc61ebf14606fef1a70e2527bc3c149561eed985aa3c521e419741e73)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "phoneConfig", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="phoneNumberConfigs")
+    def phone_number_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PhoneNumberConfigProperty"]]]]:
+        '''Phone Number configurations of a user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PhoneNumberConfigProperty"]]]], jsii.get(self, "phoneNumberConfigs"))
+
+    @phone_number_configs.setter
+    def phone_number_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PhoneNumberConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__aef0bcf45a90833dc7aef7167e764823521505d80f2f5e8103c353d0631b6eb1)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "phoneNumberConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="tagsRaw")
     def tags_raw(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags.'''
@@ -20369,6 +20487,441 @@ class CfnUser(
             type_hints = typing.get_type_hints(_typecheckingstub__18a40ddd47b7e62a1ca5a21d2261e587a5eca592d22947adb5caefa3724093e4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "userProficiencies", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="voiceEnhancementConfigs")
+    def voice_enhancement_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.VoiceEnhancementConfigProperty"]]]]:
+        '''Voice Enhancement configurations of a user.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.VoiceEnhancementConfigProperty"]]]], jsii.get(self, "voiceEnhancementConfigs"))
+
+    @voice_enhancement_configs.setter
+    def voice_enhancement_configs(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.VoiceEnhancementConfigProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__12396a95a7d9705e6bf861ebe477d1075b3fc0fb7edf61d7c34229a242e0dfbb)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "voiceEnhancementConfigs", value) # pyright: ignore[reportArgumentType]
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.AfterContactWorkConfigPerChannelProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "after_contact_work_config": "afterContactWorkConfig",
+            "channel": "channel",
+            "agent_first_callback_after_contact_work_config": "agentFirstCallbackAfterContactWorkConfig",
+        },
+    )
+    class AfterContactWorkConfigPerChannelProperty:
+        def __init__(
+            self,
+            *,
+            after_contact_work_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AfterContactWorkConfigProperty", typing.Dict[builtins.str, typing.Any]]],
+            channel: builtins.str,
+            agent_first_callback_after_contact_work_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AfterContactWorkConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''After Contact Work configuration per channel.
+
+            :param after_contact_work_config: After Contact Work configuration.
+            :param channel: The channels that agents can handle in the Contact Control Panel (CCP).
+            :param agent_first_callback_after_contact_work_config: After Contact Work configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfigperchannel.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                after_contact_work_config_per_channel_property = connect.CfnUser.AfterContactWorkConfigPerChannelProperty(
+                    after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                        after_contact_work_time_limit=123
+                    ),
+                    channel="channel",
+                
+                    # the properties below are optional
+                    agent_first_callback_after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                        after_contact_work_time_limit=123
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__83b664f3cfb7f44316fa334acc613d42efe24d27da0e5e388ea525ec60face38)
+                check_type(argname="argument after_contact_work_config", value=after_contact_work_config, expected_type=type_hints["after_contact_work_config"])
+                check_type(argname="argument channel", value=channel, expected_type=type_hints["channel"])
+                check_type(argname="argument agent_first_callback_after_contact_work_config", value=agent_first_callback_after_contact_work_config, expected_type=type_hints["agent_first_callback_after_contact_work_config"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "after_contact_work_config": after_contact_work_config,
+                "channel": channel,
+            }
+            if agent_first_callback_after_contact_work_config is not None:
+                self._values["agent_first_callback_after_contact_work_config"] = agent_first_callback_after_contact_work_config
+
+        @builtins.property
+        def after_contact_work_config(
+            self,
+        ) -> typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigProperty"]:
+            '''After Contact Work configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfigperchannel.html#cfn-connect-user-aftercontactworkconfigperchannel-aftercontactworkconfig
+            '''
+            result = self._values.get("after_contact_work_config")
+            assert result is not None, "Required property 'after_contact_work_config' is missing"
+            return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigProperty"], result)
+
+        @builtins.property
+        def channel(self) -> builtins.str:
+            '''The channels that agents can handle in the Contact Control Panel (CCP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfigperchannel.html#cfn-connect-user-aftercontactworkconfigperchannel-channel
+            '''
+            result = self._values.get("channel")
+            assert result is not None, "Required property 'channel' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def agent_first_callback_after_contact_work_config(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigProperty"]]:
+            '''After Contact Work configuration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfigperchannel.html#cfn-connect-user-aftercontactworkconfigperchannel-agentfirstcallbackaftercontactworkconfig
+            '''
+            result = self._values.get("agent_first_callback_after_contact_work_config")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AfterContactWorkConfigPerChannelProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.AfterContactWorkConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={"after_contact_work_time_limit": "afterContactWorkTimeLimit"},
+    )
+    class AfterContactWorkConfigProperty:
+        def __init__(
+            self,
+            *,
+            after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''After Contact Work configuration.
+
+            :param after_contact_work_time_limit: The After Call Work (ACW) timeout setting, in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                after_contact_work_config_property = connect.CfnUser.AfterContactWorkConfigProperty(
+                    after_contact_work_time_limit=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__724d03da5589a9cdca4da9e0d1cf544eeab02399d230ee35d3155e924220ef4a)
+                check_type(argname="argument after_contact_work_time_limit", value=after_contact_work_time_limit, expected_type=type_hints["after_contact_work_time_limit"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if after_contact_work_time_limit is not None:
+                self._values["after_contact_work_time_limit"] = after_contact_work_time_limit
+
+        @builtins.property
+        def after_contact_work_time_limit(self) -> typing.Optional[jsii.Number]:
+            '''The After Call Work (ACW) timeout setting, in seconds.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-aftercontactworkconfig.html#cfn-connect-user-aftercontactworkconfig-aftercontactworktimelimit
+            '''
+            result = self._values.get("after_contact_work_time_limit")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AfterContactWorkConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.AutoAcceptConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "auto_accept": "autoAccept",
+            "channel": "channel",
+            "agent_first_callback_auto_accept": "agentFirstCallbackAutoAccept",
+        },
+    )
+    class AutoAcceptConfigProperty:
+        def __init__(
+            self,
+            *,
+            auto_accept: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+            channel: builtins.str,
+            agent_first_callback_auto_accept: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''Auto-accept configuration per channel.
+
+            :param auto_accept: The Auto accept setting.
+            :param channel: The channels that agents can handle in the Contact Control Panel (CCP).
+            :param agent_first_callback_auto_accept: The agent first callback auto accept setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-autoacceptconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                auto_accept_config_property = connect.CfnUser.AutoAcceptConfigProperty(
+                    auto_accept=False,
+                    channel="channel",
+                
+                    # the properties below are optional
+                    agent_first_callback_auto_accept=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__27bda97f3f4be75ef0682f5f6a9e81e2e692484814a887696103cdff838f0c2f)
+                check_type(argname="argument auto_accept", value=auto_accept, expected_type=type_hints["auto_accept"])
+                check_type(argname="argument channel", value=channel, expected_type=type_hints["channel"])
+                check_type(argname="argument agent_first_callback_auto_accept", value=agent_first_callback_auto_accept, expected_type=type_hints["agent_first_callback_auto_accept"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "auto_accept": auto_accept,
+                "channel": channel,
+            }
+            if agent_first_callback_auto_accept is not None:
+                self._values["agent_first_callback_auto_accept"] = agent_first_callback_auto_accept
+
+        @builtins.property
+        def auto_accept(self) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''The Auto accept setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-autoacceptconfig.html#cfn-connect-user-autoacceptconfig-autoaccept
+            '''
+            result = self._values.get("auto_accept")
+            assert result is not None, "Required property 'auto_accept' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        @builtins.property
+        def channel(self) -> builtins.str:
+            '''The channels that agents can handle in the Contact Control Panel (CCP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-autoacceptconfig.html#cfn-connect-user-autoacceptconfig-channel
+            '''
+            result = self._values.get("channel")
+            assert result is not None, "Required property 'channel' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def agent_first_callback_auto_accept(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''The agent first callback auto accept setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-autoacceptconfig.html#cfn-connect-user-autoacceptconfig-agentfirstcallbackautoaccept
+            '''
+            result = self._values.get("agent_first_callback_auto_accept")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AutoAcceptConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.PersistentConnectionConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "channel": "channel",
+            "persistent_connection": "persistentConnection",
+        },
+    )
+    class PersistentConnectionConfigProperty:
+        def __init__(
+            self,
+            *,
+            channel: builtins.str,
+            persistent_connection: typing.Union[builtins.bool, "_IResolvable_da3f097b"],
+        ) -> None:
+            '''Persistent Connection configuration per channel.
+
+            :param channel: The channels that agents can handle in the Contact Control Panel (CCP).
+            :param persistent_connection: The Persistent Connection setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-persistentconnectionconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                persistent_connection_config_property = connect.CfnUser.PersistentConnectionConfigProperty(
+                    channel="channel",
+                    persistent_connection=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__22d34b62d0e5cd4264283e0b678d3f767716d2fa067feb6e371bbb12d59eb1bf)
+                check_type(argname="argument channel", value=channel, expected_type=type_hints["channel"])
+                check_type(argname="argument persistent_connection", value=persistent_connection, expected_type=type_hints["persistent_connection"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "channel": channel,
+                "persistent_connection": persistent_connection,
+            }
+
+        @builtins.property
+        def channel(self) -> builtins.str:
+            '''The channels that agents can handle in the Contact Control Panel (CCP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-persistentconnectionconfig.html#cfn-connect-user-persistentconnectionconfig-channel
+            '''
+            result = self._values.get("channel")
+            assert result is not None, "Required property 'channel' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def persistent_connection(
+            self,
+        ) -> typing.Union[builtins.bool, "_IResolvable_da3f097b"]:
+            '''The Persistent Connection setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-persistentconnectionconfig.html#cfn-connect-user-persistentconnectionconfig-persistentconnection
+            '''
+            result = self._values.get("persistent_connection")
+            assert result is not None, "Required property 'persistent_connection' is missing"
+            return typing.cast(typing.Union[builtins.bool, "_IResolvable_da3f097b"], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PersistentConnectionConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.PhoneNumberConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "channel": "channel",
+            "phone_type": "phoneType",
+            "phone_number": "phoneNumber",
+        },
+    )
+    class PhoneNumberConfigProperty:
+        def __init__(
+            self,
+            *,
+            channel: builtins.str,
+            phone_type: builtins.str,
+            phone_number: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''Phone Number configuration per channel.
+
+            :param channel: The channels that agents can handle in the Contact Control Panel (CCP).
+            :param phone_type: The phone type.
+            :param phone_number: The phone number for the user's desk phone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-phonenumberconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                phone_number_config_property = connect.CfnUser.PhoneNumberConfigProperty(
+                    channel="channel",
+                    phone_type="phoneType",
+                
+                    # the properties below are optional
+                    phone_number="phoneNumber"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__f3114f713fd7296d9e40a83ae7a2ffd562842a1f5f035cde9aa1240220ca3d3f)
+                check_type(argname="argument channel", value=channel, expected_type=type_hints["channel"])
+                check_type(argname="argument phone_type", value=phone_type, expected_type=type_hints["phone_type"])
+                check_type(argname="argument phone_number", value=phone_number, expected_type=type_hints["phone_number"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "channel": channel,
+                "phone_type": phone_type,
+            }
+            if phone_number is not None:
+                self._values["phone_number"] = phone_number
+
+        @builtins.property
+        def channel(self) -> builtins.str:
+            '''The channels that agents can handle in the Contact Control Panel (CCP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-phonenumberconfig.html#cfn-connect-user-phonenumberconfig-channel
+            '''
+            result = self._values.get("channel")
+            assert result is not None, "Required property 'channel' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def phone_type(self) -> builtins.str:
+            '''The phone type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-phonenumberconfig.html#cfn-connect-user-phonenumberconfig-phonetype
+            '''
+            result = self._values.get("phone_type")
+            assert result is not None, "Required property 'phone_type' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def phone_number(self) -> typing.Optional[builtins.str]:
+            '''The phone number for the user's desk phone.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-phonenumberconfig.html#cfn-connect-user-phonenumberconfig-phonenumber
+            '''
+            result = self._values.get("phone_number")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "PhoneNumberConfigProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
 
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_connect.CfnUser.UserIdentityInfoProperty",
@@ -20509,30 +21062,30 @@ class CfnUser(
         jsii_type="aws-cdk-lib.aws_connect.CfnUser.UserPhoneConfigProperty",
         jsii_struct_bases=[],
         name_mapping={
-            "phone_type": "phoneType",
             "after_contact_work_time_limit": "afterContactWorkTimeLimit",
             "auto_accept": "autoAccept",
             "desk_phone_number": "deskPhoneNumber",
             "persistent_connection": "persistentConnection",
+            "phone_type": "phoneType",
         },
     )
     class UserPhoneConfigProperty:
         def __init__(
             self,
             *,
-            phone_type: builtins.str,
             after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
             auto_accept: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             desk_phone_number: typing.Optional[builtins.str] = None,
             persistent_connection: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+            phone_type: typing.Optional[builtins.str] = None,
         ) -> None:
             '''Contains information about the phone configuration settings for a user.
 
-            :param phone_type: The phone type.
             :param after_contact_work_time_limit: The After Call Work (ACW) timeout setting, in seconds. This parameter has a minimum value of 0 and a maximum value of 2,000,000 seconds (24 days). Enter 0 if you don't want to allocate a specific amount of ACW time. It essentially means an indefinite amount of time. When the conversation ends, ACW starts; the agent must choose Close contact to end ACW. .. epigraph:: When returned by a ``SearchUsers`` call, ``AfterContactWorkTimeLimit`` is returned in milliseconds.
             :param auto_accept: The Auto accept setting.
             :param desk_phone_number: The phone number for the user's desk phone.
             :param persistent_connection: The persistent connection setting for the user.
+            :param phone_type: The phone type.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-userphoneconfig.html
             :exampleMetadata: fixture=_generated
@@ -20544,25 +21097,21 @@ class CfnUser(
                 from aws_cdk import aws_connect as connect
                 
                 user_phone_config_property = connect.CfnUser.UserPhoneConfigProperty(
-                    phone_type="phoneType",
-                
-                    # the properties below are optional
                     after_contact_work_time_limit=123,
                     auto_accept=False,
                     desk_phone_number="deskPhoneNumber",
-                    persistent_connection=False
+                    persistent_connection=False,
+                    phone_type="phoneType"
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__e774e2d87fa8144ee9994624937d62ce4393d565b8e6982f7d2e1c5bf0c9ca67)
-                check_type(argname="argument phone_type", value=phone_type, expected_type=type_hints["phone_type"])
                 check_type(argname="argument after_contact_work_time_limit", value=after_contact_work_time_limit, expected_type=type_hints["after_contact_work_time_limit"])
                 check_type(argname="argument auto_accept", value=auto_accept, expected_type=type_hints["auto_accept"])
                 check_type(argname="argument desk_phone_number", value=desk_phone_number, expected_type=type_hints["desk_phone_number"])
                 check_type(argname="argument persistent_connection", value=persistent_connection, expected_type=type_hints["persistent_connection"])
-            self._values: typing.Dict[builtins.str, typing.Any] = {
-                "phone_type": phone_type,
-            }
+                check_type(argname="argument phone_type", value=phone_type, expected_type=type_hints["phone_type"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
             if after_contact_work_time_limit is not None:
                 self._values["after_contact_work_time_limit"] = after_contact_work_time_limit
             if auto_accept is not None:
@@ -20571,16 +21120,8 @@ class CfnUser(
                 self._values["desk_phone_number"] = desk_phone_number
             if persistent_connection is not None:
                 self._values["persistent_connection"] = persistent_connection
-
-        @builtins.property
-        def phone_type(self) -> builtins.str:
-            '''The phone type.
-
-            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-userphoneconfig.html#cfn-connect-user-userphoneconfig-phonetype
-            '''
-            result = self._values.get("phone_type")
-            assert result is not None, "Required property 'phone_type' is missing"
-            return typing.cast(builtins.str, result)
+            if phone_type is not None:
+                self._values["phone_type"] = phone_type
 
         @builtins.property
         def after_contact_work_time_limit(self) -> typing.Optional[jsii.Number]:
@@ -20626,6 +21167,15 @@ class CfnUser(
             '''
             result = self._values.get("persistent_connection")
             return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        @builtins.property
+        def phone_type(self) -> typing.Optional[builtins.str]:
+            '''The phone type.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-userphoneconfig.html#cfn-connect-user-userphoneconfig-phonetype
+            '''
+            result = self._values.get("phone_type")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -20737,6 +21287,80 @@ class CfnUser(
 
         def __repr__(self) -> str:
             return "UserProficiencyProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_connect.CfnUser.VoiceEnhancementConfigProperty",
+        jsii_struct_bases=[],
+        name_mapping={
+            "channel": "channel",
+            "voice_enhancement_mode": "voiceEnhancementMode",
+        },
+    )
+    class VoiceEnhancementConfigProperty:
+        def __init__(
+            self,
+            *,
+            channel: builtins.str,
+            voice_enhancement_mode: builtins.str,
+        ) -> None:
+            '''Voice Enhancement configuration per channel.
+
+            :param channel: The channels that agents can handle in the Contact Control Panel (CCP).
+            :param voice_enhancement_mode: The Voice Enhancement Mode setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-voiceenhancementconfig.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_connect as connect
+                
+                voice_enhancement_config_property = connect.CfnUser.VoiceEnhancementConfigProperty(
+                    channel="channel",
+                    voice_enhancement_mode="voiceEnhancementMode"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__69c50f0f96ae90105b7317364183beb9825c13493c84a67fd9f6a671f58c3dbb)
+                check_type(argname="argument channel", value=channel, expected_type=type_hints["channel"])
+                check_type(argname="argument voice_enhancement_mode", value=voice_enhancement_mode, expected_type=type_hints["voice_enhancement_mode"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "channel": channel,
+                "voice_enhancement_mode": voice_enhancement_mode,
+            }
+
+        @builtins.property
+        def channel(self) -> builtins.str:
+            '''The channels that agents can handle in the Contact Control Panel (CCP).
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-voiceenhancementconfig.html#cfn-connect-user-voiceenhancementconfig-channel
+            '''
+            result = self._values.get("channel")
+            assert result is not None, "Required property 'channel' is missing"
+            return typing.cast(builtins.str, result)
+
+        @builtins.property
+        def voice_enhancement_mode(self) -> builtins.str:
+            '''The Voice Enhancement Mode setting.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-connect-user-voiceenhancementconfig.html#cfn-connect-user-voiceenhancementconfig-voiceenhancementmode
+            '''
+            result = self._values.get("voice_enhancement_mode")
+            assert result is not None, "Required property 'voice_enhancement_mode' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "VoiceEnhancementConfigProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -21992,16 +22616,21 @@ class CfnUserHierarchyStructureProps:
     jsii_struct_bases=[],
     name_mapping={
         "instance_arn": "instanceArn",
-        "phone_config": "phoneConfig",
         "routing_profile_arn": "routingProfileArn",
         "security_profile_arns": "securityProfileArns",
         "username": "username",
+        "after_contact_work_configs": "afterContactWorkConfigs",
+        "auto_accept_configs": "autoAcceptConfigs",
         "directory_user_id": "directoryUserId",
         "hierarchy_group_arn": "hierarchyGroupArn",
         "identity_info": "identityInfo",
         "password": "password",
+        "persistent_connection_configs": "persistentConnectionConfigs",
+        "phone_config": "phoneConfig",
+        "phone_number_configs": "phoneNumberConfigs",
         "tags": "tags",
         "user_proficiencies": "userProficiencies",
+        "voice_enhancement_configs": "voiceEnhancementConfigs",
     },
 )
 class CfnUserProps:
@@ -22009,30 +22638,40 @@ class CfnUserProps:
         self,
         *,
         instance_arn: builtins.str,
-        phone_config: typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserPhoneConfigProperty", typing.Dict[builtins.str, typing.Any]]],
         routing_profile_arn: builtins.str,
         security_profile_arns: typing.Sequence[builtins.str],
         username: builtins.str,
+        after_contact_work_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AfterContactWorkConfigPerChannelProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        auto_accept_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.AutoAcceptConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         directory_user_id: typing.Optional[builtins.str] = None,
         hierarchy_group_arn: typing.Optional[builtins.str] = None,
         identity_info: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserIdentityInfoProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         password: typing.Optional[builtins.str] = None,
+        persistent_connection_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PersistentConnectionConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        phone_config: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserPhoneConfigProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        phone_number_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.PhoneNumberConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         user_proficiencies: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.UserProficiencyProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        voice_enhancement_configs: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUser.VoiceEnhancementConfigProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnUser``.
 
         :param instance_arn: The Amazon Resource Name (ARN) of the instance.
-        :param phone_config: Information about the phone configuration for the user.
         :param routing_profile_arn: The Amazon Resource Name (ARN) of the user's routing profile.
         :param security_profile_arns: The Amazon Resource Name (ARN) of the user's security profile.
         :param username: The user name assigned to the user account.
+        :param after_contact_work_configs: After Contact Work configurations of a user.
+        :param auto_accept_configs: Auto-accept configurations of a user.
         :param directory_user_id: The identifier of the user account in the directory used for identity management.
         :param hierarchy_group_arn: The Amazon Resource Name (ARN) of the user's hierarchy group.
         :param identity_info: Information about the user identity.
         :param password: The user's password.
+        :param persistent_connection_configs: Persistent Connection configurations of a user.
+        :param phone_config: Information about the phone configuration for the user.
+        :param phone_number_configs: Phone Number configurations of a user.
         :param tags: The tags.
         :param user_proficiencies: One or more predefined attributes assigned to a user, with a numeric value that indicates how their level of skill in a specified area.
+        :param voice_enhancement_configs: Voice Enhancement configurations of a user.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html
         :exampleMetadata: fixture=_generated
@@ -22046,20 +22685,29 @@ class CfnUserProps:
             
             cfn_user_props = connect.CfnUserProps(
                 instance_arn="instanceArn",
-                phone_config=connect.CfnUser.UserPhoneConfigProperty(
-                    phone_type="phoneType",
-            
-                    # the properties below are optional
-                    after_contact_work_time_limit=123,
-                    auto_accept=False,
-                    desk_phone_number="deskPhoneNumber",
-                    persistent_connection=False
-                ),
                 routing_profile_arn="routingProfileArn",
                 security_profile_arns=["securityProfileArns"],
                 username="username",
             
                 # the properties below are optional
+                after_contact_work_configs=[connect.CfnUser.AfterContactWorkConfigPerChannelProperty(
+                    after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                        after_contact_work_time_limit=123
+                    ),
+                    channel="channel",
+            
+                    # the properties below are optional
+                    agent_first_callback_after_contact_work_config=connect.CfnUser.AfterContactWorkConfigProperty(
+                        after_contact_work_time_limit=123
+                    )
+                )],
+                auto_accept_configs=[connect.CfnUser.AutoAcceptConfigProperty(
+                    auto_accept=False,
+                    channel="channel",
+            
+                    # the properties below are optional
+                    agent_first_callback_auto_accept=False
+                )],
                 directory_user_id="directoryUserId",
                 hierarchy_group_arn="hierarchyGroupArn",
                 identity_info=connect.CfnUser.UserIdentityInfoProperty(
@@ -22070,6 +22718,24 @@ class CfnUserProps:
                     secondary_email="secondaryEmail"
                 ),
                 password="password",
+                persistent_connection_configs=[connect.CfnUser.PersistentConnectionConfigProperty(
+                    channel="channel",
+                    persistent_connection=False
+                )],
+                phone_config=connect.CfnUser.UserPhoneConfigProperty(
+                    after_contact_work_time_limit=123,
+                    auto_accept=False,
+                    desk_phone_number="deskPhoneNumber",
+                    persistent_connection=False,
+                    phone_type="phoneType"
+                ),
+                phone_number_configs=[connect.CfnUser.PhoneNumberConfigProperty(
+                    channel="channel",
+                    phone_type="phoneType",
+            
+                    # the properties below are optional
+                    phone_number="phoneNumber"
+                )],
                 tags=[CfnTag(
                     key="key",
                     value="value"
@@ -22078,29 +22744,41 @@ class CfnUserProps:
                     attribute_name="attributeName",
                     attribute_value="attributeValue",
                     level=123
+                )],
+                voice_enhancement_configs=[connect.CfnUser.VoiceEnhancementConfigProperty(
+                    channel="channel",
+                    voice_enhancement_mode="voiceEnhancementMode"
                 )]
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1)
             check_type(argname="argument instance_arn", value=instance_arn, expected_type=type_hints["instance_arn"])
-            check_type(argname="argument phone_config", value=phone_config, expected_type=type_hints["phone_config"])
             check_type(argname="argument routing_profile_arn", value=routing_profile_arn, expected_type=type_hints["routing_profile_arn"])
             check_type(argname="argument security_profile_arns", value=security_profile_arns, expected_type=type_hints["security_profile_arns"])
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
+            check_type(argname="argument after_contact_work_configs", value=after_contact_work_configs, expected_type=type_hints["after_contact_work_configs"])
+            check_type(argname="argument auto_accept_configs", value=auto_accept_configs, expected_type=type_hints["auto_accept_configs"])
             check_type(argname="argument directory_user_id", value=directory_user_id, expected_type=type_hints["directory_user_id"])
             check_type(argname="argument hierarchy_group_arn", value=hierarchy_group_arn, expected_type=type_hints["hierarchy_group_arn"])
             check_type(argname="argument identity_info", value=identity_info, expected_type=type_hints["identity_info"])
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
+            check_type(argname="argument persistent_connection_configs", value=persistent_connection_configs, expected_type=type_hints["persistent_connection_configs"])
+            check_type(argname="argument phone_config", value=phone_config, expected_type=type_hints["phone_config"])
+            check_type(argname="argument phone_number_configs", value=phone_number_configs, expected_type=type_hints["phone_number_configs"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument user_proficiencies", value=user_proficiencies, expected_type=type_hints["user_proficiencies"])
+            check_type(argname="argument voice_enhancement_configs", value=voice_enhancement_configs, expected_type=type_hints["voice_enhancement_configs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "instance_arn": instance_arn,
-            "phone_config": phone_config,
             "routing_profile_arn": routing_profile_arn,
             "security_profile_arns": security_profile_arns,
             "username": username,
         }
+        if after_contact_work_configs is not None:
+            self._values["after_contact_work_configs"] = after_contact_work_configs
+        if auto_accept_configs is not None:
+            self._values["auto_accept_configs"] = auto_accept_configs
         if directory_user_id is not None:
             self._values["directory_user_id"] = directory_user_id
         if hierarchy_group_arn is not None:
@@ -22109,10 +22787,18 @@ class CfnUserProps:
             self._values["identity_info"] = identity_info
         if password is not None:
             self._values["password"] = password
+        if persistent_connection_configs is not None:
+            self._values["persistent_connection_configs"] = persistent_connection_configs
+        if phone_config is not None:
+            self._values["phone_config"] = phone_config
+        if phone_number_configs is not None:
+            self._values["phone_number_configs"] = phone_number_configs
         if tags is not None:
             self._values["tags"] = tags
         if user_proficiencies is not None:
             self._values["user_proficiencies"] = user_proficiencies
+        if voice_enhancement_configs is not None:
+            self._values["voice_enhancement_configs"] = voice_enhancement_configs
 
     @builtins.property
     def instance_arn(self) -> builtins.str:
@@ -22123,18 +22809,6 @@ class CfnUserProps:
         result = self._values.get("instance_arn")
         assert result is not None, "Required property 'instance_arn' is missing"
         return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def phone_config(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]:
-        '''Information about the phone configuration for the user.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-phoneconfig
-        '''
-        result = self._values.get("phone_config")
-        assert result is not None, "Required property 'phone_config' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"], result)
 
     @builtins.property
     def routing_profile_arn(self) -> builtins.str:
@@ -22165,6 +22839,28 @@ class CfnUserProps:
         result = self._values.get("username")
         assert result is not None, "Required property 'username' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def after_contact_work_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigPerChannelProperty"]]]]:
+        '''After Contact Work configurations of a user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-aftercontactworkconfigs
+        '''
+        result = self._values.get("after_contact_work_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AfterContactWorkConfigPerChannelProperty"]]]], result)
+
+    @builtins.property
+    def auto_accept_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AutoAcceptConfigProperty"]]]]:
+        '''Auto-accept configurations of a user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-autoacceptconfigs
+        '''
+        result = self._values.get("auto_accept_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.AutoAcceptConfigProperty"]]]], result)
 
     @builtins.property
     def directory_user_id(self) -> typing.Optional[builtins.str]:
@@ -22205,6 +22901,39 @@ class CfnUserProps:
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def persistent_connection_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PersistentConnectionConfigProperty"]]]]:
+        '''Persistent Connection configurations of a user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-persistentconnectionconfigs
+        '''
+        result = self._values.get("persistent_connection_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PersistentConnectionConfigProperty"]]]], result)
+
+    @builtins.property
+    def phone_config(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]]:
+        '''Information about the phone configuration for the user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-phoneconfig
+        '''
+        result = self._values.get("phone_config")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUser.UserPhoneConfigProperty"]], result)
+
+    @builtins.property
+    def phone_number_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PhoneNumberConfigProperty"]]]]:
+        '''Phone Number configurations of a user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-phonenumberconfigs
+        '''
+        result = self._values.get("phone_number_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.PhoneNumberConfigProperty"]]]], result)
+
+    @builtins.property
     def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
         '''The tags.
 
@@ -22223,6 +22952,17 @@ class CfnUserProps:
         '''
         result = self._values.get("user_proficiencies")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.UserProficiencyProperty"]]]], result)
+
+    @builtins.property
+    def voice_enhancement_configs(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.VoiceEnhancementConfigProperty"]]]]:
+        '''Voice Enhancement configurations of a user.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-connect-user.html#cfn-connect-user-voiceenhancementconfigs
+        '''
+        result = self._values.get("voice_enhancement_configs")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnUser.VoiceEnhancementConfigProperty"]]]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -27804,16 +28544,21 @@ def _typecheckingstub__05b3c171d418de057737855a6729454df2138450ce49f656f47804ab2
     id: builtins.str,
     *,
     instance_arn: builtins.str,
-    phone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     routing_profile_arn: builtins.str,
     security_profile_arns: typing.Sequence[builtins.str],
     username: builtins.str,
+    after_contact_work_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AfterContactWorkConfigPerChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    auto_accept_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AutoAcceptConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     directory_user_id: typing.Optional[builtins.str] = None,
     hierarchy_group_arn: typing.Optional[builtins.str] = None,
     identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserIdentityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     password: typing.Optional[builtins.str] = None,
+    persistent_connection_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PersistentConnectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    phone_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    phone_number_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PhoneNumberConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserProficiencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    voice_enhancement_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.VoiceEnhancementConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27848,12 +28593,6 @@ def _typecheckingstub__f39c63e5bec20724a75b863eaf92b750aa2b43e84007f59f8101f109a
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f182c7afc61ebf14606fef1a70e2527bc3c149561eed985aa3c521e419741e73(
-    value: typing.Union[_IResolvable_da3f097b, CfnUser.UserPhoneConfigProperty],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__53ec4c5274e442b13ba6263b0a0699bceadb2d594cb4553cf3256514da5ba718(
     value: builtins.str,
 ) -> None:
@@ -27868,6 +28607,18 @@ def _typecheckingstub__f59f37aa37416b07a1920b9fb28c6db10aa7091b532298ff46eddb320
 
 def _typecheckingstub__a0d3c1f0374209b5f9480c6b6571b89c26495747acd0440d47b7b3d3a95f28f5(
     value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__cee2b4a413b465d2efc7f708315506725f2bdb0be41e122cd8740f4d92ae57a7(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.AfterContactWorkConfigPerChannelProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58e1e0cf183293eb8034814ba5bf6759f874c1e2308149d8182da3ee424caaa2(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.AutoAcceptConfigProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27896,6 +28647,24 @@ def _typecheckingstub__97a2c5140ffd2e76246aa4b882ace6caee9e3c89751b5c2dc0c27a7d2
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__7213372861ff496051a1a9a0c396c47cf7ab2df9e5f20ec8937f2a8f77c5d4b4(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.PersistentConnectionConfigProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f182c7afc61ebf14606fef1a70e2527bc3c149561eed985aa3c521e419741e73(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnUser.UserPhoneConfigProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__aef0bcf45a90833dc7aef7167e764823521505d80f2f5e8103c353d0631b6eb1(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.PhoneNumberConfigProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9e4428cb05b6e362886b1adc91882b21e8cb39137a29037b9728d57b3a622dbe(
     value: typing.Optional[typing.List[_CfnTag_f6864754]],
 ) -> None:
@@ -27904,6 +28673,54 @@ def _typecheckingstub__9e4428cb05b6e362886b1adc91882b21e8cb39137a29037b9728d57b3
 
 def _typecheckingstub__18a40ddd47b7e62a1ca5a21d2261e587a5eca592d22947adb5caefa3724093e4(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.UserProficiencyProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__12396a95a7d9705e6bf861ebe477d1075b3fc0fb7edf61d7c34229a242e0dfbb(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnUser.VoiceEnhancementConfigProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__83b664f3cfb7f44316fa334acc613d42efe24d27da0e5e388ea525ec60face38(
+    *,
+    after_contact_work_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AfterContactWorkConfigProperty, typing.Dict[builtins.str, typing.Any]]],
+    channel: builtins.str,
+    agent_first_callback_after_contact_work_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AfterContactWorkConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__724d03da5589a9cdca4da9e0d1cf544eeab02399d230ee35d3155e924220ef4a(
+    *,
+    after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__27bda97f3f4be75ef0682f5f6a9e81e2e692484814a887696103cdff838f0c2f(
+    *,
+    auto_accept: typing.Union[builtins.bool, _IResolvable_da3f097b],
+    channel: builtins.str,
+    agent_first_callback_auto_accept: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__22d34b62d0e5cd4264283e0b678d3f767716d2fa067feb6e371bbb12d59eb1bf(
+    *,
+    channel: builtins.str,
+    persistent_connection: typing.Union[builtins.bool, _IResolvable_da3f097b],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f3114f713fd7296d9e40a83ae7a2ffd562842a1f5f035cde9aa1240220ca3d3f(
+    *,
+    channel: builtins.str,
+    phone_type: builtins.str,
+    phone_number: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27921,11 +28738,11 @@ def _typecheckingstub__675484167c56516574409f5f87a82bc61f2bd18d297494deb996e1e0a
 
 def _typecheckingstub__e774e2d87fa8144ee9994624937d62ce4393d565b8e6982f7d2e1c5bf0c9ca67(
     *,
-    phone_type: builtins.str,
     after_contact_work_time_limit: typing.Optional[jsii.Number] = None,
     auto_accept: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     desk_phone_number: typing.Optional[builtins.str] = None,
     persistent_connection: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
+    phone_type: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -27935,6 +28752,14 @@ def _typecheckingstub__345901e38de5207bac37cf2e70717ae293249c5093817f351ddab1652
     attribute_name: builtins.str,
     attribute_value: builtins.str,
     level: jsii.Number,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__69c50f0f96ae90105b7317364183beb9825c13493c84a67fd9f6a671f58c3dbb(
+    *,
+    channel: builtins.str,
+    voice_enhancement_mode: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -28122,16 +28947,21 @@ def _typecheckingstub__9ef8ab1a9f85518aac6fecbf1c6c15b8b8e1c433138b08b759d4bc600
 def _typecheckingstub__494987ef0f9b905c50c1efbd53f96fb396b7f25b5354dfbb4027a32dbf61b9b1(
     *,
     instance_arn: builtins.str,
-    phone_config: typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]],
     routing_profile_arn: builtins.str,
     security_profile_arns: typing.Sequence[builtins.str],
     username: builtins.str,
+    after_contact_work_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AfterContactWorkConfigPerChannelProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    auto_accept_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.AutoAcceptConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     directory_user_id: typing.Optional[builtins.str] = None,
     hierarchy_group_arn: typing.Optional[builtins.str] = None,
     identity_info: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserIdentityInfoProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     password: typing.Optional[builtins.str] = None,
+    persistent_connection_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PersistentConnectionConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    phone_config: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserPhoneConfigProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    phone_number_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.PhoneNumberConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     user_proficiencies: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.UserProficiencyProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    voice_enhancement_configs: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUser.VoiceEnhancementConfigProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

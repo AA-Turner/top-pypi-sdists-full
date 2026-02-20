@@ -4,10 +4,12 @@ from types import EllipsisType
 
 from pytensor.compile import (
     DeepCopyOp,
+    SharedVariable,
     ViewOp,
     register_deep_copy_op_c_code,
     register_view_op_c_code,
 )
+from pytensor.scalar import ScalarType
 from pytensor.tensor import (
     TensorType,
     _as_tensor_variable,
@@ -31,10 +33,12 @@ import numpy as np
 
 import pytensor.xtensor as px
 from pytensor import _as_symbolic, config
+from pytensor.compile.sharedvalue import shared_constructor
 from pytensor.graph import Apply, Constant
 from pytensor.graph.basic import OptionalApplyType, Variable
 from pytensor.graph.type import HasDataType, HasShape, Type
 from pytensor.tensor.basic import constant as tensor_constant
+from pytensor.tensor.basic import tensor_from_scalar
 from pytensor.tensor.variable import TensorConstantSignature, TensorVariable
 
 
@@ -91,6 +95,8 @@ class XTensorType(Type, HasDataType, HasShape):
 
     def filter(self, value, strict=False, allow_downcast=None):
         # XTensorType behaves like TensorType at runtime, so we filter the same way.
+        if XARRAY_AVAILABLE and isinstance(value, xr.DataArray):
+            value = value.transpose(*self.dims).values
         return TensorType.filter(
             self, value, strict=strict, allow_downcast=allow_downcast
         )
@@ -103,7 +109,9 @@ class XTensorType(Type, HasDataType, HasShape):
         if not isinstance(other, Variable):
             # The value is not a Variable: we cast it into
             # a Constant of the appropriate Type.
-            other = xtensor_constant(other)
+            if XARRAY_AVAILABLE and isinstance(other, xr.DataArray):
+                other = other.transpose(*self.dims).values
+            other = XTensorConstant(type=self, data=other)
 
         if self.is_super(other.type):
             return other
@@ -486,9 +494,8 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
                 )
             indexers = indexers_kwargs
 
-        if not indexers:
-            # No-op
-            return self
+        elif indexers is None:
+            indexers = {}
 
         if missing_dims not in {"raise", "warn", "ignore"}:
             raise ValueError(
@@ -505,7 +512,7 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
                 raise TypeError("Ellipsis (...) is an invalid labeled index")
             try:
                 indices[dims.index(key)] = idx
-            except IndexError:
+            except ValueError:
                 if missing_dims == "raise":
                     raise ValueError(
                         f"Dimension {key} does not exist. Expected one of {dims}"
@@ -687,7 +694,7 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
             The name(s) of the dimension(s) to remove. If None, all dimensions of size 1
             (known statically) will be removed. Dimensions with unknown static shape will be retained, even if they have size 1 at runtime.
         drop : bool, optional
-            If drop=True, drop squeezed coordinates instead of making them scalar.
+            Ignored by PyTensor.
         axis : int or iterable of int, optional
             The axis(es) to remove. If None, all dimensions of size 1 will be removed.
         Returns
@@ -695,12 +702,21 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
         XTensorVariable
             A new tensor with the specified dimension(s) removed.
         """
-        return px.shape.squeeze(self, dim, drop, axis)
+        if axis is not None:
+            if dim is not None:
+                raise ValueError("Cannot specify both `dim` and `axis`")
+
+            if not isinstance(axis, Sequence):
+                axis = (axis,)
+
+            dim = tuple(self.type.dims[i] for i in axis)
+
+        return px.shape.squeeze(self, dim)
 
     def expand_dims(
         self,
         dim: str | Sequence[str] | dict[str, int | Sequence] | None = None,
-        create_index_for_new_dim: bool = True,
+        create_index_for_new_dim: bool | None = None,
         axis: int | Sequence[int] | None = None,
         **dim_kwargs,
     ):
@@ -714,7 +730,7 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
 
             - int: the new size
             - sequence: coordinates (length determines size)
-        create_index_for_new_dim : bool, default: True
+        create_index_for_new_dim : bool, optional
             Ignored by PyTensor
         axis : int | Sequence[int] | None, default: None
             Not implemented yet. In xarray, specifies where to insert the new dimension(s).
@@ -730,7 +746,6 @@ class XTensorVariable(Variable[_XTensorTypeType, OptionalApplyType]):
         return px.shape.expand_dims(
             self,
             dim,
-            create_index_for_new_dim=create_index_for_new_dim,
             axis=axis,
             **dim_kwargs,
         )
@@ -920,15 +935,15 @@ XTensorType.variable_type = XTensorVariable  # type: ignore
 XTensorType.constant_type = XTensorConstant  # type: ignore
 
 
-def xtensor_constant(x, name=None, dims: None | Sequence[str] = None):
-    """Convert a constant value to an XTensorConstant."""
-
+def _extract_data_and_dims(
+    x, dims: None | Sequence[str] = None
+) -> tuple[np.ndarray, tuple[str, ...]]:
     x_dims: tuple[str, ...]
     if XARRAY_AVAILABLE and isinstance(x, xr.DataArray):
         xarray_dims = x.dims
         if not all(isinstance(dim, str) for dim in xarray_dims):
             raise NotImplementedError(
-                "DataArray can only be converted to xtensor_constant if all dims are of string type"
+                "DataArray can only be converted to xtensor if all dims are of string type"
             )
         x_dims = tuple(typing.cast(typing.Iterable[str], xarray_dims))
         x_data = x.values
@@ -949,6 +964,13 @@ def xtensor_constant(x, name=None, dims: None | Sequence[str] = None):
                 raise TypeError(
                     "Cannot convert TensorLike constant to XTensorConstant without specifying dims."
                 )
+    return x_data, x_dims
+
+
+def xtensor_constant(x, name=None, dims: None | Sequence[str] = None):
+    """Convert a constant value to an XTensorConstant."""
+    x_data, x_dims = _extract_data_and_dims(x, dims)
+
     try:
         return XTensorConstant(
             XTensorType(dtype=x_data.dtype, dims=x_dims, shape=x_data.shape),
@@ -959,11 +981,42 @@ def xtensor_constant(x, name=None, dims: None | Sequence[str] = None):
         raise TypeError(f"Could not convert {x} to XTensorType")
 
 
-if XARRAY_AVAILABLE:
+class XTensorSharedVariable(SharedVariable, XTensorVariable):
+    """Shared variable of XTensorType."""
 
-    @_as_symbolic.register(xr.DataArray)
-    def as_symbolic_xarray(x, **kwargs):
-        return xtensor_constant(x, **kwargs)
+
+def xtensor_shared(
+    x,
+    *,
+    name=None,
+    shape=None,
+    dims=None,
+    strict=False,
+    allow_downcast=None,
+    borrow=False,
+):
+    r"""`SharedVariable` constructor for `XTensorType`\s.
+
+    Notes
+    -----
+    The default is to assume that the `shape` value might be resized in any
+    dimension, so the default shape is ``(None,) * len(value.shape)``.  The
+    optional `shape` argument will override this default.
+    """
+    x_data, x_dims = _extract_data_and_dims(x, dims)
+
+    return XTensorSharedVariable(
+        type=XTensorType(dtype=x_data.dtype, dims=x_dims, shape=shape),
+        value=x_data if borrow else x_data.copy(),
+        strict=strict,
+        allow_downcast=allow_downcast,
+        name=name if name is not None else getattr(x, "name", None),
+    )
+
+
+if XARRAY_AVAILABLE:
+    _as_symbolic.register(xr.DataArray, xtensor_constant)
+    shared_constructor.register(xr.DataArray, xtensor_shared)
 
 
 def as_xtensor(x, dims: Sequence[str] | None = None, *, name: str | None = None):
@@ -991,7 +1044,7 @@ def as_xtensor(x, dims: Sequence[str] | None = None, *, name: str | None = None)
 
     if isinstance(x, Variable):
         if isinstance(x.type, XTensorType):
-            if (dims is None) or (x.type.dims == dims):
+            if (dims is None) or (x.type.dims == tuple(dims)):
                 return x
             else:
                 raise ValueError(
@@ -1006,9 +1059,15 @@ def as_xtensor(x, dims: Sequence[str] | None = None, *, name: str | None = None)
                         "non-scalar TensorVariable cannot be converted to XTensorVariable without dims."
                     )
             return px.basic.xtensor_from_tensor(x, dims=dims, name=name)
+        elif isinstance(x.type, ScalarType):
+            if dims is None:
+                dims = ()
+            return px.basic.xtensor_from_tensor(
+                tensor_from_scalar(x), dims=dims, name=name
+            )
         else:
             raise TypeError(
-                "Variable with type {x.type} cannot be converted to XTensorVariable."
+                f"Variable with type {x.type} cannot be converted to XTensorVariable."
             )
     try:
         return xtensor_constant(x, dims=dims, name=name)

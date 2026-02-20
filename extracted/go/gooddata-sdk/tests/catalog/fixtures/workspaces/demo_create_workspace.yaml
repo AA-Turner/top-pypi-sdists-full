@@ -131,7 +131,7 @@ interactions:
             to access it.
           status: 404
           title: Not Found
-          traceId: bc9dcbabbae207a9e810b1edfc7bb3b5
+          traceId: 004a46aa7a196c26bbe8f35d524dc304
   - request:
       method: POST
       uri: http://localhost:3000/api/v1/entities/workspaces
@@ -1717,6 +1717,7 @@ interactions:
                       visualizationUrl: local:bar
                     id: top_10_products
                     title: Top 10 Products
+                memoryItems: []
               ldm:
                 datasets:
                   - grain:
@@ -1896,10 +1897,6 @@ interactions:
                             title: Location
                             description: Location
                             sourceColumnDataType: STRING
-                            locale: en-US
-                            translations:
-                              - locale: cs-CZ
-                                sourceColumn: geo__state__location_cz
                             tags:
                               - Customers
                             valueType: GEO
@@ -2118,6 +2115,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasetExtensions:
                   - id: order_lines
@@ -2151,6 +2149,7 @@ interactions:
                 filterContexts: []
                 metrics: []
                 visualizationObjects: []
+                memoryItems: []
               ldm:
                 datasets: []
                 dateInstances: []

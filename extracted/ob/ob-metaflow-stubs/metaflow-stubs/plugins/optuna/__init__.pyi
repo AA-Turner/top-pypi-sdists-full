@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.070720                                                            #
+# Generated on 2026-02-19T20:41:45.596952                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -11,10 +11,10 @@ from __future__ import annotations
 def auth():
     ...
 
-def get_deployment_db_access_endpoint(name: str):
+def get_deployment_db_access_endpoint(name: str, project: str = None, branch: str = None):
     ...
 
-def get_db_url(app_name: str):
+def get_db_url(app_name: str, project: str = None, branch: str = None):
     """
     Example usage:
         >>> from metaflow.plugins.optuna import get_db_url

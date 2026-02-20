@@ -15043,7 +15043,7 @@ class CfnReceiptRuleSetProps:
         )
 
 
-@jsii.implements(_IInspectable_c2943556, _ITemplateRef_efd84872)
+@jsii.implements(_IInspectable_c2943556, _ITemplateRef_efd84872, _ITaggableV2_4e6798f8)
 class CfnTemplate(
     _CfnResource_9df397a6,
     metaclass=jsii.JSIIMeta,
@@ -15059,11 +15059,16 @@ class CfnTemplate(
 
     Example::
 
+        from aws_cdk import CfnTag
         # The code below shows an example of how to instantiate this type.
         # The values are placeholders you should change.
         from aws_cdk import aws_ses as ses
         
         cfn_template = ses.CfnTemplate(self, "MyCfnTemplate",
+            tags=[CfnTag(
+                key="key",
+                value="value"
+            )],
             template=ses.CfnTemplate.TemplateProperty(
                 subject_part="subjectPart",
         
@@ -15080,19 +15085,21 @@ class CfnTemplate(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Create a new ``AWS::SES::Template``.
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
+        :param tags: The tags (keys and values) associated with the email template.
         :param template: The content of the email, composed of a subject line and either an HTML part or a text-only part.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c4c2a147151a6167a3d150f74c144fd60570fc7ac0777706d24a8e9f23813a8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
-        props = CfnTemplateProps(template=template)
+        props = CfnTemplateProps(tags=tags, template=template)
 
         jsii.create(self.__class__, self, [scope, id, props])
 
@@ -15147,6 +15154,12 @@ class CfnTemplate(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="cdkTagManager")
+    def cdk_tag_manager(self) -> "_TagManager_0a598cb3":
+        '''Tag Manager which manages the tags for this resource.'''
+        return typing.cast("_TagManager_0a598cb3", jsii.get(self, "cdkTagManager"))
+
+    @builtins.property
     @jsii.member(jsii_name="cfnProperties")
     def _cfn_properties(self) -> typing.Mapping[builtins.str, typing.Any]:
         return typing.cast(typing.Mapping[builtins.str, typing.Any], jsii.get(self, "cfnProperties"))
@@ -15156,6 +15169,19 @@ class CfnTemplate(
     def template_ref(self) -> "_TemplateReference_cceb8bea":
         '''A reference to a Template resource.'''
         return typing.cast("_TemplateReference_cceb8bea", jsii.get(self, "templateRef"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tags")
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags (keys and values) associated with the email template.'''
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], jsii.get(self, "tags"))
+
+    @tags.setter
+    def tags(self, value: typing.Optional[typing.List["_CfnTag_f6864754"]]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__5bbac80e03f4895c98412be26aa175f3b2117feffa065c91bfd3de287860c7dc)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "tags", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="template")
@@ -15291,16 +15317,18 @@ class CfnTemplate(
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_ses.CfnTemplateProps",
     jsii_struct_bases=[],
-    name_mapping={"template": "template"},
+    name_mapping={"tags": "tags", "template": "template"},
 )
 class CfnTemplateProps:
     def __init__(
         self,
         *,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
         template: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnTemplate.TemplateProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for defining a ``CfnTemplate``.
 
+        :param tags: The tags (keys and values) associated with the email template.
         :param template: The content of the email, composed of a subject line and either an HTML part or a text-only part.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html
@@ -15308,11 +15336,16 @@ class CfnTemplateProps:
 
         Example::
 
+            from aws_cdk import CfnTag
             # The code below shows an example of how to instantiate this type.
             # The values are placeholders you should change.
             from aws_cdk import aws_ses as ses
             
             cfn_template_props = ses.CfnTemplateProps(
+                tags=[CfnTag(
+                    key="key",
+                    value="value"
+                )],
                 template=ses.CfnTemplate.TemplateProperty(
                     subject_part="subjectPart",
             
@@ -15325,10 +15358,22 @@ class CfnTemplateProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317)
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
             check_type(argname="argument template", value=template, expected_type=type_hints["template"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if tags is not None:
+            self._values["tags"] = tags
         if template is not None:
             self._values["template"] = template
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''The tags (keys and values) associated with the email template.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ses-template.html#cfn-ses-template-tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
 
     @builtins.property
     def template(
@@ -22681,6 +22726,7 @@ def _typecheckingstub__c4c2a147151a6167a3d150f74c144fd60570fc7ac0777706d24a8e9f2
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
@@ -22704,6 +22750,12 @@ def _typecheckingstub__9fff6f1c96944fa0c793bff8f36a0f674d1885a636bfa82f985a29ba0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__5bbac80e03f4895c98412be26aa175f3b2117feffa065c91bfd3de287860c7dc(
+    value: typing.Optional[typing.List[_CfnTag_f6864754]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__dfedec4ff1cee818b04e3b27b75fd775d9a21039cce2bb50f0eee75bbe3b7d0c(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnTemplate.TemplateProperty]],
 ) -> None:
@@ -22722,6 +22774,7 @@ def _typecheckingstub__6894407236d481fe73e1d7b05b61377a9e1a2ea9e6ee4bfaa48a81bd5
 
 def _typecheckingstub__6fbf4906a406135dc7de9d65c40076a5a27ccfef54ca9df5243bcf8ef9349317(
     *,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
     template: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnTemplate.TemplateProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

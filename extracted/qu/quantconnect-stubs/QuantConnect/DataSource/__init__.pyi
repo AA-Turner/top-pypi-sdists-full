@@ -17,930 +17,24 @@ import QuantConnect.Util
 import System
 import System.Collections.Generic
 
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K = typing.Any
-QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
-QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls = typing.Any
-QuantConnect_DataSource_BrainSentimentIndicator30Day = typing.Any
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll = typing.Any
-QuantConnect_DataSource_BrainStockRanking10Day = typing.Any
-QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K = typing.Any
+QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
 QuantConnect_DataSource_BrainSentimentIndicator7Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking10Day = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll = typing.Any
+QuantConnect_DataSource_BrainStockRanking2Day = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K = typing.Any
+QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls = typing.Any
 QuantConnect_DataSource_BrainStockRanking21Day = typing.Any
 QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll = typing.Any
-QuantConnect_DataSource_BrainStockRanking3Day = typing.Any
+QuantConnect_DataSource_BrainSentimentIndicator30Day = typing.Any
+QuantConnect_DataSource_BrainStockRanking5Day = typing.Any
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K = typing.Any
 
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T")
-QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T")
-QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
-QuantConnect_DataSource_BrainSentimentIndicatorBase_T = typing.TypeVar("QuantConnect_DataSource_BrainSentimentIndicatorBase_T")
 QuantConnect_DataSource_BrainStockRankingBase_T = typing.TypeVar("QuantConnect_DataSource_BrainStockRankingBase_T")
-
-
-class BenzingaNews(QuantConnect.Data.IndexedBaseData):
-    """News data powered by Benzinga - https://docs.benzinga.io/benzinga/newsfeed-v2.html"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> int:
-        """Unique ID assigned to the article by Benzinga"""
-        ...
-
-    @id.setter
-    def id(self, value: int) -> None:
-        ...
-
-    @property
-    def author(self) -> str:
-        """Author of the article"""
-        ...
-
-    @author.setter
-    def author(self, value: str) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        """Date the article was published"""
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """Date that the article was revised on"""
-        ...
-
-    @updated_at.setter
-    def updated_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def title(self) -> str:
-        """Title of the article published"""
-        ...
-
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def teaser(self) -> str:
-        """Summary of the article's contents"""
-        ...
-
-    @teaser.setter
-    def teaser(self, value: str) -> None:
-        ...
-
-    @property
-    def contents(self) -> str:
-        """Contents of the article"""
-        ...
-
-    @contents.setter
-    def contents(self, value: str) -> None:
-        ...
-
-    @property
-    def categories(self) -> typing.List[str]:
-        """Categories that relate to the article"""
-        ...
-
-    @categories.setter
-    def categories(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def symbols(self) -> typing.List[QuantConnect.Symbol]:
-        """Symbols that this news article mentions"""
-        ...
-
-    @symbols.setter
-    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
-        ...
-
-    @property
-    def tags(self) -> typing.List[str]:
-        """
-        Additional tags that are not channels/categories, but are reoccuring
-        themes including, but not limited to; analyst names, bills being talked
-        about in Congress (Dodd-Frank), specific products (iPhone), politicians,
-        celebrities, stock movements (i.e. 'Mid-day Losers' & 'Mid-day Gainers').
-        """
-        ...
-
-    @tags.setter
-    def tags(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Date that the article was revised on"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Creates a clone of the instance
-        
-        :returns: A clone of the instance.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Set the data time zone to UTC
-        
-        :returns: Time zone as UTC.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """
-        Sets the default resolution to Second
-        
-        :returns: Resolution.Second.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Gets the source of the index file
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: Is live mode
-        :returns: SubscriptionDataSource indicating where data is located and how it's stored.
-        """
-        ...
-
-    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Determines the actual source from an index contained within a ticker folder
-        
-        :param config: Subscription configuration
-        :param date: Date
-        :param index: File to load data from
-        :param is_live_mode: Is live mode
-        :returns: SubscriptionDataSource pointing to the article.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data source is sparse.
-        If false, it will disable missing file logging.
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Creates an instance from a line of JSON containing article information read from the `content` directory
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance of BenzingaNews.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source can undergo
-        rename events/is tied to equities.
-        
-        :returns: true.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """
-        Gets a list of all the supported Resolutions
-        
-        :returns: All resolutions.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the instance to string
-        
-        :returns: Article title and contents.
-        """
-        ...
-
-
-class BenzingaNewsJsonConverter:
-    """
-    Helper json converter class used to convert Benzinga news data
-    into BenzingaNews
-    
-    An example schema of the data in a serialized format is provided
-    to help you better understand this converter.
-    """
-
-    SHARE_CLASS_MAPPED_TICKERS: System.Collections.Generic.Dictionary[str, System.Collections.Generic.HashSet[str]] = ...
-    """
-    Sometimes "Berkshire Hathaway" is mentioned as "BRK" in the raw data, although it is
-    separated into class A and B shares and should appear as BRK.A and BRK.B. Because our
-    map file system does not perform the conversion from BRK -> { BRK.A, BRK.B }, we must
-    provide them manually. Note that we don't dynamically try to locate class A and B shares
-    because there can exist companies with the same base ticker that class A and B shares have.
-    For example, CBS trades under "CBS" and "CBS.A", which means that if "CBS" appears, it will
-    be automatically mapped to CBS. However, if we dynamically selected "CBS.A" - we might select
-    a different company not associated with the ticker being referenced.
-    """
-
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, live_mode: bool = False) -> None:
-        """
-        Creates a new instance of the json converter
-        
-        :param symbol: The Symbol instance associated with this news
-        :param live_mode: True if live mode, false for backtesting
-        """
-        ...
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """
-        Determines whether this instance can convert the specified object type.
-        
-        :param object_type: Type of the object.
-        :returns: true if this instance can convert the specified object type; otherwise, false.
-        """
-        ...
-
-    @staticmethod
-    def deserialize_news(item: typing.Any, enable_logging: bool = False) -> QuantConnect.DataSource.BenzingaNews:
-        """
-        Helper method to deserialize a single json Benzinga news
-        
-        :param item: The json token containing the Benzinga news to deserialize
-        :param enable_logging: true to enable logging (for debug purposes)
-        :returns: The deserialized BenzingaNews instance.
-        """
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """
-        Reads the JSON representation of the object.
-        
-        :param reader: The Newtonsoft.Json.JsonReader to read from.
-        :param object_type: Type of the object.
-        :param existing_value: The existing value of object being read.
-        :param serializer: The calling serializer.
-        :returns: The object value.
-        """
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """
-        Writes the JSON representation of the object.
-        
-        :param writer: The Newtonsoft.Json.JsonWriter to write to.
-        :param value: The value.
-        :param serializer: The calling serializer.
-        """
-        ...
-
-
-class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
-    """Converts Quiver Quantitative QuiverCongressDataPoint.transaction to OrderDirection"""
-
-    @overload
-    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
-        """
-        Convert OrderDirection to string
-        
-        
-        This codeEntityType is protected.
-        
-        :param value: OrderDirection to convert
-        :returns: Resulting string.
-        """
-        ...
-
-    @overload
-    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
-        """
-        Convert string to OrderDirection
-        
-        
-        This codeEntityType is protected.
-        
-        :param value: string to convert
-        :returns: Resulting OrderDirection.
-        """
-        ...
-
-
-class Congress(IntEnum):
-    """United States of America Legislative Branch House of Congress"""
-
-    SENATE = 0
-    """The United States Senate"""
-
-    REPRESENTATIVES = 1
-    """The United States House of Representatives"""
-
-
-class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Personal stock transactions by U.S. Representatives"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with the Quiver Congress information.
-        
-        :returns: string containing Quiver Congress information.
-        """
-        ...
-
-
-class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class Party(IntEnum):
-    """Political Parties of the United States of America"""
-
-    INDEPENDENT = 0
-    """Not affiliated with any political party."""
-
-    REPUBLICAN = 1
-    """Republican Party. https://en.wikipedia.org/wiki/Republican_Party_(United_States)"""
-
-    DEMOCRATIC = 2
-    """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
-
-
-class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
-    """Single data point for QuiverCongress data"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def record_date(self) -> datetime.datetime:
-        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
-        ...
-
-    @record_date.setter
-    def record_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
-        ...
-
-    @property
-    def report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date the transaction was reported. Value will always exist."""
-        ...
-
-    @report_date.setter
-    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def transaction_date(self) -> datetime.datetime:
-        """The date the transaction took place"""
-        ...
-
-    @transaction_date.setter
-    def transaction_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def representative(self) -> str:
-        """The Representative making the transaction"""
-        ...
-
-    @representative.setter
-    def representative(self, value: str) -> None:
-        ...
-
-    @property
-    def transaction(self) -> QuantConnect.Orders.OrderDirection:
-        """The type of transaction"""
-        ...
-
-    @transaction.setter
-    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_amount(self) -> typing.Optional[float]:
-        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
-        ...
-
-    @maximum_amount.setter
-    def maximum_amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def house(self) -> QuantConnect.DataSource.Congress:
-        """The Chamber of Congress that the trader belongs to"""
-        ...
-
-    @house.setter
-    def house(self, value: QuantConnect.DataSource.Congress) -> None:
-        ...
-
-    @property
-    def party(self) -> QuantConnect.DataSource.Party:
-        """The political party that the trader belongs to"""
-        ...
-
-    @party.setter
-    def party(self, value: QuantConnect.DataSource.Party) -> None:
-        ...
-
-    @property
-    def district(self) -> str:
-        """The district that the trader belongs to (null or empty for Senators)"""
-        ...
-
-    @district.setter
-    def district(self, value: str) -> None:
-        ...
-
-    @property
-    def state(self) -> str:
-        """The state that the trader belongs to"""
-        ...
-
-    @state.setter
-    def state(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Creates a new instance of QuiverCongressDataPoint"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of QuiverCongressDataPoint from a CSV line
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver Congress object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Quiver Congress information."""
-        ...
-
-
-class BitcoinMetadata(QuantConnect.Data.BaseData):
-    """Blockchain Bitcoin Metadata dataset"""
-
-    @property
-    def difficulty(self) -> float:
-        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
-        ...
-
-    @difficulty.setter
-    def difficulty(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_numberof_users(self) -> float:
-        """Number of wallets hosts using our My Wallet Service."""
-        ...
-
-    @my_wallet_numberof_users.setter
-    def my_wallet_numberof_users(self, value: float) -> None:
-        ...
-
-    @property
-    def average_block_size(self) -> float:
-        """The average block size in MB."""
-        ...
-
-    @average_block_size.setter
-    def average_block_size(self, value: float) -> None:
-        ...
-
-    @property
-    def blockchain_size(self) -> float:
-        """The total size of all block headers and transactions. Not including database indexes."""
-        ...
-
-    @blockchain_size.setter
-    def blockchain_size(self, value: float) -> None:
-        ...
-
-    @property
-    def median_transaction_confirmation_time(self) -> float:
-        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
-        ...
-
-    @median_transaction_confirmation_time.setter
-    def median_transaction_confirmation_time(self, value: float) -> None:
-        ...
-
-    @property
-    def miners_revenue(self) -> float:
-        """Total value of coinbase block rewards and transaction fees paid to miners."""
-        ...
-
-    @miners_revenue.setter
-    def miners_revenue(self, value: float) -> None:
-        ...
-
-    @property
-    def hash_rate(self) -> float:
-        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
-        ...
-
-    @hash_rate.setter
-    def hash_rate(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_per_transaction(self) -> float:
-        """The miners revenue divided by the number of transactions."""
-        ...
-
-    @cost_per_transaction.setter
-    def cost_per_transaction(self, value: float) -> None:
-        ...
-
-    @property
-    def cost_percentof_transaction_volume(self) -> float:
-        """The miners revenue as percentage of the transaction volume."""
-        ...
-
-    @cost_percentof_transaction_volume.setter
-    def cost_percentof_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume_usd(self) -> float:
-        """The Estimated Transaction Value in USD value."""
-        ...
-
-    @estimated_transaction_volume_usd.setter
-    def estimated_transaction_volume_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def estimated_transaction_volume(self) -> float:
-        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
-        ...
-
-    @estimated_transaction_volume.setter
-    def estimated_transaction_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def total_output_volume(self) -> float:
-        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
-        ...
-
-    @total_output_volume.setter
-    def total_output_volume(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactionper_block(self) -> float:
-        """The average number of transactions per block."""
-        ...
-
-    @numberof_transactionper_block.setter
-    def numberof_transactionper_block(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_unique_bitcoin_addresses_used(self) -> float:
-        """The total number of unique addresses used on the Bitcoin blockchain."""
-        ...
-
-    @numberof_unique_bitcoin_addresses_used.setter
-    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions_excluding_popular_addresses(self) -> float:
-        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
-        ...
-
-    @numberof_transactions_excluding_popular_addresses.setter
-    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
-        ...
-
-    @property
-    def total_numberof_transactions(self) -> float:
-        """The Total Number of transactions."""
-        ...
-
-    @total_numberof_transactions.setter
-    def total_numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def numberof_transactions(self) -> float:
-        """The number of daily confirmed Bitcoin transactions."""
-        ...
-
-    @numberof_transactions.setter
-    def numberof_transactions(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees_usd(self) -> float:
-        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees_usd.setter
-    def total_transaction_fees_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def total_transaction_fees(self) -> float:
-        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
-        ...
-
-    @total_transaction_fees.setter
-    def total_transaction_fees(self, value: float) -> None:
-        ...
-
-    @property
-    def market_capitalization(self) -> float:
-        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
-        ...
-
-    @market_capitalization.setter
-    def market_capitalization(self, value: float) -> None:
-        ...
-
-    @property
-    def total_bitcoins(self) -> float:
-        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
-        ...
-
-    @total_bitcoins.setter
-    def total_bitcoins(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_numberof_transaction_per_day(self) -> float:
-        """Number of transactions made by My Wallet Users per day."""
-        ...
-
-    @my_wallet_numberof_transaction_per_day.setter
-    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
-        ...
-
-    @property
-    def my_wallet_transaction_volume(self) -> float:
-        """24hr Transaction Volume of our web wallet service."""
-        ...
-
-    @my_wallet_transaction_volume.setter
-    def my_wallet_transaction_volume(self, value: float) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
+QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T")
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T")
+QuantConnect_DataSource_BrainSentimentIndicatorBase_T = typing.TypeVar("QuantConnect_DataSource_BrainSentimentIndicatorBase_T")
+QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T = typing.TypeVar("QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T")
 
 
 class TradingEconomics(System.Object):
@@ -12457,6 +11551,285 @@ class TradingEconomicsEventFilter(System.Object):
         ...
 
 
+class TradingEconomicsIndicator(QuantConnect.Data.BaseData):
+    """
+    Represents the Trading Economics Indicator information.
+    https://docs.tradingeconomics.com/#indicators
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def country(self) -> str:
+        """Country name"""
+        ...
+
+    @country.setter
+    def country(self, value: str) -> None:
+        ...
+
+    @property
+    def category(self) -> str:
+        """Indicator category name"""
+        ...
+
+    @category.setter
+    def category(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Release time and date in UTC"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """Value"""
+        ...
+
+    @value.setter
+    def value(self, value: float) -> None:
+        ...
+
+    @property
+    def frequency(self) -> str:
+        """Frequency of the indicator"""
+        ...
+
+    @frequency.setter
+    def frequency(self, value: str) -> None:
+        ...
+
+    @property
+    def last_update(self) -> datetime.datetime:
+        """Time when new data was inserted or changed"""
+        ...
+
+    @last_update.setter
+    def last_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def historical_data_symbol(self) -> str:
+        """Unique symbol used by Trading Economics"""
+        ...
+
+    @historical_data_symbol.setter
+    def historical_data_symbol(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data. This is required for some custom data
+        
+        :returns: A new cloned instance.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param content: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Collection of TradingEconomicsIndicator objects.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Trading Economics Indicator information."""
+        ...
+
+
+class TradingEconomicsDateTimeConverter:
+    """DateTime JSON Converter that handles null value"""
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """Indicate if we can convert this object."""
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """Parse Trading Economics DateTime to C# DateTime"""
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """Write DateTime objects to JSON"""
+        ...
+
+
+class EarningsType(IntEnum):
+    """Earnings type: earnings, ipo, dividends"""
+
+    EARNINGS = 0
+    """Earnings"""
+
+    IPO = 1
+    """IPO"""
+
+    DIVIDENDS = 2
+    """Dividends"""
+
+    SPLIT = 3
+    """Stock Splits"""
+
+
+class TradingEconomicsEarnings(QuantConnect.Data.BaseData):
+    """
+    Represents the Trading Economics Earnings information.
+    https://docs.tradingeconomics.com/#earnings
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Release time and date in UTC"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def symbol(self) -> str:
+        """Unique symbol used by Trading Economics"""
+        ...
+
+    @symbol.setter
+    def symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def earnings_type(self) -> QuantConnect.DataSource.EarningsType:
+        """Earnings type: earnings, ipo, dividends"""
+        ...
+
+    @earnings_type.setter
+    def earnings_type(self, value: QuantConnect.DataSource.EarningsType) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """Company name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def actual(self) -> typing.Optional[float]:
+        """Earnings per share"""
+        ...
+
+    @actual.setter
+    def actual(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """Earnings per share"""
+        ...
+
+    @property
+    def forecast(self) -> typing.Optional[float]:
+        """Average forecast among a representative group of analysts"""
+        ...
+
+    @forecast.setter
+    def forecast(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def fiscal_tag(self) -> str:
+        """Fiscal year and quarter"""
+        ...
+
+    @fiscal_tag.setter
+    def fiscal_tag(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_reference(self) -> str:
+        """Fiscal year and quarter in different format"""
+        ...
+
+    @fiscal_reference.setter
+    def fiscal_reference(self, value: str) -> None:
+        ...
+
+    @property
+    def calendar_reference(self) -> str:
+        """Calendar quarter for the release"""
+        ...
+
+    @calendar_reference.setter
+    def calendar_reference(self, value: str) -> None:
+        ...
+
+    @property
+    def country(self) -> str:
+        """Country name"""
+        ...
+
+    @country.setter
+    def country(self, value: str) -> None:
+        ...
+
+    @property
+    def currency(self) -> str:
+        """Currency"""
+        ...
+
+    @currency.setter
+    def currency(self, value: str) -> None:
+        ...
+
+    @property
+    def last_update(self) -> datetime.datetime:
+        """Time when new data was inserted or changed"""
+        ...
+
+    @last_update.setter
+    def last_update(self, value: datetime.datetime) -> None:
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+
 class TradingEconomicsImportance(IntEnum):
     """Importance of a TradingEconomics information"""
 
@@ -12761,83 +12134,14 @@ class TradingEconomicsCalendar(QuantConnect.Data.BaseData):
         ...
 
 
-class TradingEconomicsIndicator(QuantConnect.Data.BaseData):
-    """
-    Represents the Trading Economics Indicator information.
-    https://docs.tradingeconomics.com/#indicators
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def country(self) -> str:
-        """Country name"""
-        ...
-
-    @country.setter
-    def country(self, value: str) -> None:
-        ...
-
-    @property
-    def category(self) -> str:
-        """Indicator category name"""
-        ...
-
-    @category.setter
-    def category(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Release time and date in UTC"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def value(self) -> float:
-        """Value"""
-        ...
-
-    @value.setter
-    def value(self, value: float) -> None:
-        ...
-
-    @property
-    def frequency(self) -> str:
-        """Frequency of the indicator"""
-        ...
-
-    @frequency.setter
-    def frequency(self, value: str) -> None:
-        ...
-
-    @property
-    def last_update(self) -> datetime.datetime:
-        """Time when new data was inserted or changed"""
-        ...
-
-    @last_update.setter
-    def last_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def historical_data_symbol(self) -> str:
-        """Unique symbol used by Trading Economics"""
-        ...
-
-    @historical_data_symbol.setter
-    def historical_data_symbol(self, value: str) -> None:
-        ...
+class QuiverCongress(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Personal stock transactions by U.S. Representatives"""
 
     def clone(self) -> QuantConnect.Data.BaseData:
         """
-        Clones the data. This is required for some custom data
+        Clones the data
         
-        :returns: A new cloned instance.
+        :returns: A clone of the object.
         """
         ...
 
@@ -12845,8 +12149,12 @@ class TradingEconomicsIndicator(QuantConnect.Data.BaseData):
         """
         Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The DateTimeZone of this data type.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -12860,320 +12168,32 @@ class TradingEconomicsIndicator(QuantConnect.Data.BaseData):
         """
         ...
 
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+    def is_sparse_data(self) -> bool:
         """
-        Reader converts each line of the data source into BaseData objects.
+        Indicates that the data set is expected to be sparse
         
-        :param config: Subscription data config setup object
-        :param content: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Collection of TradingEconomicsIndicator objects.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Trading Economics Indicator information."""
-        ...
-
-
-class EarningsType(IntEnum):
-    """Earnings type: earnings, ipo, dividends"""
-
-    EARNINGS = 0
-    """Earnings"""
-
-    IPO = 1
-    """IPO"""
-
-    DIVIDENDS = 2
-    """Dividends"""
-
-    SPLIT = 3
-    """Stock Splits"""
-
-
-class TradingEconomicsEarnings(QuantConnect.Data.BaseData):
-    """
-    Represents the Trading Economics Earnings information.
-    https://docs.tradingeconomics.com/#earnings
-    """
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Release time and date in UTC"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def symbol(self) -> str:
-        """Unique symbol used by Trading Economics"""
-        ...
-
-    @symbol.setter
-    def symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def earnings_type(self) -> QuantConnect.DataSource.EarningsType:
-        """Earnings type: earnings, ipo, dividends"""
-        ...
-
-    @earnings_type.setter
-    def earnings_type(self, value: QuantConnect.DataSource.EarningsType) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        """Company name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def actual(self) -> typing.Optional[float]:
-        """Earnings per share"""
-        ...
-
-    @actual.setter
-    def actual(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def value(self) -> float:
-        """Earnings per share"""
-        ...
-
-    @property
-    def forecast(self) -> typing.Optional[float]:
-        """Average forecast among a representative group of analysts"""
-        ...
-
-    @forecast.setter
-    def forecast(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def fiscal_tag(self) -> str:
-        """Fiscal year and quarter"""
-        ...
-
-    @fiscal_tag.setter
-    def fiscal_tag(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_reference(self) -> str:
-        """Fiscal year and quarter in different format"""
-        ...
-
-    @fiscal_reference.setter
-    def fiscal_reference(self, value: str) -> None:
-        ...
-
-    @property
-    def calendar_reference(self) -> str:
-        """Calendar quarter for the release"""
-        ...
-
-    @calendar_reference.setter
-    def calendar_reference(self, value: str) -> None:
-        ...
-
-    @property
-    def country(self) -> str:
-        """Country name"""
-        ...
-
-    @country.setter
-    def country(self, value: str) -> None:
-        ...
-
-    @property
-    def currency(self) -> str:
-        """Currency"""
-        ...
-
-    @currency.setter
-    def currency(self, value: str) -> None:
-        ...
-
-    @property
-    def last_update(self) -> datetime.datetime:
-        """Time when new data was inserted or changed"""
-        ...
-
-    @last_update.setter
-    def last_update(self, value: datetime.datetime) -> None:
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-
-class TradingEconomicsDateTimeConverter:
-    """DateTime JSON Converter that handles null value"""
-
-    def can_convert(self, object_type: typing.Type) -> bool:
-        """Indicate if we can convert this object."""
-        ...
-
-    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
-        """Parse Trading Economics DateTime to C# DateTime"""
-        ...
-
-    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
-        """Write DateTime objects to JSON"""
-        ...
-
-
-class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain Sentiment dataset"""
-
-    @property
-    def total_article_mentions_7_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 7 days"""
-        ...
-
-    @total_article_mentions_7_days.setter
-    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 7 days"""
-        ...
-
-    @sentimental_article_mentions_7_days.setter
-    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_7_days(self) -> typing.Optional[float]:
-        """Setiment Score in 7 days"""
-        ...
-
-    @sentiment_7_days.setter
-    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 7 days"""
-        ...
-
-    @total_buzz_volume_7_days.setter
-    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 7 days"""
-        ...
-
-    @sentimental_buzz_volume_7_days.setter
-    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_article_mentions_30_days(self) -> typing.Optional[int]:
-        """Total Article Mentions in 30 days"""
-        ...
-
-    @total_article_mentions_30_days.setter
-    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
-        """Sentimental Article Mentions in 30 days"""
-        ...
-
-    @sentimental_article_mentions_30_days.setter
-    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment_30_days(self) -> typing.Optional[float]:
-        """Setiment Score in 30 days"""
-        ...
-
-    @sentiment_30_days.setter
-    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Total Buzz Volume in 30 days"""
-        ...
-
-    @total_buzz_volume_30_days.setter
-    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
-        """Sentimental Buzz Volume in 30 days"""
-        ...
-
-    @sentimental_buzz_volume_30_days.setter
-    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
+        :returns: True if the data set represented by this type is expected to be sparse.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Parses the data from the line provided and loads it into LEAN
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
         """
         ...
 
@@ -13182,1704 +12202,145 @@ class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDa
         ...
 
     def to_string(self) -> str:
-        """Converts the instance to string"""
+        """
+        Formats a string with the Quiver Congress information.
+        
+        :returns: string containing Quiver Congress information.
+        """
         ...
 
 
-class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
-    """Brain sentiment universe on only 10-K SEC reports"""
+class Congress(IntEnum):
+    """United States of America Legislative Branch House of Congress"""
+
+    SENATE = 0
+    """The United States Senate"""
+
+    REPRESENTATIVES = 1
+    """The United States House of Representatives"""
+
+
+class Party(IntEnum):
+    """Political Parties of the United States of America"""
+
+    INDEPENDENT = 0
+    """Not affiliated with any political party."""
+
+    REPUBLICAN = 1
+    """Republican Party. https://en.wikipedia.org/wiki/Republican_Party_(United_States)"""
+
+    DEMOCRATIC = 2
+    """Democratic Party. https://en.wikipedia.org/wiki/Democratic_Party_(United_States)"""
+
+
+class QuiverCongressDataPoint(QuantConnect.Data.BaseData):
+    """Single data point for QuiverCongress data"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
 
     @property
-    def report_type(self) -> str:
-        """This codeEntityType is protected."""
+    def record_date(self) -> datetime.datetime:
+        """The date the transaction was recorded by QuiverQuant. Value will always exist."""
         ...
 
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def all(self) -> typing.Optional[float]:
-        ...
-
-    @all.setter
-    def all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def positive(self) -> typing.Optional[float]:
-        ...
-
-    @positive.setter
-    def positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def negative(self) -> typing.Optional[float]:
-        ...
-
-    @negative.setter
-    def negative(self, value: typing.Optional[float]) -> None:
+    @record_date.setter
+    def record_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
+    def updated_at(self) -> datetime.datetime:
+        """The date the recorded transaction was updated by QuiverQuant. Alias for EndTime."""
         ...
 
     @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @staticmethod
-    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-
-class BrainCompanyFilingLanguageMetrics(System.Object):
-    """This class has no documentation."""
-
-    @property
-    def sentence_count(self) -> typing.Optional[int]:
-        ...
-
-    @sentence_count.setter
-    def sentence_count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def mean_sentence_length(self) -> typing.Optional[float]:
-        ...
-
-    @mean_sentence_length.setter
-    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @uncertainty.setter
-    def uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def litigious(self) -> typing.Optional[float]:
-        ...
-
-    @litigious.setter
-    def litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def constraining(self) -> typing.Optional[float]:
-        ...
-
-    @constraining.setter
-    def constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def interesting(self) -> typing.Optional[float]:
-        ...
-
-    @interesting.setter
-    def interesting(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def readability(self) -> typing.Optional[float]:
-        ...
-
-    @readability.setter
-    def readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_richness.setter
-    def lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @lexical_density.setter
-    def lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @specific_density.setter
-    def specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
-        ...
-
-    @similarity.setter
-    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
-        ...
-
-    @staticmethod
-    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_date(self) -> datetime.datetime:
+    def report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date the transaction was reported. Value will always exist."""
         ...
 
     @report_date.setter
-    def report_date(self, value: datetime.datetime) -> None:
+    def report_date(self, value: typing.Optional[datetime.datetime]) -> None:
         ...
 
     @property
-    def report_category(self) -> str:
+    def transaction_date(self) -> datetime.datetime:
+        """The date the transaction took place"""
         ...
 
-    @report_category.setter
-    def report_category(self, value: str) -> None:
+    @transaction_date.setter
+    def transaction_date(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def report_period(self) -> typing.Optional[int]:
+    def representative(self) -> str:
+        """The Representative making the transaction"""
         ...
 
-    @report_period.setter
-    def report_period(self, value: typing.Optional[int]) -> None:
+    @representative.setter
+    def representative(self, value: str) -> None:
         ...
 
     @property
-    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
+    def transaction(self) -> QuantConnect.Orders.OrderDirection:
+        """The type of transaction"""
         ...
 
-    @previous_report_date.setter
-    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+    @transaction.setter
+    def transaction(self, value: QuantConnect.Orders.OrderDirection) -> None:
         ...
 
     @property
-    def previous_report_category(self) -> str:
+    def amount(self) -> typing.Optional[float]:
+        """The amount of the transaction (in USD). The Representative can report a range (see maximum_amount)."""
         ...
 
-    @previous_report_category.setter
-    def previous_report_category(self, value: str) -> None:
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def previous_report_period(self) -> typing.Optional[int]:
+    def maximum_amount(self) -> typing.Optional[float]:
+        """The maximum amount of the transaction (in USD). The Representative can report a range (see amount)."""
         ...
 
-    @previous_report_period.setter
-    def previous_report_period(self, value: typing.Optional[int]) -> None:
+    @maximum_amount.setter
+    def maximum_amount(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+    def house(self) -> QuantConnect.DataSource.Congress:
+        """The Chamber of Congress that the trader belongs to"""
         ...
 
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+    @house.setter
+    def house(self, value: QuantConnect.DataSource.Congress) -> None:
         ...
 
     @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+    def party(self) -> QuantConnect.DataSource.Party:
+        """The political party that the trader belongs to"""
         ...
 
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+    @party.setter
+    def party(self, value: QuantConnect.DataSource.Party) -> None:
         ...
 
     @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+    def district(self) -> str:
+        """The district that the trader belongs to (null or empty for Senators)"""
         ...
 
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+    @district.setter
+    def district(self, value: str) -> None:
         ...
 
     @property
-    def report_type(self) -> str:
-        """This codeEntityType is protected."""
+    def state(self) -> str:
+        """The state that the trader belongs to"""
         ...
 
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
-        """
-        Clones the data
-        
-        
-        This codeEntityType is protected.
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
-    """Brain universe stock rankings on expected returns in the next 2 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainLanguageMetricsEarningsCallsBase(typing.Generic[QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T], QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
-    """
-    Base class for Brain Language Metrics on Earnings Calls (metrics-only version).
-    This class parses daily rows of MD/AQ/MA metrics for a given symbol.
-    """
-
-    @property
-    def last_transcript_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @last_transcript_date.setter
-    def last_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def last_transcript_quarter(self) -> typing.Optional[int]:
-        ...
-
-    @last_transcript_quarter.setter
-    def last_transcript_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def last_transcript_year(self) -> typing.Optional[int]:
-        ...
-
-    @last_transcript_year.setter
-    def last_transcript_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def md_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @md_n_characters.setter
-    def md_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @md_sentiment.setter
-    def md_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_uncertainty.setter
-    def md_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_litigious.setter
-    def md_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_score_constraining.setter
-    def md_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_readability(self) -> typing.Optional[float]:
-        ...
-
-    @md_readability.setter
-    def md_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @md_lexical_richness.setter
-    def md_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_lexical_density.setter
-    def md_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_specific_density.setter
-    def md_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @aq_n_characters.setter
-    def aq_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @aq_sentiment.setter
-    def aq_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_uncertainty.setter
-    def aq_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_litigious.setter
-    def aq_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @aq_score_constraining.setter
-    def aq_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @ma_n_characters.setter
-    def ma_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @ma_sentiment.setter
-    def ma_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_uncertainty.setter
-    def ma_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_litigious.setter
-    def ma_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_score_constraining.setter
-    def ma_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_readability(self) -> typing.Optional[float]:
-        ...
-
-    @ma_readability.setter
-    def ma_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @ma_lexical_richness.setter
-    def ma_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_lexical_density.setter
-    def ma_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_specific_density.setter
-    def ma_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def prev_transcript_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @prev_transcript_date.setter
-    def prev_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def prev_transcript_quarter(self) -> typing.Optional[int]:
-        ...
-
-    @prev_transcript_quarter.setter
-    def prev_transcript_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def prev_transcript_year(self) -> typing.Optional[int]:
-        ...
-
-    @prev_transcript_year.setter
-    def prev_transcript_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def md_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_perc_n_characters.setter
-    def md_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_sentiment(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_sentiment.setter
-    def md_delta_sentiment(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_uncertainty.setter
-    def md_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_litigious.setter
-    def md_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_score_constraining.setter
-    def md_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_readability(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_readability.setter
-    def md_delta_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_lexical_richness.setter
-    def md_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_lexical_density.setter
-    def md_delta_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_delta_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @md_delta_specific_density.setter
-    def md_delta_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_all.setter
-    def md_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_positive.setter
-    def md_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_negative.setter
-    def md_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_uncertainty.setter
-    def md_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_litigious.setter
-    def md_similarity_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def md_similarity_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @md_similarity_constraining.setter
-    def md_similarity_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_perc_n_characters.setter
-    def aq_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_sentiment_delta(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_sentiment_delta.setter
-    def aq_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_uncertainty.setter
-    def aq_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_litigious.setter
-    def aq_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @aq_delta_score_constraining.setter
-    def aq_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_all.setter
-    def aq_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_positive.setter
-    def aq_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def aq_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @aq_similarity_negative.setter
-    def aq_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_perc_n_characters(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_perc_n_characters.setter
-    def ma_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_sentiment_delta(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_sentiment_delta.setter
-    def ma_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_uncertainty.setter
-    def ma_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_litigious.setter
-    def ma_delta_score_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_score_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_score_constraining.setter
-    def ma_delta_score_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_readability(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_readability.setter
-    def ma_delta_readability(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_lexical_richness(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_lexical_richness.setter
-    def ma_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_lexical_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_lexical_density.setter
-    def ma_delta_lexical_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_delta_specific_density(self) -> typing.Optional[float]:
-        ...
-
-    @ma_delta_specific_density.setter
-    def ma_delta_specific_density(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_all(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_all.setter
-    def ma_similarity_all(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_positive(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_positive.setter
-    def ma_similarity_positive(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_negative(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_negative.setter
-    def ma_similarity_negative(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_uncertainty(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_uncertainty.setter
-    def ma_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_litigious(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_litigious.setter
-    def ma_similarity_litigious(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def ma_similarity_constraining(self) -> typing.Optional[float]:
-        ...
-
-    @ma_similarity_constraining.setter
-    def ma_similarity_constraining(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Path structure:
-        alternative/brain/blmect/{symbol}.csv
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parse one metrics row.
-        CSV Layout:
-        0: date (yyyyMMdd)
-        1: last transcript date (yyyy-MM-dd)
-        2: last transcript quarter
-        3: last transcript year
-        4..12: MD metrics (9 columns)
-        13..17: AQ metrics (5 columns)
-        18..26: MA metrics (9 columns)
-        27: prev transcript date (yyyy-MM-dd)
-        28: prev transcript quarter
-        29: prev transcript year
-        30..38: MD deltas (9 columns)
-        39..44: MD similarities (6 columns)
-        45..49: AQ deltas (5 columns)
-        50..52: AQ similarities (3 columns)
-        53..62: MA deltas (10 columns)
-        63..68: MA similarities (6 columns)
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        ...
-
-
-class BrainLanguageMetricsEarningsCalls(QuantConnect.DataSource.BrainLanguageMetricsEarningsCallsBase[QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls]):
-    """
-    Brain Earnings Call Language Metrics (BLMECT).
-    
-    Provides daily language-analysis metrics computed from the most recent earnings call
-    available as of each calculation date for a given symbol.
-    
-    The dataset decomposes each earnings call transcript into three sections:
-    MD (Management Discussion) – prepared remarks by company management.
-        AQ (Analyst Questions) – questions asked by sell-side analysts.
-        MA (Management Answers) – management responses during the Q&A session.
-        
-    
-    For each section, the dataset includes:
-    Absolute language metrics (sentiment, uncertainty, readability, etc.)Changes (deltas) relative to the previous earnings callText similarity scores comparing the latest and previous calls
-    
-    The BaseData.time value represents the calculation date (DATE),
-    not the earnings call date. Transcript metadata fields such as
-    LastTranscriptDate, LastTranscriptQuarter, and LastTranscriptYear
-    identify the earnings call used to compute the metrics.
-    
-    This dataset is sparse, daily, and mapping-aware, allowing seamless use across
-    ticker changes and corporate actions in Lean algorithms.
-    """
-
-
-class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
-    """Brain sentiment indicator on 30 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
-    """Brain sentiment universe on 10-K/10-Q SEC reports"""
-
-    @property
-    def report_type(self) -> str:
-        """This codeEntityType is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-
-class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
-    """Brain universe stock rankings on expected returns in the next 10 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
-
-    @property
-    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by report part"""
-        ...
-
-    @report_sentiment.setter
-    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by risk factor statement part"""
-        ...
-
-    @risk_factors_statement_sentiment.setter
-    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
-        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
-        ...
-
-    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
-    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
-        ...
-
-    @property
-    def report_type(self) -> str:
-        """
-        Report Type of which the language metric came from
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
-    """Brain universe stock rankings on expected returns in the next 5 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainWikipediaPageViews(QuantConnect.Data.BaseData):
-    """
-    Brain Wikipedia Page Views (BWPV)
-    
-    The dataset monitors Wikipedia page views and "buzz" metrics for
-    the top ~1000 US companies. It provides the raw views and buzz
-    scores over different horizons (1, 7, and 30 days).
-    """
-
-    @property
-    def number_views_1(self) -> typing.Optional[float]:
-        """Raw number of views for the past day"""
-        ...
-
-    @number_views_1.setter
-    def number_views_1(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_1(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past day"""
-        ...
-
-    @buzz_1.setter
-    def buzz_1(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def number_views_7(self) -> typing.Optional[float]:
-        """Raw number of views over the past 7 days"""
-        ...
-
-    @number_views_7.setter
-    def number_views_7(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_7(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past 7 days"""
-        ...
-
-    @buzz_7.setter
-    def buzz_7(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def number_views_30(self) -> typing.Optional[float]:
-        """Raw number of views over the past 30 days"""
-        ...
-
-    @number_views_30.setter
-    def number_views_30(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buzz_30(self) -> typing.Optional[float]:
-        """"Buzz" metric over the past 30 days"""
-        ...
-
-    @buzz_30.setter
-    def buzz_30(self, value: typing.Optional[float]) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """Gets the data time zone (UTC)"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution (daily)"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Returns the path to the daily data file for a given symbol and month.
-        
-        Folder structure (Option A):
-            alternative/brain/bwpv/{yyyyMM}/{symbol}.csv
-        
-        Each file contains multiple daily rows for the given symbol and month.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """Indicates whether the data is sparse"""
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses a line from the BWPV data file into a BrainWikipediaPageViews instance.
-        
-        File format (per line):
-          0: yyyyMMdd (data date)
-          1: NumberViews1
-          2: Buzz1
-          3: NumberViews7
-          4: Buzz7
-          5: NumberViews30
-          6: Buzz30
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """Indicates whether the data source requires symbol mapping"""
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolutions (daily only)"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts this instance to a string"""
-        ...
-
-
-class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
-    """Brain sentiment on only 10-K SEC reports"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report_type(self) -> str:
-        """This codeEntityType is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-
-class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
-    """Brain sentiment indicator on 7 days of news"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on news"""
-
-    @property
-    def total_article_mentions(self) -> int:
-        ...
-
-    @total_article_mentions.setter
-    def total_article_mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def sentimental_article_mentions(self) -> float:
-        ...
-
-    @sentimental_article_mentions.setter
-    def sentimental_article_mentions(self, value: float) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
-        ...
-
-    @property
-    def total_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @total_buzz_volume.setter
-    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def sentimental_buzz_volume(self) -> typing.Optional[float]:
-        ...
-
-    @sentimental_buzz_volume.setter
-    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
-        """
-        Clones the data
-        
-        
-        This codeEntityType is protected.
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
-
-    @property
-    def rank_2_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 2 days"""
-        ...
-
-    @rank_2_days.setter
-    def rank_2_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_3_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 3 days"""
-        ...
-
-    @rank_3_days.setter
-    def rank_3_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_5_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 5 days"""
-        ...
-
-    @rank_5_days.setter
-    def rank_5_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_10_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 10 days"""
-        ...
-
-    @rank_10_days.setter
-    def rank_10_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def rank_21_days(self) -> typing.Optional[float]:
-        """Rank prediction score in 21 days"""
-        ...
-
-    @rank_21_days.setter
-    def rank_21_days(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    @property
-    def rank(self) -> float:
-        ...
-
-    @rank.setter
-    def rank(self, value: float) -> None:
-        ...
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
-        """This codeEntityType is protected."""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
-    """Brain universe stock rankings on expected returns in the next 30 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
-    """Brain sentiment on 10-K/10-Q SEC reports"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def report_type(self) -> str:
-        """This codeEntityType is protected."""
-        ...
-
-    @report_type.setter
-    def report_type(self, value: str) -> None:
-        ...
-
-
-class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
-    """Brain universe stock rankings on expected returns in the next 3 days"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def lookback_days(self) -> int:
-        """This codeEntityType is protected."""
-        ...
-
-    @lookback_days.setter
-    def lookback_days(self, value: int) -> None:
-        ...
-
-
-class QuiverWikipedia(QuantConnect.Data.BaseData):
-    """Wikipedia Page Views for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """The date of the Page View count"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def page_views(self) -> typing.Optional[float]:
-        """The company's Wikipedia Page Views on the given date"""
-        ...
-
-    @page_views.setter
-    def page_views(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the week prior to the date.
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the month prior to the date
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
+    @state.setter
+    def state(self, value: str) -> None:
         ...
 
     @property
@@ -14889,15 +12350,23 @@ class QuiverWikipedia(QuantConnect.Data.BaseData):
 
     @overload
     def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
+        """Creates a new instance of QuiverCongressDataPoint"""
         ...
 
     @overload
     def __init__(self, csv_line: str) -> None:
         """
-        Creates a new instance of QuiverWikipedia from a CSV line
+        Creates a new instance of QuiverCongressDataPoint from a CSV line
         
         :param csv_line: CSV line
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
         """
         ...
 
@@ -14909,15 +12378,8 @@ class QuiverWikipedia(QuantConnect.Data.BaseData):
         """
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
@@ -14928,7 +12390,58 @@ class QuiverWikipedia(QuantConnect.Data.BaseData):
         :param line: Content of the source document
         :param date: Date of the requested data
         :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver Wikipedia object.
+        :returns: Quiver Congress object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Quiver Congress information."""
+        ...
+
+
+class QuiverQuantCongressUniverse(QuantConnect.DataSource.QuiverCongress):
+    """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
         """
         ...
 
@@ -14941,714 +12454,37 @@ class QuiverWikipedia(QuantConnect.Data.BaseData):
         ...
 
     def to_string(self) -> str:
-        """Formats a string with the Quiver Wikipedia information."""
-        ...
-
-
-class QuiverWikipediaUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverWikipedia dataset"""
-
-    @property
-    def date(self) -> datetime.datetime:
-        """The date of the Page View count"""
-        ...
-
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def page_views(self) -> typing.Optional[float]:
-        """The company's Wikipedia Page Views on the given date"""
-        ...
-
-    @page_views.setter
-    def page_views(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the week prior to the date.
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """
-        The view count % change over the month prior to the date
-        Represented as a whole number (e.g. 100% = 100.0)
-        """
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-
-class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Insider Trading by private businesses"""
-
-    @property
-    def name(self) -> str:
-        """Name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
-        ...
-
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
-        ...
-
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
         """Converts the instance to string"""
         ...
 
 
-class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
+class TransactionDirectionJsonConverter(QuantConnect.Util.TypeChangeJsonConverter[QuantConnect.Orders.OrderDirection, str]):
+    """Converts Quiver Quantitative QuiverCongressDataPoint.transaction to OrderDirection"""
 
-    @property
-    def name(self) -> str:
-        """Name"""
-        ...
-
-    @name.setter
-    def name(self, value: str) -> None:
-        ...
-
-    @property
-    def shares(self) -> typing.Optional[float]:
-        """Shares amount in transaction"""
-        ...
-
-    @shares.setter
-    def shares(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_per_share(self) -> typing.Optional[float]:
-        """PricePerShare of transaction"""
-        ...
-
-    @price_per_share.setter
-    def price_per_share(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def shares_owned_following(self) -> typing.Optional[float]:
-        """Shares Owned after transcation"""
-        ...
-
-    @shares_owned_following.setter
-    def shares_owned_following(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Crypto Coarse Fundamental object for crpyto universe selection"""
-
-    @property
-    def open(self) -> float:
-        """Daily Open Price (UTC 00:00)"""
-        ...
-
-    @open.setter
-    def open(self, value: float) -> None:
-        ...
-
-    @property
-    def high(self) -> float:
-        """Daily High Price"""
-        ...
-
-    @high.setter
-    def high(self, value: float) -> None:
-        ...
-
-    @property
-    def low(self) -> float:
-        """Daily Low Price"""
-        ...
-
-    @low.setter
-    def low(self, value: float) -> None:
-        ...
-
-    @property
-    def close(self) -> float:
-        """Daily Close Price"""
-        ...
-
-    @close.setter
-    def close(self, value: float) -> None:
-        ...
-
-    @property
-    def volume(self) -> float:
-        """
-        Daily Trade Volume
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume.setter
-    def volume(self, value: float) -> None:
-        ...
-
-    @property
-    def volume_in_quote_currency(self) -> float:
-        """
-        Daily Volume in Quote Currency
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume_in_quote_currency.setter
-    def volume_in_quote_currency(self, value: float) -> None:
-        ...
-
-    @property
-    def volume_in_usd(self) -> typing.Optional[float]:
-        """
-        Daily Volume in USD
-        Note that this only includes the volume traded in the selected market
-        """
-        ...
-
-    @volume_in_usd.setter
-    def volume_in_usd(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price(self) -> float:
-        """Alias of close price"""
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    @staticmethod
     @overload
-    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+    def convert(self, value: QuantConnect.Orders.OrderDirection) -> str:
         """
-        Creates a new crypto universe
+        Convert OrderDirection to string
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
+        
+        This codeEntityType is protected.
+        
+        :param value: OrderDirection to convert
+        :returns: Resulting string.
         """
         ...
 
-    @staticmethod
     @overload
-    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+    def convert(self, value: str) -> QuantConnect.Orders.OrderDirection:
         """
-        Creates a new crypto universe
+        Convert string to OrderDirection
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
+        This codeEntityType is protected.
         
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param value: string to convert
+        :returns: Resulting OrderDirection.
         """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    @staticmethod
-    @overload
-    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
-        """
-        Creates a new crypto universe
-        
-        :param selector: Returns the symbols that should be included in the universe
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
-        """
-        Creates the universe symbol
-        
-        :returns: A crypto coarse universe symbol.
-        """
-        ...
-
-
-class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
-    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
-
-
-class CryptoSlamNFTSales(QuantConnect.Data.BaseData):
-    """CryptoSlam NFT Sales dataset"""
-
-    @property
-    def total_transactions(self) -> int:
-        """The number of NFT transaction made within this blockchain"""
-        ...
-
-    @total_transactions.setter
-    def total_transactions(self, value: int) -> None:
-        ...
-
-    @property
-    def unique_buyers(self) -> int:
-        """The number of unique buyers of NFT within this blockchain"""
-        ...
-
-    @unique_buyers.setter
-    def unique_buyers(self, value: int) -> None:
-        ...
-
-    @property
-    def unique_sellers(self) -> int:
-        """The number of unique sellers of NFT within this blockchain"""
-        ...
-
-    @unique_sellers.setter
-    def unique_sellers(self, value: int) -> None:
-        ...
-
-    @property
-    def total_price_usd(self) -> float:
-        """The total transaction value (in USD) of NFT within this blockchain"""
-        ...
-
-    @total_price_usd.setter
-    def total_price_usd(self, value: float) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """Time passed between the date of the data and the time the data became available to us"""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
         ...
 
 
@@ -15808,113 +12644,504 @@ class USTreasuryYieldCurveRate(QuantConnect.Data.BaseData):
         ...
 
 
-class CBOE(QuantConnect.Data.Market.TradeBar):
-    """CBOE data source"""
+class ExtractAlphaFiscalPeriod(System.Object):
+    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
 
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    def __init__(self) -> None:
-        """Creates a new instance of the object"""
+    @property
+    def fiscal_year(self) -> int:
+        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
         ...
 
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+    @property
+    def fiscal_quarter(self) -> typing.Optional[int]:
         """
-        Gets the source location of the CBOE file
+        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
+        If this is null, then the fiscal period being reported is for the full year of the fiscal_year
+        """
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def end(self) -> typing.Optional[datetime.datetime]:
+        """The date that the fiscal quarter ends"""
+        ...
+
+    @end.setter
+    def end(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
+        """The date that the SEC report for the fiscal period is expected to be released publicly"""
+        ...
+
+    @expected_report_date.setter
+    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def annual(self) -> bool:
+        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
+        ...
+
+    @property
+    def quarterly(self) -> bool:
+        """Returns true if the fiscal period is for a single quarter only"""
+        ...
+
+
+class ExtractAlphaTrueBeatEarningsMetric(IntEnum):
+    """The earnings metric/type being forecasted"""
+
+    EPS = 0
+    """Earnings per share"""
+
+    REVENUE = 1
+    """Revenue"""
+
+
+class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
+    """
+    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
+    by regulatory agencies (e.g. United States SEC)
+    """
+
+    @property
+    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
+        """The fiscal period that is being forecasted"""
+        ...
+
+    @fiscal_period.setter
+    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
+        ...
+
+    @property
+    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
+        """The earnings metric being forecasted (e.g. EPS, revenue)"""
+        ...
+
+    @earnings_metric.setter
+    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
+        ...
+
+    @property
+    def analyst_estimates_count(self) -> int:
+        """The number of analyst estimates that the true_beat used in its calculation"""
+        ...
+
+    @analyst_estimates_count.setter
+    def analyst_estimates_count(self, value: int) -> None:
+        ...
+
+    @property
+    def true_beat(self) -> float:
+        """
+        The forecasted earnings surprise percentage, relative to consensus estimates.
+        TrueBeat is calculated as the total sum of the expert_beat, trend_beat, and management_beat metrics.
+        """
+        ...
+
+    @true_beat.setter
+    def true_beat(self, value: float) -> None:
+        ...
+
+    @property
+    def expert_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from top analyst estimates"""
+        ...
+
+    @expert_beat.setter
+    def expert_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def trend_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from trends in stock and peer surprises"""
+        ...
+
+    @trend_beat.setter
+    def trend_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def management_beat(self) -> typing.Optional[float]:
+        """The component of true_beat that is derived from management activity (e.g. guidance)"""
+        ...
+
+    @management_beat.setter
+    def management_beat(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
         
-        :param config: 
-        :param date: 
-        :param is_live_mode: 
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
         ...
 
     def is_sparse_data(self) -> bool:
         """
-        Determines if data source is sparse
+        Indicates that the data set is expected to be sparse
         
-        :returns: false.
+        :returns: True if the data set represented by this type is expected to be sparse.
         """
         ...
 
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
-        Reads the data from the source and creates a BaseData instance
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
         
-        :param config: Configuration
-        :param line: Line of data
-        :param date: Date we're requesting data for
-        :param is_live_mode: Is live mode
-        :returns: New BaseData instance to be used in the algorithm.
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Determines whether the data source requires mapping
+        Indicates if there is support for mapping
         
-        :returns: false.
+        :returns: True indicates mapping should be used.
         """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
         ...
 
     def to_string(self) -> str:
         """
-        Converts the instance to a string
+        Formats a string with TrueBeat data
         
-        :returns: String containing open, high, low, close.
+        :returns: string containing TrueBeat information.
         """
         ...
 
 
-class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Twitter Followers dataset"""
+class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """A collection of Extra Alpha True Beats for a Symbol and date"""
+
+    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
+        """
+        Adds a new data point to this collection
+        
+        :param new_data_point: The new data point to add
+        """
+        ...
+
+    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
+        """
+        Adds a new data points to this collection
+        
+        :param new_data_points: The new data points to add
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with TrueBeat data
+        
+        :returns: string containing TrueBeat information.
+        """
+        ...
+
+
+class BitcoinMetadata(QuantConnect.Data.BaseData):
+    """Blockchain Bitcoin Metadata dataset"""
 
     @property
-    def followers(self) -> int:
-        """Number of followers of the company's Twitter page on the given date"""
+    def difficulty(self) -> float:
+        """A relative measure of how difficult it is to find a new block. The difficulty is adjusted periodically as a function of how much hashing power has been deployed by the network of miners."""
         ...
 
-    @followers.setter
-    def followers(self, value: int) -> None:
-        ...
-
-    @property
-    def day_percent_change(self) -> typing.Optional[float]:
-        """Day-over-day change in company's follower count"""
-        ...
-
-    @day_percent_change.setter
-    def day_percent_change(self, value: typing.Optional[float]) -> None:
+    @difficulty.setter
+    def difficulty(self, value: float) -> None:
         ...
 
     @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """Week-over-week change in company's follower count"""
+    def my_wallet_numberof_users(self) -> float:
+        """Number of wallets hosts using our My Wallet Service."""
         ...
 
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """Month-over-month change in company's follower count"""
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
+    @my_wallet_numberof_users.setter
+    def my_wallet_numberof_users(self, value: float) -> None:
         ...
 
     @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
+    def average_block_size(self) -> float:
+        """The average block size in MB."""
+        ...
+
+    @average_block_size.setter
+    def average_block_size(self, value: float) -> None:
+        ...
+
+    @property
+    def blockchain_size(self) -> float:
+        """The total size of all block headers and transactions. Not including database indexes."""
+        ...
+
+    @blockchain_size.setter
+    def blockchain_size(self, value: float) -> None:
+        ...
+
+    @property
+    def median_transaction_confirmation_time(self) -> float:
+        """The median time for a transaction to be accepted into a mined block and added to the public ledger (note: only includes transactions with miner fees)."""
+        ...
+
+    @median_transaction_confirmation_time.setter
+    def median_transaction_confirmation_time(self, value: float) -> None:
+        ...
+
+    @property
+    def miners_revenue(self) -> float:
+        """Total value of coinbase block rewards and transaction fees paid to miners."""
+        ...
+
+    @miners_revenue.setter
+    def miners_revenue(self, value: float) -> None:
+        ...
+
+    @property
+    def hash_rate(self) -> float:
+        """The estimated number of tera hashes per second (trillions of hashes per second) the Bitcoin network is performing"""
+        ...
+
+    @hash_rate.setter
+    def hash_rate(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_per_transaction(self) -> float:
+        """The miners revenue divided by the number of transactions."""
+        ...
+
+    @cost_per_transaction.setter
+    def cost_per_transaction(self, value: float) -> None:
+        ...
+
+    @property
+    def cost_percentof_transaction_volume(self) -> float:
+        """The miners revenue as percentage of the transaction volume."""
+        ...
+
+    @cost_percentof_transaction_volume.setter
+    def cost_percentof_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume_usd(self) -> float:
+        """The Estimated Transaction Value in USD value."""
+        ...
+
+    @estimated_transaction_volume_usd.setter
+    def estimated_transaction_volume_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def estimated_transaction_volume(self) -> float:
+        """The total estimated value of transactions on the Bitcoin blockchain (does not include coins returned to sender as change)."""
+        ...
+
+    @estimated_transaction_volume.setter
+    def estimated_transaction_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def total_output_volume(self) -> float:
+        """The total value of all transaction outputs per day (includes coins returned to the sender as change)."""
+        ...
+
+    @total_output_volume.setter
+    def total_output_volume(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactionper_block(self) -> float:
+        """The average number of transactions per block."""
+        ...
+
+    @numberof_transactionper_block.setter
+    def numberof_transactionper_block(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_unique_bitcoin_addresses_used(self) -> float:
+        """The total number of unique addresses used on the Bitcoin blockchain."""
+        ...
+
+    @numberof_unique_bitcoin_addresses_used.setter
+    def numberof_unique_bitcoin_addresses_used(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions_excluding_popular_addresses(self) -> float:
+        """The total number of Bitcoin transactions, excluding those involving any of the network's 100 most popular addresses."""
+        ...
+
+    @numberof_transactions_excluding_popular_addresses.setter
+    def numberof_transactions_excluding_popular_addresses(self, value: float) -> None:
+        ...
+
+    @property
+    def total_numberof_transactions(self) -> float:
+        """The Total Number of transactions."""
+        ...
+
+    @total_numberof_transactions.setter
+    def total_numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def numberof_transactions(self) -> float:
+        """The number of daily confirmed Bitcoin transactions."""
+        ...
+
+    @numberof_transactions.setter
+    def numberof_transactions(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees_usd(self) -> float:
+        """The total value of all transaction fees in USD paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees_usd.setter
+    def total_transaction_fees_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def total_transaction_fees(self) -> float:
+        """The total value of all transaction fees in Bitcoin paid to miners (not including the coinbase value of block rewards)."""
+        ...
+
+    @total_transaction_fees.setter
+    def total_transaction_fees(self, value: float) -> None:
+        ...
+
+    @property
+    def market_capitalization(self) -> float:
+        """The total USD value of bitcoin supply in circulation, as calculated by the daily average market price across major exchanges."""
+        ...
+
+    @market_capitalization.setter
+    def market_capitalization(self, value: float) -> None:
+        ...
+
+    @property
+    def total_bitcoins(self) -> float:
+        """The total number of bitcoins that have already been mined; in other words, the current supply of bitcoins on the network."""
+        ...
+
+    @total_bitcoins.setter
+    def total_bitcoins(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_numberof_transaction_per_day(self) -> float:
+        """Number of transactions made by My Wallet Users per day."""
+        ...
+
+    @my_wallet_numberof_transaction_per_day.setter
+    def my_wallet_numberof_transaction_per_day(self, value: float) -> None:
+        ...
+
+    @property
+    def my_wallet_transaction_volume(self) -> float:
+        """24hr Transaction Volume of our web wallet service."""
+        ...
+
+    @my_wallet_transaction_volume.setter
+    def my_wallet_transaction_volume(self, value: float) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
         ...
 
     def data_time_zone(self) -> typing.Any:
@@ -15940,6 +13167,15 @@ class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
         """
         ...
 
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
     def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
         """
         Parses the data from the line provided and loads it into LEAN
@@ -15952,6 +13188,14 @@ class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
         """
         ...
 
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
     def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
         """Gets the supported resolution for this data and security type"""
         ...
@@ -15961,52 +13205,52 @@ class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
-    """Example custom data type"""
+class CryptoSlamNFTSales(QuantConnect.Data.BaseData):
+    """CryptoSlam NFT Sales dataset"""
 
     @property
-    def followers(self) -> int:
-        """Number of followers of the company's Twitter page on the given date"""
+    def total_transactions(self) -> int:
+        """The number of NFT transaction made within this blockchain"""
         ...
 
-    @followers.setter
-    def followers(self, value: int) -> None:
-        ...
-
-    @property
-    def day_percent_change(self) -> typing.Optional[float]:
-        """Day-over-day change in company's follower count"""
-        ...
-
-    @day_percent_change.setter
-    def day_percent_change(self, value: typing.Optional[float]) -> None:
+    @total_transactions.setter
+    def total_transactions(self, value: int) -> None:
         ...
 
     @property
-    def week_percent_change(self) -> typing.Optional[float]:
-        """Week-over-week change in company's follower count"""
+    def unique_buyers(self) -> int:
+        """The number of unique buyers of NFT within this blockchain"""
         ...
 
-    @week_percent_change.setter
-    def week_percent_change(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def month_percent_change(self) -> typing.Optional[float]:
-        """Month-over-month change in company's follower count"""
-        ...
-
-    @month_percent_change.setter
-    def month_percent_change(self, value: typing.Optional[float]) -> None:
+    @unique_buyers.setter
+    def unique_buyers(self, value: int) -> None:
         ...
 
     @property
-    def time(self) -> datetime.datetime:
-        """Current time marker of this data packet."""
+    def unique_sellers(self) -> int:
+        """The number of unique sellers of NFT within this blockchain"""
         ...
 
-    @time.setter
-    def time(self, value: datetime.datetime) -> None:
+    @unique_sellers.setter
+    def unique_sellers(self, value: int) -> None:
+        ...
+
+    @property
+    def total_price_usd(self) -> float:
+        """The total transaction value (in USD) of NFT within this blockchain"""
+        ...
+
+    @total_price_usd.setter
+    def total_price_usd(self, value: float) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Time passed between the date of the data and the time the data became available to us"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
         ...
 
     @property
@@ -16083,108 +13327,51 @@ class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
         ...
 
 
-class QuiverQuantTwitterFollowers(QuantConnect.DataSource.QuiverTwitterFollowers):
-    """Obsoleted QuiverQuantTwitterFollowers class"""
-
-    def __init__(self) -> None:
-        """Obsolete QuiverTwitterFollowers constructor"""
-        ...
-
-
-class QuiverQuantTwitterFollowersUniverse(QuantConnect.DataSource.QuiverTwitterFollowersUniverse):
-    """Obsoleted QuiverQuantTwitterFollowersUniverse class"""
-
-    def __init__(self) -> None:
-        """Obsolete QuiverTwitterFollowersUniverse constructor"""
-        ...
-
-
-class TiingoSymbolMapper(System.Object):
-    """Helper class to map a Lean format ticker to Tiingo format"""
-
-    @staticmethod
-    def get_lean_ticker(ticker: str) -> str:
-        """Maps a given Tiingo ticker to Lean equivalent"""
-        ...
-
-    @staticmethod
-    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
-        """Maps a given Symbol instance to it's Tiingo equivalent"""
-        ...
-
-
-class TiingoNews(QuantConnect.Data.IndexedBaseData):
-    """
-    Tiingo news data
-    https://api.tiingo.com/documentation/news
-    """
+class BenzingaNews(QuantConnect.Data.IndexedBaseData):
+    """News data powered by Benzinga - https://docs.benzinga.io/benzinga/newsfeed-v2.html"""
 
     DATA_SOURCE_ID: int
     """Data source ID"""
 
     @property
-    def source(self) -> str:
-        """The domain the news source is from."""
+    def id(self) -> int:
+        """Unique ID assigned to the article by Benzinga"""
         ...
 
-    @source.setter
-    def source(self, value: str) -> None:
-        ...
-
-    @property
-    def crawl_date(self) -> datetime.datetime:
-        """
-        The datetime the news story was added to Tiingos database in UTC.
-        This is always recorded by Tiingo and the news source has no input on this date.
-        """
-        ...
-
-    @crawl_date.setter
-    def crawl_date(self, value: datetime.datetime) -> None:
+    @id.setter
+    def id(self, value: int) -> None:
         ...
 
     @property
-    def url(self) -> str:
-        """URL of the news article."""
+    def author(self) -> str:
+        """Author of the article"""
         ...
 
-    @url.setter
-    def url(self, value: str) -> None:
-        ...
-
-    @property
-    def published_date(self) -> datetime.datetime:
-        """
-        The datetime the news story was published in UTC. This is usually reported by the news source and not by Tiingo.
-        If the news source does not declare a published date, Tiingo will use the time the news story was discovered by our crawler farm.
-        """
-        ...
-
-    @published_date.setter
-    def published_date(self, value: datetime.datetime) -> None:
+    @author.setter
+    def author(self, value: str) -> None:
         ...
 
     @property
-    def tags(self) -> typing.List[str]:
-        """Tags that are mapped and discovered by Tiingo."""
+    def created_at(self) -> datetime.datetime:
+        """Date the article was published"""
         ...
 
-    @tags.setter
-    def tags(self, value: typing.List[str]) -> None:
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
         ...
 
     @property
-    def description(self) -> str:
-        """Long-form description of the news story."""
+    def updated_at(self) -> datetime.datetime:
+        """Date that the article was revised on"""
         ...
 
-    @description.setter
-    def description(self, value: str) -> None:
+    @updated_at.setter
+    def updated_at(self, value: datetime.datetime) -> None:
         ...
 
     @property
     def title(self) -> str:
-        """Title of the news article."""
+        """Title of the article published"""
         ...
 
     @title.setter
@@ -16192,108 +13379,181 @@ class TiingoNews(QuantConnect.Data.IndexedBaseData):
         ...
 
     @property
-    def article_id(self) -> str:
-        """Unique identifier specific to the news article."""
+    def teaser(self) -> str:
+        """Summary of the article's contents"""
         ...
 
-    @article_id.setter
-    def article_id(self, value: str) -> None:
+    @teaser.setter
+    def teaser(self, value: str) -> None:
+        ...
+
+    @property
+    def contents(self) -> str:
+        """Contents of the article"""
+        ...
+
+    @contents.setter
+    def contents(self, value: str) -> None:
+        ...
+
+    @property
+    def categories(self) -> typing.List[str]:
+        """Categories that relate to the article"""
+        ...
+
+    @categories.setter
+    def categories(self, value: typing.List[str]) -> None:
         ...
 
     @property
     def symbols(self) -> typing.List[QuantConnect.Symbol]:
-        """What symbols are mentioned in the news story."""
+        """Symbols that this news article mentions"""
         ...
 
     @symbols.setter
     def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
         ...
 
+    @property
+    def tags(self) -> typing.List[str]:
+        """
+        Additional tags that are not channels/categories, but are reoccuring
+        themes including, but not limited to; analyst names, bills being talked
+        about in Congress (Dodd-Frank), specific products (iPhone), politicians,
+        celebrities, stock movements (i.e. 'Mid-day Losers' & 'Mid-day Gainers').
+        """
+        ...
+
+    @tags.setter
+    def tags(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Date that the article was revised on"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Creates a clone of the instance
+        
+        :returns: A clone of the instance.
+        """
+        ...
+
     def data_time_zone(self) -> typing.Any:
         """
-        Specifies the data time zone for this data type. This is useful for custom data types
+        Set the data time zone to UTC
         
-        :returns: The DateTimeZone of this data type.
+        :returns: Time zone as UTC.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """
+        Sets the default resolution to Second
+        
+        :returns: Resolution.Second.
         """
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        For backtesting returns the index source for a date
-        For live trading will return the source url to use, not using the index mechanism
+        Gets the source of the index file
         
         :param config: Configuration object
         :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
+        :param is_live_mode: Is live mode
+        :returns: SubscriptionDataSource indicating where data is located and how it's stored.
         """
         ...
 
     def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
         """
-        Returns the source for a given index value
+        Determines the actual source from an index contained within a ticker folder
         
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param index: The index value for which we want to fetch the source
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: The SubscriptionDataSource instance to use.
+        :param config: Subscription configuration
+        :param date: Date
+        :param index: File to load data from
+        :param is_live_mode: Is live mode
+        :returns: SubscriptionDataSource pointing to the article.
         """
         ...
 
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+    def is_sparse_data(self) -> bool:
         """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method,
-            and returns a new instance of the object
-            each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        Indicates whether the data source is sparse.
+        If false, it will disable missing file logging.
         
-        :param config: Subscription data config setup object
-        :param content: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Creates an instance from a line of JSON containing article information read from the `content` directory
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance of BenzingaNews.
         """
         ...
 
     def requires_mapping(self) -> bool:
         """
-        Indicates if there is support for mapping
+        Indicates whether the data source can undergo
+        rename events/is tied to equities.
         
-        :returns: True indicates mapping should be used.
+        :returns: true.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """
+        Gets a list of all the supported Resolutions
+        
+        :returns: All resolutions.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to string
+        
+        :returns: Article title and contents.
         """
         ...
 
 
-class Tiingo(System.Object):
-    """Helper class for Tiingo configuration"""
-
-    auth_code: str
-    """Gets the Tiingo API token."""
-
-    is_auth_code_set: bool
-    """Returns true if the Tiingo API token has been set."""
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Sets the Tiingo API token.
-        
-        :param auth_code: The Tiingo API token
-        """
-        ...
-
-
-class TiingoNewsJsonConverter:
+class BenzingaNewsJsonConverter:
     """
-    Helper json converter class used to convert a list of Tiingo news data
-    into List{TiingoNews}
+    Helper json converter class used to convert Benzinga news data
+    into BenzingaNews
+    
+    An example schema of the data in a serialized format is provided
+    to help you better understand this converter.
     """
 
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> None:
+    SHARE_CLASS_MAPPED_TICKERS: System.Collections.Generic.Dictionary[str, System.Collections.Generic.HashSet[str]] = ...
+    """
+    Sometimes "Berkshire Hathaway" is mentioned as "BRK" in the raw data, although it is
+    separated into class A and B shares and should appear as BRK.A and BRK.B. Because our
+    map file system does not perform the conversion from BRK -> { BRK.A, BRK.B }, we must
+    provide them manually. Note that we don't dynamically try to locate class A and B shares
+    because there can exist companies with the same base ticker that class A and B shares have.
+    For example, CBS trades under "CBS" and "CBS.A", which means that if "CBS" appears, it will
+    be automatically mapped to CBS. However, if we dynamically selected "CBS.A" - we might select
+    a different company not associated with the ticker being referenced.
+    """
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None, live_mode: bool = False) -> None:
         """
         Creates a new instance of the json converter
         
         :param symbol: The Symbol instance associated with this news
+        :param live_mode: True if live mode, false for backtesting
         """
         ...
 
@@ -16307,12 +13567,13 @@ class TiingoNewsJsonConverter:
         ...
 
     @staticmethod
-    def deserialize_news(token: typing.Any) -> QuantConnect.DataSource.TiingoNews:
+    def deserialize_news(item: typing.Any, enable_logging: bool = False) -> QuantConnect.DataSource.BenzingaNews:
         """
-        Helper method to deserialize a single json Tiingo news
+        Helper method to deserialize a single json Benzinga news
         
-        :param token: The json token containing the Tiingo news to deserialize
-        :returns: The deserialized TiingoNews instance.
+        :param item: The json token containing the Benzinga news to deserialize
+        :param enable_logging: true to enable logging (for debug purposes)
+        :returns: The deserialized BenzingaNews instance.
         """
         ...
 
@@ -16339,154 +13600,51 @@ class TiingoNewsJsonConverter:
         ...
 
 
-class QuiverWallStreetBets(QuantConnect.Data.BaseData):
-    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
+class QuiverGovernmentContractUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
 
     @property
-    def date(self) -> datetime.datetime:
-        """Date of the daily discussion thread"""
+    def description(self) -> str:
+        """Contract description"""
         ...
 
-    @date.setter
-    def date(self, value: datetime.datetime) -> None:
+    @description.setter
+    def description(self, value: str) -> None:
         ...
 
     @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
+    def agency(self) -> str:
+        """Awarding Agency Name"""
         ...
 
-    @mentions.setter
-    def mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
-        ...
-
-    @rank.setter
-    def rank(self, value: int) -> None:
+    @agency.setter
+    def agency(self, value: str) -> None:
         ...
 
     @property
-    def sentiment(self) -> float:
-        """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
-        """
+    def amount(self) -> typing.Optional[float]:
+        """Total dollars obligated under the given contract"""
         ...
 
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
         ...
 
     @property
     def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of QuiverWallStreetBets from a CSV line
-        
-        :param csv_line: CSV line
-        """
+        """Time the data became available"""
         ...
 
     def data_time_zone(self) -> typing.Any:
         """
         Specifies the data time zone for this data type. This is useful for custom data types
         
-        :returns: The DateTimeZone of this data type.
+        :returns: The NodaTime.DateTimeZone of this data type.
         """
         ...
 
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Quiver WallStreetBets object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Quiver WallStreetBets information."""
-        ...
-
-
-class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection helper class for QuiverWallStreetBets dataset"""
-
-    @property
-    def mentions(self) -> int:
-        """The number of mentions on the given date"""
-        ...
-
-    @mentions.setter
-    def mentions(self, value: int) -> None:
-        ...
-
-    @property
-    def rank(self) -> int:
-        """This ticker's rank on the given date (as determined by total number of mentions)"""
-        ...
-
-    @rank.setter
-    def rank(self, value: int) -> None:
-        ...
-
-    @property
-    def sentiment(self) -> float:
-        """
-        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
-        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
-        """
-        ...
-
-    @sentiment.setter
-    def sentiment(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clones this instance"""
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
         ...
 
     def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
@@ -16497,6 +13655,15 @@ class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
         :param date: Date of this source file
         :param is_live_mode: true if we're in live mode, false for backtesting mode
         :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
         """
         ...
 
@@ -16512,30 +13679,1265 @@ class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataC
         """
         ...
 
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverGovernmentContract(QuantConnect.Data.BaseData):
+    """Government Contract by Agencies"""
+
+    @property
+    def description(self) -> str:
+        """Contract description"""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def agency(self) -> str:
+        """Awarding Agency Name"""
+        ...
+
+    @agency.setter
+    def agency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> float:
+        """Total dollars obligated under the given contract"""
+        ...
+
+    @amount.setter
+    def amount(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverGovernmentContracts(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of Government Contracts by Agencies"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverGovernmentContract data
+        
+        :returns: string containing QuiverGovernmentContract information.
+        """
+        ...
+
+
+class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
+    """Regalytics Regulatory articles"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def title(self) -> str:
+        ...
+
+    @title.setter
+    def title(self, value: str) -> None:
+        ...
+
+    @property
+    def summary(self) -> str:
+        ...
+
+    @summary.setter
+    def summary(self, value: str) -> None:
+        ...
+
+    @property
+    def status(self) -> str:
+        ...
+
+    @status.setter
+    def status(self, value: str) -> None:
+        ...
+
+    @property
+    def classification(self) -> str:
+        ...
+
+    @classification.setter
+    def classification(self, value: str) -> None:
+        ...
+
+    @property
+    def filing_type(self) -> str:
+        ...
+
+    @filing_type.setter
+    def filing_type(self, value: str) -> None:
+        ...
+
+    @property
+    def in_federal_register(self) -> bool:
+        ...
+
+    @in_federal_register.setter
+    def in_federal_register(self, value: bool) -> None:
+        ...
+
+    @property
+    def federal_register_number(self) -> str:
+        ...
+
+    @federal_register_number.setter
+    def federal_register_number(self, value: str) -> None:
+        ...
+
+    @property
+    def docket_file_number(self) -> str:
+        ...
+
+    @docket_file_number.setter
+    def docket_file_number(self, value: str) -> None:
+        ...
+
+    @property
+    def sec_release_number(self) -> str:
+        ...
+
+    @sec_release_number.setter
+    def sec_release_number(self, value: str) -> None:
+        ...
+
+    @property
+    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @proposed_comments_due_date.setter
+    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @original_publication_date.setter
+    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @federal_register_publication_date.setter
+    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @rule_effective_date.setter
+    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def sourced_at(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @sourced_at.setter
+    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def latest_update(self) -> datetime.datetime:
+        ...
+
+    @latest_update.setter
+    def latest_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def alert_type(self) -> str:
+        ...
+
+    @alert_type.setter
+    def alert_type(self, value: str) -> None:
+        ...
+
+    @property
+    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
+        ...
+
+    @states.setter
+    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
+        ...
+
+    @property
+    def agencies(self) -> typing.List[str]:
+        ...
+
+    @agencies.setter
+    def agencies(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
+        ...
+
+    @sector.setter
+    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
+        ...
+
+    @property
+    def announcement_url(self) -> str:
+        ...
+
+    @announcement_url.setter
+    def announcement_url(self, value: str) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Regalytics Regulatory articles collection"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverCNBC data
+        
+        :returns: string containing QuiverCNBC information.
+        """
+        ...
+
+
+class QuiverCNBCsUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Congress dataset"""
+
+    @property
+    def notes(self) -> str:
+        """Extra Information"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverCNBC(QuantConnect.Data.BaseData):
+    """Personal stock advice by CNBC"""
+
+    @property
+    def notes(self) -> str:
+        """Contract description"""
+        ...
+
+    @notes.setter
+    def notes(self, value: str) -> None:
+        ...
+
+    @property
+    def direction(self) -> QuantConnect.Orders.OrderDirection:
+        """Direction of trade"""
+        ...
+
+    @direction.setter
+    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
+        ...
+
+    @property
+    def traders(self) -> str:
+        """Individual Name"""
+        ...
+
+    @traders.setter
+    def traders(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of personal stock advices by CNBC"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverCNBC data
+        
+        :returns: string containing QuiverCNBC information.
+        """
+        ...
+
+
+class VIXCentralContango(QuantConnect.Data.BaseData):
+    """VIXCentral Contango"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def front_month(self) -> int:
+        """The month of the front month contract (possible values: 1 - 12)"""
+        ...
+
+    @front_month.setter
+    def front_month(self, value: int) -> None:
+        ...
+
+    @property
+    def f_1(self) -> float:
+        """Front month contract"""
+        ...
+
+    @f_1.setter
+    def f_1(self, value: float) -> None:
+        ...
+
+    @property
+    def f_2(self) -> float:
+        """Contract 1 month away from the front month contract"""
+        ...
+
+    @f_2.setter
+    def f_2(self, value: float) -> None:
+        ...
+
+    @property
+    def f_3(self) -> float:
+        """Contract 2 months away from the front month contract"""
+        ...
+
+    @f_3.setter
+    def f_3(self, value: float) -> None:
+        ...
+
+    @property
+    def f_4(self) -> float:
+        """Contract 3 months away from the front month contract"""
+        ...
+
+    @f_4.setter
+    def f_4(self, value: float) -> None:
+        ...
+
+    @property
+    def f_5(self) -> float:
+        """Contract 4 months away from the front month contract"""
+        ...
+
+    @f_5.setter
+    def f_5(self, value: float) -> None:
+        ...
+
+    @property
+    def f_6(self) -> float:
+        """Contract 5 months away from the front month contract"""
+        ...
+
+    @f_6.setter
+    def f_6(self, value: float) -> None:
+        ...
+
+    @property
+    def f_7(self) -> float:
+        """Contract 6 months away from the front month contract"""
+        ...
+
+    @f_7.setter
+    def f_7(self, value: float) -> None:
+        ...
+
+    @property
+    def f_8(self) -> float:
+        """Contract 7 months away from the front month contract"""
+        ...
+
+    @f_8.setter
+    def f_8(self, value: float) -> None:
+        ...
+
+    @property
+    def f_9(self) -> typing.Optional[float]:
+        """Contract 8 months away from the front month contract"""
+        ...
+
+    @f_9.setter
+    def f_9(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_10(self) -> typing.Optional[float]:
+        """Contract 9 months away from the front month contract"""
+        ...
+
+    @f_10.setter
+    def f_10(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_11(self) -> typing.Optional[float]:
+        """Contract 10 months away from the front month contract"""
+        ...
+
+    @f_11.setter
+    def f_11(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def f_12(self) -> typing.Optional[float]:
+        """Contract 11 months away from the front month contract"""
+        ...
+
+    @f_12.setter
+    def f_12(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def contango_f_2_minus_f_1(self) -> float:
+        """Percentage change between contract F2 and F1, calculated as: (F2 - F1) / F1"""
+        ...
+
+    @contango_f_2_minus_f_1.setter
+    def contango_f_2_minus_f_1(self, value: float) -> None:
+        ...
+
+    @property
+    def contango_f_7_minus_f_4(self) -> float:
+        """Percentage change between contract F7 and F4, calculated as: (F7 - F4) / F4"""
+        ...
+
+    @contango_f_7_minus_f_4.setter
+    def contango_f_7_minus_f_4(self, value: float) -> None:
+        ...
+
+    @property
+    def contango_f_7_minus_f_4_div_3(self) -> float:
+        """Percentage change between contract F7 and F4 divided by 3, calculated as: ((F7 - F4) / F4) / 3"""
+        ...
+
+    @contango_f_7_minus_f_4_div_3.setter
+    def contango_f_7_minus_f_4_div_3(self, value: float) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """The timespan that each data point covers"""
+        ...
+
+    @period.setter
+    def period(self, value: datetime.timedelta) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The ending time of the data point"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def __init__(self) -> None:
+        """Creates a new instance of the object"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Gets the source location of the VIXCentral data
+        
+        :param config: 
+        :param date: 
+        :param is_live_mode: 
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Determines if data source is sparse
+        
+        :returns: false.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data from the source and creates a BaseData instance
+        
+        :param config: Configuration
+        :param line: Line of data
+        :param date: Date we're requesting data for
+        :param is_live_mode: Is live mode
+        :returns: New BaseData instance to be used in the algorithm.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Determines whether the data source requires mapping
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string
+        
+        :returns: String containing open, high, low, close.
+        """
+        ...
+
+
+class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Collection of Quiver Lobbying data"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with QuiverLobbying data
+        
+        :returns: string containing QuiverLobbying information.
+        """
+        ...
+
+
+class QuiverLobbyingUniverse(QuantConnect.Data.BaseData):
+    """Example custom data type"""
+
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
+
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverLobbying(QuantConnect.Data.BaseData):
+    """Quiver Lobbying data"""
+
+    @property
+    def client(self) -> str:
+        """Full name of the lobbying client"""
+        ...
+
+    @client.setter
+    def client(self, value: str) -> None:
+        ...
+
+    @property
+    def issue(self) -> str:
+        """Category of legislation that is being lobbied for"""
+        ...
+
+    @issue.setter
+    def issue(self, value: str) -> None:
+        ...
+
+    @property
+    def specific_issue(self) -> str:
+        """Specific piece of legislation being lobbied for"""
+        ...
+
+    @specific_issue.setter
+    def specific_issue(self, value: str) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """The Size of spending instance (USD)"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
 
 class Fred(QuantConnect.Data.BaseData):
     """This class has no documentation."""
-
-    class TradeWeightedIndexes(System.Object):
-        """Trade Weight Indexes"""
-
-        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
-        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
-
-        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
-        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
-
-        BROAD_GOODS: str = "DTWEXB"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
-
-        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
-        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
-
-        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
-        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
-
-        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
-        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
 
     class CentralBankInterventions(System.Object):
         """Central Bank Interventions"""
@@ -16698,6 +15100,93 @@ class Fred(QuantConnect.Data.BaseData):
 
         TOTAL_MARKET_FULL_CAP_5000: str = "WILL5000INDFC"
         """Wilshire 5000 Total Market Full Cap Index (in Index)"""
+
+    class CBOE(System.Object):
+        """Chicago Board Options Exchange"""
+
+        VIX_ON_GOOGLE: str = "VXGOGCLS"
+        """CBOE Equity VIX on Google (in Index)"""
+
+        VXD: str = "VXDCLS"
+        """CBOE DJIA Volatility Index (in Index)"""
+
+        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
+        """CBOE Equity VIX on Goldman Sachs (in Index)"""
+
+        VIX_ON_IBM: str = "VXIBMCLS"
+        """CBOE Equity VIX on IBM (in Index)"""
+
+        VIX_ON_AMAZON: str = "VXAZNCLS"
+        """CBOE Equity VIX on Amazon (in Index)"""
+
+        VXO: str = "VXOCLS"
+        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
+
+        VXN: str = "VXNCLS"
+        """CBOE NASDAQ 100 Volatility Index (in Index)"""
+
+        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
+        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
+
+        RVX: str = "RVXCLS"
+        """CBOE Russell 2000 Volatility Index (in Index)"""
+
+        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
+        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
+
+        VIX_ON_APPLE: str = "VXAPLCLS"
+        """CBOE Equity VIX on Apple (in Index)"""
+
+        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
+        """CBOE Gold Miners ETF Volatility Index (in Index)"""
+
+        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
+        """CBOE China ETF Volatility Index (in Index)"""
+
+        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
+        """CBOE Brazil ETF Volatility Index (in Index)"""
+
+        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
+        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
+
+        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
+        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
+
+        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
+        """CBOE Gold ETF Volatility Index (in Index)"""
+
+        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
+        """CBOE Crude Oil ETF Volatility Index (in Index)"""
+
+        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
+        """CBOE Silver ETF Volatility Index (in Index)"""
+
+        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
+        """CBOE Energy Sector ETF Volatility Index (in Index)"""
+
+        VIX: str = "VIXCLS"
+        """CBOE Volatility Index: VIX (in Index)"""
+
+    class TradeWeightedIndexes(System.Object):
+        """Trade Weight Indexes"""
+
+        MAJOR_CURRENCIES_GOODS: str = "DTWEXM"
+        """Trade Weighted U.S. Dollar Index: Major Currencies, Goods (in Index Mar 1973=100)"""
+
+        OTHER_IMPORTANT_TRADING_PARTNERS_GOODS: str = "DTWEXO"
+        """Trade Weighted U.S. Dollar Index: Other Important Trading Partners, Goods (in Index Jan 1997=100)"""
+
+        BROAD_GOODS: str = "DTWEXB"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods (in Index Jan 1997=100)"""
+
+        ADVANCED_FOREIGN_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXAFEGS"
+        """Trade Weighted U.S. Dollar Index: Advanced Foreign Economies, Goods and Services (in Index Jan 2006=100)"""
+
+        BROAD_GOODS_AND_SERVICES: str = "DTWEXBGS"
+        """Trade Weighted U.S. Dollar Index: Broad, Goods and Services (in Index Jan 2006=100)"""
+
+        EMERGING_MARKETS_ECONOMIES_GOODS_AND_SERVICES: str = "DTWEXEMEGS"
+        """Trade Weighted U.S. Dollar Index: Emerging Markets Economies, Goods and Services (in Index Jan 2006=100)"""
 
     class ICEBofAML(System.Object):
         """ICE BofAML"""
@@ -17532,72 +16021,6 @@ class Fred(QuantConnect.Data.BaseData):
         THREE_MONTH_COMMERCIAL_PAPER_MINUS_FEDERAL_FUNDS_RATE: str = "CPFF"
         """3-Month Commercial Paper Minus Federal Funds Rate (in Percent)"""
 
-    class CBOE(System.Object):
-        """Chicago Board Options Exchange"""
-
-        VIX_ON_GOOGLE: str = "VXGOGCLS"
-        """CBOE Equity VIX on Google (in Index)"""
-
-        VXD: str = "VXDCLS"
-        """CBOE DJIA Volatility Index (in Index)"""
-
-        VIX_ON_GOLDMAN_SACHS: str = "VXGSCLS"
-        """CBOE Equity VIX on Goldman Sachs (in Index)"""
-
-        VIX_ON_IBM: str = "VXIBMCLS"
-        """CBOE Equity VIX on IBM (in Index)"""
-
-        VIX_ON_AMAZON: str = "VXAZNCLS"
-        """CBOE Equity VIX on Amazon (in Index)"""
-
-        VXO: str = "VXOCLS"
-        """CBOE S&P 100 Volatility Index: VXO (in Index)"""
-
-        VXN: str = "VXNCLS"
-        """CBOE NASDAQ 100 Volatility Index (in Index)"""
-
-        TEN_YEAR_TREASURY_NOTE_VOLATILITY_FUTURES: str = "VXTYN"
-        """CBOE 10-Year Treasury Note Volatility Futures (in Index)"""
-
-        RVX: str = "RVXCLS"
-        """CBOE Russell 2000 Volatility Index (in Index)"""
-
-        SP_500_THREE_MONTH_VOLATILITY_INDEX: str = "VXVCLS"
-        """CBOE S&P 500 3-Month Volatility Index (in Index)"""
-
-        VIX_ON_APPLE: str = "VXAPLCLS"
-        """CBOE Equity VIX on Apple (in Index)"""
-
-        GOLD_MINERS_ETF_VOLATILITY_INDEX: str = "VXGDXCLS"
-        """CBOE Gold Miners ETF Volatility Index (in Index)"""
-
-        CHINA_ETF_VOLATILITY_INDEX: str = "VXFXICLS"
-        """CBOE China ETF Volatility Index (in Index)"""
-
-        BRAZIL_ETF_VOLATILITY_INDEX: str = "VXEWZCLS"
-        """CBOE Brazil ETF Volatility Index (in Index)"""
-
-        EMERGING_MARKETS_ETF_VOLATILITY_INDEX: str = "VXEEMCLS"
-        """CBOE Emerging Markets ETF Volatility Index (in Index)"""
-
-        EURO_CURRENCY_ETF_VOLATILITY_INDEX: str = "EVZCLS"
-        """CBOE EuroCurrency ETF Volatility Index (in Index)"""
-
-        GOLD_ETF_VOLATILITY_INDEX: str = "GVZCLS"
-        """CBOE Gold ETF Volatility Index (in Index)"""
-
-        CRUDE_OIL_ETF_VOLATILITY_INDEX: str = "OVXCLS"
-        """CBOE Crude Oil ETF Volatility Index (in Index)"""
-
-        SILVER_ETF_VOLATILITY_INDEX: str = "VXSLVCLS"
-        """CBOE Silver ETF Volatility Index (in Index)"""
-
-        ENERGY_SECTOR_ETF_VOLATILITY_INDEX: str = "VXXLECLS"
-        """CBOE Energy Sector ETF Volatility Index (in Index)"""
-
-        VIX: str = "VIXCLS"
-        """CBOE Volatility Index: VIX (in Index)"""
-
     class LIBOR(System.Object):
         """London InterBank Offered Rate"""
 
@@ -18225,8 +16648,5276 @@ class Fred(QuantConnect.Data.BaseData):
         ...
 
 
-class USEnergy(QuantConnect.Data.BaseData):
+class CBOE(QuantConnect.Data.Market.TradeBar):
+    """CBOE data source"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    def __init__(self) -> None:
+        """Creates a new instance of the object"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Gets the source location of the CBOE file
+        
+        :param config: 
+        :param date: 
+        :param is_live_mode: 
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Determines if data source is sparse
+        
+        :returns: false.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data from the source and creates a BaseData instance
+        
+        :param config: Configuration
+        :param line: Line of data
+        :param date: Date we're requesting data for
+        :param is_live_mode: Is live mode
+        :returns: New BaseData instance to be used in the algorithm.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Determines whether the data source requires mapping
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """
+        Converts the instance to a string
+        
+        :returns: String containing open, high, low, close.
+        """
+        ...
+
+
+class Tiingo(System.Object):
+    """Helper class for Tiingo configuration"""
+
+    auth_code: str
+    """Gets the Tiingo API token."""
+
+    is_auth_code_set: bool
+    """Returns true if the Tiingo API token has been set."""
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Sets the Tiingo API token.
+        
+        :param auth_code: The Tiingo API token
+        """
+        ...
+
+
+class TiingoSymbolMapper(System.Object):
+    """Helper class to map a Lean format ticker to Tiingo format"""
+
+    @staticmethod
+    def get_lean_ticker(ticker: str) -> str:
+        """Maps a given Tiingo ticker to Lean equivalent"""
+        ...
+
+    @staticmethod
+    def get_tiingo_ticker(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security]) -> str:
+        """Maps a given Symbol instance to it's Tiingo equivalent"""
+        ...
+
+
+class TiingoNews(QuantConnect.Data.IndexedBaseData):
+    """
+    Tiingo news data
+    https://api.tiingo.com/documentation/news
+    """
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def source(self) -> str:
+        """The domain the news source is from."""
+        ...
+
+    @source.setter
+    def source(self, value: str) -> None:
+        ...
+
+    @property
+    def crawl_date(self) -> datetime.datetime:
+        """
+        The datetime the news story was added to Tiingos database in UTC.
+        This is always recorded by Tiingo and the news source has no input on this date.
+        """
+        ...
+
+    @crawl_date.setter
+    def crawl_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def url(self) -> str:
+        """URL of the news article."""
+        ...
+
+    @url.setter
+    def url(self, value: str) -> None:
+        ...
+
+    @property
+    def published_date(self) -> datetime.datetime:
+        """
+        The datetime the news story was published in UTC. This is usually reported by the news source and not by Tiingo.
+        If the news source does not declare a published date, Tiingo will use the time the news story was discovered by our crawler farm.
+        """
+        ...
+
+    @published_date.setter
+    def published_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def tags(self) -> typing.List[str]:
+        """Tags that are mapped and discovered by Tiingo."""
+        ...
+
+    @tags.setter
+    def tags(self, value: typing.List[str]) -> None:
+        ...
+
+    @property
+    def description(self) -> str:
+        """Long-form description of the news story."""
+        ...
+
+    @description.setter
+    def description(self, value: str) -> None:
+        ...
+
+    @property
+    def title(self) -> str:
+        """Title of the news article."""
+        ...
+
+    @title.setter
+    def title(self, value: str) -> None:
+        ...
+
+    @property
+    def article_id(self) -> str:
+        """Unique identifier specific to the news article."""
+        ...
+
+    @article_id.setter
+    def article_id(self, value: str) -> None:
+        ...
+
+    @property
+    def symbols(self) -> typing.List[QuantConnect.Symbol]:
+        """What symbols are mentioned in the news story."""
+        ...
+
+    @symbols.setter
+    def symbols(self, value: typing.List[QuantConnect.Symbol]) -> None:
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        For backtesting returns the index source for a date
+        For live trading will return the source url to use, not using the index mechanism
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: The SubscriptionDataSource instance to use.
+        """
+        ...
+
+    def get_source_for_an_index(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, index: str, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns the source for a given index value
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param index: The index value for which we want to fetch the source
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: The SubscriptionDataSource instance to use.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, content: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method,
+            and returns a new instance of the object
+            each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param content: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+
+class TiingoNewsJsonConverter:
+    """
+    Helper json converter class used to convert a list of Tiingo news data
+    into List{TiingoNews}
+    """
+
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security] = None) -> None:
+        """
+        Creates a new instance of the json converter
+        
+        :param symbol: The Symbol instance associated with this news
+        """
+        ...
+
+    def can_convert(self, object_type: typing.Type) -> bool:
+        """
+        Determines whether this instance can convert the specified object type.
+        
+        :param object_type: Type of the object.
+        :returns: true if this instance can convert the specified object type; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    def deserialize_news(token: typing.Any) -> QuantConnect.DataSource.TiingoNews:
+        """
+        Helper method to deserialize a single json Tiingo news
+        
+        :param token: The json token containing the Tiingo news to deserialize
+        :returns: The deserialized TiingoNews instance.
+        """
+        ...
+
+    def read_json(self, reader: typing.Any, object_type: typing.Type, existing_value: typing.Any, serializer: typing.Any) -> System.Object:
+        """
+        Reads the JSON representation of the object.
+        
+        :param reader: The Newtonsoft.Json.JsonReader to read from.
+        :param object_type: Type of the object.
+        :param existing_value: The existing value of object being read.
+        :param serializer: The calling serializer.
+        :returns: The object value.
+        """
+        ...
+
+    def write_json(self, writer: typing.Any, value: typing.Any, serializer: typing.Any) -> None:
+        """
+        Writes the JSON representation of the object.
+        
+        :param writer: The Newtonsoft.Json.JsonWriter to write to.
+        :param value: The value.
+        :param serializer: The calling serializer.
+        """
+        ...
+
+
+class QuiverWikipedia(QuantConnect.Data.BaseData):
+    """Wikipedia Page Views for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """The date of the Page View count"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def page_views(self) -> typing.Optional[float]:
+        """The company's Wikipedia Page Views on the given date"""
+        ...
+
+    @page_views.setter
+    def page_views(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the week prior to the date.
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the month prior to the date
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of QuiverWikipedia from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Quiver Wikipedia object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Quiver Wikipedia information."""
+        ...
+
+
+class QuiverWikipediaUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverWikipedia dataset"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """The date of the Page View count"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def page_views(self) -> typing.Optional[float]:
+        """The company's Wikipedia Page Views on the given date"""
+        ...
+
+    @page_views.setter
+    def page_views(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the week prior to the date.
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """
+        The view count % change over the month prior to the date
+        Represented as a whole number (e.g. 100% = 100.0)
+        """
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+
+class QuiverWallStreetBetsUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverWallStreetBets dataset"""
+
+    @property
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
+        ...
+
+    @mentions.setter
+    def mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
+        ...
+
+    @rank.setter
+    def rank(self, value: int) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+
+class QuiverWallStreetBets(QuantConnect.Data.BaseData):
+    """Mentions of the given company's ticker in the WallStreetBets daily discussion thread"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def date(self) -> datetime.datetime:
+        """Date of the daily discussion thread"""
+        ...
+
+    @date.setter
+    def date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def mentions(self) -> int:
+        """The number of mentions on the given date"""
+        ...
+
+    @mentions.setter
+    def mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def rank(self) -> int:
+        """This ticker's rank on the given date (as determined by total number of mentions)"""
+        ...
+
+    @rank.setter
+    def rank(self, value: int) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        """
+        Average sentiment of all comments containing the given ticker on this date. Sentiment is calculated using VADER sentiment analysis.
+        The value can range between -1 and +1. Negative values imply negative sentiment, whereas positive values imply positive sentiment.
+        """
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of QuiverWallStreetBets from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Quiver WallStreetBets object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Quiver WallStreetBets information."""
+        ...
+
+
+class CoinGecko(QuantConnect.Data.BaseData):
+    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+
+    @property
+    def coin(self) -> str:
+        """Coin Name"""
+        ...
+
+    @property
+    def volume(self) -> float:
+        """Volume in USD of the coin for that day"""
+        ...
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        ...
+
+    @property
+    def market_cap(self) -> float:
+        """Market Cap in USD of the coin for that day"""
+        ...
+
+    @market_cap.setter
+    def market_cap(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
+        """
+        Creates a Symbol object for a given market and quote currency
+        
+        :param market: The market the ticker resides in
+        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
+        :param security_type: The security type of the ticker resides in
+        :returns: A new Symbol object for the specified ticker.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
+    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
+
+    @overload
+    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        :param selector: Returns the symbols that should be included in the universe
+        """
+        ...
+
+    @overload
+    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
+        """
+        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
+        
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
+        """
+        Creates a new fundamental universe using this class's selection functions
+        
+        :param algorithm: The algorithm instance to create universes for
+        :returns: The universe defined by this model.
+        """
+        ...
+
+    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Iterable[QuantConnect.Symbol]:
+        """
+        Defines the CoinGecko selection function.
+        
+        :param algorithm: The algorithm instance
+        :param data: The CoinGecko Universe data used to perform filtering
+        :returns: An enumerable of symbols passing the filter.
+        """
+        ...
+
+
+class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+
+class EstimizeEstimate(QuantConnect.Data.BaseData):
+    """Financial estimates for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the estimate"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker(self) -> str:
+        """The ticker of the company being estimated"""
+        ...
+
+    @ticker.setter
+    def ticker(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year of the quarter being estimated"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter of the quarter being estimated"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def created_at(self) -> datetime.datetime:
+        """The time that the estimate was created (UTC)"""
+        ...
+
+    @created_at.setter
+    def created_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The estimated earnings per share for the company in the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The estimated revenue for the company in the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def user_name(self) -> str:
+        """The unique identifier for the author of the estimate"""
+        ...
+
+    @user_name.setter
+    def user_name(self, value: str) -> None:
+        ...
+
+    @property
+    def analyst_id(self) -> str:
+        """The author of the estimate"""
+        ...
+
+    @analyst_id.setter
+    def analyst_id(self, value: str) -> None:
+        ...
+
+    @property
+    def flagged(self) -> bool:
+        """
+        A boolean value which indicates whether we have flagged this estimate internally as erroneous
+        (spam, wrong accounting standard, etc)
+        """
+        ...
+
+    @flagged.setter
+    def flagged(self, value: bool) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates a new instance of EstimizeEstimate from a CSV line
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Estimate object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Estimate information."""
+        ...
+
+
+class EstimizeRelease(QuantConnect.Data.BaseData):
+    """Financial releases for the specified company"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the release"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> int:
+        """The fiscal year for the release"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: int) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> int:
+        """The fiscal quarter for the release"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: int) -> None:
+        ...
+
+    @property
+    def release_date(self) -> datetime.datetime:
+        """The date of the release"""
+        ...
+
+    @release_date.setter
+    def release_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def eps(self) -> typing.Optional[float]:
+        """The earnings per share for the specified fiscal quarter"""
+        ...
+
+    @eps.setter
+    def eps(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def revenue(self) -> typing.Optional[float]:
+        """The revenue for the specified fiscal quarter"""
+        ...
+
+    @revenue.setter
+    def revenue(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_eps_estimate(self) -> typing.Optional[float]:
+        """The estimated EPS from Wall Street"""
+        ...
+
+    @wall_street_eps_estimate.setter
+    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
+        """The estimated revenue from Wall Street"""
+        ...
+
+    @wall_street_revenue_estimate.setter
+    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_eps_estimate(self) -> typing.Optional[float]:
+        """The mean EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_eps_estimate.setter
+    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_revenue_estimate(self) -> typing.Optional[float]:
+        """The mean revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_revenue_estimate.setter
+    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
+        """The weighted EPS consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_eps_estimate.setter
+    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
+        """The weighted revenue consensus by the Estimize community"""
+        ...
+
+    @consensus_weighted_revenue_estimate.setter
+    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Without a default constructor, Json.NET will call the
+        other constructor with `null` for the string parameter
+        """
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates EstimizeRelease instance from a line of CSV
+        
+        :param csv_line: CSV line
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize Release object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Release information."""
+        ...
+
+
+class EstimizeConsensus(QuantConnect.Data.BaseData):
+    """Consensus of the specified release"""
+
+    class ConsensusSource(IntEnum):
+        """Source of the Consensus"""
+
+        WALL_STREET = 0
+        """Consensus from Wall Street"""
+
+        ESTIMIZE = 1
+        """Consensus from Estimize"""
+
+        WEIGHTED_WALL_STREET = 2
+        """Weighted consensus from Wall Street"""
+
+        WEIGHTED_ESTIMIZE = 3
+        """Weighted consensus from Estimize"""
+
+    class ConsensusType(IntEnum):
+        """Type of the consensus"""
+
+        EPS = 0
+        """Consensus on earnings per share value"""
+
+        REVENUE = 1
+        """Consensus on revenue value"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def id(self) -> str:
+        """The unique identifier for the estimate"""
+        ...
+
+    @id.setter
+    def id(self, value: str) -> None:
+        ...
+
+    @property
+    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
+        """Consensus source (Wall Street or Estimize)"""
+        ...
+
+    @source.setter
+    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
+        ...
+
+    @property
+    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
+        """Type of Consensus (EPS or Revenue)"""
+        ...
+
+    @type.setter
+    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
+        ...
+
+    @property
+    def mean(self) -> typing.Optional[float]:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @mean.setter
+    def mean(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def value(self) -> float:
+        """The mean of the distribution of estimates (the "consensus")"""
+        ...
+
+    @property
+    def high(self) -> typing.Optional[float]:
+        """The highest estimate in the distribution"""
+        ...
+
+    @high.setter
+    def high(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def low(self) -> typing.Optional[float]:
+        """The lowest estimate in the distribution"""
+        ...
+
+    @low.setter
+    def low(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def standard_deviation(self) -> typing.Optional[float]:
+        """The standard deviation of the distribution"""
+        ...
+
+    @standard_deviation.setter
+    def standard_deviation(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def count(self) -> typing.Optional[int]:
+        """The number of estimates in the distribution"""
+        ...
+
+    @count.setter
+    def count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def updated_at(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
+        ...
+
+    @updated_at.setter
+    def updated_at(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def fiscal_year(self) -> typing.Optional[int]:
+        """The fiscal year for the release"""
+        ...
+
+    @fiscal_year.setter
+    def fiscal_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def fiscal_quarter(self) -> typing.Optional[int]:
+        """The fiscal quarter for the release"""
+        ...
+
+    @fiscal_quarter.setter
+    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The timestamp of this consensus (UTC)"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for successful Json.NET deserialization"""
+        ...
+
+    @overload
+    def __init__(self, csv_line: str) -> None:
+        """
+        Creates an instance from CSV lines
+        
+        :param csv_line: CSV file
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the Subscription Data Source gained from the URL
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Subscription Data Source.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects.
+        
+        :param config: Subscription data config setup object
+        :param line: Content of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Estimize consensus object.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Formats a string with the Estimize Estimate information."""
+        ...
+
+
+class SmartInsiderEventType(IntEnum):
+    """Describes what will or has taken place in an execution"""
+
+    AUTHORIZATION = 0
+    """Notification that the board has gained the authority to repurchase"""
+
+    INTENTION = 1
+    """Notification of the board that shares will be repurchased."""
+
+    TRANSACTION = 2
+    """Repurchase transactions that have been actioned."""
+
+    UPWARDS_REVISION = 3
+    """Increase in the scope of the existing plan (extended date, increased value, etc.)"""
+
+    DOWNWARDS_REVISION = 4
+    """Decrease in the scope of the existing plan (shortened date, reduced value, etc.)"""
+
+    REVISED_DETAILS = 5
+    """General change of details of the plan (max/min price alteration, etc.)"""
+
+    CANCELLATION = 6
+    """Total cancellation of the plan"""
+
+    SEEK_AUTHORIZATION = 7
+    """Announcement by a company that the board of directors or management will be seeking to obtain authorisation for a repurchase plan."""
+
+    PLAN_SUSPENSION = 8
+    """Announcement by a company that a plan of repurchase has been suspended. Further details of the suspension are included in the note."""
+
+    PLAN_RE_STARTED = 9
+    """Announcement by a company that a suspended plan has been re-started. Further details of the suspension are included in the note."""
+
+    NOT_SPECIFIED = 10
+    """Announcement by a company not specified and/or not documented in the other categories. Further details are included in the note."""
+
+
+class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+    """
+    SmartInsider Intention and Transaction events. These are fields
+    that are shared between intentions and transactions.
+    """
+
+    @property
+    def transaction_id(self) -> str:
+        """Proprietary unique field. Not nullable"""
+        ...
+
+    @transaction_id.setter
+    def transaction_id(self, value: str) -> None:
+        ...
+
+    @property
+    def event_type(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]:
+        """Description of what has or will take place in an execution"""
+        ...
+
+    @event_type.setter
+    def event_type(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]) -> None:
+        ...
+
+    @property
+    def last_update(self) -> datetime.datetime:
+        """The date when a transaction is updated after it has been reported. Not nullable"""
+        ...
+
+    @last_update.setter
+    def last_update(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def last_i_ds_update(self) -> typing.Optional[datetime.datetime]:
+        """Date that company identifiers were changed. Can be a name, Ticker Symbol or ISIN change"""
+        ...
+
+    @last_i_ds_update.setter
+    def last_i_ds_update(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def isin(self) -> str:
+        """Industry classification number"""
+        ...
+
+    @isin.setter
+    def isin(self, value: str) -> None:
+        ...
+
+    @property
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """The market capitalization at the time of the transaction stated in US Dollars"""
+        ...
+
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def company_id(self) -> typing.Optional[int]:
+        """Smart Insider proprietary identifier for the company"""
+        ...
+
+    @company_id.setter
+    def company_id(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def icb_industry(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_industry.setter
+    def icb_industry(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_super_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_super_sector.setter
+    def icb_super_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_sector.setter
+    def icb_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_sub_sector(self) -> str:
+        """FTSE Russell Sector Classification"""
+        ...
+
+    @icb_sub_sector.setter
+    def icb_sub_sector(self, value: str) -> None:
+        ...
+
+    @property
+    def icb_code(self) -> typing.Optional[int]:
+        """Numeric code that is the most granular level in ICB classification"""
+        ...
+
+    @icb_code.setter
+    def icb_code(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def company_name(self) -> str:
+        """Company name. PLC is always excluded"""
+        ...
+
+    @company_name.setter
+    def company_name(self, value: str) -> None:
+        ...
+
+    @property
+    def previous_results_announcement_date(self) -> typing.Optional[datetime.datetime]:
+        """Announcement date of last results, this will be the end date of the last "Close Period\""""
+        ...
+
+    @previous_results_announcement_date.setter
+    def previous_results_announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def next_results_announcements_date(self) -> typing.Optional[datetime.datetime]:
+        """Announcement date of next results, this will be the end date of the next "Close Period\""""
+        ...
+
+    @next_results_announcements_date.setter
+    def next_results_announcements_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def next_close_begin(self) -> typing.Optional[datetime.datetime]:
+        """Start date of next trading embargo ahead of scheduled results announcment"""
+        ...
+
+    @next_close_begin.setter
+    def next_close_begin(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def last_close_ended(self) -> typing.Optional[datetime.datetime]:
+        """Date trading embargo (Close Period) is lifted as results are made public"""
+        ...
+
+    @last_close_ended.setter
+    def last_close_ended(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def security_description(self) -> str:
+        """Type of security. Does not contain nominal value"""
+        ...
+
+    @security_description.setter
+    def security_description(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker_country(self) -> str:
+        """Country of local identifier, denoting where the trade took place"""
+        ...
+
+    @ticker_country.setter
+    def ticker_country(self, value: str) -> None:
+        ...
+
+    @property
+    def ticker_symbol(self) -> str:
+        """Local market identifier"""
+        ...
+
+    @ticker_symbol.setter
+    def ticker_symbol(self, value: str) -> None:
+        ...
+
+    @property
+    def announcement_date(self) -> typing.Optional[datetime.datetime]:
+        """Date Transaction was entered onto our system. Where a transaction is after the London market close (usually 4.30pm) this will be stated as the next day"""
+        ...
+
+    @announcement_date.setter
+    def announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_released(self) -> typing.Optional[datetime.datetime]:
+        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market, time stated is local market time"""
+        ...
+
+    @time_released.setter
+    def time_released(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_processed(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was entered into Smart Insider systems and appeared on their website, time stated is local to London, UK"""
+        ...
+
+    @time_processed.setter
+    def time_processed(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_released_utc(self) -> typing.Optional[datetime.datetime]:
+        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market. Time stated is GMT standard"""
+        ...
+
+    @time_released_utc.setter
+    def time_released_utc(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def time_processed_utc(self) -> typing.Optional[datetime.datetime]:
+        """Time the transaction was entered onto our systems and appeared on our website. Time stated is GMT standard"""
+        ...
+
+    @time_processed_utc.setter
+    def time_processed_utc(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def announced_in(self) -> str:
+        """Market in which the transaction was announced, this can reference more than one country"""
+        ...
+
+    @announced_in.setter
+    def announced_in(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for cloning"""
+        ...
+
+    @overload
+    def __init__(self, tsv_line: str) -> None:
+        """
+        Parses a line of TSV (tab delimited) from Smart Insider data
+        
+        
+        This codeEntityType is protected.
+        
+        :param tsv_line: Tab delimited line of data
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Derived class instances populate their fields from raw TSV
+        
+        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    @staticmethod
+    def parse_date(date: str) -> datetime.datetime:
+        """
+        Attempts to normalize and parse SmartInsider dates that include a time component.
+        
+        :param date: Date string to parse
+        :returns: DateTime object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderExecutionHolding(IntEnum):
+    """Details regarding the way holdings will be or were processed in a buyback execution"""
+
+    TREASURY = 0
+    """Held in treasury until they are sold back to the market"""
+
+    CANCELLATION = 1
+    """Immediately cancelled"""
+
+    TRUST = 2
+    """Held in trust, generally to cover employee renumerative plans"""
+
+    SATISFY_EMPLOYEE_TAX = 3
+    """Shares will be used to satisfy employee tax liabilities"""
+
+    NOT_REPORTED = 4
+    """Not disclosed by the issuer in the announcements"""
+
+    SATISFY_STOCK_VESTING = 5
+    """Shares will be used to satisfy vesting of employee stock"""
+
+    ERROR = 6
+    """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
+
+
+class SmartInsiderExecution(IntEnum):
+    """Describes how the transaction was executed"""
+
+    MARKET = 0
+    """Took place via the open market"""
+
+    TENDER_OFFER = 1
+    """Via a companywide tender offer to all shareholders"""
+
+    OFF_MARKET = 2
+    """Under a specific agreement between the issuer and shareholder"""
+
+    ERROR = 3
+    """Field is not in this enum"""
+
+
+class SmartInsiderExecutionEntity(IntEnum):
+    """Entity that intends to or executed the transaction"""
+
+    ISSUER = 0
+    """Issuer of the stock"""
+
+    SUBSIDIARY = 1
+    """Subsidiary of the issuer"""
+
+    BROKER = 2
+    """
+    Brokers are commonly used to repurchase shares under mandate to avoid insider
+    information rules and to allow repurchases to carry on through close periods
+    """
+
+    EMPLOYER_BENEFIT_TRUST = 3
+    """Unknown - Transaction"""
+
+    EMPLOYEE_BENEFIT_TRUST = 4
+    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
+
+    THIRD_PARTY = 5
+    """Undisclosed independent third party. Likely to be a broker."""
+
+    ERROR = 6
+    """The field was not found in this enum"""
+
+
+class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
+    """Smart Insider Transaction - Execution of a stock buyback and details about the event occurred"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def buyback_date(self) -> typing.Optional[datetime.datetime]:
+        """Date traded through the market"""
+        ...
+
+    @buyback_date.setter
+    def buyback_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
+        """Describes how transaction was executed"""
+        ...
+
+    @execution.setter
+    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
+        ...
+
+    @property
+    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
+        """Describes which entity carried out the transaction"""
+        ...
+
+    @execution_entity.setter
+    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+        ...
+
+    @property
+    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
+        """Describes what will be done with those shares following repurchase"""
+        ...
+
+    @execution_holding.setter
+    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
+        ...
+
+    @property
+    def currency(self) -> str:
+        """Currency of transation (ISO Code)"""
+        ...
+
+    @currency.setter
+    def currency(self, value: str) -> None:
+        ...
+
+    @property
+    def execution_price(self) -> typing.Optional[float]:
+        """Denominated in Currency of Transaction"""
+        ...
+
+    @execution_price.setter
+    def execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Number of shares traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def gbp_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @gbp_value.setter
+    def gbp_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def eur_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @eur_value.setter
+    def eur_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @usd_value.setter
+    def usd_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def note_text(self) -> str:
+        """Free text which expains futher details about the trade"""
+        ...
+
+    @note_text.setter
+    def note_text(self, value: str) -> None:
+        ...
+
+    @property
+    def buyback_percentage(self) -> typing.Optional[float]:
+        """Percentage of value of the trade as part of the issuers total Market Cap"""
+        ...
+
+    @buyback_percentage.setter
+    def buyback_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def volume_percentage(self) -> typing.Optional[float]:
+        """Percentage of the volume traded on the day of the buyback."""
+        ...
+
+    @volume_percentage.setter
+    def volume_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def conversion_rate(self) -> typing.Optional[float]:
+        """Rate used to calculate 'Value (GBP)' from 'Price' multiplied by 'Amount'. Will be 1 where Currency is also 'GBP'"""
+        ...
+
+    @conversion_rate.setter
+    def conversion_rate(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def amount_adjusted_factor(self) -> typing.Optional[float]:
+        """Multiplier which can be applied to 'Amount' field to account for subsequent corporate action"""
+        ...
+
+    @amount_adjusted_factor.setter
+    def amount_adjusted_factor(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_adjusted_factor(self) -> typing.Optional[float]:
+        """Multiplier which can be applied to 'Price' and 'LastClose' fields to account for subsequent corporate actions"""
+        ...
+
+    @price_adjusted_factor.setter
+    def price_adjusted_factor(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def treasury_holding(self) -> typing.Optional[int]:
+        """Post trade holding of the Treasury or Trust in the security traded"""
+        ...
+
+    @treasury_holding.setter
+    def treasury_holding(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty contsructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Creates an instance of the object by taking a formatted TSV line
+        
+        :param line: Line of formatted TSV
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the object to a new instance. This method
+        is required for custom data sources that make use
+        of properties with more complex types since otherwise
+        the values will default to null using the default clone method
+        
+        :returns: A new cloned instance of this object.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Creates an instance of the object by taking a formatted TSV line
+        
+        :param line: Line of formatted TSV
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reads the data into LEAN for use in algorithms
+        
+        :param config: Subscription configuration
+        :param line: Line of TSV
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts the data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
+    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
+        """Describes how the transaction was executed"""
+        ...
+
+    @execution.setter
+    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
+        ...
+
+    @property
+    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
+        """Describes which entity intends to execute the transaction"""
+        ...
+
+    @execution_entity.setter
+    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
+        ...
+
+    @property
+    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
+        """Describes what will be done with those shares following repurchase"""
+        ...
+
+    @execution_holding.setter
+    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
+        ...
+
+    @property
+    def amount(self) -> typing.Optional[int]:
+        """Number of shares to be or authorised to be traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def value_currency(self) -> str:
+        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
+        ...
+
+    @value_currency.setter
+    def value_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def amount_value(self) -> typing.Optional[int]:
+        """Value of shares to be authorised to be traded"""
+        ...
+
+    @amount_value.setter
+    def amount_value(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def percentage(self) -> typing.Optional[float]:
+        """Percentage of oustanding shares to be authorised to be traded"""
+        ...
+
+    @percentage.setter
+    def percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
+        """start of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_start_date.setter
+    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
+        """End of the period the intention/authorisation applies to"""
+        ...
+
+    @authorization_end_date.setter
+    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def price_currency(self) -> str:
+        """Currency of min/max prices (ISO Code)"""
+        ...
+
+    @price_currency.setter
+    def price_currency(self, value: str) -> None:
+        ...
+
+    @property
+    def minimum_price(self) -> typing.Optional[float]:
+        """Minimum price shares will or may be purchased at"""
+        ...
+
+    @minimum_price.setter
+    def minimum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_price(self) -> typing.Optional[float]:
+        """Maximum price shares will or may be purchased at"""
+        ...
+
+    @maximum_price.setter
+    def maximum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def note_text(self) -> str:
+        """Free text which explains further details about the trade"""
+        ...
+
+    @note_text.setter
+    def note_text(self, value: str) -> None:
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Empty constructor required for Slice.Get{T}()"""
+        ...
+
+    @overload
+    def __init__(self, line: str) -> None:
+        """
+        Constructs instance of this via a *formatted* TSV line (tab delimited)
+        
+        :param line: Line of formatted TSV data
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the object to a new instance. This method
+        is required for custom data sources that make use
+        of properties with more complex types since otherwise
+        the values will default to null using the default clone method
+        
+        :returns: A new cloned instance of this object.
+        """
+        ...
+
+    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
+        """
+        Constructs a new instance from unformatted TSV data
+        
+        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
+        :param indexes: Index per header column
+        :returns: success of the parsing task.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Loads and reads the data to be used in LEAN
+        
+        :param config: Subscription configuration
+        :param line: TSV line
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_line(self) -> str:
+        """
+        Converts the data to TSV
+        
+        :returns: String of TSV.
+        """
+        ...
+
+
+class SmartInsiderTransactionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Smart Insider Transaction Universe"""
+
+    @property
+    def amount(self) -> typing.Optional[float]:
+        """Number of shares traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def minimum_execution_price(self) -> typing.Optional[float]:
+        """Minimum Value of Denominated in Currency of Transaction"""
+        ...
+
+    @minimum_execution_price.setter
+    def minimum_execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_execution_price(self) -> typing.Optional[float]:
+        """Maximum Value of Denominated in Currency of Transaction"""
+        ...
+
+    @maximum_execution_price.setter
+    def maximum_execution_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_value(self) -> typing.Optional[float]:
+        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
+        ...
+
+    @usd_value.setter
+    def usd_value(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def buyback_percentage(self) -> typing.Optional[float]:
+        """Percentage of value of the trade as part of the issuers total Market Cap"""
+        ...
+
+    @buyback_percentage.setter
+    def buyback_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def volume_percentage(self) -> typing.Optional[float]:
+        """Percentage of the volume traded on the day of the buyback."""
+        ...
+
+    @volume_percentage.setter
+    def volume_percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """Market Capitalization in USD"""
+        ...
+
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Loads and reads the data to be used in LEAN
+        
+        :param config: Subscription configuration
+        :param line: TSV line
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class SmartInsiderIntentionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Smart Insider Intentions Universe"""
+
+    @property
+    def amount(self) -> typing.Optional[int]:
+        """Number of shares to be or authorised to be traded"""
+        ...
+
+    @amount.setter
+    def amount(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def amount_value(self) -> typing.Optional[int]:
+        """Value of shares to be authorised to be traded"""
+        ...
+
+    @amount_value.setter
+    def amount_value(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def percentage(self) -> typing.Optional[float]:
+        """Percentage of oustanding shares to be authorised to be traded"""
+        ...
+
+    @percentage.setter
+    def percentage(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def minimum_price(self) -> typing.Optional[float]:
+        """Minimum price shares will or may be purchased at"""
+        ...
+
+    @minimum_price.setter
+    def minimum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def maximum_price(self) -> typing.Optional[float]:
+        """Maximum price shares will or may be purchased at"""
+        ...
+
+    @maximum_price.setter
+    def maximum_price(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def usd_market_cap(self) -> typing.Optional[float]:
+        """Market Capitalization in USD"""
+        ...
+
+    @usd_market_cap.setter
+    def usd_market_cap(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the timezone of this data source
+        
+        :returns: Timezone.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Specifies the location of the data and directs LEAN where to load the data from
+        
+        :param config: Subscription configuration
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Subscription data source object pointing LEAN to the data location.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Loads and reads the data to be used in LEAN
+        
+        :param config: Subscription configuration
+        :param line: TSV line
+        :param date: Algorithm date
+        :param is_live_mode: Is live mode
+        :returns: Instance of the object.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverInsiderTradingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for QuiverQuant InsiderTrading dataset"""
+
+    @property
+    def name(self) -> str:
+        """Name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Shares amount in transaction"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """PricePerShare of transaction"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Shares Owned after transcation"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverInsiderTrading(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Insider Trading by private businesses"""
+
+    @property
+    def name(self) -> str:
+        """Name"""
+        ...
+
+    @name.setter
+    def name(self, value: str) -> None:
+        ...
+
+    @property
+    def shares(self) -> typing.Optional[float]:
+        """Shares amount in transaction"""
+        ...
+
+    @shares.setter
+    def shares(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price_per_share(self) -> typing.Optional[float]:
+        """PricePerShare of transaction"""
+        ...
+
+    @price_per_share.setter
+    def price_per_share(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def shares_owned_following(self) -> typing.Optional[float]:
+        """Shares Owned after transcation"""
+        ...
+
+    @shares_owned_following.setter
+    def shares_owned_following(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time the data point ends at and becomes available to the algorithm"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clone implementation"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
+    """Nasdaq Bitfinex Data Downloader class"""
+
+    @property
+    def _api_key(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @_api_key.setter
+    def _api_key(self, value: str) -> None:
+        ...
+
+    def __init__(self, api_key: str) -> None:
+        """
+        Initializes a new instance of the NasdaqBitfinexDownloader class
+        
+        :param api_key: The nasdaq api key
+        """
+        ...
+
+    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
+        """
+        Get historical data enumerable for Bitfinex from Nasdaq
+        
+        :param data_downloader_get_parameters: model class for passing in parameters for historical data
+        :returns: Enumerable of base data for this symbol.
+        """
+        ...
+
+
+class QuandlBitfinexDownloader(QuantConnect.DataSource.NasdaqBitfinexDownloader):
+    """Quandl Bitfinex Data Downloader class"""
+
+    def __init__(self, api_key: str) -> None:
+        """
+        Initializes a new instance of the QuandlBitfinexDownloader class
+        
+        :param api_key: The quandl api key
+        """
+        ...
+
+
+class QuandlBitfinexDownloaderProgram(System.Object):
     """This class has no documentation."""
+
+    @staticmethod
+    def quandl_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Quandl Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class NasdaqBitfinexDownloaderProgram(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def nasdaq_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
+        """Nasdaq Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
+        ...
+
+
+class NasdaqDataLink(QuantConnect.Data.DynamicData):
+    """Nasdaq Data Link dataset"""
+
+    @property
+    def value_column_name(self) -> str:
+        """
+        Name of the column is going to be used for the field Value
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @value_column_name.setter
+    def value_column_name(self, value: str) -> None:
+        ...
+
+    is_auth_code_set: bool
+    """Flag indicating whether or not the Nasdaq Data Link auth code has been set yet"""
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """
+        The end time of this data. Some data covers spans (trade bars) and as such we want
+        to know the entire time span covered
+        """
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def period(self) -> datetime.timedelta:
+        """Gets a time span of one day"""
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """Default NasdaqDataLink constructor uses Close as its value column"""
+        ...
+
+    @overload
+    def __init__(self, value_column_name: str) -> None:
+        """
+        Constructor for creating customized NasdaqDataLink instance which doesn't use close, price, settle or value as its value item.
+        
+        
+        This codeEntityType is protected.
+        
+        :param value_column_name: The name of the column we want to use as reference, the Value property
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Using the Nasdaq Data Link V3 API automatically set the URL for the dataset.
+        
+        :param config: Subscription configuration object
+        :param date: Date of the data file we're looking for
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: STRING API Url for Nasdaq Data Link.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: CSV line of data from the souce
+        :param date: Date of the requested line
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    @staticmethod
+    def set_auth_code(auth_code: str) -> None:
+        """
+        Set the auth code for the Nasdaq Data Link set to the QuantConnect auth code.
+        
+        :param auth_code: 
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+
+class BrainStockRanking3Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking3Day]):
+    """Brain universe stock rankings on expected returns in the next 3 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsSimilarityDifference(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def all(self) -> typing.Optional[float]:
+        ...
+
+    @all.setter
+    def all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def positive(self) -> typing.Optional[float]:
+        ...
+
+    @positive.setter
+    def positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def negative(self) -> typing.Optional[float]:
+        ...
+
+    @negative.setter
+    def negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def litigious(self) -> typing.Optional[float]:
+        ...
+
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def constraining(self) -> typing.Optional[float]:
+        ...
+
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interesting(self) -> typing.Optional[float]:
+        ...
+
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @staticmethod
+    def parse(similarity_values: typing.List[str]) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
+        ...
+
+
+class BrainCompanyFilingLanguageMetrics(System.Object):
+    """This class has no documentation."""
+
+    @property
+    def sentence_count(self) -> typing.Optional[int]:
+        ...
+
+    @sentence_count.setter
+    def sentence_count(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def mean_sentence_length(self) -> typing.Optional[float]:
+        ...
+
+    @mean_sentence_length.setter
+    def mean_sentence_length(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @uncertainty.setter
+    def uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def litigious(self) -> typing.Optional[float]:
+        ...
+
+    @litigious.setter
+    def litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def constraining(self) -> typing.Optional[float]:
+        ...
+
+    @constraining.setter
+    def constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def interesting(self) -> typing.Optional[float]:
+        ...
+
+    @interesting.setter
+    def interesting(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def readability(self) -> typing.Optional[float]:
+        ...
+
+    @readability.setter
+    def readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @lexical_richness.setter
+    def lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @lexical_density.setter
+    def lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @specific_density.setter
+    def specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def similarity(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference:
+        ...
+
+    @similarity.setter
+    def similarity(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsSimilarityDifference) -> None:
+        ...
+
+    @staticmethod
+    def parse(metrics: typing.List[str], similarity: typing.List[str] = None) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+
+class BrainWikipediaPageViews(QuantConnect.Data.BaseData):
+    """
+    Brain Wikipedia Page Views (BWPV)
+    
+    The dataset monitors Wikipedia page views and "buzz" metrics for
+    the top ~1000 US companies. It provides the raw views and buzz
+    scores over different horizons (1, 7, and 30 days).
+    """
+
+    @property
+    def number_views_1(self) -> typing.Optional[float]:
+        """Raw number of views for the past day"""
+        ...
+
+    @number_views_1.setter
+    def number_views_1(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def buzz_1(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past day"""
+        ...
+
+    @buzz_1.setter
+    def buzz_1(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def number_views_7(self) -> typing.Optional[float]:
+        """Raw number of views over the past 7 days"""
+        ...
+
+    @number_views_7.setter
+    def number_views_7(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def buzz_7(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past 7 days"""
+        ...
+
+    @buzz_7.setter
+    def buzz_7(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def number_views_30(self) -> typing.Optional[float]:
+        """Raw number of views over the past 30 days"""
+        ...
+
+    @number_views_30.setter
+    def number_views_30(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def buzz_30(self) -> typing.Optional[float]:
+        """"Buzz" metric over the past 30 days"""
+        ...
+
+    @buzz_30.setter
+    def buzz_30(self, value: typing.Optional[float]) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """Gets the data time zone (UTC)"""
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution (daily)"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Returns the path to the daily data file for a given symbol and month.
+        
+        Folder structure (Option A):
+            alternative/brain/bwpv/{yyyyMM}/{symbol}.csv
+        
+        Each file contains multiple daily rows for the given symbol and month.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """Indicates whether the data is sparse"""
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses a line from the BWPV data file into a BrainWikipediaPageViews instance.
+        
+        File format (per line):
+          0: yyyyMMdd (data date)
+          1: NumberViews1
+          2: Buzz1
+          3: NumberViews7
+          4: Buzz7
+          5: NumberViews30
+          6: Buzz30
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """Indicates whether the data source requires symbol mapping"""
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolutions (daily only)"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts this instance to a string"""
+        ...
+
+
+class BrainStockRankingBase(typing.Generic[QuantConnect_DataSource_BrainStockRankingBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    @property
+    def rank(self) -> float:
+        ...
+
+    @rank.setter
+    def rank(self, value: float) -> None:
+        ...
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainStockRankingBase_T:
+        """This codeEntityType is protected."""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainSentimentIndicator7Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator7Day]):
+    """Brain sentiment indicator on 7 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainLanguageMetricsEarningsCallsBase(typing.Generic[QuantConnect_DataSource_BrainLanguageMetricsEarningsCallsBase_T], QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
+    """
+    Base class for Brain Language Metrics on Earnings Calls (metrics-only version).
+    This class parses daily rows of MD/AQ/MA metrics for a given symbol.
+    """
+
+    @property
+    def last_transcript_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @last_transcript_date.setter
+    def last_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def last_transcript_quarter(self) -> typing.Optional[int]:
+        ...
+
+    @last_transcript_quarter.setter
+    def last_transcript_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def last_transcript_year(self) -> typing.Optional[int]:
+        ...
+
+    @last_transcript_year.setter
+    def last_transcript_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def md_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @md_n_characters.setter
+    def md_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @md_sentiment.setter
+    def md_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_uncertainty.setter
+    def md_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_litigious.setter
+    def md_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_score_constraining.setter
+    def md_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_readability(self) -> typing.Optional[float]:
+        ...
+
+    @md_readability.setter
+    def md_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @md_lexical_richness.setter
+    def md_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_lexical_density.setter
+    def md_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_specific_density.setter
+    def md_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @aq_n_characters.setter
+    def aq_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @aq_sentiment.setter
+    def aq_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_uncertainty.setter
+    def aq_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_litigious.setter
+    def aq_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @aq_score_constraining.setter
+    def aq_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @ma_n_characters.setter
+    def ma_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @ma_sentiment.setter
+    def ma_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_uncertainty.setter
+    def ma_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_litigious.setter
+    def ma_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_score_constraining.setter
+    def ma_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_readability(self) -> typing.Optional[float]:
+        ...
+
+    @ma_readability.setter
+    def ma_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @ma_lexical_richness.setter
+    def ma_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_lexical_density.setter
+    def ma_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_specific_density.setter
+    def ma_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def prev_transcript_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @prev_transcript_date.setter
+    def prev_transcript_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def prev_transcript_quarter(self) -> typing.Optional[int]:
+        ...
+
+    @prev_transcript_quarter.setter
+    def prev_transcript_quarter(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def prev_transcript_year(self) -> typing.Optional[int]:
+        ...
+
+    @prev_transcript_year.setter
+    def prev_transcript_year(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def md_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_perc_n_characters.setter
+    def md_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_sentiment(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_sentiment.setter
+    def md_delta_sentiment(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_uncertainty.setter
+    def md_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_litigious.setter
+    def md_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_score_constraining.setter
+    def md_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_readability(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_readability.setter
+    def md_delta_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_lexical_richness.setter
+    def md_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_lexical_density.setter
+    def md_delta_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_delta_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @md_delta_specific_density.setter
+    def md_delta_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_all.setter
+    def md_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_positive.setter
+    def md_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_negative.setter
+    def md_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_uncertainty.setter
+    def md_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_litigious.setter
+    def md_similarity_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def md_similarity_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @md_similarity_constraining.setter
+    def md_similarity_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_perc_n_characters.setter
+    def aq_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_sentiment_delta(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_sentiment_delta.setter
+    def aq_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_uncertainty.setter
+    def aq_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_litigious.setter
+    def aq_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @aq_delta_score_constraining.setter
+    def aq_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_all.setter
+    def aq_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_positive.setter
+    def aq_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def aq_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @aq_similarity_negative.setter
+    def aq_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_perc_n_characters(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_perc_n_characters.setter
+    def ma_delta_perc_n_characters(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_sentiment_delta(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_sentiment_delta.setter
+    def ma_delta_sentiment_delta(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_uncertainty.setter
+    def ma_delta_score_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_litigious.setter
+    def ma_delta_score_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_score_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_score_constraining.setter
+    def ma_delta_score_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_readability(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_readability.setter
+    def ma_delta_readability(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_lexical_richness(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_lexical_richness.setter
+    def ma_delta_lexical_richness(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_lexical_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_lexical_density.setter
+    def ma_delta_lexical_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_delta_specific_density(self) -> typing.Optional[float]:
+        ...
+
+    @ma_delta_specific_density.setter
+    def ma_delta_specific_density(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_all(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_all.setter
+    def ma_similarity_all(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_positive(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_positive.setter
+    def ma_similarity_positive(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_negative(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_negative.setter
+    def ma_similarity_negative(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_uncertainty(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_uncertainty.setter
+    def ma_similarity_uncertainty(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_litigious(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_litigious.setter
+    def ma_similarity_litigious(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def ma_similarity_constraining(self) -> typing.Optional[float]:
+        ...
+
+    @ma_similarity_constraining.setter
+    def ma_similarity_constraining(self, value: typing.Optional[float]) -> None:
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Path structure:
+        alternative/brain/blmect/{symbol}.csv
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parse one metrics row.
+        CSV Layout:
+        0: date (yyyyMMdd)
+        1: last transcript date (yyyy-MM-dd)
+        2: last transcript quarter
+        3: last transcript year
+        4..12: MD metrics (9 columns)
+        13..17: AQ metrics (5 columns)
+        18..26: MA metrics (9 columns)
+        27: prev transcript date (yyyy-MM-dd)
+        28: prev transcript quarter
+        29: prev transcript year
+        30..38: MD deltas (9 columns)
+        39..44: MD similarities (6 columns)
+        45..49: AQ deltas (5 columns)
+        50..52: AQ similarities (3 columns)
+        53..62: MA deltas (10 columns)
+        63..68: MA similarities (6 columns)
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        ...
+
+
+class BrainSentimentIndicatorUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain Sentiment dataset"""
+
+    @property
+    def total_article_mentions_7_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 7 days"""
+        ...
+
+    @total_article_mentions_7_days.setter
+    def total_article_mentions_7_days(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions_7_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 7 days"""
+        ...
+
+    @sentimental_article_mentions_7_days.setter
+    def sentimental_article_mentions_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment_7_days(self) -> typing.Optional[float]:
+        """Setiment Score in 7 days"""
+        ...
+
+    @sentiment_7_days.setter
+    def sentiment_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 7 days"""
+        ...
+
+    @total_buzz_volume_7_days.setter
+    def total_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume_7_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 7 days"""
+        ...
+
+    @sentimental_buzz_volume_7_days.setter
+    def sentimental_buzz_volume_7_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_article_mentions_30_days(self) -> typing.Optional[int]:
+        """Total Article Mentions in 30 days"""
+        ...
+
+    @total_article_mentions_30_days.setter
+    def total_article_mentions_30_days(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions_30_days(self) -> typing.Optional[float]:
+        """Sentimental Article Mentions in 30 days"""
+        ...
+
+    @sentimental_article_mentions_30_days.setter
+    def sentimental_article_mentions_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentiment_30_days(self) -> typing.Optional[float]:
+        """Setiment Score in 30 days"""
+        ...
+
+    @sentiment_30_days.setter
+    def sentiment_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def total_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Total Buzz Volume in 30 days"""
+        ...
+
+    @total_buzz_volume_30_days.setter
+    def total_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume_30_days(self) -> typing.Optional[float]:
+        """Sentimental Buzz Volume in 30 days"""
+        ...
+
+    @sentimental_buzz_volume_30_days.setter
+    def sentimental_buzz_volume_30_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainStockRanking10Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking10Day]):
+    """Brain universe stock rankings on expected returns in the next 10 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRankingUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for Brain ML Stock Ranking dataset"""
+
+    @property
+    def rank_2_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 2 days"""
+        ...
+
+    @rank_2_days.setter
+    def rank_2_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_3_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 3 days"""
+        ...
+
+    @rank_3_days.setter
+    def rank_3_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_5_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 5 days"""
+        ...
+
+    @rank_5_days.setter
+    def rank_5_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_10_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 10 days"""
+        ...
+
+    @rank_10_days.setter
+    def rank_10_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def rank_21_days(self) -> typing.Optional[float]:
+        """Rank prediction score in 21 days"""
+        ...
+
+    @rank_21_days.setter
+    def rank_21_days(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsBase(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    @property
+    def report_date(self) -> datetime.datetime:
+        ...
+
+    @report_date.setter
+    def report_date(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def report_category(self) -> str:
+        ...
+
+    @report_category.setter
+    def report_category(self, value: str) -> None:
+        ...
+
+    @property
+    def report_period(self) -> typing.Optional[int]:
+        ...
+
+    @report_period.setter
+    def report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def previous_report_date(self) -> typing.Optional[datetime.datetime]:
+        ...
+
+    @previous_report_date.setter
+    def previous_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
+        ...
+
+    @property
+    def previous_report_category(self) -> str:
+        ...
+
+    @previous_report_category.setter
+    def previous_report_category(self, value: str) -> None:
+        ...
+
+    @property
+    def previous_report_period(self) -> typing.Optional[int]:
+        ...
+
+    @previous_report_period.setter
+    def previous_report_period(self, value: typing.Optional[int]) -> None:
+        ...
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsBase_T:
+        """
+        Clones the data
+        
+        
+        This codeEntityType is protected.
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverseAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverseAll]):
+    """Brain sentiment universe on 10-K/10-Q SEC reports"""
+
+    @property
+    def report_type(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+
+class BrainStockRanking2Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking2Day]):
+    """Brain universe stock rankings on expected returns in the next 2 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverse10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsUniverse[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse10K]):
+    """Brain sentiment universe on only 10-K SEC reports"""
+
+    @property
+    def report_type(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """Clones this instance"""
+        ...
+
+
+class BrainSentimentIndicatorBase(typing.Generic[QuantConnect_DataSource_BrainSentimentIndicatorBase_T], QuantConnect.Data.BaseData):
+    """Brain sentiment on news"""
+
+    @property
+    def total_article_mentions(self) -> int:
+        ...
+
+    @total_article_mentions.setter
+    def total_article_mentions(self, value: int) -> None:
+        ...
+
+    @property
+    def sentimental_article_mentions(self) -> float:
+        ...
+
+    @sentimental_article_mentions.setter
+    def sentimental_article_mentions(self, value: float) -> None:
+        ...
+
+    @property
+    def sentiment(self) -> float:
+        ...
+
+    @sentiment.setter
+    def sentiment(self, value: float) -> None:
+        ...
+
+    @property
+    def total_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @total_buzz_volume.setter
+    def total_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def sentimental_buzz_volume(self) -> typing.Optional[float]:
+        ...
+
+    @sentimental_buzz_volume.setter
+    def sentimental_buzz_volume(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+    def clone_data(self) -> QuantConnect_DataSource_BrainSentimentIndicatorBase_T:
+        """
+        Clones the data
+        
+        
+        This codeEntityType is protected.
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class BrainLanguageMetricsEarningsCalls(QuantConnect.DataSource.BrainLanguageMetricsEarningsCallsBase[QuantConnect_DataSource_BrainLanguageMetricsEarningsCalls]):
+    """
+    Brain Earnings Call Language Metrics (BLMECT).
+    
+    Provides daily language-analysis metrics computed from the most recent earnings call
+    available as of each calculation date for a given symbol.
+    
+    The dataset decomposes each earnings call transcript into three sections:
+    MD (Management Discussion) – prepared remarks by company management.
+        AQ (Analyst Questions) – questions asked by sell-side analysts.
+        MA (Management Answers) – management responses during the Q&A session.
+        
+    
+    For each section, the dataset includes:
+    Absolute language metrics (sentiment, uncertainty, readability, etc.)Changes (deltas) relative to the previous earnings callText similarity scores comparing the latest and previous calls
+    
+    The BaseData.time value represents the calculation date (DATE),
+    not the earnings call date. Transcript metadata fields such as
+    LastTranscriptDate, LastTranscriptQuarter, and LastTranscriptYear
+    identify the earnings call used to compute the metrics.
+    
+    This dataset is sparse, daily, and mapping-aware, allowing seamless use across
+    ticker changes and corporate actions in Lean algorithms.
+    """
+
+
+class BrainStockRanking21Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking21Day]):
+    """Brain universe stock rankings on expected returns in the next 30 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsAll(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsAll]):
+    """Brain sentiment on 10-K/10-Q SEC reports"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report_type(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+
+class BrainSentimentIndicator30Day(QuantConnect.DataSource.BrainSentimentIndicatorBase[QuantConnect_DataSource_BrainSentimentIndicator30Day]):
+    """Brain sentiment indicator on 30 days of news"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainStockRanking5Day(QuantConnect.DataSource.BrainStockRankingBase[QuantConnect_DataSource_BrainStockRanking5Day]):
+    """Brain universe stock rankings on expected returns in the next 5 days"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def lookback_days(self) -> int:
+        """This codeEntityType is protected."""
+        ...
+
+    @lookback_days.setter
+    def lookback_days(self, value: int) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetrics10K(QuantConnect.DataSource.BrainCompanyFilingLanguageMetricsBase[QuantConnect_DataSource_BrainCompanyFilingLanguageMetrics10K]):
+    """Brain sentiment on only 10-K SEC reports"""
+
+    DATA_SOURCE_ID: int
+    """Data source ID"""
+
+    @property
+    def report_type(self) -> str:
+        """This codeEntityType is protected."""
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+
+class BrainCompanyFilingLanguageMetricsUniverse(typing.Generic[QuantConnect_DataSource_BrainCompanyFilingLanguageMetricsUniverse_T], QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Universe Selection helper class for BrainCompanyFilingLanguageMetrics dataset"""
+
+    @property
+    def report_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by report part"""
+        ...
+
+    @report_sentiment.setter
+    def report_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def risk_factors_statement_sentiment(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by risk factor statement part"""
+        ...
+
+    @risk_factors_statement_sentiment.setter
+    def risk_factors_statement_sentiment(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self) -> QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics:
+        """Language Metric score by Management Discussion Analyasis Of Financial Condition And Results Of Operations"""
+        ...
+
+    @management_discussion_analyasis_of_financial_condition_and_results_of_operations.setter
+    def management_discussion_analyasis_of_financial_condition_and_results_of_operations(self, value: QuantConnect.DataSource.BrainCompanyFilingLanguageMetrics) -> None:
+        ...
+
+    @property
+    def report_type(self) -> str:
+        """
+        Report Type of which the language metric came from
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    @report_type.setter
+    def report_type(self, value: str) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class CryptoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
+    """Crypto Coarse Fundamental object for crpyto universe selection"""
+
+    @property
+    def open(self) -> float:
+        """Daily Open Price (UTC 00:00)"""
+        ...
+
+    @open.setter
+    def open(self, value: float) -> None:
+        ...
+
+    @property
+    def high(self) -> float:
+        """Daily High Price"""
+        ...
+
+    @high.setter
+    def high(self, value: float) -> None:
+        ...
+
+    @property
+    def low(self) -> float:
+        """Daily Low Price"""
+        ...
+
+    @low.setter
+    def low(self, value: float) -> None:
+        ...
+
+    @property
+    def close(self) -> float:
+        """Daily Close Price"""
+        ...
+
+    @close.setter
+    def close(self, value: float) -> None:
+        ...
+
+    @property
+    def volume(self) -> float:
+        """
+        Daily Trade Volume
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume.setter
+    def volume(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_quote_currency(self) -> float:
+        """
+        Daily Volume in Quote Currency
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_quote_currency.setter
+    def volume_in_quote_currency(self, value: float) -> None:
+        ...
+
+    @property
+    def volume_in_usd(self) -> typing.Optional[float]:
+        """
+        Daily Volume in USD
+        Note that this only includes the volume traded in the selected market
+        """
+        ...
+
+    @volume_in_usd.setter
+    def volume_in_usd(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def price(self) -> float:
+        """Alias of close price"""
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def binance_us(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bitfinex(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def bybit(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def coinbase(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def kraken(selector: typing.Callable[[typing.List[QuantConnect.DataSource.CryptoUniverse]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> QuantConnect.Data.UniverseSelection.Universe:
+        """
+        Creates a new crypto universe
+        
+        :param selector: Returns the symbols that should be included in the universe
+        :param universe_settings: The settings used for new subscriptions generated by this universe
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+    def universe_symbol(self, market: str = None) -> QuantConnect.Symbol:
+        """
+        Creates the universe symbol
+        
+        :returns: A crypto coarse universe symbol.
+        """
+        ...
+
+
+class CryptoCoarseFundamental(QuantConnect.DataSource.CryptoUniverse):
+    """'CryptoCoarseFundamental' was renamed to 'CryptoUniverse'"""
+
+
+class QuiverTwitterFollowers(QuantConnect.Data.BaseData):
+    """Example custom data type"""
+
+    @property
+    def followers(self) -> int:
+        """Number of followers of the company's Twitter page on the given date"""
+        ...
+
+    @followers.setter
+    def followers(self, value: int) -> None:
+        ...
+
+    @property
+    def day_percent_change(self) -> typing.Optional[float]:
+        """Day-over-day change in company's follower count"""
+        ...
+
+    @day_percent_change.setter
+    def day_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """Week-over-week change in company's follower count"""
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """Month-over-month change in company's follower count"""
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def time(self) -> datetime.datetime:
+        """Current time marker of this data packet."""
+        ...
+
+    @time.setter
+    def time(self, value: datetime.datetime) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Clones the data
+        
+        :returns: A clone of the object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates whether the data is sparse.
+        If true, we disable logging for missing files
+        
+        :returns: true.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
+        
+        :returns: false.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverQuantTwitterFollowers(QuantConnect.DataSource.QuiverTwitterFollowers):
+    """Obsoleted QuiverQuantTwitterFollowers class"""
+
+    def __init__(self) -> None:
+        """Obsolete QuiverTwitterFollowers constructor"""
+        ...
+
+
+class QuiverTwitterFollowersUniverse(QuantConnect.Data.BaseData):
+    """Universe Selection helper class for QuiverQuant Twitter Followers dataset"""
+
+    @property
+    def followers(self) -> int:
+        """Number of followers of the company's Twitter page on the given date"""
+        ...
+
+    @followers.setter
+    def followers(self, value: int) -> None:
+        ...
+
+    @property
+    def day_percent_change(self) -> typing.Optional[float]:
+        """Day-over-day change in company's follower count"""
+        ...
+
+    @day_percent_change.setter
+    def day_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def week_percent_change(self) -> typing.Optional[float]:
+        """Week-over-week change in company's follower count"""
+        ...
+
+    @week_percent_change.setter
+    def week_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def month_percent_change(self) -> typing.Optional[float]:
+        """Month-over-month change in company's follower count"""
+        ...
+
+    @month_percent_change.setter
+    def month_percent_change(self, value: typing.Optional[float]) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """Time the data became available"""
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def default_resolution(self) -> QuantConnect.Resolution:
+        """Gets the default resolution for this data and security type"""
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Parses the data from the line provided and loads it into LEAN
+        
+        :param config: Subscription configuration
+        :param line: Line of data
+        :param date: Date
+        :param is_live_mode: Is live mode
+        :returns: New instance.
+        """
+        ...
+
+    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
+        """Gets the supported resolution for this data and security type"""
+        ...
+
+    def to_string(self) -> str:
+        """Converts the instance to string"""
+        ...
+
+
+class QuiverQuantTwitterFollowersUniverse(QuantConnect.DataSource.QuiverTwitterFollowersUniverse):
+    """Obsoleted QuiverQuantTwitterFollowersUniverse class"""
+
+    def __init__(self) -> None:
+        """Obsolete QuiverTwitterFollowersUniverse constructor"""
+        ...
+
+
+class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
+    """
+    Kavout signals are machine-learning enhanced scores that capture the returns
+    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
+    There are many different anomalies discovered by researchers and practitioners across
+    these factor categories, and there is no good common definition of each style
+    across the literature.
+    
+    Kavout creates an ensemble score for each style that gauges the different factors
+    considered in the literature and industry practice.
+    
+    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
+    """
+
+    @property
+    def growth(self) -> float:
+        """Growth factor score"""
+        ...
+
+    @growth.setter
+    def growth(self, value: float) -> None:
+        ...
+
+    @property
+    def value_factor(self) -> float:
+        """Value factor score"""
+        ...
+
+    @value_factor.setter
+    def value_factor(self, value: float) -> None:
+        ...
+
+    @property
+    def quality(self) -> float:
+        """Quality factor score"""
+        ...
+
+    @quality.setter
+    def quality(self, value: float) -> None:
+        ...
+
+    @property
+    def momentum(self) -> float:
+        """Momentum factor score"""
+        ...
+
+    @momentum.setter
+    def momentum(self, value: float) -> None:
+        ...
+
+    @property
+    def low_volatility(self) -> float:
+        """Low volatility factor score"""
+        ...
+
+    @low_volatility.setter
+    def low_volatility(self, value: float) -> None:
+        ...
+
+    @property
+    def end_time(self) -> datetime.datetime:
+        """The time that the data became available to the algorithm"""
+        ...
+
+    @end_time.setter
+    def end_time(self, value: datetime.datetime) -> None:
+        ...
+
+    def clone(self) -> QuantConnect.Data.BaseData:
+        """
+        Return a new instance clone of this object, used in fill forward
+        
+        :returns: A clone of the current object.
+        """
+        ...
+
+    def data_time_zone(self) -> typing.Any:
+        """
+        Specifies the data time zone for this data type. This is useful for custom data types
+        
+        :returns: The NodaTime.DateTimeZone of this data type.
+        """
+        ...
+
+    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
+        """
+        Return the URL string source of the file. This will be converted to a stream
+        
+        :param config: Configuration object
+        :param date: Date of this source file
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: String URL of source file.
+        """
+        ...
+
+    def is_sparse_data(self) -> bool:
+        """
+        Indicates that the data set is expected to be sparse
+        
+        :returns: True if the data set represented by this type is expected to be sparse.
+        """
+        ...
+
+    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
+        """
+        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
+        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
+        
+        :param config: Subscription data config setup object
+        :param line: Line of the source document
+        :param date: Date of the requested data
+        :param is_live_mode: true if we're in live mode, false for backtesting mode
+        :returns: Instance of the T:BaseData object generated by this line of the CSV.
+        """
+        ...
+
+    def requires_mapping(self) -> bool:
+        """
+        Indicates if there is support for mapping
+        
+        :returns: True indicates mapping should be used.
+        """
+        ...
+
+    def to_string(self) -> str:
+        """
+        Formats a string with Cross-asset model data
+        
+        :returns: string containing Cross-asset model information.
+        """
+        ...
+
+
+class USEnergy(QuantConnect.Data.BaseData):
+    """United States Energy Information Administration (EIA). This loads U.S. Energy data from QuantConnect's cache."""
 
     class Petroleum(System.Object):
         """Petroleum"""
@@ -18942,3697 +22633,6 @@ class USEnergy(QuantConnect.Data.BaseData):
 
     def to_string(self) -> str:
         """Converts the instance to string"""
-        ...
-
-
-class KavoutCompositeFactorBundle(QuantConnect.Data.BaseData):
-    """
-    Kavout signals are machine-learning enhanced scores that capture the returns
-    of systematic factors such as Quality, Value, Momentum, Growth, and Low Volatility.
-    There are many different anomalies discovered by researchers and practitioners across
-    these factor categories, and there is no good common definition of each style
-    across the literature.
-    
-    Kavout creates an ensemble score for each style that gauges the different factors
-    considered in the literature and industry practice.
-    
-    Each signal is generated by an ensemble model consisting of inputs from hundreds of anomalies.
-    """
-
-    @property
-    def growth(self) -> float:
-        """Growth factor score"""
-        ...
-
-    @growth.setter
-    def growth(self, value: float) -> None:
-        ...
-
-    @property
-    def value_factor(self) -> float:
-        """Value factor score"""
-        ...
-
-    @value_factor.setter
-    def value_factor(self, value: float) -> None:
-        ...
-
-    @property
-    def quality(self) -> float:
-        """Quality factor score"""
-        ...
-
-    @quality.setter
-    def quality(self, value: float) -> None:
-        ...
-
-    @property
-    def momentum(self) -> float:
-        """Momentum factor score"""
-        ...
-
-    @momentum.setter
-    def momentum(self, value: float) -> None:
-        ...
-
-    @property
-    def low_volatility(self) -> float:
-        """Low volatility factor score"""
-        ...
-
-    @low_volatility.setter
-    def low_volatility(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with Cross-asset model data
-        
-        :returns: string containing Cross-asset model information.
-        """
-        ...
-
-
-class QuandlBitfinexDownloaderProgram(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def quandl_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
-        """Quandl Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
-        ...
-
-
-class NasdaqBitfinexDownloader(System.Object, QuantConnect.IDataDownloader):
-    """Nasdaq Bitfinex Data Downloader class"""
-
-    @property
-    def _api_key(self) -> str:
-        """This codeEntityType is protected."""
-        ...
-
-    @_api_key.setter
-    def _api_key(self, value: str) -> None:
-        ...
-
-    def __init__(self, api_key: str) -> None:
-        """
-        Initializes a new instance of the NasdaqBitfinexDownloader class
-        
-        :param api_key: The nasdaq api key
-        """
-        ...
-
-    def get(self, data_downloader_get_parameters: QuantConnect.DataDownloaderGetParameters) -> typing.Iterable[QuantConnect.Data.BaseData]:
-        """
-        Get historical data enumerable for Bitfinex from Nasdaq
-        
-        :param data_downloader_get_parameters: model class for passing in parameters for historical data
-        :returns: Enumerable of base data for this symbol.
-        """
-        ...
-
-
-class QuandlBitfinexDownloader(QuantConnect.DataSource.NasdaqBitfinexDownloader):
-    """Quandl Bitfinex Data Downloader class"""
-
-    def __init__(self, api_key: str) -> None:
-        """
-        Initializes a new instance of the QuandlBitfinexDownloader class
-        
-        :param api_key: The quandl api key
-        """
-        ...
-
-
-class NasdaqDataLink(QuantConnect.Data.DynamicData):
-    """Nasdaq Data Link dataset"""
-
-    @property
-    def value_column_name(self) -> str:
-        """
-        Name of the column is going to be used for the field Value
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    @value_column_name.setter
-    def value_column_name(self, value: str) -> None:
-        ...
-
-    is_auth_code_set: bool
-    """Flag indicating whether or not the Nasdaq Data Link auth code has been set yet"""
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """
-        The end time of this data. Some data covers spans (trade bars) and as such we want
-        to know the entire time span covered
-        """
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """Gets a time span of one day"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Default NasdaqDataLink constructor uses Close as its value column"""
-        ...
-
-    @overload
-    def __init__(self, value_column_name: str) -> None:
-        """
-        Constructor for creating customized NasdaqDataLink instance which doesn't use close, price, settle or value as its value item.
-        
-        
-        This codeEntityType is protected.
-        
-        :param value_column_name: The name of the column we want to use as reference, the Value property
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Using the Nasdaq Data Link V3 API automatically set the URL for the dataset.
-        
-        :param config: Subscription configuration object
-        :param date: Date of the data file we're looking for
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: STRING API Url for Nasdaq Data Link.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: CSV line of data from the souce
-        :param date: Date of the requested line
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    @staticmethod
-    def set_auth_code(auth_code: str) -> None:
-        """
-        Set the auth code for the Nasdaq Data Link set to the QuantConnect auth code.
-        
-        :param auth_code: 
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-
-class NasdaqBitfinexDownloaderProgram(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def nasdaq_bitfinex_downloader(from_date: typing.Union[datetime.datetime, datetime.date], api_key: str) -> None:
-        """Nasdaq Bitfinex Toolbox Project For LEAN Algorithmic Trading Engine."""
-        ...
-
-
-class QuiverGovernmentContracts(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of Government Contracts by Agencies"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverGovernmentContract data
-        
-        :returns: string containing QuiverGovernmentContract information.
-        """
-        ...
-
-
-class QuiverGovernmentContract(QuantConnect.Data.BaseData):
-    """Government Contract by Agencies"""
-
-    @property
-    def description(self) -> str:
-        """Contract description"""
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
-        ...
-
-    @agency.setter
-    def agency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> float:
-        """Total dollars obligated under the given contract"""
-        ...
-
-    @amount.setter
-    def amount(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time the data point ends at and becomes available to the algorithm"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverGovernmentContractUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Government Contracts dataset"""
-
-    @property
-    def description(self) -> str:
-        """Contract description"""
-        ...
-
-    @description.setter
-    def description(self, value: str) -> None:
-        ...
-
-    @property
-    def agency(self) -> str:
-        """Awarding Agency Name"""
-        ...
-
-    @agency.setter
-    def agency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Total dollars obligated under the given contract"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class ExtractAlphaTrueBeatEarningsMetric(IntEnum):
-    """The earnings metric/type being forecasted"""
-
-    EPS = 0
-    """Earnings per share"""
-
-    REVENUE = 1
-    """Revenue"""
-
-
-class ExtractAlphaTrueBeats(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """A collection of Extra Alpha True Beats for a Symbol and date"""
-
-    def add(self, new_data_point: QuantConnect.Data.BaseData) -> None:
-        """
-        Adds a new data point to this collection
-        
-        :param new_data_point: The new data point to add
-        """
-        ...
-
-    def add_range(self, new_data_points: typing.List[QuantConnect.Data.BaseData]) -> None:
-        """
-        Adds a new data points to this collection
-        
-        :param new_data_points: The new data points to add
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with TrueBeat data
-        
-        :returns: string containing TrueBeat information.
-        """
-        ...
-
-
-class ExtractAlphaFiscalPeriod(System.Object):
-    """Fiscal period that the ExtractAlphaTrueBeat instance has forecasts for."""
-
-    @property
-    def fiscal_year(self) -> int:
-        """Fiscal year (i.e. the year that the financial report applies to in 10-Q and/or 10-K SEC filings)"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """
-        Fiscal quarter (i.e. the quarter that the financial report applies to in 10-Q filings).
-        If this is null, then the fiscal period being reported is for the full year of the fiscal_year
-        """
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end(self) -> typing.Optional[datetime.datetime]:
-        """The date that the fiscal quarter ends"""
-        ...
-
-    @end.setter
-    def end(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def expected_report_date(self) -> typing.Optional[datetime.datetime]:
-        """The date that the SEC report for the fiscal period is expected to be released publicly"""
-        ...
-
-    @expected_report_date.setter
-    def expected_report_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def annual(self) -> bool:
-        """Returns true if the fiscal period is for the whole fiscal year (all quarters)"""
-        ...
-
-    @property
-    def quarterly(self) -> bool:
-        """Returns true if the fiscal period is for a single quarter only"""
-        ...
-
-
-class ExtractAlphaTrueBeat(QuantConnect.Data.BaseData):
-    """
-    EPS/Revenue earnings surprise forecasting for upcoming financial reports released
-    by regulatory agencies (e.g. United States SEC)
-    """
-
-    @property
-    def fiscal_period(self) -> QuantConnect.DataSource.ExtractAlphaFiscalPeriod:
-        """The fiscal period that is being forecasted"""
-        ...
-
-    @fiscal_period.setter
-    def fiscal_period(self, value: QuantConnect.DataSource.ExtractAlphaFiscalPeriod) -> None:
-        ...
-
-    @property
-    def earnings_metric(self) -> QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric:
-        """The earnings metric being forecasted (e.g. EPS, revenue)"""
-        ...
-
-    @earnings_metric.setter
-    def earnings_metric(self, value: QuantConnect.DataSource.ExtractAlphaTrueBeatEarningsMetric) -> None:
-        ...
-
-    @property
-    def analyst_estimates_count(self) -> int:
-        """The number of analyst estimates that the true_beat used in its calculation"""
-        ...
-
-    @analyst_estimates_count.setter
-    def analyst_estimates_count(self, value: int) -> None:
-        ...
-
-    @property
-    def true_beat(self) -> float:
-        """
-        The forecasted earnings surprise percentage, relative to consensus estimates.
-        TrueBeat is calculated as the total sum of the expert_beat, trend_beat, and management_beat metrics.
-        """
-        ...
-
-    @true_beat.setter
-    def true_beat(self, value: float) -> None:
-        ...
-
-    @property
-    def expert_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from top analyst estimates"""
-        ...
-
-    @expert_beat.setter
-    def expert_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def trend_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from trends in stock and peer surprises"""
-        ...
-
-    @trend_beat.setter
-    def trend_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def management_beat(self) -> typing.Optional[float]:
-        """The component of true_beat that is derived from management activity (e.g. guidance)"""
-        ...
-
-    @management_beat.setter
-    def management_beat(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The time that the data became available to the algorithm"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Return a new instance clone of this object, used in fill forward
-        
-        :returns: A clone of the current object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with TrueBeat data
-        
-        :returns: string containing TrueBeat information.
-        """
-        ...
-
-
-class QuiverCNBCs(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of personal stock advices by CNBC"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates that the data set is expected to be sparse
-        
-        :returns: True if the data set represented by this type is expected to be sparse.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects. Each data type creates its own factory method, and returns a new instance of the object
-        each time it is called. The returned object is assumed to be time stamped in the config.ExchangeTimeZone.
-        
-        :param config: Subscription data config setup object
-        :param line: Line of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Instance of the T:BaseData object generated by this line of the CSV.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverCNBC data
-        
-        :returns: string containing QuiverCNBC information.
-        """
-        ...
-
-
-class QuiverCNBCsUniverse(QuantConnect.Data.BaseData):
-    """Universe Selection helper class for QuiverQuant Congress dataset"""
-
-    @property
-    def notes(self) -> str:
-        """Extra Information"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverCNBC(QuantConnect.Data.BaseData):
-    """Personal stock advice by CNBC"""
-
-    @property
-    def notes(self) -> str:
-        """Contract description"""
-        ...
-
-    @notes.setter
-    def notes(self, value: str) -> None:
-        ...
-
-    @property
-    def direction(self) -> QuantConnect.Orders.OrderDirection:
-        """Direction of trade"""
-        ...
-
-    @direction.setter
-    def direction(self, value: QuantConnect.Orders.OrderDirection) -> None:
-        ...
-
-    @property
-    def traders(self) -> str:
-        """Individual Name"""
-        ...
-
-    @traders.setter
-    def traders(self, value: str) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbying(QuantConnect.Data.BaseData):
-    """Quiver Lobbying data"""
-
-    @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
-        ...
-
-    @client.setter
-    def client(self, value: str) -> None:
-        ...
-
-    @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
-        ...
-
-    @issue.setter
-    def issue(self, value: str) -> None:
-        ...
-
-    @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
-        ...
-
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbyingUniverse(QuantConnect.Data.BaseData):
-    """Example custom data type"""
-
-    @property
-    def client(self) -> str:
-        """Full name of the lobbying client"""
-        ...
-
-    @client.setter
-    def client(self, value: str) -> None:
-        ...
-
-    @property
-    def issue(self) -> str:
-        """Category of legislation that is being lobbied for"""
-        ...
-
-    @issue.setter
-    def issue(self, value: str) -> None:
-        ...
-
-    @property
-    def specific_issue(self) -> str:
-        """Specific piece of legislation being lobbied for"""
-        ...
-
-    @specific_issue.setter
-    def specific_issue(self, value: str) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """The Size of spending instance (USD)"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class QuiverLobbyings(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Collection of Quiver Lobbying data"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverLobbying data
-        
-        :returns: string containing QuiverLobbying information.
-        """
-        ...
-
-
-class SmartInsiderExecutionEntity(IntEnum):
-    """Entity that intends to or executed the transaction"""
-
-    ISSUER = 0
-    """Issuer of the stock"""
-
-    SUBSIDIARY = 1
-    """Subsidiary of the issuer"""
-
-    BROKER = 2
-    """
-    Brokers are commonly used to repurchase shares under mandate to avoid insider
-    information rules and to allow repurchases to carry on through close periods
-    """
-
-    EMPLOYER_BENEFIT_TRUST = 3
-    """Unknown - Transaction"""
-
-    EMPLOYEE_BENEFIT_TRUST = 4
-    """To cater for shares which will need to be transferred to employees as part of remunerative plans"""
-
-    THIRD_PARTY = 5
-    """Undisclosed independent third party. Likely to be a broker."""
-
-    ERROR = 6
-    """The field was not found in this enum"""
-
-
-class SmartInsiderTransactionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Smart Insider Transaction Universe"""
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Number of shares traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def minimum_execution_price(self) -> typing.Optional[float]:
-        """Minimum Value of Denominated in Currency of Transaction"""
-        ...
-
-    @minimum_execution_price.setter
-    def minimum_execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_execution_price(self) -> typing.Optional[float]:
-        """Maximum Value of Denominated in Currency of Transaction"""
-        ...
-
-    @maximum_execution_price.setter
-    def maximum_execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @usd_value.setter
-    def usd_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def buyback_percentage(self) -> typing.Optional[float]:
-        """Percentage of value of the trade as part of the issuers total Market Cap"""
-        ...
-
-    @buyback_percentage.setter
-    def buyback_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def volume_percentage(self) -> typing.Optional[float]:
-        """Percentage of the volume traded on the day of the buyback."""
-        ...
-
-    @volume_percentage.setter
-    def volume_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """Market Capitalization in USD"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the timezone of this data source
-        
-        :returns: Timezone.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class SmartInsiderEventType(IntEnum):
-    """Describes what will or has taken place in an execution"""
-
-    AUTHORIZATION = 0
-    """Notification that the board has gained the authority to repurchase"""
-
-    INTENTION = 1
-    """Notification of the board that shares will be repurchased."""
-
-    TRANSACTION = 2
-    """Repurchase transactions that have been actioned."""
-
-    UPWARDS_REVISION = 3
-    """Increase in the scope of the existing plan (extended date, increased value, etc.)"""
-
-    DOWNWARDS_REVISION = 4
-    """Decrease in the scope of the existing plan (shortened date, reduced value, etc.)"""
-
-    REVISED_DETAILS = 5
-    """General change of details of the plan (max/min price alteration, etc.)"""
-
-    CANCELLATION = 6
-    """Total cancellation of the plan"""
-
-    SEEK_AUTHORIZATION = 7
-    """Announcement by a company that the board of directors or management will be seeking to obtain authorisation for a repurchase plan."""
-
-    PLAN_SUSPENSION = 8
-    """Announcement by a company that a plan of repurchase has been suspended. Further details of the suspension are included in the note."""
-
-    PLAN_RE_STARTED = 9
-    """Announcement by a company that a suspended plan has been re-started. Further details of the suspension are included in the note."""
-
-    NOT_SPECIFIED = 10
-    """Announcement by a company not specified and/or not documented in the other categories. Further details are included in the note."""
-
-
-class SmartInsiderEvent(QuantConnect.Data.BaseData, metaclass=abc.ABCMeta):
-    """
-    SmartInsider Intention and Transaction events. These are fields
-    that are shared between intentions and transactions.
-    """
-
-    @property
-    def transaction_id(self) -> str:
-        """Proprietary unique field. Not nullable"""
-        ...
-
-    @transaction_id.setter
-    def transaction_id(self, value: str) -> None:
-        ...
-
-    @property
-    def event_type(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]:
-        """Description of what has or will take place in an execution"""
-        ...
-
-    @event_type.setter
-    def event_type(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderEventType]) -> None:
-        ...
-
-    @property
-    def last_update(self) -> datetime.datetime:
-        """The date when a transaction is updated after it has been reported. Not nullable"""
-        ...
-
-    @last_update.setter
-    def last_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def last_i_ds_update(self) -> typing.Optional[datetime.datetime]:
-        """Date that company identifiers were changed. Can be a name, Ticker Symbol or ISIN change"""
-        ...
-
-    @last_i_ds_update.setter
-    def last_i_ds_update(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def isin(self) -> str:
-        """Industry classification number"""
-        ...
-
-    @isin.setter
-    def isin(self, value: str) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """The market capitalization at the time of the transaction stated in US Dollars"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def company_id(self) -> typing.Optional[int]:
-        """Smart Insider proprietary identifier for the company"""
-        ...
-
-    @company_id.setter
-    def company_id(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def icb_industry(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_industry.setter
-    def icb_industry(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_super_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_super_sector.setter
-    def icb_super_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_sector.setter
-    def icb_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_sub_sector(self) -> str:
-        """FTSE Russell Sector Classification"""
-        ...
-
-    @icb_sub_sector.setter
-    def icb_sub_sector(self, value: str) -> None:
-        ...
-
-    @property
-    def icb_code(self) -> typing.Optional[int]:
-        """Numeric code that is the most granular level in ICB classification"""
-        ...
-
-    @icb_code.setter
-    def icb_code(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def company_name(self) -> str:
-        """Company name. PLC is always excluded"""
-        ...
-
-    @company_name.setter
-    def company_name(self, value: str) -> None:
-        ...
-
-    @property
-    def previous_results_announcement_date(self) -> typing.Optional[datetime.datetime]:
-        """Announcement date of last results, this will be the end date of the last "Close Period\""""
-        ...
-
-    @previous_results_announcement_date.setter
-    def previous_results_announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def next_results_announcements_date(self) -> typing.Optional[datetime.datetime]:
-        """Announcement date of next results, this will be the end date of the next "Close Period\""""
-        ...
-
-    @next_results_announcements_date.setter
-    def next_results_announcements_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def next_close_begin(self) -> typing.Optional[datetime.datetime]:
-        """Start date of next trading embargo ahead of scheduled results announcment"""
-        ...
-
-    @next_close_begin.setter
-    def next_close_begin(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def last_close_ended(self) -> typing.Optional[datetime.datetime]:
-        """Date trading embargo (Close Period) is lifted as results are made public"""
-        ...
-
-    @last_close_ended.setter
-    def last_close_ended(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def security_description(self) -> str:
-        """Type of security. Does not contain nominal value"""
-        ...
-
-    @security_description.setter
-    def security_description(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker_country(self) -> str:
-        """Country of local identifier, denoting where the trade took place"""
-        ...
-
-    @ticker_country.setter
-    def ticker_country(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker_symbol(self) -> str:
-        """Local market identifier"""
-        ...
-
-    @ticker_symbol.setter
-    def ticker_symbol(self, value: str) -> None:
-        ...
-
-    @property
-    def announcement_date(self) -> typing.Optional[datetime.datetime]:
-        """Date Transaction was entered onto our system. Where a transaction is after the London market close (usually 4.30pm) this will be stated as the next day"""
-        ...
-
-    @announcement_date.setter
-    def announcement_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_released(self) -> typing.Optional[datetime.datetime]:
-        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market, time stated is local market time"""
-        ...
-
-    @time_released.setter
-    def time_released(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_processed(self) -> typing.Optional[datetime.datetime]:
-        """Time the transaction was entered into Smart Insider systems and appeared on their website, time stated is local to London, UK"""
-        ...
-
-    @time_processed.setter
-    def time_processed(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_released_utc(self) -> typing.Optional[datetime.datetime]:
-        """Time the announcement first appeared on a Regulatory News Service or other disclosure system and became available to the market. Time stated is GMT standard"""
-        ...
-
-    @time_released_utc.setter
-    def time_released_utc(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def time_processed_utc(self) -> typing.Optional[datetime.datetime]:
-        """Time the transaction was entered onto our systems and appeared on our website. Time stated is GMT standard"""
-        ...
-
-    @time_processed_utc.setter
-    def time_processed_utc(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def announced_in(self) -> str:
-        """Market in which the transaction was announced, this can reference more than one country"""
-        ...
-
-    @announced_in.setter
-    def announced_in(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for cloning"""
-        ...
-
-    @overload
-    def __init__(self, tsv_line: str) -> None:
-        """
-        Parses a line of TSV (tab delimited) from Smart Insider data
-        
-        
-        This codeEntityType is protected.
-        
-        :param tsv_line: Tab delimited line of data
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the timezone of this data source
-        
-        :returns: Timezone.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Derived class instances populate their fields from raw TSV
-        
-        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    @staticmethod
-    def parse_date(date: str) -> datetime.datetime:
-        """
-        Attempts to normalize and parse SmartInsider dates that include a time component.
-        
-        :param date: Date string to parse
-        :returns: DateTime object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class SmartInsiderExecution(IntEnum):
-    """Describes how the transaction was executed"""
-
-    MARKET = 0
-    """Took place via the open market"""
-
-    TENDER_OFFER = 1
-    """Via a companywide tender offer to all shareholders"""
-
-    OFF_MARKET = 2
-    """Under a specific agreement between the issuer and shareholder"""
-
-    ERROR = 3
-    """Field is not in this enum"""
-
-
-class SmartInsiderExecutionHolding(IntEnum):
-    """Details regarding the way holdings will be or were processed in a buyback execution"""
-
-    TREASURY = 0
-    """Held in treasury until they are sold back to the market"""
-
-    CANCELLATION = 1
-    """Immediately cancelled"""
-
-    TRUST = 2
-    """Held in trust, generally to cover employee renumerative plans"""
-
-    SATISFY_EMPLOYEE_TAX = 3
-    """Shares will be used to satisfy employee tax liabilities"""
-
-    NOT_REPORTED = 4
-    """Not disclosed by the issuer in the announcements"""
-
-    SATISFY_STOCK_VESTING = 5
-    """Shares will be used to satisfy vesting of employee stock"""
-
-    ERROR = 6
-    """The field was not found in the enum, or is representative of a SatisfyStockVesting entry."""
-
-
-class SmartInsiderTransaction(QuantConnect.DataSource.SmartInsiderEvent):
-    """Smart Insider Transaction - Execution of a stock buyback and details about the event occurred"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def buyback_date(self) -> typing.Optional[datetime.datetime]:
-        """Date traded through the market"""
-        ...
-
-    @buyback_date.setter
-    def buyback_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
-        """Describes how transaction was executed"""
-        ...
-
-    @execution.setter
-    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
-        ...
-
-    @property
-    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
-        """Describes which entity carried out the transaction"""
-        ...
-
-    @execution_entity.setter
-    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
-        ...
-
-    @property
-    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
-        """Describes what will be done with those shares following repurchase"""
-        ...
-
-    @execution_holding.setter
-    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
-        ...
-
-    @property
-    def currency(self) -> str:
-        """Currency of transation (ISO Code)"""
-        ...
-
-    @currency.setter
-    def currency(self, value: str) -> None:
-        ...
-
-    @property
-    def execution_price(self) -> typing.Optional[float]:
-        """Denominated in Currency of Transaction"""
-        ...
-
-    @execution_price.setter
-    def execution_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[float]:
-        """Number of shares traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def gbp_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @gbp_value.setter
-    def gbp_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def eur_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @eur_value.setter
-    def eur_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_value(self) -> typing.Optional[float]:
-        """Currency conversion rates are updated daily and values are calculated at rate prevailing on the trade date"""
-        ...
-
-    @usd_value.setter
-    def usd_value(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def note_text(self) -> str:
-        """Free text which expains futher details about the trade"""
-        ...
-
-    @note_text.setter
-    def note_text(self, value: str) -> None:
-        ...
-
-    @property
-    def buyback_percentage(self) -> typing.Optional[float]:
-        """Percentage of value of the trade as part of the issuers total Market Cap"""
-        ...
-
-    @buyback_percentage.setter
-    def buyback_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def volume_percentage(self) -> typing.Optional[float]:
-        """Percentage of the volume traded on the day of the buyback."""
-        ...
-
-    @volume_percentage.setter
-    def volume_percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def conversion_rate(self) -> typing.Optional[float]:
-        """Rate used to calculate 'Value (GBP)' from 'Price' multiplied by 'Amount'. Will be 1 where Currency is also 'GBP'"""
-        ...
-
-    @conversion_rate.setter
-    def conversion_rate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def amount_adjusted_factor(self) -> typing.Optional[float]:
-        """Multiplier which can be applied to 'Amount' field to account for subsequent corporate action"""
-        ...
-
-    @amount_adjusted_factor.setter
-    def amount_adjusted_factor(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def price_adjusted_factor(self) -> typing.Optional[float]:
-        """Multiplier which can be applied to 'Price' and 'LastClose' fields to account for subsequent corporate actions"""
-        ...
-
-    @price_adjusted_factor.setter
-    def price_adjusted_factor(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def treasury_holding(self) -> typing.Optional[int]:
-        """Post trade holding of the Treasury or Trust in the security traded"""
-        ...
-
-    @treasury_holding.setter
-    def treasury_holding(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty contsructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, line: str) -> None:
-        """
-        Creates an instance of the object by taking a formatted TSV line
-        
-        :param line: Line of formatted TSV
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object to a new instance. This method
-        is required for custom data sources that make use
-        of properties with more complex types since otherwise
-        the values will default to null using the default clone method
-        
-        :returns: A new cloned instance of this object.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Creates an instance of the object by taking a formatted TSV line
-        
-        :param line: Line of formatted TSV
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reads the data into LEAN for use in algorithms
-        
-        :param config: Subscription configuration
-        :param line: Line of TSV
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts the data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class SmartInsiderIntentionUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Smart Insider Intentions Universe"""
-
-    @property
-    def amount(self) -> typing.Optional[int]:
-        """Number of shares to be or authorised to be traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def amount_value(self) -> typing.Optional[int]:
-        """Value of shares to be authorised to be traded"""
-        ...
-
-    @amount_value.setter
-    def amount_value(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def percentage(self) -> typing.Optional[float]:
-        """Percentage of oustanding shares to be authorised to be traded"""
-        ...
-
-    @percentage.setter
-    def percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def minimum_price(self) -> typing.Optional[float]:
-        """Minimum price shares will or may be purchased at"""
-        ...
-
-    @minimum_price.setter
-    def minimum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_price(self) -> typing.Optional[float]:
-        """Maximum price shares will or may be purchased at"""
-        ...
-
-    @maximum_price.setter
-    def maximum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def usd_market_cap(self) -> typing.Optional[float]:
-        """Market Capitalization in USD"""
-        ...
-
-    @usd_market_cap.setter
-    def usd_market_cap(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """Clone implementation"""
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the timezone of this data source
-        
-        :returns: Timezone.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class SmartInsiderIntention(QuantConnect.DataSource.SmartInsiderEvent):
-    """Smart Insider Intentions - Intention to execute a stock buyback and details about the future event"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def execution(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]:
-        """Describes how the transaction was executed"""
-        ...
-
-    @execution.setter
-    def execution(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecution]) -> None:
-        ...
-
-    @property
-    def execution_entity(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]:
-        """Describes which entity intends to execute the transaction"""
-        ...
-
-    @execution_entity.setter
-    def execution_entity(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionEntity]) -> None:
-        ...
-
-    @property
-    def execution_holding(self) -> typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]:
-        """Describes what will be done with those shares following repurchase"""
-        ...
-
-    @execution_holding.setter
-    def execution_holding(self, value: typing.Optional[QuantConnect.DataSource.SmartInsiderExecutionHolding]) -> None:
-        ...
-
-    @property
-    def amount(self) -> typing.Optional[int]:
-        """Number of shares to be or authorised to be traded"""
-        ...
-
-    @amount.setter
-    def amount(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def value_currency(self) -> str:
-        """Currency of the value of shares to be/Authorised to be traded (ISO Code)"""
-        ...
-
-    @value_currency.setter
-    def value_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def amount_value(self) -> typing.Optional[int]:
-        """Value of shares to be authorised to be traded"""
-        ...
-
-    @amount_value.setter
-    def amount_value(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def percentage(self) -> typing.Optional[float]:
-        """Percentage of oustanding shares to be authorised to be traded"""
-        ...
-
-    @percentage.setter
-    def percentage(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def authorization_start_date(self) -> typing.Optional[datetime.datetime]:
-        """start of the period the intention/authorisation applies to"""
-        ...
-
-    @authorization_start_date.setter
-    def authorization_start_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def authorization_end_date(self) -> typing.Optional[datetime.datetime]:
-        """End of the period the intention/authorisation applies to"""
-        ...
-
-    @authorization_end_date.setter
-    def authorization_end_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def price_currency(self) -> str:
-        """Currency of min/max prices (ISO Code)"""
-        ...
-
-    @price_currency.setter
-    def price_currency(self, value: str) -> None:
-        ...
-
-    @property
-    def minimum_price(self) -> typing.Optional[float]:
-        """Minimum price shares will or may be purchased at"""
-        ...
-
-    @minimum_price.setter
-    def minimum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def maximum_price(self) -> typing.Optional[float]:
-        """Maximum price shares will or may be purchased at"""
-        ...
-
-    @maximum_price.setter
-    def maximum_price(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def note_text(self) -> str:
-        """Free text which explains further details about the trade"""
-        ...
-
-    @note_text.setter
-    def note_text(self, value: str) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for Slice.Get{T}()"""
-        ...
-
-    @overload
-    def __init__(self, line: str) -> None:
-        """
-        Constructs instance of this via a *formatted* TSV line (tab delimited)
-        
-        :param line: Line of formatted TSV data
-        """
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the object to a new instance. This method
-        is required for custom data sources that make use
-        of properties with more complex types since otherwise
-        the values will default to null using the default clone method
-        
-        :returns: A new cloned instance of this object.
-        """
-        ...
-
-    def from_raw_data(self, line: str, indexes: System.Collections.Generic.Dictionary[str, int]) -> bool:
-        """
-        Constructs a new instance from unformatted TSV data
-        
-        :param line: Line of raw TSV (raw with fields 46, 36, 14, 7 removed in descending order)
-        :param indexes: Index per header column
-        :returns: success of the parsing task.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Specifies the location of the data and directs LEAN where to load the data from
-        
-        :param config: Subscription configuration
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Subscription data source object pointing LEAN to the data location.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Loads and reads the data to be used in LEAN
-        
-        :param config: Subscription configuration
-        :param line: TSV line
-        :param date: Algorithm date
-        :param is_live_mode: Is live mode
-        :returns: Instance of the object.
-        """
-        ...
-
-    def to_line(self) -> str:
-        """
-        Converts the data to TSV
-        
-        :returns: String of TSV.
-        """
-        ...
-
-
-class RegalyticsRegulatoryArticles(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Regalytics Regulatory articles collection"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Formats a string with QuiverCNBC data
-        
-        :returns: string containing QuiverCNBC information.
-        """
-        ...
-
-
-class RegalyticsRegulatoryArticle(QuantConnect.Data.BaseData):
-    """Regalytics Regulatory articles"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def title(self) -> str:
-        ...
-
-    @title.setter
-    def title(self, value: str) -> None:
-        ...
-
-    @property
-    def summary(self) -> str:
-        ...
-
-    @summary.setter
-    def summary(self, value: str) -> None:
-        ...
-
-    @property
-    def status(self) -> str:
-        ...
-
-    @status.setter
-    def status(self, value: str) -> None:
-        ...
-
-    @property
-    def classification(self) -> str:
-        ...
-
-    @classification.setter
-    def classification(self, value: str) -> None:
-        ...
-
-    @property
-    def filing_type(self) -> str:
-        ...
-
-    @filing_type.setter
-    def filing_type(self, value: str) -> None:
-        ...
-
-    @property
-    def in_federal_register(self) -> bool:
-        ...
-
-    @in_federal_register.setter
-    def in_federal_register(self, value: bool) -> None:
-        ...
-
-    @property
-    def federal_register_number(self) -> str:
-        ...
-
-    @federal_register_number.setter
-    def federal_register_number(self, value: str) -> None:
-        ...
-
-    @property
-    def docket_file_number(self) -> str:
-        ...
-
-    @docket_file_number.setter
-    def docket_file_number(self, value: str) -> None:
-        ...
-
-    @property
-    def sec_release_number(self) -> str:
-        ...
-
-    @sec_release_number.setter
-    def sec_release_number(self, value: str) -> None:
-        ...
-
-    @property
-    def proposed_comments_due_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @proposed_comments_due_date.setter
-    def proposed_comments_due_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def original_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @original_publication_date.setter
-    def original_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def federal_register_publication_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @federal_register_publication_date.setter
-    def federal_register_publication_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def rule_effective_date(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @rule_effective_date.setter
-    def rule_effective_date(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def sourced_at(self) -> typing.Optional[datetime.datetime]:
-        ...
-
-    @sourced_at.setter
-    def sourced_at(self, value: typing.Optional[datetime.datetime]) -> None:
-        ...
-
-    @property
-    def latest_update(self) -> datetime.datetime:
-        ...
-
-    @latest_update.setter
-    def latest_update(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def alert_type(self) -> str:
-        ...
-
-    @alert_type.setter
-    def alert_type(self, value: str) -> None:
-        ...
-
-    @property
-    def states(self) -> System.Collections.Generic.Dictionary[str, typing.List[str]]:
-        ...
-
-    @states.setter
-    def states(self, value: System.Collections.Generic.Dictionary[str, typing.List[str]]) -> None:
-        ...
-
-    @property
-    def agencies(self) -> typing.List[str]:
-        ...
-
-    @agencies.setter
-    def agencies(self, value: typing.List[str]) -> None:
-        ...
-
-    @property
-    def sector(self) -> typing.List[System.Collections.Generic.Dictionary[str, str]]:
-        ...
-
-    @sector.setter
-    def sector(self, value: typing.List[System.Collections.Generic.Dictionary[str, str]]) -> None:
-        ...
-
-    @property
-    def announcement_url(self) -> str:
-        ...
-
-    @announcement_url.setter
-    def announcement_url(self, value: str) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class EstimizeConsensus(QuantConnect.Data.BaseData):
-    """Consensus of the specified release"""
-
-    class ConsensusSource(IntEnum):
-        """Source of the Consensus"""
-
-        WALL_STREET = 0
-        """Consensus from Wall Street"""
-
-        ESTIMIZE = 1
-        """Consensus from Estimize"""
-
-        WEIGHTED_WALL_STREET = 2
-        """Weighted consensus from Wall Street"""
-
-        WEIGHTED_ESTIMIZE = 3
-        """Weighted consensus from Estimize"""
-
-    class ConsensusType(IntEnum):
-        """Type of the consensus"""
-
-        EPS = 0
-        """Consensus on earnings per share value"""
-
-        REVENUE = 1
-        """Consensus on revenue value"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the estimate"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def source(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]:
-        """Consensus source (Wall Street or Estimize)"""
-        ...
-
-    @source.setter
-    def source(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusSource]) -> None:
-        ...
-
-    @property
-    def type(self) -> typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]:
-        """Type of Consensus (EPS or Revenue)"""
-        ...
-
-    @type.setter
-    def type(self, value: typing.Optional[QuantConnect.DataSource.EstimizeConsensus.ConsensusType]) -> None:
-        ...
-
-    @property
-    def mean(self) -> typing.Optional[float]:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @mean.setter
-    def mean(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def value(self) -> float:
-        """The mean of the distribution of estimates (the "consensus")"""
-        ...
-
-    @property
-    def high(self) -> typing.Optional[float]:
-        """The highest estimate in the distribution"""
-        ...
-
-    @high.setter
-    def high(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def low(self) -> typing.Optional[float]:
-        """The lowest estimate in the distribution"""
-        ...
-
-    @low.setter
-    def low(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def standard_deviation(self) -> typing.Optional[float]:
-        """The standard deviation of the distribution"""
-        ...
-
-    @standard_deviation.setter
-    def standard_deviation(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def count(self) -> typing.Optional[int]:
-        """The number of estimates in the distribution"""
-        ...
-
-    @count.setter
-    def count(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def updated_at(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @updated_at.setter
-    def updated_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> typing.Optional[int]:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> typing.Optional[int]:
-        """The fiscal quarter for the release"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: typing.Optional[int]) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The timestamp of this consensus (UTC)"""
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Empty constructor required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates an instance from CSV lines
-        
-        :param csv_line: CSV file
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize consensus object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Estimize Estimate information."""
-        ...
-
-
-class EstimizeEstimate(QuantConnect.Data.BaseData):
-    """Financial estimates for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the estimate"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def ticker(self) -> str:
-        """The ticker of the company being estimated"""
-        ...
-
-    @ticker.setter
-    def ticker(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> int:
-        """The fiscal year of the quarter being estimated"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter of the quarter being estimated"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
-        ...
-
-    @property
-    def created_at(self) -> datetime.datetime:
-        """The time that the estimate was created (UTC)"""
-        ...
-
-    @created_at.setter
-    def created_at(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def eps(self) -> typing.Optional[float]:
-        """The estimated earnings per share for the company in the specified fiscal quarter"""
-        ...
-
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The estimated revenue for the company in the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def user_name(self) -> str:
-        """The unique identifier for the author of the estimate"""
-        ...
-
-    @user_name.setter
-    def user_name(self, value: str) -> None:
-        ...
-
-    @property
-    def analyst_id(self) -> str:
-        """The author of the estimate"""
-        ...
-
-    @analyst_id.setter
-    def analyst_id(self, value: str) -> None:
-        ...
-
-    @property
-    def flagged(self) -> bool:
-        """
-        A boolean value which indicates whether we have flagged this estimate internally as erroneous
-        (spam, wrong accounting standard, etc)
-        """
-        ...
-
-    @flagged.setter
-    def flagged(self, value: bool) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """Required for successful Json.NET deserialization"""
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates a new instance of EstimizeEstimate from a CSV line
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Estimate object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Estimize Estimate information."""
-        ...
-
-
-class EstimizeRelease(QuantConnect.Data.BaseData):
-    """Financial releases for the specified company"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def id(self) -> str:
-        """The unique identifier for the release"""
-        ...
-
-    @id.setter
-    def id(self, value: str) -> None:
-        ...
-
-    @property
-    def fiscal_year(self) -> int:
-        """The fiscal year for the release"""
-        ...
-
-    @fiscal_year.setter
-    def fiscal_year(self, value: int) -> None:
-        ...
-
-    @property
-    def fiscal_quarter(self) -> int:
-        """The fiscal quarter for the release"""
-        ...
-
-    @fiscal_quarter.setter
-    def fiscal_quarter(self, value: int) -> None:
-        ...
-
-    @property
-    def release_date(self) -> datetime.datetime:
-        """The date of the release"""
-        ...
-
-    @release_date.setter
-    def release_date(self, value: datetime.datetime) -> None:
-        ...
-
-    @property
-    def eps(self) -> typing.Optional[float]:
-        """The earnings per share for the specified fiscal quarter"""
-        ...
-
-    @eps.setter
-    def eps(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def revenue(self) -> typing.Optional[float]:
-        """The revenue for the specified fiscal quarter"""
-        ...
-
-    @revenue.setter
-    def revenue(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def wall_street_eps_estimate(self) -> typing.Optional[float]:
-        """The estimated EPS from Wall Street"""
-        ...
-
-    @wall_street_eps_estimate.setter
-    def wall_street_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def wall_street_revenue_estimate(self) -> typing.Optional[float]:
-        """The estimated revenue from Wall Street"""
-        ...
-
-    @wall_street_revenue_estimate.setter
-    def wall_street_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_eps_estimate(self) -> typing.Optional[float]:
-        """The mean EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_eps_estimate.setter
-    def consensus_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_revenue_estimate(self) -> typing.Optional[float]:
-        """The mean revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_revenue_estimate.setter
-    def consensus_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_eps_estimate(self) -> typing.Optional[float]:
-        """The weighted EPS consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_eps_estimate.setter
-    def consensus_weighted_eps_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def consensus_weighted_revenue_estimate(self) -> typing.Optional[float]:
-        """The weighted revenue consensus by the Estimize community"""
-        ...
-
-    @consensus_weighted_revenue_estimate.setter
-    def consensus_weighted_revenue_estimate(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @overload
-    def __init__(self) -> None:
-        """
-        Without a default constructor, Json.NET will call the
-        other constructor with `null` for the string parameter
-        """
-        ...
-
-    @overload
-    def __init__(self, csv_line: str) -> None:
-        """
-        Creates EstimizeRelease instance from a line of CSV
-        
-        :param csv_line: CSV line
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the Subscription Data Source gained from the URL
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Subscription Data Source.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reader converts each line of the data source into BaseData objects.
-        
-        :param config: Subscription data config setup object
-        :param line: Content of the source document
-        :param date: Date of the requested data
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: Estimize Release object.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates if there is support for mapping
-        
-        :returns: True indicates mapping should be used.
-        """
-        ...
-
-    def to_string(self) -> str:
-        """Formats a string with the Estimize Release information."""
-        ...
-
-
-class VIXCentralContango(QuantConnect.Data.BaseData):
-    """VIXCentral Contango"""
-
-    DATA_SOURCE_ID: int
-    """Data source ID"""
-
-    @property
-    def front_month(self) -> int:
-        """The month of the front month contract (possible values: 1 - 12)"""
-        ...
-
-    @front_month.setter
-    def front_month(self, value: int) -> None:
-        ...
-
-    @property
-    def f_1(self) -> float:
-        """Front month contract"""
-        ...
-
-    @f_1.setter
-    def f_1(self, value: float) -> None:
-        ...
-
-    @property
-    def f_2(self) -> float:
-        """Contract 1 month away from the front month contract"""
-        ...
-
-    @f_2.setter
-    def f_2(self, value: float) -> None:
-        ...
-
-    @property
-    def f_3(self) -> float:
-        """Contract 2 months away from the front month contract"""
-        ...
-
-    @f_3.setter
-    def f_3(self, value: float) -> None:
-        ...
-
-    @property
-    def f_4(self) -> float:
-        """Contract 3 months away from the front month contract"""
-        ...
-
-    @f_4.setter
-    def f_4(self, value: float) -> None:
-        ...
-
-    @property
-    def f_5(self) -> float:
-        """Contract 4 months away from the front month contract"""
-        ...
-
-    @f_5.setter
-    def f_5(self, value: float) -> None:
-        ...
-
-    @property
-    def f_6(self) -> float:
-        """Contract 5 months away from the front month contract"""
-        ...
-
-    @f_6.setter
-    def f_6(self, value: float) -> None:
-        ...
-
-    @property
-    def f_7(self) -> float:
-        """Contract 6 months away from the front month contract"""
-        ...
-
-    @f_7.setter
-    def f_7(self, value: float) -> None:
-        ...
-
-    @property
-    def f_8(self) -> float:
-        """Contract 7 months away from the front month contract"""
-        ...
-
-    @f_8.setter
-    def f_8(self, value: float) -> None:
-        ...
-
-    @property
-    def f_9(self) -> typing.Optional[float]:
-        """Contract 8 months away from the front month contract"""
-        ...
-
-    @f_9.setter
-    def f_9(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_10(self) -> typing.Optional[float]:
-        """Contract 9 months away from the front month contract"""
-        ...
-
-    @f_10.setter
-    def f_10(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_11(self) -> typing.Optional[float]:
-        """Contract 10 months away from the front month contract"""
-        ...
-
-    @f_11.setter
-    def f_11(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def f_12(self) -> typing.Optional[float]:
-        """Contract 11 months away from the front month contract"""
-        ...
-
-    @f_12.setter
-    def f_12(self, value: typing.Optional[float]) -> None:
-        ...
-
-    @property
-    def contango_f_2_minus_f_1(self) -> float:
-        """Percentage change between contract F2 and F1, calculated as: (F2 - F1) / F1"""
-        ...
-
-    @contango_f_2_minus_f_1.setter
-    def contango_f_2_minus_f_1(self, value: float) -> None:
-        ...
-
-    @property
-    def contango_f_7_minus_f_4(self) -> float:
-        """Percentage change between contract F7 and F4, calculated as: (F7 - F4) / F4"""
-        ...
-
-    @contango_f_7_minus_f_4.setter
-    def contango_f_7_minus_f_4(self, value: float) -> None:
-        ...
-
-    @property
-    def contango_f_7_minus_f_4_div_3(self) -> float:
-        """Percentage change between contract F7 and F4 divided by 3, calculated as: ((F7 - F4) / F4) / 3"""
-        ...
-
-    @contango_f_7_minus_f_4_div_3.setter
-    def contango_f_7_minus_f_4_div_3(self, value: float) -> None:
-        ...
-
-    @property
-    def period(self) -> datetime.timedelta:
-        """The timespan that each data point covers"""
-        ...
-
-    @period.setter
-    def period(self, value: datetime.timedelta) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """The ending time of the data point"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def __init__(self) -> None:
-        """Creates a new instance of the object"""
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Gets the source location of the VIXCentral data
-        
-        :param config: 
-        :param date: 
-        :param is_live_mode: 
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Determines if data source is sparse
-        
-        :returns: false.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Reads the data from the source and creates a BaseData instance
-        
-        :param config: Configuration
-        :param line: Line of data
-        :param date: Date we're requesting data for
-        :param is_live_mode: Is live mode
-        :returns: New BaseData instance to be used in the algorithm.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Determines whether the data source requires mapping
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """
-        Converts the instance to a string
-        
-        :returns: String containing open, high, low, close.
-        """
-        ...
-
-
-class CoinGecko(QuantConnect.Data.BaseData):
-    """Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
-
-    @property
-    def coin(self) -> str:
-        """Coin Name"""
-        ...
-
-    @property
-    def volume(self) -> float:
-        """Volume in USD of the coin for that day"""
-        ...
-
-    @volume.setter
-    def volume(self, value: float) -> None:
-        ...
-
-    @property
-    def market_cap(self) -> float:
-        """Market Cap in USD of the coin for that day"""
-        ...
-
-    @market_cap.setter
-    def market_cap(self, value: float) -> None:
-        ...
-
-    @property
-    def end_time(self) -> datetime.datetime:
-        """Time the data became available"""
-        ...
-
-    @end_time.setter
-    def end_time(self, value: datetime.datetime) -> None:
-        ...
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def create_symbol(self, market: str, quote_currency: str = "USD", security_type: QuantConnect.SecurityType = ...) -> QuantConnect.Symbol:
-        """
-        Creates a Symbol object for a given market and quote currency
-        
-        :param market: The market the ticker resides in
-        :param quote_currency: The quote currency of the crypto-currency pair. E.g. USD for BTCUSD
-        :param security_type: The security type of the ticker resides in
-        :returns: A new Symbol object for the specified ticker.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def default_resolution(self) -> QuantConnect.Resolution:
-        """Gets the default resolution for this data and security type"""
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def is_sparse_data(self) -> bool:
-        """
-        Indicates whether the data is sparse.
-        If true, we disable logging for missing files
-        
-        :returns: true.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
-        ...
-
-    def requires_mapping(self) -> bool:
-        """
-        Indicates whether the data source is tied to an underlying symbol and requires that corporate events be applied to it as well, such as renames and delistings
-        
-        :returns: false.
-        """
-        ...
-
-    def supported_resolutions(self) -> typing.List[QuantConnect.Resolution]:
-        """Gets the supported resolution for this data and security type"""
-        ...
-
-    def to_string(self) -> str:
-        """Converts the instance to string"""
-        ...
-
-
-class CoinGeckoUniverseSelectionModel(QuantConnect.Algorithm.Framework.Selection.UniverseSelectionModel):
-    """Universe Selection Model for Coin Gecko data which contains Price, Volume and Market Cap"""
-
-    @overload
-    def __init__(self, selector: typing.Any, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, selector: typing.Callable[[typing.List[QuantConnect.DataSource.CoinGecko]], typing.List[QuantConnect.Symbol]], universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        :param selector: Returns the symbols that should be included in the universe
-        """
-        ...
-
-    @overload
-    def __init__(self, universe_settings: QuantConnect.Data.UniverseSelection.UniverseSettings = None) -> None:
-        """
-        Initializes a new instance of the CoinGeckoUniverseSelectionModel class
-        
-        :param universe_settings: The settings used for new subscriptions generated by this universe
-        """
-        ...
-
-    def create_universes(self, algorithm: QuantConnect.Algorithm.QCAlgorithm) -> typing.Iterable[QuantConnect.Data.UniverseSelection.Universe]:
-        """
-        Creates a new fundamental universe using this class's selection functions
-        
-        :param algorithm: The algorithm instance to create universes for
-        :returns: The universe defined by this model.
-        """
-        ...
-
-    def selector(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, data: typing.List[QuantConnect.DataSource.CoinGecko]) -> typing.Iterable[QuantConnect.Symbol]:
-        """
-        Defines the CoinGecko selection function.
-        
-        :param algorithm: The algorithm instance
-        :param data: The CoinGecko Universe data used to perform filtering
-        :returns: An enumerable of symbols passing the filter.
-        """
-        ...
-
-
-class CoinGeckoUniverse(QuantConnect.Data.UniverseSelection.BaseDataCollection):
-    """Universe Selection Data for Coin Gecko data which contains Price, Volume, and Market Cap in USD for cryptocurrencies"""
-
-    def clone(self) -> QuantConnect.Data.BaseData:
-        """
-        Clones the data
-        
-        :returns: A clone of the object.
-        """
-        ...
-
-    def data_time_zone(self) -> typing.Any:
-        """
-        Specifies the data time zone for this data type. This is useful for custom data types
-        
-        :returns: The NodaTime.DateTimeZone of this data type.
-        """
-        ...
-
-    def get_source(self, config: QuantConnect.Data.SubscriptionDataConfig, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.SubscriptionDataSource:
-        """
-        Return the URL string source of the file. This will be converted to a stream
-        
-        :param config: Configuration object
-        :param date: Date of this source file
-        :param is_live_mode: true if we're in live mode, false for backtesting mode
-        :returns: String URL of source file.
-        """
-        ...
-
-    def reader(self, config: QuantConnect.Data.SubscriptionDataConfig, line: str, date: datetime.datetime, is_live_mode: bool) -> QuantConnect.Data.BaseData:
-        """
-        Parses the data from the line provided and loads it into LEAN
-        
-        :param config: Subscription configuration
-        :param line: Line of data
-        :param date: Date
-        :param is_live_mode: Is live mode
-        :returns: New instance.
-        """
         ...
 
 

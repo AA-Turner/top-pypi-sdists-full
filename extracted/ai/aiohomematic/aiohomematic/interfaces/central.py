@@ -45,7 +45,13 @@ if TYPE_CHECKING:
         EventCoordinator,
         SystemEventArgs,
     )
-    from aiohomematic.central.coordinators.configuration import ConfigurableChannel, PutParamsetResult
+    from aiohomematic.central.coordinators.configuration import (
+        ConfigurableChannel,
+        ConfigurableDevice,
+        CopyParamsetResult,
+        PutParamsetResult,
+    )
+    from aiohomematic.central.coordinators.link import DeviceLink, LinkableChannel
     from aiohomematic.central.events import EventBus
     from aiohomematic.client import InterfaceConfig
     from aiohomematic.interfaces import (
@@ -1052,6 +1058,18 @@ class ConfigurationFacadeProtocol(Protocol):
     """
 
     @abstractmethod
+    async def copy_paramset(
+        self,
+        *,
+        source_interface_id: str,
+        source_channel_address: str,
+        target_interface_id: str,
+        target_channel_address: str,
+        paramset_key: ParamsetKey,
+    ) -> tuple[CopyParamsetResult, dict[str, Any], dict[str, Any]]:
+        """Copy writable paramset values from source to target channel."""
+
+    @abstractmethod
     def get_all_paramset_descriptions(
         self,
         *,
@@ -1068,6 +1086,19 @@ class ConfigurationFacadeProtocol(Protocol):
         device_address: str,
     ) -> tuple[ConfigurableChannel, ...]:
         """Return all channels of a device that have configurable paramsets."""
+
+    @abstractmethod
+    def get_configurable_devices(self, *, locale: str = "en") -> tuple[ConfigurableDevice, ...]:
+        """Return all devices with configurable channels."""
+
+    @abstractmethod
+    async def get_link_paramset_description(
+        self,
+        *,
+        interface_id: str,
+        channel_address: str,
+    ) -> Mapping[str, ParameterData]:
+        """Fetch the LINK paramset description for a channel on demand."""
 
     @abstractmethod
     def get_parameter_data(
@@ -1111,6 +1142,58 @@ class ConfigurationFacadeProtocol(Protocol):
         validate: bool = True,
     ) -> PutParamsetResult:
         """Write paramset values to the backend with optional validation."""
+
+
+@runtime_checkable
+class LinkFacadeProtocol(Protocol):
+    """
+    Protocol for the device link management facade.
+
+    Provides high-level access to device link listing, linkable channel discovery,
+    and link creation/removal without exposing internal coordinator structure.
+
+    Implemented by LinkCoordinator.
+    """
+
+    @abstractmethod
+    async def add_link(
+        self,
+        *,
+        sender_channel_address: str,
+        receiver_channel_address: str,
+        name: str = "",
+        description: str = "created by HA",
+    ) -> bool:
+        """Create a direct link between two channels."""
+
+    @abstractmethod
+    async def get_device_links(
+        self,
+        *,
+        device_address: str,
+        locale: str = "en",
+    ) -> tuple[DeviceLink, ...]:
+        """Return all enriched direct links for a device."""
+
+    @abstractmethod
+    def get_linkable_channels(
+        self,
+        *,
+        interface_id: str,
+        source_channel_address: str,
+        role: str,
+        locale: str = "en",
+    ) -> tuple[LinkableChannel, ...]:
+        """Return channels compatible for linking with the given channel."""
+
+    @abstractmethod
+    async def remove_link(
+        self,
+        *,
+        sender_channel_address: str,
+        receiver_channel_address: str,
+    ) -> bool:
+        """Remove a direct link between two channels."""
 
 
 # =============================================================================

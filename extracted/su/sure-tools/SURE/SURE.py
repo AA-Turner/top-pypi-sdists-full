@@ -239,6 +239,19 @@ class SURE(nn.Module):
         """
         return self.engine.predict(xs, cs_list, ps, fs_list, batch_size, show_progress)
     
+    def decode(self, xs, zbs, zcs, zps, zfs, batch_size=1024, show_progress=True):
+        """
+        Generate gene expression prediction from given cell data and covariates.
+        This function can be used for simulating cells' transcription profiles at new conditions.
+        
+        :param self: SURE model
+        :param xs: Cell data at the source condition
+        :param cs: Covariates specifying the target condition for generation
+        :param batch_size: Data size per batch
+        :param show_progress: Toggle on or off message output
+        """
+        return self.engine.decode(xs, zbs, zcs, zps, zfs, batch_size, show_progress)
+    
     def preprocess(self, xs, threshold=0):
         return self.engine.preprocess(xs=xs, threshold=threshold) 
     

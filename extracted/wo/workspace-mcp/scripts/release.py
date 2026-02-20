@@ -286,7 +286,9 @@ def main():
     print("\n--- 5. Committing and Tagging ---")
     tag_name = f"v{new_version}"
     manifest_json = REPO_ROOT / "manifest.json"
-    run_command(["git", "add", str(PYPROJECT_PATH), str(SERVER_JSON_PATH), str(manifest_json)])
+    run_command(
+        ["git", "add", str(PYPROJECT_PATH), str(SERVER_JSON_PATH), str(manifest_json)]
+    )
     run_command(["git", "commit", "-m", f"chore: release {tag_name}"])
     run_command(["git", "tag", "-a", tag_name, "-m", f"Release {tag_name}"])
     print(f"✅ Committed and tagged release {tag_name}")

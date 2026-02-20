@@ -29,13 +29,16 @@ from pinecone.openapi_support.exceptions import PineconeApiAttributeError
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from pinecone.core.openapi.db_control.model.backup_model_schema import BackupModelSchema
+    from pinecone.core.openapi.db_control.model.metadata_schema import MetadataSchema
+    from pinecone.core.openapi.db_control.model.read_capacity import ReadCapacity
 
 
 def lazy_import():
-    from pinecone.core.openapi.db_control.model.backup_model_schema import BackupModelSchema
+    from pinecone.core.openapi.db_control.model.metadata_schema import MetadataSchema
+    from pinecone.core.openapi.db_control.model.read_capacity import ReadCapacity
 
-    globals()["BackupModelSchema"] = BackupModelSchema
+    globals()["MetadataSchema"] = MetadataSchema
+    globals()["ReadCapacity"] = ReadCapacity
 
 
 from typing import Dict, Literal, Tuple, Set, Any, Type, TypeVar
@@ -98,7 +101,8 @@ class ByocSpec(ModelNormal):
         lazy_import()
         return {
             "environment": (str,),  # noqa: E501
-            "schema": (BackupModelSchema,),  # noqa: E501
+            "read_capacity": (ReadCapacity,),  # noqa: E501
+            "schema": (MetadataSchema,),  # noqa: E501
         }
 
     @cached_class_property
@@ -107,6 +111,7 @@ class ByocSpec(ModelNormal):
 
     attribute_map: Dict[str, str] = {
         "environment": "environment",  # noqa: E501
+        "read_capacity": "read_capacity",  # noqa: E501
         "schema": "schema",  # noqa: E501
     }
 
@@ -164,7 +169,8 @@ class ByocSpec(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            schema (BackupModelSchema): [optional]  # noqa: E501
+            read_capacity (ReadCapacity): [optional]  # noqa: E501
+            schema (MetadataSchema): [optional]  # noqa: E501
         """
 
         _enforce_allowed_values = kwargs.pop("_enforce_allowed_values", False)
@@ -258,7 +264,8 @@ class ByocSpec(ModelNormal):
                                 Animal class but this time we won't travel
                                 through its discriminator because we passed in
                                 _visited_composed_classes = (Animal,)
-            schema (BackupModelSchema): [optional]  # noqa: E501
+            read_capacity (ReadCapacity): [optional]  # noqa: E501
+            schema (MetadataSchema): [optional]  # noqa: E501
         """
 
         _enforce_allowed_values = kwargs.pop("_enforce_allowed_values", True)

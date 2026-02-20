@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: qdrant-client
-Version: 1.16.2
+Version: 1.17.0
 Summary: Client library for the Qdrant vector search engine
 License: Apache-2.0
 License-File: LICENSE

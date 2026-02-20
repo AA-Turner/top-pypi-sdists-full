@@ -2,6 +2,7 @@ import itertools
 from itertools import product
 
 import numpy as np
+from scipy.sparse import diags, eye, kron
 
 
 def interior_mask_as_ndarray(shape):
@@ -54,36 +55,82 @@ def get_list_of_multiindex_tuples(shape):
     return short_inds
 
 
-#
-# The following is working, but unused yet. Commented because there are no tests yet.
-#
-# def deprecated(reason="This feature is deprecated."):
-#     def decorator(func_or_class):
-#         if isinstance(func_or_class, type):  # Handle classes
-#             original_init = func_or_class.__init__
-#
-#             @wraps(original_init)
-#             def new_init(self, *args, **kwargs):
-#                 warnings.warn(
-#                     f"{func_or_class.__name__} is deprecated and will be removed in future versions: {reason}",
-#                     category=DeprecationWarning,
-#                     stacklevel=2,
-#                 )
-#                 original_init(self, *args, **kwargs)
-#
-#             func_or_class.__init__ = new_init
-#             return func_or_class
-#
-#         # Handle functions
-#         @wraps(func_or_class)
-#         def wrapped(*args, **kwargs):
-#             warnings.warn(
-#                 f"{func_or_class.__name__} is deprecated: {reason}",
-#                 category=DeprecationWarning,
-#                 stacklevel=2,
-#             )
-#             return func_or_class(*args, **kwargs)
-#
-#         return wrapped
-#
-#     return decorator
+def create_cyclic_band_diagonal(size, offsets, band_values, mtype="csr"):
+    """
+    Create a cyclic band-diagonal matrix using scipy.sparse.
+
+    Parameters:
+        size (int): The size of the matrix (n x n).
+        offsets (list of int): Offsets for the bands (negative, 0, or positive).
+        band_values (list of float): Values to fill in the bands (length must match num_bands).
+
+    Returns:
+        scipy.sparse.csr_matrix: Cyclic band-diagonal matrix.
+    """
+    band_matrix = create_band_diagonal(size, offsets, band_values, mtype)
+
+    # Add cyclic wrap-around connections
+    for offset, value in zip(offsets, band_values):
+        if offset > 0:  # Wrap from top rows to bottom
+            band_matrix += diags(
+                [np.full(offset, value)],
+                [offset - size],
+                shape=(size, size),
+                format=mtype,
+            )
+        elif offset < 0:  # Wrap from bottom rows to top
+            band_matrix += diags(
+                [np.full(-offset, value)],
+                [offset + size],
+                shape=(size, size),
+                format=mtype,
+            )
+
+    return band_matrix
+
+
+def create_band_diagonal(size, offsets, band_values, mtype="csr"):
+    num_bands = len(offsets)
+    if len(offsets) != num_bands or len(band_values) != num_bands:
+        raise ValueError(
+            "Offsets and band_values must match the number of bands (num_bands)."
+        )
+    # Create the diagonal values for each band
+    diagonals = []
+    for offset, value in zip(offsets, band_values):
+        diag = np.full(size, value)
+        diagonals.append(diag)
+    # Build the band-diagonal matrix
+    band_matrix = diags(diagonals, offsets, shape=(size, size), format=mtype)
+    return band_matrix
+
+
+def extend_to_ND(A, dim, shape):
+    """
+    Extend a 1D sparse matrix A to an N-dimensional sparse matrix operating along the specified dimension.
+
+    Parameters:
+        A : scipy.sparse matrix
+            The 1D sparse matrix to be extended.
+        dim : int
+            The dimension along which A operates (0 to N-1).
+        shape : list of int
+            The sizes of the grid in each dimension (length N).
+
+    Returns:
+        A_ND : scipy.sparse matrix
+            The extended N-dimensional sparse matrix.
+    """
+    ndims = len(shape)  # Number of dimensions
+    if dim < 0 or dim >= ndims:
+        raise ValueError(f"dim must be between 0 and {ndims - 1}, inclusive.")
+
+    result = A if dim == 0 else eye(shape[0], format="csr")
+
+    for i in range(1, ndims):
+        if i == dim:
+            result = kron(result, A)
+        else:
+            result = kron(result, eye(shape[i], format="csr"))
+
+    return result

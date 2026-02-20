@@ -5,25 +5,20 @@
 Scala UDF utilities for Snowpark Connect.
 
 This module provides utilities for creating and managing Scala User-Defined Functions (UDFs)
-in Snowflake through Snowpark Connect. It handles the conversion between different type systems
-(Snowpark, Scala, Snowflake, Spark protobuf) and generates the necessary SQL DDL statements
-for UDF creation.
+in Snowflake through Snowpark Connect. Scala UDFs are wrapped in Java UDFs that call into
+the Scala code via the SAS Scala helper library, following the same pattern as Java UDTFs.
 
 Key components:
 - ScalaUdf: Reference class for Scala UDFs
-- ScalaUDFDef: Definition class for Scala UDF creation
-- Type mapping functions for different type systems
+- JavaScalarUDFDef: Definition class for Java-wrapped Scala UDF creation
 - UDF creation and management utilities
 """
 import re
 from dataclasses import dataclass
-from typing import List, Union
+from typing import List
 
 import snowflake.snowpark.types as snowpark_type
-import snowflake.snowpark_connect.includes.python.pyspark.sql.connect.proto.types_pb2 as types_proto
 from snowflake.snowpark_connect.config import get_scala_version
-from snowflake.snowpark_connect.error.error_codes import ErrorCodes
-from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     NullHandling,
     Param,
@@ -55,101 +50,77 @@ class ScalaUdf:
         input_types: List[snowpark_type.DataType],
         return_type: snowpark_type.DataType,
     ) -> None:
-        """
-        Initialize a Scala UDF reference.
-
-        Args:
-            name: The name of the UDF in Snowflake
-            input_types: List of input parameter types
-            return_type: The return type of the UDF
-        """
         self.name = name
         self._input_types = input_types
         self._return_type = return_type
 
 
 @dataclass(frozen=True)
-class ScalaUDFDef:
+class JavaScalarUDFDef:
     """
-    Complete definition for creating a Scala UDF in Snowflake.
+    Definition for creating a Java UDF in Snowflake that wraps a Scala function.
 
-    Contains all the information needed to generate the CREATE FUNCTION SQL statement
-    and the Scala code body for the UDF.
-
-    Attributes:
-        name: UDF name
-        signature: SQL signature (for Snowflake function definition)
-        scala_signature: Scala signature (for Scala code generation)
-        imports: List of JAR files to import
-        null_handling: Null handling behavior (defaults to CALLED_ON_NULL_INPUT)
+    The Java wrapper deserializes the Scala closure from a binary file,
+    converts Variant inputs to Scala types, invokes the function, and
+    converts the result back to Variant.
     """
 
     name: str
     signature: Signature
-    scala_signature: Signature
-    scala_invocation_args: List[str]
-    imports: List[str]
+    imports: list[str]
+    num_args: int
     null_handling: NullHandling = NullHandling.CALLED_ON_NULL_INPUT
 
-    # -------------------- DDL Emitter --------------------
+    def _gen_body_java(self) -> str:
+        operation_file = self.imports[0].split("/")[-1]
 
-    def _gen_body_scala(self) -> str:
-        """
-        Generate the Scala code body for the UDF.
+        handler_params_list = [f"Variant arg{i}" for i in range(self.num_args)]
+        handler_params_list.append("String __schema_json")
+        handler_params = ", ".join(handler_params_list)
 
-        Creates a Scala object that loads the serialized function from a binary file
-        and provides a run method to execute it.
+        lines = []
 
-        Returns:
-            String containing the complete Scala code for the UDF body
-        """
-        # Exclude __schema_json — it's metadata for the wrapper, not an arg to the inner function.
-        udf_func_params = [
-            p for p in self.scala_signature.params if p.name != "__schema_json"
-        ]
-        udf_func_input_types = ", ".join("Any" for _ in udf_func_params)
-        udf_func_return_type = self.scala_signature.returns.data_type.replace(
-            "Array", "Seq"
+        if self.num_args > 0:
+            null_checks = [
+                f"com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.isNullNonNullable(udfPacket, arg{i}, {i})"
+                for i in range(self.num_args)
+            ]
+            lines.append(f"        if ({' || '.join(null_checks)}) return null;")
+
+        for i in range(self.num_args):
+            lines.append(
+                f"        var in{i} = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, arg{i}, {i}, __schema_json);"
+            )
+
+        object_types = ", ".join(["Object"] * (self.num_args + 1))
+        func_type = f"scala.Function{self.num_args}<{object_types}>"
+        func_args = ", ".join(f"in{i}" for i in range(self.num_args))
+
+        lines.append(f"        var typedFunc = ({func_type}) func;")
+        lines.append(f"        var result = typedFunc.apply({func_args});")
+        lines.append(
+            "        return com.snowflake.sas.scala.Utils$.MODULE$.toVariant(result, udfPacket);"
         )
 
-        joined_wrapper_arg_and_input_types_str = ", ".join(
-            f"{p.name}: {p.data_type}" for p in self.scala_signature.params
-        )
-        wrapper_return_type = "Variant"
-        wrapped_args = [
-            f"UdfPacketUtils.fromVariant(udfPacket, {arg}, {i}, __schema_json)"
-            for i, arg in enumerate(self.scala_invocation_args)
-        ]
-        invocation_args = ", ".join(wrapped_args)
-        invoke_udf_func = f"func({invocation_args})"
-
-        # Always wrap the result in Utils.toVariant() to ensure all Scala UDFs return Variant
-        invoke_udf_func = f"Utils.toVariant({invoke_udf_func}, udfPacket)"
-
-        # Null guard: if any non-nullable (primitive) input is null, return null
-        # This mirrors Spark's behavior where UDFs short-circuit for null primitive inputs
-        null_checks = [
-            f"UdfPacketUtils.isNullNonNullable(udfPacket, {arg}, {i})"
-            for i, arg in enumerate(self.scala_invocation_args)
-        ]
-        null_guard = ""
-        if null_checks:
-            null_guard_condition = " || ".join(null_checks)
-            null_guard = f"if ({null_guard_condition}) return null\n    "
+        body = "\n".join(lines)
 
         return f"""
-import org.apache.spark.sql.connect.common.UdfPacket
-import com.snowflake.sas.scala.UdfPacketUtils
-import com.snowflake.sas.scala.Utils
-import com.snowflake.snowpark_java.types.Variant
+import org.apache.spark.sql.connect.common.UdfPacket;
+import com.snowflake.snowpark_java.types.Variant;
 
-object __RecreatedSparkUdf {{
-  private lazy val udfPacket: UdfPacket = Utils.deserializeUdfPacket("{self.name}.bin")
-  private lazy val func: ({udf_func_input_types}) => {udf_func_return_type} = udfPacket.function.asInstanceOf[({udf_func_input_types}) => {udf_func_return_type}]
+public class RecreatedSparkJavaUdf {{
+    private static final String OPERATION_FILE = "{operation_file}";
+    private final UdfPacket udfPacket;
+    private final Object func;
 
-  def __wrapperFunc({joined_wrapper_arg_and_input_types_str}): {wrapper_return_type} = {{
-    {null_guard}{invoke_udf_func}
-  }}
+    public RecreatedSparkJavaUdf() {{
+        this.udfPacket = com.snowflake.sas.scala.Utils$.MODULE$.deserializeUdfPacket(OPERATION_FILE);
+        this.func = udfPacket.function();
+    }}
+
+    public Variant handler({handler_params}) {{
+{body}
+    }}
 }}
 """
 
@@ -173,50 +144,33 @@ object __RecreatedSparkUdf {{
             """Helper function to wrap strings in single quotes for SQL."""
             return "'" + s + "'"
 
-        # Handler and imports
         imports_sql = f"IMPORTS = ({', '.join(quote_single(x) for x in self.imports)})"
-
-        scala_version = get_scala_version()
 
         return f"""
 CREATE OR REPLACE TEMPORARY FUNCTION {self.name}({args})
 RETURNS {ret_type}
-LANGUAGE SCALA
+LANGUAGE JAVA
 {self.null_handling.value}
-RUNTIME_VERSION = {scala_version}
-PACKAGES = ('com.snowflake:snowpark_{scala_version}:latest')
+RUNTIME_VERSION = 17
+PACKAGES = ('com.snowflake:snowpark_{get_scala_version()}:latest')
 {imports_sql}
-HANDLER = '__RecreatedSparkUdf.__wrapperFunc'
+HANDLER = 'RecreatedSparkJavaUdf.handler'
 AS
 $$
-{self._gen_body_scala()}
+{self._gen_body_java()}
 $$;"""
 
 
 def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf:
     """
-    Create a Scala UDF in Snowflake from a ProcessCommonInlineUserDefinedFunction object.
-
-    This function handles the complete process of creating a Scala UDF:
-    1. Generates a unique function name if not provided
-    2. Checks for existing UDFs in the session cache
-    3. Creates the necessary imports list
-    4. Maps types between different systems (Snowpark, Scala, Snowflake)
-    5. Generates and executes the CREATE FUNCTION SQL statement
-
-    If the UDF already exists in the session cache, it will be reused.
-
-    Args:
-        pciudf: The ProcessCommonInlineUserDefinedFunction object containing UDF details.
-
-    Returns:
-        A ScalaUdf object representing the created or cached Scala UDF.
+    Create a Java UDF in Snowflake that wraps a Scala function
+    from a ProcessCommonInlineUserDefinedFunction object.
     """
     from snowflake.snowpark_connect.resources_initializer import (
         ensure_scala_udf_jars_uploaded,
     )
 
-    # Lazily upload Scala UDF jars on-demand when a Scala UDF is actually created.
+    # Lazily upload Scala UDF jars on-demand when a UDF is actually created.
     # This is thread-safe and will only upload once even if multiple threads call it.
     ensure_scala_udf_jars_uploaded()
 
@@ -237,10 +191,7 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
     input_types = (
         pciudf._scala_input_types if pciudf._scala_input_types else pciudf._input_types
     )
-    scala_return_type = _map_type_to_scala_type(pciudf._original_return_type)
-    scala_input_params: List[Param] = []
-    sql_input_params: List[Param] = []
-    scala_invocation_args: List[str] = []  # arguments passed into the udf function
+    sql_input_params: list[Param] = []
 
     session = get_or_create_snowpark_session()
     imports = build_jvm_udxf_imports(
@@ -256,30 +207,18 @@ def create_scala_udf(pciudf: ProcessCommonInlineUserDefinedFunction) -> ScalaUdf
         num_args = get_udf_arity(pciudf._payload) or 0
 
     for i in range(num_args):
-        param_name = f"arg{i}"
-        scala_input_params.append(Param(param_name, "Variant"))
-        sql_input_params.append(Param(param_name, "VARIANT"))
-        scala_invocation_args.append(param_name)
+        sql_input_params.append(Param(f"arg{i}", "VARIANT"))
 
-    schema_param_name = "__schema_json"
-    sql_input_params.append(Param(schema_param_name, "VARCHAR"))
-    scala_input_params.append(Param(schema_param_name, "String"))
+    sql_input_params.append(Param("__schema_json", "VARCHAR"))
 
-    sql_return_type = "VARIANT"
-
-    udf_def = ScalaUDFDef(
+    udf_def = JavaScalarUDFDef(
         name=udf_name,
-        signature=Signature(
-            params=sql_input_params, returns=ReturnType(sql_return_type)
-        ),
+        signature=Signature(params=sql_input_params, returns=ReturnType("VARIANT")),
         imports=imports,
-        scala_signature=Signature(
-            params=scala_input_params, returns=ReturnType(scala_return_type)
-        ),
-        scala_invocation_args=scala_invocation_args,
+        num_args=num_args,
     )
     create_udf_sql = udf_def.to_create_function_sql()
-    logger.info(f"Creating Scala UDF: {create_udf_sql}")
+    logger.info(f"Creating Java UDF for Scala function: {create_udf_sql}")
     session.sql(create_udf_sql).collect()
     return ScalaUdf(udf_name, pciudf._input_types, pciudf._return_type)
 
@@ -304,69 +243,3 @@ def get_udf_arity(payload: bytes) -> int | None:
         return int(java_match.group(1))
 
     return None
-
-
-def _map_type_to_scala_type(
-    t: Union[snowpark_type.DataType, types_proto.DataType],
-) -> str:
-    """Maps a Snowpark or Spark protobuf type to a Scala type string (for UDF outputs)."""
-    if not t:
-        return "String"
-
-    is_snowpark_type = isinstance(t, snowpark_type.DataType)
-    condition = type(t) if is_snowpark_type else t.WhichOneof("kind")
-    match condition:
-        case snowpark_type.ArrayType | "array":
-            return (
-                f"Array[{_map_type_to_scala_type(t.element_type)}]"
-                if is_snowpark_type
-                else f"Array[{_map_type_to_scala_type(t.array.element_type)}]"
-            )
-        case snowpark_type.BinaryType | "binary":
-            return "Array[Byte]"
-        case snowpark_type.BooleanType | "boolean":
-            return "Boolean"
-        case snowpark_type.ByteType | "byte":
-            return "Byte"
-        case snowpark_type.DateType | "date":
-            return "java.sql.Date"
-        case snowpark_type.DecimalType | "decimal":
-            return "java.math.BigDecimal"
-        case snowpark_type.DoubleType | "double":
-            return "Double"
-        case snowpark_type.FloatType | "float":
-            return "Float"
-        case snowpark_type.GeographyType:
-            return "Geography"
-        case snowpark_type.IntegerType | "integer":
-            return "Int"
-        case snowpark_type.LongType | "long":
-            return "Long"
-        case snowpark_type.MapType | "map":
-            key_type = (
-                _map_type_to_scala_type(t.key_type)
-                if is_snowpark_type
-                else _map_type_to_scala_type(t.map.key_type)
-            )
-            value_type = (
-                _map_type_to_scala_type(t.value_type)
-                if is_snowpark_type
-                else _map_type_to_scala_type(t.map.value_type)
-            )
-            return f"Map[{key_type}, {value_type}]"
-        case snowpark_type.NullType | "null":
-            return "String"  # cannot set the return type to Null in Snowpark Scala UDFs
-        case snowpark_type.ShortType | "short":
-            return "Short"
-        case snowpark_type.StringType | "string" | "char" | "varchar":
-            return "String"
-        case snowpark_type.StructType | "struct":
-            return "Variant"
-        case snowpark_type.TimestampType | "timestamp" | "timestamp_ntz":
-            return "java.sql.Timestamp"
-        case snowpark_type.VariantType:
-            return "Variant"
-        case _:
-            exception = ValueError(f"Unsupported Snowpark type: {t}")
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_TYPE)
-            raise exception

@@ -8,11 +8,19 @@ from typing_extensions import Literal
 
 from ..._models import BaseModel
 from .identification_create_request import IdentificationCreateRequest
-from .legal_entity_compliance_detail import LegalEntityComplianceDetail
 from .legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .legal_entity_industry_classification import LegalEntityIndustryClassification
 
-__all__ = ["ChildLegalEntityCreate", "BankSettings", "PhoneNumbers", "PhoneNumber", "WealthAndEmploymentDetails"]
+__all__ = [
+    "ChildLegalEntityCreate",
+    "BankSettings",
+    "PhoneNumbers",
+    "PhoneNumber",
+    "Regulators",
+    "Regulator",
+    "ThirdPartyVerification",
+    "WealthAndEmploymentDetails",
+]
 
 
 class BankSettings(BaseModel):
@@ -67,11 +75,42 @@ Please use PhoneNumber instead.
 """
 
 
+class Regulator(BaseModel):
+    jurisdiction: str
+    """
+    The country code where the regulator operates in the ISO 3166-1 alpha-2 format
+    (e.g., "US", "CA", "GB").
+    """
+
+    name: str
+    """Full name of the regulatory body."""
+
+    registration_number: str
+    """Registration or identification number with the regulator."""
+
+
+Regulators = Regulator
+"""This type is deprecated and will be removed in a future release.
+
+Please use Regulator instead.
+"""
+
+
+class ThirdPartyVerification(BaseModel):
+    """Information describing a third-party verification run by an external vendor."""
+
+    vendor: Literal["persona"]
+    """The vendor that performed the verification, e.g. `persona`."""
+
+    vendor_verification_id: str
+    """The identification of the third party verification in `vendor`'s system."""
+
+
 class WealthAndEmploymentDetails(BaseModel):
     id: str
 
     annual_income: Optional[int] = None
-    """The annual income of the individual."""
+    """The annual income of the individual in USD."""
 
     created_at: datetime
 
@@ -179,17 +218,24 @@ class WealthAndEmploymentDetails(BaseModel):
             "alimony",
             "annuity",
             "business_owner",
+            "business_revenue",
+            "debt_financing",
             "general_employee",
             "government_benefits",
             "homemaker",
             "inheritance_gift",
+            "intercompany_loan",
             "investment",
+            "investor_funding",
             "legal_settlement",
             "lottery",
             "real_estate",
+            "retained_earnings_or_savings",
             "retired",
             "retirement",
             "salary",
+            "sale_of_business_assets",
+            "sale_of_real_estate",
             "self_employed",
             "senior_executive",
             "trust_income",
@@ -231,7 +277,14 @@ class ChildLegalEntityCreate(BaseModel):
     citizenship_country: Optional[str] = None
     """The country of citizenship for an individual."""
 
-    compliance_details: Optional[LegalEntityComplianceDetail] = None
+    connection_id: Optional[str] = None
+    """The connection ID for the connection the legal entity is associated with.
+
+    Defaults to the id of the connection designated with an is_default value of true
+    or the id of an existing operational connection if only one is available. Pass
+    in a value of null to prevent the connection from being associated with the
+    legal entity.
+    """
 
     country_of_incorporation: Optional[str] = None
     """
@@ -251,7 +304,7 @@ class ChildLegalEntityCreate(BaseModel):
     """The entity's primary email."""
 
     expected_activity_volume: Optional[int] = None
-    """Monthly expected transaction volume in entity's local currency."""
+    """Monthly expected transaction volume in USD."""
 
     first_name: Optional[str] = None
     """An individual's first name."""
@@ -278,6 +331,9 @@ class ChildLegalEntityCreate(BaseModel):
         Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
     ] = None
     """The business's legal structure."""
+
+    listed_exchange: Optional[str] = None
+    """ISO 10383 market identifier code."""
 
     metadata: Optional[Dict[str, str]] = None
     """Additional data represented as key-value pairs.
@@ -308,11 +364,26 @@ class ChildLegalEntityCreate(BaseModel):
     primary_social_media_sites: Optional[List[str]] = None
     """A list of primary social media URLs for the business."""
 
+    regulators: Optional[List[Regulator]] = None
+    """Array of regulatory bodies overseeing this institution."""
+
     risk_rating: Optional[Literal["low", "medium", "high"]] = None
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    status: Optional[Literal["active", "closed", "pending", "suspended"]] = None
+    """The activation status of the legal entity.
+
+    One of pending, active, suspended, or closed.
+    """
+
     suffix: Optional[str] = None
     """An individual's suffix."""
+
+    third_party_verification: Optional[ThirdPartyVerification] = None
+    """Information describing a third-party verification run by an external vendor."""
+
+    ticker_symbol: Optional[str] = None
+    """Stock ticker symbol for publicly traded companies."""
 
     wealth_and_employment_details: Optional[WealthAndEmploymentDetails] = None
 

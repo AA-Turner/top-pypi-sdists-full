@@ -17,6 +17,10 @@ VENV_GROUPS ?= --all-groups
 
 # default lit options
 LIT_OPTIONS ?= -v --order=smart
+PYTEST_OPTIONS ?= -vv
+# quiet options for tests-quiet (minimal terminal output)
+LIT_OPTIONS_QUIET ?= -q --order=smart
+PYTEST_OPTIONS_QUIET ?= -q --tb=no
 
 # make tasks run all commands in a single shell
 .ONESHELL:
@@ -71,7 +75,7 @@ filecheck: uv-installed ## run filecheck tests
 
 .PHONY: pytest
 pytest: uv-installed ## run pytest tests
-	uv run pytest tests -W error -vv
+	uv run pytest tests -W error $(PYTEST_OPTIONS)
 
 .PHONY: filecheck-toy
 filecheck-toy: uv-installed ## run tests for Toy tutorial
@@ -80,7 +84,7 @@ filecheck-toy: uv-installed ## run tests for Toy tutorial
 .PHONY: pytest-toy-nb
 pytest-toy-nb:
 	@if uv run python -c "import riscemu" > /dev/null 2>&1; then \
-		uv run pytest -W error --nbval -vv docs/Toy --nbval-current-env; \
+		uv run pytest -W error --nbval $(PYTEST_OPTIONS) docs/Toy --nbval-current-env; \
 	else \
 		echo "riscemu is not installed, skipping tests."; \
 	fi
@@ -122,6 +126,10 @@ tests-marimo: uv-installed
 tests-functional: pytest tests-toy filecheck tests-marimo ## run functional tests
 	@echo All functional tests done.
 
+.PHONY: tests-quiet
+tests-quiet: uv-installed ## run functional tests with minimal output
+	$(MAKE) tests-functional LIT_OPTIONS="$(LIT_OPTIONS_QUIET)" PYTEST_OPTIONS="$(PYTEST_OPTIONS_QUIET)"
+
 .PHONY: tests
 tests: tests-functional pyright ## run all tests
 	@echo All tests done.
@@ -137,11 +145,11 @@ rerun-notebooks: uv-installed ## re-generate the output from all jupyter noteboo
 
 .PHONY: precommit-install
 precommit-install: uv-installed ## set up all precommit hooks
-	uv run pre-commit install
+	uv run prek install
 
 .PHONY: precommit
 precommit: uv-installed ## run all precommit hooks and apply them
-	uv run pre-commit run --all
+	uv run prek run --all-files
 
 .PHONY: pyright
 pyright: uv-installed ## run pyright on all files in the current git commit, make sure to generate the python typing stubs before running pyright

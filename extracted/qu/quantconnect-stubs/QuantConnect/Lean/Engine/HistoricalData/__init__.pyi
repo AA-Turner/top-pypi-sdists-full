@@ -13,6 +13,41 @@ import QuantConnect.Securities
 import System.Collections.Generic
 
 
+class SineHistoryProvider(QuantConnect.Data.HistoryProviderBase):
+    """Implements a History provider that always return a IEnumerable of Slice with prices following a sine function"""
+
+    @property
+    def data_point_count(self) -> int:
+        """Gets the total number of data points emitted by this history provider"""
+        ...
+
+    def __init__(self, securities: QuantConnect.Securities.SecurityManager) -> None:
+        """
+        Initializes a new instance of the SineHistoryProvider class
+        
+        :param securities: Collection of securities that a history request can return
+        """
+        ...
+
+    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
+        """
+        Gets the history for the requested securities
+        
+        :param requests: The historical data requests
+        :param slice_time_zone: The time zone used when time stamping the slice instances
+        :returns: An enumerable of the slices of data covering the span specified in each request.
+        """
+        ...
+
+    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
+        """
+        Initializes this history provider to work for the specified job
+        
+        :param parameters: The initialization parameters
+        """
+        ...
+
+
 class SynchronizingHistoryProvider(QuantConnect.Data.HistoryProviderBase, metaclass=abc.ABCMeta):
     """
     Provides an abstract implementation of IHistoryProvider
@@ -108,8 +143,11 @@ class BrokerageHistoryProvider(QuantConnect.Lean.Engine.HistoricalData.Synchroni
         ...
 
 
-class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
-    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
+class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
+    """
+    Provides an implementation of IHistoryProvider which
+    acts as a wrapper to use multiple history providers together
+    """
 
     @property
     def data_point_count(self) -> int:
@@ -131,6 +169,14 @@ class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
         Initializes this history provider to work for the specified job
         
         :param parameters: The initialization parameters
+        """
+        ...
+
+    def set_brokerage(self, brokerage: QuantConnect.Interfaces.IBrokerage) -> None:
+        """
+        Sets the brokerage to be used for historical requests
+        
+        :param brokerage: The brokerage instance
         """
         ...
 
@@ -183,20 +229,12 @@ class SubscriptionDataReaderHistoryProvider(QuantConnect.Lean.Engine.HistoricalD
         ...
 
 
-class SineHistoryProvider(QuantConnect.Data.HistoryProviderBase):
-    """Implements a History provider that always return a IEnumerable of Slice with prices following a sine function"""
+class FakeHistoryProvider(QuantConnect.Data.HistoryProviderBase):
+    """Provides FAKE implementation of IHistoryProvider used for testing. FakeDataQueue"""
 
     @property
     def data_point_count(self) -> int:
         """Gets the total number of data points emitted by this history provider"""
-        ...
-
-    def __init__(self, securities: QuantConnect.Securities.SecurityManager) -> None:
-        """
-        Initializes a new instance of the SineHistoryProvider class
-        
-        :param securities: Collection of securities that a history request can return
-        """
         ...
 
     def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
@@ -243,44 +281,6 @@ class MappedSynchronizingHistoryProvider(QuantConnect.Lean.Engine.HistoricalData
         
         :param request: The resolved history request.
         :returns: The historical data.
-        """
-        ...
-
-
-class HistoryProviderManager(QuantConnect.Data.HistoryProviderBase):
-    """
-    Provides an implementation of IHistoryProvider which
-    acts as a wrapper to use multiple history providers together
-    """
-
-    @property
-    def data_point_count(self) -> int:
-        """Gets the total number of data points emitted by this history provider"""
-        ...
-
-    def get_history(self, requests: typing.List[QuantConnect.Data.HistoryRequest], slice_time_zone: typing.Any) -> typing.Iterable[QuantConnect.Data.Slice]:
-        """
-        Gets the history for the requested securities
-        
-        :param requests: The historical data requests
-        :param slice_time_zone: The time zone used when time stamping the slice instances
-        :returns: An enumerable of the slices of data covering the span specified in each request.
-        """
-        ...
-
-    def initialize(self, parameters: QuantConnect.Data.HistoryProviderInitializeParameters) -> None:
-        """
-        Initializes this history provider to work for the specified job
-        
-        :param parameters: The initialization parameters
-        """
-        ...
-
-    def set_brokerage(self, brokerage: QuantConnect.Interfaces.IBrokerage) -> None:
-        """
-        Sets the brokerage to be used for historical requests
-        
-        :param brokerage: The brokerage instance
         """
         ...
 

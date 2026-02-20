@@ -1394,7 +1394,9 @@ class StructuredDot(Op):
         out[0] = np.asarray(variable, str(variable.dtype))
 
     def grad(self, inputs, gout):
-        # a is sparse, b is dense, g_out is dense
+        # NOTE: a is sparse; b and g_out are both dense or sparse.
+        # Python and Numba backends support sparse b and g_out.
+        # C backend only supports dense b and g_out.
         # ga = g_out x b.T
         # gb = a.T x g_out
         (a, b) = inputs
@@ -1474,16 +1476,17 @@ class StructuredDotGradCSC(COp):
     __props__ = ()
 
     def make_node(self, a_indices, a_indptr, b, g_ab):
+        out_dtype = ps.upcast(b.dtype, g_ab.dtype)
         return Apply(
             self,
             [a_indices, a_indptr, b, g_ab],
-            [tensor(dtype=g_ab.dtype, shape=(None,))],
+            [tensor(dtype=out_dtype, shape=(None,))],
         )
 
     def perform(self, node, inputs, outputs):
         (a_indices, a_indptr, b, g_ab) = inputs
         (out,) = outputs
-        g_a_data = np.zeros(a_indices.shape, dtype=g_ab.dtype)
+        g_a_data = np.zeros(a_indices.shape, dtype=node.outputs[0].dtype)
         for j in range(len(a_indptr) - 1):
             ind0 = a_indptr[j]
             ind1 = a_indptr[j + 1]
@@ -1615,7 +1618,7 @@ class StructuredDotGradCSR(COp):
     def perform(self, node, inputs, outputs):
         (a_indices, a_indptr, b, g_ab) = inputs
         (out,) = outputs
-        g_a_data = np.zeros(a_indices.shape, dtype=g_ab.dtype)
+        g_a_data = np.zeros(a_indices.shape, dtype=node.outputs[0].dtype)
         for i in range(len(a_indptr) - 1):  # loop over rows
             ind0 = a_indptr[i]
             ind1 = a_indptr[i + 1]

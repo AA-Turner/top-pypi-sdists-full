@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: pypi-json
-Version: 0.4.0
+Version: 0.5.0.post1
 Summary: PyPI JSON API client library
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
 License: MIT
@@ -18,17 +18,18 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
-Requires-Python: >=3.6
+Requires-Python: >=3.7
 Requires-Dist: apeye>=1.1.0
 Requires-Dist: packaging>=21.0
 Requires-Dist: requests>=2.26.0
@@ -138,7 +139,7 @@ pypi-json
 .. |language| image:: https://img.shields.io/github/languages/top/repo-helper/pypi-json
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/pypi-json/v0.4.0
+.. |commits-since| image:: https://img.shields.io/github/commits-since/repo-helper/pypi-json/v0.5.0.post1
 	:target: https://github.com/repo-helper/pypi-json/pulse
 	:alt: GitHub commits since tagged version
 
@@ -146,11 +147,11 @@ pypi-json
 	:target: https://github.com/repo-helper/pypi-json/commit/master
 	:alt: GitHub last commit
 
-.. |maintained| image:: https://img.shields.io/maintenance/yes/2023
+.. |maintained| image:: https://img.shields.io/maintenance/yes/2026
 	:alt: Maintenance
 
 .. |pypi-downloads| image:: https://img.shields.io/pypi/dm/pypi-json
-	:target: https://pypi.org/project/pypi-json/
+	:target: https://pypistats.org/packages/pypi-json
 	:alt: PyPI - Downloads
 
 .. end shields

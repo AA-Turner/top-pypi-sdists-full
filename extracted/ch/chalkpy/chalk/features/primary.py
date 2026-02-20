@@ -130,6 +130,12 @@ def get_primary_feature(feature_class: typing.Union[Type[Features], typing.Itera
     feature_class
         Either a features class or an iterable containing Chalk feature fields.
 
+    Returns
+    -------
+    Feature
+        The primary feature for the given feature class/set. Raises an exception if there is no
+        primary key present.
+
     Examples
     --------
     >>> from chalk.features import features
@@ -144,9 +150,6 @@ def get_primary_feature(feature_class: typing.Union[Type[Features], typing.Itera
     >>> assert get_primary_feature(User).primary
     >>> assert get_primary_feature(Features[User.uid, User.email]).fqn == "user.uid"
     >>> assert get_primary_feature(Features[User.uid, User.email]).primary
-
-    :param feature_class: Either a features class or an iterable containing Chalk feature fields.
-    :return: The primary feature for the given feature class/set. Raises an exception if there is no primary key present.
     """
     if is_feature_set_class(feature_class):
         if feature_class.__chalk_primary__ is not None:

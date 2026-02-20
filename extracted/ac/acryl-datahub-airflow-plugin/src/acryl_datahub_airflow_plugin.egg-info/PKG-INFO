@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub-airflow-plugin
-Version: 1.4.0.2
+Version: 1.4.0.3
 Summary: Datahub Airflow plugin to capture executions and send to Datahub
 Home-page: https://docs.datahub.com/
 License: Apache-2.0
@@ -21,58 +21,58 @@ Classifier: Environment :: MacOS X
 Classifier: Topic :: Software Development
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.2
+Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.3
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.4.0.3
 Requires-Dist: apache-airflow<4.0.0,>=2.5.0
-Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.4.0.2
 Requires-Dist: pydantic>=2.4.0
 Provides-Extra: ignore
 Provides-Extra: datahub-rest
-Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.2; extra == "datahub-rest"
+Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.3; extra == "datahub-rest"
 Provides-Extra: datahub-kafka
-Requires-Dist: acryl-datahub[datahub-kafka]==1.4.0.2; extra == "datahub-kafka"
+Requires-Dist: acryl-datahub[datahub-kafka]==1.4.0.3; extra == "datahub-kafka"
 Provides-Extra: datahub-file
-Requires-Dist: acryl-datahub[sync-file-emitter]==1.4.0.2; extra == "datahub-file"
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.4.0.3; extra == "datahub-file"
 Provides-Extra: airflow2
 Requires-Dist: openlineage-airflow>=1.2.0; extra == "airflow2"
 Provides-Extra: airflow3
 Requires-Dist: apache-airflow-providers-openlineage>=1.0.0; extra == "airflow3"
 Provides-Extra: dev
-Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.2; extra == "dev"
-Requires-Dist: apache-airflow<4.0.0,>=2.5.0; extra == "dev"
-Requires-Dist: types-tabulate; extra == "dev"
-Requires-Dist: sqlalchemy-stubs; extra == "dev"
-Requires-Dist: types-click==0.1.12; extra == "dev"
-Requires-Dist: types-six; extra == "dev"
-Requires-Dist: coverage>=5.1; extra == "dev"
-Requires-Dist: types-toml; extra == "dev"
-Requires-Dist: build; extra == "dev"
-Requires-Dist: tox; extra == "dev"
-Requires-Dist: tenacity; extra == "dev"
-Requires-Dist: deepdiff!=8.0.0; extra == "dev"
-Requires-Dist: packaging; extra == "dev"
-Requires-Dist: types-dataclasses; extra == "dev"
-Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.4.0.2; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest,sql-parser]==1.4.0.3; extra == "dev"
 Requires-Dist: mypy==1.17.1; extra == "dev"
-Requires-Dist: types-PyYAML; extra == "dev"
-Requires-Dist: types-requests; extra == "dev"
-Requires-Dist: twine; extra == "dev"
-Requires-Dist: pytest>=6.2.2; extra == "dev"
 Requires-Dist: pydantic>=2.4.0; extra == "dev"
-Requires-Dist: tox-uv; extra == "dev"
+Requires-Dist: build; extra == "dev"
+Requires-Dist: types-tabulate; extra == "dev"
+Requires-Dist: pytest>=6.2.2; extra == "dev"
+Requires-Dist: types-requests; extra == "dev"
+Requires-Dist: tox; extra == "dev"
+Requires-Dist: types-six; extra == "dev"
 Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
+Requires-Dist: types-click==0.1.12; extra == "dev"
+Requires-Dist: twine; extra == "dev"
 Requires-Dist: types-python-dateutil; extra == "dev"
+Requires-Dist: tox-uv; extra == "dev"
+Requires-Dist: tenacity; extra == "dev"
+Requires-Dist: acryl-datahub[datahub-rest]==1.4.0.3; extra == "dev"
+Requires-Dist: apache-airflow<4.0.0,>=2.5.0; extra == "dev"
 Requires-Dist: types-cachetools; extra == "dev"
-Requires-Dist: types-setuptools; extra == "dev"
+Requires-Dist: sqlalchemy-stubs; extra == "dev"
+Requires-Dist: deepdiff!=8.0.0; extra == "dev"
+Requires-Dist: types-dataclasses; extra == "dev"
+Requires-Dist: packaging; extra == "dev"
 Requires-Dist: ruff==0.11.7; extra == "dev"
+Requires-Dist: types-toml; extra == "dev"
+Requires-Dist: types-PyYAML; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: types-setuptools; extra == "dev"
 Provides-Extra: integration-tests
-Requires-Dist: apache-airflow-providers-teradata; extra == "integration-tests"
 Requires-Dist: snowflake-connector-python>=2.7.10; extra == "integration-tests"
-Requires-Dist: acryl-datahub[testing-utils]==1.4.0.2; extra == "integration-tests"
 Requires-Dist: apache-airflow[amazon,google,snowflake]>=2.0.2; extra == "integration-tests"
-Requires-Dist: acryl-datahub[sync-file-emitter]==1.4.0.2; extra == "integration-tests"
-Requires-Dist: apache-airflow-providers-sqlite; extra == "integration-tests"
-Requires-Dist: acryl-datahub[datahub-kafka]==1.4.0.2; extra == "integration-tests"
+Requires-Dist: acryl-datahub[testing-utils]==1.4.0.3; extra == "integration-tests"
+Requires-Dist: apache-airflow-providers-teradata; extra == "integration-tests"
+Requires-Dist: acryl-datahub[datahub-kafka]==1.4.0.3; extra == "integration-tests"
 Requires-Dist: virtualenv; extra == "integration-tests"
+Requires-Dist: acryl-datahub[sync-file-emitter]==1.4.0.3; extra == "integration-tests"
+Requires-Dist: apache-airflow-providers-sqlite; extra == "integration-tests"
 Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
@@ -230,6 +230,11 @@ enable_extractors = True  # Default: True
 
 # Fine-grained control over DataHub's OpenLineage enhancements
 
+# --- SQL Parsing Configuration ---
+
+# Enable multi-statement SQL parsing (resolves temp tables, merges lineage)
+enable_multi_statement_sql_parsing = False  # Default: False
+
 # --- Patches (work with both Legacy OpenLineage and OpenLineage Provider) ---
 
 # Patch SqlExtractor to use DataHub's advanced SQL parser (enables column-level lineage)
@@ -246,6 +251,10 @@ extract_athena_operator = True  # Default: True
 # Use DataHub's custom BigQueryInsertJobOperatorExtractor (handles BQ job configuration)
 extract_bigquery_insert_job_operator = True  # Default: True
 ```
+
+**Multi-Statement SQL Parsing:**
+
+When `enable_multi_statement_sql_parsing=True`, if a task executes multiple SQL statements (e.g., `CREATE TEMP TABLE ...; INSERT ... FROM temp_table;`), DataHub parses all statements together and resolves temporary table dependencies within that task. By default (False), only the first statement is parsed.
 
 **How it works:**
 

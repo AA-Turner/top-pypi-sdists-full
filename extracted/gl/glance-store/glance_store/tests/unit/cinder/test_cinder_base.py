@@ -28,7 +28,6 @@ import uuid
 from keystoneauth1 import exceptions as keystone_exc
 from os_brick.initiator import connector
 from oslo_concurrency import processutils
-from oslo_utils.secretutils import md5
 from oslo_utils import units
 
 from glance_store.common import cinder_utils
@@ -101,6 +100,52 @@ class TestCinderStoreBase(object):
                 group=group, **{'cinder_ca_certificates_file': fake_cert_path})
             fake_session.assert_called_once_with(
                 auth=fake_auth, verify=fake_cert_path)
+
+    def _get_cinderclient_with_application_credential(
+            self, group='glance_store', **kwargs):
+        cinderclient_opts = {
+            'cinder_store_application_credential_id': 'test_ac_id',
+            'cinder_store_application_credential_secret': 'test_ac_secret',
+            'cinder_store_auth_address': 'test_address'}
+
+        cinderclient_opts.update(kwargs)
+        self.config(**cinderclient_opts, group=group)
+        cc = self.store.get_cinderclient(self.context)
+        return cc
+
+    def _test_get_cinderclient_with_application_credential(
+            self, group='glance_store'):
+        cinder._reset_cinder_session()
+        with mock.patch.object(
+            cinder.ksa_session, 'Session') as fake_session, \
+            mock.patch.object(
+                cinder.ksa_identity,
+                'V3ApplicationCredential') as fake_ac_method:
+            fake_auth = mock.MagicMock()
+            fake_ac_method.return_value = fake_auth
+            self._get_cinderclient_with_application_credential(group=group)
+            fake_ac_method.assert_called_once_with(
+                application_credential_id='test_ac_id',
+                application_credential_secret='test_ac_secret',
+                auth_url='test_address')
+            fake_session.assert_called_once_with(auth=fake_auth, verify=True)
+
+    def _test_get_cinderclient_with_application_credential_fallback(
+            self, group='glance_store'):
+        cinder._reset_cinder_session()
+        with mock.patch.object(
+            cinder.ksa_session, 'Session') as fake_session, \
+            mock.patch.object(
+                cinder.ksa_identity, 'V3Password') as fake_password_method, \
+            mock.patch.object(
+                cinder.ksa_identity,
+                'V3ApplicationCredential') as fake_ac_method:
+            fake_auth = mock.MagicMock()
+            fake_password_method.return_value = fake_auth
+            self._get_cinderclient_with_user_overriden(group=group)
+            fake_ac_method.assert_not_called()
+            fake_password_method.assert_called_once()
+            fake_session.assert_called_once_with(auth=fake_auth, verify=True)
 
     def _test_get_cinderclient_cinder_endpoint_template(self,
                                                         group='glance_store'):
@@ -556,8 +601,9 @@ class TestCinderStoreBase(object):
         expected_size = size_kb * units.Ki
         expected_file_contents = b"*" * expected_size
         image_file = io.BytesIO(expected_file_contents)
-        expected_checksum = md5(expected_file_contents,
-                                usedforsecurity=False).hexdigest()
+        expected_checksum = hashlib.md5(
+            expected_file_contents,
+            usedforsecurity=False).hexdigest()
         expected_multihash = hashlib.sha256(expected_file_contents).hexdigest()
 
         expected_location = 'cinder://%s' % fake_volume.id

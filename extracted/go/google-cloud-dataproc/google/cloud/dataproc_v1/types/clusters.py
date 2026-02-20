@@ -17,10 +17,10 @@ from __future__ import annotations
 
 from typing import MutableMapping, MutableSequence
 
-from google.protobuf import duration_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.type import interval_pb2  # type: ignore
+import google.protobuf.duration_pb2 as duration_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.type.interval_pb2 as interval_pb2  # type: ignore
 import proto  # type: ignore
 
 from google.cloud.dataproc_v1.types import shared
@@ -179,6 +179,8 @@ class ClusterConfig(proto.Message):
     r"""The cluster config.
 
     Attributes:
+        cluster_type (google.cloud.dataproc_v1.types.ClusterConfig.ClusterType):
+            Optional. The type of the cluster.
         cluster_tier (google.cloud.dataproc_v1.types.ClusterConfig.ClusterTier):
             Optional. The cluster tier.
         config_bucket (str):
@@ -260,6 +262,27 @@ class ClusterConfig(proto.Message):
             Optional. The node group settings.
     """
 
+    class ClusterType(proto.Enum):
+        r"""The type of the cluster.
+
+        Values:
+            CLUSTER_TYPE_UNSPECIFIED (0):
+                Not set.
+            STANDARD (1):
+                Standard dataproc cluster with a minimum of
+                two primary workers.
+            SINGLE_NODE (2):
+                https://cloud.google.com/dataproc/docs/concepts/configuring-clusters/single-node-clusters
+            ZERO_SCALE (3):
+                Clusters that can use only secondary workers
+                and be scaled down to zero secondary worker
+                nodes.
+        """
+        CLUSTER_TYPE_UNSPECIFIED = 0
+        STANDARD = 1
+        SINGLE_NODE = 2
+        ZERO_SCALE = 3
+
     class ClusterTier(proto.Enum):
         r"""The cluster tier.
 
@@ -275,6 +298,11 @@ class ClusterConfig(proto.Message):
         CLUSTER_TIER_STANDARD = 1
         CLUSTER_TIER_PREMIUM = 2
 
+    cluster_type: ClusterType = proto.Field(
+        proto.ENUM,
+        number=27,
+        enum=ClusterType,
+    )
     cluster_tier: ClusterTier = proto.Field(
         proto.ENUM,
         number=29,

@@ -31,8 +31,8 @@ def get_container_version(state: ReplState, ctx = NULL) -> tuple[str, int, str]:
 
 def get_latest_version():
     repo = Config().get('pod.image-repository', 'https://hub.docker.com/v2/repositories/seanahnsf/kaqing')
-    excludes = ' | '.join([f"grep -v '{x}'" for x in ['latest', 'buildcache']])
-    curl = f"curl -s '{repo}/tags' -H 'Content-Type: application/json' | jq -r '.results[].name' | {excludes} | sort -r | head -n 1"
+    excludes = ' | '.join([f"grep -v '{x}'" for x in ['latest', 'buildcache', 'arm64', 'amd64']])
+    curl = f"curl -s '{repo}/tags' -H 'Content-Type: application/json' | jq -r '.results[].name' | {excludes} | head -n 1"
     r = local_exec(['bash', '-c', curl])
 
     return r.stdout.strip(' \r\n')

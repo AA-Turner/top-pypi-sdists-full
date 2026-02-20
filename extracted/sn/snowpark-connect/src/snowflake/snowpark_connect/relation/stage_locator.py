@@ -9,6 +9,7 @@ from pyspark.errors.exceptions.base import AnalysisException
 from s3fs.core import S3FileSystem
 
 from snowflake import snowpark
+from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.session import Session
 from snowflake.snowpark_connect.config import sessions_config
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -101,9 +102,23 @@ class StageLocator:
         self.stages_for_azure = {}
         self.stages_for_aws = {}
         self.stages_for_gcp = {}
-        self.stages_for_local = None
+        self.stage_for_local = None
 
         self.session = session
+
+    def _fully_qualified_stage_name(self, unqualified_stage_name: str) -> str:
+        db = unquote_if_quoted(self.session.get_current_database())
+        schema = unquote_if_quoted(self.session.get_current_schema())
+        bare_name = unqualified_stage_name.lstrip("@")
+        return f"@{db}.{schema}.{bare_name}"
+
+    def _stage_exists(self, stage_name: str) -> bool:
+        try:
+            self.session.sql(f"DESCRIBE STAGE {stage_name[1:]}").collect()
+            return True
+        except Exception as e:
+            logger.debug(f"Stage liveness check failed for '{stage_name}': {e}")
+            return False
 
     def get_and_maybe_create_stage(
         self,
@@ -116,7 +131,13 @@ class StageLocator:
                 account, bucket_name, path = parse_azure_url(url)
                 key = f"{account}/{bucket_name}"
                 if key in self.stages_for_azure:
-                    return self.stages_for_azure[key]
+                    cached = self.stages_for_azure[key]
+                    if self._stage_exists(cached):
+                        return cached
+                    logger.info(
+                        f"Cached Azure stage '{cached}' no longer exists, recreating"
+                    )
+                    del self.stages_for_azure[key]
 
                 stage_name = random_string(5, "@spark_connect_stage_azure_")
                 sql_query = f"CREATE OR REPLACE TEMP STAGE {stage_name[1:]} URL='azure://{account}.blob.core.windows.net/{bucket_name}'"
@@ -139,15 +160,22 @@ class StageLocator:
                     sql_query += f" CREDENTIALS = (AZURE_SAS_TOKEN = '{sas_token}')"
 
                 logger.info(self.session.sql(sql_query).collect())
-                self.stages_for_azure[bucket_name] = stage_name
-                return stage_name
+                fq_stage_name = self._fully_qualified_stage_name(stage_name)
+                self.stages_for_azure[key] = fq_stage_name
+                return fq_stage_name
 
             case _:
                 filesystem, parsed_path = url_to_fs(url)
                 if isinstance(filesystem, S3FileSystem):
                     bucket_name = parsed_path.split("/")[0]
                     if bucket_name in self.stages_for_aws:
-                        return self.stages_for_aws[bucket_name]
+                        cached = self.stages_for_aws[bucket_name]
+                        if self._stage_exists(cached):
+                            return cached
+                        logger.info(
+                            f"Cached AWS stage '{cached}' no longer exists, recreating"
+                        )
+                        del self.stages_for_aws[bucket_name]
 
                     stage_name = random_string(5, "@spark_connect_stage_aws_")
                     # Stage name when created does not have "@" at the beginning
@@ -194,14 +222,24 @@ class StageLocator:
                             sql_query += f" ENCRYPTION = ( TYPE='AWS_SSE_KMS' KMS_KEY_ID = '{credential.get('spark.hadoop.fs.s3a.server-side-encryption.key')}' )"
 
                     logger.info(self.session.sql(sql_query).collect())
-                    self.stages_for_aws[bucket_name] = stage_name
-                    return stage_name
+                    fq_stage_name = self._fully_qualified_stage_name(stage_name)
+                    self.stages_for_aws[bucket_name] = fq_stage_name
+                    return fq_stage_name
 
                 else:
-                    if self.stages_for_local is None:
-                        stage_name = random_string(5, "@spark_connect_stage_local_")
-                        self.session.sql(
-                            f"CREATE OR REPLACE TEMP STAGE {stage_name[1:]}"
-                        ).collect()
-                        self.stages_for_local = stage_name
-                    return self.stages_for_local
+                    if self.stage_for_local is not None:
+                        if self._stage_exists(self.stage_for_local):
+                            return self.stage_for_local
+                        logger.info(
+                            f"Cached local stage '{self.stage_for_local}' no longer exists, recreating"
+                        )
+                        self.stage_for_local = None
+
+                    stage_name = random_string(5, "@spark_connect_stage_local_")
+                    self.session.sql(
+                        f"CREATE OR REPLACE TEMP STAGE {stage_name[1:]}"
+                    ).collect()
+                    # Keep local stages unqualified. The local download flow uses GET/LS
+                    # against stage paths and currently expects @stage/path form.
+                    self.stage_for_local = stage_name
+                    return self.stage_for_local

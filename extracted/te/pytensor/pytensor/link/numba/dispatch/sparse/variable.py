@@ -185,33 +185,140 @@ def cs_matrix_constant(context, builder, ty, pyval):
 
 
 @overload(sp.sparse.csr_matrix)
-def overload_csr_matrix(arg1, shape, dtype=None):
-    if not isinstance(arg1, types.BaseAnonymousTuple) or len(arg1) != 3:
-        return None
-    if isinstance(shape, types.NoneType):
-        return None
+def overload_csr_matrix(arg1, shape=None, dtype=None):
+    if isinstance(arg1, CSCMatrixType):
 
-    def impl(arg1, shape, dtype=None):
-        data, indices, indptr = arg1
-        int32_shape = (types.int32(shape[0]), types.int32(shape[1]))
-        return csr_matrix_from_components(data, indices, indptr, int32_shape)
+        def csr_from_csc(arg1, shape=None, dtype=None):
+            return arg1.tocsr()
 
-    return impl
+        return csr_from_csc
+
+    if isinstance(arg1, CSRMatrixType):
+
+        def csr_from_csr(arg1, shape=None, dtype=None):
+            return arg1.copy()
+
+        return csr_from_csr
+
+    if isinstance(arg1, types.Array) and arg1.ndim == 2:
+
+        def csr_from_dense(arg1, shape=None, dtype=None):
+            n_rows = types.int32(arg1.shape[0])
+            n_cols = types.int32(arg1.shape[1])
+
+            # Pass 1: Count non-zeros to pre-allocate
+            nnz = 0
+            for i in range(n_rows):
+                for j in range(n_cols):
+                    if arg1[i, j] != 0:
+                        nnz += 1
+
+            if dtype is not None:
+                data_dtype = dtype
+            else:
+                data_dtype = arg1.dtype
+            data = np.empty(nnz, dtype=data_dtype)
+            indices = np.empty(nnz, dtype=np.int32)
+            indptr = np.zeros(n_rows + 1, dtype=np.int32)
+
+            # Pass 2: Fill the arrays
+            pos = 0
+            for i in range(n_rows):
+                for j in range(n_cols):
+                    value = arg1[i, j]
+                    if value != 0:
+                        data[pos] = value
+                        indices[pos] = j
+                        pos += 1
+                indptr[i + 1] = pos
+
+            return csr_matrix_from_components(data, indices, indptr, (n_rows, n_cols))
+
+        return csr_from_dense
+
+    if (
+        isinstance(arg1, types.BaseAnonymousTuple)
+        and len(arg1) == 3
+        and shape is not None
+    ):
+
+        def csr_from_components(arg1, shape=None, dtype=None):
+            data, indices, indptr = arg1
+            int32_shape = (types.int32(shape[0]), types.int32(shape[1]))
+            return csr_matrix_from_components(data, indices, indptr, int32_shape)
+
+        return csr_from_components
 
 
 @overload(sp.sparse.csc_matrix)
-def overload_csc_matrix(arg1, shape, dtype=None):
-    if not isinstance(arg1, types.BaseAnonymousTuple) or len(arg1) != 3:
-        return None
-    if isinstance(shape, types.NoneType):
-        return None
+def overload_csc_matrix(arg1, shape=None, dtype=None):
+    if isinstance(arg1, CSRMatrixType):
 
-    def impl(arg1, shape, dtype=None):
-        data, indices, indptr = arg1
-        int32_shape = (types.int32(shape[0]), types.int32(shape[1]))
-        return csc_matrix_from_components(data, indices, indptr, int32_shape)
+        def csc_from_csr(arg1, shape=None, dtype=None):
+            return arg1.tocsc()
 
-    return impl
+        return csc_from_csr
+
+    if isinstance(arg1, CSCMatrixType):
+
+        def csc_from_csc(arg1, shape=None, dtype=None):
+            return arg1.copy()
+
+        return csc_from_csc
+
+    if isinstance(arg1, types.Array) and arg1.ndim == 2:
+
+        def csc_from_dense(arg1, shape=None, dtype=None):
+            if shape is not None:
+                n_rows = types.int32(shape[0])
+                n_cols = types.int32(shape[1])
+            else:
+                n_rows = types.int32(arg1.shape[0])
+                n_cols = types.int32(arg1.shape[1])
+
+            # Pass 1: Count non-zeros to pre-allocate
+            nnz = 0
+            for j in range(n_cols):
+                for i in range(n_rows):
+                    if arg1[i, j] != 0:
+                        nnz += 1
+
+            # Pre-allocate internal containers
+            if dtype is not None:
+                data_dtype = dtype
+            else:
+                data_dtype = arg1.dtype
+            data = np.empty(nnz, dtype=data_dtype)
+            indices = np.empty(nnz, dtype=np.int32)
+            indptr = np.zeros(n_cols + 1, dtype=np.int32)
+
+            # Pass 2: Fill the arrays
+            pos = 0
+            for j in range(n_cols):
+                for i in range(n_rows):
+                    value = arg1[i, j]
+                    if value != 0:
+                        data[pos] = value
+                        indices[pos] = i
+                        pos += 1
+                indptr[j + 1] = pos
+
+            return csc_matrix_from_components(data, indices, indptr, (n_rows, n_cols))
+
+        return csc_from_dense
+
+    if (
+        isinstance(arg1, types.BaseAnonymousTuple)
+        and len(arg1) == 3
+        and shape is not None
+    ):
+
+        def csc_from_components(arg1, shape=None, dtype=None):
+            data, indices, indptr = arg1
+            int32_shape = (types.int32(shape[0]), types.int32(shape[1]))
+            return csc_matrix_from_components(data, indices, indptr, int32_shape)
+
+        return csc_from_components
 
 
 @overload(np.shape)
@@ -289,98 +396,112 @@ def overload_sparse_astype(matrix, dtype):
     return astype
 
 
-@overload_method(CSCMatrixType, "tocsr")
+@overload_method(CSMatrixType, "tocsr")
 def overload_tocsr(matrix):
-    def to_csr(matrix):
-        n_row, n_col = matrix.shape
-        csc_ptr = matrix.indptr.view(np.uint32)
-        csc_ind = matrix.indices.view(np.uint32)
-        csc_data = matrix.data
-        nnz = csc_ptr[n_col]
+    if isinstance(matrix, CSRMatrixType):
 
-        csr_ptr = np.empty(n_row + 1, dtype=np.uint32)
-        csr_ind = np.empty(nnz, dtype=np.uint32)
-        csr_data = np.empty(nnz, dtype=matrix.data.dtype)
+        def to_csr(matrix):
+            return matrix
 
-        csr_ptr[:n_row] = 0
+    else:  # CSCMatrix
 
-        for n in range(nnz):
-            csr_ptr[csc_ind[n]] += 1
+        def to_csr(matrix):
+            n_row, n_col = matrix.shape
+            csc_ptr = matrix.indptr.view(np.uint32)
+            csc_ind = matrix.indices.view(np.uint32)
+            csc_data = matrix.data
+            nnz = csc_ptr[n_col]
 
-        cumsum = 0
-        for row in range(n_row):
-            temp = csr_ptr[row]
-            csr_ptr[row] = cumsum
-            cumsum += temp
-        csr_ptr[n_row] = nnz
+            csr_ptr = np.empty(n_row + 1, dtype=np.uint32)
+            csr_ind = np.empty(nnz, dtype=np.uint32)
+            csr_data = np.empty(nnz, dtype=matrix.data.dtype)
 
-        for col_idx in range(n_col):
-            for jj in range(csc_ptr[col_idx], csc_ptr[col_idx + 1]):
-                row_idx = csc_ind[jj]
-                dest = csr_ptr[row_idx]
+            csr_ptr[:n_row] = 0
 
-                csr_ind[dest] = col_idx
-                csr_data[dest] = csc_data[jj]
+            for n in range(nnz):
+                csr_ptr[csc_ind[n]] += 1
 
-                csr_ptr[row_idx] += 1
+            cumsum = 0
+            for row in range(n_row):
+                temp = csr_ptr[row]
+                csr_ptr[row] = cumsum
+                cumsum += temp
+            csr_ptr[n_row] = nnz
 
-        last = 0
-        for row_idx in range(n_row + 1):
-            temp = csr_ptr[row_idx]
-            csr_ptr[row_idx] = last
-            last = temp
+            for col_idx in range(n_col):
+                for jj in range(csc_ptr[col_idx], csc_ptr[col_idx + 1]):
+                    row_idx = csc_ind[jj]
+                    dest = csr_ptr[row_idx]
 
-        return csr_matrix_from_components(
-            csr_data, csr_ind.view(np.int32), csr_ptr.view(np.int32), matrix.shape
-        )
+                    csr_ind[dest] = col_idx
+                    csr_data[dest] = csc_data[jj]
+
+                    csr_ptr[row_idx] += 1
+
+            last = 0
+            for row_idx in range(n_row + 1):
+                temp = csr_ptr[row_idx]
+                csr_ptr[row_idx] = last
+                last = temp
+
+            return csr_matrix_from_components(
+                csr_data, csr_ind.view(np.int32), csr_ptr.view(np.int32), matrix.shape
+            )
 
     return to_csr
 
 
-@overload_method(CSRMatrixType, "tocsc")
+@overload_method(CSMatrixType, "tocsc")
 def overload_tocsc(matrix):
-    def to_csc(matrix):
-        n_row, n_col = matrix.shape
-        csr_ptr = matrix.indptr.view(np.uint32)
-        csr_ind = matrix.indices.view(np.uint32)
-        csr_data = matrix.data
-        nnz = csr_ptr[n_row]
+    if isinstance(matrix, CSCMatrixType):
 
-        csc_ptr = np.empty(n_col + 1, dtype=np.uint32)
-        csc_ind = np.empty(nnz, dtype=np.uint32)
-        csc_data = np.empty(nnz, dtype=matrix.data.dtype)
+        def to_csc(matrix):
+            return matrix
 
-        csc_ptr[:n_col] = 0
+    else:  # CSRMatrix
 
-        for n in range(nnz):
-            csc_ptr[csr_ind[n]] += 1
+        def to_csc(matrix):
+            n_row, n_col = matrix.shape
+            csr_ptr = matrix.indptr.view(np.uint32)
+            csr_ind = matrix.indices.view(np.uint32)
+            csr_data = matrix.data
+            nnz = csr_ptr[n_row]
 
-        cumsum = 0
-        for col in range(n_col):
-            temp = csc_ptr[col]
-            csc_ptr[col] = cumsum
-            cumsum += temp
-        csc_ptr[n_col] = nnz
+            csc_ptr = np.empty(n_col + 1, dtype=np.uint32)
+            csc_ind = np.empty(nnz, dtype=np.uint32)
+            csc_data = np.empty(nnz, dtype=matrix.data.dtype)
 
-        for row in range(n_row):
-            for jj in range(csr_ptr[row], csr_ptr[row + 1]):
-                col = csr_ind[jj]
-                dest = csc_ptr[col]
+            csc_ptr[:n_col] = 0
 
-                csc_ind[dest] = row
-                csc_data[dest] = csr_data[jj]
+            for n in range(nnz):
+                csc_ptr[csr_ind[n]] += 1
 
-                csc_ptr[col] += 1
+            cumsum = 0
+            for col in range(n_col):
+                temp = csc_ptr[col]
+                csc_ptr[col] = cumsum
+                cumsum += temp
+            csc_ptr[n_col] = nnz
 
-        last = 0
-        for col in range(n_col + 1):
-            temp = csc_ptr[col]
-            csc_ptr[col] = last
-            last = temp
+            for row in range(n_row):
+                for jj in range(csr_ptr[row], csr_ptr[row + 1]):
+                    col = csr_ind[jj]
+                    dest = csc_ptr[col]
 
-        return csc_matrix_from_components(
-            csc_data, csc_ind.view(np.int32), csc_ptr.view(np.int32), matrix.shape
-        )
+                    csc_ind[dest] = row
+                    csc_data[dest] = csr_data[jj]
+
+                    csc_ptr[col] += 1
+
+            last = 0
+            for col in range(n_col + 1):
+                temp = csc_ptr[col]
+                csc_ptr[col] = last
+                last = temp
+
+            return csc_matrix_from_components(
+                csc_data, csc_ind.view(np.int32), csc_ptr.view(np.int32), matrix.shape
+            )
 
     return to_csc
 
@@ -416,5 +537,62 @@ def overload_toarray(matrix):
                 return dense
 
             return to_array
+        case _:
+            return
+
+
+@overload_method(CSMatrixType, "sum")
+def overload_sum(matrix, axis):
+    # 'axis' can be either None, 0, or 1.
+    if axis is types.none:
+
+        def sum_scalar(matrix, axis):
+            return np.asarray(np.sum(matrix.data))
+
+        return sum_scalar
+
+    match matrix:
+        case CSRMatrixType():
+
+            def sum_csr(matrix, axis):
+                indptr = matrix.indptr.view(np.uint32)
+                indices = matrix.indices.view(np.uint32)
+                data = matrix.data
+                n_row = matrix.shape[0]
+                n_col = matrix.shape[1]
+
+                if axis == 0:
+                    col_sums = np.zeros(n_col, dtype=data.dtype)
+                    for i in range(len(data)):
+                        col_sums[indices[i]] += data[i]
+                    return col_sums
+                else:
+                    row_sums = np.zeros(n_row, dtype=data.dtype)
+                    for i in range(n_row):
+                        row_sums[i] = np.sum(data[indptr[i] : indptr[i + 1]])
+                    return row_sums
+
+            return sum_csr
+        case CSCMatrixType():
+
+            def sum_csc(matrix, axis):
+                indptr = matrix.indptr.view(np.uint32)
+                indices = matrix.indices.view(np.uint32)
+                data = matrix.data
+                n_row = matrix.shape[0]
+                n_col = matrix.shape[1]
+
+                if axis == 0:
+                    col_sums = np.zeros(n_col, dtype=data.dtype)
+                    for j in range(n_col):
+                        col_sums[j] = np.sum(data[indptr[j] : indptr[j + 1]])
+                    return col_sums
+                else:
+                    row_sums = np.zeros(n_row, dtype=data.dtype)
+                    for i in range(len(data)):
+                        row_sums[indices[i]] += data[i]
+                    return row_sums
+
+            return sum_csc
         case _:
             return

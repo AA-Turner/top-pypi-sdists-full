@@ -67,7 +67,6 @@ from snowflake.snowpark_connect.relation.utils import (
 from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_pyarrow_types,
     map_snowpark_to_pyspark_types,
-    snowpark_to_iceberg_type,
 )
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.identifiers import (
@@ -233,7 +232,7 @@ def _validate_partition_columns_match_spec(
 
 def map_write(request: proto_base.ExecutePlanRequest):
     write_op = request.plan.command.write_operation
-    telemetry.report_io_write(write_op.source)
+    telemetry.report_io_write(write_op.source, dict(write_op.options))
     if write_op.path and write_op.options.get("path"):
         raise AnalysisException(
             "There is a 'path' option set and save() is called with a path parameter. "
@@ -309,7 +308,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
         max_file_size = 1073741824
     match write_op.source:
         case "csv" | "parquet" | "json" | "text":
-            if write_mode == "ignore":
+            # TODO: Extend SaveMode.Ignore support to csv, json, and text formats.
+            #  The path-existence check logic already implemented for parquet
+            #  (see the "ignore" block below) is format-agnostic and can be
+            #  reused directly for these formats.
+            if write_mode == "ignore" and write_op.source != "parquet":
                 exception = SnowparkConnectNotImplementedError(
                     f"Write mode {write_mode} is not supported for {write_op.source}"
                 )
@@ -320,6 +323,26 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 [write_op.path],
                 session=session,
             )[0]
+
+            # Handle ignore mode for parquet: if the path already exists,
+            # silently skip the write.  Per Spark's SaveMode.Ignore semantics,
+            # existing data must not be changed.
+            if write_mode == "ignore":
+                is_local_path = not is_cloud_path(write_op.path)
+                path_exists = False
+                if is_local_path:
+                    path_exists = os.path.exists(write_op.path) and (
+                        os.path.isfile(write_op.path)
+                        or (os.path.isdir(write_op.path) and os.listdir(write_op.path))
+                    )
+                else:
+                    with suppress(SnowparkSQLException):
+                        list_command = f"LIST '{write_path}/'"
+                        result = session.sql(list_command).collect()
+                        if result:
+                            path_exists = True
+                if path_exists:
+                    return
 
             # Handle error/errorifexists mode - check if file exists before writing
             if write_mode in (None, "error", "errorifexists"):
@@ -582,7 +605,14 @@ def map_write(request: proto_base.ExecutePlanRequest):
             )
             snowpark_table_name = _spark_to_snowflake(table_name)
             partition_cols = (
-                write_op.partitioning_columns if write_op.partitioning_columns else None
+                list(write_op.partitioning_columns)
+                if write_op.partitioning_columns
+                else None
+            )
+
+            iceberg_config = _build_iceberg_config(
+                options=dict(write_op.options),
+                partition_cols=partition_cols,
             )
 
             match write_mode:
@@ -593,22 +623,11 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     _validate_table_does_not_exist(
                         snowpark_table_name, table_schema_or_error
                     )
-                    create_iceberg_table(
-                        snowpark_table_name=snowpark_table_name,
-                        location=write_op.options.get("location", None),
-                        schema=input_df.schema,
-                        snowpark_session=session,
-                        partition_by=partition_cols,
-                        target_file_size=write_op.options.get(
-                            "write.target-file-size", None
-                        ),
-                    )
-                    _validate_schema_and_get_writer(
-                        input_df, "append", snowpark_table_name, table_schema_or_error
-                    ).saveAsTable(
+                    _get_writer_for_table_creation(input_df).saveAsTable(
                         table_name=snowpark_table_name,
-                        mode="append",
+                        mode="errorifexists",
                         column_order=_column_order_for_write,
+                        iceberg_config=iceberg_config,
                     )
                 case "append":
                     table_schema_or_error = _get_table_schema_or_error(
@@ -616,23 +635,13 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     )
                     if isinstance(table_schema_or_error, DataType):  # Table exists
                         _validate_table_type(snowpark_table_name, session, "iceberg")
-                    else:
-                        create_iceberg_table(
-                            snowpark_table_name=snowpark_table_name,
-                            location=write_op.options.get("location", None),
-                            schema=input_df.schema,
-                            snowpark_session=session,
-                            partition_by=partition_cols,
-                            target_file_size=write_op.options.get(
-                                "write.target-file-size", None
-                            ),
-                        )
                     _validate_schema_and_get_writer(
                         input_df, "append", snowpark_table_name, table_schema_or_error
                     ).saveAsTable(
                         table_name=snowpark_table_name,
                         mode="append",
                         column_order=_column_order_for_write,
+                        iceberg_config=iceberg_config,
                     )
                 case "ignore":
                     table_schema_or_error = _get_table_schema_or_error(
@@ -641,56 +650,35 @@ def map_write(request: proto_base.ExecutePlanRequest):
                     if not isinstance(
                         table_schema_or_error, DataType
                     ):  # Table not exists
-                        create_iceberg_table(
-                            snowpark_table_name=snowpark_table_name,
-                            location=write_op.options.get("location", None),
-                            schema=input_df.schema,
-                            snowpark_session=session,
-                            partition_by=partition_cols,
-                            target_file_size=write_op.options.get(
-                                "write.target-file-size", None
-                            ),
-                        )
-                        _validate_schema_and_get_writer(
-                            input_df, "append", snowpark_table_name
-                        ).saveAsTable(
+                        _get_writer_for_table_creation(input_df).saveAsTable(
                             table_name=snowpark_table_name,
-                            mode="append",
+                            mode="ignore",
                             column_order=_column_order_for_write,
+                            iceberg_config=iceberg_config,
                         )
                 case "overwrite":
                     table_schema_or_error = _get_table_schema_or_error(
                         snowpark_table_name, session
                     )
-                    if isinstance(table_schema_or_error, DataType):  # Table exists
+                    table_exists = isinstance(table_schema_or_error, DataType)
+                    if table_exists:
                         _validate_table_type(snowpark_table_name, session, "iceberg")
-                        create_iceberg_table(
-                            snowpark_table_name=snowpark_table_name,
-                            location=write_op.options.get("location", None),
-                            schema=input_df.schema,
-                            snowpark_session=session,
-                            mode="replace",
-                            partition_by=partition_cols,
-                            target_file_size=write_op.options.get(
-                                "write.target-file-size", None
-                            ),
+                    writer = (
+                        _validate_schema_and_get_writer(
+                            input_df,
+                            "overwrite",
+                            snowpark_table_name,
+                            table_schema_or_error if table_exists else None,
                         )
-                    else:
-                        create_iceberg_table(
-                            snowpark_table_name=snowpark_table_name,
-                            location=write_op.options.get("location", None),
-                            schema=input_df.schema,
-                            snowpark_session=session,
-                            mode="create",
-                            partition_by=partition_cols,
-                            target_file_size=write_op.options.get(
-                                "write.target-file-size", None
-                            ),
-                        )
-                    _get_writer_for_table_creation(input_df).saveAsTable(
-                        table_name=snowpark_table_name,
-                        mode="append",
-                        column_order=_column_order_for_write,
+                        if table_exists
+                        else _get_writer_for_table_creation(input_df)
+                    )
+                    _overwrite_iceberg_with_fallback(
+                        writer=writer,
+                        snowpark_table_name=snowpark_table_name,
+                        iceberg_config=iceberg_config,
+                        session=session,
+                        input_df=input_df,
                     )
                 case "overwrite_partitions":
                     table_schema_or_error = _get_table_schema_or_error(
@@ -729,6 +717,7 @@ def map_write(request: proto_base.ExecutePlanRequest):
                         mode="overwrite",
                         column_order=_column_order_for_write,
                         overwrite_condition=overwrite_condition,
+                        iceberg_config=iceberg_config,
                     )
                 case _:
                     exception = SnowparkConnectNotImplementedError(
@@ -873,28 +862,26 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
         else None
     )
 
+    iceberg_config = (
+        _build_iceberg_config(
+            options=dict(write_op.table_properties),
+            partition_cols=partition_cols,
+        )
+        if is_iceberg
+        else None
+    )
+
     match write_op.mode:
         case commands_proto.WriteOperationV2.MODE_CREATE:
             table_schema_or_error = _get_table_schema_or_error(
                 snowpark_table_name, session
             )
             _validate_table_does_not_exist(snowpark_table_name, table_schema_or_error)
-
-            if is_iceberg:
-                create_iceberg_table(
-                    snowpark_table_name=snowpark_table_name,
-                    location=write_op.table_properties.get("location"),
-                    schema=input_df.schema,
-                    snowpark_session=session,
-                    partition_by=partition_cols,
-                    target_file_size=write_op.table_properties.get(
-                        "write.target-file-size", None
-                    ),
-                )
             _get_writer_for_table_creation(input_df).saveAsTable(
                 table_name=snowpark_table_name,
-                mode="append" if is_iceberg else "errorifexists",
+                mode="errorifexists",
                 column_order=_column_order_for_write,
+                iceberg_config=iceberg_config,
             )
 
         case commands_proto.WriteOperationV2.MODE_APPEND:
@@ -910,6 +897,7 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                 table_name=snowpark_table_name,
                 mode="append",
                 column_order=_column_order_for_write,
+                iceberg_config=iceberg_config,
             )
 
         case commands_proto.WriteOperationV2.MODE_OVERWRITE | commands_proto.WriteOperationV2.MODE_OVERWRITE_PARTITIONS:
@@ -920,32 +908,23 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_table_exist_and_of_type(
                 snowpark_table_name, session, table_type, table_schema_or_error
             )
-
-            if is_iceberg:
-                create_iceberg_table(
-                    snowpark_table_name=snowpark_table_name,
-                    location=write_op.options.get("location", None),
-                    schema=input_df.schema,
-                    snowpark_session=session,
-                    mode="replace",
-                    partition_by=partition_cols,
-                    target_file_size=write_op.table_properties.get(
-                        "write.target-file-size", None
-                    ),
-                )
-                writer = _get_writer_for_table_creation(input_df)
-                save_mode = "append"
-            else:
-                writer = _validate_schema_and_get_writer(
-                    input_df, "overwrite", snowpark_table_name, table_schema_or_error
-                )
-                save_mode = "overwrite"
-
-            writer.saveAsTable(
-                table_name=snowpark_table_name,
-                mode=save_mode,
-                column_order=_column_order_for_write,
+            writer = _validate_schema_and_get_writer(
+                input_df, "overwrite", snowpark_table_name, table_schema_or_error
             )
+            if is_iceberg:
+                _overwrite_iceberg_with_fallback(
+                    writer=writer,
+                    snowpark_table_name=snowpark_table_name,
+                    iceberg_config=iceberg_config,
+                    session=session,
+                    input_df=input_df,
+                )
+            else:
+                writer.saveAsTable(
+                    table_name=snowpark_table_name,
+                    mode="overwrite",
+                    column_order=_column_order_for_write,
+                )
 
         case commands_proto.WriteOperationV2.MODE_REPLACE:
             table_schema_or_error = _get_table_schema_or_error(
@@ -954,55 +933,42 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             _validate_table_exist_and_of_type(
                 snowpark_table_name, session, table_type, table_schema_or_error
             )
-
-            if is_iceberg:
-                create_iceberg_table(
-                    snowpark_table_name=snowpark_table_name,
-                    location=write_op.table_properties.get("location"),
-                    schema=input_df.schema,
-                    snowpark_session=session,
-                    mode="replace",
-                    partition_by=partition_cols,
-                    target_file_size=write_op.table_properties.get(
-                        "write.target-file-size", None
-                    ),
-                )
-                save_mode = "append"
-            else:
-                save_mode = "overwrite"
-
-            _validate_schema_and_get_writer(
+            writer = _validate_schema_and_get_writer(
                 input_df, "replace", snowpark_table_name, table_schema_or_error
-            ).saveAsTable(
-                table_name=snowpark_table_name,
-                mode=save_mode,
-                column_order=_column_order_for_write,
             )
+            if is_iceberg:
+                _overwrite_iceberg_with_fallback(
+                    writer=writer,
+                    snowpark_table_name=snowpark_table_name,
+                    iceberg_config=iceberg_config,
+                    session=session,
+                    input_df=input_df,
+                )
+            else:
+                writer.saveAsTable(
+                    table_name=snowpark_table_name,
+                    mode="overwrite",
+                    column_order=_column_order_for_write,
+                )
 
         case commands_proto.WriteOperationV2.MODE_CREATE_OR_REPLACE:
-            if is_iceberg:
-                create_iceberg_table(
-                    snowpark_table_name=snowpark_table_name,
-                    location=write_op.table_properties.get("location"),
-                    schema=input_df.schema,
-                    snowpark_session=session,
-                    mode="create_or_replace",
-                    partition_by=partition_cols,
-                    target_file_size=write_op.table_properties.get(
-                        "write.target-file-size", None
-                    ),
-                )
-                save_mode = "append"
-            else:
-                save_mode = "overwrite"
-
-            _validate_schema_and_get_writer(
+            writer = _validate_schema_and_get_writer(
                 input_df, "create_or_replace", snowpark_table_name
-            ).saveAsTable(
-                table_name=snowpark_table_name,
-                mode=save_mode,
-                column_order=_column_order_for_write,
             )
+            if is_iceberg:
+                _overwrite_iceberg_with_fallback(
+                    writer=writer,
+                    snowpark_table_name=snowpark_table_name,
+                    iceberg_config=iceberg_config,
+                    session=session,
+                    input_df=input_df,
+                )
+            else:
+                writer.saveAsTable(
+                    table_name=snowpark_table_name,
+                    mode="overwrite",
+                    column_order=_column_order_for_write,
+                )
 
         case _:
             exception = SnowparkConnectNotImplementedError(
@@ -1250,69 +1216,138 @@ def _validate_target_file_size(target_file_size: str | None):
         raise exception
 
 
-def create_iceberg_table(
+def _build_iceberg_config(
+    options: dict,
+    partition_cols: list[str] | None = None,
+) -> dict | None:
+    config: dict = {}
+
+    ev = options.get("external_volume") or options.get("iceberg.external_volume")
+    if not ev:
+        ev = sessions_config.get(get_spark_session_id(), {}).get(
+            "snowpark.connect.iceberg.external_volume", None
+        )
+    if ev:
+        config["external_volume"] = ev
+
+    for key in ("catalog", "base_location", "storage_serialization_policy"):
+        val = options.get(key) or options.get(f"iceberg.{key}")
+        if val:
+            config[key] = val
+
+    if "catalog" not in config:
+        config["catalog"] = "SNOWFLAKE"
+
+    if "base_location" not in config:
+        location = options.get("location")
+        if location and location != "":
+            config["base_location"] = location
+
+    tfs = options.get("write.target-file-size") or options.get("target_file_size")
+    if tfs:
+        _validate_target_file_size(tfs)
+        config["target_file_size"] = tfs
+
+    if partition_cols:
+        config["partition_by"] = partition_cols
+
+    return config if config else None
+
+
+def _is_external_catalog_error(exc: SnowparkSQLException) -> bool:
+    """Return ``True`` when *exc* indicates the table belongs to an external
+    catalog and therefore cannot be overwritten via CREATE OR REPLACE."""
+
+    # Snowflake SQL error codes that indicate an external catalog table cannot be
+    # overwritten via CREATE OR REPLACE (CTAS).  When we encounter these during an
+    # iceberg overwrite we fall back to TRUNCATE + APPEND which preserves the
+    # existing table definition (and its catalog integration).
+    #   091378 – "Column specifications are only allowed for Iceberg tables using
+    #            the Snowflake catalog or Iceberg tables created within a
+    #            catalog-linked database."
+    #   093664 – "CTAS is not supported for this table type."
+    _EXTERNAL_CATALOG_OVERWRITE_ERROR_CODES = {91378, 93664}
+    error_code = getattr(exc, "sql_error_code", None)
+    if (
+        error_code is not None
+        and int(error_code) in _EXTERNAL_CATALOG_OVERWRITE_ERROR_CODES
+    ):
+        return True
+    # Belt-and-suspenders: also match on message substrings in case the
+    # numeric code is not surfaced in the exception object.
+    msg = str(exc)
+    return (
+        "Column specifications are only allowed for Iceberg tables using the Snowflake catalog"
+        in msg
+        or "CTAS is not supported for this table type" in msg
+        or "CREATE ICEBERG TABLE with COPY GRANTS is not supported in Catalog-Linked Databases"
+        in msg
+    )
+
+
+def _overwrite_iceberg_with_fallback(
+    writer: snowpark.DataFrameWriter,
     snowpark_table_name: str,
-    location: str,
-    schema: StructType,
-    snowpark_session: snowpark.Session,
-    mode: str = "create",
-    partition_by: list[str] = None,
-    target_file_size: str | None = None,
-):
-    table_schema = [
-        f"{spark_to_sf_single_id(unquote_if_quoted(field.name), is_column = True)} {snowpark_to_iceberg_type(field.datatype)}"
-        for field in schema.fields
-    ]
+    iceberg_config: dict | None,
+    session: snowpark.Session,
+    input_df: snowpark.DataFrame | None = None,
+) -> None:
+    """Try a normal Snowpark ``mode='overwrite'`` (CREATE OR REPLACE).
 
-    location = (
-        location
-        if location is not None and location != ""
-        else f"SNOWPARK_CONNECT_DEFAULT_LOCATION/{snowpark_table_name}"
-    )
-    base_location = f"BASE_LOCATION = '{location}'"
+    If the table belongs to an external catalog (Glue, Foundry, …) the
+    CREATE OR REPLACE will fail. In that case we fall back to
+    TRUNCATE TABLE + INSERT (mode='append') which preserves the table
+    definition and its catalog integration.
 
-    config_external_volume = sessions_config.get(get_spark_session_id(), {}).get(
-        "snowpark.connect.iceberg.external_volume", None
-    )
-    external_volume = (
-        ""
-        if config_external_volume is None or config_external_volume == ""
-        else f"EXTERNAL_VOLUME = '{config_external_volume}'"
-    )
-    copy_grants = ""
-    partition_by_sql = (
-        f"PARTITION BY ({','.join([f'{spark_to_sf_single_id(unquote_if_quoted(p), is_column = True)}' for p in partition_by])})"
-        if partition_by
-        else ""
-    )
+    Schema evolution is not supported for external catalog tables via
+    this path – the customer must ALTER the table through the external
+    catalog first.
 
-    _validate_target_file_size(target_file_size)
-    target_file_size_sql = (
-        f"TARGET_FILE_SIZE = '{target_file_size}'" if target_file_size else ""
-    )
-    match mode:
-        case "create":
-            create_sql = "CREATE"
-        case "replace" | "create_or_replace":
-            # There's no replace for iceberg table, so we use create or replace
-            copy_grants = "COPY GRANTS"
-            create_sql = "CREATE OR REPLACE"
-        case _:
-            exception = SnowparkConnectNotImplementedError(
-                f"Write mode {mode} is not supported for iceberg table"
+    To prevent data loss the fallback validates that the DataFrame
+    schema is compatible with the target table *before* truncating.
+    If the subsequent INSERT still fails for an unexpected reason
+    (network error, etc.) a clear error is logged.
+    """
+    try:
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            mode="overwrite",
+            column_order=_column_order_for_write,
+            iceberg_config=iceberg_config,
+            copy_grants=True,
+        )
+    except SnowparkSQLException as e:
+        if _is_external_catalog_error(e):
+            logger.info(
+                "Overwrite failed for external-catalog iceberg table %s; "
+                "falling back to TRUNCATE + APPEND.",
+                snowpark_table_name,
             )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
-    sql = f"""
-        {create_sql} ICEBERG TABLE {snowpark_table_name} ({",".join(table_schema)})
-        {partition_by_sql}
-        CATALOG = 'SNOWFLAKE'
-        {external_volume}
-        {base_location}
-        {target_file_size_sql}
-        {copy_grants};
-        """
-    snowpark_session.sql(sql).collect()
+
+            # Validate that the DataFrame schema is compatible with the
+            # target table BEFORE truncating.  Without this check a
+            # schema mismatch would cause the INSERT to fail *after*
+            # the TRUNCATE, leaving the table empty (data loss).
+            if input_df is not None:
+                try:
+                    table_schema = session.table(snowpark_table_name).schema
+                    _validate_schema_for_append(
+                        table_schema, input_df.schema, snowpark_table_name
+                    )
+                except SnowparkSQLException:
+                    raise
+                except AnalysisException:
+                    raise  # schema mismatch – fail fast, no data lost
+
+            session.sql(f"TRUNCATE TABLE IF EXISTS {snowpark_table_name}").collect()
+            writer.saveAsTable(
+                table_name=snowpark_table_name,
+                mode="append",
+                column_order=_column_order_for_write,
+                iceberg_config=iceberg_config,
+            )
+        else:
+            raise
 
 
 def rewrite_df(input_df: snowpark.DataFrame, source: str) -> snowpark.DataFrame:

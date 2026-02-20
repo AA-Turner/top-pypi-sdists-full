@@ -32,6 +32,13 @@ from .concept_flow import (
     ConceptFlowSteeringObject,
 )
 
+from .geodesic_ot import (
+    GeodesicOTMethod,
+    GeodesicOTConfig,
+    GeodesicOTResult,
+    GeodesicOTSteeringObject,
+)
+
 __all__ = [
     # Simple methods
     "CAAMethod",
@@ -59,4 +66,9 @@ __all__ = [
     "ConceptFlowResult",
     "FlowVelocityNetwork",
     "ConceptFlowSteeringObject",
+    # Geodesic OT method
+    "GeodesicOTMethod",
+    "GeodesicOTConfig",
+    "GeodesicOTResult",
+    "GeodesicOTSteeringObject",
 ]

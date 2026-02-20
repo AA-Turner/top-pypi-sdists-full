@@ -28465,7 +28465,9 @@ class VirtualNode(
         self,
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.streamAggregatedResources()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''

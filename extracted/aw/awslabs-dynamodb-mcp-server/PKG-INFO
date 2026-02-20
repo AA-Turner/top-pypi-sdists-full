@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: awslabs.dynamodb-mcp-server
-Version: 2.0.13
+Version: 2.0.14
 Summary: The official MCP Server for interacting with AWS DynamoDB
 Project-URL: homepage, https://awslabs.github.io/mcp/
 Project-URL: docs, https://awslabs.github.io/mcp/servers/dynamodb-mcp-server/
@@ -416,6 +416,7 @@ generated_dal/
 ├── entities.py              # Pydantic entity models
 ├── repositories.py          # Repository classes with CRUD operations
 ├── base_repository.py       # Base repository functionality
+├── transaction_service.py   # Cross-table transaction methods (if schema includes cross_table_access_patterns)
 ├── access_pattern_mapping.json  # Pattern ID to method mapping
 ├── usage_examples.py        # Sample usage code (if enabled)
 └── ruff.toml               # Linting configuration

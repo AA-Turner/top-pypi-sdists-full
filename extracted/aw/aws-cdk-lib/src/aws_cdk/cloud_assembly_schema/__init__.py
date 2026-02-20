@@ -931,7 +931,7 @@ class AwsCloudFormationStackProperties:
         :param requires_bootstrap_stack_version: Version of bootstrap stack required to deploy this stack. Default: - No bootstrap stack required
         :param stack_name: The name to use for the CloudFormation stack. Default: - name derived from artifact ID
         :param stack_template_asset_object_url: If the stack template has already been included in the asset manifest, its asset URL. Default: - Not uploaded yet, upload just before deploying
-        :param tags: Values for CloudFormation stack tags that should be passed when the stack is deployed. Default: - No tags
+        :param tags: Values for CloudFormation stack tags that should be passed when the stack is deployed. N.B.: Tags are also written to stack metadata, under the path of the Stack construct. Only in CDK CLI v1 are those tags found in metadata used for actual deployments; in all stable versions of CDK only the stack tags directly found in the ``tags`` property of ``AwsCloudFormationStack`` artifact (i.e., this property) are used. Default: - No tags
         :param termination_protection: Whether to enable termination protection for this stack. Default: false
         :param validate_on_synth: Whether this stack should be validated by the CLI after synthesis. Default: - false
 
@@ -1157,6 +1157,12 @@ class AwsCloudFormationStackProperties:
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
         '''Values for CloudFormation stack tags that should be passed when the stack is deployed.
+
+        N.B.: Tags are also written to stack metadata, under the path of the Stack
+        construct. Only in CDK CLI v1 are those tags found in metadata used for
+        actual deployments; in all stable versions of CDK only the stack tags
+        directly found in the ``tags`` property of ``AwsCloudFormationStack`` artifact
+        (i.e., this property) are used.
 
         :default: - No tags
         '''
@@ -6812,10 +6818,13 @@ class LoadManifestOptions:
 
 
 class Manifest(
-    metaclass=jsii.JSIIMeta,
+    metaclass=jsii.JSIIAbstractClass,
     jsii_type="aws-cdk-lib.cloud_assembly_schema.Manifest",
 ):
     '''Protocol utility class.'''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="cliVersion")
     @builtins.classmethod
@@ -6934,6 +6943,13 @@ class Manifest(
     def version(cls) -> builtins.str:
         '''Fetch the current schema version number.'''
         return typing.cast(builtins.str, jsii.sinvoke(cls, "version", []))
+
+
+class _ManifestProxy(Manifest):
+    pass
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the abstract class
+typing.cast(typing.Any, Manifest).__jsii_proxy_class__ = lambda : _ManifestProxy
 
 
 @jsii.data_type(
@@ -8586,6 +8602,7 @@ class AvailabilityZonesContextQuery(ContextLookupRoleOptions):
         "expected_match_count": "expectedMatchCount",
         "ignore_error_on_missing_context": "ignoreErrorOnMissingContext",
         "property_match": "propertyMatch",
+        "resource_model": "resourceModel",
     },
 )
 class CcApiContextQuery(ContextLookupRoleOptions):
@@ -8604,6 +8621,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         expected_match_count: typing.Optional[builtins.str] = None,
         ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
         property_match: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        resource_model: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
     ) -> None:
         '''Query input for lookup up CloudFormation resources using CC API.
 
@@ -8624,6 +8642,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         :param expected_match_count: Expected count of results if ``propertyMatch`` is specified. If the expected result count does not match the actual count, by default an error is produced and the result is not committed to cached context, and the user can correct the situation and try again without having to manually clear out the context key using ``cdk context --remove`` If the value of * ``ignoreErrorOnMissingContext`` is ``true``, the value of ``expectedMatchCount`` is ``at-least-one | exactly-one`` and the number of found resources is 0, ``dummyValue`` is returned and committed to context instead. Default: 'any'
         :param ignore_error_on_missing_context: Ignore an error and return the ``dummyValue`` instead if the resource was not found. - In case of an ``exactIdentifier`` lookup, return the ``dummyValue`` if the resource with that identifier was not found. - In case of a ``propertyMatch`` lookup, return the ``dummyValue`` if ``expectedMatchCount`` is ``at-least-one | exactly-one`` and the number of resources found was 0. if ``ignoreErrorOnMissingContext`` is set, ``dummyValue`` should be set and be an array. Default: false
         :param property_match: Returns any resources matching these properties, using ``ListResources``. By default, specifying propertyMatch will successfully return 0 or more results. To throw an error if the number of results is unexpected (and prevent the query results from being committed to context), specify ``expectedMatchCount``. Notes on property completeness CloudControl API's ``ListResources`` may return fewer properties than ``GetResource`` would, depending on the resource implementation. The resources that ``propertyMatch`` matches against will *only ever* be the properties returned by the ``ListResources`` call. Default: - Either exactIdentifier or propertyMatch should be specified.
+        :param resource_model: The resource model to use to select the resources, using ``ListResources``.. This is needed for sub-resources where the parent Arn is required. See https://docs.aws.amazon.com/cloudcontrolapi/latest/userguide/resource-operations-list.html#resource-operations-list-containers Default: - no resource Model is provided
 
         Example::
 
@@ -8634,6 +8653,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             x = CcApiContextQuery(
                 type_name="AWS::Some::Type",
                 expected_match_count="exactly-one",
+                resource_model={"SomeArn": "arn:aws:...."},
                 properties_to_return=["SomeProp"],
                 account="11111111111",
                 region="us-east-1"
@@ -8653,6 +8673,7 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             check_type(argname="argument expected_match_count", value=expected_match_count, expected_type=type_hints["expected_match_count"])
             check_type(argname="argument ignore_error_on_missing_context", value=ignore_error_on_missing_context, expected_type=type_hints["ignore_error_on_missing_context"])
             check_type(argname="argument property_match", value=property_match, expected_type=type_hints["property_match"])
+            check_type(argname="argument resource_model", value=resource_model, expected_type=type_hints["resource_model"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "account": account,
             "region": region,
@@ -8675,6 +8696,8 @@ class CcApiContextQuery(ContextLookupRoleOptions):
             self._values["ignore_error_on_missing_context"] = ignore_error_on_missing_context
         if property_match is not None:
             self._values["property_match"] = property_match
+        if resource_model is not None:
+            self._values["resource_model"] = resource_model
 
     @builtins.property
     def account(self) -> builtins.str:
@@ -8846,6 +8869,21 @@ class CcApiContextQuery(ContextLookupRoleOptions):
         :default: - Either exactIdentifier or propertyMatch should be specified.
         '''
         result = self._values.get("property_match")
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def resource_model(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, typing.Any]]:
+        '''The resource model to use to select the resources, using ``ListResources``..
+
+        This is needed for sub-resources where the parent Arn is required.
+
+        See https://docs.aws.amazon.com/cloudcontrolapi/latest/userguide/resource-operations-list.html#resource-operations-list-containers
+
+        :default: - no resource Model is provided
+        '''
+        result = self._values.get("resource_model")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -10074,6 +10112,7 @@ def _typecheckingstub__cdf6a33d88e10af638d11c3322b9291978a474ed65f1a2ab37cdecc88
     expected_match_count: typing.Optional[builtins.str] = None,
     ignore_error_on_missing_context: typing.Optional[builtins.bool] = None,
     property_match: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    resource_model: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

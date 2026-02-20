@@ -114,9 +114,9 @@ trail = cloudtrail.Trail(self, "myCloudTrail",
 ```
 
 Note that calls to `addToResourcePolicy` method on `myKeyAlias` will be a no-op, `addAlias` and `aliasTargetKey` will fail.
-The `grant*` methods will not modify the key policy, as the imported alias does not have a reference to the underlying KMS Key.
-For the `grant*` methods to modify the principal's IAM policy, the feature flag `@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal`
-must be set to `true`. By default, this flag is `false` and `grant*` calls on an imported alias are a no-op.
+The grant methods (i.e., methods in `KeyGrants`) will not modify the key policy, as the imported alias does not have a reference to the underlying KMS Key.
+For the grant methods to modify the principal's IAM policy, the feature flag `@aws-cdk/aws-kms:applyImportedAliasPermissionsToPrincipal`
+must be set to `true`. By default, this flag is `false` and grant calls on an imported alias are a no-op.
 
 ### Lookup key by alias
 
@@ -200,7 +200,7 @@ With the above default policy, future permissions can be added to either the key
 ```python
 key = kms.Key(self, "MyKey")
 user = iam.User(self, "MyUser")
-key.grant_encrypt(user)
+key.grants.encrypt(user)
 ```
 
 Adopting the default KMS key policy (and so trusting account identities)
@@ -214,7 +214,7 @@ which can cause cyclic dependencies if the permissions cross stack boundaries.
 The default key policy can be amended or replaced entirely, depending on your use case and requirements.
 A common addition to the key policy would be to add other key admins that are allowed to administer the key
 (e.g., change permissions, revoke, delete). Additional key admins can be specified at key creation or after
-via the `grantAdmin` method.
+via the `key.grants.admin` method.
 
 ```python
 my_trusted_admin_role = iam.Role.from_role_arn(self, "TrustedRole", "arn:aws:iam:....")
@@ -223,7 +223,7 @@ key = kms.Key(self, "MyKey",
 )
 
 second_key = kms.Key(self, "MyKey2")
-second_key.grant_admin(my_trusted_admin_role)
+second_key.grants.admin(my_trusted_admin_role)
 ```
 
 Alternatively, a custom key policy can be specified, which will replace the default key policy.
@@ -256,34 +256,79 @@ key = kms.Key(self, "MyKey",
 ### Signing and Verification key policies
 
 Creating signatures and verifying them with KMS requires specific permissions.
-The respective policies can be attached to a principal via the `grantSign` and `grantVerify` methods.
+The respective policies can be attached to a principal via the `key.grants.sign` and `key.grants.verify` methods.
 
 ```python
 key = kms.Key(self, "MyKey")
 user = iam.User(self, "MyUser")
-key.grant_sign(user) # Adds 'kms:Sign' to the principal's policy
-key.grant_verify(user)
+key.grants.sign(user) # Adds 'kms:Sign' to the principal's policy
+key.grants.verify(user)
 ```
 
-If both sign and verify permissions are required, they can be applied with one method called `grantSignVerify`.
+If both sign and verify permissions are required, they can be applied with one method in `KeyGrants` called `signVerify`.
 
 ```python
 key = kms.Key(self, "MyKey")
 user = iam.User(self, "MyUser")
-key.grant_sign_verify(user)
+key.grants.sign_verify(user)
 ```
 
 ### HMAC specific key policies
 
 HMAC keys have a different key policy than other KMS keys. They have a policy for generating and for verifying a MAC.
-The respective policies can be attached to a principal via the `grantGenerateMac` and `grantVerifyMac` methods.
+The respective policies can be attached to a principal via the `generateMac` and `verifyMac` methods in `KeyGrants`.
 
 ```python
 key = kms.Key(self, "MyKey")
 user = iam.User(self, "MyUser")
-key.grant_generate_mac(user) # Adds 'kms:GenerateMac' to the principal's policy
-key.grant_verify_mac(user)
+key.grants.generate_mac(user) # Adds 'kms:GenerateMac' to the principal's policy
+key.grants.verify_mac(user)
 ```
+
+### Granting permissions for L1s
+
+The examples above show how to use the `KeyGrants` methods to grant permissions to principals.
+If you are using L1 constructs that require permissions to be granted to a principal, you can
+use the `KeyGrants` utility class:
+
+```python
+# principal: iam.IPrincipal
+# key: kms.IKeyRef
+# can be either an L1 or L2
+
+kms.KeyGrants.from_key(key).sign(principal)
+```
+
+If `key` is an instance of `CfnKey`, and the grants process involves adding statements
+to the key policy, then the `KeyGrants` class will, by default, do the same thing it
+would do for an instance of `Key`: add statements to the `keyPolicy` property.
+
+But if you want to customize this behavior, you can register an instance of `IResourcePolicyFactory`
+for the `AWS::KMS::Key` CloudFormation type:
+
+```python
+from aws_cdk.aws_iam import AddToResourcePolicyResult
+from aws_cdk import CfnResource
+from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
+from constructs import Construct, IConstruct
+
+# scope: Construct
+@jsii.implements(IResourcePolicyFactory)
+class MyFactory:
+    def for_resource(self, resource):
+        return {
+            "env": resource.env,
+            def add_to_resource_policy(self, statement):
+                # custom implementation to add the statement to the resource policy
+                return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
+        }
+
+ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
+```
+
+`IResourcePolicyFactory` is responsible for converting a construct into a `IResourceWithPolicyV2`,
+effectively providing an ad-hoc way to extend the behavior of L1s to support grants the same way
+as L2s do.
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -2811,18 +2856,15 @@ class Key(
 class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrants"):
     '''Collection of grant methods for an IKey.
 
-    :exampleMetadata: fixture=_generated
+    :exampleMetadata: infused
 
     Example::
 
-        # The code below shows an example of how to instantiate this type.
-        # The values are placeholders you should change.
-        from aws_cdk import aws_kms as kms
-        from aws_cdk.interfaces import aws_kms as interfaces_kms
+        # principal: iam.IPrincipal
+        # key: kms.IKeyRef
+        # can be either an L1 or L2
         
-        # key_ref: interfaces_kms.IKeyRef
-        
-        key_grants = kms.KeyGrants.from_key(key_ref, False)
+        kms.KeyGrants.from_key(key).sign(principal)
     '''
 
     @jsii.member(jsii_name="fromKey")
@@ -2863,6 +2905,20 @@ class KeyGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_kms.KeyGrant
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
             check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "actions", [grantee, *actions]))
+
+    @jsii.member(jsii_name="admin")
+    def admin(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
+        '''Grant admins permissions using this key to the given principal.
+
+        Key administrators have permissions to manage the key (e.g., change permissions, revoke), but do not have permissions
+        to use the key in cryptographic operations (e.g., encrypt, decrypt).
+
+        :param grantee: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__205a8baae077b059e2efe3f8b9f7aa32f45f1b18ac57038f861489e2fa123b15)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+        return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "admin", [grantee]))
 
     @jsii.member(jsii_name="decrypt")
     def decrypt(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
@@ -4398,6 +4454,12 @@ def _typecheckingstub__1b2b01253e0773a92bcebdd3242ee3352f5d017c956a05e704f35b95a
 def _typecheckingstub__79fa7874c80970de0ffdac27ae68535e171c052f227cda4857a1f46121b137a5(
     grantee: _IGrantable_71c4f5de,
     *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__205a8baae077b059e2efe3f8b9f7aa32f45f1b18ac57038f861489e2fa123b15(
+    grantee: _IGrantable_71c4f5de,
 ) -> None:
     """Type checking stubs"""
     pass

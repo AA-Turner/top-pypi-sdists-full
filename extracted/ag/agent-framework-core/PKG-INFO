@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.0.0b260212
+Version: 1.0.0rc1
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -31,13 +31,16 @@ Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
 Requires-Dist: agent-framework-azure-ai-search ; extra == "all"
 Requires-Dist: agent-framework-anthropic ; extra == "all"
+Requires-Dist: agent-framework-claude ; extra == "all"
 Requires-Dist: agent-framework-azure-ai ; extra == "all"
 Requires-Dist: agent-framework-azurefunctions ; extra == "all"
+Requires-Dist: agent-framework-bedrock ; extra == "all"
 Requires-Dist: agent-framework-chatkit ; extra == "all"
 Requires-Dist: agent-framework-copilotstudio ; extra == "all"
 Requires-Dist: agent-framework-declarative ; extra == "all"
 Requires-Dist: agent-framework-devui ; extra == "all"
 Requires-Dist: agent-framework-durabletask ; extra == "all"
+Requires-Dist: agent-framework-foundry-local ; extra == "all"
 Requires-Dist: agent-framework-github-copilot ; extra == "all"
 Requires-Dist: agent-framework-lab ; extra == "all"
 Requires-Dist: agent-framework-mem0 ; extra == "all"
@@ -273,7 +276,7 @@ if __name__ == "__main__":
 - [Getting Started with Agents](../../samples/02-agents): Basic agent creation and tool usage
 - [Chat Client Examples](../../samples/02-agents/chat_client): Direct chat client usage patterns
 - [Azure AI Integration](https://github.com/microsoft/agent-framework/tree/main/python/packages/azure-ai): Azure AI integration
-- [.NET Workflows Samples](https://github.com/microsoft/agent-framework/tree/main/dotnet/samples/GettingStarted/Workflows): Advanced multi-agent patterns (.NET)
+- [.NET Workflows Samples](../../../dotnet/samples/GettingStarted/Workflows): Advanced multi-agent patterns (.NET)
 
 ## Agent Framework Documentation
 

@@ -1,19 +1,19 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.081107                                                            #
+# Generated on 2026-02-19T20:41:45.606959                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
 import metaflow
-import typing
 import enum
+import typing
 if typing.TYPE_CHECKING:
-    import metaflow.exception
     import metaflow.flowspec
-    import enum
     import metaflow.datastore.inputs
+    import enum
+    import metaflow.exception
     import typing
     import metaflow.unbounded_foreach
 

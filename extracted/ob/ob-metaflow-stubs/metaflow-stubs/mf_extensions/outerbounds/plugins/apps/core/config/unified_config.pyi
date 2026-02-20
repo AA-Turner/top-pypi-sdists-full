@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.115165                                                            #
+# Generated on 2026-02-19T20:41:45.639777                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,8 +9,8 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
     import typing
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.config_utils
 
 from .config_utils import ConfigFieldContext as ConfigFieldContext
 from .config_utils import ConfigField as ConfigField
@@ -28,6 +28,8 @@ from .config_utils import validate_config_meta as validate_config_meta
 from .config_utils import validate_required_fields as validate_required_fields
 from .config_utils import ConfigValidationFailedException as ConfigValidationFailedException
 from .config_utils import commit_owner_names_across_tree as commit_owner_names_across_tree
+
+UNASSIGNED_PROJECT_BRANCH: str
 
 class BakedImage(tuple, metaclass=type):
     """

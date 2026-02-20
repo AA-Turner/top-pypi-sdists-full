@@ -9,6 +9,14 @@ import QuantConnect.Util.RateLimit
 import System
 
 
+class IRefillStrategy(metaclass=abc.ABCMeta):
+    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
+
+    def refill(self) -> int:
+        """Computes the number of new tokens made available, typically via the passing of time."""
+        ...
+
+
 class ITokenBucket(metaclass=abc.ABCMeta):
     """
     Defines a token bucket for rate limiting
@@ -77,6 +85,35 @@ class ISleepStrategy(metaclass=abc.ABCMeta):
         ...
 
 
+class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRefillStrategy):
+    """
+    Provides a refill strategy that has a constant, quantized refill rate.
+    For example, after 1 minute passes add 5 units. If 59 seconds has passed, it will add zero unit,
+    but if 2 minutes have passed, then 10 units would be added.
+    """
+
+    def __init__(self, time_provider: QuantConnect.ITimeProvider, refill_amount: int, refill_interval: datetime.timedelta) -> None:
+        """
+        Initializes a new instance of the FixedIntervalRefillStrategy class.
+        
+        :param time_provider: Provides the current time used for determining how much time has elapsed
+        between invocations of the refill method
+        :param refill_amount: Defines the constant number of tokens to be made available for consumption
+        each time the provided refill_interval has passed
+        :param refill_interval: The amount of time that must pass before adding the specified refill_amount
+        back to the bucket
+        """
+        ...
+
+    def refill(self) -> int:
+        """
+        Computes the number of new tokens made available to the bucket for consumption by determining the
+        number of time intervals that have passed and multiplying by the number of tokens to refill for
+        each time interval.
+        """
+        ...
+
+
 class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrategy):
     """
     Provides a CPU non-intensive means of waiting for more tokens to be available in ITokenBucket.
@@ -108,43 +145,6 @@ class ThreadSleepStrategy(System.Object, QuantConnect.Util.RateLimit.ISleepStrat
         the specified number of milliseconds
         
         :param milliseconds: The duration of time to sleep, in milliseconds
-        """
-        ...
-
-
-class IRefillStrategy(metaclass=abc.ABCMeta):
-    """Provides a strategy for making tokens available for consumption in the ITokenBucket"""
-
-    def refill(self) -> int:
-        """Computes the number of new tokens made available, typically via the passing of time."""
-        ...
-
-
-class FixedIntervalRefillStrategy(System.Object, QuantConnect.Util.RateLimit.IRefillStrategy):
-    """
-    Provides a refill strategy that has a constant, quantized refill rate.
-    For example, after 1 minute passes add 5 units. If 59 seconds has passed, it will add zero unit,
-    but if 2 minutes have passed, then 10 units would be added.
-    """
-
-    def __init__(self, time_provider: QuantConnect.ITimeProvider, refill_amount: int, refill_interval: datetime.timedelta) -> None:
-        """
-        Initializes a new instance of the FixedIntervalRefillStrategy class.
-        
-        :param time_provider: Provides the current time used for determining how much time has elapsed
-        between invocations of the refill method
-        :param refill_amount: Defines the constant number of tokens to be made available for consumption
-        each time the provided refill_interval has passed
-        :param refill_interval: The amount of time that must pass before adding the specified refill_amount
-        back to the bucket
-        """
-        ...
-
-    def refill(self) -> int:
-        """
-        Computes the number of new tokens made available to the bucket for consumption by determining the
-        number of time intervals that have passed and multiplying by the number of tokens to refill for
-        each time interval.
         """
         ...
 

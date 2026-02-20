@@ -198,7 +198,7 @@ def __dir__() -> list[str]:
 
 # this should (but can't) be contravariant
 # https://github.com/astral-sh/ty/issues/1798
-_Tss = ParamSpec("_Tss", default=...)  # ty:ignore[invalid-paramspec]
+_Tss = ParamSpec("_Tss", default=...)
 
 _T = TypeVar("_T")
 _T_co = TypeVar("_T_co", covariant=True)
@@ -234,7 +234,7 @@ _IterT_str_co = TypeVar(
 # we can't use `CanIndex` here, because of a recent regression in pyright 1.1.392
 _IndexT_contra = TypeVar(
     "_IndexT_contra",
-    bound=SupportsIndex | slice,  # pyrefly: ignore[invalid-annotation]
+    bound=SupportsIndex | slice,
     contravariant=True,
 )
 
@@ -358,7 +358,7 @@ class CanAIter(Protocol[_CanANextT_co]):
 
 
 @runtime_checkable
-class CanAIterSelf(CanAIter["CanAIterSelf[_V_co]"], CanANext[_V_co], Protocol[_V_co]):  # ty:ignore[unsupported-base]
+class CanAIterSelf(CanAIter["CanAIterSelf[_V_co]"], CanANext[_V_co], Protocol[_V_co]):
     """Like `AsyncIterator[T]`, but without the `abc` nonsense."""
 
     @override
@@ -385,7 +385,7 @@ class CanEq(Protocol[_T_object_contra, _T_bool_co]):  # noqa: PLW1641
     """
 
     @override
-    def __eq__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # type: ignore[override]  # pyright:ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]
+    def __eq__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # type: ignore[override]  # pyright:ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]  # ty: ignore[invalid-method-override]
 
 
 @runtime_checkable
@@ -396,7 +396,7 @@ class CanNe(Protocol[_T_object_contra, _T_bool_co]):
     """
 
     @override
-    def __ne__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # type: ignore[override]  # pyright:ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]
+    def __ne__(self, rhs: _T_object_contra, /) -> _T_bool_co: ...  # type: ignore[override]  # pyright:ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]  # ty: ignore[invalid-method-override]
 
 
 @runtime_checkable
@@ -450,13 +450,13 @@ class CanSetattr(Protocol[_T_object_contra]):
     """Note that `isinstance(x, CanSetattr)` is always true."""
 
     @override
-    def __setattr__(self, name: str, value: _T_object_contra, /) -> _Ignored: ...  # type: ignore[misc, override]  # pyright: ignore[reportIncompatibleMethodOverride]
+    def __setattr__(self, name: str, value: _T_object_contra, /) -> _Ignored: ...  # type: ignore[misc, override]  # pyright: ignore[reportIncompatibleMethodOverride]  # ty: ignore[invalid-method-override]
 
 
 @runtime_checkable
 class CanDelattr(Protocol):
     @override
-    def __delattr__(self, name: str, /) -> _Ignored: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]
+    def __delattr__(self, name: str, /) -> _Ignored: ...  # type: ignore[override]  # pyright: ignore[reportIncompatibleMethodOverride]  # pyrefly: ignore[bad-override]  # ty: ignore[invalid-method-override]
 
 
 @runtime_checkable

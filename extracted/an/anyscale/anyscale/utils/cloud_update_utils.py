@@ -660,9 +660,15 @@ def add_missing_parameters_to_template_body(
     return template_body
 
 
-def try_delete_customer_drifts_policy(cloud):
-    iam_client = _client("iam", cloud.region)
-    role_name = cloud.credentials.split("/")[-1]
+def try_delete_customer_drifts_policy(cloud, cloud_resource=None):
+    iam_client = _client(
+        "iam", cloud_resource.region if cloud_resource else cloud.region
+    )
+    role_name = (
+        cloud_resource.aws_config.anyscale_iam_role_id.split("/")[-1]
+        if cloud_resource
+        else cloud.credentials.split("/")[-1]
+    )
     try:
         iam_client.delete_role_policy(
             RoleName=role_name, PolicyName=CUSTOMER_DRIFTS_POLICY_NAME

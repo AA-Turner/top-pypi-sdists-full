@@ -52,10 +52,15 @@ def execute_get_activations(args):
 
         print(f"   ✓ Loaded {len(pairs_list)} pairs")
 
-        # 2. Load model
-        print(f"\n🤖 Loading model '{args.model}'...")
-        model = WisentModel(args.model, device=args.device)
-        print(f"   ✓ Model loaded with {model.num_layers} layers")
+        # 2. Load model (or use cached)
+        cached_model = getattr(args, 'cached_model', None)
+        if cached_model is not None:
+            model = cached_model
+            print(f"\n🤖 Using cached model ({model.num_layers} layers)")
+        else:
+            print(f"\n🤖 Loading model '{args.model}'...")
+            model = WisentModel(args.model, device=args.device)
+            print(f"   ✓ Model loaded with {model.num_layers} layers")
 
         # 3. Determine layers to collect (1-indexed for API)
         if args.layers is None:

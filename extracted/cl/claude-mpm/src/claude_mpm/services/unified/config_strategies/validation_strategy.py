@@ -353,23 +353,7 @@ class EnumValidator(BaseValidator):
 class FormatValidator(BaseValidator):
     """Validates common formats - replaces 24 format validation functions"""
 
-    FORMAT_VALIDATORS = {
-        "email": lambda v: "@" in v and "." in v.split("@")[1],
-        "url": FormatValidator._validate_url,
-        "uri": FormatValidator._validate_uri,
-        "uuid": FormatValidator._validate_uuid,
-        "ipv4": FormatValidator._validate_ipv4,
-        "ipv6": FormatValidator._validate_ipv6,
-        "ip": FormatValidator._validate_ip,
-        "hostname": FormatValidator._validate_hostname,
-        "date": FormatValidator._validate_date,
-        "time": FormatValidator._validate_time,
-        "datetime": FormatValidator._validate_datetime,
-        "json": FormatValidator._validate_json,
-        "base64": FormatValidator._validate_base64,
-        "path": FormatValidator._validate_path,
-        "semver": FormatValidator._validate_semver,
-    }
+    FORMAT_VALIDATORS: Dict[str, Callable[[str], bool]] = {}
 
     def validate(
         self, value: Any, rule: ValidationRule, context: Dict[str, Any]
@@ -533,6 +517,26 @@ class FormatValidator(BaseValidator):
             r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
         )
         return bool(pattern.match(value))
+
+
+# Initialize FORMAT_VALIDATORS after class definition to avoid forward reference issues
+FormatValidator.FORMAT_VALIDATORS = {
+    "email": lambda v: "@" in v and "." in v.split("@")[1],
+    "url": FormatValidator._validate_url,
+    "uri": FormatValidator._validate_uri,
+    "uuid": FormatValidator._validate_uuid,
+    "ipv4": FormatValidator._validate_ipv4,
+    "ipv6": FormatValidator._validate_ipv6,
+    "ip": FormatValidator._validate_ip,
+    "hostname": FormatValidator._validate_hostname,
+    "date": FormatValidator._validate_date,
+    "time": FormatValidator._validate_time,
+    "datetime": FormatValidator._validate_datetime,
+    "json": FormatValidator._validate_json,
+    "base64": FormatValidator._validate_base64,
+    "path": FormatValidator._validate_path,
+    "semver": FormatValidator._validate_semver,
+}
 
 
 class DependencyValidator(BaseValidator):

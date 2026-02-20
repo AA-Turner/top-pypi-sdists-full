@@ -132,9 +132,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -169,9 +169,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -205,9 +205,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -242,9 +242,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -278,9 +278,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data\
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -305,9 +305,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -332,9 +332,9 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -391,12 +391,12 @@ class DatasetRevision(Protocol):
         Parameters
         ----------
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         """
         ...
 
@@ -430,11 +430,11 @@ class DatasetRevision(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         executor:
-            The executor to use for parallelizing downloads. If None, the default executor will be used.
+            The executor to use for parallelizing downloads. If `None`, the default executor will be used.
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -452,9 +452,9 @@ class DatasetRevision(Protocol):
         Parameters
         ----------
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -504,9 +504,9 @@ class DatasetRevision(Protocol):
         Parameters
         ----------
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -568,9 +568,9 @@ class DatasetRevision(Protocol):
         resolver
             The resolver to download the replay data for, or its fqn.
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -766,7 +766,7 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
             How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
@@ -803,7 +803,7 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
             How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
@@ -830,7 +830,7 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
             How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
@@ -857,9 +857,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -894,9 +894,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -930,9 +930,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -966,9 +966,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1003,9 +1003,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1040,9 +1040,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1079,9 +1079,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1094,17 +1094,17 @@ class Dataset(Protocol):
         show_progress: bool | ellipsis = ...,
     ) -> Dataset:
         """
-        Waits for an offline query job to complete. Returns a list of errors if unsuccessful, or None if successful.
+        Waits for an offline query job to complete. Returns a list of errors if unsuccessful, or `None` if successful.
 
         Parameters
         ----------
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         """
         ...
 
@@ -1132,7 +1132,7 @@ class Dataset(Protocol):
             An executor to use to download the data in parallel. If not specified, the
             default executor will be used.
         show_progress
-            Whether to show a progress bar. Defaults to True..
+            Whether to show a progress bar. Defaults to `True`.
         timeout
             How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
@@ -1191,9 +1191,9 @@ class Dataset(Protocol):
         ignore_errors
             Whether to ignore query errors upon fetching data
         show_progress
-            Whether to show a progress bar. Defaults to True.
+            Whether to show a progress bar. Defaults to `True`.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1212,7 +1212,7 @@ class Dataset(Protocol):
         Parameters
         ----------
         return_url_only
-            If True, does not open url in browser. Default is False.
+            If `True`, does not open url in browser. Default is `False`.
 
         Returns
         -------
@@ -1248,10 +1248,10 @@ class Dataset(Protocol):
             If not provided, all the existing features in the dataset will be recomputed.
         branch
             If specified, Chalk will route your request to the relevant branch.
-            If None, Chalk will route your request to a non-branch deployment.
+            If `None`, Chalk will route your request to a non-branch deployment.
             If not specified, Chalk will use the current client's branch info.
         show_progress
-            If True, progress bars will be shown while recomputation is running.
+            If `True`, progress bars will be shown while recomputation is running.
             This flag will also be propagated to the methods of the resulting
             `Dataset`.
         correlation_id
@@ -1259,7 +1259,7 @@ class Dataset(Protocol):
             This should be globally unique, i.e. a `uuid` or similar. Logs generated
             during the execution of your query will be tagged with this correlation id.
         store_plan_stages
-            If True, the output of each of the query plan stages will be stored
+            If `True`, the output of each of the query plan stages will be stored
             in S3/GCS. This will dramatically impact the performance of the query,
             so it should only be used for debugging.
             These files will be visible in the web dashboard's query detail view, and
@@ -1268,18 +1268,18 @@ class Dataset(Protocol):
             The tags used to scope the resolvers.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         required_resolver_tags
-            If specified, *all* required_resolver_tags must be present on a resolver for it to be
+            If specified, *all* `required_resolver_tags` must be present on a resolver for it to be
             considered eligible to execute.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
         run_asynchronously
-            Boots a kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
+            Boots a Kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
             This is useful for large datasets and jobs that require a long time to run.
-            This must be specified as True to run this job asynchronously,
+            This must be specified as `True` to run this job asynchronously,
             even if the previous revision was run asynchronously.
 
         Raises
@@ -1355,7 +1355,7 @@ class Dataset(Protocol):
         show_progress
             Whether to show progress bars
         timeout
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.

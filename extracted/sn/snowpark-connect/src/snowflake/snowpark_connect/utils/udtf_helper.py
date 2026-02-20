@@ -17,7 +17,10 @@ import snowflake.snowpark_connect.tcm as tcm
 from snowflake import snowpark
 from snowflake.snowpark._internal.analyzer.analyzer_utils import unquote_if_quoted
 from snowflake.snowpark.types import DataType, StructType, _parse_datatype_json_value
-from snowflake.snowpark_connect.config import is_force_create_sproc_enabled
+from snowflake.snowpark_connect.config import (
+    get_artifact_repository,
+    is_force_create_sproc_enabled,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
@@ -75,6 +78,7 @@ def create_udtf_in_sproc(
     is_arrow_enabled: bool,
     is_spark_compatible_udtf_mode_enabled: bool,
     called_from: str,
+    artifact_repository: str | None = None,
     resource_constraint: dict[str, str] | None = None,
 ) -> SnowparkUDTF | str:
     sproc_name = _get_or_create_udtf_sproc_helper(
@@ -101,6 +105,7 @@ def create_udtf_in_sproc(
         is_arrow_enabled,
         is_spark_compatible_udtf_mode_enabled,
         called_from,
+        artifact_repository,
         resource_constraint_json_str,
     )
 
@@ -138,12 +143,13 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
     is_arrow_enabled BOOLEAN,
     is_spark_compatible_udtf_mode_enabled BOOLEAN,
     called_from VARCHAR,
+    artifact_repository VARCHAR,
     resource_constraint_json VARCHAR
 )
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python==1.32.0', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$
@@ -167,7 +173,7 @@ def parse_resource_constraint(resource_constraint_json) -> Optional[dict[str, st
         return None
     return json.loads(resource_constraint_json)
 
-def create(session, b64_str, expected_types_json_str, output_schema_json_str, packages, imports, is_arrow_enabled, is_spark_compatible_udtf_mode_enabled, called_from, resource_constraint_json):
+def create(session, b64_str, expected_types_json_str, output_schema_json_str, packages, imports, is_arrow_enabled, is_spark_compatible_udtf_mode_enabled, called_from, artifact_repository, resource_constraint_json):
     session._use_scoped_temp_objects = False
     import snowflake.snowpark.context as context
     context._use_structured_type_semantics = True
@@ -190,6 +196,7 @@ def create(session, b64_str, expected_types_json_str, output_schema_json_str, pa
         is_arrow_enabled,
         is_spark_compatible_udtf_mode_enabled,
         called_from,
+        artifact_repository,
         resource_constraint=parse_resource_constraint(resource_constraint_json),
     )
     if isinstance(udtf_or_error, str):
@@ -211,6 +218,7 @@ def create_pandas_udtf_in_sproc(
     return_schema: StructType | None = None,
     udtf_packages: str = "",
     udtf_imports: str = "",
+    artifact_repository: str | None = None,
 ) -> str:
     session = get_or_create_snowpark_session()
     sproc_name = _get_or_create_pandas_udtf_sproc_helper(
@@ -234,6 +242,7 @@ def create_pandas_udtf_in_sproc(
         return_schema_json_str,
         udtf_packages,
         udtf_imports,
+        artifact_repository,
     )
 
 
@@ -260,7 +269,8 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
     input_schema_json_str VARCHAR,
     return_schema_json_str VARCHAR,
     udtf_packages VARCHAR,
-    udtf_imports VARCHAR
+    udtf_imports VARCHAR,
+    artifact_repository VARCHAR
 )
 RETURNS STRING
 LANGUAGE PYTHON
@@ -279,7 +289,7 @@ from snowflake.snowpark.types import _parse_datatype_json_value
 
 {inline_udtf_utils_py_code}
 
-def create(session, b64_str, spark_column_names_json_str, input_schema_json_str, return_schema_json_str, udtf_packages, udtf_imports):
+def create(session, b64_str, spark_column_names_json_str, input_schema_json_str, return_schema_json_str, udtf_packages, udtf_imports, artifact_repository):
     session._use_scoped_temp_objects = False
     import snowflake.snowpark.context as context
     context._use_structured_type_semantics = True
@@ -301,11 +311,11 @@ def create(session, b64_str, spark_column_names_json_str, input_schema_json_str,
     map_in_arrow = udf_proto.WhichOneof("function") == "python_udf" and udf_proto.python_udf.eval_type == 207
     if map_in_arrow:
         map_udtf = create_pandas_udtf_with_arrow(
-            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports
+            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository
         )
     else:
         map_udtf = create_pandas_udtf(
-            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports
+            udf_proto, spark_column_names, input_schema, return_schema, udtf_packages, udtf_imports, artifact_repository=artifact_repository
         )
     return map_udtf.name
 $$;
@@ -374,6 +384,7 @@ def create(session, func_info_json):
     input_schema = func_info.get("input_schema", None)
     output_schema = func_info.get("output_schema", None)
     name = func_info.get("name", None)
+    artifact_repository = func_info.get("artifact_repository", None)
     resource_constraint = func_info.get("resource_constraint", None)
     udtf_packages = func_info.get("udtf_packages", "")
     udtf_imports = func_info.get("udtf_imports", "")
@@ -417,14 +428,25 @@ def create(session, func_info_json):
 
     _ApplyInPandas.end_partition._sf_vectorized_input = pandas.DataFrame
 
+    # Build packages list with required dependencies
+    packages = process_dependencies_string_array(udtf_packages) + ["pandas"]
+    # cloudpickle is required for serialization/deserialization when using artifact_repository
+    # (it's not automatically included by Snowflake in that case)
+    if artifact_repository and "cloudpickle" not in packages:
+        packages.append("cloudpickle")
+    # pyspark is needed to support table argument in UDTF
+    if "pyspark" not in packages:
+        packages.append("pyspark")
+
     _apply_in_pandas_udtf = session.udtf.register(
         handler=_ApplyInPandas,
         output_schema=output_schema,
         input_types=input_types,
         input_names=input_names,
         resource_constraint=resource_constraint,
-        packages=process_dependencies_string_array(udtf_packages) + ["pandas"],
-        imports=process_dependencies_string_array(udtf_imports)
+        packages=packages,
+        imports=process_dependencies_string_array(udtf_imports),
+        artifact_repository=artifact_repository,
     )
 
     return _apply_in_pandas_udtf.name
@@ -466,6 +488,7 @@ def create_apply_udtf_in_sproc(
         "input_schema": input_schema,
         "output_schema": output_schema,
         "name": function_name,
+        "artifact_repository": get_artifact_repository(),
         "resource_constraint": _get_resource_constraint(),
         "udtf_packages": udtf_packages,
         "udtf_imports": udtf_imports,
@@ -534,6 +557,7 @@ def create(session, func_info_json):
     name = func_info.get("name", None)
     udtf_packages = func_info.get("udtf_packages", "")
     udtf_imports = func_info.get("udtf_imports", "")
+    artifact_repository = func_info.get("artifact_repository", None)
 
     func_bytes = base64.b64decode(python_func.encode('ascii'))
     func, _ = CloudPickleSerializer().loads(func_bytes)
@@ -562,6 +586,16 @@ def create(session, func_info_json):
         output_column_original_names,
     )
 
+    # Build packages list with required dependencies
+    packages = process_udtf_packages(
+        udtf_packages,
+        custom_packages=["pandas"],
+        artifact_repository=artifact_repository,
+    )
+    # cloudpickle is required for serialization/deserialization when using artifact_repository
+    if artifact_repository and "cloudpickle" not in packages:
+        packages.append("cloudpickle")
+
     _cogroup_pandas_udtf = snowpark_fn.pandas_udtf(
         CoGroupPandasUDTF,
         output_schema=PandasDataFrameType(
@@ -572,9 +606,10 @@ def create(session, func_info_json):
         input_names=["__SC_COGROUP_VALUE__", "__SC_COGROUP_SOURCE__"],
         name=name,
         replace=True,
-        packages=process_udtf_packages(udtf_packages, custom_packages=["pandas"]),
+        packages=packages,
         imports=process_dependencies_string_array(udtf_imports),
         is_permanent=False,
+        artifact_repository=artifact_repository,
     )
 
     return _cogroup_pandas_udtf.name
@@ -592,6 +627,7 @@ def create_cogroup_udtf_in_sproc(
     output_schema: StructType,
     udtf_packages: str,
     udtf_imports: str,
+    artifact_repository: str | None = None,
 ) -> str:
     """
     This is used when the local Python version doesn't match the UDF's Python version,
@@ -621,6 +657,7 @@ def create_cogroup_udtf_in_sproc(
         "name": udtf_name,
         "udtf_packages": udtf_packages,
         "udtf_imports": udtf_imports,
+        "artifact_repository": artifact_repository,
     }
 
     cogroup_udtf_name = session.call(

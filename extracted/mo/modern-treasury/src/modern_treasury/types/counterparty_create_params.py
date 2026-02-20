@@ -13,7 +13,6 @@ from .shared_params.address_request import AddressRequest
 from .contact_detail_create_request_param import ContactDetailCreateRequestParam
 from .shared_params.identification_create_request import IdentificationCreateRequest
 from .shared_params.ledger_account_create_request import LedgerAccountCreateRequest
-from .shared_params.legal_entity_compliance_detail import LegalEntityComplianceDetail
 from .shared_params.legal_entity_address_create_request import LegalEntityAddressCreateRequest
 from .shared_params.legal_entity_industry_classification import LegalEntityIndustryClassification
 
@@ -30,6 +29,9 @@ __all__ = [
     "LegalEntityBankSettings",
     "LegalEntityPhoneNumbers",
     "LegalEntityPhoneNumber",
+    "LegalEntityRegulators",
+    "LegalEntityRegulator",
+    "LegalEntityThirdPartyVerification",
     "LegalEntityWealthAndEmploymentDetails",
 ]
 
@@ -93,6 +95,7 @@ class AccountAccountDetail(TypedDict, total=False):
     account_number_type: Literal[
         "au_number",
         "base_address",
+        "card_token",
         "clabe",
         "ethereum_address",
         "hk_number",
@@ -305,11 +308,42 @@ Please use LegalEntityPhoneNumber instead.
 """
 
 
+class LegalEntityRegulator(TypedDict, total=False):
+    jurisdiction: Required[str]
+    """
+    The country code where the regulator operates in the ISO 3166-1 alpha-2 format
+    (e.g., "US", "CA", "GB").
+    """
+
+    name: Required[str]
+    """Full name of the regulatory body."""
+
+    registration_number: Required[str]
+    """Registration or identification number with the regulator."""
+
+
+LegalEntityRegulators = LegalEntityRegulator
+"""This type is deprecated and will be removed in a future release.
+
+Please use LegalEntityRegulator instead.
+"""
+
+
+class LegalEntityThirdPartyVerification(TypedDict, total=False):
+    """Information describing a third-party verification run by an external vendor."""
+
+    vendor: Required[Literal["persona"]]
+    """The vendor that performed the verification, e.g. `persona`."""
+
+    vendor_verification_id: Required[str]
+    """The identification of the third party verification in `vendor`'s system."""
+
+
 class LegalEntityWealthAndEmploymentDetails(TypedDict, total=False):
     id: Required[str]
 
     annual_income: Required[Optional[int]]
-    """The annual income of the individual."""
+    """The annual income of the individual in USD."""
 
     created_at: Required[Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]]
 
@@ -424,17 +458,24 @@ class LegalEntityWealthAndEmploymentDetails(TypedDict, total=False):
                 "alimony",
                 "annuity",
                 "business_owner",
+                "business_revenue",
+                "debt_financing",
                 "general_employee",
                 "government_benefits",
                 "homemaker",
                 "inheritance_gift",
+                "intercompany_loan",
                 "investment",
+                "investor_funding",
                 "legal_settlement",
                 "lottery",
                 "real_estate",
+                "retained_earnings_or_savings",
                 "retired",
                 "retirement",
                 "salary",
+                "sale_of_business_assets",
+                "sale_of_real_estate",
                 "self_employed",
                 "senior_executive",
                 "trust_income",
@@ -482,7 +523,14 @@ class LegalEntity(TypedDict, total=False):
     citizenship_country: Optional[str]
     """The country of citizenship for an individual."""
 
-    compliance_details: Optional[LegalEntityComplianceDetail]
+    connection_id: Optional[str]
+    """The connection ID for the connection the legal entity is associated with.
+
+    Defaults to the id of the connection designated with an is_default value of true
+    or the id of an existing operational connection if only one is available. Pass
+    in a value of null to prevent the connection from being associated with the
+    legal entity.
+    """
 
     country_of_incorporation: Optional[str]
     """
@@ -502,7 +550,7 @@ class LegalEntity(TypedDict, total=False):
     """The entity's primary email."""
 
     expected_activity_volume: Optional[int]
-    """Monthly expected transaction volume in entity's local currency."""
+    """Monthly expected transaction volume in USD."""
 
     first_name: Optional[str]
     """An individual's first name."""
@@ -526,6 +574,9 @@ class LegalEntity(TypedDict, total=False):
         Literal["corporation", "llc", "non_profit", "partnership", "sole_proprietorship", "trust"]
     ]
     """The business's legal structure."""
+
+    listed_exchange: Optional[str]
+    """ISO 10383 market identifier code."""
 
     metadata: Dict[str, str]
     """Additional data represented as key-value pairs.
@@ -556,11 +607,26 @@ class LegalEntity(TypedDict, total=False):
     primary_social_media_sites: SequenceNotStr[str]
     """A list of primary social media URLs for the business."""
 
+    regulators: Optional[Iterable[LegalEntityRegulator]]
+    """Array of regulatory bodies overseeing this institution."""
+
     risk_rating: Optional[Literal["low", "medium", "high"]]
     """The risk rating of the legal entity. One of low, medium, high."""
 
+    status: Optional[Literal["active", "closed", "pending", "suspended"]]
+    """The activation status of the legal entity.
+
+    One of pending, active, suspended, or closed.
+    """
+
     suffix: Optional[str]
     """An individual's suffix."""
+
+    third_party_verification: Optional[LegalEntityThirdPartyVerification]
+    """Information describing a third-party verification run by an external vendor."""
+
+    ticker_symbol: Optional[str]
+    """Stock ticker symbol for publicly traded companies."""
 
     wealth_and_employment_details: Optional[LegalEntityWealthAndEmploymentDetails]
 

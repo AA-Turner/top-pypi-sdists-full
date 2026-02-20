@@ -12,8 +12,6 @@ from dstack._internal import settings
 from dstack._internal.core.errors import DockerRegistryError, ServerClientError
 from dstack._internal.core.models.common import RegistryAuth
 from dstack._internal.core.models.configurations import (
-    DEFAULT_MODEL_PROBE_TIMEOUT,
-    DEFAULT_MODEL_PROBE_URL,
     DEFAULT_PROBE_INTERVAL,
     DEFAULT_PROBE_METHOD,
     DEFAULT_PROBE_READY_AFTER,
@@ -22,6 +20,7 @@ from dstack._internal.core.models.configurations import (
     DEFAULT_PROBE_URL,
     DEFAULT_REPLICA_GROUP_NAME,
     LEGACY_REPO_DIR,
+    OPENAI_MODEL_PROBE_TIMEOUT,
     HTTPHeaderSpec,
     PortMapping,
     ProbeConfig,
@@ -78,7 +77,7 @@ def get_default_python_verison() -> str:
 def get_default_image(nvcc: bool = False) -> str:
     """
     Note: May be overridden by dstack (e.g., EFA-enabled version for AWS EFA-capable instances).
-    See `dstack._internal.server.background.tasks.process_running_jobs._patch_base_image_for_aws_efa` for details.
+    See `dstack._internal.server.background.scheduled_tasks.running_jobs._patch_base_image_for_aws_efa` for details.
 
     Args:
         nvcc: If True, returns 'devel' variant, otherwise 'base'.
@@ -406,7 +405,7 @@ class JobConfigurator(ABC):
             # Generate default probe if model is set
             model = self.run_spec.configuration.model
             if isinstance(model, OpenAIChatModel):
-                return [_default_model_probe_spec(model.name)]
+                return [_openai_model_probe_spec(model.name, model.prefix)]
         return []
 
 
@@ -460,7 +459,7 @@ def _probe_config_to_spec(c: ProbeConfig) -> ProbeSpec:
     )
 
 
-def _default_model_probe_spec(model_name: str) -> ProbeSpec:
+def _openai_model_probe_spec(model_name: str, prefix: str) -> ProbeSpec:
     body = orjson.dumps(
         {
             "model": model_name,
@@ -471,12 +470,12 @@ def _default_model_probe_spec(model_name: str) -> ProbeSpec:
     return ProbeSpec(
         type="http",
         method="post",
-        url=DEFAULT_MODEL_PROBE_URL,
+        url=prefix.rstrip("/") + "/chat/completions",
         headers=[
             HTTPHeaderSpec(name="Content-Type", value="application/json"),
         ],
         body=body,
-        timeout=DEFAULT_MODEL_PROBE_TIMEOUT,
+        timeout=OPENAI_MODEL_PROBE_TIMEOUT,
         interval=DEFAULT_PROBE_INTERVAL,
         ready_after=DEFAULT_PROBE_READY_AFTER,
     )

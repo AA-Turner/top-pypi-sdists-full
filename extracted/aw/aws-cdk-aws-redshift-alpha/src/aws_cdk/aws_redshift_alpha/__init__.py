@@ -57,6 +57,25 @@ A default database named `default_db` will be created in the cluster. To change 
 By default, the cluster will not be publicly accessible.
 Depending on your use case, you can make the cluster publicly accessible with the `publiclyAccessible` property.
 
+By default, the node type is `RA3_LARGE`. You can specify a different node type by setting the `nodeType` property.
+
+```python
+# Example automatically generated from non-compiling source. May contain errors.
+from aws_cdk.aws_redshift_alpha import Login
+import aws_cdk.aws_ec2 as ec2
+
+# vpc: ec2.IVpc
+
+
+cluster = Cluster(self, "Redshift",
+    master_user=Login(
+        master_username="admin"
+    ),
+    vpc=vpc,
+    node_type=NodeType.RA3_XLPLUS
+)
+```
+
 ## Adding a logging bucket for database audit logging to S3
 
 Amazon Redshift logs information about connections and user activities in your database. These logs help you to monitor the database for security and troubleshooting purposes, a process called database auditing. To send these logs to an S3 bucket, specify the `loggingProperties` when creating a new cluster.
@@ -1087,7 +1106,7 @@ class ClusterProps:
         :param logging_properties: (experimental) Bucket details for log files to be sent to, including prefix. Default: - No logging bucket is used
         :param maintenance_track_name: (experimental) The maintenance track name for the cluster. Default: undefined - Redshift default is current
         :param multi_az: (experimental) Indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. Default: - false
-        :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.DC2_LARGE``
+        :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.RA3_LARGE``
         :param number_of_nodes: (experimental) Number of compute nodes in the cluster. Only specify this property for multi-node clusters. Value must be at least 2 and no more than 100. Default: - 2 if ``clusterType`` is ClusterType.MULTI_NODE, undefined otherwise
         :param parameter_group: (experimental) Additional parameters to pass to the database engine https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html. Default: - No parameter group.
         :param port: (experimental) What port to listen on. Default: - The default for the engine is used.
@@ -1399,7 +1418,7 @@ class ClusterProps:
     def node_type(self) -> typing.Optional["NodeType"]:
         '''(experimental) The node type to be provisioned for the cluster.
 
-        :default: ``NodeType.DC2_LARGE``
+        :default: ``NodeType.RA3_LARGE``
 
         :stability: experimental
         '''
@@ -2985,8 +3004,7 @@ class NodeType(enum.Enum):
                 master_username="admin"
             ),
             vpc=vpc,
-            node_type=NodeType.RA3_XLPLUS,
-            availability_zone_relocation=True
+            node_type=NodeType.RA3_XLPLUS
         )
     '''
 
@@ -4443,7 +4461,7 @@ class Cluster(
         :param logging_properties: (experimental) Bucket details for log files to be sent to, including prefix. Default: - No logging bucket is used
         :param maintenance_track_name: (experimental) The maintenance track name for the cluster. Default: undefined - Redshift default is current
         :param multi_az: (experimental) Indicating whether Amazon Redshift should deploy the cluster in two Availability Zones. Default: - false
-        :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.DC2_LARGE``
+        :param node_type: (experimental) The node type to be provisioned for the cluster. Default: ``NodeType.RA3_LARGE``
         :param number_of_nodes: (experimental) Number of compute nodes in the cluster. Only specify this property for multi-node clusters. Value must be at least 2 and no more than 100. Default: - 2 if ``clusterType`` is ClusterType.MULTI_NODE, undefined otherwise
         :param parameter_group: (experimental) Additional parameters to pass to the database engine https://docs.aws.amazon.com/redshift/latest/mgmt/working-with-parameter-groups.html. Default: - No parameter group.
         :param port: (experimental) What port to listen on. Default: - The default for the engine is used.

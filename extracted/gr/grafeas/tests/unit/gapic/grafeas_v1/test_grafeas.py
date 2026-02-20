@@ -51,11 +51,11 @@ import google.auth
 from google.auth import credentials as ga_credentials
 from google.auth.exceptions import MutualTLSChannelError
 from google.oauth2 import service_account
-from google.protobuf import any_pb2  # type: ignore
-from google.protobuf import field_mask_pb2  # type: ignore
-from google.protobuf import struct_pb2  # type: ignore
-from google.protobuf import timestamp_pb2  # type: ignore
-from google.rpc import status_pb2  # type: ignore
+import google.protobuf.any_pb2 as any_pb2  # type: ignore
+import google.protobuf.field_mask_pb2 as field_mask_pb2  # type: ignore
+import google.protobuf.struct_pb2 as struct_pb2  # type: ignore
+import google.protobuf.timestamp_pb2 as timestamp_pb2  # type: ignore
+import google.rpc.status_pb2 as status_pb2  # type: ignore
 
 from grafeas.grafeas_v1.services.grafeas import (
     GrafeasAsyncClient,
@@ -9598,6 +9598,7 @@ def test_create_occurrence_rest_call_success(request_type):
                                         "name": "name_value",
                                         "repository": "repository_value",
                                         "layer_count": 1189,
+                                        "registry": "registry_value",
                                     }
                                 ],
                             },
@@ -10327,6 +10328,7 @@ def test_update_occurrence_rest_call_success(request_type):
                                         "name": "name_value",
                                         "repository": "repository_value",
                                         "layer_count": 1189,
+                                        "registry": "registry_value",
                                     }
                                 ],
                             },
@@ -11436,6 +11438,7 @@ def test_create_note_rest_call_success(request_type):
                 "integrity_impact": 1,
                 "availability_impact": 1,
             },
+            "advisory_publish_time": {},
         },
         "build": {"builder_version": "builder_version_value"},
         "image": {
@@ -11950,6 +11953,7 @@ def test_update_note_rest_call_success(request_type):
                 "integrity_impact": 1,
                 "availability_impact": 1,
             },
+            "advisory_publish_time": {},
         },
         "build": {"builder_version": "builder_version_value"},
         "image": {

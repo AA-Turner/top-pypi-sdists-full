@@ -891,7 +891,7 @@ class CreateOfflineQueryJobRequest(BaseModel):
     """Any givens"""
 
     max_samples: Optional[int] = None
-    """The maximum number of samples. If None, no limit"""
+    """The maximum number of samples. If `None`, no limit"""
 
     # Defaults to ``OFFLINE_QUERY_MAX_CACHE_AGE_SECS`` in the chalkengine config
     max_cache_age_secs: Optional[int] = None
@@ -1497,12 +1497,12 @@ class FeatureObservationDeletionRequest(BaseModel):
 
     retain_offline: bool = False
     """
-    If True, the given observations will not be removed from the offline store. (False by default)
+    If `True`, the given observations will not be removed from the offline store. (False by default)
     """
 
     retain_online: bool = False
     """
-    If True, the given observations will not be removed from the online store. (False by default)
+    If `True`, the given observations will not be removed from the online store. (False by default)
     """
 
 
@@ -1524,12 +1524,12 @@ class FeatureDropRequest(BaseModel):
 
     retain_offline: bool = False
     """
-    If True, the given features will not be removed from the offline store. (False by default)
+    If `True`, the given features will not be removed from the offline store. (False by default)
     """
 
     retain_online: bool = False
     """
-    If True, the given features will not be removed from the online store. (False by default)
+    If `True`, the given features will not be removed from the online store. (False by default)
     """
 
 
@@ -1565,7 +1565,7 @@ class GetIncrementalProgressResponse(BaseModel):
     last_execution_timestamp: Optional[datetime]
     """The latest timestamp at which the resolver was run. If configured to do so, the
     resolver uses this timestamp instead of max_ingested_timestamp to filter input data.
-    If None, this means that this value isn't currently used by this resolver.
+    If `None`, this means that this value isn't currently used by this resolver.
     """
 
     errors: Optional[List[ChalkError]] = None
@@ -1596,10 +1596,10 @@ class BranchDeployRequest(BaseModel):
     """Name of the branch. If branch does not exist, it will be created."""
 
     create_only: bool = False
-    """If true, tries to create a new branch returns an error if the branch already exists."""
+    """If `True`, tries to create a new branch returns an error if the branch already exists."""
 
     source_deployment_id: Optional[str] = None
-    """Use the given deployment's source on the branch. If None, the latest active deployment will be used."""
+    """Use the given deployment's source on the branch. If `None`, the latest active deployment will be used."""
 
 
 class BranchDeployResponse(BaseModel):

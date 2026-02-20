@@ -1,12 +1,14 @@
 import warnings
 
 import numpy
+
 from numba import njit, prange
 
 from tslearn.backend import instantiate_backend
-from tslearn.utils import to_time_series
+from tslearn.utils import to_time_series, to_time_series_dataset
 
 from .utils import _cdist_generic
+from . _masks import compute_mask  as compute_mask_
 
 __author__ = "Romain Tavenard romain.tavenard[at]univ-rennes2.fr"
 
@@ -79,7 +81,7 @@ def njit_accumulated_matrix(s1, s2, mask):
     s2 : array-like, shape=(sz2, d)
         Second time series.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
 
     Returns
     -------
@@ -93,7 +95,7 @@ def njit_accumulated_matrix(s1, s2, mask):
 
     for i in range(l1):
         for j in range(l2):
-            if numpy.isfinite(mask[i, j]):
+            if mask[i, j]:
                 cum_sum[i + 1, j + 1] = _njit_local_squared_dist(s1[i], s2[j])
                 cum_sum[i + 1, j + 1] += min(
                     cum_sum[i, j + 1], cum_sum[i + 1, j], cum_sum[i, j]
@@ -111,7 +113,7 @@ def accumulated_matrix(s1, s2, mask, be=None):
     s2 : array-like, shape=(sz2, d)
         Second time series.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -125,6 +127,11 @@ def accumulated_matrix(s1, s2, mask, be=None):
     mat : array-like, shape=(sz1, sz2)
         Accumulated cost matrix.
     """
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.accumulated_matrix instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be, s1, s2)
     s1 = be.array(s1)
     s2 = be.array(s2)
@@ -135,7 +142,7 @@ def accumulated_matrix(s1, s2, mask, be=None):
 
     for i in range(l1):
         for j in range(l2):
-            if be.isfinite(mask[i, j]):
+            if mask[i, j]:
                 cum_sum[i + 1, j + 1] = _local_squared_dist(s1[i], s2[j], be=be)
                 cum_sum[i + 1, j + 1] += min(
                     cum_sum[i, j + 1], cum_sum[i + 1, j], cum_sum[i, j]
@@ -154,7 +161,7 @@ def _njit_dtw(s1, s2, mask):
     s2 : array-like, shape=(sz2, d)
         Second time series.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
 
     Returns
     -------
@@ -176,7 +183,7 @@ def _dtw(s1, s2, mask, be=None):
     s2 : array-like, shape=(sz2, d)
         Second time series.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -381,6 +388,11 @@ def dtw_path(
            Signal Processing, vol. 26(1), pp. 43--49, 1978.
 
     """
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.dtw_path instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be, s1, s2)
     s1 = to_time_series(s1, remove_nans=True, be=be)
     s2 = to_time_series(s2, remove_nans=True, be=be)
@@ -393,7 +405,7 @@ def dtw_path(
     if be.shape(s1)[1] != be.shape(s2)[1]:
         raise ValueError("All input time series must have the same feature size.")
 
-    mask = compute_mask(
+    mask = compute_mask_(
         s1,
         s2,
         GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -420,7 +432,7 @@ def njit_accumulated_matrix_from_dist_matrix(dist_matrix, mask):
     dist_matrix : array-like, shape=(sz1, sz2)
         Array containing the pairwise distances.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
 
     Returns
     -------
@@ -433,7 +445,7 @@ def njit_accumulated_matrix_from_dist_matrix(dist_matrix, mask):
 
     for i in prange(l1):
         for j in prange(l2):
-            if numpy.isfinite(mask[i, j]):
+            if mask[i, j]:
                 cum_sum[i + 1, j + 1] = dist_matrix[i, j]
                 cum_sum[i + 1, j + 1] += min(
                     cum_sum[i, j + 1], cum_sum[i + 1, j], cum_sum[i, j]
@@ -450,7 +462,7 @@ def accumulated_matrix_from_dist_matrix(dist_matrix, mask, be=None):
     dist_matrix : array-like, shape=(sz1, sz2)
         Array containing the pairwise distances.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -472,7 +484,7 @@ def accumulated_matrix_from_dist_matrix(dist_matrix, mask, be=None):
 
     for i in range(l1):
         for j in range(l2):
-            if be.isfinite(mask[i, j]):
+            if mask[i, j]:
                 cum_sum[i + 1, j + 1] = dist_matrix[i, j]
                 cum_sum[i + 1, j + 1] += min(
                     cum_sum[i, j + 1], cum_sum[i + 1, j], cum_sum[i, j]
@@ -636,7 +648,7 @@ def dtw_path_from_metric(
     if metric == "precomputed":  # Pairwise distance given as input
         s1 = be.array(s1)
         sz1, sz2 = be.shape(s1)
-        mask = compute_mask(
+        mask = compute_mask_(
             sz1,
             sz2,
             GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -648,7 +660,7 @@ def dtw_path_from_metric(
     else:
         s1 = to_time_series(s1, remove_nans=True, be=be)
         s2 = to_time_series(s2, remove_nans=True, be=be)
-        mask = compute_mask(
+        mask = compute_mask_(
             s1,
             s2,
             GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -747,7 +759,7 @@ def dtw(
     1.0
 
     The PyTorch backend can be used to compute gradients:
-    
+
     >>> import torch
     >>> s1 = torch.tensor([[1.0], [2.0], [3.0]], requires_grad=True)
     >>> s2 = torch.tensor([[3.0], [4.0], [-3.0]])
@@ -783,6 +795,11 @@ def dtw(
            Signal Processing, vol. 26(1), pp. 43--49, 1978.
 
     """  # noqa: E501
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.dtw instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be, s1, s2)
     s1 = to_time_series(s1, remove_nans=True, be=be)
     s2 = to_time_series(s2, remove_nans=True, be=be)
@@ -795,7 +812,7 @@ def dtw(
     if be.shape(s1)[1] != be.shape(s2)[1]:
         raise ValueError("All input time series must have the same feature size.")
 
-    mask = compute_mask(
+    mask = compute_mask_(
         s1,
         s2,
         GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -1235,8 +1252,6 @@ def subsequence_cost_matrix(subseq, longseq, be=None):
         Accumulated cost matrix.
     """
     be = instantiate_backend(be, subseq, longseq)
-    subseq = be.array(subseq)
-    longseq = be.array(longseq)
     subseq = to_time_series(subseq, remove_nans=True, be=be)
     longseq = to_time_series(longseq, remove_nans=True, be=be)
     if be.is_numpy:
@@ -1484,32 +1499,32 @@ def njit_sakoe_chiba_mask(sz1, sz2, radius=1):
     Examples
     --------
     >>> njit_sakoe_chiba_mask(4, 4, 1)
-    array([[ 0.,  0., inf, inf],
-           [ 0.,  0.,  0., inf],
-           [inf,  0.,  0.,  0.],
-           [inf, inf,  0.,  0.]])
+    array([[ True,  True, False, False],
+           [ True,  True,  True, False],
+           [False,  True,  True,  True],
+           [False, False,  True,  True]])
     >>> njit_sakoe_chiba_mask(7, 3, 1)
-    array([[ 0.,  0., inf],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [inf,  0.,  0.]])
+    array([[ True,  True, False],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [False,  True,  True]])
     """
-    mask = numpy.full((sz1, sz2), numpy.inf)
+    mask = numpy.full((sz1, sz2), False)
     if sz1 > sz2:
         width = sz1 - sz2 + radius
         for i in prange(sz2):
             lower = max(0, i - radius)
             upper = min(sz1, i + width) + 1
-            mask[lower:upper, i] = 0.0
+            mask[lower:upper, i] = True
     else:
         width = sz2 - sz1 + radius
         for i in prange(sz1):
             lower = max(0, i - radius)
             upper = min(sz2, i + width) + 1
-            mask[i, lower:upper] = 0.0
+            mask[i, lower:upper] = True
     return mask
 
 
@@ -1540,33 +1555,38 @@ def sakoe_chiba_mask(sz1, sz2, radius=1, be=None):
     Examples
     --------
     >>> sakoe_chiba_mask(4, 4, 1)
-    array([[ 0.,  0., inf, inf],
-           [ 0.,  0.,  0., inf],
-           [inf,  0.,  0.,  0.],
-           [inf, inf,  0.,  0.]])
+    array([[ True,  True, False, False],
+           [ True,  True,  True, False],
+           [False,  True,  True,  True],
+           [False, False,  True,  True]])
     >>> sakoe_chiba_mask(7, 3, 1)
-    array([[ 0.,  0., inf],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [ 0.,  0.,  0.],
-           [inf,  0.,  0.]])
+    array([[ True,  True, False],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [ True,  True,  True],
+           [False,  True,  True]])
     """
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.sakoe_chiba_mask instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be)
-    mask = be.full((sz1, sz2), be.inf)
+    mask = be.full((sz1, sz2), False)
     if sz1 > sz2:
         width = sz1 - sz2 + radius
         for i in range(sz2):
             lower = max(0, i - radius)
             upper = min(sz1, i + width) + 1
-            mask[lower:upper, i] = 0.0
+            mask[lower:upper, i] = True
     else:
         width = sz2 - sz1 + radius
         for i in range(sz1):
             lower = max(0, i - radius)
             upper = min(sz2, i + width) + 1
-            mask[i, lower:upper] = 0.0
+            mask[i, lower:upper] = True
     return mask
 
 
@@ -1611,9 +1631,9 @@ def _njit_itakura_mask(sz1, sz2, max_slope=2.0):
         upper_bound_[i] = min(round(upper_bound[0, i], 2), round(upper_bound[1, i], 2))
     upper_bound_ = numpy.floor(upper_bound_ + 1)
 
-    mask = numpy.full((sz1, sz2), numpy.inf)
+    mask = numpy.full((sz1, sz2), False)
     for i in prange(sz2):
-        mask[int(lower_bound_[i]) : int(upper_bound_[i]), i] = 0.0
+        mask[int(lower_bound_[i]) : int(upper_bound_[i]), i] = True
     return mask
 
 
@@ -1642,7 +1662,6 @@ def _itakura_mask(sz1, sz2, max_slope=2.0, be=None):
     mask : array-like, shape=(sz1, sz2)
         Itakura mask.
     """
-    be = instantiate_backend(be)
     min_slope = 1 / float(max_slope)
     max_slope *= float(sz1) / float(sz2)
     min_slope *= float(sz1) / float(sz2)
@@ -1669,9 +1688,9 @@ def _itakura_mask(sz1, sz2, max_slope=2.0, be=None):
         )
     upper_bound_ = be.floor(upper_bound_ + 1)
 
-    mask = be.full((sz1, sz2), be.inf)
+    mask = be.full((sz1, sz2), False)
     for i in range(sz2):
-        mask[int(lower_bound_[i]) : int(upper_bound_[i]), i] = 0.0
+        mask[int(lower_bound_[i]) : int(upper_bound_[i]), i] = True
     return mask
 
 
@@ -1702,13 +1721,18 @@ def itakura_mask(sz1, sz2, max_slope=2.0, be=None):
     Examples
     --------
     >>> itakura_mask(6, 6)
-    array([[ 0., inf, inf, inf, inf, inf],
-           [inf,  0.,  0., inf, inf, inf],
-           [inf,  0.,  0.,  0., inf, inf],
-           [inf, inf,  0.,  0.,  0., inf],
-           [inf, inf, inf,  0.,  0., inf],
-           [inf, inf, inf, inf, inf,  0.]])
+    array([[ True, False, False, False, False, False],
+           [False,  True,  True, False, False, False],
+           [False,  True,  True,  True, False, False],
+           [False, False,  True,  True,  True, False],
+           [False, False, False,  True,  True, False],
+           [False, False, False, False, False,  True]])
     """
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.itakura_mask instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be)
 
     if be.is_numpy:
@@ -1719,12 +1743,12 @@ def itakura_mask(sz1, sz2, max_slope=2.0, be=None):
     # Post-check
     raise_warning = False
     for i in range(sz1):
-        if not be.any(be.isfinite(mask[i])):
+        if not be.any(mask[i]):
             raise_warning = True
             break
     if not raise_warning:
         for j in range(sz2):
-            if not be.any(be.isfinite(mask[:, j])):
+            if not be.any(mask[:, j]):
                 raise_warning = True
                 break
     if raise_warning:
@@ -1795,6 +1819,11 @@ def compute_mask(
     mask : array-like, shape=(sz1, sz2)
         Constraint region.
     """
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.compute_mask instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be, s1, s2)
     # The output mask will be of shape (sz1, sz2)
     if isinstance(s1, int) and isinstance(s2, int):
@@ -1831,7 +1860,7 @@ def compute_mask(
             itakura_max_slope = 2.0
         mask = itakura_mask(sz1, sz2, max_slope=itakura_max_slope, be=be)
     else:
-        mask = be.zeros((sz1, sz2))
+        mask = be.full((sz1, sz2), True)
     return mask
 
 
@@ -1948,7 +1977,15 @@ def cdist_dtw(
            spoken word recognition," IEEE Transactions on Acoustics, Speech and
            Signal Processing, vol. 26(1), pp. 43--49, 1978.
     """  # noqa: E501
+    warnings.warn(
+        "This method is deprecated, use tslearn.metrics.cdist_dtw instead.",
+        DeprecationWarning
+    )
+
     be = instantiate_backend(be, dataset1, dataset2)
+    dataset1 = to_time_series_dataset(dataset1, be=be)
+    if dataset2 is not None:
+        dataset2 = to_time_series_dataset(dataset2, be=be)
     return _cdist_generic(
         dist_fun=dtw,
         dataset1=dataset1,
@@ -2181,7 +2218,6 @@ def lb_envelope(ts, radius=1, be=None):
        Conference on Very Large Data Bases, 2002. pp 406-417.
     """
     be = instantiate_backend(be, ts)
-    ts = be.array(ts)
     ts = to_time_series(ts, be=be)
     if be.is_numpy:
         return _njit_lb_envelope(ts, radius=radius)
@@ -2202,7 +2238,7 @@ def njit_lcss_accumulated_matrix(s1, s2, eps, mask):
     eps : float
         Matching threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
         
     Returns
     -------
@@ -2239,7 +2275,7 @@ def lcss_accumulated_matrix(s1, s2, eps, mask, be=None):
     eps : float
         Matching threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -2254,8 +2290,6 @@ def lcss_accumulated_matrix(s1, s2, eps, mask, be=None):
         Accumulated cost matrix.
     """
     be = instantiate_backend(be, s1, s2)
-    s1 = be.array(s1)
-    s2 = be.array(s2)
     s1 = to_time_series(s1, remove_nans=True, be=be)
     s2 = to_time_series(s2, remove_nans=True, be=be)
     l1 = be.shape(s1)[0]
@@ -2264,7 +2298,7 @@ def lcss_accumulated_matrix(s1, s2, eps, mask, be=None):
 
     for i in range(1, l1 + 1):
         for j in range(1, l2 + 1):
-            if be.isfinite(mask[i - 1, j - 1]):
+            if mask[i - 1, j - 1]:
                 if be.is_numpy:
                     squared_dist = _njit_local_squared_dist(s1[i - 1], s2[j - 1])
                 else:
@@ -2292,7 +2326,7 @@ def _njit_lcss(s1, s2, eps, mask):
     eps : float (default: 1.)
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
 
     Returns
     -------
@@ -2318,7 +2352,7 @@ def _lcss(s1, s2, eps, mask, be=None):
     eps : float (default: 1.)
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -2447,7 +2481,7 @@ def lcss(
     s1 = to_time_series(s1, remove_nans=True, be=be)
     s2 = to_time_series(s2, remove_nans=True, be=be)
 
-    mask = compute_mask(
+    mask = compute_mask_(
         s1,
         s2,
         GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -2473,7 +2507,7 @@ def _njit_return_lcss_path(s1, s2, eps, mask, acc_cost_mat, sz1, sz2):
     eps : float
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     acc_cost_mat : array-like, shape=(sz1 + 1, sz2 + 1)
         Accumulated cost matrix.
     sz1 : int
@@ -2514,7 +2548,7 @@ def _return_lcss_path(s1, s2, eps, mask, acc_cost_mat, sz1, sz2, be=None):
     eps : float
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     acc_cost_mat : array-like, shape=(sz1 + 1, sz2 + 1)
         Accumulated cost matrix.
     sz1 : int
@@ -2543,7 +2577,7 @@ def _return_lcss_path(s1, s2, eps, mask, acc_cost_mat, sz1, sz2, be=None):
     path = []
 
     while i > 0 and j > 0:
-        if be.isfinite(mask[i - 1, j - 1]):
+        if mask[i - 1, j - 1]:
             if be.is_numpy:
                 squared_dist = _njit_local_squared_dist(s1[i - 1], s2[j - 1])
             else:
@@ -2572,7 +2606,7 @@ def _njit_return_lcss_path_from_dist_matrix(
     eps : float
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     acc_cost_mat : array-like, shape=(sz1 + 1, sz2 + 1)
         Accumulated cost matrix.
     sz1 : int
@@ -2615,7 +2649,7 @@ def _return_lcss_path_from_dist_matrix(
     eps : float
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     acc_cost_mat : array-like, shape=(sz1 + 1, sz2 + 1)
         Accumulated cost matrix.
     sz1 : int
@@ -2644,7 +2678,7 @@ def _return_lcss_path_from_dist_matrix(
     path = []
 
     while i > 0 and j > 0:
-        if be.isfinite(mask[i - 1, j - 1]):
+        if mask[i - 1, j - 1]:
             if dist_matrix[i - 1, j - 1] <= eps:
                 path.append((i - 1, j - 1))
                 i, j = (i - 1, j - 1)
@@ -2767,7 +2801,7 @@ def lcss_path(
     s1 = to_time_series(s1, remove_nans=True, be=be)
     s2 = to_time_series(s2, remove_nans=True, be=be)
 
-    mask = compute_mask(
+    mask = compute_mask_(
         s1,
         s2,
         GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -2800,7 +2834,7 @@ def njit_lcss_accumulated_matrix_from_dist_matrix(dist_matrix, eps, mask):
     eps : float (default: 1.)
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
 
     Returns
     -------
@@ -2834,7 +2868,7 @@ def lcss_accumulated_matrix_from_dist_matrix(dist_matrix, eps, mask, be=None):
     eps : float (default: 1.)
         Maximum matching distance threshold.
     mask : array-like, shape=(sz1, sz2)
-        Mask. Unconsidered cells must have infinite values.
+        Mask. Unconsidered cells must have False values.
     be : Backend object or string or None
         Backend. If `be` is an instance of the class `NumPyBackend` or the string `"numpy"`,
         the NumPy backend is used.
@@ -2855,7 +2889,7 @@ def lcss_accumulated_matrix_from_dist_matrix(dist_matrix, eps, mask, be=None):
 
     for i in range(1, l1 + 1):
         for j in range(1, l2 + 1):
-            if be.isfinite(mask[i - 1, j - 1]):
+            if mask[i - 1, j - 1]:
                 if dist_matrix[i - 1, j - 1] <= eps:
                     acc_cost_mat[i][j] = 1 + acc_cost_mat[i - 1][j - 1]
                 else:
@@ -3016,7 +3050,7 @@ def lcss_path_from_metric(
     if metric == "precomputed":  # Pairwise distance given as input
         s1 = be.array(s1)
         sz1, sz2 = be.shape(s1)
-        mask = compute_mask(
+        mask = compute_mask_(
             sz1,
             sz2,
             GLOBAL_CONSTRAINT_CODE[global_constraint],
@@ -3030,7 +3064,7 @@ def lcss_path_from_metric(
         s2 = to_time_series(s2, remove_nans=True, be=be)
         sz1 = be.shape(s1)[0]
         sz2 = be.shape(s2)[0]
-        mask = compute_mask(
+        mask = compute_mask_(
             s1,
             s2,
             GLOBAL_CONSTRAINT_CODE[global_constraint],

@@ -6,7 +6,6 @@ import pycuda.driver as drv
 from numba import njit, prange
 from torch_sparse import coalesce
 from scipy.signal.windows import hann
-from itertools import groupby
 import cupy as cp
 from cupyx.scipy.ndimage import map_coordinates
 
@@ -487,80 +486,6 @@ def power_method_estimate_L__SELL(SMatrix, stream, n_it=20, block_size=256):
         except:
             pass
     return max(L_sq, 1e-6)
-
-def get_phase_deterministic(profile):
-    """
-    Détermine la phase en se basant sur la valeur initiale (0 ou 1) et l'état
-    de décalage (is_shifted) de la séquence binaire.
-    
-    ATTENTION: Cette fonction est conservée mais la logique est souvent simplifiée
-    en pratique si les labels garantissent les phases 0, pi/2, pi, 3pi/2.
-    """
-    runs = [(k, sum(1 for _ in g)) for k, g in groupby(profile)]
-    if not runs: return 0.0
-    
-    nominal_half_period = max([r[1] for r in runs]) 
-    if nominal_half_period == 0: return 0.0
-
-    first_val = runs[0][0] # 0 ou 1
-    first_len = runs[0][1] 
-    # Détection de cycle 50%
-    is_shifted = (0.3 < first_len / nominal_half_period < 0.7) 
-    
-    # --- LOGIQUE DE MAPPAGE DE PHASE SIMPLIFIÉE (idx 1 à 4) ---
-    
-    if first_val == 0: 
-        if is_shifted:
-            idx = 3 # C1/C3 décalé (phi_1 ou phi_3)
-        else:
-            idx = 4 # C2/C4 non décalé
-    else: # first_val == 1
-        if is_shifted:
-            idx = 1 # C1/C3 décalé (phi_1 ou phi_3)
-        else:
-            idx = 2 # C2/C4 non décalé
-
-    # On utilise les phases de quadrature 0, pi/2, pi, 3pi/2 
-    if idx == 1:
-        phase = 0
-    elif idx == 2 :
-        phase = np.pi/2
-    elif idx == 3 :
-        phase = np.pi
-    elif idx == 4 :
-        phase = 3*np.pi/2
-            
-    return phase
-
-def add_sincos_cpu(R, decimation, theta):
-    decimation = np.asarray(decimation)
-    theta = np.asarray(theta)
-
-    ScanParam = np.stack([decimation, theta], axis=1)
-    uniq, ia, ib = np.unique(ScanParam, axis=0, return_index=True, return_inverse=True)
-
-    theta_u = uniq[:,1]
-    decim_u = uniq[:,0]
-
-    theta0 = np.unique(theta_u)
-    N0 = len(theta0)
-
-    Rg = np.asarray(R)
-    Nz = Rg.shape[0]
-    Nk = N0 + (Rg.shape[1] - N0)//4
-
-    Iout = np.zeros((Nz, Nk), dtype=np.complex64)
-    # fx = 0 (onde plane)
-    Iout[:, :N0] = Rg[:, :N0]
-
-    k = N0
-    for i in range(N0, len(ia)):
-        idx = np.where(ib == i)[0]
-        h1, h2, h3, h4 = Rg[:, idx].T
-        Iout[:, k] = ((h1 - h2) - 1j*(h3 - h4)) / 2
-        k += 1
-
-    return Iout, theta_u, decim_u
 
 def fourierz_gpu(z, X):
     dz = float(z[1] - z[0])

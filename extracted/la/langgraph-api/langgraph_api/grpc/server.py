@@ -81,9 +81,9 @@ async def start_python_grpc_server(
             ("grpc.http2.max_ping_strikes", 2),
             (
                 "grpc.max_receive_message_length",
-                config.GRPC_SERVER_MAX_RECV_MSG_BYTES,
+                config.LSD_GRPC_SERVER_MAX_RECV_MSG_BYTES,
             ),
-            ("grpc.max_send_message_length", config.GRPC_SERVER_MAX_SEND_MSG_BYTES),
+            ("grpc.max_send_message_length", config.LSD_GRPC_SERVER_MAX_SEND_MSG_BYTES),
         ],
     )
 

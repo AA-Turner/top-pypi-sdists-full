@@ -147,6 +147,114 @@ bar_stack = BarStack(app, "BarStack",
 
 Note: You can create an instance of the `TableV2` construct with as many `replicas` as needed as long as there is only one replica per region. After table creation you can add or remove `replicas`, but you can only add or remove a single replica in each update.
 
+### Multi-Account Global Tables
+
+Multi-account global tables extend DynamoDB replication across AWS accounts, providing enhanced security, governance, and fault isolation. Each replica resides in a separate AWS account, enabling account-level isolation and alignment with organizational structures.
+
+#### Creating Multi-Account Replicas
+
+For tables defined in the same CDK application, use the `TableV2MultiAccountReplica` construct:
+
+```python
+import aws_cdk as cdk
+
+
+app = cdk.App()
+
+# Source table in Account A
+source_stack = cdk.Stack(app, "SourceStack",
+    env=cdk.Environment(region="us-east-2", account="111111111111")
+)
+
+source_table = dynamodb.TableV2(source_stack, "SourceTable",
+    table_name="MyMultiAccountTable",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+)
+
+# Replica stack in Account B
+replica_stack = cdk.Stack(app, "ReplicaStack",
+    env=cdk.Environment(region="us-east-1", account="222222222222")
+)
+
+# Create replica - permissions are automatically configured
+replica = dynamodb.TableV2MultiAccountReplica(replica_stack, "ReplicaTable",
+    table_name="MyMultiAccountTable",
+    replica_source_table=source_table,
+    global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+)
+```
+
+The `TableV2MultiAccountReplica` construct:
+
+* Creates the replica table with the correct source ARN
+* Copies the key schema from the source table
+* Automatically adds resource policies to both source and replica tables
+* Validates that the replica is in a different account and region
+
+**Note**: Permissions are automatically configured when both tables are in the same CDK app. For imported source tables, see "Working with Imported Tables" below.
+
+#### Adding Replicas to Existing Tables
+
+If the source table already exists in AWS, you cannot use automatic cross-stack references. The replica will issue a warning, and you must manually configure permissions:
+
+```python
+import aws_cdk as cdk
+
+
+app = cdk.App()
+
+# Source table in Account A
+source_stack = cdk.Stack(app, "SourceStack",
+    env=cdk.Environment(region="us-east-1", account="111111111111")
+)
+
+# Region us-west-2
+source_table = dynamodb.TableV2(source_stack, "SourceTable",
+    table_name="MyMultiAccountTable",
+    partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+    global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+)
+# After replica is deployed, update source stack with the ARN
+source_table.grants.multi_account_replication_to("arn:aws:dynamodb:us-east-1:222222222222:table/MyMultiAccountTable")
+```
+
+#### Working with Imported Tables
+
+When importing a source table, the replica will issue a warning since it cannot automatically configure permissions on the imported table:
+
+```python
+import aws_cdk as cdk
+
+
+app = cdk.App()
+
+replica_stack = cdk.Stack(app, "ReplicaStack",
+    env=cdk.Environment(region="us-east-1", account="222222222222")
+)
+
+# Import source table
+imported_source = dynamodb.TableV2.from_table_arn(replica_stack, "ImportedSource", "arn:aws:dynamodb:us-east-2:111111111111:table/MyMultiAccountTable")
+
+# Create replica - will issue a warning about missing source permissions
+replica = dynamodb.TableV2MultiAccountReplica(replica_stack, "ReplicaTable",
+    table_name="MyMultiAccountTable",
+    replica_source_table=imported_source,
+    global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+)
+```
+
+**Warning**: The replica will emit a warning indicating that you must manually configure permissions on the actual source table.
+
+Then configure permissions on the actual source table using the replica ARN as shown in "Adding Replicas to Existing Tables" above.
+
+#### Key Considerations
+
+* Multi-account replicas can only be created using the `TableV2MultiAccountReplica` construct
+* Each replica must be in a separate AWS account and region
+* Only Multi-Region Eventual Consistency (MREC) is supported
+* Resource-based policies must be configured on both source and replica tables before replication begins
+
 ## Multi-Region Strong Consistency (MRSC)
 
 By default, DynamoDB global tables provide eventual consistency across regions. For applications requiring strong consistency across regions, you can configure Multi-Region Strong Consistency (MRSC) using the `multiRegionConsistency` property.
@@ -1265,15 +1373,20 @@ class Attribute:
             
             
             app = cdk.App()
-            stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
             
-            mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
-                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-                multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
-                replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
-                ],
-                witness_region="us-east-2"
+            # Source table in Account A
+            source_stack = cdk.Stack(app, "SourceStack",
+                env=cdk.Environment(region="us-east-1", account="111111111111")
             )
+            
+            # Region us-west-2
+            source_table = dynamodb.TableV2(source_stack, "SourceTable",
+                table_name="MyMultiAccountTable",
+                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+                global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+            )
+            # After replica is deployed, update source stack with the ARN
+            source_table.grants.multi_account_replication_to("arn:aws:dynamodb:us-east-1:222222222222:table/MyMultiAccountTable")
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6091797287bf2aafa37ae4183b7bbfad1a86a1352cac934c8b72bd9e26f0c688)
@@ -1323,15 +1436,20 @@ class AttributeType(enum.Enum):
         
         
         app = cdk.App()
-        stack = cdk.Stack(app, "Stack", env=cdk.Environment(region="us-west-2"))
         
-        mrsc_table = dynamodb.TableV2(stack, "MRSCTable",
-            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
-            multi_region_consistency=dynamodb.MultiRegionConsistency.STRONG,
-            replicas=[dynamodb.ReplicaTableProps(region="us-east-1")
-            ],
-            witness_region="us-east-2"
+        # Source table in Account A
+        source_stack = cdk.Stack(app, "SourceStack",
+            env=cdk.Environment(region="us-east-1", account="111111111111")
         )
+        
+        # Region us-west-2
+        source_table = dynamodb.TableV2(source_stack, "SourceTable",
+            table_name="MyMultiAccountTable",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+        )
+        # After replica is deployed, update source stack with the ARN
+        source_table.grants.multi_account_replication_to("arn:aws:dynamodb:us-east-1:222222222222:table/MyMultiAccountTable")
     '''
 
     BINARY = "BINARY"
@@ -1727,14 +1845,6 @@ class CfnGlobalTable(
         # policy_document: Any
         
         cfn_global_table = dynamodb.CfnGlobalTable(self, "MyCfnGlobalTable",
-            attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
-                attribute_name="attributeName",
-                attribute_type="attributeType"
-            )],
-            key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                attribute_name="attributeName",
-                key_type="keyType"
-            )],
             replicas=[dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
                 region="region",
         
@@ -1778,6 +1888,7 @@ class CfnGlobalTable(
                         read_capacity_units=123
                     )
                 )],
+                global_table_settings_replication_mode="globalTableSettingsReplicationMode",
                 kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
                     stream_arn="streamArn",
         
@@ -1828,6 +1939,10 @@ class CfnGlobalTable(
             )],
         
             # the properties below are optional
+            attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
+                attribute_name="attributeName",
+                attribute_type="attributeType"
+            )],
             billing_mode="billingMode",
             global_secondary_indexes=[dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
                 index_name="indexName",
@@ -1841,6 +1956,12 @@ class CfnGlobalTable(
                 ),
         
                 # the properties below are optional
+                read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                    max_read_request_units=123
+                ),
+                read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                    read_capacity_units=123
+                ),
                 warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
                     read_units_per_second=123,
                     write_units_per_second=123
@@ -1866,8 +1987,13 @@ class CfnGlobalTable(
                     )
                 )
             )],
+            global_table_source_arn="globalTableSourceArn",
             global_table_witnesses=[dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
                 region="region"
+            )],
+            key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                attribute_name="attributeName",
+                key_type="keyType"
             )],
             local_secondary_indexes=[dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
                 index_name="indexName",
@@ -1881,6 +2007,12 @@ class CfnGlobalTable(
                 )
             )],
             multi_region_consistency="multiRegionConsistency",
+            read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                max_read_request_units=123
+            ),
+            read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                read_capacity_units=123
+            ),
             sse_specification=dynamodb.CfnGlobalTable.SSESpecificationProperty(
                 sse_enabled=False,
         
@@ -1929,14 +2061,17 @@ class CfnGlobalTable(
         scope: "_constructs_77d1e7e8.Construct",
         id: builtins.str,
         *,
-        attribute_definitions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        key_schema: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
         replicas: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReplicaSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        attribute_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
         global_secondary_indexes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        global_table_source_arn: typing.Optional[builtins.str] = None,
         global_table_witnesses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalTableWitnessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        key_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         local_secondary_indexes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         multi_region_consistency: typing.Optional[builtins.str] = None,
+        read_on_demand_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        read_provisioned_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sse_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stream_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -1949,14 +2084,17 @@ class CfnGlobalTable(
 
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
-        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param replicas: Specifies the list of replicas for your global table. The list must contain at least one element, the region where the stack defining the global table is deployed. For example, if you define your table in a stack deployed to us-east-1, you must have an entry in ``Replicas`` with the region us-east-1. You cannot remove the replica in the stack region. .. epigraph:: Adding a replica might take a few minutes for an empty table, or up to several hours for large tables. If you want to add or remove a replica, we recommend submitting an ``UpdateStack`` operation containing only that change. If you add or delete a replica during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new replica, you might need to manually delete the replica. You can create a new global table with as many replicas as needed. You can add or remove replicas after table creation, but you can only add or remove a single replica in each update. For Multi-Region Strong Consistency (MRSC), you can add or remove up to 3 replicas, or 2 replicas plus a witness Region.
+        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
         :param billing_mode: Specifies how you are charged for read and write throughput and how you manage capacity. Valid values are:. - ``PAY_PER_REQUEST`` - ``PROVISIONED`` All replicas in your global table will have the same billing mode. If you use ``PROVISIONED`` billing mode, you must provide an auto scaling configuration via the ``WriteProvisionedThroughputSettings`` property. The default value of this property is ``PROVISIONED`` .
         :param global_secondary_indexes: Global secondary indexes to be created on the global table. You can create up to 20 global secondary indexes. Each replica in your global table will have the same global secondary index settings. You can only create or delete one global secondary index in a single stack operation. Since the backfilling of an index could take a long time, CloudFormation does not wait for the index to become active. If a stack operation rolls back, CloudFormation might not delete an index that has been added. In that case, you will need to delete the index manually.
+        :param global_table_source_arn: 
         :param global_table_witnesses: The list of witnesses of the MRSC global table. Only one witness Region can be configured per MRSC global table.
+        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to five local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes. Each replica in your global table will have the same local secondary index settings.
         :param multi_region_consistency: Specifies the consistency mode for a new global table. You can specify one of the following consistency modes: - ``EVENTUAL`` : Configures a new global table for multi-Region eventual consistency (MREC). - ``STRONG`` : Configures a new global table for multi-Region strong consistency (MRSC). If you don't specify this field, the global table consistency mode defaults to ``EVENTUAL`` . For more information about global tables consistency modes, see `Consistency modes <https://docs.aws.amazon.com/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes>`_ in DynamoDB developer guide.
+        :param read_on_demand_throughput_settings: 
+        :param read_provisioned_throughput_settings: 
         :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
@@ -1970,14 +2108,17 @@ class CfnGlobalTable(
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = CfnGlobalTableProps(
-            attribute_definitions=attribute_definitions,
-            key_schema=key_schema,
             replicas=replicas,
+            attribute_definitions=attribute_definitions,
             billing_mode=billing_mode,
             global_secondary_indexes=global_secondary_indexes,
+            global_table_source_arn=global_table_source_arn,
             global_table_witnesses=global_table_witnesses,
+            key_schema=key_schema,
             local_secondary_indexes=local_secondary_indexes,
             multi_region_consistency=multi_region_consistency,
+            read_on_demand_throughput_settings=read_on_demand_throughput_settings,
+            read_provisioned_throughput_settings=read_provisioned_throughput_settings,
             sse_specification=sse_specification,
             stream_specification=stream_specification,
             table_name=table_name,
@@ -2092,42 +2233,6 @@ class CfnGlobalTable(
         return typing.cast("_GlobalTableReference_7ca912b6", jsii.get(self, "globalTableRef"))
 
     @builtins.property
-    @jsii.member(jsii_name="attributeDefinitions")
-    def attribute_definitions(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]:
-        '''A list of attributes that describe the key schema for the global table and indexes.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]], jsii.get(self, "attributeDefinitions"))
-
-    @attribute_definitions.setter
-    def attribute_definitions(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
-    @jsii.member(jsii_name="keySchema")
-    def key_schema(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]:
-        '''Specifies the attributes that make up the primary key for the table.'''
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]], jsii.get(self, "keySchema"))
-
-    @key_schema.setter
-    def key_schema(
-        self,
-        value: typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]],
-    ) -> None:
-        if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884)
-            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
-        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
-
-    @builtins.property
     @jsii.member(jsii_name="replicas")
     def replicas(
         self,
@@ -2144,6 +2249,24 @@ class CfnGlobalTable(
             type_hints = typing.get_type_hints(_typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "replicas", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="attributeDefinitions")
+    def attribute_definitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]]:
+        '''A list of attributes that describe the key schema for the global table and indexes.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]], jsii.get(self, "attributeDefinitions"))
+
+    @attribute_definitions.setter
+    def attribute_definitions(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "attributeDefinitions", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="billingMode")
@@ -2180,6 +2303,18 @@ class CfnGlobalTable(
         jsii.set(self, "globalSecondaryIndexes", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
+    @jsii.member(jsii_name="globalTableSourceArn")
+    def global_table_source_arn(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "globalTableSourceArn"))
+
+    @global_table_source_arn.setter
+    def global_table_source_arn(self, value: typing.Optional[builtins.str]) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__b7289daf8c207efd37cb3d7fa1fd9c044421e2990cb9ec991503208d45d34503)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "globalTableSourceArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
     @jsii.member(jsii_name="globalTableWitnesses")
     def global_table_witnesses(
         self,
@@ -2196,6 +2331,24 @@ class CfnGlobalTable(
             type_hints = typing.get_type_hints(_typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "globalTableWitnesses", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keySchema")
+    def key_schema(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]]:
+        '''Specifies the attributes that make up the primary key for the table.'''
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]], jsii.get(self, "keySchema"))
+
+    @key_schema.setter
+    def key_schema(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keySchema", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="localSecondaryIndexes")
@@ -2227,6 +2380,40 @@ class CfnGlobalTable(
             type_hints = typing.get_type_hints(_typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "multiRegionConsistency", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readOnDemandThroughputSettings")
+    def read_on_demand_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], jsii.get(self, "readOnDemandThroughputSettings"))
+
+    @read_on_demand_throughput_settings.setter
+    def read_on_demand_throughput_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__e3345c5f5a5971f3677cfd1861143699cf7bccce6d5fb865fffdf9b6995f0246)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readOnDemandThroughputSettings", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="readProvisionedThroughputSettings")
+    def read_provisioned_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]]:
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]], jsii.get(self, "readProvisionedThroughputSettings"))
+
+    @read_provisioned_throughput_settings.setter
+    def read_provisioned_throughput_settings(
+        self,
+        value: typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7341a92bb1008a818610ce95647ed1d5b340cccce3d2803375eee76b8e7fe217)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "readProvisionedThroughputSettings", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="sseSpecification")
@@ -2626,12 +2813,67 @@ class CfnGlobalTable(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty",
+        jsii_struct_bases=[],
+        name_mapping={"read_capacity_units": "readCapacityUnits"},
+    )
+    class GlobalReadProvisionedThroughputSettingsProperty:
+        def __init__(
+            self,
+            *,
+            read_capacity_units: typing.Optional[jsii.Number] = None,
+        ) -> None:
+            '''
+            :param read_capacity_units: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalreadprovisionedthroughputsettings.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_dynamodb as dynamodb
+                
+                global_read_provisioned_throughput_settings_property = dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                    read_capacity_units=123
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__63eb928693a0126ec6b1b953497e5d63a1fa6fbaeaee18f00f9023c42010028a)
+                check_type(argname="argument read_capacity_units", value=read_capacity_units, expected_type=type_hints["read_capacity_units"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if read_capacity_units is not None:
+                self._values["read_capacity_units"] = read_capacity_units
+
+        @builtins.property
+        def read_capacity_units(self) -> typing.Optional[jsii.Number]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalreadprovisionedthroughputsettings.html#cfn-dynamodb-globaltable-globalreadprovisionedthroughputsettings-readcapacityunits
+            '''
+            result = self._values.get("read_capacity_units")
+            return typing.cast(typing.Optional[jsii.Number], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "GlobalReadProvisionedThroughputSettingsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty",
         jsii_struct_bases=[],
         name_mapping={
             "index_name": "indexName",
             "key_schema": "keySchema",
             "projection": "projection",
+            "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
+            "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
             "warm_throughput": "warmThroughput",
             "write_on_demand_throughput_settings": "writeOnDemandThroughputSettings",
             "write_provisioned_throughput_settings": "writeProvisionedThroughputSettings",
@@ -2644,6 +2886,8 @@ class CfnGlobalTable(
             index_name: builtins.str,
             key_schema: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
             projection: typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ProjectionProperty", typing.Dict[builtins.str, typing.Any]]],
+            read_on_demand_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            read_provisioned_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             warm_throughput: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.WarmThroughputProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             write_on_demand_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.WriteOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             write_provisioned_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.WriteProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -2655,6 +2899,8 @@ class CfnGlobalTable(
             :param index_name: The name of the global secondary index. The name must be unique among all other indexes on this table.
             :param key_schema: The complete key schema for a global secondary index, which consists of one or more pairs of attribute names and key types: - ``HASH`` - partition key - ``RANGE`` - sort key > The partition key of an item is also known as its *hash attribute* . The term "hash attribute" derives from DynamoDB's usage of an internal hash function to evenly distribute data items across partitions, based on their partition key values. .. epigraph:: The sort key of an item is also known as its *range attribute* . The term "range attribute" derives from the way DynamoDB stores items with the same partition key physically close together, in sorted order by the sort key value.
             :param projection: Represents attributes that are copied (projected) from the table into the global secondary index. These are in addition to the primary key attributes and index key attributes, which are automatically projected.
+            :param read_on_demand_throughput_settings: 
+            :param read_provisioned_throughput_settings: 
             :param warm_throughput: Represents the warm throughput value (in read units per second and write units per second) for the specified secondary index. If you use this parameter, you must specify ``ReadUnitsPerSecond`` , ``WriteUnitsPerSecond`` , or both.
             :param write_on_demand_throughput_settings: Sets the write request settings for a global table or a global secondary index. You can only specify this setting if your resource uses the ``PAY_PER_REQUEST`` ``BillingMode`` .
             :param write_provisioned_throughput_settings: Defines write capacity settings for the global secondary index. You must specify a value for this property if the table's ``BillingMode`` is ``PROVISIONED`` . All replicas will have the same write capacity settings for this global secondary index.
@@ -2680,6 +2926,12 @@ class CfnGlobalTable(
                     ),
                 
                     # the properties below are optional
+                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                        max_read_request_units=123
+                    ),
+                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                        read_capacity_units=123
+                    ),
                     warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
                         read_units_per_second=123,
                         write_units_per_second=123
@@ -2711,6 +2963,8 @@ class CfnGlobalTable(
                 check_type(argname="argument index_name", value=index_name, expected_type=type_hints["index_name"])
                 check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
                 check_type(argname="argument projection", value=projection, expected_type=type_hints["projection"])
+                check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
+                check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
                 check_type(argname="argument warm_throughput", value=warm_throughput, expected_type=type_hints["warm_throughput"])
                 check_type(argname="argument write_on_demand_throughput_settings", value=write_on_demand_throughput_settings, expected_type=type_hints["write_on_demand_throughput_settings"])
                 check_type(argname="argument write_provisioned_throughput_settings", value=write_provisioned_throughput_settings, expected_type=type_hints["write_provisioned_throughput_settings"])
@@ -2719,6 +2973,10 @@ class CfnGlobalTable(
                 "key_schema": key_schema,
                 "projection": projection,
             }
+            if read_on_demand_throughput_settings is not None:
+                self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
+            if read_provisioned_throughput_settings is not None:
+                self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
             if warm_throughput is not None:
                 self._values["warm_throughput"] = warm_throughput
             if write_on_demand_throughput_settings is not None:
@@ -2768,6 +3026,26 @@ class CfnGlobalTable(
             result = self._values.get("projection")
             assert result is not None, "Required property 'projection' is missing"
             return typing.cast(typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ProjectionProperty"], result)
+
+        @builtins.property
+        def read_on_demand_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-readondemandthroughputsettings
+            '''
+            result = self._values.get("read_on_demand_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
+
+        @builtins.property
+        def read_provisioned_throughput_settings(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-globalsecondaryindex.html#cfn-dynamodb-globaltable-globalsecondaryindex-readprovisionedthroughputsettings
+            '''
+            result = self._values.get("read_provisioned_throughput_settings")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]], result)
 
         @builtins.property
         def warm_throughput(
@@ -3669,6 +3947,7 @@ class CfnGlobalTable(
             "contributor_insights_specification": "contributorInsightsSpecification",
             "deletion_protection_enabled": "deletionProtectionEnabled",
             "global_secondary_indexes": "globalSecondaryIndexes",
+            "global_table_settings_replication_mode": "globalTableSettingsReplicationMode",
             "kinesis_stream_specification": "kinesisStreamSpecification",
             "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
             "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
@@ -3688,6 +3967,7 @@ class CfnGlobalTable(
             contributor_insights_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ContributorInsightsSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
             global_secondary_indexes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+            global_table_settings_replication_mode: typing.Optional[builtins.str] = None,
             kinesis_stream_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KinesisStreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             point_in_time_recovery_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.PointInTimeRecoverySpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             read_on_demand_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3704,6 +3984,7 @@ class CfnGlobalTable(
             :param contributor_insights_specification: The settings used to enable or disable CloudWatch Contributor Insights for the specified replica. When not specified, defaults to contributor insights disabled for the replica.
             :param deletion_protection_enabled: Determines if a replica is protected from deletion. When enabled, the table cannot be deleted by any user or process. This setting is disabled by default. For more information, see `Using deletion protection <https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/WorkingWithTables.Basics.html#WorkingWithTables.Basics.DeletionProtection>`_ in the *Amazon DynamoDB Developer Guide* .
             :param global_secondary_indexes: Defines additional settings for the global secondary indexes of this replica.
+            :param global_table_settings_replication_mode: 
             :param kinesis_stream_specification: Defines the Kinesis Data Streams configuration for the specified replica.
             :param point_in_time_recovery_specification: The settings used to enable point in time recovery. When not specified, defaults to point in time recovery disabled for the replica.
             :param read_on_demand_throughput_settings: Sets read request settings for the replica table.
@@ -3769,6 +4050,7 @@ class CfnGlobalTable(
                             read_capacity_units=123
                         )
                     )],
+                    global_table_settings_replication_mode="globalTableSettingsReplicationMode",
                     kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
                         stream_arn="streamArn",
                 
@@ -3824,6 +4106,7 @@ class CfnGlobalTable(
                 check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
                 check_type(argname="argument deletion_protection_enabled", value=deletion_protection_enabled, expected_type=type_hints["deletion_protection_enabled"])
                 check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
+                check_type(argname="argument global_table_settings_replication_mode", value=global_table_settings_replication_mode, expected_type=type_hints["global_table_settings_replication_mode"])
                 check_type(argname="argument kinesis_stream_specification", value=kinesis_stream_specification, expected_type=type_hints["kinesis_stream_specification"])
                 check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
                 check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
@@ -3842,6 +4125,8 @@ class CfnGlobalTable(
                 self._values["deletion_protection_enabled"] = deletion_protection_enabled
             if global_secondary_indexes is not None:
                 self._values["global_secondary_indexes"] = global_secondary_indexes
+            if global_table_settings_replication_mode is not None:
+                self._values["global_table_settings_replication_mode"] = global_table_settings_replication_mode
             if kinesis_stream_specification is not None:
                 self._values["kinesis_stream_specification"] = kinesis_stream_specification
             if point_in_time_recovery_specification is not None:
@@ -3907,6 +4192,16 @@ class CfnGlobalTable(
             '''
             result = self._values.get("global_secondary_indexes")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty"]]]], result)
+
+        @builtins.property
+        def global_table_settings_replication_mode(
+            self,
+        ) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-globaltablesettingsreplicationmode
+            '''
+            result = self._values.get("global_table_settings_replication_mode")
+            return typing.cast(typing.Optional[builtins.str], result)
 
         @builtins.property
         def kinesis_stream_specification(
@@ -4708,14 +5003,17 @@ class CfnGlobalTable(
     jsii_type="aws-cdk-lib.aws_dynamodb.CfnGlobalTableProps",
     jsii_struct_bases=[],
     name_mapping={
-        "attribute_definitions": "attributeDefinitions",
-        "key_schema": "keySchema",
         "replicas": "replicas",
+        "attribute_definitions": "attributeDefinitions",
         "billing_mode": "billingMode",
         "global_secondary_indexes": "globalSecondaryIndexes",
+        "global_table_source_arn": "globalTableSourceArn",
         "global_table_witnesses": "globalTableWitnesses",
+        "key_schema": "keySchema",
         "local_secondary_indexes": "localSecondaryIndexes",
         "multi_region_consistency": "multiRegionConsistency",
+        "read_on_demand_throughput_settings": "readOnDemandThroughputSettings",
+        "read_provisioned_throughput_settings": "readProvisionedThroughputSettings",
         "sse_specification": "sseSpecification",
         "stream_specification": "streamSpecification",
         "table_name": "tableName",
@@ -4729,14 +5027,17 @@ class CfnGlobalTableProps:
     def __init__(
         self,
         *,
-        attribute_definitions: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]],
-        key_schema: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]],
         replicas: typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReplicaSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]]],
+        attribute_definitions: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.AttributeDefinitionProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         billing_mode: typing.Optional[builtins.str] = None,
         global_secondary_indexes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        global_table_source_arn: typing.Optional[builtins.str] = None,
         global_table_witnesses: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalTableWitnessProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
+        key_schema: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.KeySchemaProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         local_secondary_indexes: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Sequence[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.LocalSecondaryIndexProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         multi_region_consistency: typing.Optional[builtins.str] = None,
+        read_on_demand_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.ReadOnDemandThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        read_provisioned_throughput_settings: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         sse_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.SSESpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         stream_specification: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnGlobalTable.StreamSpecificationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         table_name: typing.Optional[builtins.str] = None,
@@ -4747,14 +5048,17 @@ class CfnGlobalTableProps:
     ) -> None:
         '''Properties for defining a ``CfnGlobalTable``.
 
-        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
-        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param replicas: Specifies the list of replicas for your global table. The list must contain at least one element, the region where the stack defining the global table is deployed. For example, if you define your table in a stack deployed to us-east-1, you must have an entry in ``Replicas`` with the region us-east-1. You cannot remove the replica in the stack region. .. epigraph:: Adding a replica might take a few minutes for an empty table, or up to several hours for large tables. If you want to add or remove a replica, we recommend submitting an ``UpdateStack`` operation containing only that change. If you add or delete a replica during an update, we recommend that you don't update any other resources. If your stack fails to update and is rolled back while adding a new replica, you might need to manually delete the replica. You can create a new global table with as many replicas as needed. You can add or remove replicas after table creation, but you can only add or remove a single replica in each update. For Multi-Region Strong Consistency (MRSC), you can add or remove up to 3 replicas, or 2 replicas plus a witness Region.
+        :param attribute_definitions: A list of attributes that describe the key schema for the global table and indexes.
         :param billing_mode: Specifies how you are charged for read and write throughput and how you manage capacity. Valid values are:. - ``PAY_PER_REQUEST`` - ``PROVISIONED`` All replicas in your global table will have the same billing mode. If you use ``PROVISIONED`` billing mode, you must provide an auto scaling configuration via the ``WriteProvisionedThroughputSettings`` property. The default value of this property is ``PROVISIONED`` .
         :param global_secondary_indexes: Global secondary indexes to be created on the global table. You can create up to 20 global secondary indexes. Each replica in your global table will have the same global secondary index settings. You can only create or delete one global secondary index in a single stack operation. Since the backfilling of an index could take a long time, CloudFormation does not wait for the index to become active. If a stack operation rolls back, CloudFormation might not delete an index that has been added. In that case, you will need to delete the index manually.
+        :param global_table_source_arn: 
         :param global_table_witnesses: The list of witnesses of the MRSC global table. Only one witness Region can be configured per MRSC global table.
+        :param key_schema: Specifies the attributes that make up the primary key for the table. The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
         :param local_secondary_indexes: Local secondary indexes to be created on the table. You can create up to five local secondary indexes. Each index is scoped to a given hash key value. The size of each hash key can be up to 10 gigabytes. Each replica in your global table will have the same local secondary index settings.
         :param multi_region_consistency: Specifies the consistency mode for a new global table. You can specify one of the following consistency modes: - ``EVENTUAL`` : Configures a new global table for multi-Region eventual consistency (MREC). - ``STRONG`` : Configures a new global table for multi-Region strong consistency (MRSC). If you don't specify this field, the global table consistency mode defaults to ``EVENTUAL`` . For more information about global tables consistency modes, see `Consistency modes <https://docs.aws.amazon.com/V2globaltables_HowItWorks.html#V2globaltables_HowItWorks.consistency-modes>`_ in DynamoDB developer guide.
+        :param read_on_demand_throughput_settings: 
+        :param read_provisioned_throughput_settings: 
         :param sse_specification: Specifies the settings to enable server-side encryption. These settings will be applied to all replicas. If you plan to use customer-managed KMS keys, you must provide a key for each replica using the ``ReplicaSpecification.ReplicaSSESpecification`` property.
         :param stream_specification: Specifies the streams settings on your global table. You must provide a value for this property if your global table contains more than one replica. You can only change the streams settings if your global table has only one replica. For Multi-Region Strong Consistency (MRSC), you do not need to provide a value for this property and can change the settings at any time.
         :param table_name: A name for the global table. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID as the table name. For more information, see `Name type <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-name.html>`_ . .. epigraph:: If you specify a name, you cannot perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you must replace the resource, specify a new name.
@@ -4776,14 +5080,6 @@ class CfnGlobalTableProps:
             # policy_document: Any
             
             cfn_global_table_props = dynamodb.CfnGlobalTableProps(
-                attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
-                    attribute_name="attributeName",
-                    attribute_type="attributeType"
-                )],
-                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
-                    attribute_name="attributeName",
-                    key_type="keyType"
-                )],
                 replicas=[dynamodb.CfnGlobalTable.ReplicaSpecificationProperty(
                     region="region",
             
@@ -4827,6 +5123,7 @@ class CfnGlobalTableProps:
                             read_capacity_units=123
                         )
                     )],
+                    global_table_settings_replication_mode="globalTableSettingsReplicationMode",
                     kinesis_stream_specification=dynamodb.CfnGlobalTable.KinesisStreamSpecificationProperty(
                         stream_arn="streamArn",
             
@@ -4877,6 +5174,10 @@ class CfnGlobalTableProps:
                 )],
             
                 # the properties below are optional
+                attribute_definitions=[dynamodb.CfnGlobalTable.AttributeDefinitionProperty(
+                    attribute_name="attributeName",
+                    attribute_type="attributeType"
+                )],
                 billing_mode="billingMode",
                 global_secondary_indexes=[dynamodb.CfnGlobalTable.GlobalSecondaryIndexProperty(
                     index_name="indexName",
@@ -4890,6 +5191,12 @@ class CfnGlobalTableProps:
                     ),
             
                     # the properties below are optional
+                    read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                        max_read_request_units=123
+                    ),
+                    read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                        read_capacity_units=123
+                    ),
                     warm_throughput=dynamodb.CfnGlobalTable.WarmThroughputProperty(
                         read_units_per_second=123,
                         write_units_per_second=123
@@ -4915,8 +5222,13 @@ class CfnGlobalTableProps:
                         )
                     )
                 )],
+                global_table_source_arn="globalTableSourceArn",
                 global_table_witnesses=[dynamodb.CfnGlobalTable.GlobalTableWitnessProperty(
                     region="region"
+                )],
+                key_schema=[dynamodb.CfnGlobalTable.KeySchemaProperty(
+                    attribute_name="attributeName",
+                    key_type="keyType"
                 )],
                 local_secondary_indexes=[dynamodb.CfnGlobalTable.LocalSecondaryIndexProperty(
                     index_name="indexName",
@@ -4930,6 +5242,12 @@ class CfnGlobalTableProps:
                     )
                 )],
                 multi_region_consistency="multiRegionConsistency",
+                read_on_demand_throughput_settings=dynamodb.CfnGlobalTable.ReadOnDemandThroughputSettingsProperty(
+                    max_read_request_units=123
+                ),
+                read_provisioned_throughput_settings=dynamodb.CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty(
+                    read_capacity_units=123
+                ),
                 sse_specification=dynamodb.CfnGlobalTable.SSESpecificationProperty(
                     sse_enabled=False,
             
@@ -4974,14 +5292,17 @@ class CfnGlobalTableProps:
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2b193ad2)
-            check_type(argname="argument attribute_definitions", value=attribute_definitions, expected_type=type_hints["attribute_definitions"])
-            check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
             check_type(argname="argument replicas", value=replicas, expected_type=type_hints["replicas"])
+            check_type(argname="argument attribute_definitions", value=attribute_definitions, expected_type=type_hints["attribute_definitions"])
             check_type(argname="argument billing_mode", value=billing_mode, expected_type=type_hints["billing_mode"])
             check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
+            check_type(argname="argument global_table_source_arn", value=global_table_source_arn, expected_type=type_hints["global_table_source_arn"])
             check_type(argname="argument global_table_witnesses", value=global_table_witnesses, expected_type=type_hints["global_table_witnesses"])
+            check_type(argname="argument key_schema", value=key_schema, expected_type=type_hints["key_schema"])
             check_type(argname="argument local_secondary_indexes", value=local_secondary_indexes, expected_type=type_hints["local_secondary_indexes"])
             check_type(argname="argument multi_region_consistency", value=multi_region_consistency, expected_type=type_hints["multi_region_consistency"])
+            check_type(argname="argument read_on_demand_throughput_settings", value=read_on_demand_throughput_settings, expected_type=type_hints["read_on_demand_throughput_settings"])
+            check_type(argname="argument read_provisioned_throughput_settings", value=read_provisioned_throughput_settings, expected_type=type_hints["read_provisioned_throughput_settings"])
             check_type(argname="argument sse_specification", value=sse_specification, expected_type=type_hints["sse_specification"])
             check_type(argname="argument stream_specification", value=stream_specification, expected_type=type_hints["stream_specification"])
             check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
@@ -4990,20 +5311,28 @@ class CfnGlobalTableProps:
             check_type(argname="argument write_on_demand_throughput_settings", value=write_on_demand_throughput_settings, expected_type=type_hints["write_on_demand_throughput_settings"])
             check_type(argname="argument write_provisioned_throughput_settings", value=write_provisioned_throughput_settings, expected_type=type_hints["write_provisioned_throughput_settings"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "attribute_definitions": attribute_definitions,
-            "key_schema": key_schema,
             "replicas": replicas,
         }
+        if attribute_definitions is not None:
+            self._values["attribute_definitions"] = attribute_definitions
         if billing_mode is not None:
             self._values["billing_mode"] = billing_mode
         if global_secondary_indexes is not None:
             self._values["global_secondary_indexes"] = global_secondary_indexes
+        if global_table_source_arn is not None:
+            self._values["global_table_source_arn"] = global_table_source_arn
         if global_table_witnesses is not None:
             self._values["global_table_witnesses"] = global_table_witnesses
+        if key_schema is not None:
+            self._values["key_schema"] = key_schema
         if local_secondary_indexes is not None:
             self._values["local_secondary_indexes"] = local_secondary_indexes
         if multi_region_consistency is not None:
             self._values["multi_region_consistency"] = multi_region_consistency
+        if read_on_demand_throughput_settings is not None:
+            self._values["read_on_demand_throughput_settings"] = read_on_demand_throughput_settings
+        if read_provisioned_throughput_settings is not None:
+            self._values["read_provisioned_throughput_settings"] = read_provisioned_throughput_settings
         if sse_specification is not None:
             self._values["sse_specification"] = sse_specification
         if stream_specification is not None:
@@ -5018,32 +5347,6 @@ class CfnGlobalTableProps:
             self._values["write_on_demand_throughput_settings"] = write_on_demand_throughput_settings
         if write_provisioned_throughput_settings is not None:
             self._values["write_provisioned_throughput_settings"] = write_provisioned_throughput_settings
-
-    @builtins.property
-    def attribute_definitions(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]:
-        '''A list of attributes that describe the key schema for the global table and indexes.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-attributedefinitions
-        '''
-        result = self._values.get("attribute_definitions")
-        assert result is not None, "Required property 'attribute_definitions' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]], result)
-
-    @builtins.property
-    def key_schema(
-        self,
-    ) -> typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]:
-        '''Specifies the attributes that make up the primary key for the table.
-
-        The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
-
-        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-keyschema
-        '''
-        result = self._values.get("key_schema")
-        assert result is not None, "Required property 'key_schema' is missing"
-        return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]], result)
 
     @builtins.property
     def replicas(
@@ -5065,6 +5368,17 @@ class CfnGlobalTableProps:
         result = self._values.get("replicas")
         assert result is not None, "Required property 'replicas' is missing"
         return typing.cast(typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReplicaSpecificationProperty"]]], result)
+
+    @builtins.property
+    def attribute_definitions(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]]:
+        '''A list of attributes that describe the key schema for the global table and indexes.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-attributedefinitions
+        '''
+        result = self._values.get("attribute_definitions")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.AttributeDefinitionProperty"]]]], result)
 
     @builtins.property
     def billing_mode(self) -> typing.Optional[builtins.str]:
@@ -5096,6 +5410,14 @@ class CfnGlobalTableProps:
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalSecondaryIndexProperty"]]]], result)
 
     @builtins.property
+    def global_table_source_arn(self) -> typing.Optional[builtins.str]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-globaltablesourcearn
+        '''
+        result = self._values.get("global_table_source_arn")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def global_table_witnesses(
         self,
     ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalTableWitnessProperty"]]]]:
@@ -5107,6 +5429,19 @@ class CfnGlobalTableProps:
         '''
         result = self._values.get("global_table_witnesses")
         return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalTableWitnessProperty"]]]], result)
+
+    @builtins.property
+    def key_schema(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]]:
+        '''Specifies the attributes that make up the primary key for the table.
+
+        The attributes in the ``KeySchema`` property must also be defined in the ``AttributeDefinitions`` property.
+
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-keyschema
+        '''
+        result = self._values.get("key_schema")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", typing.List[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.KeySchemaProperty"]]]], result)
 
     @builtins.property
     def local_secondary_indexes(
@@ -5136,6 +5471,26 @@ class CfnGlobalTableProps:
         '''
         result = self._values.get("multi_region_consistency")
         return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def read_on_demand_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-readondemandthroughputsettings
+        '''
+        result = self._values.get("read_on_demand_throughput_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.ReadOnDemandThroughputSettingsProperty"]], result)
+
+    @builtins.property
+    def read_provisioned_throughput_settings(
+        self,
+    ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]]:
+        '''
+        :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-globaltable.html#cfn-dynamodb-globaltable-readprovisionedthroughputsettings
+        '''
+        result = self._values.get("read_provisioned_throughput_settings")
+        return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty"]], result)
 
     @builtins.property
     def sse_specification(
@@ -8543,6 +8898,48 @@ class EnableScalingProps:
         )
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_dynamodb.GlobalTableSettingsReplicationMode")
+class GlobalTableSettingsReplicationMode(enum.Enum):
+    '''The replication mode for global table settings across multiple accounts.
+
+    Note: In a multi-account global table, you cannot make changes to a synchronized setting using CDK.
+
+    :see: https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/V2globaltables_MA_HowItWorks.html
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        
+        
+        app = cdk.App()
+        
+        # Source table in Account A
+        source_stack = cdk.Stack(app, "SourceStack",
+            env=cdk.Environment(region="us-east-1", account="111111111111")
+        )
+        
+        # Region us-west-2
+        source_table = dynamodb.TableV2(source_stack, "SourceTable",
+            table_name="MyMultiAccountTable",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+        )
+        # After replica is deployed, update source stack with the ARN
+        source_table.grants.multi_account_replication_to("arn:aws:dynamodb:us-east-1:222222222222:table/MyMultiAccountTable")
+    '''
+
+    ALL = "ALL"
+    '''All synchronizable settings are replicated across all replicas.
+
+    Synchronizable settings include: billing mode, provisioned throughput, auto-scaling,
+    on-demand throughput, warm throughput, TTL, streams view type, and GSIs.
+
+    Note: Some settings are always synchronized (key schema, LSIs) and some are never
+    synchronized (table class, SSE, deletion protection, PITR, tags, resource policy, CCI).
+    '''
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_dynamodb.IScalableTableAttribute")
 class IScalableTableAttribute(_IScalableTargetRef_c773595e, typing_extensions.Protocol):
     '''Interface for scalable attributes.'''
@@ -9761,6 +10158,12 @@ class ITableV2(ITable, typing_extensions.Protocol):
     '''Represents an instance of a DynamoDB table.'''
 
     @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="tableId")
     def table_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the table.
@@ -9776,6 +10179,12 @@ class _ITableV2Proxy(
     '''Represents an instance of a DynamoDB table.'''
 
     __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_dynamodb.ITableV2"
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        return typing.cast("TableGrants", jsii.get(self, "grants"))
 
     @builtins.property
     @jsii.member(jsii_name="tableId")
@@ -11637,6 +12046,8 @@ class TableBase(
         Appropriate grants will also be added to the customer-managed KMS key
         if one was configured.
 
+        The use of this method is discouraged. Please use ``grants.fullAccess()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
@@ -11670,6 +12081,8 @@ class TableBase(
         Appropriate grants will also be added to the customer-managed KMS key
         if one was configured.
 
+        The use of this method is discouraged. Please use ``grants.readData()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
@@ -11692,6 +12105,8 @@ class TableBase(
         Appropriate grants will also be added to the customer-managed KMS key
         if one was configured.
 
+        The use of this method is discouraged. Please use ``grants.readWriteData()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
@@ -11712,6 +12127,8 @@ class TableBase(
         If ``encryptionKey`` is present, appropriate grants to the key needs to be added
         separately using the ``table.encryptionKey.grant*`` methods.
 
+        The use of this method is discouraged. Please use ``streamGrants.stream()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal (no-op if undefined).
@@ -11730,6 +12147,8 @@ class TableBase(
         Appropriate grants will also be added to the customer-managed KMS key
         if one was configured.
 
+        The use of this method is discouraged. Please use ``streamGrants.streamRead()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal to grant access to.
@@ -11746,6 +12165,8 @@ class TableBase(
     ) -> "_Grant_a7ae64f8":
         '''Permits an IAM Principal to list streams attached to current dynamodb table.
 
+        The use of this method is discouraged. Please use ``streamGrants.tableListStreams()`` instead.
+
         [disable-awslint:no-grants]
 
         :param grantee: The principal (no-op if undefined).
@@ -11761,6 +12182,8 @@ class TableBase(
 
         Appropriate grants will also be added to the customer-managed KMS key
         if one was configured.
+
+        The use of this method is discouraged. Please use ``grants.writeData()`` instead.
 
         [disable-awslint:no-grants]
 
@@ -12645,6 +13068,23 @@ class TableBaseV2(
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "grantFullAccess", [grantee]))
 
+    @jsii.member(jsii_name="grantOnKey")
+    def grant_on_key(
+        self,
+        grantee: "_IGrantable_71c4f5de",
+        *actions: builtins.str,
+    ) -> "_GrantOnKeyResult_35320c49":
+        '''Grants permissions on the table's encryption key.
+
+        :param grantee: the principal to grant access to.
+        :param actions: the KMS actions to grant.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__74bd792431a9fec4bf5197dd9886c37254a945e43cfdc85a392ae64e17726439)
+            check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
+            check_type(argname="argument actions", value=actions, expected_type=typing.Tuple[type_hints["actions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("_GrantOnKeyResult_35320c49", jsii.invoke(self, "grantOnKey", [grantee, *actions]))
+
     @jsii.member(jsii_name="grantReadData")
     def grant_read_data(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
         '''Permits an IAM principal all data read operations on this table.
@@ -13359,6 +13799,13 @@ class TableBaseV2(
         return typing.cast("_Metric_e396a4dc", jsii.invoke(self, "metricUserErrors", [props]))
 
     @builtins.property
+    @jsii.member(jsii_name="grants")
+    @abc.abstractmethod
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        ...
+
+    @builtins.property
     @jsii.member(jsii_name="hasIndex")
     @abc.abstractmethod
     def _has_index(self) -> builtins.bool:
@@ -13460,6 +13907,12 @@ class _TableBaseV2Proxy(
             type_hints = typing.get_type_hints(_typecheckingstub__8ddb2818dbfcaf1b52fed7edb8ce145b274541d665df431c417e676bd4f69dec)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        return typing.cast("TableGrants", jsii.get(self, "grants"))
 
     @builtins.property
     @jsii.member(jsii_name="hasIndex")
@@ -13710,9 +14163,9 @@ class TableGrants(
     ) -> None:
         '''
         :param table: The table to grant permissions on.
-        :param encrypted_resource: The encrypted resource on which actions will be allowed. Default: - No permission is added to the KMS key, even if it exists
+        :param encrypted_resource: (deprecated) The encrypted resource on which actions will be allowed. Default: - A best-effort attempt will be made to discover an associated KMS key and grant permissions to it.
         :param has_index: Whether this table has indexes. If so, permissions are granted on all table indexes as well. Default: false
-        :param policy_resource: The resource with policy on which actions will be allowed. Default: - No resource policy is created
+        :param policy_resource: (deprecated) The resource with policy on which actions will be allowed. Default: - A best-effort attempt will be made to discover a resource policy and add permissions to it.
         :param regions: Additional regions other than the main one that this table is replicated to. Default: - No regions
         '''
         props = TableGrantsProps(
@@ -13724,6 +14177,27 @@ class TableGrants(
         )
 
         jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="fromTable")
+    @builtins.classmethod
+    def from_table(
+        cls,
+        table: "_ITableRef_4478f0ad",
+        regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+        has_index: typing.Optional[builtins.bool] = None,
+    ) -> "TableGrants":
+        '''Creates a TableGrants object for a given table.
+
+        :param table: -
+        :param regions: -
+        :param has_index: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__03697672a9639a242663e1f7de7257cb2f9d6f2aebc506fb9cdfedcfa043de40)
+            check_type(argname="argument table", value=table, expected_type=type_hints["table"])
+            check_type(argname="argument regions", value=regions, expected_type=type_hints["regions"])
+            check_type(argname="argument has_index", value=has_index, expected_type=type_hints["has_index"])
+        return typing.cast("TableGrants", jsii.sinvoke(cls, "fromTable", [table, regions, has_index]))
 
     @jsii.member(jsii_name="actions")
     def actions(
@@ -13758,6 +14232,31 @@ class TableGrants(
             type_hints = typing.get_type_hints(_typecheckingstub__8209d22b6b16878519d0c5c26e15333f972b2616be79096021721c67b66a8968)
             check_type(argname="argument grantee", value=grantee, expected_type=type_hints["grantee"])
         return typing.cast("_Grant_a7ae64f8", jsii.invoke(self, "fullAccess", [grantee]))
+
+    @jsii.member(jsii_name="multiAccountReplicationFrom")
+    def multi_account_replication_from(self, source_replica_arn: builtins.str) -> None:
+        '''Grants permissions for this table to act as a destination for multi-account global table replication.
+
+        :param source_replica_arn: The ARN of the source replica table in the other account.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__8c8222ca3a10a45932f59c6645c788a7e8ca0933b09d2dd9fd168194173a0ce4)
+            check_type(argname="argument source_replica_arn", value=source_replica_arn, expected_type=type_hints["source_replica_arn"])
+        return typing.cast(None, jsii.invoke(self, "multiAccountReplicationFrom", [source_replica_arn]))
+
+    @jsii.member(jsii_name="multiAccountReplicationTo")
+    def multi_account_replication_to(
+        self,
+        destination_replica_arn: builtins.str,
+    ) -> None:
+        '''Grants permissions for this table to act as a source for multi-account global table replication.
+
+        :param destination_replica_arn: The ARN of the destination replica table in the other account.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__7e1160348863bc16556a214ec53a827b7fef4580645025bf0282556e0c89504f)
+            check_type(argname="argument destination_replica_arn", value=destination_replica_arn, expected_type=type_hints["destination_replica_arn"])
+        return typing.cast(None, jsii.invoke(self, "multiAccountReplicationTo", [destination_replica_arn]))
 
     @jsii.member(jsii_name="readData")
     def read_data(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
@@ -13829,9 +14328,9 @@ class TableGrantsProps:
         '''Construction properties for TableGrants.
 
         :param table: The table to grant permissions on.
-        :param encrypted_resource: The encrypted resource on which actions will be allowed. Default: - No permission is added to the KMS key, even if it exists
+        :param encrypted_resource: (deprecated) The encrypted resource on which actions will be allowed. Default: - A best-effort attempt will be made to discover an associated KMS key and grant permissions to it.
         :param has_index: Whether this table has indexes. If so, permissions are granted on all table indexes as well. Default: false
-        :param policy_resource: The resource with policy on which actions will be allowed. Default: - No resource policy is created
+        :param policy_resource: (deprecated) The resource with policy on which actions will be allowed. Default: - A best-effort attempt will be made to discover a resource policy and add permissions to it.
         :param regions: Additional regions other than the main one that this table is replicated to. Default: - No regions
 
         :exampleMetadata: fixture=_generated
@@ -13886,9 +14385,16 @@ class TableGrantsProps:
 
     @builtins.property
     def encrypted_resource(self) -> typing.Optional["_IEncryptedResource_8e9bf351"]:
-        '''The encrypted resource on which actions will be allowed.
+        '''(deprecated) The encrypted resource on which actions will be allowed.
 
-        :default: - No permission is added to the KMS key, even if it exists
+        :default: - A best-effort attempt will be made to discover an associated KMS key and grant permissions to it.
+
+        :deprecated:
+
+        - Leave this field undefined. If the table is encrypted with a customer-managed KMS key, appropriate
+        grants to the key will be automatically added.
+
+        :stability: deprecated
         '''
         result = self._values.get("encrypted_resource")
         return typing.cast(typing.Optional["_IEncryptedResource_8e9bf351"], result)
@@ -13906,9 +14412,16 @@ class TableGrantsProps:
 
     @builtins.property
     def policy_resource(self) -> typing.Optional["_IResourceWithPolicyV2_01035ec6"]:
-        '''The resource with policy on which actions will be allowed.
+        '''(deprecated) The resource with policy on which actions will be allowed.
 
-        :default: - No resource policy is created
+        :default: - A best-effort attempt will be made to discover a resource policy and add permissions to it.
+
+        :deprecated:
+
+        - Leave this field undefined. A best-effort attempt will be made to discover a resource policy and add
+        permissions to it.
+
+        :stability: deprecated
         '''
         result = self._values.get("policy_resource")
         return typing.cast(typing.Optional["_IResourceWithPolicyV2_01035ec6"], result)
@@ -15317,6 +15830,7 @@ class TableProps(TableOptions):
         "dynamo_stream": "dynamoStream",
         "encryption": "encryption",
         "global_secondary_indexes": "globalSecondaryIndexes",
+        "global_table_settings_replication_mode": "globalTableSettingsReplicationMode",
         "local_secondary_indexes": "localSecondaryIndexes",
         "multi_region_consistency": "multiRegionConsistency",
         "removal_policy": "removalPolicy",
@@ -15346,6 +15860,7 @@ class TablePropsV2(TableOptionsV2):
         dynamo_stream: typing.Optional["StreamViewType"] = None,
         encryption: typing.Optional["TableEncryptionV2"] = None,
         global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["GlobalSecondaryIndexPropsV2", typing.Dict[builtins.str, typing.Any]]]] = None,
+        global_table_settings_replication_mode: typing.Optional["GlobalTableSettingsReplicationMode"] = None,
         local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["LocalSecondaryIndexProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         multi_region_consistency: typing.Optional["MultiRegionConsistency"] = None,
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
@@ -15372,6 +15887,7 @@ class TablePropsV2(TableOptionsV2):
         :param dynamo_stream: When an item in the table is modified, StreamViewType determines what information is written to the stream. Default: - streams are disabled if replicas are not configured and this property is not specified. If this property is not specified when replicas are configured, then NEW_AND_OLD_IMAGES will be the StreamViewType for all replicas
         :param encryption: The server-side encryption. Default: TableEncryptionV2.dynamoOwnedKey()
         :param global_secondary_indexes: Global secondary indexes. Note: You can provide a maximum of 20 global secondary indexes. Default: - no global secondary indexes
+        :param global_table_settings_replication_mode: Controls whether table settings are synchronized across replicas. When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs) are automatically replicated across all replicas. When set to NONE, each replica manages its own settings independently (billing mode must be PAY_PER_REQUEST). Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting, and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy). Default: GlobalTableSettingsReplicationMode.NONE
         :param local_secondary_indexes: Local secondary indexes. Note: You can only provide a maximum of 5 local secondary indexes. Default: - no local secondary indexes
         :param multi_region_consistency: Specifies the consistency mode for a new global table. Default: MultiRegionConsistency.EVENTUAL
         :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
@@ -15425,6 +15941,7 @@ class TablePropsV2(TableOptionsV2):
             check_type(argname="argument dynamo_stream", value=dynamo_stream, expected_type=type_hints["dynamo_stream"])
             check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
             check_type(argname="argument global_secondary_indexes", value=global_secondary_indexes, expected_type=type_hints["global_secondary_indexes"])
+            check_type(argname="argument global_table_settings_replication_mode", value=global_table_settings_replication_mode, expected_type=type_hints["global_table_settings_replication_mode"])
             check_type(argname="argument local_secondary_indexes", value=local_secondary_indexes, expected_type=type_hints["local_secondary_indexes"])
             check_type(argname="argument multi_region_consistency", value=multi_region_consistency, expected_type=type_hints["multi_region_consistency"])
             check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
@@ -15463,6 +15980,8 @@ class TablePropsV2(TableOptionsV2):
             self._values["encryption"] = encryption
         if global_secondary_indexes is not None:
             self._values["global_secondary_indexes"] = global_secondary_indexes
+        if global_table_settings_replication_mode is not None:
+            self._values["global_table_settings_replication_mode"] = global_table_settings_replication_mode
         if local_secondary_indexes is not None:
             self._values["local_secondary_indexes"] = local_secondary_indexes
         if multi_region_consistency is not None:
@@ -15629,6 +16148,24 @@ class TablePropsV2(TableOptionsV2):
         return typing.cast(typing.Optional[typing.List["GlobalSecondaryIndexPropsV2"]], result)
 
     @builtins.property
+    def global_table_settings_replication_mode(
+        self,
+    ) -> typing.Optional["GlobalTableSettingsReplicationMode"]:
+        '''Controls whether table settings are synchronized across replicas.
+
+        When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs)
+        are automatically replicated across all replicas. When set to NONE, each replica manages its own
+        settings independently (billing mode must be PAY_PER_REQUEST).
+
+        Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting,
+        and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy).
+
+        :default: GlobalTableSettingsReplicationMode.NONE
+        '''
+        result = self._values.get("global_table_settings_replication_mode")
+        return typing.cast(typing.Optional["GlobalTableSettingsReplicationMode"], result)
+
+    @builtins.property
     def local_secondary_indexes(
         self,
     ) -> typing.Optional[typing.List["LocalSecondaryIndexProps"]]:
@@ -15770,6 +16307,7 @@ class TableV2(
         dynamo_stream: typing.Optional["StreamViewType"] = None,
         encryption: typing.Optional["TableEncryptionV2"] = None,
         global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["GlobalSecondaryIndexPropsV2", typing.Dict[builtins.str, typing.Any]]]] = None,
+        global_table_settings_replication_mode: typing.Optional["GlobalTableSettingsReplicationMode"] = None,
         local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union["LocalSecondaryIndexProps", typing.Dict[builtins.str, typing.Any]]]] = None,
         multi_region_consistency: typing.Optional["MultiRegionConsistency"] = None,
         removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
@@ -15797,6 +16335,7 @@ class TableV2(
         :param dynamo_stream: When an item in the table is modified, StreamViewType determines what information is written to the stream. Default: - streams are disabled if replicas are not configured and this property is not specified. If this property is not specified when replicas are configured, then NEW_AND_OLD_IMAGES will be the StreamViewType for all replicas
         :param encryption: The server-side encryption. Default: TableEncryptionV2.dynamoOwnedKey()
         :param global_secondary_indexes: Global secondary indexes. Note: You can provide a maximum of 20 global secondary indexes. Default: - no global secondary indexes
+        :param global_table_settings_replication_mode: Controls whether table settings are synchronized across replicas. When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs) are automatically replicated across all replicas. When set to NONE, each replica manages its own settings independently (billing mode must be PAY_PER_REQUEST). Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting, and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy). Default: GlobalTableSettingsReplicationMode.NONE
         :param local_secondary_indexes: Local secondary indexes. Note: You can only provide a maximum of 5 local secondary indexes. Default: - no local secondary indexes
         :param multi_region_consistency: Specifies the consistency mode for a new global table. Default: MultiRegionConsistency.EVENTUAL
         :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
@@ -15826,6 +16365,7 @@ class TableV2(
             dynamo_stream=dynamo_stream,
             encryption=encryption,
             global_secondary_indexes=global_secondary_indexes,
+            global_table_settings_replication_mode=global_table_settings_replication_mode,
             local_secondary_indexes=local_secondary_indexes,
             multi_region_consistency=multi_region_consistency,
             removal_policy=removal_policy,
@@ -16106,6 +16646,12 @@ class TableV2(
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        return typing.cast("TableGrants", jsii.get(self, "grants"))
+
+    @builtins.property
     @jsii.member(jsii_name="hasIndex")
     def _has_index(self) -> builtins.bool:
         return typing.cast(builtins.bool, jsii.get(self, "hasIndex"))
@@ -16168,6 +16714,533 @@ class TableV2(
             type_hints = typing.get_type_hints(_typecheckingstub__7c681fc6a08524e2909b1c97c77ad38edec11b1f8bd3f666a073a61c09638e19)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+
+class TableV2MultiAccountReplica(
+    TableBaseV2,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_dynamodb.TableV2MultiAccountReplica",
+):
+    '''A nulti-account replica of a DynamoDB table.
+
+    This construct represents a replica table in a different AWS account from the source table.
+    It inherits the schema (partition key, sort key, and indexes) from the source table.
+
+    Permissions on the replica side are automatically configured. You must manually add
+    permissions to the source table using ``sourceTable.grants.nultiAccountReplicationTo(replica.tableArn)``.
+
+    :resource: AWS::DynamoDB::GlobalTable
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        
+        
+        app = cdk.App()
+        
+        # Source table in Account A
+        source_stack = cdk.Stack(app, "SourceStack",
+            env=cdk.Environment(region="us-east-2", account="111111111111")
+        )
+        
+        source_table = dynamodb.TableV2(source_stack, "SourceTable",
+            table_name="MyMultiAccountTable",
+            partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+            global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+        )
+        
+        # Replica stack in Account B
+        replica_stack = cdk.Stack(app, "ReplicaStack",
+            env=cdk.Environment(region="us-east-1", account="222222222222")
+        )
+        
+        # Create replica - permissions are automatically configured
+        replica = dynamodb.TableV2MultiAccountReplica(replica_stack, "ReplicaTable",
+            table_name="MyMultiAccountTable",
+            replica_source_table=source_table,
+            global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+        )
+    '''
+
+    def __init__(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        *,
+        encryption: typing.Optional["TableEncryptionV2"] = None,
+        global_table_settings_replication_mode: typing.Optional["GlobalTableSettingsReplicationMode"] = None,
+        grant_index_permissions: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        replica_source_table: typing.Optional["ITableV2"] = None,
+        table_name: typing.Optional[builtins.str] = None,
+        contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union["ContributorInsightsSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
+        kinesis_stream: typing.Optional["_IStream_4e2457d2"] = None,
+        point_in_time_recovery: typing.Optional[builtins.bool] = None,
+        point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
+        resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        table_class: typing.Optional["TableClass"] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+    ) -> None:
+        '''
+        :param scope: -
+        :param id: -
+        :param encryption: The server-side encryption configuration for the replica table. Note: Each replica manages its own encryption independently. This is not synchronized across replicas. Default: TableEncryptionV2.dynamoOwnedKey()
+        :param global_table_settings_replication_mode: Controls whether table settings are synchronized across replicas. When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs) are automatically replicated across all replicas. When set to NONE, each replica manages its own settings independently (billing mode must be PAY_PER_REQUEST). Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting, and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy). Default: GlobalTableSettingsReplicationMode.ALL
+        :param grant_index_permissions: Whether or not to grant permissions for all indexes of the table. Note: If false, permissions will only be granted to indexes when ``globalIndexes`` is specified. Default: false
+        :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
+        :param replica_source_table: The source table to replicate from. [disable-awslint:prefer-ref-interface] Default: - must be provided
+        :param table_name: Enforces a particular physical table name. Default: - generated by CloudFormation
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
+        :param deletion_protection: Whether deletion protection is enabled. Default: false
+        :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
+        :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
+        :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
+        :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param table_class: The table class. Default: TableClass.STANDARD
+        :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__bddc8e0e51cce1292d490e765c3b74b0be1c084318743207cfd09dca02498d8c)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+        props = TableV2MultiAccountReplicaProps(
+            encryption=encryption,
+            global_table_settings_replication_mode=global_table_settings_replication_mode,
+            grant_index_permissions=grant_index_permissions,
+            removal_policy=removal_policy,
+            replica_source_table=replica_source_table,
+            table_name=table_name,
+            contributor_insights=contributor_insights,
+            contributor_insights_specification=contributor_insights_specification,
+            deletion_protection=deletion_protection,
+            kinesis_stream=kinesis_stream,
+            point_in_time_recovery=point_in_time_recovery,
+            point_in_time_recovery_specification=point_in_time_recovery_specification,
+            resource_policy=resource_policy,
+            table_class=table_class,
+            tags=tags,
+        )
+
+        jsii.create(self.__class__, self, [scope, id, props])
+
+    @jsii.member(jsii_name="addToResourcePolicy")
+    def add_to_resource_policy(
+        self,
+        statement: "_PolicyStatement_0fe33853",
+    ) -> "_AddToResourcePolicyResult_1d0a53ad":
+        '''Adds a statement to the resource policy associated with this table.
+
+        :param statement: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__89d9d29d77162b4cc8596d1247faedcf174b68d83efb6ddb294c729272d1d7ed)
+            check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
+        return typing.cast("_AddToResourcePolicyResult_1d0a53ad", jsii.invoke(self, "addToResourcePolicy", [statement]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
+    def PROPERTY_INJECTION_ID(cls) -> builtins.str:
+        '''Uniquely identifies this class.'''
+        return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
+
+    @builtins.property
+    @jsii.member(jsii_name="grants")
+    def grants(self) -> "TableGrants":
+        '''Grants for this table.'''
+        return typing.cast("TableGrants", jsii.get(self, "grants"))
+
+    @builtins.property
+    @jsii.member(jsii_name="hasIndex")
+    def _has_index(self) -> builtins.bool:
+        return typing.cast(builtins.bool, jsii.get(self, "hasIndex"))
+
+    @builtins.property
+    @jsii.member(jsii_name="region")
+    def _region(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "region"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableArn")
+    def table_arn(self) -> builtins.str:
+        '''The ARN of the table.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableName")
+    def table_name(self) -> builtins.str:
+        '''The name of the table.'''
+        return typing.cast(builtins.str, jsii.get(self, "tableName"))
+
+    @builtins.property
+    @jsii.member(jsii_name="encryptionKey")
+    def encryption_key(self) -> typing.Optional["_IKey_5f11635f"]:
+        '''The KMS encryption key for the table.'''
+        return typing.cast(typing.Optional["_IKey_5f11635f"], jsii.get(self, "encryptionKey"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableId")
+    def table_id(self) -> typing.Optional[builtins.str]:
+        '''The ID of the table.
+
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableId"))
+
+    @builtins.property
+    @jsii.member(jsii_name="tableStreamArn")
+    def table_stream_arn(self) -> typing.Optional[builtins.str]:
+        '''The stream ARN of the table.
+
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "tableStreamArn"))
+
+    @builtins.property
+    @jsii.member(jsii_name="resourcePolicy")
+    def resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''The resource policy for the table.
+
+        :attribute: true
+        '''
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], jsii.get(self, "resourcePolicy"))
+
+    @resource_policy.setter
+    def resource_policy(
+        self,
+        value: typing.Optional["_PolicyDocument_3ac34393"],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3e867cd3b95f74fb19d4e40aeffd7b9068449e391b56096a093c16acbbad5164)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "resourcePolicy", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_dynamodb.TableV2MultiAccountReplicaProps",
+    jsii_struct_bases=[TableOptionsV2],
+    name_mapping={
+        "contributor_insights": "contributorInsights",
+        "contributor_insights_specification": "contributorInsightsSpecification",
+        "deletion_protection": "deletionProtection",
+        "kinesis_stream": "kinesisStream",
+        "point_in_time_recovery": "pointInTimeRecovery",
+        "point_in_time_recovery_specification": "pointInTimeRecoverySpecification",
+        "resource_policy": "resourcePolicy",
+        "table_class": "tableClass",
+        "tags": "tags",
+        "encryption": "encryption",
+        "global_table_settings_replication_mode": "globalTableSettingsReplicationMode",
+        "grant_index_permissions": "grantIndexPermissions",
+        "removal_policy": "removalPolicy",
+        "replica_source_table": "replicaSourceTable",
+        "table_name": "tableName",
+    },
+)
+class TableV2MultiAccountReplicaProps(TableOptionsV2):
+    def __init__(
+        self,
+        *,
+        contributor_insights: typing.Optional[builtins.bool] = None,
+        contributor_insights_specification: typing.Optional[typing.Union["ContributorInsightsSpecification", typing.Dict[builtins.str, typing.Any]]] = None,
+        deletion_protection: typing.Optional[builtins.bool] = None,
+        kinesis_stream: typing.Optional["_IStream_4e2457d2"] = None,
+        point_in_time_recovery: typing.Optional[builtins.bool] = None,
+        point_in_time_recovery_specification: typing.Optional[typing.Union["PointInTimeRecoverySpecification", typing.Dict[builtins.str, typing.Any]]] = None,
+        resource_policy: typing.Optional["_PolicyDocument_3ac34393"] = None,
+        table_class: typing.Optional["TableClass"] = None,
+        tags: typing.Optional[typing.Sequence[typing.Union["_CfnTag_f6864754", typing.Dict[builtins.str, typing.Any]]]] = None,
+        encryption: typing.Optional["TableEncryptionV2"] = None,
+        global_table_settings_replication_mode: typing.Optional["GlobalTableSettingsReplicationMode"] = None,
+        grant_index_permissions: typing.Optional[builtins.bool] = None,
+        removal_policy: typing.Optional["_RemovalPolicy_9f93c814"] = None,
+        replica_source_table: typing.Optional["ITableV2"] = None,
+        table_name: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Properties for creating a multi-account replica table.
+
+        Note: partitionKey, sortKey, and localSecondaryIndexes are not options because CloudFormation
+        automatically inherits the key schema and LSIs from the source table via globalTableSourceArn.
+
+        :param contributor_insights: (deprecated) Whether CloudWatch contributor insights is enabled. Default: false
+        :param contributor_insights_specification: Whether CloudWatch contributor insights is enabled and what mode is selected. Default: - contributor insights is not enabled
+        :param deletion_protection: Whether deletion protection is enabled. Default: false
+        :param kinesis_stream: Kinesis Data Stream to capture item level changes. Default: - no Kinesis Data Stream
+        :param point_in_time_recovery: (deprecated) Whether point-in-time recovery is enabled. Default: false - point in time recovery is not enabled.
+        :param point_in_time_recovery_specification: Whether point-in-time recovery is enabled and recoveryPeriodInDays is set. Default: - point in time recovery is not enabled.
+        :param resource_policy: Resource policy to assign to DynamoDB Table. Default: - No resource policy statements are added to the created table.
+        :param table_class: The table class. Default: TableClass.STANDARD
+        :param tags: Tags to be applied to the primary table (default replica table). Default: - no tags
+        :param encryption: The server-side encryption configuration for the replica table. Note: Each replica manages its own encryption independently. This is not synchronized across replicas. Default: TableEncryptionV2.dynamoOwnedKey()
+        :param global_table_settings_replication_mode: Controls whether table settings are synchronized across replicas. When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs) are automatically replicated across all replicas. When set to NONE, each replica manages its own settings independently (billing mode must be PAY_PER_REQUEST). Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting, and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy). Default: GlobalTableSettingsReplicationMode.ALL
+        :param grant_index_permissions: Whether or not to grant permissions for all indexes of the table. Note: If false, permissions will only be granted to indexes when ``globalIndexes`` is specified. Default: false
+        :param removal_policy: The removal policy applied to the table. Default: RemovalPolicy.RETAIN
+        :param replica_source_table: The source table to replicate from. [disable-awslint:prefer-ref-interface] Default: - must be provided
+        :param table_name: Enforces a particular physical table name. Default: - generated by CloudFormation
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            
+            
+            app = cdk.App()
+            
+            # Source table in Account A
+            source_stack = cdk.Stack(app, "SourceStack",
+                env=cdk.Environment(region="us-east-2", account="111111111111")
+            )
+            
+            source_table = dynamodb.TableV2(source_stack, "SourceTable",
+                table_name="MyMultiAccountTable",
+                partition_key=dynamodb.Attribute(name="pk", type=dynamodb.AttributeType.STRING),
+                global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+            )
+            
+            # Replica stack in Account B
+            replica_stack = cdk.Stack(app, "ReplicaStack",
+                env=cdk.Environment(region="us-east-1", account="222222222222")
+            )
+            
+            # Create replica - permissions are automatically configured
+            replica = dynamodb.TableV2MultiAccountReplica(replica_stack, "ReplicaTable",
+                table_name="MyMultiAccountTable",
+                replica_source_table=source_table,
+                global_table_settings_replication_mode=dynamodb.GlobalTableSettingsReplicationMode.ALL
+            )
+        '''
+        if isinstance(contributor_insights_specification, dict):
+            contributor_insights_specification = ContributorInsightsSpecification(**contributor_insights_specification)
+        if isinstance(point_in_time_recovery_specification, dict):
+            point_in_time_recovery_specification = PointInTimeRecoverySpecification(**point_in_time_recovery_specification)
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__632a723da10d655047edc6c60b8be025b58e06223927f17ca0d17df888668018)
+            check_type(argname="argument contributor_insights", value=contributor_insights, expected_type=type_hints["contributor_insights"])
+            check_type(argname="argument contributor_insights_specification", value=contributor_insights_specification, expected_type=type_hints["contributor_insights_specification"])
+            check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
+            check_type(argname="argument kinesis_stream", value=kinesis_stream, expected_type=type_hints["kinesis_stream"])
+            check_type(argname="argument point_in_time_recovery", value=point_in_time_recovery, expected_type=type_hints["point_in_time_recovery"])
+            check_type(argname="argument point_in_time_recovery_specification", value=point_in_time_recovery_specification, expected_type=type_hints["point_in_time_recovery_specification"])
+            check_type(argname="argument resource_policy", value=resource_policy, expected_type=type_hints["resource_policy"])
+            check_type(argname="argument table_class", value=table_class, expected_type=type_hints["table_class"])
+            check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
+            check_type(argname="argument encryption", value=encryption, expected_type=type_hints["encryption"])
+            check_type(argname="argument global_table_settings_replication_mode", value=global_table_settings_replication_mode, expected_type=type_hints["global_table_settings_replication_mode"])
+            check_type(argname="argument grant_index_permissions", value=grant_index_permissions, expected_type=type_hints["grant_index_permissions"])
+            check_type(argname="argument removal_policy", value=removal_policy, expected_type=type_hints["removal_policy"])
+            check_type(argname="argument replica_source_table", value=replica_source_table, expected_type=type_hints["replica_source_table"])
+            check_type(argname="argument table_name", value=table_name, expected_type=type_hints["table_name"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if contributor_insights is not None:
+            self._values["contributor_insights"] = contributor_insights
+        if contributor_insights_specification is not None:
+            self._values["contributor_insights_specification"] = contributor_insights_specification
+        if deletion_protection is not None:
+            self._values["deletion_protection"] = deletion_protection
+        if kinesis_stream is not None:
+            self._values["kinesis_stream"] = kinesis_stream
+        if point_in_time_recovery is not None:
+            self._values["point_in_time_recovery"] = point_in_time_recovery
+        if point_in_time_recovery_specification is not None:
+            self._values["point_in_time_recovery_specification"] = point_in_time_recovery_specification
+        if resource_policy is not None:
+            self._values["resource_policy"] = resource_policy
+        if table_class is not None:
+            self._values["table_class"] = table_class
+        if tags is not None:
+            self._values["tags"] = tags
+        if encryption is not None:
+            self._values["encryption"] = encryption
+        if global_table_settings_replication_mode is not None:
+            self._values["global_table_settings_replication_mode"] = global_table_settings_replication_mode
+        if grant_index_permissions is not None:
+            self._values["grant_index_permissions"] = grant_index_permissions
+        if removal_policy is not None:
+            self._values["removal_policy"] = removal_policy
+        if replica_source_table is not None:
+            self._values["replica_source_table"] = replica_source_table
+        if table_name is not None:
+            self._values["table_name"] = table_name
+
+    @builtins.property
+    def contributor_insights(self) -> typing.Optional[builtins.bool]:
+        '''(deprecated) Whether CloudWatch contributor insights is enabled.
+
+        :default: false
+
+        :deprecated: use ``contributorInsightsSpecification`` instead
+
+        :stability: deprecated
+        '''
+        result = self._values.get("contributor_insights")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def contributor_insights_specification(
+        self,
+    ) -> typing.Optional["ContributorInsightsSpecification"]:
+        '''Whether CloudWatch contributor insights is enabled and what mode is selected.
+
+        :default: - contributor insights is not enabled
+        '''
+        result = self._values.get("contributor_insights_specification")
+        return typing.cast(typing.Optional["ContributorInsightsSpecification"], result)
+
+    @builtins.property
+    def deletion_protection(self) -> typing.Optional[builtins.bool]:
+        '''Whether deletion protection is enabled.
+
+        :default: false
+        '''
+        result = self._values.get("deletion_protection")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def kinesis_stream(self) -> typing.Optional["_IStream_4e2457d2"]:
+        '''Kinesis Data Stream to capture item level changes.
+
+        :default: - no Kinesis Data Stream
+        '''
+        result = self._values.get("kinesis_stream")
+        return typing.cast(typing.Optional["_IStream_4e2457d2"], result)
+
+    @builtins.property
+    def point_in_time_recovery(self) -> typing.Optional[builtins.bool]:
+        '''(deprecated) Whether point-in-time recovery is enabled.
+
+        :default: false - point in time recovery is not enabled.
+
+        :deprecated: use ``pointInTimeRecoverySpecification`` instead
+
+        :stability: deprecated
+        '''
+        result = self._values.get("point_in_time_recovery")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def point_in_time_recovery_specification(
+        self,
+    ) -> typing.Optional["PointInTimeRecoverySpecification"]:
+        '''Whether point-in-time recovery is enabled and recoveryPeriodInDays is set.
+
+        :default: - point in time recovery is not enabled.
+        '''
+        result = self._values.get("point_in_time_recovery_specification")
+        return typing.cast(typing.Optional["PointInTimeRecoverySpecification"], result)
+
+    @builtins.property
+    def resource_policy(self) -> typing.Optional["_PolicyDocument_3ac34393"]:
+        '''Resource policy to assign to DynamoDB Table.
+
+        :default: - No resource policy statements are added to the created table.
+
+        :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-globaltable-replicaspecification.html#cfn-dynamodb-globaltable-replicaspecification-resourcepolicy
+        '''
+        result = self._values.get("resource_policy")
+        return typing.cast(typing.Optional["_PolicyDocument_3ac34393"], result)
+
+    @builtins.property
+    def table_class(self) -> typing.Optional["TableClass"]:
+        '''The table class.
+
+        :default: TableClass.STANDARD
+        '''
+        result = self._values.get("table_class")
+        return typing.cast(typing.Optional["TableClass"], result)
+
+    @builtins.property
+    def tags(self) -> typing.Optional[typing.List["_CfnTag_f6864754"]]:
+        '''Tags to be applied to the primary table (default replica table).
+
+        :default: - no tags
+        '''
+        result = self._values.get("tags")
+        return typing.cast(typing.Optional[typing.List["_CfnTag_f6864754"]], result)
+
+    @builtins.property
+    def encryption(self) -> typing.Optional["TableEncryptionV2"]:
+        '''The server-side encryption configuration for the replica table.
+
+        Note: Each replica manages its own encryption independently. This is not synchronized
+        across replicas.
+
+        :default: TableEncryptionV2.dynamoOwnedKey()
+        '''
+        result = self._values.get("encryption")
+        return typing.cast(typing.Optional["TableEncryptionV2"], result)
+
+    @builtins.property
+    def global_table_settings_replication_mode(
+        self,
+    ) -> typing.Optional["GlobalTableSettingsReplicationMode"]:
+        '''Controls whether table settings are synchronized across replicas.
+
+        When set to ALL, synchronizable settings (billing mode, throughput, TTL, streams view type, GSIs)
+        are automatically replicated across all replicas. When set to NONE, each replica manages its own
+        settings independently (billing mode must be PAY_PER_REQUEST).
+
+        Note: Some settings are always synchronized (key schema, LSIs) regardless of this setting,
+        and some are never synchronized (table class, SSE, deletion protection, PITR, tags, resource policy).
+
+        :default: GlobalTableSettingsReplicationMode.ALL
+        '''
+        result = self._values.get("global_table_settings_replication_mode")
+        return typing.cast(typing.Optional["GlobalTableSettingsReplicationMode"], result)
+
+    @builtins.property
+    def grant_index_permissions(self) -> typing.Optional[builtins.bool]:
+        '''Whether or not to grant permissions for all indexes of the table.
+
+        Note: If false, permissions will only be granted to indexes when ``globalIndexes`` is specified.
+
+        :default: false
+        '''
+        result = self._values.get("grant_index_permissions")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def removal_policy(self) -> typing.Optional["_RemovalPolicy_9f93c814"]:
+        '''The removal policy applied to the table.
+
+        :default: RemovalPolicy.RETAIN
+        '''
+        result = self._values.get("removal_policy")
+        return typing.cast(typing.Optional["_RemovalPolicy_9f93c814"], result)
+
+    @builtins.property
+    def replica_source_table(self) -> typing.Optional["ITableV2"]:
+        '''The source table to replicate from.
+
+        [disable-awslint:prefer-ref-interface]
+
+        :default: - must be provided
+        '''
+        result = self._values.get("replica_source_table")
+        return typing.cast(typing.Optional["ITableV2"], result)
+
+    @builtins.property
+    def table_name(self) -> typing.Optional[builtins.str]:
+        '''Enforces a particular physical table name.
+
+        :default: - generated by CloudFormation
+        '''
+        result = self._values.get("table_name")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "TableV2MultiAccountReplicaProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -18247,6 +19320,7 @@ __all__ = [
     "EnableScalingProps",
     "GlobalSecondaryIndexProps",
     "GlobalSecondaryIndexPropsV2",
+    "GlobalTableSettingsReplicationMode",
     "IScalableTableAttribute",
     "ITable",
     "ITableV2",
@@ -18284,6 +19358,8 @@ __all__ = [
     "TableProps",
     "TablePropsV2",
     "TableV2",
+    "TableV2MultiAccountReplica",
+    "TableV2MultiAccountReplicaProps",
     "ThroughputProps",
     "UtilizationScalingProps",
     "WarmThroughput",
@@ -18319,14 +19395,17 @@ def _typecheckingstub__751414def1994180982879a700bdaa6afcf528def91a672904946db1b
     scope: _constructs_77d1e7e8.Construct,
     id: builtins.str,
     *,
-    attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
     replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
     global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_table_source_arn: typing.Optional[builtins.str] = None,
     global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalTableWitnessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    key_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     multi_region_consistency: typing.Optional[builtins.str] = None,
+    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -18362,20 +19441,14 @@ def _typecheckingstub__b537e69787151b8af9fdebb101e49ee80b7950f5c9598c894774176eb
     """Type checking stubs"""
     pass
 
-def _typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
-def _typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884(
-    value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]],
-) -> None:
-    """Type checking stubs"""
-    pass
-
 def _typecheckingstub__a097f89adcd67d171d1cf0c2f82a8189f354dac15e39c6b6cc82e65b8e315806(
     value: typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReplicaSpecificationProperty]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f732bb8272361b5800f36f0c389121597f9a72868d0f90932b3744684600e75e(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.AttributeDefinitionProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18392,8 +19465,20 @@ def _typecheckingstub__484436e7e1867a9d477f3fa0bdee0dfdfb2646ba7497c71d398076d98
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__b7289daf8c207efd37cb3d7fa1fd9c044421e2990cb9ec991503208d45d34503(
+    value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__12c424a307d05c5f02c5d3df3ad420cd4151741010ad7531cd1fdc24fa467f2a(
     value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalTableWitnessProperty]]]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6ef890475efd870bf55df50bbfa6efc88da22eca84273a283f67749593f5b884(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.KeySchemaProperty]]]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18406,6 +19491,18 @@ def _typecheckingstub__a0b3191b7117186bc41f62e22fff4e4f50d0835a5f174dde9b2b8188c
 
 def _typecheckingstub__9fa800c2b80560454a211edac5215563ba994d97da2fc12e542c8f064daf753d(
     value: typing.Optional[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__e3345c5f5a5971f3677cfd1861143699cf7bccce6d5fb865fffdf9b6995f0246(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.ReadOnDemandThroughputSettingsProperty]],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7341a92bb1008a818610ce95647ed1d5b340cccce3d2803375eee76b8e7fe217(
+    value: typing.Optional[typing.Union[_IResolvable_da3f097b, CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty]],
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18478,11 +19575,20 @@ def _typecheckingstub__0c4c1ec1851b3df040f636031283503da693894fbb627b438be175be8
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__63eb928693a0126ec6b1b953497e5d63a1fa6fbaeaee18f00f9023c42010028a(
+    *,
+    read_capacity_units: typing.Optional[jsii.Number] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e4c0e93a19b9176fd628b4a4e5a1bb2ecabf4d1960e7d8fd138a1ecf06466de5(
     *,
     index_name: builtins.str,
     key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
     projection: typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ProjectionProperty, typing.Dict[builtins.str, typing.Any]]],
+    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     warm_throughput: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WarmThroughputProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     write_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.WriteProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18576,6 +19682,7 @@ def _typecheckingstub__912e2bc047b1f65121a39316718e5632909682a5243ef8e21ead42e3e
     contributor_insights_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ContributorInsightsSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     deletion_protection_enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
     global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaGlobalSecondaryIndexSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_table_settings_replication_mode: typing.Optional[builtins.str] = None,
     kinesis_stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KinesisStreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     point_in_time_recovery_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.PointInTimeRecoverySpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -18660,14 +19767,17 @@ def _typecheckingstub__18a3302042e66f614ad3ddfe94bd456ac404316f80809965b0a798037
 
 def _typecheckingstub__ca0383ad91536c26961e85e52a3e6a3d2d74db3c4d430cbbe3d9f42e2b193ad2(
     *,
-    attribute_definitions: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]],
-    key_schema: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]],
     replicas: typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReplicaSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]]],
+    attribute_definitions: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.AttributeDefinitionProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     billing_mode: typing.Optional[builtins.str] = None,
     global_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    global_table_source_arn: typing.Optional[builtins.str] = None,
     global_table_witnesses: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalTableWitnessProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
+    key_schema: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.KeySchemaProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     local_secondary_indexes: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.LocalSecondaryIndexProperty, typing.Dict[builtins.str, typing.Any]]]]]] = None,
     multi_region_consistency: typing.Optional[builtins.str] = None,
+    read_on_demand_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.ReadOnDemandThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    read_provisioned_throughput_settings: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.GlobalReadProvisionedThroughputSettingsProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     sse_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.SSESpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     stream_specification: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnGlobalTable.StreamSpecificationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     table_name: typing.Optional[builtins.str] = None,
@@ -19439,6 +20549,13 @@ def _typecheckingstub__6479d8e2629b5f6ff6b152daddcdaca216fe257a46e39a5e869a873b4
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__74bd792431a9fec4bf5197dd9886c37254a945e43cfdc85a392ae64e17726439(
+    grantee: _IGrantable_71c4f5de,
+    *actions: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__395eb24481890a472d62b610e201fea67ad0777657640defd186e1e13ec2db95(
     grantee: _IGrantable_71c4f5de,
 ) -> None:
@@ -19534,6 +20651,14 @@ def _typecheckingstub__1cd9eda3b1990473e69185ec48d3b90ce15de00745ae210b41792833c
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__03697672a9639a242663e1f7de7257cb2f9d6f2aebc506fb9cdfedcfa043de40(
+    table: _ITableRef_4478f0ad,
+    regions: typing.Optional[typing.Sequence[builtins.str]] = None,
+    has_index: typing.Optional[builtins.bool] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0d339dc811423411a2156ea2385fb10952440a923804b6266277865c54dec04c(
     grantee: _IGrantable_71c4f5de,
     *actions: builtins.str,
@@ -19543,6 +20668,18 @@ def _typecheckingstub__0d339dc811423411a2156ea2385fb10952440a923804b6266277865c5
 
 def _typecheckingstub__8209d22b6b16878519d0c5c26e15333f972b2616be79096021721c67b66a8968(
     grantee: _IGrantable_71c4f5de,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__8c8222ca3a10a45932f59c6645c788a7e8ca0933b09d2dd9fd168194173a0ce4(
+    source_replica_arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__7e1160348863bc16556a214ec53a827b7fef4580645025bf0282556e0c89504f(
+    destination_replica_arn: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19672,6 +20809,7 @@ def _typecheckingstub__205e5df85e01c6c2d91d5922a57e3ed5903027748a8b3222622bebd10
     dynamo_stream: typing.Optional[StreamViewType] = None,
     encryption: typing.Optional[TableEncryptionV2] = None,
     global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[GlobalSecondaryIndexPropsV2, typing.Dict[builtins.str, typing.Any]]]] = None,
+    global_table_settings_replication_mode: typing.Optional[GlobalTableSettingsReplicationMode] = None,
     local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[LocalSecondaryIndexProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
@@ -19694,6 +20832,7 @@ def _typecheckingstub__9ea47b003cdb497ff620f1410260696f97dbb2b00fa8558235f23771f
     dynamo_stream: typing.Optional[StreamViewType] = None,
     encryption: typing.Optional[TableEncryptionV2] = None,
     global_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[GlobalSecondaryIndexPropsV2, typing.Dict[builtins.str, typing.Any]]]] = None,
+    global_table_settings_replication_mode: typing.Optional[GlobalTableSettingsReplicationMode] = None,
     local_secondary_indexes: typing.Optional[typing.Sequence[typing.Union[LocalSecondaryIndexProps, typing.Dict[builtins.str, typing.Any]]]] = None,
     multi_region_consistency: typing.Optional[MultiRegionConsistency] = None,
     removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
@@ -19762,6 +20901,62 @@ def _typecheckingstub__7cb08c3fe1f7c7db5d9459ba46cc1e0bd7ab496a45ecca2bb34f27686
 
 def _typecheckingstub__7c681fc6a08524e2909b1c97c77ad38edec11b1f8bd3f666a073a61c09638e19(
     value: typing.Optional[_PolicyDocument_3ac34393],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__bddc8e0e51cce1292d490e765c3b74b0be1c084318743207cfd09dca02498d8c(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    *,
+    encryption: typing.Optional[TableEncryptionV2] = None,
+    global_table_settings_replication_mode: typing.Optional[GlobalTableSettingsReplicationMode] = None,
+    grant_index_permissions: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    replica_source_table: typing.Optional[ITableV2] = None,
+    table_name: typing.Optional[builtins.str] = None,
+    contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
+    kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
+    point_in_time_recovery: typing.Optional[builtins.bool] = None,
+    point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
+    resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    table_class: typing.Optional[TableClass] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__89d9d29d77162b4cc8596d1247faedcf174b68d83efb6ddb294c729272d1d7ed(
+    statement: _PolicyStatement_0fe33853,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3e867cd3b95f74fb19d4e40aeffd7b9068449e391b56096a093c16acbbad5164(
+    value: typing.Optional[_PolicyDocument_3ac34393],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__632a723da10d655047edc6c60b8be025b58e06223927f17ca0d17df888668018(
+    *,
+    contributor_insights: typing.Optional[builtins.bool] = None,
+    contributor_insights_specification: typing.Optional[typing.Union[ContributorInsightsSpecification, typing.Dict[builtins.str, typing.Any]]] = None,
+    deletion_protection: typing.Optional[builtins.bool] = None,
+    kinesis_stream: typing.Optional[_IStream_4e2457d2] = None,
+    point_in_time_recovery: typing.Optional[builtins.bool] = None,
+    point_in_time_recovery_specification: typing.Optional[typing.Union[PointInTimeRecoverySpecification, typing.Dict[builtins.str, typing.Any]]] = None,
+    resource_policy: typing.Optional[_PolicyDocument_3ac34393] = None,
+    table_class: typing.Optional[TableClass] = None,
+    tags: typing.Optional[typing.Sequence[typing.Union[_CfnTag_f6864754, typing.Dict[builtins.str, typing.Any]]]] = None,
+    encryption: typing.Optional[TableEncryptionV2] = None,
+    global_table_settings_replication_mode: typing.Optional[GlobalTableSettingsReplicationMode] = None,
+    grant_index_permissions: typing.Optional[builtins.bool] = None,
+    removal_policy: typing.Optional[_RemovalPolicy_9f93c814] = None,
+    replica_source_table: typing.Optional[ITableV2] = None,
+    table_name: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

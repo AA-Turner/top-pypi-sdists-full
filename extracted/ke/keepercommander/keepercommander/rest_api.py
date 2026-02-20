@@ -130,8 +130,11 @@ def encrypt_with_keeper_key(context, data: bytes) -> bytes:
         raise KeeperApiError('invalid_key_id', f'Key ID \"{key_id}\" is not valid.')
 
 
-def execute_rest(context, endpoint, payload):
-    # type: (RestApiContext, str, proto.ApiRequestPayload) -> Optional[Union[bytes, dict]]
+DEFAULT_TIMEOUT = (15, 120)
+
+
+def execute_rest(context, endpoint, payload, timeout=None):
+    # type: (RestApiContext, str, proto.ApiRequestPayload, ...) -> Optional[Union[bytes, dict]]
     if not context.transmission_key:
         context.transmission_key = os.urandom(32)
 
@@ -193,7 +196,8 @@ def execute_rest(context, endpoint, payload):
 
         try:
             rs = requests.post(url, data=request_data, headers={'Content-Type': 'application/octet-stream'},
-                               proxies=context.proxies, verify=context.certificate_check)
+                               proxies=context.proxies, verify=context.certificate_check,
+                               timeout=timeout or DEFAULT_TIMEOUT)
         except requests.exceptions.SSLError as e:
             doc_url = 'https://docs.keeper.io/secrets-manager/commander-cli/using-commander/troubleshooting-commander-cli#ssl-certificate-errors'
             if len(e.args) > 0:
@@ -226,19 +230,28 @@ def execute_rest(context, endpoint, payload):
                         server_key_id = failure['key_id']
                         if 'qrc_ec_key_id' in failure:
                             qrc_ec_key_id = failure['qrc_ec_key_id']
-                            if context.server_key_id != qrc_ec_key_id:
+                            # Defensive check: qrc_ec_key_id must be EC key (7-18)
+                            if not (7 <= qrc_ec_key_id <= 18):
+                                logging.warning(f"Server returned invalid qrc_ec_key_id={qrc_ec_key_id} (expected EC key 7-18). Falling back to EC-only encryption.")
+                                context.disable_qrc()
+                            elif context.server_key_id != qrc_ec_key_id:
                                 # EC key mismatch: update and retry with QRC
                                 logging.debug(f"QRC EC key mismatch: updating from {context.server_key_id} to {qrc_ec_key_id}")
                                 context.server_key_id = qrc_ec_key_id
-                                run_request = True
-                                continue
+                            run_request = True
+                            continue
                         elif server_key_id != context.server_key_id:
-                            context.server_key_id = server_key_id
+                            # If server returns non-EC key without qrc_ec_key_id, disable QRC
+                            if not (7 <= server_key_id <= 18):
+                                logging.warning(f"Server returned non-EC key_id={server_key_id} without qrc_ec_key_id. Falling back to EC-only encryption.")
+                                context.disable_qrc()
+                            else:
+                                context.server_key_id = server_key_id
                             run_request = True
                             continue
                 elif rs.status_code == 403:
                     if failure.get('error') == 'throttled' and not context.fail_on_throttle:
-                        logging.info('Throttled. sleeping for 10 seconds')
+                        logging.debug('Throttled, retrying in 10 seconds')
                         time.sleep(10)
                         run_request = True
                         continue

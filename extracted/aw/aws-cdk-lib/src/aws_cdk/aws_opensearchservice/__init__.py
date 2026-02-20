@@ -1733,6 +1733,9 @@ class CfnDomain(
             aiml_options=opensearchservice.CfnDomain.AIMLOptionsProperty(
                 s3_vectors_engine=opensearchservice.CfnDomain.S3VectorsEngineProperty(
                     enabled=False
+                ),
+                serverless_vector_acceleration=opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty(
+                    enabled=False
                 )
             ),
             cluster_config=opensearchservice.CfnDomain.ClusterConfigProperty(
@@ -2553,16 +2556,21 @@ class CfnDomain(
     @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.AIMLOptionsProperty",
         jsii_struct_bases=[],
-        name_mapping={"s3_vectors_engine": "s3VectorsEngine"},
+        name_mapping={
+            "s3_vectors_engine": "s3VectorsEngine",
+            "serverless_vector_acceleration": "serverlessVectorAcceleration",
+        },
     )
     class AIMLOptionsProperty:
         def __init__(
             self,
             *,
             s3_vectors_engine: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.S3VectorsEngineProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            serverless_vector_acceleration: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnDomain.ServerlessVectorAccelerationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''
             :param s3_vectors_engine: 
+            :param serverless_vector_acceleration: 
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-aimloptions.html
             :exampleMetadata: fixture=_generated
@@ -2576,15 +2584,21 @@ class CfnDomain(
                 a_iMLOptions_property = opensearchservice.CfnDomain.AIMLOptionsProperty(
                     s3_vectors_engine=opensearchservice.CfnDomain.S3VectorsEngineProperty(
                         enabled=False
+                    ),
+                    serverless_vector_acceleration=opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty(
+                        enabled=False
                     )
                 )
             '''
             if __debug__:
                 type_hints = typing.get_type_hints(_typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173126426f)
                 check_type(argname="argument s3_vectors_engine", value=s3_vectors_engine, expected_type=type_hints["s3_vectors_engine"])
+                check_type(argname="argument serverless_vector_acceleration", value=serverless_vector_acceleration, expected_type=type_hints["serverless_vector_acceleration"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if s3_vectors_engine is not None:
                 self._values["s3_vectors_engine"] = s3_vectors_engine
+            if serverless_vector_acceleration is not None:
+                self._values["serverless_vector_acceleration"] = serverless_vector_acceleration
 
         @builtins.property
         def s3_vectors_engine(
@@ -2595,6 +2609,16 @@ class CfnDomain(
             '''
             result = self._values.get("s3_vectors_engine")
             return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.S3VectorsEngineProperty"]], result)
+
+        @builtins.property
+        def serverless_vector_acceleration(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ServerlessVectorAccelerationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-aimloptions.html#cfn-opensearchservice-domain-aimloptions-serverlessvectoracceleration
+            '''
+            result = self._values.get("serverless_vector_acceleration")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnDomain.ServerlessVectorAccelerationProperty"]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -4801,6 +4825,62 @@ class CfnDomain(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"enabled": "enabled"},
+    )
+    class ServerlessVectorAccelerationProperty:
+        def __init__(
+            self,
+            *,
+            enabled: typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]] = None,
+        ) -> None:
+            '''
+            :param enabled: Whether to enable serverless vector acceleration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-serverlessvectoracceleration.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_opensearchservice as opensearchservice
+                
+                serverless_vector_acceleration_property = opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty(
+                    enabled=False
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d070456093)
+                check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if enabled is not None:
+                self._values["enabled"] = enabled
+
+        @builtins.property
+        def enabled(
+            self,
+        ) -> typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]]:
+            '''Whether to enable serverless vector acceleration.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-serverlessvectoracceleration.html#cfn-opensearchservice-domain-serverlessvectoracceleration-enabled
+            '''
+            result = self._values.get("enabled")
+            return typing.cast(typing.Optional[typing.Union[builtins.bool, "_IResolvable_da3f097b"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "ServerlessVectorAccelerationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_opensearchservice.CfnDomain.ServiceSoftwareOptionsProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -5449,6 +5529,9 @@ class CfnDomainProps:
                 ),
                 aiml_options=opensearchservice.CfnDomain.AIMLOptionsProperty(
                     s3_vectors_engine=opensearchservice.CfnDomain.S3VectorsEngineProperty(
+                        enabled=False
+                    ),
+                    serverless_vector_acceleration=opensearchservice.CfnDomain.ServerlessVectorAccelerationProperty(
                         enabled=False
                     )
                 ),
@@ -11338,6 +11421,7 @@ def _typecheckingstub__b93b8c5b5730096cbd511fb71c9b9508cb307bcbfee46f7a0c11da785
 def _typecheckingstub__f6e2730be5967c32ad70360eac8e050daf2a8098d3b0fa821a64eb173126426f(
     *,
     s3_vectors_engine: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.S3VectorsEngineProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    serverless_vector_acceleration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnDomain.ServerlessVectorAccelerationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -11533,6 +11617,13 @@ def _typecheckingstub__b5e21e3867bc5223d95d43002facac59aeb4bf08a5eb92c2adf7498d4
     roles_key: typing.Optional[builtins.str] = None,
     session_timeout_minutes: typing.Optional[jsii.Number] = None,
     subject_key: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d85936452a809c27062ab330bff20d5be76a8a585935e73f2a1934d070456093(
+    *,
+    enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

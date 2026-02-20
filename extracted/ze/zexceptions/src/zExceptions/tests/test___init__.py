@@ -20,7 +20,7 @@ class TestHTTPException(unittest.TestCase):
     def test_headers(self):
         url = 'http://localhost/foo'
         exc = self._makeOne(url)
-        self.assertTrue(getattr(exc, 'headers', None) is None)
+        self.assertIsNone(getattr(exc, 'headers', None))
 
         exc.setHeader('Location', url)
         self.assertEqual(exc.headers, {'Location': url})
@@ -47,8 +47,8 @@ class TestHTTPException(unittest.TestCase):
         )])
         response = b''.join(response)
         self.assertTrue(response.startswith(b'<!DOCTYPE html>'))
-        self.assertTrue(b'Sorry, a site error occurred.' in response)
-        self.assertTrue(b'Foo Error' in response)
+        self.assertIn(b'Sorry, a site error occurred.', response)
+        self.assertIn(b'Foo Error', response)
 
     def test_call_custom(self):
         exc = self._makeOne('Foo Error')
@@ -85,8 +85,8 @@ class TestHTTPException(unittest.TestCase):
         )])
         response = b''.join(response)
         self.assertTrue(response.startswith(b'<!DOCTYPE html>'))
-        self.assertTrue(b'<p><strong>Foo</strong></p>' in response)
-        self.assertTrue(b'<p>Some foo is going on.</p>' in response)
+        self.assertIn(b'<p><strong>Foo</strong></p>', response)
+        self.assertIn(b'<p>Some foo is going on.</p>', response)
 
     def test_call_empty_body(self):
         exc = self._makeOne()
@@ -186,17 +186,17 @@ class TestConvertExceptionType(unittest.TestCase):
         return convertExceptionType(name)
 
     def test_name_in___builtins__(self):
-        self.assertTrue(self._callFUT('SyntaxError') is SyntaxError)
+        self.assertIs(self._callFUT('SyntaxError'), SyntaxError)
 
     def test_name_in___builtins___not_an_exception_returns_None(self):
-        self.assertTrue(self._callFUT('unichr') is None)
+        self.assertIsNone(self._callFUT('unichr'))
 
     def test_name_in_zExceptions(self):
         from zExceptions import Redirect
-        self.assertTrue(self._callFUT('Redirect') is Redirect)
+        self.assertIs(self._callFUT('Redirect'), Redirect)
 
     def test_name_in_zExceptions_not_an_exception_returns_None(self):
-        self.assertTrue(self._callFUT('convertExceptionType') is None)
+        self.assertIsNone(self._callFUT('convertExceptionType'))
 
 
 class TestUpgradeException(unittest.TestCase):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grpcio-channelz
-Version: 1.78.0
+Version: 1.78.1
 Summary: Channel Level Live Debug Information Service for gRPC
 Author-email: The gRPC Authors <grpc-io@googlegroups.com>
 License-Expression: Apache-2.0
@@ -19,7 +19,7 @@ Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: protobuf<7.0.0,>=6.31.1
-Requires-Dist: grpcio>=1.78.0
+Requires-Dist: grpcio>=1.78.1
 Dynamic: classifier
 Dynamic: license-file
 Dynamic: requires-dist

@@ -6,8 +6,9 @@ from typing import Iterable, Optional
 
 import dstack._internal.proxy.gateway.schemas.registry as schemas
 from dstack._internal.core.models.instances import SSHConnectionParams
-from dstack._internal.core.models.routers import AnyRouterConfig, RouterType
+from dstack._internal.core.models.routers import AnyServiceRouterConfig, RouterType
 from dstack._internal.proxy.gateway import models as gateway_models
+from dstack._internal.proxy.gateway.const import SERVICE_ALREADY_REGISTERED_ERROR_TEMPLATE
 from dstack._internal.proxy.gateway.repo.repo import GatewayProxyRepo
 from dstack._internal.proxy.gateway.services.nginx import (
     LimitReqConfig,
@@ -45,8 +46,9 @@ async def register_service(
     repo: GatewayProxyRepo,
     nginx: Nginx,
     service_conn_pool: ServiceConnectionPool,
-    router: Optional[AnyRouterConfig] = None,
+    router: Optional[AnyServiceRouterConfig] = None,
 ) -> None:
+    cors_enabled = model is not None and model.type == "chat" and model.format == "openai"
     service = models.Service(
         project_name=project_name,
         run_name=run_name,
@@ -57,11 +59,12 @@ async def register_service(
         client_max_body_size=client_max_body_size,
         replicas=(),
         router=router,
+        cors_enabled=cors_enabled,
     )
 
     async with lock:
         if await repo.get_service(project_name, run_name) is not None:
-            raise ProxyError(f"Service {service.fmt()} is already registered")
+            raise ProxyError(SERVICE_ALREADY_REGISTERED_ERROR_TEMPLATE.format(ref=service.fmt()))
 
         old_project = await repo.get_project(project_name)
         new_project = models.Project(name=project_name, ssh_private_key=ssh_private_key)
@@ -116,7 +119,7 @@ async def unregister_service(
             ids=(r.id for r in service.replicas),
             service_conn_pool=service_conn_pool,
         )
-        await nginx.unregister(service.domain_safe)
+        await nginx.unregister(service)
         await repo.delete_models_by_run(project_name, run_name)
         await repo.delete_service(project_name, run_name)
 
@@ -136,6 +139,7 @@ async def register_replica(
     repo: GatewayProxyRepo,
     nginx: Nginx,
     service_conn_pool: ServiceConnectionPool,
+    internal_ip: Optional[str] = None,
 ) -> None:
     replica = models.Replica(
         id=replica_id,
@@ -145,6 +149,7 @@ async def register_replica(
         ssh_proxy=ssh_proxy,
         ssh_head_proxy=ssh_head_proxy,
         ssh_head_proxy_private_key=ssh_head_proxy_private_key,
+        internal_ip=internal_ip,
     )
 
     async with lock:
@@ -235,6 +240,11 @@ async def register_model_entrypoint(
     logger.info("Entrypoint %s is now registered in project %s", domain, project_name)
 
 
+def _uses_pd_disaggregation(service: models.Service) -> bool:
+    """PD disaggregation: router talks to replicas via internal_ip, no SSH tunnels needed."""
+    return service.router is not None and service.router.pd_disaggregation
+
+
 async def apply_service(
     service: models.Service,
     old_service: Optional[models.Service],
@@ -254,13 +264,31 @@ async def apply_service(
             ),
             service_conn_pool=service_conn_pool,
         )
-    replica_conns, replica_failures = await get_or_add_replica_connections(
-        service, repo, service_conn_pool
-    )
-    replica_configs = [
-        ReplicaConfig(id=replica.id, socket=conn.app_socket_path)
-        for replica, conn in replica_conns.items()
-    ]
+    if _uses_pd_disaggregation(service):
+        replica_conns = {}
+        replica_failures = {}
+        replica_configs = [
+            ReplicaConfig(
+                id=replica.id,
+                socket=Path("/dev/null"),
+                port=replica.app_port,
+                internal_ip=replica.internal_ip,
+            )
+            for replica in service.replicas
+        ]
+    else:
+        replica_conns, replica_failures = await get_or_add_replica_connections(
+            service, repo, service_conn_pool
+        )
+        replica_configs = [
+            ReplicaConfig(
+                id=replica.id,
+                socket=conn.app_socket_path,
+                port=replica.app_port,
+                internal_ip=replica.internal_ip,
+            )
+            for replica, conn in replica_conns.items()
+        ]
     service_config = await get_nginx_service_config(service, replica_configs)
     await nginx.register(service_config, (await repo.get_config()).acme_settings)
     return replica_failures
@@ -374,6 +402,7 @@ async def get_nginx_service_config(
         locations=locations,
         replicas=sorted(replicas, key=lambda r: r.id),  # sort for reproducible configs
         router=service.router,
+        cors_enabled=service.cors_enabled,
     )
 
 
@@ -389,9 +418,34 @@ async def apply_entrypoint(
     await nginx.register(config, acme)
 
 
+async def _migrate_cors_enabled(repo: GatewayProxyRepo) -> None:
+    """Migrate services registered before the cors_enabled field was added.
+
+    Old gateway versions didn't persist cors_enabled on services. This derives it
+    from the associated model's format so that CORS is enabled for openai-format
+    models on gateway restart without requiring service re-registration.
+    """
+    services = await repo.list_services()
+    openai_run_names: set[tuple[str, str]] = set()
+    for service in services:
+        for model in await repo.list_models(service.project_name):
+            if model.run_name == service.run_name and isinstance(
+                model.format_spec, models.OpenAIChatModelFormat
+            ):
+                openai_run_names.add((service.project_name, service.run_name))
+    for service in services:
+        if (
+            not service.cors_enabled
+            and (service.project_name, service.run_name) in openai_run_names
+        ):
+            updated = models.Service(**{**service.dict(), "cors_enabled": True})
+            await repo.set_service(updated)
+
+
 async def apply_all(
     repo: GatewayProxyRepo, nginx: Nginx, service_conn_pool: ServiceConnectionPool
 ) -> None:
+    await _migrate_cors_enabled(repo)
     service_tasks = [
         apply_service(
             service=service,

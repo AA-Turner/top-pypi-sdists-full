@@ -158,8 +158,15 @@ class PyArrowToPolarsConverter:
         Recursively replace float16 columns with float32 since Polars doesn't support float16.
         1. If col is float16, cast to float32
         2. If col is a fixed-size list of float16's, convert the underlying values to float32 and fill in nulls w/ lists of null values of the apprp length.
-        :param x:
-        :return:
+
+        Parameters
+        ----------
+        x
+            Input Arrow array to convert recursively.
+
+        Returns
+        -------
+        pa.Array
         """
         if pa.types.is_float16(x.type):
             return pa.array(x.to_numpy(zero_copy_only=False).astype(np.dtype("float32")))

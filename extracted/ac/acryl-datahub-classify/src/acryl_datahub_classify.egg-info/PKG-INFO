@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: acryl-datahub-classify
-Version: 0.0.11
-Summary: Library to predict info types for DataHub
-Home-page: https://datahubproject.io/
+Version: 0.0.12
+Summary: [DEPRECATED] Library to predict info types for DataHub
+Home-page: https://datahub.com/
 License: Apache License 2.0
-Project-URL: Documentation, https://datahubproject.io/docs/
+Project-URL: Documentation, https://datahub.com/docs/
 Project-URL: Source, https://github.com/acryldata/datahub-classify
 Project-URL: Changelog, https://github.com/acryldata/datahub-classify/releases
-Classifier: Development Status :: 5 - Production/Stable
+Classifier: Development Status :: 7 - Inactive
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -26,33 +26,45 @@ Classifier: Environment :: MacOS X
 Classifier: Topic :: Software Development
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
-Requires-Dist: phonenumbers<=8.13.0,>=8.12.56
-Requires-Dist: ipaddress>=1.0.23
-Requires-Dist: vininfo>=1.7.0
 Requires-Dist: python-stdnum>=1.17
 Requires-Dist: spacy<3.8,>=3.4.1
+Requires-Dist: ipaddress>=1.0.23
+Requires-Dist: phonenumbers<=8.13.0,>=8.12.56
 Requires-Dist: schwifty>=2022.9.0
+Requires-Dist: vininfo>=1.7.0
 Provides-Extra: dev
 Requires-Dist: mypy>=0.981; extra == "dev"
-Requires-Dist: isort>=5.7.0; extra == "dev"
 Requires-Dist: spacy<3.8,>=3.4.1; extra == "dev"
-Requires-Dist: scikit-learn; extra == "dev"
-Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
-Requires-Dist: black>=22.1.0; extra == "dev"
-Requires-Dist: python-stdnum>=1.17; extra == "dev"
-Requires-Dist: openpyxl; extra == "dev"
-Requires-Dist: coverage>=5.1; extra == "dev"
-Requires-Dist: phonenumbers<=8.13.0,>=8.12.56; extra == "dev"
-Requires-Dist: flake8>=3.8.3; extra == "dev"
-Requires-Dist: schwifty>=2022.9.0; extra == "dev"
-Requires-Dist: flake8-tidy-imports>=4.3.0; extra == "dev"
-Requires-Dist: pandas<=1.5.1,>=1.2.0; extra == "dev"
 Requires-Dist: ipaddress>=1.0.23; extra == "dev"
 Requires-Dist: vininfo>=1.7.0; extra == "dev"
+Requires-Dist: flake8-tidy-imports>=4.3.0; extra == "dev"
+Requires-Dist: phonenumbers<=8.13.0,>=8.12.56; extra == "dev"
+Requires-Dist: coverage>=5.1; extra == "dev"
+Requires-Dist: pytest-cov>=2.8.1; extra == "dev"
+Requires-Dist: flake8>=3.8.3; extra == "dev"
+Requires-Dist: isort>=5.7.0; extra == "dev"
+Requires-Dist: python-stdnum>=1.17; extra == "dev"
+Requires-Dist: openpyxl; extra == "dev"
+Requires-Dist: pandas<=1.5.1,>=1.2.0; extra == "dev"
+Requires-Dist: schwifty>=2022.9.0; extra == "dev"
+Requires-Dist: black>=22.1.0; extra == "dev"
+Requires-Dist: scikit-learn; extra == "dev"
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # datahub-classify
 
-Predict InfoTypes for [DataHub](https://datahubproject.io/).
+> **DEPRECATED:** This library is deprecated and is no longer actively maintained. It will not receive further updates or bug fixes. Please migrate away from `acryl-datahub-classify` at your earliest convenience.
+
+Predict InfoTypes for [DataHub](https://datahub.com/).
 
 ## Installation
 

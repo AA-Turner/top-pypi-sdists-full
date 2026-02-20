@@ -120,6 +120,7 @@ from snowflake.snowpark_connect.type_mapping import (
 from snowflake.snowpark_connect.typed_column import (
     TypedColumn,
     TypedColumnWithDeferredCast,
+    TypedColumnWithDeferredWindowBuilder,
 )
 from snowflake.snowpark_connect.utils.context import (
     add_sql_aggregate_function,
@@ -147,6 +148,7 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_java_udf,
     register_cached_sql_udf,
 )
+from snowflake.snowpark_connect.utils.variant_utils import to_variant_preserving_nulls
 from snowflake.snowpark_connect.utils.xxhash64 import (
     DEFAULT_SEED,
     xxhash64_double,
@@ -673,7 +675,16 @@ def map_unresolved_function(
         case func_name if func_name.lower() in session._udfs:
             # In Spark, UDFs can override built-in functions
             udf = session._udfs[func_name.lower()]
-            udf_args = [snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args]
+            if udf.attach_schema_json:
+                # Scala UDF: preserve null elements inside arrays
+                udf_args = [
+                    to_variant_preserving_nulls(arg, tc.typ)
+                    for arg, tc in zip(snowpark_args, snowpark_typed_args)
+                ]
+            else:
+                udf_args = [
+                    snowpark_fn.cast(arg, VariantType()) for arg in snowpark_args
+                ]
             if udf.attach_schema_json:
                 schema_json = to_json(
                     [t.typ for t in snowpark_typed_args], escape_quotes=False
@@ -2273,10 +2284,35 @@ def map_unresolved_function(
             else:
                 result_type = DoubleType()
 
-            result_exp = _resolve_aggregate_exp(
-                snowpark_fn.avg(snowpark_args[0]),
-                result_type,
-            )
+            avg_exp = snowpark_fn.avg(snowpark_args[0])
+            if (
+                isinstance(input_type, DecimalType)
+                and result_type.precision - result_type.scale
+                < input_type.precision - input_type.scale
+            ):
+                if is_window_enabled():
+                    avg_input = snowpark_args[0]
+                    rt = result_type
+                    ansi = spark_sql_ansi_enabled
+
+                    def _build_window_avg(window):
+                        raw_avg = snowpark_fn.sum(avg_input).over(
+                            window
+                        ) / snowpark_fn.count(avg_input).over(window)
+                        return _cast_with_decimal_overflow_check(raw_avg, rt, ansi)
+
+                    result_exp = TypedColumnWithDeferredWindowBuilder(
+                        avg_exp, lambda: [result_type], _build_window_avg
+                    )
+                else:
+                    result_exp = TypedColumn(
+                        _cast_with_decimal_overflow_check(
+                            avg_exp, result_type, spark_sql_ansi_enabled
+                        ),
+                        lambda: [result_type],
+                    )
+            else:
+                result_exp = _resolve_aggregate_exp(avg_exp, result_type)
         case "base64":
             # Validate that input is StringType or BinaryType
             input_type = snowpark_typed_args[0].typ
@@ -2703,9 +2739,28 @@ def map_unresolved_function(
                     result_type = _find_common_type(
                         [arg.typ for arg in snowpark_typed_args]
                     )
-                    result_exp = snowpark_fn.coalesce(
-                        *[col.cast(result_type) for col in snowpark_args]
-                    )
+                    # Skip redundant no-op CASTs when the argument type
+                    # already matches the common result type.
+                    #
+                    # Exception: always cast _IntegralType (LongType,
+                    # IntegerType, etc.) because Snowpark's _precision does
+                    # not reflect the actual Snowflake column precision.
+                    # Example: COUNT() returns NUMBER(18,0) in Snowflake but
+                    # Snowpark reports LongType(_precision=19).  Without the
+                    # CAST, Snowflake widens COALESCE(NUMBER(38,0),
+                    # NUMBER(19,0)) to NUMBER(38,0) instead of the expected
+                    # NUMBER(19,0).  The CAST normalises the Snowflake
+                    # precision to match Snowpark's type model.
+                    coerced_args = [
+                        arg
+                        if (
+                            snowpark_typed_args[i].typ == result_type
+                            and not isinstance(result_type, _IntegralType)
+                        )
+                        else arg.cast(result_type)
+                        for i, arg in enumerate(snowpark_args)
+                    ]
+                    result_exp = snowpark_fn.coalesce(*coerced_args)
         case "collect_list" | "array_agg":
             # TODO: SNOW-1967177 - Support structured types in array_agg
             result_exp = snowpark_fn.array_agg(
@@ -3017,85 +3072,84 @@ def map_unresolved_function(
                 attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
                 raise exception
 
-            # Calculate depth and width based on eps and confidence
-            depth = math.ceil(math.log(1.0 / (1.0 - confidence)))
-            width = math.ceil(math.e / eps)
+            width = math.ceil(2.0 / eps)
+            depth = math.ceil(-math.log1p(-confidence) / math.log(2))
+            seed = int(seed)
+
+            def _java_random_next_ints(seed_val, count):
+                MULTIPLIER = 0x5DEECE66D
+                ADDEND = 0xB
+                MASK = (1 << 48) - 1
+                INT_MAX = (1 << 31) - 1
+                state = (seed_val ^ MULTIPLIER) & MASK
+                result = []
+                for _ in range(count):
+                    state = (state * MULTIPLIER + ADDEND) & MASK
+                    r = state >> 17
+                    while r == INT_MAX:
+                        state = (state * MULTIPLIER + ADDEND) & MASK
+                        r = state >> 17
+                    result.append(r)
+                return result
+
+            hash_a = _java_random_next_ints(seed, depth)
+            PRIME_MODULUS = (1 << 31) - 1
 
             class CountMinSketchUDAF:
                 def __init__(self) -> None:
-                    import random
-
-                    self.version = 1  # Assuming version 1
-                    self.mode = 0  # Assuming mode 0
                     self.depth = depth
                     self.width = width
-                    self.seed = seed
-                    self.sketch = [[0] * width for _ in range(depth)]
+                    self.hash_a = hash_a
+                    self.table = [[0] * width for _ in range(depth)]
                     self.total_count = 0
-
-                    # Initialize hash functions with different seeds
-                    self.hash_seeds = []
-                    random.seed(seed)
-                    for _ in range(depth):
-                        self.hash_seeds.append(random.randint(0, 2**31 - 1))
 
                 @property
                 def aggregate_state(self):
-                    return self.sketch, self.total_count, self.hash_seeds
+                    return self.table, self.total_count
 
                 def accumulate(self, value):
                     if value is None:
                         return
-
-                    # Update sketch with hashed value
+                    item = int(value)
                     for i in range(self.depth):
-                        # Create hash with different seed for each row
-                        hash_val = self._hash(value, self.hash_seeds[i])
-                        col_index = hash_val % self.width
-                        self.sketch[i][col_index] += 1
+                        h = (self.hash_a[i] * item) & 0xFFFFFFFFFFFFFFFF
+                        h_signed = h if h < (1 << 63) else h - (1 << 64)
+                        h = (h + (h_signed >> 32)) & 0xFFFFFFFFFFFFFFFF
+                        h = h & PRIME_MODULUS
+                        self.table[i][h % self.width] += 1
                     self.total_count += 1
-
-                def _hash(self, value, seed):
-                    import hashlib
-
-                    return int.from_bytes(
-                        hashlib.md5((str(value) + str(seed)).encode()).digest(), "big"
-                    )
 
                 def merge(self, other_state):
                     if other_state is None:
                         return
-
-                    other_sketch, other_count, other_seeds = other_state
-
-                    # Merge sketches by adding corresponding cells
+                    other_table, other_count = other_state
                     for i in range(self.depth):
                         for j in range(self.width):
-                            self.sketch[i][j] += other_sketch[i][j]
-
+                            self.table[i][j] += other_table[i][j]
                     self.total_count += other_count
 
                 def finish(self):
                     import struct
 
-                    spark_hash_seed = 0x5D8D6AB9 if self.seed == 1 else self.seed
                     header = struct.pack(
-                        ">iiiiiq",
-                        self.version,
-                        self.mode,
+                        ">iqii",
+                        1,
                         self.total_count,
                         self.depth,
                         self.width,
-                        spark_hash_seed,
                     )
-
-                    # Pack the table values
+                    hash_values = struct.pack(
+                        ">" + "q" * self.depth,
+                        *self.hash_a,
+                    )
                     table_values = struct.pack(
                         ">" + "q" * (self.depth * self.width),
-                        *[value for row in self.sketch for value in row],
+                        *[v for row in self.table for v in row],
                     )
+                    return header + hash_values + table_values
 
-                    return header + table_values
+            CountMinSketchUDAF.__name__ = f"CountMinSketchUDAF_{depth}_{width}_{seed}"
+            CountMinSketchUDAF.__qualname__ = CountMinSketchUDAF.__name__
 
             count_min_sketch_udaf = cached_udaf(
                 CountMinSketchUDAF,
@@ -3761,7 +3815,7 @@ def map_unresolved_function(
             # https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/expressions/stringExpressions.scala#L969
             result_type = IntegerType()
             result_exp = snowpark_fn.cast(result_exp, result_type)
-        case "first":
+        case "first" | "first_value":
             if not is_window_enabled():
                 # AGGREGATE CONTEXT: NON-DETERMINISTIC BEHAVIOR
                 # When first() is used as an aggregate function (without window/ORDER BY),
@@ -3770,7 +3824,8 @@ def map_unresolved_function(
 
                 # According to PySpark docs, ignore_nulls can be a Column - but it doesn't make sense and doesn't work.
                 # So assume it's a literal.
-                ignore_nulls = unwrap_literal(exp.unresolved_function.arguments[1])
+                args = exp.unresolved_function.arguments
+                ignore_nulls = unwrap_literal(args[1]) if len(args) > 1 else False
 
                 # Since first() is non-deterministic and just returns "some value" from the group,
                 # ANY_VALUE is the perfect match for this behavior
@@ -3783,7 +3838,7 @@ def map_unresolved_function(
                 else:
                     result_exp = snowpark_fn.any_value(snowpark_args[0])
 
-                spark_function_name = f"first({snowpark_arg_names[0]})"
+                spark_function_name = f"{function_name}({snowpark_arg_names[0]})"
             else:
                 # WINDOW CONTEXT: DETERMINISTIC BEHAVIOR
                 # When first() is used as a window function with ORDER BY,
@@ -3791,11 +3846,6 @@ def map_unresolved_function(
                 # This delegates to first_value() window function which is deterministic.
                 result_exp = _resolve_first_value(exp, snowpark_args)
             result_exp = TypedColumn(result_exp, lambda: snowpark_typed_args[0].types)
-        case "first_value":
-            result_exp = TypedColumn(
-                _resolve_first_value(exp, snowpark_args),
-                lambda: snowpark_typed_args[0].types,
-            )
         case "flatten":
             # SNOW-1890247 - Update this when SQL provides a structured version of flatten
             result_exp = snowpark_fn.cast(
@@ -5087,6 +5137,8 @@ def map_unresolved_function(
 
             is_outer = function_name == "inline_outer"
 
+            field_names = [f.name for f in input_type.element_type.fields]
+
             class Inline:
                 def process(self, arr, size, is_outer):
                     if (arr is None or len(arr) == 0) and is_outer:
@@ -5094,23 +5146,11 @@ def map_unresolved_function(
                     elif arr is None:
                         yield
                     else:
-                        # Max size is the largest length any element in arr gets to
-                        # We need to know this to return the correct number of elements in el.values().
-                        max_size = 0
-                        elements = []
-                        # Pre-process the element generator and determine the max size.
                         for el in arr:
                             if el is None:
-                                elements.append(None)
+                                yield tuple([None] * size)
                             else:
-                                values = list(el.values())
-                                elements.append(values)
-                                max_size = max(max_size, len(values))
-                        for el in elements:
-                            if el is None:
-                                yield tuple([None] * max_size)
-                            else:
-                                yield tuple(el)
+                                yield tuple(el.get(k) for k in field_names)
 
             inline_udtf = cached_udtf(
                 Inline,
@@ -5118,7 +5158,7 @@ def map_unresolved_function(
                 input_types=[ArrayType(), LongType(), BooleanType()],
             )
 
-            spark_col_names = list(f.name for f in input_type.element_type.fields)
+            spark_col_names = list(field_names)
             result_type = list(f.datatype for f in input_type.element_type.fields)
             result_exp = snowpark_fn.call_table_function(
                 inline_udtf.name,
@@ -5370,7 +5410,7 @@ def map_unresolved_function(
             spark_function_name = (
                 f"lag({snowpark_arg_names[0]}, {offset}, {default_name})"
             )
-        case "last":
+        case "last" | "last_value":
             if not is_window_enabled():
                 # AGGREGATE CONTEXT: NON-DETERMINISTIC BEHAVIOR
                 # When last() is used as an aggregate function (without window/ORDER BY),
@@ -5379,7 +5419,8 @@ def map_unresolved_function(
 
                 # According to PySpark docs, ignore_nulls can be a Column - but it doesn't make sense and doesn't work.
                 # So assume it's a literal.
-                ignore_nulls = unwrap_literal(exp.unresolved_function.arguments[1])
+                args = exp.unresolved_function.arguments
+                ignore_nulls = unwrap_literal(args[1]) if len(args) > 1 else False
 
                 # Since last() is non-deterministic and just returns "some value" from the group,
                 # ANY_VALUE is the perfect match for this behavior
@@ -5391,7 +5432,7 @@ def map_unresolved_function(
                     result_exp = snowpark_fn.max(snowpark_args[0])
                 else:
                     result_exp = snowpark_fn.any_value(snowpark_args[0])
-                spark_function_name = f"last({snowpark_arg_names[0]})"
+                spark_function_name = f"{function_name}({snowpark_arg_names[0]})"
             else:
                 # WINDOW CONTEXT: DETERMINISTIC BEHAVIOR
                 # When last() is used as a window function with ORDER BY,
@@ -5428,11 +5469,6 @@ def map_unresolved_function(
 
             result_exp = snowpark_fn.last_day(result_exp)
             result_type = DateType()
-        case "last_value":
-            result_exp = TypedColumn(
-                _resolve_last_value(exp, snowpark_args),
-                lambda: snowpark_typed_args[0].types,
-            )
         case "lead":
             offset = unwrap_literal(exp.unresolved_function.arguments[1])
             default = snowpark_args[2] if len(snowpark_args) > 2 else None
@@ -5579,7 +5615,7 @@ def map_unresolved_function(
         case "log1p":
             spark_function_name = f"LOG1P({snowpark_arg_names[0]})"
             result_exp = snowpark_fn.when(
-                snowpark_args[0] <= 0, snowpark_fn.lit(None)
+                snowpark_args[0] <= -1, snowpark_fn.lit(None)
             ).otherwise(snowpark_fn.ln(snowpark_args[0] + snowpark_fn.lit(1.0)))
             result_type = DoubleType()
         case "log2":
@@ -8547,35 +8583,54 @@ def map_unresolved_function(
 
                 if len(snowpark_args) == 3:
                     length_arg = snowpark_args[2]
-                    string_length = snowpark_fn.length(string_arg)
 
-                    # For negative positions: compute actual position = length + pos + 1
-                    # For position 0: treat as position 1
-                    # For positive positions: use as-is
-                    computed_pos = (
-                        snowpark_fn.when(
-                            pos_arg < 0, string_length + pos_arg + snowpark_fn.lit(1)
+                    # Optimization: when pos and length are positive integer literals,
+                    # Spark and Snowflake behave identically — skip the CASE/WHEN
+                    # boundary checks and emit simple substring(col, pos, len).
+                    if (
+                        isinstance(pos_arg._expression, Literal)
+                        and isinstance(pos_arg._expression.value, int)
+                        and pos_arg._expression.value > 0
+                        and isinstance(length_arg._expression, Literal)
+                        and isinstance(length_arg._expression.value, int)
+                        and length_arg._expression.value >= 0
+                    ):
+                        result_exp = snowpark_fn.substring(
+                            string_arg, pos_arg, length_arg
                         )
-                        .when(pos_arg == 0, snowpark_fn.lit(1))
-                        .otherwise(pos_arg)
-                    )
+                    else:
+                        # Full boundary-checking logic for dynamic or non-positive arguments.
+                        # Spark and Snowflake differ when abs(negative_pos) > string_length:
+                        # Spark clamps position to 1 and adjusts length; Snowflake returns empty.
+                        string_length = snowpark_fn.length(string_arg)
 
-                    # When computed_pos < 1 (only from very negative positions), clamp to 1 and adjust length
-                    # Position 0 is already handled above and becomes 1, so no adjustment needed
-                    adjusted_length = snowpark_fn.when(
-                        computed_pos < 1,
-                        snowpark_fn.greatest(
-                            length_arg + computed_pos - snowpark_fn.lit(1),
-                            snowpark_fn.lit(0),
-                        ),
-                    ).otherwise(length_arg)
-                    clamped_pos = snowpark_fn.when(
-                        computed_pos < 1, snowpark_fn.lit(1)
-                    ).otherwise(computed_pos)
+                        # For negative positions: compute actual position = length + pos + 1
+                        # For position 0: treat as position 1
+                        # For positive positions: use as-is
+                        computed_pos = (
+                            snowpark_fn.when(
+                                pos_arg < 0,
+                                string_length + pos_arg + snowpark_fn.lit(1),
+                            )
+                            .when(pos_arg == 0, snowpark_fn.lit(1))
+                            .otherwise(pos_arg)
+                        )
 
-                    result_exp = snowpark_fn.substring(
-                        string_arg, clamped_pos, adjusted_length
-                    )
+                        # When computed_pos < 1 (only from very negative positions), clamp to 1 and adjust length
+                        adjusted_length = snowpark_fn.when(
+                            computed_pos < 1,
+                            snowpark_fn.greatest(
+                                length_arg + computed_pos - snowpark_fn.lit(1),
+                                snowpark_fn.lit(0),
+                            ),
+                        ).otherwise(length_arg)
+                        clamped_pos = snowpark_fn.when(
+                            computed_pos < 1, snowpark_fn.lit(1)
+                        ).otherwise(computed_pos)
+
+                        result_exp = snowpark_fn.substring(
+                            string_arg, clamped_pos, adjusted_length
+                        )
                 else:
                     # For 2-arg version, also handle position 0
                     adjusted_pos = snowpark_fn.when(
@@ -10707,15 +10762,16 @@ def _equivalent_decimal(type):
 
 def _resolve_decimal_and_numeric(type1: DecimalType, type2: _NumericType) -> DataType:
     if isinstance(type2, DecimalType):
-        return DecimalType(
-            max(type1.precision, type2.precision), max(type1.scale, type2.scale)
+        digits_before_point = max(
+            type1.precision - type1.scale, type2.precision - type2.scale
         )
+        scale = max(type1.scale, type2.scale)
+        precision = digits_before_point + scale
+        return _bounded_decimal(precision, scale)
+
     if isinstance(type2, _FractionalType):
         return type2
-    int_dec = _equivalent_decimal(type2)
-    scale = type1.scale
-    precision = max(type1.precision, int_dec.precision + scale)
-    return _bounded_decimal(precision, scale)
+    return _resolve_decimal_and_numeric(type1, _equivalent_decimal(type2))
 
 
 def _find_common_type(
@@ -11612,6 +11668,30 @@ def _aes_helper(function_name, value, passphrase, aad, encryption_method, paddin
 
 def _bounded_decimal(precision: int, scale: int) -> DecimalType:
     return DecimalType(min(38, precision), min(37, scale))
+
+
+def _cast_with_decimal_overflow_check(
+    exp: Column, result_type: DecimalType, should_raise_on_overflow: bool
+) -> Column:
+    max_abs = snowpark_fn.lit(float(10 ** (result_type.precision - result_type.scale)))
+    overflow_condition = (exp.cast(DoubleType()) >= max_abs) | (
+        exp.cast(DoubleType()) <= -max_abs
+    )
+    if should_raise_on_overflow:
+        raise_error = _raise_error_helper(result_type, ArithmeticException)
+        return snowpark_fn.when(
+            overflow_condition,
+            raise_error(
+                snowpark_fn.lit(
+                    f"[NUMERIC_VALUE_OUT_OF_RANGE] Value cannot be represented as DECIMAL({result_type.precision},{result_type.scale}). "
+                    f'If necessary set "spark.sql.ansi.enabled" to "false" to bypass this error, and return NULL instead.'
+                )
+            ),
+        ).otherwise(snowpark_fn.cast(exp, result_type))
+    else:
+        return snowpark_fn.when(overflow_condition, snowpark_fn.lit(None)).otherwise(
+            snowpark_fn.cast(exp, result_type)
+        )
 
 
 def _to_char(arg: Column, encode: str = "utf-8") -> Column:
@@ -12741,43 +12821,37 @@ def _trim_helper(value: Column, trim_value: Column, trim_type: Column) -> Column
     return _binary_trim_udf(value, trim_value, trim_type)
 
 
+_SPARK_TZ_MAPPINGS = {
+    "ACT": "Australia/Darwin",
+    "AET": "Australia/Sydney",
+    "AGT": "America/Argentina/Buenos_Aires",
+    "ART": "Africa/Cairo",
+    "AST": "America/Anchorage",
+    "BET": "America/Sao_Paulo",
+    "BST": "Asia/Dhaka",
+    "CAT": "Africa/Harare",
+    "CNT": "America/St_Johns",
+    "CST": "America/Chicago",
+    "CTT": "Asia/Shanghai",
+    "EAT": "Africa/Addis_Ababa",
+    "ECT": "Europe/Paris",
+    "IET": "America/Indiana/Indianapolis",
+    "IST": "Asia/Kolkata",
+    "JST": "Asia/Tokyo",
+    "MIT": "Pacific/Apia",
+    "NET": "Asia/Yerevan",
+    "NST": "Pacific/Auckland",
+    "PLT": "Asia/Karachi",
+    "PNT": "America/Phoenix",
+    "PRT": "America/Puerto_Rico",
+    "PST": "America/Los_Angeles",
+    "SST": "Pacific/Guadalcanal",
+    "VST": "Asia/Ho_Chi_Minh",
+}
+
+
 def _map_from_spark_tz(value: Column) -> Column:
-    tz_mappings = {
-        "ACT": "Australia/Darwin",
-        "AET": "Australia/Sydney",
-        "AGT": "America/Argentina/Buenos_Aires",
-        "ART": "Africa/Cairo",
-        "AST": "America/Anchorage",
-        "BET": "America/Sao_Paulo",
-        "BST": "Asia/Dhaka",
-        "CAT": "Africa/Harare",
-        "CNT": "America/St_Johns",
-        "CST": "America/Chicago",
-        "CTT": "Asia/Shanghai",
-        "EAT": "Africa/Addis_Ababa",
-        "ECT": "Europe/Paris",
-        "IET": "America/Indiana/Indianapolis",
-        "IST": "Asia/Kolkata",
-        "JST": "Asia/Tokyo",
-        "MIT": "Pacific/Apia",
-        "NET": "Asia/Yerevan",
-        "NST": "Pacific/Auckland",
-        "PLT": "Asia/Karachi",
-        "PNT": "America/Phoenix",
-        "PRT": "America/Puerto_Rico",
-        "PST": "America/Los_Angeles",
-        "SST": "Pacific/Guadalcanal",
-        "VST": "Asia/Ho_Chi_Minh",
-    }
-
-    result = snowpark_fn.when(value.is_null(), snowpark_fn.lit(None))
-    for spark_tz, snowflake_tz in tz_mappings.items():
-        result = result.when(
-            value == snowpark_fn.lit(spark_tz), snowpark_fn.lit(snowflake_tz)
-        )
-
-    @cached_udf(input_types=[StringType()], return_type=StringType())
-    def _convert_offset_tz(tz: str) -> str:
+    def _local_offset_to_etc_tz(tz: str) -> str:
         if tz is None:
             return None
         offset_match = re.match(r"^([+-])(\d{2}):(\d{2})$", tz)
@@ -12791,6 +12865,36 @@ def _map_from_spark_tz(value: Column) -> Column:
             else:
                 return f"Etc/GMT+{hour_int}" if hour_int > 0 else "Etc/GMT"
         return tz
+
+    # Optimization: when the timezone argument is a string literal, resolve the
+    # mapping at translation time instead of emitting a 25-branch CASE/WHEN.
+    if isinstance(value._expression, Literal) and isinstance(
+        value._expression.value, str
+    ):
+        literal_val = value._expression.value
+        # 1. Map Java 3-letter abbreviations (e.g. "CST" → "America/Chicago")
+        if literal_val in _SPARK_TZ_MAPPINGS:
+            return snowpark_fn.lit(_SPARK_TZ_MAPPINGS[literal_val])
+        # 2. Handle UTC offset strings (e.g. "+09:00" → "Etc/GMT-9")
+        #    Snowflake rejects raw offsets like "+09:00" but accepts "Etc/GMT-N".
+        offset_match = re.match(r"^([+-])(\d{2}):(\d{2})$", literal_val)
+        if offset_match:
+            return snowpark_fn.lit(_local_offset_to_etc_tz(literal_val))
+        # 3. IANA name (e.g. "Asia/Seoul") — pass through directly
+        elif not literal_val.startswith(("+", "-")):
+            return snowpark_fn.lit(literal_val)
+
+    # Fallback for dynamic column values: build the full CASE/WHEN chain so
+    # Java timezone abbreviations are mapped correctly at query execution time.
+    result = snowpark_fn.when(value.is_null(), snowpark_fn.lit(None))
+    for spark_tz, snowflake_tz in _SPARK_TZ_MAPPINGS.items():
+        result = result.when(
+            value == snowpark_fn.lit(spark_tz), snowpark_fn.lit(snowflake_tz)
+        )
+
+    @cached_udf(input_types=[StringType()], return_type=StringType())
+    def _convert_offset_tz(tz: str) -> str:
+        return _local_offset_to_etc_tz(tz)
 
     return result.otherwise(_convert_offset_tz(value))
 

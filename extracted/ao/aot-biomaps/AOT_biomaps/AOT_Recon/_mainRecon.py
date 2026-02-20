@@ -1,7 +1,7 @@
 from AOT_biomaps.Config import config
 from AOT_biomaps.AOT_Experiment.Tomography import Tomography, hex_to_binary_profile
 from .ReconEnums import ReconType
-from .ReconTools import mse, ssim, get_phase_deterministic
+from .ReconTools import mse, ssim
 
 import os
 import numpy as np
@@ -307,86 +307,3 @@ class Recon(ABC):
                 plt.savefig(os.path.join(savePath, 'recon_without_tumor.png'), dpi=300, bbox_inches='tight')
 
         plt.show()
-
-    def parse_and_demodulate(self, withTumor=True):
-
-        if withTumor:
-            AOsignal = self.experiment.AOsignal_withTumor
-        else:
-            AOsignal = self.experiment.AOsignal_withoutTumor
-        delta_x = self.experiment.params.general['dx']  # en m 
-        n_piezos = self.experiment.params.acoustic['probe']['num_elements']
-        demodulated_data = {}
-        structured_buffer = {} 
-
-        for i in trange(len(self.experiment.AcousticFields), desc="Demodulating AO signals"):   
-            label = self.experiment.AcousticFields[i].getName_field()
-            
-            parts = label.split("_")
-            hex_pattern = parts[0]
-            angle_code = parts[-1]
-            
-            # Angle
-            if angle_code.startswith("1"):
-                angle_deg = -int(angle_code[1:])
-            else:
-                angle_deg = int(angle_code)
-            angle_rad = np.deg2rad(angle_deg)
-            
-            # Onde Plane (f_s = 0)
-            if set(hex_pattern.lower().replace(" ", "")) == {'f'}:
-                fs_key = 0.0 # fs_key est en mm^-1 (0.0 mm^-1)
-                demodulated_data[(fs_key, angle_rad)] = np.array(AOsignal[:,i])
-                continue
-                
-            # Onde Structurée
-            profile = hex_to_binary_profile(hex_pattern, n_piezos)
-            
-            # Calcul FS (Fréquence de Structuration)
-            ft_prof = np.fft.fft(profile)
-            # On regarde uniquement la partie positive non DC
-            idx_max = np.argmax(np.abs(ft_prof[1:len(profile)//2])) + 1
-            freqs = np.fft.fftfreq(len(profile), d=delta_x)
-            
-            # freqs est en m^-1 car delta_x est en mètres.
-            fs_m_inv = abs(freqs[idx_max]) 
-            
-            # *** CORRECTION 1: Conversion de f_s en mm^-1 (mm^-1 est utilisé dans iRadon) ***
-            fs_key = fs_m_inv / 1000.0 # Fréquence spatiale en mm^-1
-
-            
-            if fs_key == 0: continue
-
-            # Calcul de la Phase (Shift)
-            phase = get_phase_deterministic(profile)
-            
-            # Stockage par (fs, theta) et phase
-            key = (fs_key, angle_rad)
-            if key not in structured_buffer:
-                structured_buffer[key] = {}
-            
-            # La moyenne est nécessaire si plusieurs acquisitions ont la même phase (pour le SNR) 
-            if phase in structured_buffer[key]:
-                structured_buffer[key][phase] = (structured_buffer[key][phase] + np.array(AOsignal[:,i])) / 2
-            else:
-                structured_buffer[key][phase] = np.array(AOsignal[:,i])
- 
-        for (fs, theta), phases in structured_buffer.items():
-            s0 = phases.get(0.0, 0)
-            s_pi_2 = phases.get(np.pi/2, 0)
-            s_pi = phases.get(np.pi, 0)
-            s_3pi_2 = phases.get(3*np.pi/2, 0)
-
-            # Assurer que les zéros sont des vecteurs de la bonne taille
-            example = next(val for val in phases.values() if not isinstance(val, int))
-            if isinstance(s0, int): s0 = np.zeros_like(example)
-            if isinstance(s_pi, int): s_pi = np.zeros_like(example)
-            if isinstance(s_pi_2, int): s_pi_2 = np.zeros_like(example)
-            if isinstance(s_3pi_2, int): s_3pi_2 = np.zeros_like(example)
-
-            real = s0 - s_pi
-            imag = s_pi_2 - s_3pi_2 
-              
-            demodulated_data[(fs, theta)] = (real - 1j * imag) / (2/np.pi)
-            
-        return demodulated_data

@@ -1,5 +1,6 @@
 import json
 from typing import Any
+from uuid import UUID
 
 from httpx import AsyncClient, Response, Timeout
 from pydantic import BaseModel
@@ -9,6 +10,8 @@ class _PydanticEncoder(json.JSONEncoder):
     def default(self, o: Any) -> Any:
         if isinstance(o, BaseModel):
             return o.model_dump(by_alias=True, exclude_none=True)
+        if isinstance(o, UUID):
+            return str(o)
         return super().default(o)
 
 

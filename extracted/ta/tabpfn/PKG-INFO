@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tabpfn
-Version: 6.3.2
+Version: 6.4.1
 Summary: TabPFN: Foundation model for tabular data
 Author: Noah Hollmann, Samuel Müller, Lennart Purucker, Arjun Krishnakumar, Max Körfer, Shi Bin Hoo, Robin Tibor Schirrmeister, Frank Hutter, Eddie Bergman, Leo Grinsztajn, Felix Jabloski, Klemens Flöge, Oscar Key, Felix Birkel, Philipp Jund, Brendan Roof, Dominik Safaric, Benjamin Jaeger, Alan Arazi
 License: 
@@ -223,19 +223,20 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: torch<3,>=2.1
-Requires-Dist: numpy<3,>=1.21.6
-Requires-Dist: scikit-learn<1.8,>=1.2.0
+Requires-Dist: torch>=2.1
+Requires-Dist: numpy>=1.21.6
+Requires-Dist: scikit-learn>=1.2.0
 Requires-Dist: typing_extensions>=4.12.0
-Requires-Dist: scipy<2,>=1.11.1
-Requires-Dist: pandas<4,>=1.4.0
-Requires-Dist: einops<0.9,>=0.2.0
-Requires-Dist: huggingface-hub<2,>=0.19.0
+Requires-Dist: scipy>=1.11.1
+Requires-Dist: pandas>=1.4.0
+Requires-Dist: einops>=0.2.0
+Requires-Dist: huggingface-hub>=0.19.0
 Requires-Dist: pydantic>=2.8.0
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: eval-type-backport>=0.2.2
 Requires-Dist: joblib>=1.2.0
 Requires-Dist: tabpfn-common-utils[telemetry-interactive]>=0.2.13
+Requires-Dist: filelock>=3.11.0
 Dynamic: license-file
 
 # TabPFN

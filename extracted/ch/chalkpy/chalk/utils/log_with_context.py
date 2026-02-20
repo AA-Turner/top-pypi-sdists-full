@@ -127,12 +127,23 @@ def get_operation_log_context(
     correlation_id: str | None = None,
 ):
     """
-    :param operation_id: internal correlation id
-    :param operation_kind: ...
-    :param resolver_fqn: ...
-    :param query_name: customer-provided query name
-    :param correlation_id: customer-provided correlation id
-    :return:
+    Parameters
+    ----------
+    operation_id
+        Internal correlation id.
+    operation_kind
+        Operation kind or producer name.
+    resolver_fqn
+        Resolver FQN associated with this operation, if available.
+    query_name
+        Customer-provided query name.
+    correlation_id
+        Customer-provided correlation id.
+
+    Returns
+    -------
+    dict[str, Any]
+        Structured logging context for operation-scoped logs.
     """
     if isinstance(operation_kind, Enum):
         operation_kind = operation_kind.value

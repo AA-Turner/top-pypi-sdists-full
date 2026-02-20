@@ -499,6 +499,44 @@ def test_annotated_with_type(env):
     assert s.apples == ['russet', 'granny smith']
 
 
+def test_annotated_with_parameterized_type_alias(env):
+    """https://github.com/pydantic/pydantic-settings/issues/778.
+
+    Parameterized PEP 695 type aliases should correctly substitute type params
+    when determining if a field is complex.
+    """
+    from annotated_types import Len
+
+    T = TypeVar('T')
+
+    MaxLenA = Annotated[T, Len(max_length=4)]
+    MaxLenB = TypeAliasType('MaxLenB', Annotated[T, Len(max_length=4)], type_params=(T,))
+    MaxLenC = TypeAliasType('MaxLenC', Annotated[T, Len(max_length=4), ForceDecode], type_params=(T,))
+
+    class MySettingsA(BaseSettings):
+        SIMPLE_LIST: MaxLenA[list[str]]
+
+    class MySettingsB(BaseSettings):
+        SIMPLE_LIST: MaxLenB[list[str]]
+
+    class MySettingsC(BaseSettings):
+        SIMPLE_LIST: MaxLenC[list[str]]
+
+    env.set('SIMPLE_LIST', '["a", "b", "c"]')
+    assert MySettingsA().SIMPLE_LIST == ['a', 'b', 'c']
+    assert MySettingsB().SIMPLE_LIST == ['a', 'b', 'c']
+    assert MySettingsC().SIMPLE_LIST == ['a', 'b', 'c']
+
+    # NoDecode should prevent automatic JSON decoding
+    MaxLenD = TypeAliasType('MaxLenD', Annotated[T, Len(max_length=4), NoDecode], type_params=(T,))
+
+    class MySettingsD(BaseSettings):
+        SIMPLE_LIST: MaxLenD[list[str]]
+
+    with pytest.raises(ValidationError):
+        MySettingsD()
+
+
 def test_annotated_with_type_no_decode(env):
     A = TypeAliasType('A', Annotated[list[str], NoDecode])
 
@@ -2853,6 +2891,49 @@ def test_env_nested_dict_value(env):
     env.set('nested__foo__a__b', 'bar')
     s = Settings()
     assert s.model_dump() == {'nested': {'foo': {'a': {'b': 'bar'}}}}
+
+
+def test_env_nested_dict_simple_value_types(env):
+    """Test that nested env vars work for dict fields with simple value types (e.g. dict[str, str]).
+
+    Regression test for https://github.com/pydantic/pydantic-settings/issues/785
+    """
+
+    class Settings(BaseSettings):
+        nested_field: dict[str, str]
+
+        model_config = SettingsConfigDict(env_nested_delimiter='__')
+
+    env.set('nested_field__key', 'some value')
+    s = Settings()
+    assert s.model_dump() == {'nested_field': {'key': 'some value'}}
+
+
+def test_env_nested_dict_multiple_simple_keys(env):
+    """Test multiple nested env vars for dict[str, str]."""
+
+    class Settings(BaseSettings):
+        nested_field: dict[str, str]
+
+        model_config = SettingsConfigDict(env_nested_delimiter='__')
+
+    env.set('nested_field__key1', 'value1')
+    env.set('nested_field__key2', 'value2')
+    s = Settings()
+    assert s.model_dump() == {'nested_field': {'key1': 'value1', 'key2': 'value2'}}
+
+
+def test_env_nested_dict_complex_value_type(env):
+    """Test nested env vars for dict with complex value types like list[str]."""
+
+    class Settings(BaseSettings):
+        nested_field: dict[str, list[str]]
+
+        model_config = SettingsConfigDict(env_nested_delimiter='__')
+
+    env.set('nested_field__key', '["a", "b"]')
+    s = Settings()
+    assert s.model_dump() == {'nested_field': {'key': ['a', 'b']}}
 
 
 def test_nested_models_leaf_vs_deeper_env_dict_assumed(env):

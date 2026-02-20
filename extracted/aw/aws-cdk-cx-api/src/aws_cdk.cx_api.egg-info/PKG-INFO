@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: aws-cdk.cx-api
-Version: 2.238.0
+Version: 2.239.0
 Summary: Cloud executable protocol
 Home-page: https://github.com/aws/aws-cdk
 Author: Amazon Web Services
@@ -22,7 +22,7 @@ Requires-Python: ~=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: aws-cdk.cloud-assembly-schema>=45.0.0
+Requires-Dist: aws-cdk.cloud-assembly-schema>=50.3.0
 Requires-Dist: jsii<2.0.0,>=1.126.0
 Requires-Dist: publication>=0.0.3
 Requires-Dist: typeguard==2.13.3

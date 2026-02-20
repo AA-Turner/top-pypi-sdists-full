@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
 # MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-11T23:40:09.151321                                                            #
+# Generated on 2026-02-19T20:41:45.674876                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -27,4 +27,6 @@ from .config_utils import FieldBehavior as FieldBehavior
 from . import schema_export as schema_export
 from . import typed_configs as typed_configs
 from .typed_configs import TypedCoreConfig as TypedCoreConfig
+
+UNASSIGNED_PROJECT_BRANCH: str
 

@@ -1,5 +1,14 @@
 __package_name__ = "acryl-datahub-classify"
-__version__ = "0.0.11"
+__version__ = "0.0.12"
+
+import warnings
+
+warnings.warn(
+    "acryl-datahub-classify is deprecated and no longer maintained. "
+    "Please migrate away from this package.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def is_dev_mode() -> bool:

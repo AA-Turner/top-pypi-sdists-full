@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: autoflake
-Version: 2.3.2
+Version: 2.3.3
 Summary: Removes unused imports and unused variables
 Project-URL: Homepage, https://www.github.com/PyCQA/autoflake
-License: MIT
-License-File: AUTHORS.rst
+License-Expression: MIT
 License-File: LICENSE
 Keywords: automatic,clean,fix,import,unused
 Classifier: Environment :: Console
@@ -226,7 +225,7 @@ Add the following to your `.pre-commit-config.yaml`
 
 ```yaml
 -   repo: https://github.com/PyCQA/autoflake
-    rev: v2.3.2
+    rev: v2.3.3
     hooks:
     -   id: autoflake
 ```
@@ -236,7 +235,7 @@ of arguments:
 
 ```yaml
 -   repo: https://github.com/PyCQA/autoflake
-    rev: v2.3.2
+    rev: v2.3.3
     hooks:
     -   id: autoflake
         args: [--remove-all-unused-imports, --in-place]

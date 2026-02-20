@@ -658,6 +658,24 @@ class Node(metaclass=jsii.JSIIMeta, jsii_type="constructs.Node"):
         '''
         return typing.cast(typing.List[builtins.str], jsii.invoke(self, "validate", []))
 
+    @jsii.member(jsii_name="with")
+    def with_(self, *mixins: "IMixin") -> "IConstruct":
+        '''Applies one or more mixins to this construct.
+
+        Mixins are applied in order. The list of constructs is captured at the
+        start of the call, so constructs added by a mixin will not be visited.
+        Use multiple ``with()`` calls if subsequent mixins should apply to added
+        constructs.
+
+        :param mixins: The mixins to apply.
+
+        :return: This construct for chaining
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__08017fffbec51308314e453ccc5dcda053ba7a1a5d6079525d13922f66480b0b)
+            check_type(argname="argument mixins", value=mixins, expected_type=typing.Tuple[type_hints["mixins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
+        return typing.cast("IConstruct", jsii.invoke(self, "with", [*mixins]))
+
     @jsii.python.classproperty
     @jsii.member(jsii_name="PATH_SEP")
     def PATH_SEP(cls) -> builtins.str:
@@ -1123,6 +1141,12 @@ def _typecheckingstub__736aac5a797564303e88fbc9bbd5d9ec05b62a898284a05b7d16b1761
 
 def _typecheckingstub__0cebd94ba5b2c7d277443dcec352c8c4c87ccbf209e78088ca08a915eb956e36(
     child_name: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__08017fffbec51308314e453ccc5dcda053ba7a1a5d6079525d13922f66480b0b(
+    *mixins: IMixin,
 ) -> None:
     """Type checking stubs"""
     pass

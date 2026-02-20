@@ -5615,6 +5615,10 @@ class CfnUserPool(
                     lambda_version="lambdaVersion"
                 ),
                 define_auth_challenge="defineAuthChallenge",
+                inbound_federation=cognito.CfnUserPool.InboundFederationProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                ),
                 kms_key_id="kmsKeyId",
                 post_authentication="postAuthentication",
                 post_confirmation="postConfirmation",
@@ -7016,6 +7020,73 @@ class CfnUserPool(
             )
 
     @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.InboundFederationProperty",
+        jsii_struct_bases=[],
+        name_mapping={"lambda_arn": "lambdaArn", "lambda_version": "lambdaVersion"},
+    )
+    class InboundFederationProperty:
+        def __init__(
+            self,
+            *,
+            lambda_arn: typing.Optional[builtins.str] = None,
+            lambda_version: typing.Optional[builtins.str] = None,
+        ) -> None:
+            '''
+            :param lambda_arn: 
+            :param lambda_version: 
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-inboundfederation.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_cognito as cognito
+                
+                inbound_federation_property = cognito.CfnUserPool.InboundFederationProperty(
+                    lambda_arn="lambdaArn",
+                    lambda_version="lambdaVersion"
+                )
+            '''
+            if __debug__:
+                type_hints = typing.get_type_hints(_typecheckingstub__da16d330cdb2c2cc3f11733a4e8ed7fe6dbe9cb03643a0949f55c29824318de5)
+                check_type(argname="argument lambda_arn", value=lambda_arn, expected_type=type_hints["lambda_arn"])
+                check_type(argname="argument lambda_version", value=lambda_version, expected_type=type_hints["lambda_version"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if lambda_arn is not None:
+                self._values["lambda_arn"] = lambda_arn
+            if lambda_version is not None:
+                self._values["lambda_version"] = lambda_version
+
+        @builtins.property
+        def lambda_arn(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-inboundfederation.html#cfn-cognito-userpool-inboundfederation-lambdaarn
+            '''
+            result = self._values.get("lambda_arn")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def lambda_version(self) -> typing.Optional[builtins.str]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-inboundfederation.html#cfn-cognito-userpool-inboundfederation-lambdaversion
+            '''
+            result = self._values.get("lambda_version")
+            return typing.cast(typing.Optional[builtins.str], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "InboundFederationProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
         jsii_type="aws-cdk-lib.aws_cognito.CfnUserPool.InviteMessageTemplateProperty",
         jsii_struct_bases=[],
         name_mapping={
@@ -7121,6 +7192,7 @@ class CfnUserPool(
             "custom_message": "customMessage",
             "custom_sms_sender": "customSmsSender",
             "define_auth_challenge": "defineAuthChallenge",
+            "inbound_federation": "inboundFederation",
             "kms_key_id": "kmsKeyId",
             "post_authentication": "postAuthentication",
             "post_confirmation": "postConfirmation",
@@ -7141,6 +7213,7 @@ class CfnUserPool(
             custom_message: typing.Optional[builtins.str] = None,
             custom_sms_sender: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.CustomSMSSenderProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             define_auth_challenge: typing.Optional[builtins.str] = None,
+            inbound_federation: typing.Optional[typing.Union["_IResolvable_da3f097b", typing.Union["CfnUserPool.InboundFederationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
             post_authentication: typing.Optional[builtins.str] = None,
             post_confirmation: typing.Optional[builtins.str] = None,
@@ -7160,6 +7233,7 @@ class CfnUserPool(
             :param custom_message: A custom message Lambda trigger. This trigger is an opportunity to customize all SMS and email messages from your user pool. When a custom message trigger is active, your user pool routes all messages to a Lambda function that returns a runtime-customized message subject and body for your user pool to deliver to a user.
             :param custom_sms_sender: The configuration of a custom SMS sender Lambda trigger. This trigger routes all SMS notifications from a user pool to a Lambda function that delivers the message using custom logic.
             :param define_auth_challenge: The configuration of a define auth challenge Lambda trigger, one of three triggers in the sequence of the `custom authentication challenge triggers <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-challenge.html>`_ .
+            :param inbound_federation: 
             :param kms_key_id: The ARN of an `KMS key <https://docs.aws.amazon.com//kms/latest/developerguide/concepts.html#master_keys>`_ . Amazon Cognito uses the key to encrypt codes and temporary passwords sent to custom sender Lambda triggers.
             :param post_authentication: The configuration of a `post authentication Lambda trigger <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-post-authentication.html>`_ in a user pool. This trigger can take custom actions after a user signs in.
             :param post_confirmation: The configuration of a `post confirmation Lambda trigger <https://docs.aws.amazon.com/cognito/latest/developerguide/user-pool-lambda-post-confirmation.html>`_ in a user pool. This trigger can take custom actions after a user confirms their user account and their email address or phone number.
@@ -7191,6 +7265,10 @@ class CfnUserPool(
                         lambda_version="lambdaVersion"
                     ),
                     define_auth_challenge="defineAuthChallenge",
+                    inbound_federation=cognito.CfnUserPool.InboundFederationProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
                     kms_key_id="kmsKeyId",
                     post_authentication="postAuthentication",
                     post_confirmation="postConfirmation",
@@ -7212,6 +7290,7 @@ class CfnUserPool(
                 check_type(argname="argument custom_message", value=custom_message, expected_type=type_hints["custom_message"])
                 check_type(argname="argument custom_sms_sender", value=custom_sms_sender, expected_type=type_hints["custom_sms_sender"])
                 check_type(argname="argument define_auth_challenge", value=define_auth_challenge, expected_type=type_hints["define_auth_challenge"])
+                check_type(argname="argument inbound_federation", value=inbound_federation, expected_type=type_hints["inbound_federation"])
                 check_type(argname="argument kms_key_id", value=kms_key_id, expected_type=type_hints["kms_key_id"])
                 check_type(argname="argument post_authentication", value=post_authentication, expected_type=type_hints["post_authentication"])
                 check_type(argname="argument post_confirmation", value=post_confirmation, expected_type=type_hints["post_confirmation"])
@@ -7232,6 +7311,8 @@ class CfnUserPool(
                 self._values["custom_sms_sender"] = custom_sms_sender
             if define_auth_challenge is not None:
                 self._values["define_auth_challenge"] = define_auth_challenge
+            if inbound_federation is not None:
+                self._values["inbound_federation"] = inbound_federation
             if kms_key_id is not None:
                 self._values["kms_key_id"] = kms_key_id
             if post_authentication is not None:
@@ -7305,6 +7386,16 @@ class CfnUserPool(
             '''
             result = self._values.get("define_auth_challenge")
             return typing.cast(typing.Optional[builtins.str], result)
+
+        @builtins.property
+        def inbound_federation(
+            self,
+        ) -> typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InboundFederationProperty"]]:
+            '''
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cognito-userpool-lambdaconfig.html#cfn-cognito-userpool-lambdaconfig-inboundfederation
+            '''
+            result = self._values.get("inbound_federation")
+            return typing.cast(typing.Optional[typing.Union["_IResolvable_da3f097b", "CfnUserPool.InboundFederationProperty"]], result)
 
         @builtins.property
         def kms_key_id(self) -> typing.Optional[builtins.str]:
@@ -11372,6 +11463,10 @@ class CfnUserPoolProps:
                         lambda_version="lambdaVersion"
                     ),
                     define_auth_challenge="defineAuthChallenge",
+                    inbound_federation=cognito.CfnUserPool.InboundFederationProperty(
+                        lambda_arn="lambdaArn",
+                        lambda_version="lambdaVersion"
+                    ),
                     kms_key_id="kmsKeyId",
                     post_authentication="postAuthentication",
                     post_confirmation="postConfirmation",
@@ -25891,6 +25986,14 @@ def _typecheckingstub__aec7382b1b4972784ecb012d15fbc2441bfecae360d5f26e90d1da3ce
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__da16d330cdb2c2cc3f11733a4e8ed7fe6dbe9cb03643a0949f55c29824318de5(
+    *,
+    lambda_arn: typing.Optional[builtins.str] = None,
+    lambda_version: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e181999cda105732a159cee174edaaedc5039f9a73ad613e48d7196c7034bf81(
     *,
     email_message: typing.Optional[builtins.str] = None,
@@ -25907,6 +26010,7 @@ def _typecheckingstub__7c28f17b2edc8643f21e960e612cea0cf88cbb14e55f37d1bab97e6fe
     custom_message: typing.Optional[builtins.str] = None,
     custom_sms_sender: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.CustomSMSSenderProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     define_auth_challenge: typing.Optional[builtins.str] = None,
+    inbound_federation: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union[CfnUserPool.InboundFederationProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     kms_key_id: typing.Optional[builtins.str] = None,
     post_authentication: typing.Optional[builtins.str] = None,
     post_confirmation: typing.Optional[builtins.str] = None,

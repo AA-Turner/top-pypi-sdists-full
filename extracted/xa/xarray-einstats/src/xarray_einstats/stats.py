@@ -106,7 +106,7 @@ def _asdataarray(x_or_q, dim_name):
         return xr.DataArray(x_or_q_ary, dims=[dim_name], coords={dim_name: np.asarray(x_or_q)})
     raise ValueError(
         "To evaluate distribution methods on data with >=2 dims,"
-        " the input needs to be a xarray.DataArray"
+        " the input needs to be an xarray.DataArray"
     )
 
 
@@ -346,8 +346,7 @@ def _add_documented_method(cls, wrapped_cls, methods, extra_docs=None):
         setattr(cls, method_name, method)
 
 
-doc_extras = {
-    "rvs": """
+doc_extras = {"rvs": """
 Parameters
 ----------
 *args : scalar or array_like or DataArray, optional
@@ -372,8 +371,7 @@ apply_kwargs : dict, optional
     Passed to :func:`xarray.apply_ufunc`
 **kwargs
     Passed to the scipy distribution after broadcasting using the same key.
-"""
-}
+"""}
 base_methods = ["cdf", "logcdf", "sf", "logsf", "ppf", "isf", "rvs"]
 _add_documented_method(XrRV, "rv_generic", base_methods, doc_extras)
 _add_documented_method(

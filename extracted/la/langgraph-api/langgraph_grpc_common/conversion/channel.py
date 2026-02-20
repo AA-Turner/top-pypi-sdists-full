@@ -22,6 +22,7 @@ from langgraph.managed.base import (
 from langgraph.pregel import Pregel
 
 from langgraph_grpc_common.conversion._compat import MISSING
+from langgraph_grpc_common.conversion.exception import UserCodeExecutionErrorException
 from langgraph_grpc_common.conversion.value import value_from_proto, value_to_proto
 from langgraph_grpc_common.proto import engine_common_pb2, executor_api_pb2
 
@@ -132,7 +133,10 @@ def channels_from_proto(
     managed = {}
     for k, channel_pb in channels_pb.items():
         if k not in graph.channels:
-            raise ValueError(f"Channel '{k}' not found in graph definition")
+            raise UserCodeExecutionErrorException(
+                ValueError(f"Channel '{k}' not found in graph definition"),
+                node_name=None,
+            )
         v = graph.channels[k]
         if isinstance(v, BaseChannel):
             channels[k] = revive_channel(v, channel_pb)

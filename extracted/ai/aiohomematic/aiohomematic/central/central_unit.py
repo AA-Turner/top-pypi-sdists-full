@@ -26,6 +26,7 @@ from aiohomematic.central.coordinators import (
     DeviceCoordinator,
     EventCoordinator,
     HubCoordinator,
+    LinkCoordinator,
 )
 from aiohomematic.central.device_registry import DeviceRegistry
 from aiohomematic.central.events import EventBus, SystemStatusChangedEvent
@@ -242,7 +243,11 @@ class CentralUnit(
         self._configuration_coordinator: Final = ConfigurationCoordinator(
             client_provider=self._client_coordinator,
             device_description_provider=self._cache_coordinator.device_descriptions,
+            device_registry=self._device_registry,
             paramset_description_provider=self._cache_coordinator.paramset_descriptions,
+        )
+        self._link_coordinator: Final = LinkCoordinator(
+            device_registry=self._device_registry,
         )
 
         # -- 8. Scheduling and recovery --
@@ -321,6 +326,7 @@ class CentralUnit(
     hub_coordinator: Final = DelegatedProperty[HubCoordinator](path="_hub_coordinator")
     interfaces: Final = DelegatedProperty[frozenset[Interface]](path="_client_coordinator.interfaces")
     json_rpc_client: Final = DelegatedProperty[AioJsonRpcAioHttpClient](path="_json_rpc_client")
+    link: Final = DelegatedProperty[LinkCoordinator](path="_link_coordinator")
     listen_ip_addr: Final = DelegatedProperty[str](path="_listen_ip_addr")
     listen_port_xml_rpc: Final = DelegatedProperty[int](path="_listen_port_xml_rpc")
     looper: Final = DelegatedProperty[Looper](path="_looper")

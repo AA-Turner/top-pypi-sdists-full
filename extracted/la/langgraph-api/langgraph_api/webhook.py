@@ -11,11 +11,23 @@ from starlette.exceptions import HTTPException
 from langgraph_api.config import HTTP_CONFIG, WEBHOOKS_CONFIG
 from langgraph_api.config.schemas import WebhookUrlPolicy
 from langgraph_api.http import ensure_http_client, get_loopback_client, http_request
+from langgraph_api.serde import json_dumpb, json_loads
 
 if TYPE_CHECKING:
     from langgraph_api.worker import WorkerResult
 
 logger = structlog.stdlib.get_logger(__name__)
+
+
+def _serialize_exception(exc: BaseException) -> dict:
+    """Serialize an exception into a structured error dict.
+
+    Falls back to a minimal dict if serialization itself fails.
+    """
+    try:
+        return json_loads(json_dumpb(exc))
+    except Exception:
+        return {"error": type(exc).__name__, "message": str(exc)}
 
 
 def _filter_webhook_payload(payload: dict, allowed_fields: set[str] | None) -> dict:
@@ -135,7 +147,7 @@ async def call_webhook(result: "WorkerResult") -> None:
         "values": checkpoint["values"] if checkpoint else None,
     }
     if exception := result["exception"]:
-        payload["error"] = str(exception)
+        payload["error"] = _serialize_exception(exception)
 
     allowed_fields = WEBHOOKS_CONFIG.get("allowed_fields") if WEBHOOKS_CONFIG else None
     payload = _filter_webhook_payload(payload, allowed_fields)

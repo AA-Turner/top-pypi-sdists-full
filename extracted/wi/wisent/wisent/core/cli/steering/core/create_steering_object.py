@@ -103,7 +103,7 @@ def execute_create_steering_object(args):
 
         # Filter layers if --layer is specified
         if getattr(args, 'layer', None):
-            target_layers = _parse_layer_spec(args.layer, len(all_layers))
+            target_layers = _parse_layer_spec(str(args.layer), len(all_layers))
             available_layers = [l for l in all_layers if int(l) in target_layers]
             if not available_layers:
                 raise ValueError(f"No matching layers found. Specified: {args.layer}, Available: {all_layers}")
@@ -158,6 +158,11 @@ def execute_create_steering_object(args):
         elif method_name == 'concept_flow':
             from wisent.core.cli.steering.core.create_concept_flow import _create_concept_flow_steering_object
             steering_obj = _create_concept_flow_steering_object(
+                metadata, layer_activations, available_layers, args
+            )
+        elif method_name == 'geodesic_ot':
+            from wisent.core.steering_methods.methods.geodesic_ot.create import _create_geodesic_ot_steering_object
+            steering_obj = _create_geodesic_ot_steering_object(
                 metadata, layer_activations, available_layers, args
             )
         else:

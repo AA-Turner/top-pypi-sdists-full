@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: grpcio-admin
-Version: 1.78.0
+Version: 1.78.1
 Summary: a collection of admin services
 Author-email: The gRPC Authors <grpc-io@googlegroups.com>
 License-Expression: Apache-2.0
@@ -12,8 +12,8 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: grpcio-channelz>=1.78.0
-Requires-Dist: grpcio-csds>=1.78.0
+Requires-Dist: grpcio-channelz>=1.78.1
+Requires-Dist: grpcio-csds>=1.78.1
 Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python

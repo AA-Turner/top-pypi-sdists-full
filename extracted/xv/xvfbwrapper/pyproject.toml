@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "xvfbwrapper"
-version = "0.2.18"
+version = "0.2.20"
 description = "Manage headless displays with Xvfb (X virtual framebuffer)"
 license = "MIT"
 license-files = ["LICENSE"]
@@ -53,6 +53,7 @@ type = [
 ]
 validate = [
     "packaging",
+    "tomli",
     "validate-pyproject",
 ]
 

@@ -62,6 +62,11 @@ class RelativeDateFilterRelativeDateFilter(ModelNormal):
     """
 
     allowed_values = {
+        ('empty_value_handling',): {
+            'INCLUDE': "INCLUDE",
+            'EXCLUDE': "EXCLUDE",
+            'ONLY': "ONLY",
+        },
         ('granularity',): {
             'MINUTE': "MINUTE",
             'HOUR': "HOUR",
@@ -115,9 +120,9 @@ class RelativeDateFilterRelativeDateFilter(ModelNormal):
             '_from': (int,),  # noqa: E501
             'granularity': (str,),  # noqa: E501
             'to': (int,),  # noqa: E501
+            'empty_value_handling': (str,),  # noqa: E501
             'apply_on_result': (bool,),  # noqa: E501
             'bounded_filter': (BoundedFilter,),  # noqa: E501
-            'include_empty_values': (bool,),  # noqa: E501
             'local_identifier': (str,),  # noqa: E501
         }
 
@@ -131,9 +136,9 @@ class RelativeDateFilterRelativeDateFilter(ModelNormal):
         '_from': 'from',  # noqa: E501
         'granularity': 'granularity',  # noqa: E501
         'to': 'to',  # noqa: E501
+        'empty_value_handling': 'emptyValueHandling',  # noqa: E501
         'apply_on_result': 'applyOnResult',  # noqa: E501
         'bounded_filter': 'boundedFilter',  # noqa: E501
-        'include_empty_values': 'includeEmptyValues',  # noqa: E501
         'local_identifier': 'localIdentifier',  # noqa: E501
     }
 
@@ -186,7 +191,6 @@ class RelativeDateFilterRelativeDateFilter(ModelNormal):
                                 _visited_composed_classes = (Animal,)
             apply_on_result (bool): [optional]  # noqa: E501
             bounded_filter (BoundedFilter): [optional]  # noqa: E501
-            include_empty_values (bool): If true, rows with undefined (NULL) date values will be included in the result. The filter becomes: (date_condition) OR (date IS NULL). If false or not set, standard behavior applies (NULLs excluded by the date condition).. [optional]  # noqa: E501
             local_identifier (str): [optional]  # noqa: E501
         """
 
@@ -285,7 +289,6 @@ class RelativeDateFilterRelativeDateFilter(ModelNormal):
                                 _visited_composed_classes = (Animal,)
             apply_on_result (bool): [optional]  # noqa: E501
             bounded_filter (BoundedFilter): [optional]  # noqa: E501
-            include_empty_values (bool): If true, rows with undefined (NULL) date values will be included in the result. The filter becomes: (date_condition) OR (date IS NULL). If false or not set, standard behavior applies (NULLs excluded by the date condition).. [optional]  # noqa: E501
             local_identifier (str): [optional]  # noqa: E501
         """
 

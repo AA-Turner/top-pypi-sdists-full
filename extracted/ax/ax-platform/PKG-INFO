@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ax-platform
-Version: 1.2.1
+Version: 1.2.3
 Summary: Adaptive Experimentation
 Author: Meta Platforms, Inc.
 License-Expression: MIT
@@ -11,10 +11,10 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: botorch[pymoo]<0.16.2dev9999,>=0.16.1
+Requires-Dist: botorch[pymoo]<0.17.1dev9999,>=0.17.0
 Requires-Dist: jinja2
 Requires-Dist: pandas
 Requires-Dist: scipy
@@ -24,6 +24,7 @@ Requires-Dist: plotly>=5.12.0
 Requires-Dist: pyre-extensions
 Requires-Dist: sympy
 Requires-Dist: markdown
+Requires-Dist: graphviz
 Provides-Extra: dev
 Requires-Dist: beautifulsoup4; extra == "dev"
 Requires-Dist: Jinja2; extra == "dev"
@@ -41,7 +42,7 @@ Provides-Extra: notebook
 Requires-Dist: jupyter; extra == "notebook"
 Provides-Extra: unittest-minimal
 Requires-Dist: tensorboard>=2.18.0; extra == "unittest-minimal"
-Requires-Dist: torchx; extra == "unittest-minimal"
+Requires-Dist: torchx>=0.2.0; extra == "unittest-minimal"
 Requires-Dist: pyarrow; extra == "unittest-minimal"
 Requires-Dist: xgboost>=3.0.2; extra == "unittest-minimal"
 Provides-Extra: unittest
@@ -142,8 +143,8 @@ artificial evaluation function):
 
 ## Installation
 
-Ax requires Python 3.10 or newer. A full list of Ax's direct dependencies can be
-found in [setup.py](https://github.com/facebook/Ax/blob/main/setup.py).
+Ax requires Python 3.11 or newer. A full list of Ax's direct dependencies can be
+found in [pyproject.toml](https://github.com/facebook/Ax/blob/main/pyproject.toml).
 
 We recommend installing Ax via pip, even if using Conda environment:
 

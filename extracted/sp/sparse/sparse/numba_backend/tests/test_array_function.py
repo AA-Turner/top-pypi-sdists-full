@@ -1,4 +1,5 @@
 import sparse
+from sparse.numba_backend import SparseArray
 from sparse.numba_backend._settings import NEP18_ENABLED
 from sparse.numba_backend._utils import assert_eq
 
@@ -109,8 +110,8 @@ class TestAsarray:
         "input",
         [
             np_eye,
-            scipy.sparse.csr_matrix(np_eye),
-            scipy.sparse.csc_matrix(np_eye),
+            scipy.sparse.csr_array(np_eye),
+            scipy.sparse.csc_array(np_eye),
             4,
             np.array(5),
             np.arange(12).reshape((2, 3, 2)),
@@ -132,3 +133,6 @@ class TestAsarray:
         expected = input.todense() if hasattr(input, "todense") else np.asarray(input)
 
         np.testing.assert_equal(actual, expected)
+
+        if isinstance(input, SparseArray):
+            assert sparse.asarray(input).__class__ is input.__class__

@@ -31538,18 +31538,18 @@ class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
             'name': ConjureFieldDefinition('name', OptionalTypeWrapper[str]),
             'orientation': ConjureFieldDefinition('orientation', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorOrientationConfig]),
             'color': ConjureFieldDefinition('color', OptionalTypeWrapper[scout_api_HexColor]),
-            'shape': ConjureFieldDefinition('shape', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorShape])
+            'view_shape': ConjureFieldDefinition('viewShape', OptionalTypeWrapper[scout_chartdefinition_api_Geo3dSensorShape])
         }
 
-    __slots__: List[str] = ['_sensor_id', '_enabled', '_name', '_orientation', '_color', '_shape']
+    __slots__: List[str] = ['_sensor_id', '_enabled', '_name', '_orientation', '_color', '_view_shape']
 
-    def __init__(self, sensor_id: str, color: Optional[str] = None, enabled: Optional[bool] = None, name: Optional[str] = None, orientation: Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"] = None, shape: Optional["scout_chartdefinition_api_Geo3dSensorShape"] = None) -> None:
+    def __init__(self, sensor_id: str, color: Optional[str] = None, enabled: Optional[bool] = None, name: Optional[str] = None, orientation: Optional["scout_chartdefinition_api_Geo3dSensorOrientationConfig"] = None, view_shape: Optional["scout_chartdefinition_api_Geo3dSensorShape"] = None) -> None:
         self._sensor_id = sensor_id
         self._enabled = enabled
         self._name = name
         self._orientation = orientation
         self._color = color
-        self._shape = shape
+        self._view_shape = view_shape
 
     @builtins.property
     def sensor_id(self) -> str:
@@ -31578,10 +31578,10 @@ class scout_chartdefinition_api_Geo3dSensor(ConjureBeanType):
         return self._color
 
     @builtins.property
-    def shape(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShape"]:
-        """The shape of the sensor.
+    def view_shape(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShape"]:
+        """The shape of the sensor's view volume.
         """
-        return self._shape
+        return self._view_shape
 
 
 scout_chartdefinition_api_Geo3dSensor.__name__ = "Geo3dSensor"
@@ -31822,27 +31822,27 @@ scout_chartdefinition_api_Geo3dSensorShapeVisitor.__module__ = "nominal_api.scou
 
 
 class scout_chartdefinition_api_Geo3dSensorShapeConic(ConjureBeanType):
-    """A conic (cone) sensor volume.
+    """A conic frustum shaped sensor volume.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'aperture': ConjureFieldDefinition('aperture', scout_chartdefinition_api_Geo3dSensorShapeConicAperture),
+            'fov': ConjureFieldDefinition('fov', scout_chartdefinition_api_VariableStaticOrChannel),
             'length': ConjureFieldDefinition('length', scout_chartdefinition_api_VariableStaticOrChannel)
         }
 
-    __slots__: List[str] = ['_aperture', '_length']
+    __slots__: List[str] = ['_fov', '_length']
 
-    def __init__(self, aperture: "scout_chartdefinition_api_Geo3dSensorShapeConicAperture", length: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
-        self._aperture = aperture
+    def __init__(self, fov: "scout_chartdefinition_api_VariableStaticOrChannel", length: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._fov = fov
         self._length = length
 
     @builtins.property
-    def aperture(self) -> "scout_chartdefinition_api_Geo3dSensorShapeConicAperture":
-        """An angle or a length representing the cone's width at its end.
+    def fov(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Full field-of-view (FOV) angle, in degrees.
         """
-        return self._aperture
+        return self._fov
 
     @builtins.property
     def length(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
@@ -31856,117 +31856,94 @@ scout_chartdefinition_api_Geo3dSensorShapeConic.__qualname__ = "Geo3dSensorShape
 scout_chartdefinition_api_Geo3dSensorShapeConic.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
-class scout_chartdefinition_api_Geo3dSensorShapeConicAperture(ConjureUnionType):
-    _radius: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None
-    _angle: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None
+class scout_chartdefinition_api_Geo3dSensorShapeRectangular(ConjureUnionType):
+    """A rectangular frustum shaped sensor volume.
+    """
+    _included_fov: Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'radius': ConjureFieldDefinition('radius', scout_chartdefinition_api_VariableStaticOrChannel),
-            'angle': ConjureFieldDefinition('angle', scout_chartdefinition_api_VariableStaticOrChannel)
+            'included_fov': ConjureFieldDefinition('includedFov', scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov)
         }
 
     def __init__(
             self,
-            radius: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None,
-            angle: Optional["scout_chartdefinition_api_VariableStaticOrChannel"] = None,
+            included_fov: Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (radius is not None) + (angle is not None) != 1:
+            if (included_fov is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
-            if radius is not None:
-                self._radius = radius
-                self._type = 'radius'
-            if angle is not None:
-                self._angle = angle
-                self._type = 'angle'
+            if included_fov is not None:
+                self._included_fov = included_fov
+                self._type = 'includedFov'
 
-        elif type_of_union == 'radius':
-            if radius is None:
+        elif type_of_union == 'includedFov':
+            if included_fov is None:
                 raise ValueError('a union value must not be None')
-            self._radius = radius
-            self._type = 'radius'
-        elif type_of_union == 'angle':
-            if angle is None:
-                raise ValueError('a union value must not be None')
-            self._angle = angle
-            self._type = 'angle'
+            self._included_fov = included_fov
+            self._type = 'includedFov'
 
     @builtins.property
-    def radius(self) -> Optional["scout_chartdefinition_api_VariableStaticOrChannel"]:
-        """Radius, in meters.
-        """
-        return self._radius
-
-    @builtins.property
-    def angle(self) -> Optional["scout_chartdefinition_api_VariableStaticOrChannel"]:
-        """Angle between its center and outer edge, in degrees.
-        """
-        return self._angle
+    def included_fov(self) -> Optional["scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov"]:
+        return self._included_fov
 
     def accept(self, visitor) -> Any:
-        if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor):
-            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor'.format(visitor.__class__.__name__))
-        if self._type == 'radius' and self.radius is not None:
-            return visitor._radius(self.radius)
-        if self._type == 'angle' and self.angle is not None:
-            return visitor._angle(self.angle)
+        if not isinstance(visitor, scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor):
+            raise ValueError('{} is not an instance of scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'includedFov' and self.included_fov is not None:
+            return visitor._included_fov(self.included_fov)
 
 
-scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__name__ = "Geo3dSensorShapeConicAperture"
-scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__qualname__ = "Geo3dSensorShapeConicAperture"
-scout_chartdefinition_api_Geo3dSensorShapeConicAperture.__module__ = "nominal_api.scout_chartdefinition_api"
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__name__ = "Geo3dSensorShapeRectangular"
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__qualname__ = "Geo3dSensorShapeRectangular"
+scout_chartdefinition_api_Geo3dSensorShapeRectangular.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
-class scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor:
+class scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor:
 
     @abstractmethod
-    def _radius(self, radius: "scout_chartdefinition_api_VariableStaticOrChannel") -> Any:
-        pass
-
-    @abstractmethod
-    def _angle(self, angle: "scout_chartdefinition_api_VariableStaticOrChannel") -> Any:
+    def _included_fov(self, included_fov: "scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov") -> Any:
         pass
 
 
-scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__name__ = "Geo3dSensorShapeConicApertureVisitor"
-scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__qualname__ = "Geo3dSensorShapeConicApertureVisitor"
-scout_chartdefinition_api_Geo3dSensorShapeConicApertureVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor.__name__ = "Geo3dSensorShapeRectangularVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor.__qualname__ = "Geo3dSensorShapeRectangularVisitor"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularVisitor.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
-class scout_chartdefinition_api_Geo3dSensorShapeRectangular(ConjureBeanType):
-    """A rectangular frustum sensor volume.
+class scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov(ConjureBeanType):
+    """A rectangular frustum shaped sensor volume, defined by included angles.
     """
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'width': ConjureFieldDefinition('width', scout_chartdefinition_api_VariableStaticOrChannel),
-            'height': ConjureFieldDefinition('height', scout_chartdefinition_api_VariableStaticOrChannel),
+            'x_fov': ConjureFieldDefinition('xFov', scout_chartdefinition_api_VariableStaticOrChannel),
+            'y_fov': ConjureFieldDefinition('yFov', scout_chartdefinition_api_VariableStaticOrChannel),
             'length': ConjureFieldDefinition('length', scout_chartdefinition_api_VariableStaticOrChannel)
         }
 
-    __slots__: List[str] = ['_width', '_height', '_length']
+    __slots__: List[str] = ['_x_fov', '_y_fov', '_length']
 
-    def __init__(self, height: "scout_chartdefinition_api_VariableStaticOrChannel", length: "scout_chartdefinition_api_VariableStaticOrChannel", width: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
-        self._width = width
-        self._height = height
+    def __init__(self, length: "scout_chartdefinition_api_VariableStaticOrChannel", x_fov: "scout_chartdefinition_api_VariableStaticOrChannel", y_fov: "scout_chartdefinition_api_VariableStaticOrChannel") -> None:
+        self._x_fov = x_fov
+        self._y_fov = y_fov
         self._length = length
 
     @builtins.property
-    def width(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
-        """Width, in meters.
+    def x_fov(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Full field-of-view (FOV) angle in the sensor's horizontal direction, in degrees.
         """
-        return self._width
+        return self._x_fov
 
     @builtins.property
-    def height(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
-        """Height, in meters.
+    def y_fov(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
+        """Full field-of-view (FOV) angle in the sensor's vertical direction, in degrees.
         """
-        return self._height
+        return self._y_fov
 
     @builtins.property
     def length(self) -> "scout_chartdefinition_api_VariableStaticOrChannel":
@@ -31975,9 +31952,9 @@ class scout_chartdefinition_api_Geo3dSensorShapeRectangular(ConjureBeanType):
         return self._length
 
 
-scout_chartdefinition_api_Geo3dSensorShapeRectangular.__name__ = "Geo3dSensorShapeRectangular"
-scout_chartdefinition_api_Geo3dSensorShapeRectangular.__qualname__ = "Geo3dSensorShapeRectangular"
-scout_chartdefinition_api_Geo3dSensorShapeRectangular.__module__ = "nominal_api.scout_chartdefinition_api"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov.__name__ = "Geo3dSensorShapeRectangularIncludedFov"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov.__qualname__ = "Geo3dSensorShapeRectangularIncludedFov"
+scout_chartdefinition_api_Geo3dSensorShapeRectangularIncludedFov.__module__ = "nominal_api.scout_chartdefinition_api"
 
 
 class scout_chartdefinition_api_Geo3dSensorShapeSpherical(ConjureBeanType):
@@ -97847,6 +97824,31 @@ scout_video_api_VideoTimestampManifestVisitor.__qualname__ = "VideoTimestampMani
 scout_video_api_VideoTimestampManifestVisitor.__module__ = "nominal_api.scout_video_api"
 
 
+class scout_workbookcommon_api_AssetDataScopeInputValue(ConjureBeanType):
+    """An asset data scope input value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_asset_rid']
+
+    def __init__(self, asset_rid: str) -> None:
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+scout_workbookcommon_api_AssetDataScopeInputValue.__name__ = "AssetDataScopeInputValue"
+scout_workbookcommon_api_AssetDataScopeInputValue.__qualname__ = "AssetDataScopeInputValue"
+scout_workbookcommon_api_AssetDataScopeInputValue.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
 class scout_workbookcommon_api_AssetOffset(ConjureBeanType):
     """An offset that can be applied to an asset.
     """
@@ -97928,6 +97930,83 @@ class scout_workbookcommon_api_CheckAlertReference(ConjureBeanType):
 scout_workbookcommon_api_CheckAlertReference.__name__ = "CheckAlertReference"
 scout_workbookcommon_api_CheckAlertReference.__qualname__ = "CheckAlertReference"
 scout_workbookcommon_api_CheckAlertReference.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_DataScopeInputValue(ConjureUnionType):
+    _asset: Optional["scout_workbookcommon_api_AssetDataScopeInputValue"] = None
+    _run: Optional["scout_workbookcommon_api_RunDataScopeInputValue"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset': ConjureFieldDefinition('asset', scout_workbookcommon_api_AssetDataScopeInputValue),
+            'run': ConjureFieldDefinition('run', scout_workbookcommon_api_RunDataScopeInputValue)
+        }
+
+    def __init__(
+            self,
+            asset: Optional["scout_workbookcommon_api_AssetDataScopeInputValue"] = None,
+            run: Optional["scout_workbookcommon_api_RunDataScopeInputValue"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (asset is not None) + (run is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if asset is not None:
+                self._asset = asset
+                self._type = 'asset'
+            if run is not None:
+                self._run = run
+                self._type = 'run'
+
+        elif type_of_union == 'asset':
+            if asset is None:
+                raise ValueError('a union value must not be None')
+            self._asset = asset
+            self._type = 'asset'
+        elif type_of_union == 'run':
+            if run is None:
+                raise ValueError('a union value must not be None')
+            self._run = run
+            self._type = 'run'
+
+    @builtins.property
+    def asset(self) -> Optional["scout_workbookcommon_api_AssetDataScopeInputValue"]:
+        return self._asset
+
+    @builtins.property
+    def run(self) -> Optional["scout_workbookcommon_api_RunDataScopeInputValue"]:
+        return self._run
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_workbookcommon_api_DataScopeInputValueVisitor):
+            raise ValueError('{} is not an instance of scout_workbookcommon_api_DataScopeInputValueVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'asset' and self.asset is not None:
+            return visitor._asset(self.asset)
+        if self._type == 'run' and self.run is not None:
+            return visitor._run(self.run)
+
+
+scout_workbookcommon_api_DataScopeInputValue.__name__ = "DataScopeInputValue"
+scout_workbookcommon_api_DataScopeInputValue.__qualname__ = "DataScopeInputValue"
+scout_workbookcommon_api_DataScopeInputValue.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_DataScopeInputValueVisitor:
+
+    @abstractmethod
+    def _asset(self, asset: "scout_workbookcommon_api_AssetDataScopeInputValue") -> Any:
+        pass
+
+    @abstractmethod
+    def _run(self, run: "scout_workbookcommon_api_RunDataScopeInputValue") -> Any:
+        pass
+
+
+scout_workbookcommon_api_DataScopeInputValueVisitor.__name__ = "DataScopeInputValueVisitor"
+scout_workbookcommon_api_DataScopeInputValueVisitor.__qualname__ = "DataScopeInputValueVisitor"
+scout_workbookcommon_api_DataScopeInputValueVisitor.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
 class scout_workbookcommon_api_EventAlignTo(ConjureEnumType):
@@ -98223,6 +98302,31 @@ scout_workbookcommon_api_RunAlignment.__qualname__ = "RunAlignment"
 scout_workbookcommon_api_RunAlignment.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
+class scout_workbookcommon_api_RunDataScopeInputValue(ConjureBeanType):
+    """A run data scope input value.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'run_rid': ConjureFieldDefinition('runRid', scout_run_api_RunRid)
+        }
+
+    __slots__: List[str] = ['_run_rid']
+
+    def __init__(self, run_rid: str) -> None:
+        self._run_rid = run_rid
+
+    @builtins.property
+    def run_rid(self) -> str:
+        return self._run_rid
+
+
+scout_workbookcommon_api_RunDataScopeInputValue.__name__ = "RunDataScopeInputValue"
+scout_workbookcommon_api_RunDataScopeInputValue.__qualname__ = "RunDataScopeInputValue"
+scout_workbookcommon_api_RunDataScopeInputValue.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
 class scout_workbookcommon_api_RunOffset(ConjureBeanType):
     """An offset that can be applied to a run.
     """
@@ -98499,16 +98603,18 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
             'channel_variables': ConjureFieldDefinition('channelVariables', scout_channelvariables_api_WorkbookChannelVariableMap),
             'inputs': ConjureFieldDefinition('inputs', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookInputs]),
             'charts': ConjureFieldDefinition('charts', scout_chartdefinition_api_WorkbookVizDefinitionMap),
-            'settings': ConjureFieldDefinition('settings', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookSettings])
+            'settings': ConjureFieldDefinition('settings', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookSettings]),
+            'data_scope_inputs': ConjureFieldDefinition('dataScopeInputs', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookDataScopeInputs])
         }
 
-    __slots__: List[str] = ['_channel_variables', '_inputs', '_charts', '_settings']
+    __slots__: List[str] = ['_channel_variables', '_inputs', '_charts', '_settings', '_data_scope_inputs']
 
-    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"], inputs: Optional["scout_workbookcommon_api_WorkbookInputs"] = None, settings: Optional["scout_workbookcommon_api_WorkbookSettings"] = None) -> None:
+    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"], data_scope_inputs: Optional["scout_workbookcommon_api_WorkbookDataScopeInputs"] = None, inputs: Optional["scout_workbookcommon_api_WorkbookInputs"] = None, settings: Optional["scout_workbookcommon_api_WorkbookSettings"] = None) -> None:
         self._channel_variables = channel_variables
         self._inputs = inputs
         self._charts = charts
         self._settings = settings
+        self._data_scope_inputs = data_scope_inputs
 
     @builtins.property
     def channel_variables(self) -> Dict[str, "scout_channelvariables_api_ChannelVariable"]:
@@ -98528,10 +98634,121 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
     def settings(self) -> Optional["scout_workbookcommon_api_WorkbookSettings"]:
         return self._settings
 
+    @builtins.property
+    def data_scope_inputs(self) -> Optional["scout_workbookcommon_api_WorkbookDataScopeInputs"]:
+        return self._data_scope_inputs
+
 
 scout_workbookcommon_api_WorkbookContent.__name__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__qualname__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookDataScopeInput(ConjureBeanType):
+    """A data scope input that binds a variable name to an asset or run RID.
+The variable name is the map key.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'value': ConjureFieldDefinition('value', scout_workbookcommon_api_DataScopeInputValue)
+        }
+
+    __slots__: List[str] = ['_value']
+
+    def __init__(self, value: "scout_workbookcommon_api_DataScopeInputValue") -> None:
+        self._value = value
+
+    @builtins.property
+    def value(self) -> "scout_workbookcommon_api_DataScopeInputValue":
+        return self._value
+
+
+scout_workbookcommon_api_WorkbookDataScopeInput.__name__ = "WorkbookDataScopeInput"
+scout_workbookcommon_api_WorkbookDataScopeInput.__qualname__ = "WorkbookDataScopeInput"
+scout_workbookcommon_api_WorkbookDataScopeInput.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookDataScopeInputs(ConjureUnionType):
+    _v1: Optional["scout_workbookcommon_api_WorkbookDataScopeInputsV1"] = None
+
+    @builtins.classmethod
+    def _options(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'v1': ConjureFieldDefinition('v1', scout_workbookcommon_api_WorkbookDataScopeInputsV1)
+        }
+
+    def __init__(
+            self,
+            v1: Optional["scout_workbookcommon_api_WorkbookDataScopeInputsV1"] = None,
+            type_of_union: Optional[str] = None
+            ) -> None:
+        if type_of_union is None:
+            if (v1 is not None) != 1:
+                raise ValueError('a union must contain a single member')
+
+            if v1 is not None:
+                self._v1 = v1
+                self._type = 'v1'
+
+        elif type_of_union == 'v1':
+            if v1 is None:
+                raise ValueError('a union value must not be None')
+            self._v1 = v1
+            self._type = 'v1'
+
+    @builtins.property
+    def v1(self) -> Optional["scout_workbookcommon_api_WorkbookDataScopeInputsV1"]:
+        return self._v1
+
+    def accept(self, visitor) -> Any:
+        if not isinstance(visitor, scout_workbookcommon_api_WorkbookDataScopeInputsVisitor):
+            raise ValueError('{} is not an instance of scout_workbookcommon_api_WorkbookDataScopeInputsVisitor'.format(visitor.__class__.__name__))
+        if self._type == 'v1' and self.v1 is not None:
+            return visitor._v1(self.v1)
+
+
+scout_workbookcommon_api_WorkbookDataScopeInputs.__name__ = "WorkbookDataScopeInputs"
+scout_workbookcommon_api_WorkbookDataScopeInputs.__qualname__ = "WorkbookDataScopeInputs"
+scout_workbookcommon_api_WorkbookDataScopeInputs.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookDataScopeInputsVisitor:
+
+    @abstractmethod
+    def _v1(self, v1: "scout_workbookcommon_api_WorkbookDataScopeInputsV1") -> Any:
+        pass
+
+
+scout_workbookcommon_api_WorkbookDataScopeInputsVisitor.__name__ = "WorkbookDataScopeInputsVisitor"
+scout_workbookcommon_api_WorkbookDataScopeInputsVisitor.__qualname__ = "WorkbookDataScopeInputsVisitor"
+scout_workbookcommon_api_WorkbookDataScopeInputsVisitor.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookDataScopeInputsV1(ConjureBeanType):
+    """A map of data scope input variable name to its definition.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'inputs': ConjureFieldDefinition('inputs', Dict[scout_workbookcommon_api_WorkbookDataScopeInputName, scout_workbookcommon_api_WorkbookDataScopeInput])
+        }
+
+    __slots__: List[str] = ['_inputs']
+
+    def __init__(self, inputs: Dict[str, "scout_workbookcommon_api_WorkbookDataScopeInput"]) -> None:
+        self._inputs = inputs
+
+    @builtins.property
+    def inputs(self) -> Dict[str, "scout_workbookcommon_api_WorkbookDataScopeInput"]:
+        return self._inputs
+
+
+scout_workbookcommon_api_WorkbookDataScopeInputsV1.__name__ = "WorkbookDataScopeInputsV1"
+scout_workbookcommon_api_WorkbookDataScopeInputsV1.__qualname__ = "WorkbookDataScopeInputsV1"
+scout_workbookcommon_api_WorkbookDataScopeInputsV1.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
 class scout_workbookcommon_api_WorkbookInput(ConjureBeanType):
@@ -107217,6 +107434,8 @@ scout_rids_api_VizId = str
 scout_comparisonnotebook_api_ComparisonVizDefinitionMap = Dict[scout_rids_api_VizId, scout_comparisonnotebook_api_VizDefinition]
 
 scout_video_api_ErrorType = str
+
+scout_workbookcommon_api_WorkbookDataScopeInputName = str
 
 scout_comparisonnotebook_api_ComparisonChannelVariableMap = Dict[scout_comparisonnotebook_api_VariableName, scout_comparisonnotebook_api_ChannelVariable]
 

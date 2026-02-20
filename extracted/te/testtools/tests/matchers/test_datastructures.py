@@ -20,9 +20,9 @@ from testtools.matchers._datastructures import (
     MatchesSetwise,
     MatchesStructure,
 )
+from testtools.matchers.test import TestMatchersInterface
 
 from ..helpers import FullStackRunTest
-from ..matchers.helpers import TestMatchersInterface
 
 
 def run_doctest(obj, name):

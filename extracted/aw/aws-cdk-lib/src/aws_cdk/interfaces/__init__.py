@@ -123,18 +123,27 @@ class ResourceEnvironment:
         :param account: The AWS Account ID that this resource belongs to. Since this can be a Token (for example, when the account is CloudFormation's ``AWS::AccountId`` intrinsic), make sure to use ``Token.compareStrings()`` instead of comparing the values with direct string equality.
         :param region: The AWS Region that this resource belongs to. Since this can be a Token (for example, when the region is CloudFormation's ``AWS::Region`` intrinsic), make sure to use ``Token.compareStrings()`` instead of comparing the values with direct string equality.
 
-        :exampleMetadata: fixture=_generated
+        :exampleMetadata: nofixture infused
 
         Example::
 
-            # The code below shows an example of how to instantiate this type.
-            # The values are placeholders you should change.
-            from aws_cdk import interfaces
+            from aws_cdk.aws_iam import AddToResourcePolicyResult
+            from aws_cdk import CfnResource
+            from aws_cdk.aws_iam import IResourcePolicyFactory, IResourceWithPolicyV2, PolicyStatement, ResourceWithPolicies
+            from constructs import Construct, IConstruct
             
-            resource_environment = interfaces.ResourceEnvironment(
-                account="account",
-                region="region"
-            )
+            # scope: Construct
+            @jsii.implements(IResourcePolicyFactory)
+            class MyFactory:
+                def for_resource(self, resource):
+                    return {
+                        "env": resource.env,
+                        def add_to_resource_policy(self, statement):
+                            # custom implementation to add the statement to the resource policy
+                            return AddToResourcePolicyResult("statement_added"=True, "policy_dependable"=resource)
+                    }
+            
+            ResourceWithPolicies.register(scope, "AWS::KMS::Key", MyFactory())
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c5aaa43a6d0a198f8a3f9e8ab7ee8ce8d940df80e550839a285b920b7d6e816f)

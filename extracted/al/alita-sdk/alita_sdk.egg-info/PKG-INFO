@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: alita_sdk
-Version: 0.3.688
+Version: 0.4.2
 Summary: SDK for building langchain agents using resources from Alita
 Author-email: Artem Rozumenko <artyom.rozumenko@gmail.com>, Mikalai Biazruchka <mikalai_biazruchka@epam.com>, Roman Mitusov <roman_mitusov@epam.com>, Ivan Krakhmaliuk <lifedj27@gmail.com>, Artem Dubrovskiy <ad13box@gmail.com>
 License-Expression: Apache-2.0
@@ -58,6 +58,7 @@ Requires-Dist: pdf2image==1.16.3; extra == "runtime"
 Requires-Dist: pikepdf==8.7.1; extra == "runtime"
 Requires-Dist: docx2txt==0.8; extra == "runtime"
 Requires-Dist: mammoth==1.9.0; extra == "runtime"
+Requires-Dist: htmldocx>=0.0.6; extra == "runtime"
 Requires-Dist: reportlab==4.2.5; extra == "runtime"
 Requires-Dist: svglib==1.5.1; extra == "runtime"
 Requires-Dist: cairocffi==1.7.1; extra == "runtime"
@@ -115,6 +116,7 @@ Requires-Dist: astor~=0.8.1; extra == "tools"
 Requires-Dist: markdownify~=1.1.0; extra == "tools"
 Requires-Dist: requests_openapi==1.0.5; extra == "tools"
 Requires-Dist: duckduckgo_search==5.3.0; extra == "tools"
+Requires-Dist: playwright>=1.52.0; extra == "tools"
 Requires-Dist: google-api-python-client==2.154.0; extra == "tools"
 Requires-Dist: wikipedia==1.4.0; extra == "tools"
 Requires-Dist: lxml==5.2.2; extra == "tools"

@@ -1,0 +1,206 @@
+import typing
+import warnings
+from numbers import Number
+from typing import Union
+
+import pytest
+
+import plum
+from plum import add_conversion_method, add_promotion_rule, conversion_method
+from plum._promotion import _promotion_rule
+
+
+class Num:
+    pass
+
+
+class Re(Num):
+    pass
+
+
+class Rat(Re):
+    pass
+
+
+def test_convert(convert):
+    # Test basic conversion.
+    assert convert(1.0, float) == 1.0
+    assert convert(1.0, object) == 1.0
+    with pytest.raises(TypeError):
+        convert(1.0, int)
+
+    # Test conversion with inheritance.
+    r = Re()
+    assert convert(r, Re) == r
+    assert convert(r, Num) == r
+    with pytest.raises(TypeError):
+        convert(r, Rat)
+
+    # Test `add_conversion_method`.
+    add_conversion_method(float, int, lambda _: 2.0)
+    assert convert(1.0, float) == 1.0
+    assert convert(1.0, object) == 1.0
+    assert convert(1.0, int) == 2.0
+
+    # Test `conversion_method`.
+
+    @conversion_method(Num, Rat)
+    def num_to_fp(x):
+        return 3.0
+
+    assert convert(r, Re) == r
+    assert convert(r, Num) == r
+    assert convert(r, Rat) == 3.0
+
+    # Test that `conversion_method` returns the function.
+    assert num_to_fp(1) == 3.0
+
+
+def test_convert_resolve_type_hints(convert):
+    add_conversion_method(int, float, lambda x: 2.0)
+    # The below calls will only work if the type hint is resolved.
+    assert convert(1, plum.ModuleType("builtins", "float")) == 2.0
+    # This tests the one in the fallback of `_convert`.
+    assert convert(1, plum.ModuleType("builtins", "int")) == 1
+
+
+def test_default_conversion_methods():
+    # Conversion to `tuple`.
+    assert plum.convert(1, tuple) == (1,)
+    assert plum.convert((1,), tuple) == (1,)
+    assert plum.convert(((1,),), tuple) == ((1,),)
+    assert plum.convert([1], tuple) == (1,)
+    assert plum.convert([(1,)], tuple) == ((1,),)
+
+    # Conversion to `list`.
+    assert plum.convert(1, list) == [1]
+    assert plum.convert((1,), list) == [1]
+    assert plum.convert(((1,),), list) == [(1,)]
+    assert plum.convert([1], list) == [1]
+    assert plum.convert([(1,)], list) == [(1,)]
+
+    # Convert to `str`.
+    assert plum.convert(b"test", str) == "test"
+
+
+def test_promote(convert, promote):
+    assert promote() == ()
+    assert promote(1) == (1,)
+    assert promote(1.0) == (1.0,)
+    assert promote(1, 1) == (1, 1)
+    assert promote(1.0, 1.0) == (1.0, 1.0)
+    assert promote(1, 1, 1) == (1, 1, 1)
+    assert promote(1.0, 1.0, 1.0) == (1.0, 1.0, 1.0)
+    with pytest.raises(TypeError):
+        promote(1, 1.0)
+    with pytest.raises(TypeError):
+        promote(1.0, 1)
+
+    add_promotion_rule(int, float, float)
+
+    with pytest.raises(TypeError):
+        promote(1, 1.0)
+    with pytest.raises(TypeError):
+        promote(1.0, 1)
+
+    add_conversion_method(int, float, lambda x: x + 1.0)
+
+    assert promote(1, 1.0) == (2.0, 1.0)
+    assert promote(1, 1, 1.0) == (2.0, 2.0, 1.0)
+    assert promote(1.0, 1.0, 1) == (1.0, 1.0, 2.0)
+
+    with pytest.raises(TypeError):
+        promote(1, "1")
+    with pytest.raises(TypeError):
+        promote("1", 1)
+    with pytest.raises(TypeError):
+        promote(1.0, "1")
+    with pytest.raises(TypeError):
+        promote("1", 1.0)
+
+    add_promotion_rule(str, int, float)
+    add_promotion_rule(str, float, float)
+    add_conversion_method(str, float, lambda x: "lel")
+
+    assert promote(1, "1", 1.0) == (2.0, "lel", 1.0)
+    assert promote("1", 1, 1.0) == ("lel", 2.0, 1.0)
+    assert promote(1.0, "1", 1) == (1.0, "lel", 2.0)
+    assert promote("1", 1.0, "1") == ("lel", 1.0, "lel")
+
+
+@pytest.mark.parametrize("use_uniontype_union", [True, False])
+def test_promote_union(convert, promote, use_uniontype_union):
+    # Baseline promotion rules.
+    add_promotion_rule(int, float, float)
+    add_conversion_method(int, float, float)
+
+    # Union promotion rules.
+    if use_uniontype_union:
+        add_promotion_rule(str, int | float, float)
+        add_conversion_method(str, int | float, float)
+    else:
+        add_promotion_rule(str, Union[int, float], float)  # noqa: UP007
+        add_conversion_method(str, Union[int, float], float)  # noqa: UP007
+
+    assert promote(1, "1", "1") == (1.0, 1.0, 1.0)
+    assert promote("1", 1, 1) == (1.0, 1.0, 1.0)
+    assert promote(1.0, "1", 1) == (1.0, 1.0, 1.0)
+    assert promote("1", 1.0, 1) == (1.0, 1.0, 1.0)
+
+
+def test_promote_resolve_type_hints(convert, promote):
+    t = _promotion_rule(
+        plum.ModuleType("builtins", "int"),
+        plum.ModuleType("numbers", "Number"),
+    )
+    assert t == Number
+    t = _promotion_rule(
+        plum.ModuleType("numbers", "Number"),
+        plum.ModuleType("builtins", "int"),
+    )
+    assert t == Number
+
+
+def test_inheritance(convert, promote):
+    add_promotion_rule(Num, Rat, Num)
+    add_promotion_rule(Num, Re, Num)
+    add_promotion_rule(Rat, Re, Num)
+    add_conversion_method(Rat, Num, lambda x: "Num from Rat")
+    add_conversion_method(Re, Num, lambda x: "Num from Re")
+
+    n = Num()
+    assert promote(n, Rat()) == (n, "Num from Rat")
+    assert promote(Re(), n) == ("Num from Re", n)
+    assert promote(Re(), Rat()) == ("Num from Re", "Num from Rat")
+
+
+def test_self_promotion(convert, promote):
+    # This should trigger the "escape hatch" in `add_promotion_rule`. It also should not
+    # trigger a redefinition warning. Explicitly test for that.
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+
+        # Simple case where types are identical:
+        add_promotion_rule(Num, Num, Num)
+        n = Num()
+        assert promote(n, n) == (n, n)
+
+        # Also test a more complicated scenario where the types are equal, but
+        # not identical.
+        t1 = typing.Union[int, float]  # noqa: UP007
+        t2 = typing.Union[float, int]  # noqa: UP007
+        assert t1 is not t2
+        add_promotion_rule(t1, t2, str)
+        add_conversion_method(int, str, str)
+        add_conversion_method(float, str, str)
+        assert promote(1, 1.0) == ("1", "1.0")
+
+        # Also test a more complicated scenario where the types are equal, but not
+        # identical.
+        t1 = int | float
+        t2 = float | int
+        assert t1 is not t2
+        add_promotion_rule(t1, t2, str)
+        add_conversion_method(int, str, str)
+        add_conversion_method(float, str, str)
+        assert promote(1, 1.0) == ("1", "1.0")

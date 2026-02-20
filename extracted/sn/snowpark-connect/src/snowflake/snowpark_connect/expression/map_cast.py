@@ -149,6 +149,12 @@ def map_cast(
         to_type = StringType()
 
     match (from_type, to_type):
+        # Integral Types may require casting even if they are already the same type
+        # so that the generate SQL has explicit cast to NUMBER(p, 0) type to ensure proper emulation
+        case (_IntegralType(), _IntegralType()):
+            result_exp = apply_integral_overflow_with_ansi_check(
+                col, to_type, spark_sql_ansi_enabled
+            )
         case (_, _) if (from_type == to_type):
             result_exp = col
         case (NullType(), _):
@@ -247,11 +253,6 @@ def map_cast(
             result_exp = col.cast(LongType()).cast(to_type)
         case (_, BooleanType()) if isinstance(from_type, _NumericType):
             result_exp = col.cast(LongType()).cast(to_type)
-
-        case (_IntegralType(), _IntegralType()):
-            result_exp = apply_integral_overflow_with_ansi_check(
-                col, to_type, spark_sql_ansi_enabled
-            )
 
         # binary
         case (StringType(), BinaryType()):

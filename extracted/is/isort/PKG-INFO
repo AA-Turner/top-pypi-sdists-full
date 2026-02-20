@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: isort
-Version: 7.0.0
+Version: 8.0.0
 Summary: A Python utility / library to sort Python imports.
 Project-URL: Homepage, https://pycqa.github.io/isort/index.html
 Project-URL: Documentation, https://pycqa.github.io/isort/index.html
@@ -30,8 +30,6 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10.0
 Provides-Extra: colors
 Requires-Dist: colorama; extra == 'colors'
-Provides-Extra: plugins
-Requires-Dist: setuptools; extra == 'plugins'
 Description-Content-Type: text/markdown
 
 [![isort - isort your imports, so you don't have to.](https://raw.githubusercontent.com/pycqa/isort/main/art/logo_large.png)](https://pycqa.github.io/isort/)
@@ -61,7 +59,7 @@ isort is a Python utility / library to sort imports alphabetically and
 automatically separate into sections and by type. It provides a command line
 utility, Python library and [plugins for various
 editors](https://github.com/pycqa/isort/wiki/isort-Plugins) to
-quickly sort all your imports. It requires Python 3.9+ to run but
+quickly sort all your imports. It requires Python 3.10+ to run but
 supports formatting Python 2 code too.
 
 - [Try isort now from your browser!](https://pycqa.github.io/isort/docs/quick_start/0.-try.html)
@@ -310,13 +308,6 @@ isort provides a hook function that can be integrated into your Git
 pre-commit script to check Python code before committing.
 
 [More info here.](https://pycqa.github.io/isort/docs/configuration/git_hook.html)
-
-## Setuptools integration
-
-Upon installation, isort enables a `setuptools` command that checks
-Python files declared by your project.
-
-[More info here.](https://pycqa.github.io/isort/docs/configuration/setuptools_integration.html)
 
 ## Spread the word
 

@@ -140,7 +140,7 @@ class ChalkClient:
         default_job_timeout:
             The default wait timeout, in seconds, to wait for long-running jobs to complete
             when accessing query results.
-            Jobs will not time out if this timeout elapses. For no timeout, set to None.
+            Jobs will not time out if this timeout elapses. For no timeout, set to `None`.
             The default is no timeout.
         default_request_timeout:
             The default wait timeout, in seconds, to wait for network requests to complete.
@@ -150,7 +150,7 @@ class ChalkClient:
             This is separate from the request timeout and controls only the connection phase.
             If not specified, the default is no timeout.
         local
-            If True, point the client at a local version of the code.
+            If `True`, point the client at a local version of the code.
         ssl_context
             A `ssl.SSLContext` that can be loaded with self-signed certificates so that
             `requests` requests to servers hosted with self-signed certificates succeed.
@@ -223,7 +223,7 @@ class ChalkClient:
             The tags used to scope the resolvers.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         required_resolver_tags
-            If specified, *all* required_resolver_tags must be present on a resolver for it to be
+            If specified, *all* `required_resolver_tags` must be present on a resolver for it to be
             considered eligible to execute.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         branch
@@ -275,7 +275,7 @@ class ChalkClient:
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
         trace
             Force tracing on the query. Requests using `trace=True` will be slower
-            than requests using `trace=False`. Requires datadog tracing to be installed
+            than requests using `trace=False`. Requires Datadog tracing to be installed
             for this to have any effect
 
         Other Parameters
@@ -571,9 +571,9 @@ class ChalkClient:
         meta
             Arbitrary `key:value` pairs to associate with a query.
         store_plan_stages
-            If true, the plan will store the intermediate values at each stage in the plan
+            If `True`, the plan will store the intermediate values at each stage in the plan
         explain
-            If true, the plan will emit additional output to assist with debugging.
+            If `True`, the plan will emit additional output to assist with debugging.
         num_input_rows:
             The number of input rows that this plan will be run with. If unknown, specify `None`.
         headers
@@ -688,7 +688,7 @@ class ChalkClient:
             This context wraps a JSON-compatible dictionary or JSON string with type restrictions.
             See https://docs.chalk.ai/api-docs#ChalkContext for more information.
         required_resolver_tags
-            If specified, *all* required_resolver_tags must be present on a resolver for it to be
+            If specified, *all* `required_resolver_tags` must be present on a resolver for it to be
             considered eligible to execute.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         show_table
@@ -867,12 +867,12 @@ class ChalkClient:
         wait
             Whether to wait for job completion.
         show_progress
-            If True, progress bars will be shown while the query is running.
+            If `True`, progress bars will be shown while the query is running.
             Primarily intended for use in a Jupyter-like notebook environment.
             This flag will also be propagated to the methods of the resulting
             `Dataset`.
         timeout:
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -965,8 +965,8 @@ class ChalkClient:
         recompute_features
             Used to control whether resolvers are allowed to run in order to compute feature values.
 
-            If True, all output features will be recomputed by resolvers.
-            If False, all output features will be sampled from the offline store.
+            If `True`, all output features will be recomputed by resolvers.
+            If `False`, all output features will be sampled from the offline store.
             If a list, all output features in recompute_features will be recomputed,
             and all other output features will be sampled from the offline store.
         sample_features
@@ -988,7 +988,7 @@ class ChalkClient:
             If not specified, all samples will be returned.
         branch
             If specified, Chalk will route your request to the relevant branch.
-            If None, Chalk will route your request to a non-branch deployment.
+            If `None`, Chalk will route your request to a non-branch deployment.
             If not specified, Chalk will use the current client's branch info.
         correlation_id
             You can specify a correlation ID to be used in logs and web interfaces.
@@ -1001,12 +1001,12 @@ class ChalkClient:
         wait
             Whether to wait for job completion.
         show_progress
-            If True, progress bars will be shown while the query is running.
+            If `True`, progress bars will be shown while the query is running.
             Primarily intended for use in a Jupyter-like notebook environment.
             This flag will also be propagated to the methods of the resulting
             `Dataset`.
         timeout:
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1017,7 +1017,7 @@ class ChalkClient:
             If specified, the query will only be run on data observed before this timestamp.
             Accepts strings in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
         store_plan_stages
-            If True, the output of each of the query plan stages will be stored
+            If `True`, the output of each of the query plan stages will be stored
             in S3/GCS. This will dramatically impact the performance of the query,
             so it should only be used for debugging.
             These files will be visible in the web dashboard's query detail view, and
@@ -1026,19 +1026,19 @@ class ChalkClient:
             The tags used to scope the resolvers.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         required_resolver_tags
-            If specified, *all* required_resolver_tags must be present on a resolver for it to be
+            If specified, *all* `required_resolver_tags` must be present on a resolver for it to be
             considered eligible to execute.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         resources
             Override resource requests for processes with isolated resources, e.g., offline queries and cron jobs.
             See `ResourceRequests` for more information.
         run_asynchronously
-            Boots a kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
+            Boots a Kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
             This is useful for large datasets and jobs that require a long time to run.
         store_online
-            If True, the output of the query will be stored in the online store.
+            If `True`, the output of the query will be stored in the online store.
         store_offline
-            If True, the output of the query will be stored in the offline store.
+            If `True`, the output of the query will be stored in the offline store.
         num_shards
             If specified, the query will be run asynchronously, splitting the input across `num_shards` shards.
         num_workers
@@ -1111,7 +1111,7 @@ class ChalkClient:
         name
             The name of the scheduled query to be triggered.
         incremental_resolvers
-            If set to None, Chalk will incrementalize resolvers in the query's root namespaces.
+            If set to `None`, Chalk will incrementalize resolvers in the query's root namespaces.
             If set to a list of resolvers, this set will be used for incrementalization.
             Incremental resolvers must return a feature time in its output, and must return a `DataFrame`.
             Most commonly, this will be the name of a SQL file resolver. Chalk will ingest all new data
@@ -1296,8 +1296,8 @@ class ChalkClient:
         recompute_features
             Used to control whether resolvers are allowed to run in order to compute feature values.
 
-            If True, all output features will be recomputed by resolvers.
-            If False, all output features will be sampled from the offline store.
+            If `True`, all output features will be recomputed by resolvers.
+            If `False`, all output features will be sampled from the offline store.
             If a list, all output features in recompute_features will be recomputed,
             and all other output features will be sampled from the offline store.
         sample_features
@@ -1315,7 +1315,7 @@ class ChalkClient:
             If not specified, all samples will be returned.
         branch
             If specified, Chalk will route your request to the relevant branch.
-            If None, Chalk will route your request to a non-branch deployment.
+            If `None`, Chalk will route your request to a non-branch deployment.
             If not specified, Chalk will use the current client's branch info.
         correlation_id
             You can specify a correlation ID to be used in logs and web interfaces.
@@ -1328,12 +1328,12 @@ class ChalkClient:
         wait
             Whether to wait for job completion.
         show_progress
-            If True, progress bars will be shown while the query is running.
+            If `True`, progress bars will be shown while the query is running.
             Primarily intended for use in a Jupyter-like notebook environment.
             This flag will also be propagated to the methods of the resulting
             `Dataset`.
         timeout:
-            How long to wait, in seconds, for job completion before raising a TimeoutError.
+            How long to wait, in seconds, for job completion before raising a `TimeoutError`.
             Jobs will continue to run in the background if they take longer than this timeout.
             For no timeout, set to `None`. If no timeout is specified, the client's default
             timeout is used.
@@ -1344,7 +1344,7 @@ class ChalkClient:
             If specified, the query will only be run on data observed before this timestamp.
             Accepts strings in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
         store_plan_stages
-            If True, the output of each of the query plan stages will be stored
+            If `True`, the output of each of the query plan stages will be stored
             in S3/GCS. This will dramatically impact the performance of the query,
             so it should only be used for debugging.
             These files will be visible in the web dashboard's query detail view, and
@@ -1353,19 +1353,19 @@ class ChalkClient:
             The tags used to scope the resolvers.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         required_resolver_tags
-            If specified, *all* required_resolver_tags must be present on a resolver for it to be
+            If specified, *all* `required_resolver_tags` must be present on a resolver for it to be
             considered eligible to execute.
             See https://docs.chalk.ai/docs/resolver-tags for more information.
         resources
             Override resource requests for processes with isolated resources, e.g., offline queries and cron jobs.
             See `ResourceRequests` for more information.
         run_asynchronously
-            Boots a kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
+            Boots a Kubernetes job to run the queries in their own pods, separate from the engine and branch servers.
             This is useful for large datasets and jobs that require a long time to run.
         store_online
-            If True, the output of the query will be stored in the online store.
+            If `True`, the output of the query will be stored in the online store.
         store_offline
-            If True, the output of the query will be stored in the offline store.
+            If `True`, the output of the query will be stored in the offline store.
         num_shards
             If specified, the query will be run asynchronously, splitting the input across `num_shards` shards.
         num_workers
@@ -1449,9 +1449,9 @@ class ChalkClient:
             If specified, the resolver will only ingest data observed after this timestamp.
             Accepts strings in [ISO 8601](https://en.wikipedia.org/wiki/ISO_8601) format.
         store_online
-            If True, the resolver run output will be stored in the online store.
+            If `True`, the resolver run output will be stored in the online store.
         store_offline
-            If True, the resolver run output will be stored in the offline store.
+            If `True`, the resolver run output will be stored in the offline store.
         idempotency_key
             If specified, the resolver run will be idempotent with respect to the key.
         branch
@@ -1563,9 +1563,9 @@ class ChalkClient:
         primary_keys
             The primary keys of the observations that should be targeted for deletion.
         retain_offline
-            If True, the given observations will not be dropped from the offline store
+            If `True`, the given observations will not be dropped from the offline store
         retain_online
-            If True, the given observations will not be dropped from the online store
+            If `True`, the given observations will not be dropped from the online store
 
         Returns
         -------
@@ -1605,9 +1605,9 @@ class ChalkClient:
         features
             A list of the feature names of the features that should be dropped.
         retain_offline
-            If True, features will not be dropped from the offline store
+            If `True`, features will not be dropped from the offline store
         retain_online
-            If True, features will not be dropped from the online store
+            If `True`, features will not be dropped from the online store
 
 
         Returns

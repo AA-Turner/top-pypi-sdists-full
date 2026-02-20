@@ -59,20 +59,7 @@ class TestLegalEntities:
             business_description="business_description",
             business_name="business_name",
             citizenship_country="citizenship_country",
-            compliance_details={
-                "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "issuer": "issuer",
-                "live_mode": True,
-                "object": "object",
-                "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_url": "token_url",
-                "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "validated": True,
-                "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-            },
+            connection_id="connection_id",
             country_of_incorporation="country_of_incorporation",
             date_formed=parse_date("2019-12-27"),
             date_of_birth=parse_date("2019-12-27"),
@@ -133,20 +120,7 @@ class TestLegalEntities:
                         "business_description": "business_description",
                         "business_name": "business_name",
                         "citizenship_country": "citizenship_country",
-                        "compliance_details": {
-                            "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                            "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "issuer": "issuer",
-                            "live_mode": True,
-                            "object": "object",
-                            "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "token_url": "token_url",
-                            "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "validated": True,
-                            "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                        },
+                        "connection_id": "connection_id",
                         "country_of_incorporation": "country_of_incorporation",
                         "date_formed": parse_date("2019-12-27"),
                         "date_of_birth": parse_date("2019-12-27"),
@@ -180,6 +154,7 @@ class TestLegalEntities:
                         "legal_entity_associations": [],
                         "legal_entity_type": "business",
                         "legal_structure": "corporation",
+                        "listed_exchange": "listed_exchange",
                         "metadata": {
                             "key": "value",
                             "foo": "bar",
@@ -192,8 +167,21 @@ class TestLegalEntities:
                         "preferred_name": "preferred_name",
                         "prefix": "prefix",
                         "primary_social_media_sites": ["string"],
+                        "regulators": [
+                            {
+                                "jurisdiction": "jurisdiction",
+                                "name": "name",
+                                "registration_number": "registration_number",
+                            }
+                        ],
                         "risk_rating": "low",
+                        "status": "active",
                         "suffix": "suffix",
+                        "third_party_verification": {
+                            "vendor": "persona",
+                            "vendor_verification_id": "vendor_verification_id",
+                        },
+                        "ticker_symbol": "ticker_symbol",
                         "wealth_and_employment_details": {
                             "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                             "annual_income": 0,
@@ -222,6 +210,7 @@ class TestLegalEntities:
                 }
             ],
             legal_structure="corporation",
+            listed_exchange="listed_exchange",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -234,8 +223,21 @@ class TestLegalEntities:
             preferred_name="preferred_name",
             prefix="prefix",
             primary_social_media_sites=["string"],
+            regulators=[
+                {
+                    "jurisdiction": "jurisdiction",
+                    "name": "name",
+                    "registration_number": "registration_number",
+                }
+            ],
             risk_rating="low",
+            status="active",
             suffix="suffix",
+            third_party_verification={
+                "vendor": "persona",
+                "vendor_verification_id": "vendor_verification_id",
+            },
+            ticker_symbol="ticker_symbol",
             wealth_and_employment_details={
                 "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 "annual_income": 0,
@@ -359,20 +361,6 @@ class TestLegalEntities:
             business_description="business_description",
             business_name="business_name",
             citizenship_country="citizenship_country",
-            compliance_details={
-                "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "issuer": "issuer",
-                "live_mode": True,
-                "object": "object",
-                "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_url": "token_url",
-                "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "validated": True,
-                "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-            },
             country_of_incorporation="country_of_incorporation",
             date_formed=parse_date("2019-12-27"),
             date_of_birth=parse_date("2019-12-27"),
@@ -404,6 +392,7 @@ class TestLegalEntities:
             intended_use="intended_use",
             last_name="last_name",
             legal_structure="corporation",
+            listed_exchange="listed_exchange",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -416,8 +405,21 @@ class TestLegalEntities:
             preferred_name="preferred_name",
             prefix="prefix",
             primary_social_media_sites=["string"],
+            regulators=[
+                {
+                    "jurisdiction": "jurisdiction",
+                    "name": "name",
+                    "registration_number": "registration_number",
+                }
+            ],
             risk_rating="low",
+            status="active",
             suffix="suffix",
+            third_party_verification={
+                "vendor": "persona",
+                "vendor_verification_id": "vendor_verification_id",
+            },
+            ticker_symbol="ticker_symbol",
             wealth_and_employment_details={
                 "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 "annual_income": 0,
@@ -486,6 +488,7 @@ class TestLegalEntities:
             metadata={"foo": "string"},
             per_page=0,
             show_deleted="show_deleted",
+            status="pending",
         )
         assert_matches_type(SyncPage[LegalEntity], legal_entity, path=["response"])
 
@@ -554,20 +557,7 @@ class TestAsyncLegalEntities:
             business_description="business_description",
             business_name="business_name",
             citizenship_country="citizenship_country",
-            compliance_details={
-                "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "issuer": "issuer",
-                "live_mode": True,
-                "object": "object",
-                "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_url": "token_url",
-                "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "validated": True,
-                "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-            },
+            connection_id="connection_id",
             country_of_incorporation="country_of_incorporation",
             date_formed=parse_date("2019-12-27"),
             date_of_birth=parse_date("2019-12-27"),
@@ -628,20 +618,7 @@ class TestAsyncLegalEntities:
                         "business_description": "business_description",
                         "business_name": "business_name",
                         "citizenship_country": "citizenship_country",
-                        "compliance_details": {
-                            "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                            "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "issuer": "issuer",
-                            "live_mode": True,
-                            "object": "object",
-                            "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "token_url": "token_url",
-                            "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                            "validated": True,
-                            "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                        },
+                        "connection_id": "connection_id",
                         "country_of_incorporation": "country_of_incorporation",
                         "date_formed": parse_date("2019-12-27"),
                         "date_of_birth": parse_date("2019-12-27"),
@@ -675,6 +652,7 @@ class TestAsyncLegalEntities:
                         "legal_entity_associations": [],
                         "legal_entity_type": "business",
                         "legal_structure": "corporation",
+                        "listed_exchange": "listed_exchange",
                         "metadata": {
                             "key": "value",
                             "foo": "bar",
@@ -687,8 +665,21 @@ class TestAsyncLegalEntities:
                         "preferred_name": "preferred_name",
                         "prefix": "prefix",
                         "primary_social_media_sites": ["string"],
+                        "regulators": [
+                            {
+                                "jurisdiction": "jurisdiction",
+                                "name": "name",
+                                "registration_number": "registration_number",
+                            }
+                        ],
                         "risk_rating": "low",
+                        "status": "active",
                         "suffix": "suffix",
+                        "third_party_verification": {
+                            "vendor": "persona",
+                            "vendor_verification_id": "vendor_verification_id",
+                        },
+                        "ticker_symbol": "ticker_symbol",
                         "wealth_and_employment_details": {
                             "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                             "annual_income": 0,
@@ -717,6 +708,7 @@ class TestAsyncLegalEntities:
                 }
             ],
             legal_structure="corporation",
+            listed_exchange="listed_exchange",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -729,8 +721,21 @@ class TestAsyncLegalEntities:
             preferred_name="preferred_name",
             prefix="prefix",
             primary_social_media_sites=["string"],
+            regulators=[
+                {
+                    "jurisdiction": "jurisdiction",
+                    "name": "name",
+                    "registration_number": "registration_number",
+                }
+            ],
             risk_rating="low",
+            status="active",
             suffix="suffix",
+            third_party_verification={
+                "vendor": "persona",
+                "vendor_verification_id": "vendor_verification_id",
+            },
+            ticker_symbol="ticker_symbol",
             wealth_and_employment_details={
                 "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 "annual_income": 0,
@@ -861,20 +866,6 @@ class TestAsyncLegalEntities:
             business_description="business_description",
             business_name="business_name",
             citizenship_country="citizenship_country",
-            compliance_details={
-                "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
-                "created_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "discarded_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "issuer": "issuer",
-                "live_mode": True,
-                "object": "object",
-                "token_expires_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_issued_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "token_url": "token_url",
-                "updated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-                "validated": True,
-                "validated_at": parse_datetime("2019-12-27T18:11:19.117Z"),
-            },
             country_of_incorporation="country_of_incorporation",
             date_formed=parse_date("2019-12-27"),
             date_of_birth=parse_date("2019-12-27"),
@@ -906,6 +897,7 @@ class TestAsyncLegalEntities:
             intended_use="intended_use",
             last_name="last_name",
             legal_structure="corporation",
+            listed_exchange="listed_exchange",
             metadata={
                 "key": "value",
                 "foo": "bar",
@@ -918,8 +910,21 @@ class TestAsyncLegalEntities:
             preferred_name="preferred_name",
             prefix="prefix",
             primary_social_media_sites=["string"],
+            regulators=[
+                {
+                    "jurisdiction": "jurisdiction",
+                    "name": "name",
+                    "registration_number": "registration_number",
+                }
+            ],
             risk_rating="low",
+            status="active",
             suffix="suffix",
+            third_party_verification={
+                "vendor": "persona",
+                "vendor_verification_id": "vendor_verification_id",
+            },
+            ticker_symbol="ticker_symbol",
             wealth_and_employment_details={
                 "id": "182bd5e5-6e1a-4fe4-a799-aa6d9a6ab26e",
                 "annual_income": 0,
@@ -990,6 +995,7 @@ class TestAsyncLegalEntities:
             metadata={"foo": "string"},
             per_page=0,
             show_deleted="show_deleted",
+            status="pending",
         )
         assert_matches_type(AsyncPage[LegalEntity], legal_entity, path=["response"])
 

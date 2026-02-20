@@ -12,7 +12,6 @@
     Do not edit the class manually.
 """  # noqa: E501
 
-
 # import models into model package
 from onfido.models.address import Address
 from onfido.models.address_builder import AddressBuilder
@@ -41,14 +40,12 @@ from onfido.models.complete_task_builder import CompleteTaskBuilder
 from onfido.models.complete_task_data_builder import CompleteTaskDataBuilder
 from onfido.models.country_codes import CountryCodes
 from onfido.models.device_intelligence_breakdown import DeviceIntelligenceBreakdown
-from onfido.models.device_intelligence_breakdown_breakdown import DeviceIntelligenceBreakdownBreakdown
 from onfido.models.device_intelligence_breakdown_device import DeviceIntelligenceBreakdownDevice
 from onfido.models.device_intelligence_breakdown_device_breakdown import DeviceIntelligenceBreakdownDeviceBreakdown
-from onfido.models.device_intelligence_breakdown_properties import DeviceIntelligenceBreakdownProperties
-from onfido.models.device_intelligence_breakdown_properties_device import DeviceIntelligenceBreakdownPropertiesDevice
-from onfido.models.device_intelligence_breakdown_properties_geolocation import DeviceIntelligenceBreakdownPropertiesGeolocation
-from onfido.models.device_intelligence_breakdown_properties_ip import DeviceIntelligenceBreakdownPropertiesIp
 from onfido.models.device_intelligence_properties import DeviceIntelligenceProperties
+from onfido.models.device_intelligence_properties_device import DeviceIntelligencePropertiesDevice
+from onfido.models.device_intelligence_properties_geolocation import DeviceIntelligencePropertiesGeolocation
+from onfido.models.device_intelligence_properties_ip import DeviceIntelligencePropertiesIp
 from onfido.models.device_intelligence_report import DeviceIntelligenceReport
 from onfido.models.document import Document
 from onfido.models.document_breakdown import DocumentBreakdown
@@ -97,6 +94,7 @@ from onfido.models.document_properties_document_numbers_inner import DocumentPro
 from onfido.models.document_properties_driving_licence_information_item import DocumentPropertiesDrivingLicenceInformationItem
 from onfido.models.document_properties_extracted_data import DocumentPropertiesExtractedData
 from onfido.models.document_properties_nfc import DocumentPropertiesNfc
+from onfido.models.document_properties_with_driving_licence_information import DocumentPropertiesWithDrivingLicenceInformation
 from onfido.models.document_report import DocumentReport
 from onfido.models.document_report_shared import DocumentReportShared
 from onfido.models.document_response import DocumentResponse
@@ -303,6 +301,7 @@ from onfido.models.webhook_event_object_status import WebhookEventObjectStatus
 from onfido.models.webhook_event_payload import WebhookEventPayload
 from onfido.models.webhook_event_payload_object import WebhookEventPayloadObject
 from onfido.models.webhook_event_payload_resource import WebhookEventPayloadResource
+from onfido.models.webhook_event_resource_status import WebhookEventResourceStatus
 from onfido.models.webhook_event_resource_type import WebhookEventResourceType
 from onfido.models.webhook_event_type import WebhookEventType
 from onfido.models.webhook_resend import WebhookResend
@@ -320,3 +319,4 @@ from onfido.models.workflow_run_request import WorkflowRunRequest
 from onfido.models.workflow_run_response import WorkflowRunResponse
 from onfido.models.workflow_run_shared import WorkflowRunShared
 from onfido.models.workflow_run_status import WorkflowRunStatus
+

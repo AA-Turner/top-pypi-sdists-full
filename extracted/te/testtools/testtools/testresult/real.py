@@ -2226,6 +2226,7 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
         self._started = False
         self._tags: TagContext | None = None
         self.__now: datetime.datetime | None = None
+        self._subtest_failures: list[tuple[unittest.TestCase, ExcInfo]] = []
 
     def _get_failfast(self) -> bool:
         return len(self.targets) == 2
@@ -2245,11 +2246,43 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
             self.startTestRun()
         self.status(test_id=test.id(), test_status="inprogress", timestamp=self._now())
         self._tags = TagContext(self._tags)
+        self._subtest_failures = []
 
     def stopTest(self, test: unittest.TestCase) -> None:
         # NOTE: In Python 3.12.1 skipped tests may not call startTest()
         if self._tags is not None:
             self._tags = self._tags.parent
+        # If any subtests failed, emit the failure details and a fail status
+        # for the parent test. When all subtests pass, unittest calls
+        # addSuccess for the parent, so we don't need to emit a status here.
+        if self._subtest_failures:
+            test_id = test.id()
+            now = self._now()
+            # Emit traceback for each failed subtest as a file attachment
+            for subtest, err in self._subtest_failures:
+                # Use subtest description to create unique attachment name
+                subtest_desc = subtest._subDescription()  # type: ignore[attr-defined]
+                attachment_name = f"traceback {subtest_desc}"
+                content = TracebackContent(err, subtest)
+                mime_type = repr(content.content_type)
+                file_bytes = b"".join(content.iter_bytes())
+                self.status(
+                    file_name=attachment_name,
+                    file_bytes=file_bytes,
+                    eof=True,
+                    mime_type=mime_type,
+                    test_id=test_id,
+                    timestamp=now,
+                )
+            # Emit final fail status for the parent test
+            self.status(
+                test_id=test_id,
+                test_status="fail",
+                test_tags=self.current_tags,
+                timestamp=now,
+            )
+        # Clear subtest tracking
+        self._subtest_failures = []
 
     def addError(
         self,
@@ -2344,6 +2377,26 @@ class ExtendedToStreamDecorator(CopyStreamResult, StreamSummary, TestControl):
         self, test: unittest.TestCase, details: DetailsDict | None = None
     ) -> None:
         self._convert(test, None, details, "success")
+
+    def addSubTest(
+        self,
+        test: unittest.TestCase,
+        subtest: unittest.TestCase,
+        err: ExcInfo | None,
+    ) -> None:
+        """Handle a subtest result.
+
+        This is called by unittest when a subtest completes. Subtest failures
+        are collected and reported as attachments to the parent test, so the
+        test count reflects only the parent test (matching unittest behavior).
+
+        :param test: The original test case.
+        :param subtest: The subtest instance (has its own id() method).
+        :param err: None if successful, exc_info tuple if failed.
+        """
+        # Collect failures to report when the parent test completes
+        if err is not None:
+            self._subtest_failures.append((subtest, err))
 
     def _check_args(self, err: ExcInfo | None, details: DetailsDict | None) -> None:
         param_count = 0
@@ -2699,6 +2752,14 @@ class TestResultDecorator:
         self, test: unittest.TestCase, details: DetailsDict | None = None
     ) -> None:
         self.decorated.addUnexpectedSuccess(test, details=details)
+
+    def addSubTest(
+        self,
+        test: unittest.TestCase,
+        subtest: unittest.TestCase,
+        err: ExcInfo | None,
+    ) -> None:
+        self.decorated.addSubTest(test, subtest, err)  # type: ignore[arg-type]
 
     def addDuration(self, test: unittest.TestCase, duration: float) -> None:
         self.decorated.addDuration(test, duration)

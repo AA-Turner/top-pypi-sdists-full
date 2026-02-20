@@ -210,6 +210,18 @@ class CollectorValidationService:
         dc = self._user_service.get_collector(dc_id)
 
         # Filter integration list to just integrations for this dc and dedupe connections.
+        def _is_active_integration(integration: dict) -> bool:
+            if integration.get("isDeleted") or integration.get("is_deleted"):
+                return False
+            if integration.get("isDisabled") or integration.get("is_disabled"):
+                return False
+            return True
+
+        def _is_active_connection(connection: dict) -> bool:
+            if connection.get("isActive") is False or connection.get("is_active") is False:
+                return False
+            return True
+
         all_integrations = [
             integration
             for integration in (
@@ -218,6 +230,7 @@ class CollectorValidationService:
                 + (self._user_service.etl_containers or [])
             )
             if integration.get("dataCollector", {}).get("uuid") == dc.uuid
+            and _is_active_integration(integration)
         ]
         seen_uuids = set()  # Keep track of seen connection UUIDs
         for integration in all_integrations:
@@ -225,9 +238,11 @@ class CollectorValidationService:
 
             for connection in integration.get("connections", []):
                 connection_uuid = connection.get("uuid")
-
-                # If the UUID is not seen before, add the connection to the unique list
-                if connection_uuid not in seen_uuids:
+                if (
+                    connection_uuid
+                    and connection_uuid not in seen_uuids
+                    and _is_active_connection(connection)
+                ):
                     unique_connections.append(connection)
                     seen_uuids.add(connection_uuid)
 

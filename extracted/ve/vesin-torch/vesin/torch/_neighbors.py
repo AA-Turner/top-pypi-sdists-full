@@ -6,18 +6,27 @@ import torch
 class NeighborList:
     """A neighbor list calculator that can be used with TorchScript."""
 
-    def __init__(self, cutoff: float, full_list: bool, sorted: bool = False):
+    def __init__(
+        self,
+        cutoff: float,
+        full_list: bool,
+        sorted: bool = False,
+        algorithm: str = "auto",
+    ):
         """
         :param cutoff: spherical cutoff for this neighbor list
         :param full_list: should we return each pair twice (as ``i-j`` and ``j-i``) or
             only once
         :param sorted: Should vesin sort the returned pairs in lexicographic order
             (sorting both ``i`` and then ``j`` at constant ``i``)?
+        :param algorithm: algorithm to use when computing the neighbor list. One of
+            ``"auto"``, ``"brute_force"``, or ``"cell_list"``.
         """
         self._c = torch.classes.vesin._NeighborList(
             cutoff=cutoff,
             full_list=full_list,
             sorted=sorted,
+            algorithm=algorithm,
         )
 
     def compute(
@@ -25,7 +34,7 @@ class NeighborList:
         points: torch.Tensor,
         box: torch.Tensor,
         periodic: Union[bool, torch.Tensor],
-        quantities: str,
+        quantities: str = "ij",
         copy: bool = True,
     ) -> List[torch.Tensor]:
         """
@@ -57,10 +66,27 @@ class NeighborList:
         if isinstance(periodic, bool):
             periodic = torch.as_tensor(periodic)
 
-        return self._c.compute(
+        initial_dtype = points.dtype
+        if box.dtype != initial_dtype:
+            raise RuntimeError(
+                "`points` and `box` must have the same dtype, "
+                f"got {points.dtype} and {box.dtype}"
+            )
+
+        points = points.to(torch.float64)
+        box = box.to(torch.float64)
+
+        results = self._c.compute(
             points=points,
             box=box,
             periodic=periodic,
             quantities=quantities,
             copy=copy,
         )
+
+        updated_results = []
+        for q, result in zip(quantities, results, strict=True):
+            if q in ("d", "D"):
+                result = result.to(initial_dtype)
+            updated_results.append(result)
+        return updated_results

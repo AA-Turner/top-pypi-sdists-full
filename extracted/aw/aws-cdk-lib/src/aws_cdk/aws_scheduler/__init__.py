@@ -5097,7 +5097,11 @@ class ScheduleGroup(
         self,
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
-        '''Grant delete schedule permission for schedules in this group to the given principal [disable-awslint:no-grants].
+        '''Grant delete schedule permission for schedules in this group to the given principal.
+
+        The use of this method is discouraged. Please use ``grants.deleteSchedules()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''
@@ -5111,7 +5115,11 @@ class ScheduleGroup(
         self,
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
-        '''Grant list and get schedule permissions for schedules in this group to the given principal [disable-awslint:no-grants].
+        '''Grant list and get schedule permissions for schedules in this group to the given principal.
+
+        The use of this method is discouraged. Please use ``grants.readSchedules()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''
@@ -5125,7 +5133,11 @@ class ScheduleGroup(
         self,
         identity: "_IGrantable_71c4f5de",
     ) -> "_Grant_a7ae64f8":
-        '''Grant create and update schedule permissions for schedules in this group to the given principal [disable-awslint:no-grants].
+        '''Grant create and update schedule permissions for schedules in this group to the given principal.
+
+        The use of this method is discouraged. Please use ``grants.writeSchedules()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param identity: -
         '''

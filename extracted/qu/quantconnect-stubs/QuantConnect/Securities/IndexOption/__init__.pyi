@@ -13,6 +13,42 @@ import System
 import System.Collections.Generic
 
 
+class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolProperties):
+    """Index Option Symbol Properties"""
+
+    @property
+    def minimum_price_variation(self) -> float:
+        """Minimum price variation, subject to variability due to contract price"""
+        ...
+
+    @overload
+    def __init__(self, description: str, quote_currency: str, contract_multiplier: float, pip_size: float, lot_size: float) -> None:
+        """
+        Creates an instance of index symbol properties
+        
+        :param description: Description of the Symbol
+        :param quote_currency: Currency the price is quoted in
+        :param contract_multiplier: Contract multiplier of the index option
+        :param pip_size: Minimum price variation
+        :param lot_size: Minimum order lot size
+        """
+        ...
+
+    @overload
+    def __init__(self, properties: QuantConnect.Securities.SymbolProperties) -> None:
+        """
+        Creates instance of index symbol properties
+        
+        :param properties: 
+        """
+        ...
+
+    @staticmethod
+    def minimum_price_variation_for_price(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference_price: typing.Optional[float]) -> float:
+        """Minimum price variation, subject to variability due to contract price"""
+        ...
+
+
 class IndexOptionSymbol(System.Object):
     """Index Option Symbol"""
 
@@ -60,59 +96,10 @@ class IndexOptionSymbol(System.Object):
         ...
 
 
-class IndexOptionSymbolProperties(QuantConnect.Securities.Option.OptionSymbolProperties):
-    """Index Option Symbol Properties"""
-
-    @property
-    def minimum_price_variation(self) -> float:
-        """Minimum price variation, subject to variability due to contract price"""
-        ...
-
-    @overload
-    def __init__(self, description: str, quote_currency: str, contract_multiplier: float, pip_size: float, lot_size: float) -> None:
-        """
-        Creates an instance of index symbol properties
-        
-        :param description: Description of the Symbol
-        :param quote_currency: Currency the price is quoted in
-        :param contract_multiplier: Contract multiplier of the index option
-        :param pip_size: Minimum price variation
-        :param lot_size: Minimum order lot size
-        """
-        ...
-
-    @overload
-    def __init__(self, properties: QuantConnect.Securities.SymbolProperties) -> None:
-        """
-        Creates instance of index symbol properties
-        
-        :param properties: 
-        """
-        ...
-
-    @staticmethod
-    def minimum_price_variation_for_price(symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], reference_price: typing.Optional[float]) -> float:
-        """Minimum price variation, subject to variability due to contract price"""
-        ...
-
-
-class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
-    """The index option price variation model"""
-
-    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
-        """
-        Get the minimum price variation from a security
-        
-        :param parameters: An object containing the method parameters
-        :returns: Decimal minimum price variation of a given security.
-        """
-        ...
-
-
 class IndexOption(QuantConnect.Securities.Option.Option):
     """Index Options security"""
 
-    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.IndexOption.IndexOptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security, settlement_type: QuantConnect.SettlementType = ...) -> None:
+    def __init__(self, symbol: typing.Union[QuantConnect.Symbol, str, QuantConnect.Data.Market.BaseContract, QuantConnect.Securities.Security], exchange_hours: QuantConnect.Securities.SecurityExchangeHours, quote_currency: QuantConnect.Securities.Cash, symbol_properties: QuantConnect.Securities.IndexOption.IndexOptionSymbolProperties, currency_converter: QuantConnect.Securities.ICurrencyConverter, registered_types: QuantConnect.Securities.IRegisteredSecurityDataTypesProvider, security_cache: QuantConnect.Securities.SecurityCache, underlying: QuantConnect.Securities.Security, settlement_type: QuantConnect.SettlementType = ..., price_model_provider: QuantConnect.Securities.Option.IOptionPriceModelProvider = None) -> None:
         """
         Constructor for the index option security
         
@@ -125,6 +112,7 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         :param security_cache: Cache of security objects
         :param underlying: Future underlying security
         :param settlement_type: Settlement type for the index option. Most index options are cash-settled.
+        :param price_model_provider: The option price model provider
         """
         ...
 
@@ -136,6 +124,19 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         This codeEntityType is protected.
         
         :param data: Market price data
+        """
+        ...
+
+
+class IndexOptionPriceVariationModel(System.Object, QuantConnect.Securities.IPriceVariationModel):
+    """The index option price variation model"""
+
+    def get_minimum_price_variation(self, parameters: QuantConnect.Securities.GetMinimumPriceVariationParameters) -> float:
+        """
+        Get the minimum price variation from a security
+        
+        :param parameters: An object containing the method parameters
+        :returns: Decimal minimum price variation of a given security.
         """
         ...
 

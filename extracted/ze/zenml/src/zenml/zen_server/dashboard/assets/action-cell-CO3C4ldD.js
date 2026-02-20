@@ -1,0 +1,1 @@
+import{j as r}from"./@radix-Da0HZyg8.js";import{aW as i}from"./index-DLlSHPas.js";function n({children:s,className:t,...e}){return r.jsx("div",{className:i("flex items-center justify-end",t),...e,children:s})}export{n as A};

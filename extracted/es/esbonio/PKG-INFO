@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: esbonio
-Version: 1.0.0
+Version: 1.1.0
 Summary: A language server for sphinx/docutils based documentation projects.
 Project-URL: Bug Tracker, https://github.com/swyddfa/esbonio/issues
 Project-URL: Documentation, https://swyddfa.github.io/esbonio/

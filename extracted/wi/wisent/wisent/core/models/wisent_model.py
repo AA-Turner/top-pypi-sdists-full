@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from wisent.core.models.layer import extract_token_ids
+
 import logging
 from contextlib import contextmanager
 from typing import Any, Iterable
@@ -358,9 +360,11 @@ class WisentModel:
                     
                     if isinstance(out, tuple):
                         steered = obj.apply_steering(hs, layer=layer, base_strength=effective_strength)
+                        steered = steered.to(dtype=hs.dtype)  # enforce dtype match
                         return (steered,) + out[1:]
                     else:
-                        return obj.apply_steering(out, layer=layer, base_strength=effective_strength)
+                        steered = obj.apply_steering(out, layer=layer, base_strength=effective_strength)
+                        return steered.to(dtype=out.dtype)  # enforce dtype match
                 return _hook
             
             handle = layer_module.register_forward_hook(
@@ -419,11 +423,21 @@ class WisentModel:
         """
 
         try:
-            ids = self.tokenizer.apply_chat_template(
-                message, tokenize=True, add_generation_prompt=add_generation_prompt, enable_thinking=enable_thinking, return_tensors="pt"
-            )[0]
+            try:
+                result = self.tokenizer.apply_chat_template(
+                    message, tokenize=True,
+                    add_generation_prompt=add_generation_prompt,
+                    enable_thinking=enable_thinking,
+                    return_tensors="pt",
+                )
+            except TypeError:
+                result = self.tokenizer.apply_chat_template(
+                    message, tokenize=True,
+                    add_generation_prompt=add_generation_prompt,
+                    return_tensors="pt",
+                )
+            ids = extract_token_ids(result)
         except ValueError as e:
-            # No fallback - raise error if chat template is not available
             raise ChatTemplateNotAvailableError(cause=e)
         return {
             "input_ids": ids,

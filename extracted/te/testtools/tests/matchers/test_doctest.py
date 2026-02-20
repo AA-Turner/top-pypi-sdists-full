@@ -5,9 +5,9 @@ from typing import ClassVar
 
 from testtools import TestCase
 from testtools.matchers._doctest import DocTestMatches
+from testtools.matchers.test import TestMatchersInterface
 
 from ..helpers import FullStackRunTest
-from ..matchers.helpers import TestMatchersInterface
 
 
 class TestDocTestMatchesInterface(TestCase, TestMatchersInterface):

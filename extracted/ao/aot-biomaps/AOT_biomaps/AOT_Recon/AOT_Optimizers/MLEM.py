@@ -47,7 +47,7 @@ def MLEM(
     tumor_str = "WITH" if withTumor else "WITHOUT"
     # Auto-select device and method
     if device is None:
-        if torch.cuda.is_available() and check_gpu_memory(config.select_best_gpu(), calculate_memory_requirement(SMatrix, y), show_logs=show_logs):
+        if torch.cuda.is_available():
             device = torch.device(f"cuda:{config.select_best_gpu()}")
             use_gpu = True
         else:
@@ -62,7 +62,7 @@ def MLEM(
             elif smatrixType == SMatrixType.SELL:
                 return MLEM_sparseSELL_pycuda(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, denominator_threshold, show_logs)
             elif smatrixType == SMatrixType.DENSE:
-                return _MLEM_single_GPU(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, max_saves, denominator_threshold,show_logs)
+                return _MLEM_single_GPU(SMatrix, y, numIterations, isSavingEachIteration, tumor_str, device, max_saves, denominator_threshold,show_logs)
             else:
                 raise ValueError("Unsupported SMatrixType for GPU MLEM.")
     else:

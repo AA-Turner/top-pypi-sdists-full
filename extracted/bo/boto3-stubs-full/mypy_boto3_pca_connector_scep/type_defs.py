@@ -246,6 +246,7 @@ ConnectorTypeDef = TypedDict(
 class CreateConnectorRequestTypeDef(TypedDict):
     CertificateAuthorityArn: str
     MobileDeviceManagement: NotRequired[MobileDeviceManagementTypeDef]
+    VpcEndpointId: NotRequired[str]
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
 

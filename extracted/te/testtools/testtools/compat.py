@@ -12,9 +12,45 @@ __all__ = [
 import codecs
 import io
 import sys
+import types
 import unicodedata
+import warnings
 from io import BytesIO, StringIO  # for backwards-compat
-from typing import IO
+from typing import IO, Any, NoReturn
+
+
+def reraise(
+    exc_class: type[BaseException],
+    exc_obj: BaseException,
+    exc_tb: types.TracebackType,
+    _marker: Any = object(),
+) -> NoReturn:
+    """Re-raise an exception received from sys.exc_info() or similar."""
+    warnings.warn(
+        "This is not necessary in Python 3.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    raise exc_obj.with_traceback(exc_tb)
+
+
+def _u(s: str) -> str:
+    warnings.warn(
+        "This is not necessary in Python 3.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return s
+
+
+def _b(s: str) -> bytes:
+    """A byte literal."""
+    warnings.warn(
+        "This is not necessary in Python 3.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return s.encode("latin-1")
 
 
 def _slow_escape(text: str) -> str:

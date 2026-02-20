@@ -515,6 +515,7 @@ result that contains records in a specific format, including the following field
 * `result` -- the status of the transformation of the record: "Ok" (success), "Dropped"
   (not processed intentionally), or "ProcessingFailed" (not processed due to an error).
 * `data` -- the transformed data, Base64-encoded.
+* `metadata` -- the metadata used by dynamic partitioning.
 
 The data is buffered up to 1 minute and up to 3 MiB by default before being sent to the
 function, but can be configured using `bufferInterval` and `bufferSize`
@@ -717,6 +718,95 @@ firehose.DeliveryStream(self, "Delivery Stream",
     destination=s3_destination
 )
 ```
+
+## Dynamic Partitioning
+
+Dynamic partitioning enables you to continuously partition streaming data in Firehose by using keys within data (for example, `customer_id` or `transaction_id`) and then deliver the data grouped by these keys into corresponding Amazon S3 prefixes.
+
+For details, see [Partition streaming data in Amazon Data Firehose](https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html).
+
+### Create partitioning keys with inline parsing
+
+To enable dynamic partitioning with inline parsing, specify `MetadataExtractionProcessor` data processor in `processors`.
+
+Only supported mechanism currently is [jq 1.6 parser](https://stedolan.github.io/jq/).
+
+The partition keys can be referred as `!{partitionKeyFromQuery:key}` in `dataOutputPrefix`.
+
+```python
+# bucket: s3.Bucket
+
+s3_destination = firehose.S3Bucket(bucket,
+    dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+    processors=[
+        firehose.MetadataExtractionProcessor.jq16({
+            "customer_id": ".customer_id",
+            "device": ".type.device",
+            "year": ".event_timestamp|strftime(\"%Y\")"
+        })
+    ],
+    data_output_prefix="!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:device}/!{partitionKeyFromQuery:customer_id}/"
+)
+firehose.DeliveryStream(self, "DeliveryStream",
+    destination=s3_destination
+)
+```
+
+### Create partitioning keys with an AWS Lambda function
+
+For compressed or encrypted data records, or data that is in any file format other than JSON, you can use the `LambdaFunctionDataProcessor` with your own custom code to decompress, decrypt, or transform the records in order to extract and return the data fields needed for partitioning.
+
+The lambda function must return `metadata` in your result records.
+
+The partition keys can be referred as `!{partitionKeyFromLambda:key}` in `dataOutputPrefix`.
+
+```python
+# bucket: s3.Bucket
+# lambda_function: lambda.Function
+
+s3_destination = firehose.S3Bucket(bucket,
+    dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+    processors=[
+        firehose.LambdaFunctionProcessor(lambda_function)
+    ],
+    data_output_prefix="!{partitionKeyFromLambda:year}/!{partitionKeyFromLambda:device}/!{partitionKeyFromLambda:customer_id}/"
+)
+firehose.DeliveryStream(self, "DeliveryStream",
+    destination=s3_destination
+)
+```
+
+### Multi record deaggregation
+
+To apply dynamic partitioning to aggregated data (for example, multiple events, logs, or records aggregated into a single PutRecord and PutRecordBatch API call), use `RecordDeAggregationProcessor`.
+
+When the input data is JSON objects on a single line with no delimiter or newline-delimited (JSONL), specify `RecordDeAggregationProcessor.json()`.
+
+```python
+# bucket: s3.Bucket
+
+s3_destination = firehose.S3Bucket(bucket,
+    dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+    processors=[
+        firehose.RecordDeAggregationProcessor.json()
+    ]
+)
+```
+
+You can also specify custom delimiter using `RecordDeAggregationProcessor.delimited()`.
+
+```python
+# bucket: s3.Bucket
+
+s3_destination = firehose.S3Bucket(bucket,
+    dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+    processors=[
+        firehose.RecordDeAggregationProcessor.delimited("####")
+    ]
+)
+```
+
+Record deaggregation by JSON or by delimiter is capped at 500 per record.
 
 ## Specifying an IAM role
 
@@ -10213,12 +10303,12 @@ class CommonDestinationS3Props:
     ) -> None:
         '''Common properties for defining a backup, intermediary, or final S3 destination for a Amazon Data Firehose delivery stream.
 
-        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) Maximum: Duration.seconds(900) Default: Duration.seconds(300)
-        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled Maximum: Duration.seconds(900) Default: Duration.seconds(300)
+        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
-        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: - "YYYY/MM/DD/HH/"
         :param encryption_key: The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket. Default: - Data is not encrypted.
-        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: - See the documentation above
 
         :exampleMetadata: fixture=_generated
 
@@ -10269,7 +10359,7 @@ class CommonDestinationS3Props:
     def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
-        Minimum: Duration.seconds(0)
+        Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
         Maximum: Duration.seconds(900)
 
         :default: Duration.seconds(300)
@@ -10281,10 +10371,10 @@ class CommonDestinationS3Props:
     def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
-        Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled
+        Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
         Maximum: Size.mebibytes(128)
 
-        :default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
         return typing.cast(typing.Optional["_Size_7b441c34"], result)
@@ -10308,7 +10398,7 @@ class CommonDestinationS3Props:
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - "YYYY/MM/DD/HH/"
 
         :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
         '''
@@ -10330,9 +10420,9 @@ class CommonDestinationS3Props:
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - See the documentation above
 
-        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#prefix-rules
         '''
         result = self._values.get("error_output_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10520,13 +10610,25 @@ class DataFormatConversionProps:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_kinesisfirehose.DataProcessorBindOptions",
     jsii_struct_bases=[],
-    name_mapping={"role": "role"},
+    name_mapping={
+        "role": "role",
+        "dynamic_partitioning_enabled": "dynamicPartitioningEnabled",
+        "prefix": "prefix",
+    },
 )
 class DataProcessorBindOptions:
-    def __init__(self, *, role: "_IRole_235f5d8e") -> None:
+    def __init__(
+        self,
+        *,
+        role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> None:
         '''Options when binding a DataProcessor to a delivery stream destination.
 
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
 
         :exampleMetadata: fixture=_generated
 
@@ -10540,15 +10642,25 @@ class DataProcessorBindOptions:
             # role: iam.Role
             
             data_processor_bind_options = kinesisfirehose.DataProcessorBindOptions(
-                role=role
+                role=role,
+            
+                # the properties below are optional
+                dynamic_partitioning_enabled=False,
+                prefix="prefix"
             )
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__19eda2faa3921fd664688bb9d58a7766cede4c60f2944654651ac8a298dad52e)
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
+            check_type(argname="argument dynamic_partitioning_enabled", value=dynamic_partitioning_enabled, expected_type=type_hints["dynamic_partitioning_enabled"])
+            check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "role": role,
         }
+        if dynamic_partitioning_enabled is not None:
+            self._values["dynamic_partitioning_enabled"] = dynamic_partitioning_enabled
+        if prefix is not None:
+            self._values["prefix"] = prefix
 
     @builtins.property
     def role(self) -> "_IRole_235f5d8e":
@@ -10556,6 +10668,24 @@ class DataProcessorBindOptions:
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast("_IRole_235f5d8e", result)
+
+    @builtins.property
+    def dynamic_partitioning_enabled(self) -> typing.Optional[builtins.bool]:
+        '''Whether the dynamic partitioning is enabled.
+
+        :default: false
+        '''
+        result = self._values.get("dynamic_partitioning_enabled")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def prefix(self) -> typing.Optional[builtins.str]:
+        '''S3 bucket prefix.
+
+        :default: - No prefix
+        '''
+        result = self._values.get("prefix")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11485,12 +11615,12 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
 
         S3 backup is available for all destinations, regardless of whether the final destination is S3 or not.
 
-        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) Maximum: Duration.seconds(900) Default: Duration.seconds(300)
-        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled Maximum: Duration.seconds(900) Default: Duration.seconds(300)
+        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
-        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: - "YYYY/MM/DD/HH/"
         :param encryption_key: The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket. Default: - Data is not encrypted.
-        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: - See the documentation above
         :param bucket: The S3 bucket that will store data and failed records. Default: - If ``mode`` is set to ``BackupMode.ALL`` or ``BackupMode.FAILED``, a bucket will be created for you.
         :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
         :param mode: Indicates the mode by which incoming records should be backed up to S3, if any. If ``bucket`` is provided, this will be implicitly set to ``BackupMode.ALL``. Default: - If ``bucket`` is provided, the default will be ``BackupMode.ALL``. Otherwise, source records are not backed up to S3.
@@ -11566,7 +11696,7 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
     def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
-        Minimum: Duration.seconds(0)
+        Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
         Maximum: Duration.seconds(900)
 
         :default: Duration.seconds(300)
@@ -11578,10 +11708,10 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
     def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
-        Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled
+        Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
         Maximum: Size.mebibytes(128)
 
-        :default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
         return typing.cast(typing.Optional["_Size_7b441c34"], result)
@@ -11605,7 +11735,7 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - "YYYY/MM/DD/HH/"
 
         :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
         '''
@@ -11627,9 +11757,9 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - See the documentation above
 
-        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#prefix-rules
         '''
         result = self._values.get("error_output_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11674,6 +11804,83 @@ class DestinationS3BackupProps(CommonDestinationS3Props):
 
     def __repr__(self) -> str:
         return "DestinationS3BackupProps(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.DynamicPartitioningProps",
+    jsii_struct_bases=[],
+    name_mapping={"enabled": "enabled", "retry_duration": "retryDuration"},
+)
+class DynamicPartitioningProps:
+    def __init__(
+        self,
+        *,
+        enabled: builtins.bool,
+        retry_duration: typing.Optional["_Duration_4839e8c3"] = None,
+    ) -> None:
+        '''Props for defining dynamic partitioning.
+
+        :param enabled: Whether to enable the dynamic partitioning. You cannot enable dynamic partitioning for an existing Firehose stream that does not have dynamic partitioning already enabled.
+        :param retry_duration: The total amount of time that Data Firehose spends on retries. Minimum: Duration.seconds(0) Maximum: Duration.seconds(7200) Default: Duration.seconds(300)
+
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
+        :exampleMetadata: infused
+
+        Example::
+
+            # bucket: s3.Bucket
+            
+            s3_destination = firehose.S3Bucket(bucket,
+                dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+                processors=[
+                    firehose.RecordDeAggregationProcessor.delimited("####")
+                ]
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13de77728)
+            check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
+            check_type(argname="argument retry_duration", value=retry_duration, expected_type=type_hints["retry_duration"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "enabled": enabled,
+        }
+        if retry_duration is not None:
+            self._values["retry_duration"] = retry_duration
+
+    @builtins.property
+    def enabled(self) -> builtins.bool:
+        '''Whether to enable the dynamic partitioning.
+
+        You cannot enable dynamic partitioning for an existing Firehose stream that does not have dynamic partitioning already enabled.
+
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning-enable.html
+        '''
+        result = self._values.get("enabled")
+        assert result is not None, "Required property 'enabled' is missing"
+        return typing.cast(builtins.bool, result)
+
+    @builtins.property
+    def retry_duration(self) -> typing.Optional["_Duration_4839e8c3"]:
+        '''The total amount of time that Data Firehose spends on retries.
+
+        Minimum: Duration.seconds(0)
+        Maximum: Duration.seconds(7200)
+
+        :default: Duration.seconds(300)
+        '''
+        result = self._values.get("retry_duration")
+        return typing.cast(typing.Optional["_Duration_4839e8c3"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DynamicPartitioningProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -11752,6 +11959,8 @@ class IDataProcessor(typing_extensions.Protocol):
         scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -11760,6 +11969,8 @@ class IDataProcessor(typing_extensions.Protocol):
 
         :param scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         ...
 
@@ -11781,6 +11992,8 @@ class _IDataProcessorProxy:
         scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -11789,11 +12002,17 @@ class _IDataProcessorProxy:
 
         :param scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486162c508)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
-        options = DataProcessorBindOptions(role=role)
+        options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
 
         return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [scope, options]))
 
@@ -12670,6 +12889,48 @@ class InputFormat(
         return typing.cast("OpenXJsonInputFormat", jsii.sget(cls, "OPENX_JSON"))
 
 
+class JsonParsingEngine(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.JsonParsingEngine",
+):
+    '''The JSON parsing engine for MetadataExtractionProcessor.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+        
+        json_parsing_engine = kinesisfirehose.JsonParsingEngine.of("parsingEngine")
+    '''
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(cls, parsing_engine: builtins.str) -> "JsonParsingEngine":
+        '''A custom parsing engine.
+
+        :param parsing_engine: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__fbc0e18ccb3bbe1af8834dfb480f12cd81611aafdacd4a5739b7fa2ccc822cad)
+            check_type(argname="argument parsing_engine", value=parsing_engine, expected_type=type_hints["parsing_engine"])
+        return typing.cast("JsonParsingEngine", jsii.sinvoke(cls, "of", [parsing_engine]))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="JQ_1_6")
+    def JQ_1_6(cls) -> "JsonParsingEngine":
+        '''The JQ 1.6 parsing engine.'''
+        return typing.cast("JsonParsingEngine", jsii.sget(cls, "JQ_1_6"))
+
+    @builtins.property
+    @jsii.member(jsii_name="parsingEngine")
+    def parsing_engine(self) -> builtins.str:
+        '''The parsing engine string.'''
+        return typing.cast(builtins.str, jsii.get(self, "parsingEngine"))
+
+
 @jsii.implements(ISource)
 class KinesisStreamSource(
     metaclass=jsii.JSIIMeta,
@@ -12774,6 +13035,8 @@ class LambdaFunctionProcessor(
         _scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -12782,11 +13045,17 @@ class LambdaFunctionProcessor(
 
         :param _scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__393c41d8ae2fe5acab13fd70fff9f4778e727adfd78b86d20820f067071490de)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        options = DataProcessorBindOptions(role=role)
+        options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
 
         return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [_scope, options]))
 
@@ -12795,6 +13064,173 @@ class LambdaFunctionProcessor(
     def props(self) -> "DataProcessorProps":
         '''The constructor props of the LambdaFunctionProcessor.'''
         return typing.cast("DataProcessorProps", jsii.get(self, "props"))
+
+
+@jsii.implements(IDataProcessor)
+class MetadataExtractionProcessor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.MetadataExtractionProcessor",
+):
+    '''The data processor for dynamic partitioning with inline parsing.
+
+    :see: https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning-partitioning-keys.html
+    :exampleMetadata: infused
+
+    Example::
+
+        # bucket: s3.Bucket
+        
+        s3_destination = firehose.S3Bucket(bucket,
+            dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+            processors=[
+                firehose.MetadataExtractionProcessor.jq16({
+                    "customer_id": ".customer_id",
+                    "device": ".type.device",
+                    "year": ".event_timestamp|strftime(\"%Y\")"
+                })
+            ],
+            data_output_prefix="!{partitionKeyFromQuery:year}/!{partitionKeyFromQuery:device}/!{partitionKeyFromQuery:customer_id}/"
+        )
+        firehose.DeliveryStream(self, "DeliveryStream",
+            destination=s3_destination
+        )
+    '''
+
+    def __init__(
+        self,
+        options: typing.Union["MetadataExtractionProcessorOptions", typing.Dict[builtins.str, typing.Any]],
+        keys: typing.Sequence[builtins.str],
+    ) -> None:
+        '''
+        :param options: -
+        :param keys: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d160d668518543129dfa1eccd5a78d24d24417f1bd9c83d9d34e0b097185765c)
+            check_type(argname="argument options", value=options, expected_type=type_hints["options"])
+            check_type(argname="argument keys", value=keys, expected_type=type_hints["keys"])
+        jsii.create(self.__class__, self, [options, keys])
+
+    @jsii.member(jsii_name="jq16")
+    @builtins.classmethod
+    def jq16(
+        cls,
+        query: typing.Mapping[builtins.str, builtins.str],
+    ) -> "MetadataExtractionProcessor":
+        '''Creates the inline parsing configuration with JQ 1.6 engine.
+
+        :param query: A map of partition key to jq expression.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__23cf3a8fc535750c1618ff85d72b8c1c07e0a2f125c9b45f031d215b377da8af)
+            check_type(argname="argument query", value=query, expected_type=type_hints["query"])
+        return typing.cast("MetadataExtractionProcessor", jsii.sinvoke(cls, "jq16", [query]))
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        *,
+        role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> "DataProcessorConfig":
+        '''Binds this processor to a destination of a delivery stream.
+
+        Implementers should use this method to grant processor invocation permissions to the provided stream and return the
+        necessary configuration to register as a processor.
+
+        :param scope: -
+        :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58a7361e49d6c30234b66b6f9d1c91eb5e840c46ca1d921c48f64e98b673f0b8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
+
+        return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [scope, options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="props")
+    def props(self) -> "DataProcessorProps":
+        '''The constructor props of the DataProcessor.'''
+        return typing.cast("DataProcessorProps", jsii.get(self, "props"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.MetadataExtractionProcessorOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "json_parsing_engine": "jsonParsingEngine",
+        "metadata_extraction_query": "metadataExtractionQuery",
+    },
+)
+class MetadataExtractionProcessorOptions:
+    def __init__(
+        self,
+        *,
+        json_parsing_engine: "JsonParsingEngine",
+        metadata_extraction_query: builtins.str,
+    ) -> None:
+        '''Props for MetadataExtractionProcessor.
+
+        :param json_parsing_engine: JSON parsing engine.
+        :param metadata_extraction_query: Map parameter to JQ query.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+            
+            # json_parsing_engine: kinesisfirehose.JsonParsingEngine
+            
+            metadata_extraction_processor_options = kinesisfirehose.MetadataExtractionProcessorOptions(
+                json_parsing_engine=json_parsing_engine,
+                metadata_extraction_query="metadataExtractionQuery"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d5b764067d9fd57c2c1511065bb1685c54e736ad61793700c009e055123e004f)
+            check_type(argname="argument json_parsing_engine", value=json_parsing_engine, expected_type=type_hints["json_parsing_engine"])
+            check_type(argname="argument metadata_extraction_query", value=metadata_extraction_query, expected_type=type_hints["metadata_extraction_query"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "json_parsing_engine": json_parsing_engine,
+            "metadata_extraction_query": metadata_extraction_query,
+        }
+
+    @builtins.property
+    def json_parsing_engine(self) -> "JsonParsingEngine":
+        '''JSON parsing engine.'''
+        result = self._values.get("json_parsing_engine")
+        assert result is not None, "Required property 'json_parsing_engine' is missing"
+        return typing.cast("JsonParsingEngine", result)
+
+    @builtins.property
+    def metadata_extraction_query(self) -> builtins.str:
+        '''Map parameter to JQ query.'''
+        result = self._values.get("metadata_extraction_query")
+        assert result is not None, "Required property 'metadata_extraction_query' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MetadataExtractionProcessorOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.implements(IInputFormat)
@@ -13710,6 +14146,173 @@ class ParquetWriterVersion(enum.Enum):
     '''Use V2 Parquet writer version when writing the output.'''
 
 
+@jsii.implements(IDataProcessor)
+class RecordDeAggregationProcessor(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.RecordDeAggregationProcessor",
+):
+    '''The data processor for multi record deaggrecation.
+
+    Record deaggregation by JSON or by delimiter is capped at 500 per record.
+
+    :see: https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning-multirecord-deaggergation.html
+    :exampleMetadata: infused
+
+    Example::
+
+        # bucket: s3.Bucket
+        
+        s3_destination = firehose.S3Bucket(bucket,
+            dynamic_partitioning=firehose.DynamicPartitioningProps(enabled=True),
+            processors=[
+                firehose.RecordDeAggregationProcessor.json()
+            ]
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        sub_record_type: "SubRecordType",
+        delimiter: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param sub_record_type: The sub-record type to deaggregate input records.
+        :param delimiter: The custom delimiter when subRecordType is DELIMITED. Must be specified in the base64-encoded format. Default: - No delimiter
+        '''
+        options = RecordDeAggregationProcessorOptions(
+            sub_record_type=sub_record_type, delimiter=delimiter
+        )
+
+        jsii.create(self.__class__, self, [options])
+
+    @jsii.member(jsii_name="delimited")
+    @builtins.classmethod
+    def delimited(cls, delimiter: builtins.str) -> "RecordDeAggregationProcessor":
+        '''Perform deaggregation based on a specified custom delimiter.
+
+        :param delimiter: The custom delimiter.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9627f8a6fa51b14e42f43498f024ec96778714b5783d6748b830a453e1ae91e8)
+            check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
+        return typing.cast("RecordDeAggregationProcessor", jsii.sinvoke(cls, "delimited", [delimiter]))
+
+    @jsii.member(jsii_name="json")
+    @builtins.classmethod
+    def json(cls) -> "RecordDeAggregationProcessor":
+        '''Perform deaggregation from JSON objects on a single line with no delimiter or newline-delimited (JSONL).'''
+        return typing.cast("RecordDeAggregationProcessor", jsii.sinvoke(cls, "json", []))
+
+    @jsii.member(jsii_name="bind")
+    def bind(
+        self,
+        scope: "_constructs_77d1e7e8.Construct",
+        *,
+        role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
+    ) -> "DataProcessorConfig":
+        '''Binds this processor to a destination of a delivery stream.
+
+        Implementers should use this method to grant processor invocation permissions to the provided stream and return the
+        necessary configuration to register as a processor.
+
+        :param scope: -
+        :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ab54203ea0f22a31fe51e40c6761f902661ffb06f291f585e9cba0d9da7c6ac8)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+        options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
+
+        return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [scope, options]))
+
+    @builtins.property
+    @jsii.member(jsii_name="props")
+    def props(self) -> "DataProcessorProps":
+        '''The constructor props of the DataProcessor.'''
+        return typing.cast("DataProcessorProps", jsii.get(self, "props"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_kinesisfirehose.RecordDeAggregationProcessorOptions",
+    jsii_struct_bases=[],
+    name_mapping={"sub_record_type": "subRecordType", "delimiter": "delimiter"},
+)
+class RecordDeAggregationProcessorOptions:
+    def __init__(
+        self,
+        *,
+        sub_record_type: "SubRecordType",
+        delimiter: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Props for RecordDeAggregationProcessor.
+
+        :param sub_record_type: The sub-record type to deaggregate input records.
+        :param delimiter: The custom delimiter when subRecordType is DELIMITED. Must be specified in the base64-encoded format. Default: - No delimiter
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            from aws_cdk import aws_kinesisfirehose as kinesisfirehose
+            
+            record_de_aggregation_processor_options = kinesisfirehose.RecordDeAggregationProcessorOptions(
+                sub_record_type=kinesisfirehose.SubRecordType.JSON,
+            
+                # the properties below are optional
+                delimiter="delimiter"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__899cdce20901b7cfe3dede9f1c74400b78cfbfa83527367d1b0d6aee0d08fb8e)
+            check_type(argname="argument sub_record_type", value=sub_record_type, expected_type=type_hints["sub_record_type"])
+            check_type(argname="argument delimiter", value=delimiter, expected_type=type_hints["delimiter"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "sub_record_type": sub_record_type,
+        }
+        if delimiter is not None:
+            self._values["delimiter"] = delimiter
+
+    @builtins.property
+    def sub_record_type(self) -> "SubRecordType":
+        '''The sub-record type to deaggregate input records.'''
+        result = self._values.get("sub_record_type")
+        assert result is not None, "Required property 'sub_record_type' is missing"
+        return typing.cast("SubRecordType", result)
+
+    @builtins.property
+    def delimiter(self) -> typing.Optional[builtins.str]:
+        '''The custom delimiter when subRecordType is DELIMITED.
+
+        Must be specified in the base64-encoded format.
+
+        :default: - No delimiter
+        '''
+        result = self._values.get("delimiter")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "RecordDeAggregationProcessorOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.implements(IDestination)
 class S3Bucket(
     metaclass=jsii.JSIIMeta,
@@ -13745,6 +14348,7 @@ class S3Bucket(
         bucket: "_IBucket_42e086fd",
         *,
         data_format_conversion: typing.Optional[typing.Union["DataFormatConversionProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        dynamic_partitioning: typing.Optional[typing.Union["DynamicPartitioningProps", typing.Dict[builtins.str, typing.Any]]] = None,
         file_extension: typing.Optional[builtins.str] = None,
         time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
         buffering_interval: typing.Optional["_Duration_4839e8c3"] = None,
@@ -13761,15 +14365,16 @@ class S3Bucket(
     ) -> None:
         '''
         :param bucket: -
-        :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: no data format conversion is done
+        :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: - no data format conversion is done
+        :param dynamic_partitioning: Specify dynamic partitioning. Default: - Dynamic partitioning is disabled.
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
         :param time_zone: The time zone you prefer. Default: - UTC
-        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) Maximum: Duration.seconds(900) Default: Duration.seconds(300)
-        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled Maximum: Duration.seconds(900) Default: Duration.seconds(300)
+        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
-        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: - "YYYY/MM/DD/HH/"
         :param encryption_key: The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket. Default: - Data is not encrypted.
-        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: - See the documentation above
         :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
         :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
         :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
@@ -13781,6 +14386,7 @@ class S3Bucket(
             check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
         props = S3BucketProps(
             data_format_conversion=data_format_conversion,
+            dynamic_partitioning=dynamic_partitioning,
             file_extension=file_extension,
             time_zone=time_zone,
             buffering_interval=buffering_interval,
@@ -13830,6 +14436,7 @@ class S3Bucket(
         "role": "role",
         "s3_backup": "s3Backup",
         "data_format_conversion": "dataFormatConversion",
+        "dynamic_partitioning": "dynamicPartitioning",
         "file_extension": "fileExtension",
         "time_zone": "timeZone",
     },
@@ -13850,23 +14457,25 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
         role: typing.Optional["_IRole_235f5d8e"] = None,
         s3_backup: typing.Optional[typing.Union["DestinationS3BackupProps", typing.Dict[builtins.str, typing.Any]]] = None,
         data_format_conversion: typing.Optional[typing.Union["DataFormatConversionProps", typing.Dict[builtins.str, typing.Any]]] = None,
+        dynamic_partitioning: typing.Optional[typing.Union["DynamicPartitioningProps", typing.Dict[builtins.str, typing.Any]]] = None,
         file_extension: typing.Optional[builtins.str] = None,
         time_zone: typing.Optional["_TimeZone_cdd72ac9"] = None,
     ) -> None:
         '''Props for defining an S3 destination of an Amazon Data Firehose delivery stream.
 
-        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) Maximum: Duration.seconds(900) Default: Duration.seconds(300)
-        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :param buffering_interval: The length of time that Firehose buffers incoming data before delivering it to the S3 bucket. Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled Maximum: Duration.seconds(900) Default: Duration.seconds(300)
+        :param buffering_size: The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket. Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled Maximum: Size.mebibytes(128) Default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         :param compression: The type of compression that Amazon Data Firehose uses to compress the data that it delivers to the Amazon S3 bucket. The compression formats SNAPPY or ZIP cannot be specified for Amazon Redshift destinations because they are not supported by the Amazon Redshift COPY operation that reads from the S3 bucket. Default: - UNCOMPRESSED
-        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param data_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to records before writing them to S3. This prefix appears immediately following the bucket name. Default: - "YYYY/MM/DD/HH/"
         :param encryption_key: The AWS KMS key used to encrypt the data that it delivers to your Amazon S3 bucket. Default: - Data is not encrypted.
-        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: "YYYY/MM/DD/HH"
+        :param error_output_prefix: A prefix that Amazon Data Firehose evaluates and adds to failed records before writing them to S3. This prefix appears immediately following the bucket name. Default: - See the documentation above
         :param logging_config: Configuration that determines whether to log errors during data transformation or delivery failures, and specifies the CloudWatch log group for storing error logs. Default: - errors will be logged and a log group will be created for you.
         :param processor: (deprecated) The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
         :param processors: The data transformation that should be performed on the data before writing to the destination. Default: - no data transformation will occur.
         :param role: The IAM role associated with this destination. Assumed by Amazon Data Firehose to invoke processors and write to destinations Default: - a role will be created with default permissions.
         :param s3_backup: The configuration for backing up source records to S3. Default: - source records will not be backed up to S3.
-        :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: no data format conversion is done
+        :param data_format_conversion: The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3. Default: - no data format conversion is done
+        :param dynamic_partitioning: Specify dynamic partitioning. Default: - Dynamic partitioning is disabled.
         :param file_extension: Specify a file extension. It will override the default file extension appended by Data Format Conversion or S3 compression features such as ``.parquet`` or ``.gz``. File extension must start with a period (``.``) and can contain allowed characters: ``0-9a-z!-_.*'()``. Default: - The default file extension appended by Data Format Conversion or S3 compression features
         :param time_zone: The time zone you prefer. Default: - UTC
 
@@ -13896,6 +14505,8 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             s3_backup = DestinationS3BackupProps(**s3_backup)
         if isinstance(data_format_conversion, dict):
             data_format_conversion = DataFormatConversionProps(**data_format_conversion)
+        if isinstance(dynamic_partitioning, dict):
+            dynamic_partitioning = DynamicPartitioningProps(**dynamic_partitioning)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b529dcbfc9)
             check_type(argname="argument buffering_interval", value=buffering_interval, expected_type=type_hints["buffering_interval"])
@@ -13910,6 +14521,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             check_type(argname="argument role", value=role, expected_type=type_hints["role"])
             check_type(argname="argument s3_backup", value=s3_backup, expected_type=type_hints["s3_backup"])
             check_type(argname="argument data_format_conversion", value=data_format_conversion, expected_type=type_hints["data_format_conversion"])
+            check_type(argname="argument dynamic_partitioning", value=dynamic_partitioning, expected_type=type_hints["dynamic_partitioning"])
             check_type(argname="argument file_extension", value=file_extension, expected_type=type_hints["file_extension"])
             check_type(argname="argument time_zone", value=time_zone, expected_type=type_hints["time_zone"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -13937,6 +14549,8 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
             self._values["s3_backup"] = s3_backup
         if data_format_conversion is not None:
             self._values["data_format_conversion"] = data_format_conversion
+        if dynamic_partitioning is not None:
+            self._values["dynamic_partitioning"] = dynamic_partitioning
         if file_extension is not None:
             self._values["file_extension"] = file_extension
         if time_zone is not None:
@@ -13946,7 +14560,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
     def buffering_interval(self) -> typing.Optional["_Duration_4839e8c3"]:
         '''The length of time that Firehose buffers incoming data before delivering it to the S3 bucket.
 
-        Minimum: Duration.seconds(0)
+        Minimum: Duration.seconds(0) when dynamic partitioning is disabled, Duration.seconds(60) when it is enabled
         Maximum: Duration.seconds(900)
 
         :default: Duration.seconds(300)
@@ -13958,10 +14572,10 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
     def buffering_size(self) -> typing.Optional["_Size_7b441c34"]:
         '''The size of the buffer that Amazon Data Firehose uses for incoming data before delivering it to the S3 bucket.
 
-        Minimum: Size.mebibytes(1) when record data format conversion is disabled, Size.mebibytes(64) when it is enabled
+        Minimum: Size.mebibytes(1) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(64) when it is enabled
         Maximum: Size.mebibytes(128)
 
-        :default: Size.mebibytes(5) when record data format conversion is disabled, Size.mebibytes(128) when it is enabled
+        :default: Size.mebibytes(5) when record data format conversion or dynamic partitioning is disabled, Size.mebibytes(128) when it is enabled
         '''
         result = self._values.get("buffering_size")
         return typing.cast(typing.Optional["_Size_7b441c34"], result)
@@ -13985,7 +14599,7 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - "YYYY/MM/DD/HH/"
 
         :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
         '''
@@ -14007,9 +14621,9 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
 
         This prefix appears immediately following the bucket name.
 
-        :default: "YYYY/MM/DD/HH"
+        :default: - See the documentation above
 
-        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/s3-prefixes.html#prefix-rules
         '''
         result = self._values.get("error_output_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14069,12 +14683,23 @@ class S3BucketProps(CommonDestinationS3Props, CommonDestinationProps):
     def data_format_conversion(self) -> typing.Optional["DataFormatConversionProps"]:
         '''The input format, output format, and schema config for converting data from the JSON format to the Parquet or ORC format before writing to Amazon S3.
 
-        :default: no data format conversion is done
+        :default: - no data format conversion is done
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kinesisfirehose-deliverystream-extendeds3destinationconfiguration.html#cfn-kinesisfirehose-deliverystream-extendeds3destinationconfiguration-dataformatconversionconfiguration
         '''
         result = self._values.get("data_format_conversion")
         return typing.cast(typing.Optional["DataFormatConversionProps"], result)
+
+    @builtins.property
+    def dynamic_partitioning(self) -> typing.Optional["DynamicPartitioningProps"]:
+        '''Specify dynamic partitioning.
+
+        :default: - Dynamic partitioning is disabled.
+
+        :see: https://docs.aws.amazon.com/firehose/latest/dev/dynamic-partitioning.html
+        '''
+        result = self._values.get("dynamic_partitioning")
+        return typing.cast(typing.Optional["DynamicPartitioningProps"], result)
 
     @builtins.property
     def file_extension(self) -> typing.Optional[builtins.str]:
@@ -14397,6 +15022,16 @@ class StreamEncryptionType(enum.Enum):
     '''Data in the stream is stored encrypted by a KMS key owned by AWS and managed for use in multiple AWS accounts.'''
 
 
+@jsii.enum(jsii_type="aws-cdk-lib.aws_kinesisfirehose.SubRecordType")
+class SubRecordType(enum.Enum):
+    '''The sub-record type to deaggregate input records.'''
+
+    JSON = "JSON"
+    '''The records are JSON objects on a single line with no delimiter or newline-delimited (JSONL).'''
+    DELIMITED = "DELIMITED"
+    '''The records are delimited by a custom delimiter.'''
+
+
 class TimestampParser(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_kinesisfirehose.TimestampParser",
@@ -14477,6 +15112,8 @@ class AppendDelimiterToRecordProcessor(
         _scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -14485,11 +15122,17 @@ class AppendDelimiterToRecordProcessor(
 
         :param _scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae58dba89)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        _options = DataProcessorBindOptions(role=role)
+        _options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
 
         return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [_scope, _options]))
 
@@ -14543,6 +15186,8 @@ class CloudWatchLogProcessor(
         _scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -14551,11 +15196,17 @@ class CloudWatchLogProcessor(
 
         :param _scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e09e92b28)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        _options = DataProcessorBindOptions(role=role)
+        _options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
 
         return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [_scope, _options]))
 
@@ -14609,6 +15260,8 @@ class DecompressionProcessor(
         _scope: "_constructs_77d1e7e8.Construct",
         *,
         role: "_IRole_235f5d8e",
+        dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+        prefix: typing.Optional[builtins.str] = None,
     ) -> "DataProcessorConfig":
         '''Binds this processor to a destination of a delivery stream.
 
@@ -14617,11 +15270,17 @@ class DecompressionProcessor(
 
         :param _scope: -
         :param role: The IAM role assumed by Amazon Data Firehose to write to the destination that this DataProcessor will bind to.
+        :param dynamic_partitioning_enabled: Whether the dynamic partitioning is enabled. Default: false
+        :param prefix: S3 bucket prefix. Default: - No prefix
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__540dc1015370159655052cf41379877e253b1c5232cbd06691963881d2880ffb)
             check_type(argname="argument _scope", value=_scope, expected_type=type_hints["_scope"])
-        _options = DataProcessorBindOptions(role=role)
+        _options = DataProcessorBindOptions(
+            role=role,
+            dynamic_partitioning_enabled=dynamic_partitioning_enabled,
+            prefix=prefix,
+        )
 
         return typing.cast("DataProcessorConfig", jsii.invoke(self, "bind", [_scope, _options]))
 
@@ -14790,7 +15449,9 @@ class DeliveryStream(
 
     @jsii.member(jsii_name="grantPutRecords")
     def grant_put_records(self, grantee: "_IGrantable_71c4f5de") -> "_Grant_a7ae64f8":
-        '''[disable-awslint:no-grants].
+        '''The use of this method is discouraged. Please use ``grants.putRecords()`` instead.
+
+        [disable-awslint:no-grants]
 
         :param grantee: -
         '''
@@ -15320,6 +15981,7 @@ __all__ = [
     "DestinationConfig",
     "DestinationS3BackupProps",
     "DisableLogging",
+    "DynamicPartitioningProps",
     "EnableLogging",
     "HiveJsonInputFormat",
     "HiveJsonInputFormatProps",
@@ -15331,8 +15993,11 @@ __all__ = [
     "IOutputFormat",
     "ISource",
     "InputFormat",
+    "JsonParsingEngine",
     "KinesisStreamSource",
     "LambdaFunctionProcessor",
+    "MetadataExtractionProcessor",
+    "MetadataExtractionProcessorOptions",
     "OpenXJsonInputFormat",
     "OpenXJsonInputFormatProps",
     "OrcCompression",
@@ -15344,6 +16009,8 @@ __all__ = [
     "ParquetOutputFormat",
     "ParquetOutputFormatProps",
     "ParquetWriterVersion",
+    "RecordDeAggregationProcessor",
+    "RecordDeAggregationProcessorOptions",
     "S3Bucket",
     "S3BucketProps",
     "SchemaConfiguration",
@@ -15351,6 +16018,7 @@ __all__ = [
     "SchemaConfigurationFromCfnTableProps",
     "StreamEncryption",
     "StreamEncryptionType",
+    "SubRecordType",
     "TimestampParser",
 ]
 
@@ -16257,6 +16925,8 @@ def _typecheckingstub__bff90bf1ac37687c050bd1dbbc7970543cf96f46bffc7e9b92aa180e1
 def _typecheckingstub__19eda2faa3921fd664688bb9d58a7766cede4c60f2944654651ac8a298dad52e(
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16355,6 +17025,14 @@ def _typecheckingstub__14700eb876e8e0f20f42a3b1362e4b8cd4eb596f1fbaecf0e207a387e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__953d793257f6341928007f4259103ce23413568194e2d75f03d6b7c13de77728(
+    *,
+    enabled: builtins.bool,
+    retry_duration: typing.Optional[_Duration_4839e8c3] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__0afd5b01612b3cc327b3c1600a9eb4aa5aaa6f3ee92bada98ae2a5d7e07bf664(
     *,
     timestamp_parsers: typing.Optional[typing.Sequence[TimestampParser]] = None,
@@ -16366,6 +17044,8 @@ def _typecheckingstub__4720a6b97c475eae9ec0d65aca8250b00f57d45f0efb2368b8df6d486
     scope: _constructs_77d1e7e8.Construct,
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16414,6 +17094,12 @@ def _typecheckingstub__d31d061482330f398322aedbe7845244fe1c55607a37db88ea3629f70
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__fbc0e18ccb3bbe1af8834dfb480f12cd81611aafdacd4a5739b7fa2ccc822cad(
+    parsing_engine: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__fc95432da9a8005268f62059d26c76ff3244e1763c675e2cf288a4edbb0235a3(
     stream: _IStream_4e2457d2,
 ) -> None:
@@ -16440,6 +17126,39 @@ def _typecheckingstub__393c41d8ae2fe5acab13fd70fff9f4778e727adfd78b86d20820f0670
     _scope: _constructs_77d1e7e8.Construct,
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d160d668518543129dfa1eccd5a78d24d24417f1bd9c83d9d34e0b097185765c(
+    options: typing.Union[MetadataExtractionProcessorOptions, typing.Dict[builtins.str, typing.Any]],
+    keys: typing.Sequence[builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__23cf3a8fc535750c1618ff85d72b8c1c07e0a2f125c9b45f031d215b377da8af(
+    query: typing.Mapping[builtins.str, builtins.str],
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58a7361e49d6c30234b66b6f9d1c91eb5e840c46ca1d921c48f64e98b673f0b8(
+    scope: _constructs_77d1e7e8.Construct,
+    *,
+    role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d5b764067d9fd57c2c1511065bb1685c54e736ad61793700c009e055123e004f(
+    *,
+    json_parsing_engine: JsonParsingEngine,
+    metadata_extraction_query: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16493,10 +17212,35 @@ def _typecheckingstub__30f6620eefd956acc092d03fba63b6121a146d30b699581234817a52e
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__9627f8a6fa51b14e42f43498f024ec96778714b5783d6748b830a453e1ae91e8(
+    delimiter: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ab54203ea0f22a31fe51e40c6761f902661ffb06f291f585e9cba0d9da7c6ac8(
+    scope: _constructs_77d1e7e8.Construct,
+    *,
+    role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__899cdce20901b7cfe3dede9f1c74400b78cfbfa83527367d1b0d6aee0d08fb8e(
+    *,
+    sub_record_type: SubRecordType,
+    delimiter: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__a2eaf455255fc260033aa24d456779f4b21172e8b4cf2c51f6355f415c9f3ccd(
     bucket: _IBucket_42e086fd,
     *,
     data_format_conversion: typing.Optional[typing.Union[DataFormatConversionProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    dynamic_partitioning: typing.Optional[typing.Union[DynamicPartitioningProps, typing.Dict[builtins.str, typing.Any]]] = None,
     file_extension: typing.Optional[builtins.str] = None,
     time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
     buffering_interval: typing.Optional[_Duration_4839e8c3] = None,
@@ -16534,6 +17278,7 @@ def _typecheckingstub__04b12dc503479d22af2396c4df8d38c37536719187eef6ddd01c18b52
     role: typing.Optional[_IRole_235f5d8e] = None,
     s3_backup: typing.Optional[typing.Union[DestinationS3BackupProps, typing.Dict[builtins.str, typing.Any]]] = None,
     data_format_conversion: typing.Optional[typing.Union[DataFormatConversionProps, typing.Dict[builtins.str, typing.Any]]] = None,
+    dynamic_partitioning: typing.Optional[typing.Union[DynamicPartitioningProps, typing.Dict[builtins.str, typing.Any]]] = None,
     file_extension: typing.Optional[builtins.str] = None,
     time_zone: typing.Optional[_TimeZone_cdd72ac9] = None,
 ) -> None:
@@ -16588,6 +17333,8 @@ def _typecheckingstub__94aaad3dc2400222b9e7ff2475b82e59209d9f2ac94fa8232dce1b9ae
     _scope: _constructs_77d1e7e8.Construct,
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16596,6 +17343,8 @@ def _typecheckingstub__d51e6026cf1b0fb2344372d718d66a3b3a99db5cd13862f4a0a5762e0
     _scope: _constructs_77d1e7e8.Construct,
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -16604,6 +17353,8 @@ def _typecheckingstub__540dc1015370159655052cf41379877e253b1c5232cbd06691963881d
     _scope: _constructs_77d1e7e8.Construct,
     *,
     role: _IRole_235f5d8e,
+    dynamic_partitioning_enabled: typing.Optional[builtins.bool] = None,
+    prefix: typing.Optional[builtins.str] = None,
 ) -> None:
     """Type checking stubs"""
     pass

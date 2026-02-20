@@ -44,7 +44,7 @@ class GrpcClient:
         Args:
             server_address: The gRPC server address (default: localhost:50051)
         """
-        self.server_address = server_address or config.GRPC_SERVER_ADDRESS
+        self.server_address = server_address or config.LSD_GRPC_SERVER_ADDRESS
         self._channel: aio.Channel | None = None
         self._assistants_stub: AssistantsStub | None = None
         self._runs_stub: RunsStub | None = None
@@ -264,7 +264,7 @@ async def get_shared_client() -> GrpcClient:
         if pool is None:
             pool = GrpcClientPool(
                 pool_size=1,
-                server_address=config.GRPC_SERVER_ADDRESS,
+                server_address=config.LSD_GRPC_SERVER_ADDRESS,
             )
             _thread_local.grpc_pool = pool
         return await pool.get_client()
@@ -273,7 +273,7 @@ async def get_shared_client() -> GrpcClient:
     if _client_pool is None:
         _client_pool = GrpcClientPool(
             pool_size=config.GRPC_CLIENT_POOL_SIZE,
-            server_address=config.GRPC_SERVER_ADDRESS,
+            server_address=config.LSD_GRPC_SERVER_ADDRESS,
         )
     return await _client_pool.get_client()
 

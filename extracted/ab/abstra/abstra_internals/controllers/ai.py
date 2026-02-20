@@ -127,6 +127,61 @@ class AiController:
             )
         return processed_items
 
+    _TEXT_EXTENSIONS = {
+        ".md",
+        ".py",
+        ".txt",
+        ".json",
+        ".csv",
+        ".yaml",
+        ".yml",
+        ".toml",
+        ".cfg",
+        ".ini",
+        ".html",
+        ".css",
+        ".js",
+        ".ts",
+        ".jsx",
+        ".tsx",
+        ".xml",
+        ".sql",
+        ".sh",
+        ".bash",
+        ".env",
+        ".lua",
+        ".rb",
+        ".go",
+        ".rs",
+        ".java",
+        ".kt",
+        ".swift",
+        ".c",
+        ".cpp",
+        ".h",
+        ".hpp",
+        ".log",
+        ".conf",
+        ".properties",
+    }
+
+    def _try_decode_text_file(
+        self, item: CloudApiCliAiV2StreamRequestContentItemAssistantFileInput
+    ) -> CloudApiCliAiV2StreamRequestContentItem:
+        """Decode base64 file content to plain text for text-based files."""
+        name_lower = item.file_name.lower()
+        ext = "." + name_lower.rsplit(".", 1)[-1] if "." in name_lower else ""
+        if ext not in self._TEXT_EXTENSIONS:
+            return item
+        try:
+            text = base64.b64decode(item.file_content).decode("utf-8")
+            return CloudApiCliAiV2StreamRequestContentItemAssistantTextInput(
+                type="text",
+                text=f"[File: {item.file_name}]\n{text}",
+            )
+        except Exception:
+            return item
+
     def _process_content(
         self, content: List[CloudApiCliAiV2StreamRequestContentItem]
     ) -> List[CloudApiCliAiV2StreamRequestContentItem]:
@@ -140,7 +195,7 @@ class AiController:
                 continue
 
             if not item.file_name.lower().endswith(".pdf"):
-                processed_content.append(item)
+                processed_content.append(self._try_decode_text_file(item))
                 continue
 
             try:

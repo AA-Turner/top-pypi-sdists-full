@@ -134,6 +134,198 @@ class VBaseSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports
         ...
 
 
+class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
+    """
+    Exports signals of desired positions to Collective2 API using JSON and HTTPS.
+    Accepts signals in quantity(number of shares) i.e symbol:"SPY", quant:40
+    """
+
+    class Collective2Position(System.Object):
+        """
+        Stores position's needed information to be serialized in JSON format
+        and then sent to Collective2 API
+        
+        
+        This codeEntityType is protected.
+        """
+
+        @property
+        def exchange_symbol(self) -> QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.C2ExchangeSymbol:
+            """Position symbol"""
+            ...
+
+        @exchange_symbol.setter
+        def exchange_symbol(self, value: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.C2ExchangeSymbol) -> None:
+            ...
+
+        @property
+        def quantity(self) -> float:
+            """
+            Number of shares/contracts of the given symbol. Positive quantites are long positions
+            and negative short positions.
+            """
+            ...
+
+        @quantity.setter
+        def quantity(self, value: float) -> None:
+            ...
+
+    class C2ExchangeSymbol(System.Object):
+        """
+        The Collective2 symbol
+        
+        
+        This codeEntityType is protected.
+        """
+
+        @property
+        def symbol(self) -> str:
+            """The exchange root symbol e.g. AAPL"""
+            ...
+
+        @symbol.setter
+        def symbol(self, value: str) -> None:
+            ...
+
+        @property
+        def currency(self) -> str:
+            """The 3-character ISO instrument currency. E.g. 'USD'"""
+            ...
+
+        @currency.setter
+        def currency(self, value: str) -> None:
+            ...
+
+        @property
+        def security_exchange(self) -> str:
+            """
+            The MIC Exchange code e.g. DEFAULT (for stocks & options),
+            XCME, XEUR, XICE, XLIF, XNYB, XNYM, XASX, XCBF, XCBT, XCEC,
+            XKBT, XSES. See details at http://www.iso15022.org/MIC/homepageMIC.htm
+            """
+            ...
+
+        @security_exchange.setter
+        def security_exchange(self, value: str) -> None:
+            ...
+
+        @property
+        def security_type(self) -> str:
+            """The SecurityType e.g. 'CS'(Common Stock), 'FUT' (Future), 'OPT' (Option), 'FOR' (Forex)"""
+            ...
+
+        @security_type.setter
+        def security_type(self, value: str) -> None:
+            ...
+
+        @property
+        def maturity_month_year(self) -> str:
+            """The MaturityMonthYear e.g. '202103' (March 2021), or if the contract requires a day: '20210521' (May 21, 2021)"""
+            ...
+
+        @maturity_month_year.setter
+        def maturity_month_year(self, value: str) -> None:
+            ...
+
+        @property
+        def put_or_call(self) -> typing.Optional[int]:
+            """The Option PutOrCall e.g. 0 = Put, 1 = Call"""
+            ...
+
+        @put_or_call.setter
+        def put_or_call(self, value: typing.Optional[int]) -> None:
+            ...
+
+        @property
+        def strike_price(self) -> typing.Optional[float]:
+            """The ISO Option Strike Price. Zero means none"""
+            ...
+
+        @strike_price.setter
+        def strike_price(self, value: typing.Optional[float]) -> None:
+            ...
+
+    @property
+    def destination(self) -> System.Uri:
+        """Collective2 API endpoint"""
+        ...
+
+    @destination.setter
+    def destination(self, value: System.Uri) -> None:
+        ...
+
+    @property
+    def name(self) -> str:
+        """
+        The name of this signal export
+        
+        
+        This codeEntityType is protected.
+        """
+        ...
+
+    def __init__(self, api_key: str, system_id: int, use_white_label_api: bool = False) -> None:
+        """
+        Collective2SignalExport constructor. It obtains the entry information for Collective2 API requests.
+        See API documentation at https://trade.collective2.com/c2-api
+        
+        :param api_key: API key provided by Collective2
+        :param system_id: Trading system's ID number
+        :param use_white_label_api: Whether to use the white-label API instead of the general one
+        """
+        ...
+
+    def convert_holdings_to_collective_2(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]]) -> typing.Tuple[bool, typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]]:
+        """
+        Converts a list of targets to a list of Collective2 positions
+        
+        
+        This codeEntityType is protected.
+        
+        :param parameters: A list of targets from the portfolio
+        expected to be sent to Collective2 API and the algorithm being ran
+        :param positions: A list of Collective2 positions
+        :returns: True if the given targets could be converted to a Collective2Position list, false otherwise.
+        """
+        ...
+
+    def convert_percentage_to_quantity(self, algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget) -> int:
+        """
+        Converts a given percentage of a position into the number of shares of it
+        
+        
+        This codeEntityType is protected.
+        
+        :param algorithm: Algorithm being ran
+        :param target: Desired position to be sent to the Collective2 API
+        :returns: Number of shares hold of the given position.
+        """
+        ...
+
+    def create_message(self, positions: typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]) -> str:
+        """
+        Serializes the list of desired positions with the needed credentials in JSON format
+        
+        
+        This codeEntityType is protected.
+        
+        :param positions: List of Collective2 positions to be sent to Collective2 API
+        :returns: A JSON request string of the desired positions to be sent by a POST request to Collective2 API.
+        """
+        ...
+
+    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
+        """
+        Creates a JSON message with the desired positions using the expected
+        Collective2 API format and then sends it
+        
+        :param parameters: A list of holdings from the portfolio
+        expected to be sent to Collective2 API and the algorithm being ran
+        :returns: True if the positions were sent correctly and Collective2 sent no errors, false otherwise.
+        """
+        ...
+
+
 class CrunchDAOSignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
     """
     Exports signals of the desired positions to CrunchDAO API.
@@ -371,198 +563,6 @@ class SignalExportManager(System.Object):
         
         :returns: True if the target list could be obtained from the algorithm's Portfolio and they
         were successfully sent to the signal export providers.
-        """
-        ...
-
-
-class Collective2SignalExport(QuantConnect.Algorithm.Framework.Portfolio.SignalExports.BaseSignalExport):
-    """
-    Exports signals of desired positions to Collective2 API using JSON and HTTPS.
-    Accepts signals in quantity(number of shares) i.e symbol:"SPY", quant:40
-    """
-
-    class Collective2Position(System.Object):
-        """
-        Stores position's needed information to be serialized in JSON format
-        and then sent to Collective2 API
-        
-        
-        This codeEntityType is protected.
-        """
-
-        @property
-        def exchange_symbol(self) -> QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.C2ExchangeSymbol:
-            """Position symbol"""
-            ...
-
-        @exchange_symbol.setter
-        def exchange_symbol(self, value: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.C2ExchangeSymbol) -> None:
-            ...
-
-        @property
-        def quantity(self) -> float:
-            """
-            Number of shares/contracts of the given symbol. Positive quantites are long positions
-            and negative short positions.
-            """
-            ...
-
-        @quantity.setter
-        def quantity(self, value: float) -> None:
-            ...
-
-    class C2ExchangeSymbol(System.Object):
-        """
-        The Collective2 symbol
-        
-        
-        This codeEntityType is protected.
-        """
-
-        @property
-        def symbol(self) -> str:
-            """The exchange root symbol e.g. AAPL"""
-            ...
-
-        @symbol.setter
-        def symbol(self, value: str) -> None:
-            ...
-
-        @property
-        def currency(self) -> str:
-            """The 3-character ISO instrument currency. E.g. 'USD'"""
-            ...
-
-        @currency.setter
-        def currency(self, value: str) -> None:
-            ...
-
-        @property
-        def security_exchange(self) -> str:
-            """
-            The MIC Exchange code e.g. DEFAULT (for stocks & options),
-            XCME, XEUR, XICE, XLIF, XNYB, XNYM, XASX, XCBF, XCBT, XCEC,
-            XKBT, XSES. See details at http://www.iso15022.org/MIC/homepageMIC.htm
-            """
-            ...
-
-        @security_exchange.setter
-        def security_exchange(self, value: str) -> None:
-            ...
-
-        @property
-        def security_type(self) -> str:
-            """The SecurityType e.g. 'CS'(Common Stock), 'FUT' (Future), 'OPT' (Option), 'FOR' (Forex)"""
-            ...
-
-        @security_type.setter
-        def security_type(self, value: str) -> None:
-            ...
-
-        @property
-        def maturity_month_year(self) -> str:
-            """The MaturityMonthYear e.g. '202103' (March 2021), or if the contract requires a day: '20210521' (May 21, 2021)"""
-            ...
-
-        @maturity_month_year.setter
-        def maturity_month_year(self, value: str) -> None:
-            ...
-
-        @property
-        def put_or_call(self) -> typing.Optional[int]:
-            """The Option PutOrCall e.g. 0 = Put, 1 = Call"""
-            ...
-
-        @put_or_call.setter
-        def put_or_call(self, value: typing.Optional[int]) -> None:
-            ...
-
-        @property
-        def strike_price(self) -> typing.Optional[float]:
-            """The ISO Option Strike Price. Zero means none"""
-            ...
-
-        @strike_price.setter
-        def strike_price(self, value: typing.Optional[float]) -> None:
-            ...
-
-    @property
-    def destination(self) -> System.Uri:
-        """Collective2 API endpoint"""
-        ...
-
-    @destination.setter
-    def destination(self, value: System.Uri) -> None:
-        ...
-
-    @property
-    def name(self) -> str:
-        """
-        The name of this signal export
-        
-        
-        This codeEntityType is protected.
-        """
-        ...
-
-    def __init__(self, api_key: str, system_id: int, use_white_label_api: bool = False) -> None:
-        """
-        Collective2SignalExport constructor. It obtains the entry information for Collective2 API requests.
-        See API documentation at https://trade.collective2.com/c2-api
-        
-        :param api_key: API key provided by Collective2
-        :param system_id: Trading system's ID number
-        :param use_white_label_api: Whether to use the white-label API instead of the general one
-        """
-        ...
-
-    def convert_holdings_to_collective_2(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters, positions: typing.Optional[typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]]) -> typing.Tuple[bool, typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]]:
-        """
-        Converts a list of targets to a list of Collective2 positions
-        
-        
-        This codeEntityType is protected.
-        
-        :param parameters: A list of targets from the portfolio
-        expected to be sent to Collective2 API and the algorithm being ran
-        :param positions: A list of Collective2 positions
-        :returns: True if the given targets could be converted to a Collective2Position list, false otherwise.
-        """
-        ...
-
-    def convert_percentage_to_quantity(self, algorithm: QuantConnect.Interfaces.IAlgorithm, target: QuantConnect.Algorithm.Framework.Portfolio.PortfolioTarget) -> int:
-        """
-        Converts a given percentage of a position into the number of shares of it
-        
-        
-        This codeEntityType is protected.
-        
-        :param algorithm: Algorithm being ran
-        :param target: Desired position to be sent to the Collective2 API
-        :returns: Number of shares hold of the given position.
-        """
-        ...
-
-    def create_message(self, positions: typing.List[QuantConnect.Algorithm.Framework.Portfolio.SignalExports.Collective2SignalExport.Collective2Position]) -> str:
-        """
-        Serializes the list of desired positions with the needed credentials in JSON format
-        
-        
-        This codeEntityType is protected.
-        
-        :param positions: List of Collective2 positions to be sent to Collective2 API
-        :returns: A JSON request string of the desired positions to be sent by a POST request to Collective2 API.
-        """
-        ...
-
-    def send(self, parameters: QuantConnect.Algorithm.Framework.Portfolio.SignalExports.SignalExportTargetParameters) -> bool:
-        """
-        Creates a JSON message with the desired positions using the expected
-        Collective2 API format and then sends it
-        
-        :param parameters: A list of holdings from the portfolio
-        expected to be sent to Collective2 API and the algorithm being ran
-        :returns: True if the positions were sent correctly and Collective2 sent no errors, false otherwise.
         """
         ...
 

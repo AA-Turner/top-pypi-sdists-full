@@ -8,7 +8,33 @@ endif()
 file(READ "VERSION" VESIN_VERSION)
 string(STRIP ${VESIN_VERSION} VESIN_VERSION)
 
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 project(vesin LANGUAGES C CXX VERSION ${VESIN_VERSION})
+
+#[[
+ This function wraps the input file with the appropriate string to allow us to
+ static-initialize string variables, for example:
+     static const char* CUDA_CODE =
+#include "generated/cuda_impl.cu"
+        ;
+]]
+function(make_includeable INPUT_FILE OUTPUT_FILE)
+    if(NOT EXISTS ${INPUT_FILE})
+        message(FATAL_ERROR "Error: The input file '${INPUT_FILE}' does not exist.")
+    endif()
+    file(STRINGS ${INPUT_FILE} content)
+
+    file(WRITE ${OUTPUT_FILE} "")
+    foreach(line IN LISTS content)
+        # Write multiple raw string literals to workaound MSVC size limitations
+        # on string literals. https://learn.microsoft.com/en-us/cpp/c-language/maximum-string-length
+        file(APPEND ${OUTPUT_FILE} "R\"======(${line}\n)======\"\n")
+    endforeach()
+endfunction()
+
 
 if (${CMAKE_SOURCE_DIR} STREQUAL ${CMAKE_CURRENT_SOURCE_DIR})
     set(VESIN_MAIN_PROJECT ON)
@@ -32,53 +58,68 @@ endif()
 option(BUILD_SHARED_LIBS "Build shared libraries instead of static ones" OFF)
 option(VESIN_BUILD_TESTS "Build and run Vesin's unit tests" OFF)
 option(VESIN_INSTALL "Install Vesin's headers and libraries" ${VESIN_MAIN_PROJECT})
-option(VESIN_ENABLE_CUDA "Build the CUDA backend of Vesin" OFF)
+option(VESIN_ENABLE_NVTX "Enable NVTX profiling markers" OFF)
 
 set(VESIN_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vesin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpu_cell_list.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vesin_cuda.cpp
 )
-
-# Find CUDA
-include(CheckLanguage)
-check_language(CUDA)
-if(CMAKE_CUDA_COMPILER)
-    enable_language(CUDA)
-    find_package(CUDAToolkit REQUIRED)
-    set(CUDA_USE_STATIC_CUDA_RUNTIME OFF CACHE BOOL "" FORCE)
-else()
-    message(STATUS "Could not find a CUDA compiler")
-endif()
-
-if (NOT CMAKE_CUDA_COMPILER AND VESIN_ENABLE_CUDA)
-    message(FATAL_ERROR "VESIN_ENABLE_CUDA=ON but could not find a cuda compiler.")
-endif()
-
-if (CMAKE_CUDA_COMPILER AND NOT VESIN_ENABLE_CUDA)
-    message(STATUS "Found a CUDA compiler but VESIN_ENABLE_CUDA=OFF, set VESIN_ENABLE_CUDA=ON in order to compile with CUDA support.")
-endif()
-
-
-if (CMAKE_CUDA_COMPILER AND VESIN_ENABLE_CUDA)
-    list(APPEND VESIN_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/mic_neighbourlist.cu)
-    list(APPEND VESIN_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/vesin_cuda.cpp)
-else()
-    list(APPEND VESIN_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda_stub.cpp)
-endif()
 
 # create two targets: `vesin` is the main one, while `vesin_objects` will
 # be used by language bindings to embed vesin inside another (SHARED) library
 add_library(vesin ${VESIN_SOURCES})
 add_library(vesin_objects OBJECT ${VESIN_SOURCES})
 
-if (CMAKE_CUDA_COMPILER AND VESIN_ENABLE_CUDA)
-    target_include_directories(vesin_objects PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-    target_include_directories(vesin PRIVATE ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
-endif()
-
 target_include_directories(vesin_objects PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
 )
+
+# Generate the CUDA source files for NVRTC compilation
+make_includeable(${CMAKE_CURRENT_SOURCE_DIR}/src/cuda_bruteforce.cu ${CMAKE_CURRENT_BINARY_DIR}/generated/cuda_bruteforce.cu)
+make_includeable(${CMAKE_CURRENT_SOURCE_DIR}/src/cuda_cell_list.cu ${CMAKE_CURRENT_BINARY_DIR}/generated/cuda_cell_list.cu)
+
+include(FetchContent)
+
+if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/external/gpulite.tar.gz)
+    FetchContent_Declare(
+        gpulite
+        URL ${CMAKE_CURRENT_SOURCE_DIR}/external/gpulite.tar.gz
+        DOWNLOAD_EXTRACT_TIMESTAMP
+        EXCLUDE_FROM_ALL
+    )
+else()
+    FetchContent_Declare(
+        gpulite
+        GIT_REPOSITORY https://github.com/rubber-duck-debug/gpu-lite.git
+        GIT_TAG d2f59d3ff48a542487dc6af725638ddd86cf9ebe # v1.0.2
+        EXCLUDE_FROM_ALL
+    )
+endif()
+
+FetchContent_MakeAvailable(gpulite)
+
+target_link_libraries(vesin_objects PRIVATE gpulite)
+target_link_libraries(vesin PRIVATE gpulite)
+
+# Create generated directory
+file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)
+
+target_include_directories(vesin_objects PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+target_include_directories(vesin PRIVATE ${CMAKE_CURRENT_BINARY_DIR})
+
+# NVTX profiling support
+if (VESIN_ENABLE_NVTX)
+    find_package(CUDAToolkit QUIET)
+    if (CUDAToolkit_FOUND AND TARGET CUDA::nvToolsExt)
+        message(STATUS "Found NVTX via CUDAToolkit")
+        target_compile_definitions(vesin PRIVATE VESIN_ENABLE_NVTX)
+        target_compile_definitions(vesin_objects PRIVATE VESIN_ENABLE_NVTX)
+        target_link_libraries(vesin PRIVATE CUDA::nvToolsExt)
+    else()
+        message(WARNING "VESIN_ENABLE_NVTX=ON but CUDA::nvToolsExt target not found")
+    endif()
+endif()
 
 target_include_directories(vesin PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>

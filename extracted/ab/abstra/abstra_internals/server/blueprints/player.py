@@ -97,6 +97,7 @@ def get_player_bp(controller: MainController):
                 "oidc_authority": OIDC_AUTHORITY(),
                 "oidc_client_id": OIDC_CLIENT_ID(),
                 "editor_mode": EDITOR_MODE,
+                "is_production": IS_PRODUCTION,
             }
         )
 

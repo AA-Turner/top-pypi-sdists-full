@@ -115,7 +115,12 @@ class BaseRunConfigurator(
             if len(self.api.client.fleets.list(self.api.project)) == 0:
                 no_fleets = True
 
-        print_run_plan(run_plan, max_offers=configurator_args.max_offers, no_fleets=no_fleets)
+        print_run_plan(
+            run_plan,
+            max_offers=configurator_args.max_offers,
+            no_fleets=no_fleets,
+            verbose=command_args.verbose,
+        )
 
         confirm_message = "Submit a new run?"
         if conf.name:
@@ -383,7 +388,17 @@ class BaseRunConfigurator(
 
     def validate_gpu_vendor_and_image(self, conf: RunConfigurationT) -> None:
         """
-        Infers and sets `resources.gpu.vendor` if not set, requires `image` if the vendor is AMD.
+        Infers GPU vendor if not set. Defaults to Nvidia when using the default
+        CUDA image. Requires explicit `image` if the vendor is AMD or Tenstorrent.
+
+        When vendor is inferred from GPU name (e.g. A100 -> nvidia), it is written to
+        gpu_spec. When vendor is inferred from image context (no name, no vendor, default
+        CUDA image -> nvidia), it is NOT written to gpu_spec because 0.19.x servers
+        (gpuhunt <0.1.12) break on vendor=nvidia + min_gpu_count=0. The server applies
+        the same default in set_gpu_vendor_default().
+
+        TODO: This entire method should move to the server (set_resources_defaults)
+        so that defaults and validation are equal for CLI and API users.
         """
         gpu_spec = conf.resources.gpu
         if gpu_spec is None:
@@ -425,12 +440,15 @@ class BaseRunConfigurator(
                 # CUDA image, not a big deal.
                 has_amd_gpu = gpuhunt.AcceleratorVendor.AMD in vendors
                 has_tt_gpu = gpuhunt.AcceleratorVendor.TENSTORRENT in vendors
+                # Set vendor inferred from name on the spec (server needs it for filtering).
+                gpu_spec.vendor = vendor
             else:
-                # If neither gpu.vendor nor gpu.name is set, assume Nvidia.
-                vendor = gpuhunt.AcceleratorVendor.NVIDIA
+                # No vendor or name specified. Default to Nvidia if using the
+                # default CUDA image, since it's only compatible with Nvidia GPUs.
+                if conf.image is None and conf.docker is not True:
+                    vendor = gpuhunt.AcceleratorVendor.NVIDIA
                 has_amd_gpu = False
                 has_tt_gpu = False
-            gpu_spec.vendor = vendor
         else:
             has_amd_gpu = vendor == gpuhunt.AcceleratorVendor.AMD
             has_tt_gpu = vendor == gpuhunt.AcceleratorVendor.TENSTORRENT

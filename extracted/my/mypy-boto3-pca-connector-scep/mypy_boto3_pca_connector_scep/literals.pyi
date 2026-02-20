@@ -3,7 +3,7 @@ Type annotations for pca-connector-scep service literal definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_pca_connector_scep/literals/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -38,6 +38,8 @@ ConnectorStatusReasonType = Literal[
     "PRIVATECA_ACCESS_DENIED",
     "PRIVATECA_INVALID_STATE",
     "PRIVATECA_RESOURCE_NOT_FOUND",
+    "VPC_ENDPOINT_DNS_ENTRIES_NOT_FOUND",
+    "VPC_ENDPOINT_RESOURCE_NOT_FOUND",
 ]
 ConnectorStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED"]
 ConnectorTypeType = Literal["GENERAL_PURPOSE", "INTUNE"]
@@ -185,7 +187,6 @@ ServiceName = Literal[
     "eks-auth",
     "elasticache",
     "elasticbeanstalk",
-    "elastictranscoder",
     "elb",
     "elbv2",
     "emr",
@@ -194,7 +195,6 @@ ServiceName = Literal[
     "entityresolution",
     "es",
     "events",
-    "evidently",
     "evs",
     "finspace",
     "finspace-data",
@@ -234,7 +234,6 @@ ServiceName = Literal[
     "iot-data",
     "iot-jobs-data",
     "iot-managed-integrations",
-    "iotanalytics",
     "iotdeviceadvisor",
     "iotevents",
     "iotevents-data",
@@ -450,6 +449,7 @@ ServiceName = Literal[
     "waf-regional",
     "wafv2",
     "wellarchitected",
+    "wickr",
     "wisdom",
     "workdocs",
     "workmail",

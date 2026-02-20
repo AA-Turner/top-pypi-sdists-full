@@ -40,9 +40,9 @@ def cydist_sax(sax1, sax2, breakpoints, original_size):
 
     Parameters
     ----------
-    sax1 : array-like, shape=(sz, d), dtype=float64 (Linux and MacOS) or float32 (Windows)
+    sax1 : array-like, shape=(sz, d)
         SAX representation of a time series.
-    sax2 : array-like, shape=(sz, d), dtype=float64 (Linux and MacOS) or float32 (Windows)
+    sax2 : array-like, shape=(sz, d)
         SAX representation of another time series.
     breakpoints : array-like, ndim=1, dtype=float64
         The breakpoints used to assign the alphabet symbols.
@@ -124,7 +124,7 @@ def cyslopes(dataset, t0):
             with objmode(dataset_out_i_di="float64"):
                 dataset_out_i_di = (
                     LinearRegression()
-                    .fit(vec_t, dataset[i, :, di].reshape((-1, 1)))
+                    .fit(vec_t, dataset[i, :, di])
                     .coef_[0]
                 )
             dataset_out[i, di] = dataset_out_i_di

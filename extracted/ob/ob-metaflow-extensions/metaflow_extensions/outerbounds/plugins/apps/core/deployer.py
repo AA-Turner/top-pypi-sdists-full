@@ -4,7 +4,11 @@ from .capsule import CapsuleApi
 import time
 import os
 import tempfile
-from ._state_machine import DEPLOYMENT_READY_CONDITIONS, LogLine
+from ._state_machine import (
+    DEPLOYMENT_READY_CONDITIONS,
+    LogLine,
+    _build_readiness_failure_reason,
+)
 from .app_config import AppConfig, AppConfigError
 from .code_package import CodePackager
 from .config import PackagedCode, BakedImage
@@ -14,6 +18,7 @@ from .capsule import (
     list_and_filter_capsules,
     _format_url_string,
 )
+from .config import UNASSIGNED_PROJECT_BRANCH
 from .exceptions import (
     CapsuleDeploymentException,
     CapsuleApiException,
@@ -468,7 +473,7 @@ class AppDeployer(TypedCoreConfig):
         self,
         readiness_condition: str = DEPLOYMENT_READY_CONDITIONS.ATLEAST_ONE_RUNNING,
         max_wait_time=600,
-        readiness_wait_time=10,
+        readiness_wait_time=60,
         logger_fn=partial(print, file=sys.stderr),
         **kwargs,
     ) -> "DeployedApp":
@@ -532,7 +537,13 @@ class AppDeployer(TypedCoreConfig):
             Default is 600 (10 minutes).
 
         readiness_wait_time : int, optional
-            Time in seconds to wait between readiness checks. Default is 10.
+            Once the deployment meets the readiness_condition, workers are monitored
+            for an additional readiness_wait_time seconds to catch crashloops that
+            surface shortly after startup. If a worker enters a crashloop during this
+            window the deploy will fail with AppCrashLoopException. Increase this
+            value for apps with slow startups or when infrastructure may not be
+            quickly available for apps.
+            Default is 60.
 
         logger_fn : Callable, optional
             Function to use for logging progress messages. Default prints to stderr.
@@ -724,10 +735,20 @@ class AppDeployer(TypedCoreConfig):
             logger_fn=logger_fn,
         )
 
+        _project = self._deploy_config.get_state("project", UNASSIGNED_PROJECT_BRANCH)
+        _branch = self._deploy_config.get_state("branch", UNASSIGNED_PROJECT_BRANCH)
+
+        _project_set = _project != UNASSIGNED_PROJECT_BRANCH
+        _branch_set = _branch != UNASSIGNED_PROJECT_BRANCH
+        if _project_set and not _branch_set:
+            raise AppConfigError("When project is provided, branch is also required.")
+        if _branch_set and not _project_set:
+            raise AppConfigError("When branch is provided, project is also required.")
+
         currently_present_capsules = list_and_filter_capsules(
             capsule.capsule_api,
-            None,
-            None,
+            _project,
+            _branch,
             capsule.name,
             None,
             None,
@@ -776,8 +797,16 @@ class AppDeployer(TypedCoreConfig):
                 logs=e.logs,
             ) from e
         except CapsuleReadinessException as e:
+            reasons = _build_readiness_failure_reason(
+                capsule_status=e.capsule_status,
+                worker_semantic_status=e.worker_semantic_status,
+                readiness_condition=e.readiness_condition,
+                max_wait_time=e.max_wait_time,
+                timed_out=e.timed_out,
+            )
             raise AppReadinessException(
                 app_id=e.capsule_id,
+                reason="; ".join(reasons),
             ) from e
         except CapsuleConcurrentUpgradeException as e:
             raise AppConcurrentUpgradeException(

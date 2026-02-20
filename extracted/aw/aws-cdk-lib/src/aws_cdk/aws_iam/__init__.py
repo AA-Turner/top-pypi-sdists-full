@@ -7621,6 +7621,124 @@ class CustomizeRolesOptions:
         )
 
 
+class DefaultEncryptedResourceFactories(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.DefaultEncryptedResourceFactories",
+):
+    '''Default factories for encrypted resources.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        default_encrypted_resource_factories = iam.DefaultEncryptedResourceFactories()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="get")
+    @builtins.classmethod
+    def get(cls, type: builtins.str) -> typing.Optional["IEncryptedResourceFactory"]:
+        '''Get the default factory for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__cc86876b8c32371abd50d5587ebf36e18b196334aefdf57ba2b656a3f4473ee0)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        return typing.cast(typing.Optional["IEncryptedResourceFactory"], jsii.sinvoke(cls, "get", [type]))
+
+    @jsii.member(jsii_name="has")
+    @builtins.classmethod
+    def has(cls, type: builtins.str) -> builtins.bool:
+        '''Check if a default factory is registered for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__58a2fe126ec1ecbb15f8e407f5ff7d72093d6960f0bc34bf8fb0951af8ba5233)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "has", [type]))
+
+    @jsii.member(jsii_name="set")
+    @builtins.classmethod
+    def set(cls, type: builtins.str, factory: "IEncryptedResourceFactory") -> None:
+        '''Register a default factory for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        :param factory: the factory to register for this resource type.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__204ecb093bc2597877abddcde879524a713a2baccddb2acdf574dea382df21ff)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
+        return typing.cast(None, jsii.sinvoke(cls, "set", [type, factory]))
+
+
+class DefaultPolicyFactories(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.DefaultPolicyFactories",
+):
+    '''Default factories for resources with policies.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        default_policy_factories = iam.DefaultPolicyFactories()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="get")
+    @builtins.classmethod
+    def get(cls, type: builtins.str) -> typing.Optional["IResourcePolicyFactory"]:
+        '''Get the default factory for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__d898a5037835daecd930579f96e6a027b9f56f56d28d6c7c8cf77630036ed46d)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        return typing.cast(typing.Optional["IResourcePolicyFactory"], jsii.sinvoke(cls, "get", [type]))
+
+    @jsii.member(jsii_name="has")
+    @builtins.classmethod
+    def has(cls, type: builtins.str) -> builtins.bool:
+        '''Check if a default factory is registered for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__44811b030b6959c9d5dd62d404f7f3cd8866f45c594722528bb2d05ab6cdfbff)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+        return typing.cast(builtins.bool, jsii.sinvoke(cls, "has", [type]))
+
+    @jsii.member(jsii_name="set")
+    @builtins.classmethod
+    def set(cls, type: builtins.str, factory: "IResourcePolicyFactory") -> None:
+        '''Register a default factory for a given CloudFormation resource type.
+
+        :param type: the CloudFormation resource type (e.g., 'AWS::DynamoDB::Table').
+        :param factory: the factory to register for this resource type.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__314d2bed6d353ed870fdd1029ac9df0a06d25be0febd8553668ade037f8c50ce)
+            check_type(argname="argument type", value=type, expected_type=type_hints["type"])
+            check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
+        return typing.cast(None, jsii.sinvoke(cls, "set", [type, factory]))
+
+
 @jsii.enum(jsii_type="aws-cdk-lib.aws_iam.Effect")
 class Effect(enum.Enum):
     '''The Effect element of an IAM policy.
@@ -7676,6 +7794,66 @@ class Effect(enum.Enum):
 
     :see: https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_policies_evaluation-logic.html
     '''
+
+
+class EncryptedResources(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.EncryptedResources",
+):
+    '''Utility class for discovering and registering encrypted resource traits.
+
+    This class provides methods to retrieve IEncryptedResource instances from constructs,
+    enabling automatic KMS key permission grants during IAM grant operations.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        encrypted_resources = iam.EncryptedResources()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(
+        cls,
+        resource: "_IEnvironmentAware_f39049ee",
+    ) -> typing.Optional["IEncryptedResource"]:
+        '''Retrieve the IEncryptedResource associated with a construct, if available.
+
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0541baf81f7cd71d7b592e03e9ef9463389ae2b7c6c0d3457fa6db8aa3adb70c)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(typing.Optional["IEncryptedResource"], jsii.sinvoke(cls, "of", [resource]))
+
+    @jsii.member(jsii_name="register")
+    @builtins.classmethod
+    def register(
+        cls,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        cfn_type: builtins.str,
+        factory: "IEncryptedResourceFactory",
+    ) -> None:
+        '''Register a factory for a specific CloudFormation resource type and scope.
+
+        :param scope: -
+        :param cfn_type: -
+        :param factory: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__404cd9c80d8c0e0d1c9720dc77978644c597557a50a18023daae1c98725a9a18)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument cfn_type", value=cfn_type, expected_type=type_hints["cfn_type"])
+            check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
+        return typing.cast(None, jsii.sinvoke(cls, "register", [scope, cfn_type, factory]))
 
 
 @jsii.data_type(
@@ -8941,6 +9119,61 @@ class _IEncryptedResourceProxy(
 typing.cast(typing.Any, IEncryptedResource).__jsii_proxy_class__ = lambda : _IEncryptedResourceProxy
 
 
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IEncryptedResourceFactory")
+class IEncryptedResourceFactory(typing_extensions.Protocol):
+    '''Factory interface for creating IEncryptedResource instances from constructs.
+
+    Implementations of this interface are registered in the DefaultEncryptedResourceFactories
+    registry and enable automatic KMS key permission grants for encrypted CloudFormation resources.
+    When a grant operation is performed on an encrypted resource, the factory converts L1 constructs
+    into resources that can grant permissions on their associated KMS encryption keys.
+
+    Factories are typically registered during static initialization and associated with specific
+    CloudFormation resource types (e.g., 'AWS::DynamoDB::Table'). The CDK's grant system uses
+    these factories to automatically add necessary KMS key permissions when granting access to
+    encrypted resources.
+    '''
+
+    @jsii.member(jsii_name="forResource")
+    def for_resource(self, resource: "_CfnResource_9df397a6") -> "IEncryptedResource":
+        '''Create an IEncryptedResource from a construct.
+
+        :param resource: the construct to be wrapped as an IEncryptedResource.
+        '''
+        ...
+
+
+class _IEncryptedResourceFactoryProxy:
+    '''Factory interface for creating IEncryptedResource instances from constructs.
+
+    Implementations of this interface are registered in the DefaultEncryptedResourceFactories
+    registry and enable automatic KMS key permission grants for encrypted CloudFormation resources.
+    When a grant operation is performed on an encrypted resource, the factory converts L1 constructs
+    into resources that can grant permissions on their associated KMS encryption keys.
+
+    Factories are typically registered during static initialization and associated with specific
+    CloudFormation resource types (e.g., 'AWS::DynamoDB::Table'). The CDK's grant system uses
+    these factories to automatically add necessary KMS key permissions when granting access to
+    encrypted resources.
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IEncryptedResourceFactory"
+
+    @jsii.member(jsii_name="forResource")
+    def for_resource(self, resource: "_CfnResource_9df397a6") -> "IEncryptedResource":
+        '''Create an IEncryptedResource from a construct.
+
+        :param resource: the construct to be wrapped as an IEncryptedResource.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f9e7d28559fee7984a021f6b259d6a658682229266ac7ca28433cac3efd162c7)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast("IEncryptedResource", jsii.invoke(self, "forResource", [resource]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IEncryptedResourceFactory).__jsii_proxy_class__ = lambda : _IEncryptedResourceFactoryProxy
+
+
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IGrantable")
 class IGrantable(typing_extensions.Protocol):
     '''Any object that has an associated principal that a permission can be granted to.'''
@@ -9366,6 +9599,67 @@ class _IPrincipalProxy(
 
 # Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
 typing.cast(typing.Any, IPrincipal).__jsii_proxy_class__ = lambda : _IPrincipalProxy
+
+
+@jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourcePolicyFactory")
+class IResourcePolicyFactory(typing_extensions.Protocol):
+    '''Factory interface for creating IResourceWithPolicyV2 instances from constructs.
+
+    Implementations of this interface are registered in the DefaultPolicyFactories registry
+    and enable automatic resource policy support for CloudFormation resources. When a grant
+    operation is performed, the factory converts L1 constructs into resources that support
+    resource-based policies.
+
+    Factories are typically registered during static initialization and associated with
+    specific CloudFormation resource types (e.g., 'AWS::DynamoDB::Table'). The CDK's grant
+    system uses these factories to determine whether a resource supports resource policies
+    and to create the appropriate wrapper when needed.
+    '''
+
+    @jsii.member(jsii_name="forResource")
+    def for_resource(
+        self,
+        resource: "_CfnResource_9df397a6",
+    ) -> "IResourceWithPolicyV2":
+        '''Create an IResourceWithPolicyV2 from a construct.
+
+        :param resource: the construct to be wrapped as an IResourceWithPolicyV2.
+        '''
+        ...
+
+
+class _IResourcePolicyFactoryProxy:
+    '''Factory interface for creating IResourceWithPolicyV2 instances from constructs.
+
+    Implementations of this interface are registered in the DefaultPolicyFactories registry
+    and enable automatic resource policy support for CloudFormation resources. When a grant
+    operation is performed, the factory converts L1 constructs into resources that support
+    resource-based policies.
+
+    Factories are typically registered during static initialization and associated with
+    specific CloudFormation resource types (e.g., 'AWS::DynamoDB::Table'). The CDK's grant
+    system uses these factories to determine whether a resource supports resource policies
+    and to create the appropriate wrapper when needed.
+    '''
+
+    __jsii_type__: typing.ClassVar[str] = "aws-cdk-lib.aws_iam.IResourcePolicyFactory"
+
+    @jsii.member(jsii_name="forResource")
+    def for_resource(
+        self,
+        resource: "_CfnResource_9df397a6",
+    ) -> "IResourceWithPolicyV2":
+        '''Create an IResourceWithPolicyV2 from a construct.
+
+        :param resource: the construct to be wrapped as an IResourceWithPolicyV2.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__3aaefe0993e96e8a47def2a205874aa98f30403418054b3856d6f1ee2c6ec838)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast("IResourceWithPolicyV2", jsii.invoke(self, "forResource", [resource]))
+
+# Adding a "__jsii_proxy_class__(): typing.Type" function to the interface
+typing.cast(typing.Any, IResourcePolicyFactory).__jsii_proxy_class__ = lambda : _IResourcePolicyFactoryProxy
 
 
 @jsii.interface(jsii_type="aws-cdk-lib.aws_iam.IResourceWithPolicyV2")
@@ -12305,6 +12599,66 @@ class PrincipalPolicyFragment(
     def principal_json(self) -> typing.Mapping[builtins.str, typing.List[builtins.str]]:
         '''JSON of the "Principal" section in a policy statement.'''
         return typing.cast(typing.Mapping[builtins.str, typing.List[builtins.str]], jsii.get(self, "principalJson"))
+
+
+class ResourceWithPolicies(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_iam.ResourceWithPolicies",
+):
+    '''Utility class for discovering and managing resource policy traits.
+
+    This class provides methods to retrieve IResourceWithPolicyV2 instances from constructs,
+    enabling resource-based policy management during IAM grant operations.
+
+    :exampleMetadata: fixture=_generated
+
+    Example::
+
+        # The code below shows an example of how to instantiate this type.
+        # The values are placeholders you should change.
+        from aws_cdk import aws_iam as iam
+        
+        resource_with_policies = iam.ResourceWithPolicies()
+    '''
+
+    def __init__(self) -> None:
+        jsii.create(self.__class__, self, [])
+
+    @jsii.member(jsii_name="of")
+    @builtins.classmethod
+    def of(
+        cls,
+        resource: "_IEnvironmentAware_f39049ee",
+    ) -> typing.Optional["IResourceWithPolicyV2"]:
+        '''Retrieve the IResourceWithPolicyV2 associated with a construct, if available.
+
+        :param resource: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__32502772b8e5f0749cf64587a97089b708edc05e8c27d2dd0848d0aa77b3c654)
+            check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
+        return typing.cast(typing.Optional["IResourceWithPolicyV2"], jsii.sinvoke(cls, "of", [resource]))
+
+    @jsii.member(jsii_name="register")
+    @builtins.classmethod
+    def register(
+        cls,
+        scope: "_constructs_77d1e7e8.IConstruct",
+        cfn_type: builtins.str,
+        factory: "IResourcePolicyFactory",
+    ) -> None:
+        '''Register a factory for a specific CloudFormation resource type and scope.
+
+        :param scope: -
+        :param cfn_type: -
+        :param factory: -
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__dfdd3d4ab45c404c8b3b969489ec6c92cbf8b72f267a44b78be812cedc6d39a9)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument cfn_type", value=cfn_type, expected_type=type_hints["cfn_type"])
+            check_type(argname="argument factory", value=factory, expected_type=type_hints["factory"])
+        return typing.cast(None, jsii.sinvoke(cls, "register", [scope, cfn_type, factory]))
 
 
 class RoleGrants(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_iam.RoleGrants"):
@@ -16888,7 +17242,10 @@ __all__ = [
     "CompositeDependable",
     "CompositePrincipal",
     "CustomizeRolesOptions",
+    "DefaultEncryptedResourceFactories",
+    "DefaultPolicyFactories",
     "Effect",
+    "EncryptedResources",
     "FederatedPrincipal",
     "FromRoleArnOptions",
     "FromRoleNameOptions",
@@ -16905,6 +17262,7 @@ __all__ = [
     "IAssumeRolePrincipal",
     "IComparablePrincipal",
     "IEncryptedResource",
+    "IEncryptedResourceFactory",
     "IGrantable",
     "IGroup",
     "IIdentity",
@@ -16914,6 +17272,7 @@ __all__ = [
     "IOpenIdConnectProvider",
     "IPolicy",
     "IPrincipal",
+    "IResourcePolicyFactory",
     "IResourceWithPolicy",
     "IResourceWithPolicyV2",
     "IRole",
@@ -16942,6 +17301,7 @@ __all__ = [
     "PrincipalBase",
     "PrincipalPolicyFragment",
     "PrincipalWithConditions",
+    "ResourceWithPolicies",
     "Role",
     "RoleGrants",
     "RoleLookupOptions",
@@ -18213,6 +18573,58 @@ def _typecheckingstub__1882c00172b4072d4822b976aed7e86da105b2fb611d32539f72c6440
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__cc86876b8c32371abd50d5587ebf36e18b196334aefdf57ba2b656a3f4473ee0(
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__58a2fe126ec1ecbb15f8e407f5ff7d72093d6960f0bc34bf8fb0951af8ba5233(
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__204ecb093bc2597877abddcde879524a713a2baccddb2acdf574dea382df21ff(
+    type: builtins.str,
+    factory: IEncryptedResourceFactory,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__d898a5037835daecd930579f96e6a027b9f56f56d28d6c7c8cf77630036ed46d(
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__44811b030b6959c9d5dd62d404f7f3cd8866f45c594722528bb2d05ab6cdfbff(
+    type: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__314d2bed6d353ed870fdd1029ac9df0a06d25be0febd8553668ade037f8c50ce(
+    type: builtins.str,
+    factory: IResourcePolicyFactory,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0541baf81f7cd71d7b592e03e9ef9463389ae2b7c6c0d3457fa6db8aa3adb70c(
+    resource: _IEnvironmentAware_f39049ee,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__404cd9c80d8c0e0d1c9720dc77978644c597557a50a18023daae1c98725a9a18(
+    scope: _constructs_77d1e7e8.IConstruct,
+    cfn_type: builtins.str,
+    factory: IEncryptedResourceFactory,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__9f2caa0021d06fd2643ae1baf77362146ac3d8099ebadae2a932738c2a2a8792(
     *,
     add_grants_to_resources: typing.Optional[builtins.bool] = None,
@@ -18321,8 +18733,20 @@ def _typecheckingstub__31391fca81b6f55a5127b16e129f61e26bf7e16d7075081f448434495
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f9e7d28559fee7984a021f6b259d6a658682229266ac7ca28433cac3efd162c7(
+    resource: _CfnResource_9df397a6,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__7c10aadcc3756f5f6d5486d7ecd5cabd7845be5964af1722a9d4962d586babd4(
     statement: PolicyStatement,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3aaefe0993e96e8a47def2a205874aa98f30403418054b3856d6f1ee2c6ec838(
+    resource: _CfnResource_9df397a6,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -18761,6 +19185,20 @@ def _typecheckingstub__b1307ab5f5dd84b7184f36603f7af026efb2798812c35c96dbe60552f
 def _typecheckingstub__278426b331a0d887bf9449f77f6f9c562033abef58a3d7279c5604a1e1c928ea(
     principal_json: typing.Mapping[builtins.str, typing.Sequence[builtins.str]],
     conditions: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__32502772b8e5f0749cf64587a97089b708edc05e8c27d2dd0848d0aa77b3c654(
+    resource: _IEnvironmentAware_f39049ee,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__dfdd3d4ab45c404c8b3b969489ec6c92cbf8b72f267a44b78be812cedc6d39a9(
+    scope: _constructs_77d1e7e8.IConstruct,
+    cfn_type: builtins.str,
+    factory: IResourcePolicyFactory,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -19489,5 +19927,5 @@ def _typecheckingstub__c7271e79a3715a166397ac94ded3c4043db8b40c10213ffae6abbb3a1
     """Type checking stubs"""
     pass
 
-for cls in [IAccessKey, IAssumeRolePrincipal, IComparablePrincipal, IEncryptedResource, IGrantable, IGroup, IIdentity, IInstanceProfile, IManagedPolicy, IOidcProvider, IOpenIdConnectProvider, IPolicy, IPrincipal, IResourceWithPolicy, IResourceWithPolicyV2, IRole, ISamlProvider, IUser]:
+for cls in [IAccessKey, IAssumeRolePrincipal, IComparablePrincipal, IEncryptedResource, IEncryptedResourceFactory, IGrantable, IGroup, IIdentity, IInstanceProfile, IManagedPolicy, IOidcProvider, IOpenIdConnectProvider, IPolicy, IPrincipal, IResourcePolicyFactory, IResourceWithPolicy, IResourceWithPolicyV2, IRole, ISamlProvider, IUser]:
     typing.cast(typing.Any, cls).__protocol_attrs__ = typing.cast(typing.Any, cls).__protocol_attrs__ - set(['__jsii_proxy_class__', '__jsii_type__'])

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: clerk-backend-api
-Version: 5.0.1
+Version: 5.0.2
 Summary: Python Client SDK for clerk.dev
 License-File: LICENSE
 Author: Clerk

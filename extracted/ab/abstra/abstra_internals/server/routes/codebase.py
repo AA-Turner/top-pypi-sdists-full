@@ -4,8 +4,13 @@ import flask
 import flask_sock
 
 from abstra_internals.contracts_generated import (
-    AbstraLibApiEditorFilesEditRequest,
-    AbstraLibApiEditorFilesRenameRequest,
+    AbstraLibApiEditorCodebaseCheckFileGetResponse,
+    AbstraLibApiEditorCodebaseCheckFilesPostRequest,
+    AbstraLibApiEditorCodebaseFilesPatchRequest,
+    AbstraLibApiEditorCodebaseFilesPutRequest,
+    AbstraLibApiEditorCodebaseInitFilePostRequest,
+    AbstraLibApiEditorCodebaseInitFilePostResponse,
+    AbstraLibApiEditorCodebaseTypeCheckPostResponse,
 )
 from abstra_internals.controllers.codebase import CodebaseController
 from abstra_internals.controllers.codebase_events import CodebaseEventController
@@ -44,8 +49,40 @@ def get_editor_bp(repos: Repositories):
     @bp.get("/files")
     def _list_files():
         path = flask.request.args.get("path")
-        files = controller.list_files(path)
+        mode = flask.request.args.get("mode", "file")
+        if mode not in {"file", "image", "python-file", "module"}:
+            flask.abort(400)
+        files = controller.list_files(path, mode=mode)
         return [f.to_dict() for f in files]
+
+    @bp.post("/init-file")
+    def _init_file():
+        if not flask.request.json:
+            flask.abort(400)
+        req = AbstraLibApiEditorCodebaseInitFilePostRequest.from_dict(
+            flask.request.json
+        )
+        controller.init_file(req.path, req.type)
+        return AbstraLibApiEditorCodebaseInitFilePostResponse(success=True).to_dict()
+
+    @bp.get("/check-file")
+    def _check_file():
+        path = flask.request.args.get("path")
+        if not path:
+            flask.abort(400)
+        result = controller.check_file(path)
+        return AbstraLibApiEditorCodebaseCheckFileGetResponse(
+            exists=result["exists"]
+        ).to_dict()
+
+    @bp.post("/check-files")
+    def _check_files():
+        if not flask.request.json:
+            flask.abort(400)
+        req = AbstraLibApiEditorCodebaseCheckFilesPostRequest.from_dict(
+            flask.request.json
+        )
+        return controller.check_files(req.paths)
 
     @bp.get("/files/<path:path>")
     def _get_file(path):
@@ -56,7 +93,7 @@ def get_editor_bp(repos: Repositories):
         json = flask.request.json
         if json is None:
             flask.abort(400)
-        req = AbstraLibApiEditorFilesEditRequest.from_dict(json)
+        req = AbstraLibApiEditorCodebaseFilesPutRequest.from_dict(json)
 
         return controller.edit_file(path, req).to_dict()
 
@@ -83,7 +120,7 @@ def get_editor_bp(repos: Repositories):
                 flask.abort(400, description="No JSON body provided")
 
             AbstraLogger.debug(f"rename_file: Received JSON: {json}")
-            req = AbstraLibApiEditorFilesRenameRequest.from_dict(json)
+            req = AbstraLibApiEditorCodebaseFilesPatchRequest.from_dict(json)
             result = controller.rename_file(req.path_parts, req.new_path_parts)
             return result.to_dict()
         except Exception as e:
@@ -103,10 +140,8 @@ def get_editor_bp(repos: Repositories):
     def _type_check(path: str):
         file_path = Settings.root_path.joinpath(path)
         result = code_check(file_path)
-        return {
-            "success": result.success,
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-        }
+        return AbstraLibApiEditorCodebaseTypeCheckPostResponse(
+            success=result.success, stdout=result.stdout, stderr=result.stderr
+        ).to_dict()
 
     return bp

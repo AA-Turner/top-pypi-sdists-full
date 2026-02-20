@@ -167,7 +167,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		use_vision: bool | Literal['auto'] = True,
 		save_conversation_path: str | Path | None = None,
 		save_conversation_path_encoding: str | None = 'utf-8',
-		max_failures: int = 3,
+		max_failures: int = 5,
 		override_system_message: str | None = None,
 		extend_system_message: str | None = None,
 		generate_gif: bool | str = False,
@@ -204,6 +204,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		loop_detection_enabled: bool = True,
 		llm_screenshot_size: tuple[int, int] | None = None,
 		message_compaction: MessageCompactionSettings | bool | None = True,
+		max_clickable_elements_length: int = 40000,
 		_url_shortening_limit: int = 25,
 		**kwargs,
 	):
@@ -409,6 +410,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			loop_detection_window=loop_detection_window,
 			loop_detection_enabled=loop_detection_enabled,
 			message_compaction=message_compaction,
+			max_clickable_elements_length=max_clickable_elements_length,
 		)
 
 		# Token cost service
@@ -514,6 +516,7 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			include_recent_events=self.include_recent_events,
 			sample_images=self.sample_images,
 			llm_screenshot_size=llm_screenshot_size,
+			max_clickable_elements_length=self.settings.max_clickable_elements_length,
 		)
 
 		if self.sensitive_data:
@@ -1185,7 +1188,8 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		# Record executed actions for loop detection
 		self._update_loop_detector_actions()
 
-		# check for action errors  and len more than 1
+		# check for action errors - only count single-action steps toward consecutive failures;
+		# multi-action steps with errors are handled by loop detection and replan nudges instead
 		if self.state.last_result and len(self.state.last_result) == 1 and self.state.last_result[-1].error:
 			self.state.consecutive_failures += 1
 			self.logger.debug(f'🔄 Step {self.state.n_steps}: Consecutive failures: {self.state.consecutive_failures}')
@@ -1219,6 +1223,13 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			self.logger.warning(f'{error_msg}')
 			return
 
+		# Handle browser closed/disconnected errors - stop immediately instead of retrying
+		if self._is_browser_closed_error(error):
+			self.logger.warning(f'🛑 Browser closed or disconnected: {error}')
+			self.state.stopped = True
+			self._external_pause_event.set()
+			return
+
 		# Handle all other exceptions
 		include_trace = self.logger.isEnabledFor(logging.DEBUG)
 		error_msg = AgentError.format_error(error, include_trace=include_trace)
@@ -1240,6 +1251,25 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 		await self._demo_mode_log(f'Step error: {error_msg}', 'error', {'step': self.state.n_steps})
 		self.state.last_result = [ActionResult(error=error_msg)]
 		return None
+
+	def _is_browser_closed_error(self, error: Exception) -> bool:
+		"""Check if the browser has been closed or disconnected.
+
+		Only returns True when the error itself is a CDP/WebSocket connection failure
+		AND the CDP client is gone. Avoids false positives on unrelated errors
+		(element not found, timeouts, parse errors) that happen to coincide with
+		a transient None state during reconnects or resets.
+		"""
+		error_str = str(error).lower()
+		is_connection_error = (
+			isinstance(error, ConnectionError)
+			or 'websocket connection closed' in error_str
+			or 'connection closed' in error_str
+			or 'browser has been closed' in error_str
+			or 'browser closed' in error_str
+			or 'no browser' in error_str
+		)
+		return is_connection_error and self.browser_session._cdp_client_root is None
 
 	async def _finalize(self, browser_state_summary: BrowserStateSummary | None) -> None:
 		"""Finalize the step with history, logging, and events"""
@@ -1503,7 +1533,13 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 				self.logger.info(f'⚠️  Simple judge overriding success to failure: {reason}')
 				last_result.success = False
 				note = f'[Simple judge: {reason}]'
-				if last_result.extracted_content:
+				# When structured output is expected, don't append judge text to extracted_content
+				# as it would corrupt the JSON and break end-user parsers
+				if self.output_model_schema is not None:
+					if last_result.metadata is None:
+						last_result.metadata = {}
+					last_result.metadata['simple_judge'] = note
+				elif last_result.extracted_content:
 					last_result.extracted_content += f'\n\n{note}'
 				else:
 					last_result.extracted_content = note
@@ -2659,9 +2695,13 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 			cached_element_hashes = set()
 
 		for i, action in enumerate(actions):
+			# Get action name from the action model BEFORE try block to ensure it's always available in except
+			action_data = action.model_dump(exclude_unset=True)
+			action_name = next(iter(action_data.keys())) if action_data else 'unknown'
+
 			if i > 0:
 				# ONLY ALLOW TO CALL `done` IF IT IS A SINGLE ACTION
-				if action.model_dump(exclude_unset=True).get('done') is not None:
+				if action_data.get('done') is not None:
 					msg = f'Done action is allowed only as a single action - stopped after action {i} / {total_actions}.'
 					self.logger.debug(msg)
 					break
@@ -2673,9 +2713,6 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 
 			try:
 				await self._check_stop_or_pause()
-				# Get action name from the action model
-				action_data = action.model_dump(exclude_unset=True)
-				action_name = next(iter(action_data.keys())) if action_data else 'unknown'
 
 				# Log action before execution
 				await self._log_action(action, action_name, i + 1, total_actions)
@@ -3878,6 +3915,17 @@ class Agent(Generic[Context, AgentStructuredOutput]):
 					# Kill the browser session - this dispatches BrowserStopEvent,
 					# stops the EventBus with clear=True, and recreates a fresh EventBus
 					await self.browser_session.kill()
+				else:
+					# keep_alive=True sessions shouldn't keep the event loop alive after agent.run()
+					await self.browser_session.event_bus.stop(
+						clear=False,
+						timeout=_get_timeout('TIMEOUT_BrowserSessionEventBusStopOnAgentClose', 1.0),
+					)
+					try:
+						self.browser_session.event_bus.event_queue = None
+						self.browser_session.event_bus._on_idle = None
+					except Exception:
+						pass
 
 			# Close skill service if configured
 			if self.skill_service is not None:

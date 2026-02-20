@@ -108,7 +108,11 @@ class FinalizedChalkQuery:
         is_empty: bool = False,
     ) -> None:
         """
-        :param fields: may be set to None, in which case it can be inferred from the output type of the resolver which returned this query using infer_fields_from_resolver_output
+        Parameters
+        ----------
+        fields
+            May be set to None, in which case it can be inferred from the output type of the resolver
+            which returned this query using infer_fields_from_resolver_output.
         """
         super().__init__()
         self._query = query
@@ -309,7 +313,7 @@ class FinalizedChalkQuery:
             The list of expected features for the output, as provided by the resolver in which this query is executed.
             If not specified, the column names as returned by the query will be used to determine the output features.
         connection
-            Execute the query using the supplied connection. If None (the default), then a new connection will be acquired
+            Execute the query using the supplied connection. If `None` (the default), then a new connection will be acquired
             from the underlying source for the query
         query_execution_parameters
             Optional, but should be set if called from the engine. Contains options that decide the query execution
@@ -350,7 +354,7 @@ class FinalizedChalkQuery:
             The list of expected features for the output, as provided by the resolver in which this query is executed.
             If not specified, the column names as returned by the query will be used to determine the output features.
         connection
-            Execute the query using the supplied connection. If None (the default), then a new connection will be acquired
+            Execute the query using the supplied connection. If `None` (the default), then a new connection will be acquired
             from the underlying source for the query
         query_execution_parameters
             Optional, but should be set if called from the engine. Contains options that decide the query execution
@@ -406,7 +410,7 @@ class FinalizedChalkQuery:
             The list of expected features for the output, as provided by the resolver in which this query is executed.
             If not specified, the column names as returned by the query will be used to determine the output features.
         connection
-            Execute the query using the supplied connection. If None (the default), then a new connection will be acquired
+            Execute the query using the supplied connection. If `None` (the default), then a new connection will be acquired
             from the underlying source for the query
         query_execution_parameters
             Optional, but should be set if called from the engine. Contains options that decide the query execution
@@ -451,7 +455,7 @@ class FinalizedChalkQuery:
             The list of expected features for the output, as provided by the resolver in which this query is executed.
             If not specified, the column names as returned by the query will be used to determine the output features.
         connection
-            Execute the query using the supplied connection. If None (the default), then a new connection will be acquired
+            Execute the query using the supplied connection. If `None` (the default), then a new connection will be acquired
             from the underlying source for the query
         query_execution_parameters
             Optional, but should be set if called from the engine. Contains options that decide the query execution
@@ -532,7 +536,7 @@ class FinalizedChalkQuery:
             The list of expected features for the output, as provided by the resovler in which this query is executed.
             If not specified, the column names as returned by the query will be used to determine the output features.
         connection
-            Execute the query using the supplied connection. If None (the default), then a new connection will be acquired
+            Execute the query using the supplied connection. If `None` (the default), then a new connection will be acquired
             from the underlying source for the query
         query_execution_parameters
             Parameters to decide method of efficient/inefficient execution

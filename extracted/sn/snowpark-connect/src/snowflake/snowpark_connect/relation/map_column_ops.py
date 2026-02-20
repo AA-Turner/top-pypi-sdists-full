@@ -30,7 +30,14 @@ from snowflake.snowpark._internal.analyzer.expression import (
 from snowflake.snowpark._internal.utils import generate_random_alphanumeric
 from snowflake.snowpark.column import Column
 from snowflake.snowpark.table_function import _ExplodeFunctionCall
-from snowflake.snowpark.types import DataType, StructType, _NumericType
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    MapType,
+    StructType,
+    VariantType,
+    _NumericType,
+)
 from snowflake.snowpark_connect import tcm
 from snowflake.snowpark_connect.column_name_handler import (
     ALREADY_QUOTED,
@@ -39,6 +46,7 @@ from snowflake.snowpark_connect.column_name_handler import (
     make_column_names_snowpark_compatible,
 )
 from snowflake.snowpark_connect.config import (
+    get_artifact_repository,
     global_config,
     is_force_create_sproc_enabled,
 )
@@ -1308,38 +1316,43 @@ def _map_sorting_expressions(
     for exp in sorting_expressions:
         if exp.WhichOneof("expr_type") == "unresolved_star":
             raise AnalysisException("Invalid usage of '*' in MapGroups")
-        so = exp.sort_order
-        _, typed_column = map_single_column_expression(so.child, column_map, typer)
-        col = typed_column.col
 
-        match (so.direction, so.null_ordering):
-            case (
-                expressions_proto.Expression.SortOrder.SORT_DIRECTION_ASCENDING,
-                expressions_proto.Expression.SortOrder.SORT_NULLS_FIRST,
-            ):
-                col = col.asc_nulls_first()
-            case (
-                expressions_proto.Expression.SortOrder.SORT_DIRECTION_ASCENDING,
-                expressions_proto.Expression.SortOrder.SORT_NULLS_LAST,
-            ):
-                col = col.asc_nulls_last()
-            case (
-                expressions_proto.Expression.SortOrder.SORT_DIRECTION_DESCENDING,
-                expressions_proto.Expression.SortOrder.SORT_NULLS_FIRST,
-            ):
-                col = col.desc_nulls_first()
-            case (
-                expressions_proto.Expression.SortOrder.SORT_DIRECTION_DESCENDING,
-                expressions_proto.Expression.SortOrder.SORT_NULLS_LAST,
-            ):
-                col = col.desc_nulls_last()
-            case (
-                expressions_proto.Expression.SortOrder.SORT_DIRECTION_UNSPECIFIED,
-                _,
-            ):
-                pass
-            case _:
-                pass
+        if exp.WhichOneof("expr_type") == "sort_order":
+            so = exp.sort_order
+            _, typed_column = map_single_column_expression(so.child, column_map, typer)
+            col = typed_column.col
+
+            match (so.direction, so.null_ordering):
+                case (
+                    expressions_proto.Expression.SortOrder.SORT_DIRECTION_ASCENDING,
+                    expressions_proto.Expression.SortOrder.SORT_NULLS_FIRST,
+                ):
+                    col = col.asc_nulls_first()
+                case (
+                    expressions_proto.Expression.SortOrder.SORT_DIRECTION_ASCENDING,
+                    expressions_proto.Expression.SortOrder.SORT_NULLS_LAST,
+                ):
+                    col = col.asc_nulls_last()
+                case (
+                    expressions_proto.Expression.SortOrder.SORT_DIRECTION_DESCENDING,
+                    expressions_proto.Expression.SortOrder.SORT_NULLS_FIRST,
+                ):
+                    col = col.desc_nulls_first()
+                case (
+                    expressions_proto.Expression.SortOrder.SORT_DIRECTION_DESCENDING,
+                    expressions_proto.Expression.SortOrder.SORT_NULLS_LAST,
+                ):
+                    col = col.desc_nulls_last()
+                case (
+                    expressions_proto.Expression.SortOrder.SORT_DIRECTION_UNSPECIFIED,
+                    _,
+                ):
+                    pass
+                case _:
+                    pass
+        else:
+            _, typed_column = map_single_column_expression(exp, column_map, typer)
+            col = typed_column.col
 
         snowpark_sorting_columns.append(col)
 
@@ -1371,6 +1384,19 @@ def map_group_map(
             )
         snowpark_grouping_expressions.append(snowpark_column.col)
         group_name_list.append(new_name)
+
+    # When created via relationalGroupedDS.as[K, V], the client sends a dummy
+    # Scala UDF as the first grouping expression (for type/encoder info only),
+    # followed by the actual grouping columns. OSS Spark drops the dummy UDF
+    # and only uses the remaining expressions for grouping. Replicate that here.
+    if len(grouping_expressions) > 1 and (
+        grouping_expressions[0].WhichOneof("expr_type")
+        == "common_inline_user_defined_function"
+        and grouping_expressions[0].common_inline_user_defined_function.scalar_scala_udf
+        is not None
+    ):
+        snowpark_grouping_expressions = snowpark_grouping_expressions[1:]
+        group_name_list = group_name_list[1:]
 
     sorting_expressions = rel.group_map.sorting_expressions
     snowpark_sorting_columns = _map_sorting_expressions(
@@ -1453,12 +1479,21 @@ def map_group_map(
             callable_func,
             _,
         ) = CloudPickleSerializer().loads(func_proto.python_udf.command)
+
+        # Get artifact_repository from config for UDF registration.
+        artifact_repository = get_artifact_repository()
+
         result = input_df.group_by(*snowpark_grouping_expressions).apply_in_pandas(
             callable_func,
             output_type,
             resource_constraint=_get_resource_constraint(),
-            packages=process_udtf_packages(udtf_packages, custom_packages=["pandas"]),
+            packages=process_udtf_packages(
+                udtf_packages,
+                custom_packages=["pandas"],
+                artifact_repository=artifact_repository,
+            ),
             imports=process_dependencies_string_array(udtf_imports),
+            artifact_repository=artifact_repository,
         )
 
     return DataFrameContainer.create_with_column_mapping(
@@ -1490,6 +1525,9 @@ def _map_group_map_scala(
         JAVA_UDTF_PREFIX,
         create_java_udtf_for_scala_group_map_handling,
     )
+    from snowflake.snowpark_connect.utils.variant_utils import (
+        to_variant_preserving_nulls,
+    )
 
     has_initial_state = initial_state_container is not None
     udtf_name = create_java_udtf_for_scala_group_map_handling(
@@ -1504,6 +1542,8 @@ def _map_group_map_scala(
     key_expected_type = proto_to_snowpark_type(input_types[0])
     value_type_kind = input_types[1].WhichOneof("kind")
 
+    value_proto_type = proto_to_snowpark_type(input_types[1])
+
     materialized_key_col_names: list[str] = []
     select_cols = list(input_container.column_map.get_snowpark_columns())
     for i, (expr, _) in enumerate(zip(snowpark_grouping_expressions, group_name_list)):
@@ -1511,15 +1551,35 @@ def _map_group_map_scala(
         materialized_key_col_names.append(key_col_name)
         select_cols.append(expr.alias(key_col_name))
 
+    input_schema = input_container.dataframe.schema
+    # Build a lookup from snowpark column name to its datatype for null-preserving casts
+    col_type_lookup = {f.name: f.datatype for f in input_schema.fields}
+
     value_col_name = "__sc_group_value__"
     if value_type_kind == "struct":
+        # Use field names from the proto type (e.g. _1, _2, _3 for tuples)
+        # rather than the DataFrame column names (key, seq, value), because
+        # the Java UDTF deserializer (fromVariant) uses the proto schema to
+        # look up fields by name in the VARIANT object.
+        # For untyped Row values, proto_type is an empty StructType, so fall
+        # back to DataFrame column names.
+        if len(value_proto_type.fields) > 0:
+            field_names = [f.name for f in value_proto_type.fields]
+        else:
+            field_names = input_container.column_map.get_spark_columns()
         value_expr = snowpark_fn.object_construct_keep_null(
             *[
                 item
-                for col_map in input_container.column_map.columns
+                for field_name, col_map in zip(
+                    field_names,
+                    input_container.column_map.columns,
+                )
                 for item in (
-                    snowpark_fn.lit(col_map.spark_name),
-                    snowpark_fn.to_variant(snowpark_fn.col(col_map.snowpark_name)),
+                    snowpark_fn.lit(field_name),
+                    to_variant_preserving_nulls(
+                        snowpark_fn.col(col_map.snowpark_name),
+                        col_type_lookup.get(col_map.snowpark_name, VariantType()),
+                    ),
                 )
             ]
         )
@@ -1528,7 +1588,10 @@ def _map_group_map_scala(
         value_arg = snowpark_fn.col(value_col_name)
     elif value_type_kind in ("map", "array"):
         value_col = input_container.column_map.get_snowpark_columns()[0]
-        value_expr = snowpark_fn.to_variant(snowpark_fn.col(value_col))
+        value_col_type = col_type_lookup.get(value_col, VariantType())
+        value_expr = to_variant_preserving_nulls(
+            snowpark_fn.col(value_col), value_col_type
+        )
         select_cols.append(value_expr.alias(value_col_name))
         value_arg = snowpark_fn.col(value_col_name)
     else:
@@ -1540,7 +1603,11 @@ def _map_group_map_scala(
     partition_by_cols = [snowpark_fn.col(name) for name in materialized_key_col_names]
 
     if len(materialized_key_col_names) == 1:
-        key_arg = snowpark_fn.col(materialized_key_col_names[0]).cast(key_expected_type)
+        key_col = snowpark_fn.col(materialized_key_col_names[0])
+        if isinstance(key_expected_type, (ArrayType, MapType, StructType, VariantType)):
+            key_arg = snowpark_fn.to_variant(key_col)
+        else:
+            key_arg = key_col.cast(key_expected_type)
     else:
         key_arg = snowpark_fn.object_construct(
             *[
@@ -1570,13 +1637,22 @@ def _map_group_map_scala(
             initial_key_exprs.append(snowpark_column.col.alias(initial_key_col_name))
 
         initial_state_col_name = "__sc_initial_state__"
+        initial_state_schema = initial_state_df.schema
+        initial_col_type_lookup = {
+            f.name: f.datatype for f in initial_state_schema.fields
+        }
         initial_state_expr = snowpark_fn.object_construct_keep_null(
             *[
                 item
                 for col_map in initial_state_container.column_map.columns
                 for item in (
                     snowpark_fn.lit(col_map.spark_name),
-                    snowpark_fn.to_variant(snowpark_fn.col(col_map.snowpark_name)),
+                    to_variant_preserving_nulls(
+                        snowpark_fn.col(col_map.snowpark_name),
+                        initial_col_type_lookup.get(
+                            col_map.snowpark_name, VariantType()
+                        ),
+                    ),
                 )
             ]
         )

@@ -18,7 +18,7 @@ from typing import Awaitable, Callable, Dict, Optional, Sequence, Union
 
 import google.api_core
 from google.api_core import exceptions as core_exceptions
-from google.api_core import gapic_v1
+from google.api_core import gapic_v1, operations_v1
 from google.api_core import retry as retries
 import google.auth  # type: ignore
 from google.auth import credentials as ga_credentials  # type: ignore
@@ -89,8 +89,6 @@ class KeyManagementServiceTransport(abc.ABC):
                 be used for service account credentials.
         """
 
-        scopes_kwargs = {"scopes": scopes, "default_scopes": self.AUTH_SCOPES}
-
         # Save the scopes.
         self._scopes = scopes
         if not hasattr(self, "_ignore_credentials"):
@@ -105,11 +103,16 @@ class KeyManagementServiceTransport(abc.ABC):
 
         if credentials_file is not None:
             credentials, _ = google.auth.load_credentials_from_file(
-                credentials_file, **scopes_kwargs, quota_project_id=quota_project_id
+                credentials_file,
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
         elif credentials is None and not self._ignore_credentials:
             credentials, _ = google.auth.default(
-                **scopes_kwargs, quota_project_id=quota_project_id
+                scopes=scopes,
+                quota_project_id=quota_project_id,
+                default_scopes=self.AUTH_SCOPES,
             )
             # Don't apply audience if the credentials file passed from user.
             if hasattr(credentials, "with_gdch_audience"):
@@ -200,6 +203,21 @@ class KeyManagementServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
+            self.list_retired_resources: gapic_v1.method.wrap_method(
+                self.list_retired_resources,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
             self.get_key_ring: gapic_v1.method.wrap_method(
                 self.get_key_ring,
                 default_retry=retries.Retry(
@@ -275,6 +293,21 @@ class KeyManagementServiceTransport(abc.ABC):
                 default_timeout=60.0,
                 client_info=client_info,
             ),
+            self.get_retired_resource: gapic_v1.method.wrap_method(
+                self.get_retired_resource,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
             self.create_key_ring: gapic_v1.method.wrap_method(
                 self.create_key_ring,
                 default_retry=retries.Retry(
@@ -307,6 +340,36 @@ class KeyManagementServiceTransport(abc.ABC):
             ),
             self.create_crypto_key_version: gapic_v1.method.wrap_method(
                 self.create_crypto_key_version,
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.delete_crypto_key: gapic_v1.method.wrap_method(
+                self.delete_crypto_key,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
+                default_timeout=60.0,
+                client_info=client_info,
+            ),
+            self.delete_crypto_key_version: gapic_v1.method.wrap_method(
+                self.delete_crypto_key_version,
+                default_retry=retries.Retry(
+                    initial=0.1,
+                    maximum=60.0,
+                    multiplier=1.3,
+                    predicate=retries.if_exception_type(
+                        core_exceptions.DeadlineExceeded,
+                        core_exceptions.ServiceUnavailable,
+                    ),
+                    deadline=60.0,
+                ),
                 default_timeout=60.0,
                 client_info=client_info,
             ),
@@ -567,6 +630,11 @@ class KeyManagementServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def operations_client(self):
+        """Return the client designed to process long-running operations."""
+        raise NotImplementedError()
+
+    @property
     def list_key_rings(
         self,
     ) -> Callable[
@@ -605,6 +673,18 @@ class KeyManagementServiceTransport(abc.ABC):
         [service.ListImportJobsRequest],
         Union[
             service.ListImportJobsResponse, Awaitable[service.ListImportJobsResponse]
+        ],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def list_retired_resources(
+        self,
+    ) -> Callable[
+        [service.ListRetiredResourcesRequest],
+        Union[
+            service.ListRetiredResourcesResponse,
+            Awaitable[service.ListRetiredResourcesResponse],
         ],
     ]:
         raise NotImplementedError()
@@ -655,6 +735,15 @@ class KeyManagementServiceTransport(abc.ABC):
         raise NotImplementedError()
 
     @property
+    def get_retired_resource(
+        self,
+    ) -> Callable[
+        [service.GetRetiredResourceRequest],
+        Union[resources.RetiredResource, Awaitable[resources.RetiredResource]],
+    ]:
+        raise NotImplementedError()
+
+    @property
     def create_key_ring(
         self,
     ) -> Callable[
@@ -678,6 +767,24 @@ class KeyManagementServiceTransport(abc.ABC):
     ) -> Callable[
         [service.CreateCryptoKeyVersionRequest],
         Union[resources.CryptoKeyVersion, Awaitable[resources.CryptoKeyVersion]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_crypto_key(
+        self,
+    ) -> Callable[
+        [service.DeleteCryptoKeyRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
+    ]:
+        raise NotImplementedError()
+
+    @property
+    def delete_crypto_key_version(
+        self,
+    ) -> Callable[
+        [service.DeleteCryptoKeyVersionRequest],
+        Union[operations_pb2.Operation, Awaitable[operations_pb2.Operation]],
     ]:
         raise NotImplementedError()
 

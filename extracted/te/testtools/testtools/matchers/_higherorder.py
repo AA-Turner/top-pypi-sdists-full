@@ -13,12 +13,13 @@ __all__ = [
 import sys
 import types
 from collections.abc import Callable, Iterable
-from typing import Any, Generic, TypedDict, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, TypedDict, TypeVar
 
-if sys.version_info >= (3, 11):
-    from typing import Unpack
-else:
-    from typing_extensions import Unpack
+if TYPE_CHECKING:
+    if sys.version_info >= (3, 11):
+        from typing import Unpack
+    else:
+        from typing_extensions import Unpack
 
 from ._impl import (
     Matcher,

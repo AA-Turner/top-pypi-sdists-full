@@ -17,9 +17,11 @@ use crate::PyField;
 
 struct PyTimeUnit(arrow_schema::TimeUnit);
 
-impl<'a> FromPyObject<'a> for PyTimeUnit {
-    fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
-        let s: String = ob.extract()?;
+impl<'a> FromPyObject<'_, 'a> for PyTimeUnit {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'a, PyAny>) -> Result<Self, Self::Error> {
+        let s: String = obj.extract()?;
         match s.to_lowercase().as_str() {
             "s" => Ok(Self(TimeUnit::Second)),
             "ms" => Ok(Self(TimeUnit::Millisecond)),
@@ -32,7 +34,7 @@ impl<'a> FromPyObject<'a> for PyTimeUnit {
 
 /// A Python-facing wrapper around [DataType].
 #[derive(PartialEq, Eq, Debug)]
-#[pyclass(module = "arro3.core._core", name = "DataType", subclass, frozen)]
+#[pyclass(module = "arro3.core._core", name = "DataType", subclass, frozen, eq)]
 pub struct PyDataType(DataType);
 
 impl PyDataType {
@@ -131,10 +133,6 @@ impl PyDataType {
         py: Python<'py>,
     ) -> PyArrowResult<Bound<'py, PyCapsule>> {
         to_schema_pycapsule(py, &self.0)
-    }
-
-    fn __eq__(&self, other: PyDataType) -> bool {
-        self.equals(other, false)
     }
 
     fn __hash__(&self) -> u64 {

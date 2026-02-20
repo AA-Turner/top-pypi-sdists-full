@@ -31,7 +31,11 @@ from snowflake.snowpark.types import (
     _FractionalType,
     _IntegralType,
 )
-from snowflake.snowpark_connect.config import global_config, str_to_bool
+from snowflake.snowpark_connect.config import (
+    get_boolean_session_config_param,
+    global_config,
+    str_to_bool,
+)
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
@@ -160,8 +164,50 @@ def map_read_csv(
                 )
         else:
             # Use copy into approach for parallel loading.
-            if len(paths) == 1:
-                # Try to read with partitions (Hive-style partitioning)
+            copy_into_on_error = get_boolean_session_config_param(
+                "snowpark.connect.csv.continueOnError"
+            )
+            if len(paths) == 1 and copy_into_on_error:
+                stage_df, _ = _read_csv_with_partitions(
+                    session,
+                    reader,
+                    paths[0],
+                    schema,
+                    snowpark_reader_options,
+                    file_format_options,
+                    raw_options,
+                    parse_header,
+                )
+                resolved_schema = StructType(
+                    get_non_metadata_fields(stage_df.schema.fields)
+                )
+                temp_table_name = random_name_for_temp_object(TempObjectType.TABLE)
+                copy_result = _load_file_with_copy_into(
+                    reader=reader,
+                    session=session,
+                    target=temp_table_name,
+                    stage_file_paths=[],
+                    stage=paths[0],
+                    schema=resolved_schema,
+                    file_format_options=file_format_options,
+                    file_format="csv",
+                    on_error="CONTINUE",
+                )
+                if copy_result:
+                    row = copy_result[0]
+                    errors_seen = getattr(row, "errors_seen", 0) or 0
+                    if errors_seen:
+                        rows_loaded = getattr(row, "rows_loaded", 0) or 0
+                        logger.warning(
+                            "CSV read: %s valid rows loaded, %s rows "
+                            "skipped due to parse errors. Path: %s",
+                            rows_loaded,
+                            errors_seen,
+                            paths[0],
+                        )
+                df = session.table(temp_table_name)
+                result_can_be_cached = False
+            elif len(paths) == 1:
                 df, read_using_external_table = _read_csv_with_partitions(
                     session,
                     reader,
@@ -512,6 +558,60 @@ def _deduplicate_column_names_pyspark_style(
     return result
 
 
+def _get_header_names_raw(
+    session: snowpark.Session,
+    path: str,
+    file_format_options: dict[str, Any],
+    parse_header: bool,
+) -> list[str]:
+    """Extract CSV header names by reading the first line as raw text.
+
+    Uses ``FIELD_DELIMITER=NONE`` so Snowflake returns the entire first line
+    as a single string without CSV parsing.  This avoids parse errors caused
+    by malformed rows elsewhere in the file.
+    """
+    import csv as csv_mod
+    import io
+
+    raw_format_options: dict[str, Any] = {
+        "FIELD_DELIMITER": "NONE",
+        "RECORD_DELIMITER": "\\n",
+        "SKIP_HEADER": 0,
+        "ERROR_ON_COLUMN_COUNT_MISMATCH": False,
+    }
+    for key in ("COMPRESSION", "ENCODING"):
+        if key in file_format_options:
+            raw_format_options[key] = file_format_options[key]
+
+    format_name = cached_file_format(session, "csv", raw_format_options)
+    single_schema = StructType([StructField('"RAW_LINE"', StringType(), True)])
+
+    raw_df = (
+        session.read.schema(single_schema)
+        .options(
+            {
+                "FORMAT_NAME": format_name,
+                "ENFORCE_EXISTING_FILE_FORMAT": True,
+            }
+        )
+        .csv(path)
+    )
+    first_row = raw_df.limit(1).collect()
+    if not first_row or first_row[0][0] is None:
+        return []
+
+    delimiter = file_format_options.get("FIELD_DELIMITER", ",")
+    reader = csv_mod.reader(io.StringIO(first_row[0][0]), delimiter=delimiter)
+    cols = next(reader, [])
+
+    if parse_header:
+        case_sensitive = global_config.spark_sql_caseSensitive
+        deduplicated = _deduplicate_column_names_pyspark_style(cols, case_sensitive)
+        return [f'"{name}"' for name in deduplicated]
+    else:
+        return [f'"_c{i}"' for i in range(len(cols))]
+
+
 def get_header_names(
     session: snowpark.Session,
     path: list[str],
@@ -536,8 +636,30 @@ def get_header_names(
         "MAX_RECORDS_PER_FILE": 1,
     }
 
-    header_df = session.read.options(no_header_snowpark_read_options).csv(path).limit(1)
-    collected_data = header_df.collect()
+    try:
+        header_df = (
+            session.read.options(no_header_snowpark_read_options).csv(path).limit(1)
+        )
+        collected_data = header_df.collect()
+    except Exception as e:
+        if isinstance(e, FileNotFoundError):
+            raise e
+        # The standard reader hit a Snowflake SQL error — likely because
+        # the CSV parser encountered a malformed row while scanning the
+        # stage file (even with LIMIT 1, Snowflake may parse ahead).
+        # Fall back to reading just the first line as raw text, which
+        # bypasses CSV parsing entirely.
+        logger.debug(
+            "Standard header extraction failed for %s; "
+            "falling back to raw-line reader.",
+            path,
+        )
+        raw_headers = _get_header_names_raw(
+            session, path, file_format_options, parse_header
+        )
+        if not raw_headers:
+            raise
+        return raw_headers
 
     if len(collected_data) == 0:
         error_msg = f"Path does not exist or contains no data: {path}"

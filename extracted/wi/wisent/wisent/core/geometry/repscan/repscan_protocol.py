@@ -153,7 +153,7 @@ def test_decomposition(
     """Step 3: Test if concept is fragmented into sub-concepts."""
     from ..metrics.distribution.decomposition_metrics import find_optimal_clustering
     diff = pos - neg
-    n_concepts, labels, sil = find_optimal_clustering(diff)
+    n_concepts, labels, sil = find_optimal_clustering(diff, min_silhouette=min_silhouette)
     labels_np = np.array(labels)
     sizes = {int(k): int((labels_np == k).sum()) for k in range(n_concepts)}
     fragmented = n_concepts > 1 and sil >= min_silhouette
@@ -164,37 +164,54 @@ def select_intervention(
     signal: SignalTestResult,
     geometry: GeometryTestResult,
     decomposition: DecompositionTestResult,
+    metrics: Optional[Dict[str, Any]] = None,
 ) -> InterventionResult:
-    """Step 4: Select optimal intervention method."""
-    scores = {"CAA": 0.0, "Hyperplane": 0.0, "MLP": 0.0, "PRISM": 0.0, "TITAN": 0.0}
-    reasoning = []
+    """Step 4: Select optimal intervention method.
 
+    When full metrics dict is available, delegates to compute_steering_recommendation
+    which scores all methods using ~90 computed metrics (probes, ICD, stability,
+    alignment, coherence, consistency, silhouette, Fisher, manifold, etc.).
+    When metrics are not available, uses signal/geometry/decomposition decision tree.
+    """
+    _all_methods = {"CAA": 0.0, "Hyperplane": 0.0, "MLP": 0.0, "PRISM": 0.0, "PULSE": 0.0, "TITAN": 0.0, "Concept Flow": 0.0}
     if not signal.passed:
-        return InterventionResult("NONE", 0.0, ["No signal (p > 0.05)"], scores)
+        return InterventionResult("NONE", 0.0, ["No signal (p > 0.05)"], _all_methods)
 
+    # Primary path: use full metric-based recommendation engine
+    if metrics:
+        from ..steering.analysis.steering_recommendation import compute_steering_recommendation
+        rec = compute_steering_recommendation(metrics)
+        reasoning = rec["reasoning"]
+        reasoning.append(f"Z: {signal.max_z_score:.2f}, p: {signal.min_p_value:.4f}, gap: {geometry.gap:.3f}")
+        return InterventionResult(
+            rec["recommended_method"], round(rec["confidence"], 3),
+            reasoning, rec["method_scores"],
+        )
+
+    # Decision tree from protocol step results only (no metrics available)
+    scores = dict(_all_methods)
+    reasoning = []
     is_linear = geometry.diagnosis.startswith("LINEAR")
     is_frag = decomposition.is_fragmented
     n = decomposition.n_concepts
-
     if is_linear and not is_frag:
-        scores["CAA"], recommended, conf = 1.0, "CAA", 0.9
+        scores["CAA"], scores["Hyperplane"], scores["Concept Flow"] = 2.0, 1.0, 1.0
+        recommended = "CAA"
         reasoning.append("Linear + single concept → CAA")
     elif is_linear and is_frag:
-        scores["PRISM"], recommended, conf = 1.0, "PRISM", 0.75
+        scores["PRISM"], scores["TITAN"], scores["Concept Flow"] = 2.0, 1.0, 1.5
+        recommended = "PRISM"
         reasoning.append(f"Linear + {n} concepts → PRISM")
     elif not is_linear and not is_frag:
-        scores["Hyperplane"], recommended, conf = 1.0, "Hyperplane", 0.8
-        reasoning.append("Nonlinear + single → Hyperplane")
+        scores["MLP"], scores["Hyperplane"], scores["PULSE"], scores["Concept Flow"] = 2.0, 1.0, 1.0, 1.0
+        recommended = "MLP"
+        reasoning.append("Nonlinear + single → MLP")
     else:
-        scores["TITAN"], recommended, conf = 1.0, "TITAN", 0.7
+        scores["TITAN"], scores["PULSE"], scores["Concept Flow"] = 2.0, 1.0, 1.5
+        recommended = "TITAN"
         reasoning.append(f"Nonlinear + {n} concepts → TITAN")
-
-    # Boost confidence based on z-score (higher z = stronger signal)
-    z_boost = min(0.1, signal.max_z_score * 0.02)
-    conf = min(1.0, conf + z_boost)
-    reasoning.append(f"Z-score: {signal.max_z_score:.2f}, p-value: {signal.min_p_value:.4f}, Gap: {geometry.gap:.3f}")
-
-    return InterventionResult(recommended, conf, reasoning, scores)
+    reasoning.append(f"Z: {signal.max_z_score:.2f}, p: {signal.min_p_value:.4f}, gap: {geometry.gap:.3f}")
+    return InterventionResult(recommended, 0.5, reasoning, scores)
 
 
 def run_full_protocol(
@@ -239,52 +256,23 @@ def run_full_protocol(
     dec = test_decomposition(pos, neg, min_silhouette)
     inter = select_intervention(sig, geo, dec)
 
-    geometry_result = {
-        "linear_accuracy": geo.linear_accuracy,
-        "nonlinear_accuracy": geo.nonlinear_accuracy,
-        "gap": geo.gap,
-        "diagnosis": geo.diagnosis,
-        "confidence": geo.confidence,
-        "p_value": geo.p_value,
-        "gap_ci_lower": geo.gap_ci_lower,
-        "gap_ci_upper": geo.gap_ci_upper,
-        "n_diagnostics_passed": geo.n_diagnostics_passed,
-        "n_diagnostics_total": geo.n_diagnostics_total,
-        "t_statistic": geo.t_statistic,
-        "residual_silhouette": geo.residual_silhouette,
-        "residuals_cluster": geo.residuals_cluster,
-        "ramsey_improvement": geo.ramsey_improvement,
-        "ramsey_significant": geo.ramsey_significant,
-        "diagnostics": geo.diagnostics,
-    }
-
+    _geo_fields = ["linear_accuracy", "nonlinear_accuracy", "gap", "diagnosis",
+                    "confidence", "p_value", "gap_ci_lower", "gap_ci_upper",
+                    "n_diagnostics_passed", "n_diagnostics_total", "t_statistic",
+                    "residual_silhouette", "residuals_cluster", "ramsey_improvement",
+                    "ramsey_significant", "diagnostics"]
     result = {
-        "protocol_config": {
-            "n_samples": n_samples,
-            "p_threshold": p_threshold,
-            "gap_threshold": gap_threshold,
-            "min_silhouette": min_silhouette,
-        },
-        "signal_test": {
-            "max_z_score": sig.max_z_score,
-            "min_p_value": sig.min_p_value,
-            "passed": sig.passed,
-            "permutation_metrics": sig.permutation_metrics,
-            "nonsense_metrics": sig.nonsense_metrics,
-        },
-        "geometry_test": geometry_result,
-        "decomposition_test": {
-            "n_concepts": dec.n_concepts, "silhouette_score": dec.silhouette_score,
-            "min_silhouette": min_silhouette, "is_fragmented": dec.is_fragmented,
-            "per_concept_sizes": dec.per_concept_sizes,
-            "cluster_labels": dec.cluster_labels,
-        },
-        "intervention": {
-            "recommended_method": inter.recommended_method,
-            "confidence": inter.confidence,
-            "reasoning": inter.reasoning,
-            "method_scores": inter.method_scores,
-        },
+        "protocol_config": {"n_samples": n_samples, "p_threshold": p_threshold,
+                            "gap_threshold": gap_threshold, "min_silhouette": min_silhouette},
+        "signal_test": {"max_z_score": sig.max_z_score, "min_p_value": sig.min_p_value,
+                        "passed": sig.passed, "permutation_metrics": sig.permutation_metrics,
+                        "nonsense_metrics": sig.nonsense_metrics},
+        "geometry_test": {f: getattr(geo, f) for f in _geo_fields},
+        "decomposition_test": {"n_concepts": dec.n_concepts, "silhouette_score": dec.silhouette_score,
+                               "min_silhouette": min_silhouette, "is_fragmented": dec.is_fragmented,
+                               "per_concept_sizes": dec.per_concept_sizes, "cluster_labels": dec.cluster_labels},
+        "intervention": {"recommended_method": inter.recommended_method, "confidence": inter.confidence,
+                         "reasoning": inter.reasoning, "method_scores": inter.method_scores},
     }
 
     if dim_diag is not None:

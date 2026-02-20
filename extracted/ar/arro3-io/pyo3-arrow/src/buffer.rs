@@ -41,7 +41,8 @@ use crate::PyArray;
 /// The Python buffer protocol is implemented on this buffer to enable zero-copy data transfer of
 /// the core buffer into Python. This allows for zero-copy data sharing with numpy via
 /// `numpy.frombuffer`.
-#[pyclass(module = "arro3.core._core", name = "Buffer", subclass, frozen)]
+#[derive(PartialEq)]
+#[pyclass(module = "arro3.core._core", name = "Buffer", subclass, frozen, eq)]
 pub struct PyArrowBuffer(Buffer);
 
 impl AsRef<Buffer> for PyArrowBuffer {
@@ -85,7 +86,7 @@ impl PyArrowBuffer {
     }
 
     /// This is taken from opendal:
-    /// https://github.com/apache/opendal/blob/d001321b0f9834bc1e2e7d463bcfdc3683e968c9/bindings/python/src/utils.rs#L51-L72
+    /// <https://github.com/apache/opendal/blob/d001321b0f9834bc1e2e7d463bcfdc3683e968c9/bindings/python/src/utils.rs#L51-L72>
     unsafe fn __getbuffer__(
         slf: PyRef<Self>,
         view: *mut ffi::Py_buffer,
@@ -109,9 +110,11 @@ impl PyArrowBuffer {
     unsafe fn __releasebuffer__(&self, _view: *mut ffi::Py_buffer) {}
 }
 
-impl<'py> FromPyObject<'py> for PyArrowBuffer {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        let buffer = ob.extract::<AnyBufferProtocol>()?;
+impl<'py> FromPyObject<'_, 'py> for PyArrowBuffer {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        let buffer = obj.extract::<AnyBufferProtocol>()?;
         if !matches!(buffer, AnyBufferProtocol::UInt8(_)) {
             return Err(PyValueError::new_err("Expected u8 buffer protocol object"));
         }
@@ -136,27 +139,29 @@ pub enum AnyBufferProtocol {
     Float64(PyBuffer<f64>),
 }
 
-impl<'py> FromPyObject<'py> for AnyBufferProtocol {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(buf) = ob.extract() {
+impl<'py> FromPyObject<'_, 'py> for AnyBufferProtocol {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(buf) = obj.extract() {
             Ok(Self::UInt8(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::UInt16(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::UInt32(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::UInt64(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Int8(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Int16(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Int32(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Int64(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Float32(buf))
-        } else if let Ok(buf) = ob.extract() {
+        } else if let Ok(buf) = obj.extract() {
             Ok(Self::Float64(buf))
         } else {
             Err(PyValueError::new_err("Not a buffer protocol object"))

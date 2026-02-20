@@ -36,6 +36,7 @@ class SystemSchema:
         cls.workflow_events.schema = schema_name
         cls.streams.schema = schema_name
         cls.workflow_events_history.schema = schema_name
+        cls.workflow_schedules.schema = schema_name
 
     workflow_status = Table(
         "workflow_status",
@@ -132,6 +133,7 @@ class SystemSchema:
             "message_uuid",
             Text,
             nullable=False,
+            primary_key=True,
         ),
         Index("idx_workflow_topic", "destination_uuid", "topic"),
     )
@@ -186,4 +188,16 @@ class SystemSchema:
         Column("offset", Integer, nullable=False),
         Column("function_id", Integer, nullable=False),
         PrimaryKeyConstraint("workflow_uuid", "key", "offset"),
+    )
+
+    workflow_schedules = Table(
+        "workflow_schedules",
+        metadata_obj,
+        Column("schedule_id", Text, primary_key=True),
+        Column("schedule_name", Text, nullable=False, unique=True),
+        Column("workflow_name", Text, nullable=False),
+        Column("workflow_class_name", Text, nullable=True),
+        Column("schedule", Text, nullable=False),
+        Column("status", Text, nullable=False, server_default="ACTIVE"),
+        Column("context", Text, nullable=False),
     )

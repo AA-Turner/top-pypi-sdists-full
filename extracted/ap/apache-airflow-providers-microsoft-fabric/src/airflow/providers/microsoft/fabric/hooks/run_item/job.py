@@ -83,11 +83,11 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
                 tenacity_retry=config.tenacity_retry
             )
             self.log.info(
-                "Successfully initialized hook with connection_id: %s, poll_interval_seconds: %s, timeout_seconds: %s, api_host: %s, api_scope: %s", 
+                "Successfully initialized MSFabricRunJobHook with connection_id: %s, poll_interval_seconds: %s, timeout_seconds: %s, api_host: %s, api_scope: %s", 
                 config.fabric_conn_id, config.poll_interval_seconds, config.timeout_seconds, config.api_host, config.api_scope)
 
         except Exception as e:
-            self.log.error("Failed to initialize MS Fabric Job Scheduler Hook: %s", str(e))
+            self.log.error("Failed to initialize MSFabricRunJobHook: %s", str(e))
             raise
 
     async def run_item(self, connection: MSFabricRestConnection, item: ItemDefinition) -> RunItemTracker:
@@ -104,8 +104,8 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         )
         #self.log.info("Job parameters: %s", self.config.job_params) # may contain sensitive data
 
-        url = f"{self.config.api_host}/v1/workspaces/{item.workspace_id}/items/{item.item_id}/jobs/instances?jobType={item.item_type}"    
-
+        url = self.generate_run_item_api_url(item)
+        
         # send data and content-type = json instead of json= to avoid double encoding
         response = await connection.request(
             "POST",
@@ -120,6 +120,12 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         if not location:
             self.log.error("Missing Location header in response for item %s", item.item_id)
             raise MSFabricRunItemException("Missing Location header in run response.")
+
+        # Extract request id from header for tracking purposes
+        request_id = headers.get("RequestId")
+        if not request_id:
+            self.log.warning("Missing RequestId header, request_id will be unknown")
+            request_id = "unknown"
 
         # Extract run_id from x-ms-job-id header
         run_id = headers.get("x-ms-job-id")
@@ -140,7 +146,7 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         # fetch artifact name
         item_name = await self.get_item_name(item)
 
-        self.log.debug("Successfully started item run - name: %s, run_id: %s, retry_after: %s, location: %s", item_name, run_id, retry_after, location)
+        self.log.info("Successfully started item run - name: %s, run_id: %s, request_id: %s, retry_after: %s, location: %s", item_name, run_id, request_id, retry_after, location)
 
         # Create and return RunItemTracker using config timeout
         return RunItemTracker(
@@ -157,13 +163,13 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
             retry_after=retry_after
         )
 
-    async def get_run_status(self, connection: MSFabricRestConnection, tracker: RunItemTracker) -> MSFabricRunItemStatus:
+    async def get_run_status(self, connection: MSFabricRestConnection, tracker: RunItemTracker) -> tuple[MSFabricRunItemStatus, Optional[str]]:
         """
         Get run status and details from location URL.
 
         :param connection: MSFabricRestConnection instance for making API calls
         :param tracker: RunItemTracker containing the run details
-        :return: Run status data
+        :return: Tuple of (status, error_details) where error_details is None if no error
         :raises MSFabricRunItemException: If run has failed with known error patterns
         """
         self.log.debug("Getting run status from: %s", tracker.location_url)
@@ -175,9 +181,17 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
 
         # Parse Status
         status = self._parse_status(body.get("status"))
+        
+        # Parse error details if present
+        error_details = self._parse_error_details(body.get("failureReason"))
 
-        self.log.info("Successfully retrieved run details for run_id: %s, status: %s, request_id: %s", tracker.run_id, status, headers.get("RequestId"))
-        return status
+        self.log.info(
+            "Successfully retrieved run details for run_id: %s, status: %s, request_id: %s, error_details: %s", 
+            tracker.run_id, 
+            status, 
+            headers.get("RequestId"),
+            error_details)
+        return status, error_details
 
     async def cancel_run(self, connection: MSFabricRestConnection, tracker: RunItemTracker ) -> bool:
         """
@@ -205,7 +219,7 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         
     async def generate_deep_link(self, tracker: RunItemTracker, base_url: str = "https://app.fabric.microsoft.com") -> str:
         """
-        Generate deep links for job items: notebooks, pipelines, and spark jobs.
+        Generate deep links for job items: notebooks, pipelines, spark jobs, and DBT jobs.
         Uses the same URL patterns as MSFabricItemLink.
         
         :param tracker: RunItemTracker with run details
@@ -213,6 +227,7 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         :return: Deep link URL to the job item run
         """
         item_type = tracker.item.item_type
+        normalized_type = self.normalize_job_type(item_type).lower() 
         workspace_id = tracker.item.workspace_id
         item_id = tracker.item.item_id
         run_id = tracker.run_id
@@ -222,22 +237,89 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
             return ""
 
         # Use the same URL patterns as MSFabricItemLink
-        if item_type == "RunNotebook":
+        if normalized_type == "runnotebook":
             # interin solution, waiting for api to release deep link and exit value
             # https://dev.azure.com/powerbi/Trident/_git/Fabric-APIs/pullrequest/713597?_a=files
             return f"{base_url}/groups/{workspace_id}/synapsenotebooks/{item_id}?experience=fabric-developer" 
         
-        elif item_type == "sparkjob":
+        elif normalized_type == "sparkjob":
             # interin solution while api does not report monitor url
             return f"{base_url}/groups/{workspace_id}/sparkjobdefinitions/{item_id}?experience=fabric-developer" # interin solution
 
-        elif item_type == "Pipeline" and item_name:
+        elif normalized_type == "pipeline" and item_name:
             return f"{base_url}/workloads/data-pipeline/monitoring/workspaces/{workspace_id}/pipelines/{item_name}/{run_id}"
+
+        elif normalized_type == "dbtitems":
+            return f"{base_url}/workloads/data-pipeline/monitoring/workspaces/{workspace_id}/dbtitems/{item_id}/{run_id}"
+        
+        elif normalized_type == "copyjobs":
+            return f"{base_url}/workloads/data-pipeline/monitoring/workspaces/{workspace_id}/copyjobs/{item_id}/{run_id}"
+        
+        elif normalized_type == "refreshmaterializedlakeviews":
+            return f"{base_url}/groups/{workspace_id}/lakehouses/{item_id}/materializedLakeViews/{run_id}"
 
         else:
             self.log.warning("Unsupported item type for job hook generate_deep_link: %s", item_type)
             return ""
         
+    def generate_run_item_api_url(self, item: ItemDefinition) -> str:
+        """Map user-friendly job type names to API-compatible names."""
+        """Updates this mapping should be reflected in hook generate_deep_link method."""
+        """List all suported names for clarity"""
+        normalized_type = self.normalize_job_type(item.item_type)
+        default_url =  f"{self.config.api_host}/v1/workspaces/{item.workspace_id}/items/{item.item_id}/jobs/Execute/instances"
+        fallback_url = f"{self.config.api_host}/v1/workspaces/{item.workspace_id}/items/{item.item_id}/jobs/instances?jobType={normalized_type}"
+
+        match (normalized_type.lower()):
+            # does not seem to support the default url for the time being
+            case "sparkjob":
+                return fallback_url;
+            
+            case _:
+                return default_url; # DBTItems, CopyJobs - # DBTItems, CopyJobs - normalize to type displayed in URLs
+
+    @staticmethod
+    def normalize_job_type(job_type: str) -> str:
+        """Map user-friendly job type names to API-compatible names."""
+        """Updates this mapping should be reflected in hook generate_deep_link method."""
+        """List all suported names for clarity"""
+        if job_type == "RunPipeline" or job_type == "Pipeline":
+            return "Pipeline"
+        
+        elif job_type == "RunNotebook" or job_type == "Notebook":
+            return "RunNotebook" # as defined in job api
+        
+        elif job_type == "RunSparkJob" or job_type == "SparkJob":
+            return "sparkjob"
+       
+        elif job_type == "RefreshMaterializedLakeViews":
+            return "RefreshMaterializedLakeViews"
+        
+        return job_type # DBTItems, CopyJobs - normalize to type displayed in URL
+
+
+    def _parse_error_details(self, error: Optional[Dict[str, Any]]) -> Optional[str]:
+        """
+        Parse error details from API response.
+        
+        :param error: Error object from API response (can be 'error' or 'failureReason' field)
+        :return: Formatted error string or None
+        """
+        if not error:
+            return None
+        
+        error_code = error.get("errorCode", "Unknown")
+        message = error.get("message", "No message provided")
+        request_id = error.get("requestId")
+        
+        # Format: "ErrorCode: Message. Requestid: requestId"
+        error_str = f"{error_code}: {message}."
+        
+        if request_id:
+            error_str += f" [Requestid: '{request_id}']"
+                
+        return error_str
+
     def _parse_status(self, sourceStatus: Optional[str]) -> MSFabricRunItemStatus:
 
         if (sourceStatus is None) or (sourceStatus == ""):
@@ -247,4 +329,7 @@ class MSFabricRunJobHook(BaseFabricRunItemHook):
         try:
             return MSFabricRunItemStatus(sourceStatus)
         except ValueError:
-            raise MSFabricRunItemException("Invalid 'status' - mapping to MSFabricRunItemStatus failed.")
+            self.log.error("Failed to parse status value: '%s'. Valid statuses are: %s", 
+                          sourceStatus, 
+                          [s.value for s in MSFabricRunItemStatus])
+            raise MSFabricRunItemException(f"Invalid 'status' value '{sourceStatus}' - mapping to MSFabricRunItemStatus failed.")

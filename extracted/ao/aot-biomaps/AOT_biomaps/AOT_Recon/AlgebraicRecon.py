@@ -700,8 +700,7 @@ class AlgebraicRecon(Recon):
         with concurrent.futures.ThreadPoolExecutor() as ex:
             ex.map(copy_block, range(N))
         return S
-    
-            
+           
     def _fillSparseSMatrix(self, isShowLogs=True):
         if self.smatrixType == SMatrixType.CSR:
             return self._fillSparseSMatrix_CSR(isShowLogs=isShowLogs)
@@ -773,8 +772,6 @@ class AlgebraicRecon(Recon):
                                                         smatrixType=self.smatrixType,
                                                         )
         elif self.optimizer.value == OptimizerType.LS.value:
-            if self.alpha is None:
-                raise ValueError("Alpha (regularization parameter) must be set for LS reconstruction.")
             if withTumor:
                 self.reconPhantom, self.indices = LS(SMatrix=self.SMatrix, 
                                                         y=self.experiment.AOsignal_withTumor,
@@ -782,8 +779,6 @@ class AlgebraicRecon(Recon):
                                                         isSavingEachIteration=self.isSavingEachIteration,
                                                         withTumor=withTumor,
                                                         device=self.device,
-                                                        use_numba=self.isMultiCPU,
-                                                        denominator_threshold=self.denominatorThreshold,
                                                         max_saves=self.maxSaves,
                                                         show_logs=show_logs,
                                                         smatrixType=self.smatrixType
@@ -794,10 +789,7 @@ class AlgebraicRecon(Recon):
                                                         numIterations=self.numIterations,
                                                         isSavingEachIteration=self.isSavingEachIteration,
                                                         withTumor=withTumor,
-                                                        alpha=self.alpha,
                                                         device=self.device,
-                                                        use_numba=self.isMultiCPU,
-                                                        denominator_threshold=self.denominatorThreshold,
                                                         max_saves=self.maxSaves,
                                                         show_logs=show_logs,
                                                         smatrixType=self.smatrixType

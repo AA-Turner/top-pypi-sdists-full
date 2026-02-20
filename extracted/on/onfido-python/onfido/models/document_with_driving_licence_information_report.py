@@ -20,8 +20,9 @@ import json
 from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
+from uuid import UUID
 from onfido.models.document_breakdown import DocumentBreakdown
-from onfido.models.document_properties import DocumentProperties
+from onfido.models.document_properties_with_driving_licence_information import DocumentPropertiesWithDrivingLicenceInformation
 from onfido.models.report_document import ReportDocument
 from onfido.models.report_name import ReportName
 from onfido.models.report_result import ReportResult
@@ -34,17 +35,17 @@ class DocumentWithDrivingLicenceInformationReport(BaseModel):
     """
     DocumentWithDrivingLicenceInformationReport
     """ # noqa: E501
-    id: StrictStr = Field(description="The unique identifier for the report. Read-only.")
+    id: UUID = Field(description="The unique identifier for the report. Read-only.")
     created_at: Optional[datetime] = Field(default=None, description="The date and time at which the report was first initiated. Read-only.")
     href: Optional[StrictStr] = Field(default=None, description="The API endpoint to retrieve the report. Read-only.")
     status: Optional[ReportStatus] = None
     result: Optional[ReportResult] = None
     sub_result: Optional[ReportSubResult] = None
-    check_id: Optional[StrictStr] = Field(default=None, description="The ID of the check to which the report belongs. Read-only.")
+    check_id: Optional[UUID] = Field(default=None, description="The ID of the check to which the report belongs. Read-only.")
     name: ReportName
     documents: Optional[List[ReportDocument]] = Field(default=None, description="Array of objects with document ids that were used in the Onfido engine.")
     breakdown: Optional[DocumentBreakdown] = None
-    properties: Optional[DocumentProperties] = None
+    properties: Optional[DocumentPropertiesWithDrivingLicenceInformation] = None
     additional_properties: Dict[str, Any] = {}
     __properties: ClassVar[List[str]] = ["id", "created_at", "href", "status", "result", "sub_result", "check_id", "name", "documents", "breakdown", "properties"]
 
@@ -129,7 +130,7 @@ class DocumentWithDrivingLicenceInformationReport(BaseModel):
             "name": obj.get("name"),
             "documents": [ReportDocument.from_dict(_item) for _item in obj["documents"]] if obj.get("documents") is not None else None,
             "breakdown": DocumentBreakdown.from_dict(obj["breakdown"]) if obj.get("breakdown") is not None else None,
-            "properties": DocumentProperties.from_dict(obj["properties"]) if obj.get("properties") is not None else None
+            "properties": DocumentPropertiesWithDrivingLicenceInformation.from_dict(obj["properties"]) if obj.get("properties") is not None else None
         })
         # store additional fields in additional_properties
         for _key in obj.keys():

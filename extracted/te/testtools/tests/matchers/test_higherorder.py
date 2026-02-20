@@ -23,9 +23,9 @@ from testtools.matchers._higherorder import (
     MatchesPredicateWithParams,
     Not,
 )
+from testtools.matchers.test import TestMatchersInterface
 
 from ..helpers import FullStackRunTest
-from ..matchers.helpers import TestMatchersInterface
 
 
 class TestAllMatch(TestCase, TestMatchersInterface):

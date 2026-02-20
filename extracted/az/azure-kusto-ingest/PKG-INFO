@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: azure-kusto-ingest
-Version: 6.0.1
+Version: 6.0.2
 Summary: Kusto Ingest Client
 Keywords: azure,kusto,ingest,data,analytics
 Author: Microsoft Corporation

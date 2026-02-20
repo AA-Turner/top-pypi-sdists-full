@@ -82,7 +82,7 @@ def http_request(
     allow_redirects
         Whether to follow redirects. Defaults to True.
     timeout
-        The timeout for the request, in seconds. If None or 0, no timeout will be set.
+        The timeout for the request, in seconds. If `None` or 0, no timeout will be set.
         Timeout's precision is limited to milliseconds.
         Defaults to None.
 
