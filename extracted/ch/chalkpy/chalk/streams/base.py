@@ -43,3 +43,6 @@ class StreamSource:
         Stream name for Kinesis, topic name for Kafka, subscription id for PubSub
         """
         raise NotImplementedError()
+
+    def supports_message_headers(self) -> bool:
+        raise NotImplementedError()

@@ -12,10 +12,16 @@ This module provides:
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Optional
+from typing import Any
 
 from dbt.artifacts.resources.types import NodeType
 from dbt.cli.main import dbtRunner
+
+# Resource types that are test-like (schema/data tests and unit tests).
+# NodeType.Unit was added in dbt-core 1.8; guard for older versions.
+_TEST_TYPES = frozenset(
+    t for t in (NodeType.Test, getattr(NodeType, "Unit", None)) if t is not None
+)
 
 
 @dataclass(frozen=True)
@@ -27,21 +33,28 @@ class DbtNode:
         name: Short name (e.g., "stg_users")
         resource_type: Node type from dbt (Model, Source, Test, etc.)
         depends_on: Tuple of unique_ids this node depends on (tuple for hashability)
+        depends_on_macros: Tuple of macro unique_ids this node depends on
+        fqn: Fully-qualified name as a tuple of path segments
         materialization: How the node is materialized ("view", "table", "ephemeral", etc.)
         relation_name: Database relation name
         original_file_path: Path to the source SQL/YAML file
         config: Node configuration dictionary
+        description: Optional node description from the dbt project
+        compiled_code: Compiled SQL code (populated by `dbt compile`)
     """
 
     unique_id: str
     name: str
     resource_type: NodeType
     depends_on: tuple[str, ...] = field(default_factory=tuple)
+    depends_on_macros: tuple[str, ...] = field(default_factory=tuple)
     fqn: tuple[str, ...] = field(default_factory=tuple)
-    materialization: Optional[str] = None
-    relation_name: Optional[str] = None
-    original_file_path: Optional[str] = None
+    materialization: str | None = None
+    relation_name: str | None = None
+    original_file_path: str | None = None
     config: dict[str, Any] = field(default_factory=dict)
+    description: str | None = None
+    compiled_code: str | None = None
 
     # Resource types that produce database objects via `dbt run`/`dbt seed`/`dbt snapshot`.
     # Tests are excluded because they use `dbt test` and have their own scheduling strategy.
@@ -68,12 +81,12 @@ class DbtNode:
         """Return a precise dbt selector string for this node.
 
         For runnable resource types (models, seeds, snapshots) each node
-        has a dedicated file, so ``path:<original_file_path>`` is both
+        has a dedicated file, so `path:<original_file_path>` is both
         globally unique and selects exactly one node.
 
-        Tests are excluded from ``path:`` selection because multiple test
+        Tests are excluded from `path:` selection because multiple test
         nodes can be defined in a single YAML schema file — using
-        ``path:`` would over-select.
+        `path:` would over-select.
 
         Falls back to dot-joined FQN, then bare node name.
         """
@@ -136,6 +149,23 @@ class ManifestParser:
         self._all_nodes: dict[str, DbtNode] = {}  # includes ephemeral/sources
         self._load_manifest()
 
+    @property
+    def all_nodes(self) -> dict[str, DbtNode]:
+        """All parsed nodes including sources and ephemeral models."""
+        return self._all_nodes
+
+    @property
+    def adapter_type(self) -> str | None:
+        """Database adapter type from manifest metadata (e.g. ``"postgres"``)."""
+        metadata = self._manifest_data.get("metadata", {})
+        return metadata.get("adapter_type")
+
+    @property
+    def project_name(self) -> str | None:
+        """dbt project name from manifest metadata."""
+        metadata = self._manifest_data.get("metadata", {})
+        return metadata.get("project_name")
+
     def _load_manifest(self) -> None:
         """Load and parse the manifest.json file."""
         with open(self._manifest_path) as f:
@@ -166,9 +196,10 @@ class ManifestParser:
             # Fall back to model if unknown type
             resource_type = NodeType.Model
 
-        # Get depends_on nodes
+        # Get depends_on nodes and macros
         depends_on_data = node_data.get("depends_on", {})
         depends_on_nodes = depends_on_data.get("nodes", [])
+        depends_on_macros = depends_on_data.get("macros", [])
 
         # Get materialization from config
         config = node_data.get("config", {})
@@ -179,11 +210,14 @@ class ManifestParser:
             name=node_data.get("name", ""),
             resource_type=resource_type,
             depends_on=tuple(depends_on_nodes),
+            depends_on_macros=tuple(depends_on_macros),
             fqn=tuple(node_data.get("fqn", [])),
             materialization=materialization,
             relation_name=node_data.get("relation_name"),
             original_file_path=node_data.get("original_file_path"),
             config=config,
+            description=node_data.get("description"),
+            compiled_code=node_data.get("compiled_code"),
         )
 
     def _create_source_node(
@@ -200,6 +234,7 @@ class ManifestParser:
             relation_name=source_data.get("relation_name"),
             original_file_path=source_data.get("original_file_path"),
             config=source_data.get("config", {}),
+            description=source_data.get("description"),
         )
 
     def _resolve_dependencies_through_ephemeral(self, node: DbtNode) -> tuple[str, ...]:
@@ -268,11 +303,14 @@ class ManifestParser:
                 name=node.name,
                 resource_type=node.resource_type,
                 depends_on=resolved_deps,
+                depends_on_macros=node.depends_on_macros,
                 fqn=node.fqn,
                 materialization=node.materialization,
                 relation_name=node.relation_name,
                 original_file_path=node.original_file_path,
                 config=node.config,
+                description=node.description,
+                compiled_code=node.compiled_code,
             )
             self._nodes[unique_id] = resolved_node
 
@@ -297,7 +335,7 @@ class ManifestParser:
 
     def compute_execution_waves(
         self,
-        nodes: Optional[dict[str, DbtNode]] = None,
+        nodes: dict[str, DbtNode] | None = None,
     ) -> list[ExecutionWave]:
         """Compute execution waves using Kahn's algorithm.
 
@@ -368,9 +406,91 @@ class ManifestParser:
 
         return waves
 
+    def get_macro_paths(self) -> dict[str, str | None]:
+        """Get a mapping of macro unique_id to original_file_path.
+
+        Reads the top-level `macros` section of the manifest.
+
+        Returns:
+            Dict mapping macro unique_id to its `original_file_path`
+            (`None` when the macro has no path, e.g. builtins).
+        """
+        macros_data = self._manifest_data.get("macros", {})
+        return {
+            macro_id: macro_data.get("original_file_path")
+            for macro_id, macro_data in macros_data.items()
+        }
+
+    def get_test_nodes(self) -> dict[str, DbtNode]:
+        """Get all test nodes with dependencies resolved through ephemeral models.
+
+        Returns:
+            Dictionary mapping unique_id to DbtNode for test nodes.
+            Dependencies are resolved through ephemeral models to reach
+            executable ancestors.
+        """
+        if hasattr(self, "_test_nodes") and self._test_nodes:
+            return self._test_nodes
+
+        self._test_nodes: dict[str, DbtNode] = {}
+        for unique_id, node in self._all_nodes.items():
+            if node.resource_type not in _TEST_TYPES:
+                continue
+
+            resolved_deps = self._resolve_dependencies_through_ephemeral(node)
+            resolved_node = DbtNode(
+                unique_id=node.unique_id,
+                name=node.name,
+                resource_type=node.resource_type,
+                depends_on=resolved_deps,
+                depends_on_macros=node.depends_on_macros,
+                fqn=node.fqn,
+                materialization=node.materialization,
+                relation_name=node.relation_name,
+                original_file_path=node.original_file_path,
+                config=node.config,
+                description=node.description,
+                compiled_code=node.compiled_code,
+            )
+            self._test_nodes[unique_id] = resolved_node
+
+        return self._test_nodes
+
+    def filter_test_nodes(
+        self,
+        selected_node_ids: set[str] | None = None,
+        executable_node_ids: set[str] | None = None,
+    ) -> dict[str, DbtNode]:
+        """Filter test nodes by selection and executable parent availability.
+
+        Args:
+            selected_node_ids: If not None, only keep tests whose unique_id
+                is in this set.  Pass None to keep all test nodes.
+            executable_node_ids: Only keep tests whose **all** resolved
+                dependencies are in this set.  This ensures a multi-model
+                relationship test is excluded if one of its parent models
+                was filtered out by selectors or stale-source filtering.
+
+        Returns:
+            Dictionary of filtered test nodes.
+        """
+        tests = self.get_test_nodes()
+
+        if selected_node_ids is not None:
+            tests = {uid: n for uid, n in tests.items() if uid in selected_node_ids}
+
+        if executable_node_ids is not None:
+            tests = {
+                uid: n
+                for uid, n in tests.items()
+                if all(dep in executable_node_ids for dep in n.depends_on)
+            }
+
+        return tests
+
     def filter_nodes(
         self,
-        selected_node_ids: Optional[set[str]] = None,
+        selected_node_ids: set[str] | None = None,
     ) -> dict[str, DbtNode]:
         """Filter executable nodes by a set of unique IDs.
 
@@ -394,9 +514,10 @@ class DbtLsError(Exception):
 def resolve_selection(
     project_dir: Path,
     profiles_dir: Path,
-    select: Optional[str] = None,
-    exclude: Optional[str] = None,
-    target_path: Optional[Path] = None,
+    select: str | None = None,
+    exclude: str | None = None,
+    target_path: Path | None = None,
+    target: str | None = None,
 ) -> set[str]:
     """Resolve dbt selectors to a set of node unique_ids.
 
@@ -411,6 +532,7 @@ def resolve_selection(
             `"+stg_users"`)
         exclude: dbt exclude expression
         target_path: Optional override for dbt target directory
+        target: dbt target name (`--target` / `-t`)
 
     Returns:
         Set of unique_ids matching the selection criteria
@@ -436,6 +558,8 @@ def resolve_selection(
         args.extend(["--exclude", exclude])
     if target_path is not None:
         args.extend(["--target-path", str(target_path)])
+    if target is not None:
+        args.extend(["--target", target])
 
     result = dbtRunner().invoke(args)
 

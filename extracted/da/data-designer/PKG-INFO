@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: data-designer
-Version: 0.5.0
+Version: 0.5.1
 Summary: General framework for synthetic data generation
 License-Expression: Apache-2.0
 Classifier: Development Status :: 4 - Beta
@@ -14,8 +14,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Software Development
 Requires-Python: >=3.10
-Requires-Dist: data-designer-config==0.5.0
-Requires-Dist: data-designer-engine==0.5.0
+Requires-Dist: data-designer-config==0.5.1
+Requires-Dist: data-designer-engine==0.5.1
 Requires-Dist: prompt-toolkit<4,>=3.0.0
 Requires-Dist: typer<1,>=0.12.0
 Description-Content-Type: text/markdown

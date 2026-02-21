@@ -1,11 +1,4 @@
-"""Ground truth types and collector.
-
-GPU-intensive phase that produces training data mapping
-(geometry_metrics) -> {method: accuracy} for each benchmark.
-
-Uses Optuna TPE optimization per method with model caching
-to avoid reloading the model across trials.
-"""
+"""Ground truth types and collector."""
 from __future__ import annotations
 import json
 import os
@@ -16,7 +9,6 @@ from typing import Any, Dict, List, Optional
 
 
 # ── Data types ─────────────────────────────────────────────────
-
 
 @dataclass(slots=True)
 class MethodResult:
@@ -77,30 +69,31 @@ class GroundTruthDataset:
 
 
 # ── Collector ──────────────────────────────────────────────────
-
 PIPELINE_METHODS = (
-    "CAA", "Hyperplane", "MLP", "PRISM",
-    "PULSE", "TITAN", "Concept Flow")
+    "CAA", "Ostrze", "MLP", "TECZA",
+    "TETNO", "GROM", "Concept Flow", "SZLAK", "WICHER")
 
 # Method key mapping for Optuna objective
 _METHOD_KEY_MAP = {
     "CAA": "CAA",
-    "Hyperplane": "HYPERPLANE",
+    "Ostrze": "OSTRZE",
     "MLP": "MLP",
-    "PRISM": "PRISM",
-    "PULSE": "PULSE",
-    "TITAN": "TITAN",
-    "Concept Flow": "CONCEPT_FLOW",
+    "TECZA": "TECZA",
+    "TETNO": "TETNO",
+    "GROM": "GROM",
+    "Concept Flow": "NURT",
+    "SZLAK": "SZLAK",
+    "WICHER": "WICHER",
 }
 
 
-def _load_repscan_metrics(
-    model: str, benchmark: str, repscan_dir: str,
+def _load_zwiad_metrics(
+    model: str, benchmark: str, zwiad_dir: str,
 ) -> Optional[Dict]:
     model_slug = model.replace("/", "_")
-    path = Path(repscan_dir) / f"{model_slug}__{benchmark}.json"
+    path = Path(zwiad_dir) / f"{model_slug}__{benchmark}.json"
     if not path.exists():
-        print(f"  No repscan file: {path}")
+        print(f"  No zwiad file: {path}")
         return None
     data = json.loads(path.read_text())
     return data.get("metrics", data)
@@ -147,7 +140,7 @@ def _collect_all_layer_activations(
 
 def collect_benchmark_ground_truth(
     model_name: str, benchmark: str,
-    repscan_dir: str = "repscan_results",
+    zwiad_dir: str = "zwiad_results",
     limit: int = 100, device: Optional[str] = None,
     methods: Optional[List[str]] = None,
     n_trials: int = 100,
@@ -157,7 +150,7 @@ def collect_benchmark_ground_truth(
     from wisent.core.cli.optimize_steering import create_optuna_objective
     from wisent.core.models.wisent_model import WisentModel
 
-    metrics = _load_repscan_metrics(model_name, benchmark, repscan_dir)
+    metrics = _load_zwiad_metrics(model_name, benchmark, zwiad_dir)
     if metrics is None:
         return None
 
@@ -250,21 +243,34 @@ def collect_benchmark_ground_truth(
 def collect_ground_truth(
     model: str, benchmarks: Optional[List[str]] = None,
     output_path: Optional[str] = None,
-    repscan_dir: str = "repscan_results",
+    zwiad_dir: str = "zwiad_results",
     limit: int = 100, device: Optional[str] = None,
     methods: Optional[List[str]] = None,
     n_trials: int = 100,
     benchmark_start: Optional[int] = None,
     benchmark_end: Optional[int] = None,
+    use_geometry_selection: bool = False,
+    per_type: int = 2, fine_geometry: bool = False,
 ) -> GroundTruthDataset:
-    """Collect Optuna-optimized ground truth across benchmarks."""
+    """Collect ground truth. use_geometry_selection picks per_type per type."""
     if benchmarks is None:
-        slug = model.replace("/", "_")
-        rp = Path(repscan_dir)
-        benchmarks = sorted({
-            f.stem.replace(f"{slug}__", "")
-            for f in rp.glob(f"{slug}__*.json")})
-
+        if use_geometry_selection:
+            from wisent.core.geometry.zwiad.geometry_types import (
+                select_representative_benchmarks, GeometryType, GeometryTypeFine)
+            selected = select_representative_benchmarks(
+                zwiad_dir, model, per_type=per_type, fine=fine_geometry)
+            benchmarks = []
+            enum_cls = GeometryTypeFine if fine_geometry else GeometryType
+            for gtype in enum_cls:
+                benches = selected.get(gtype, [])
+                print(f"  {gtype.value}: {benches}")
+                benchmarks.extend(benches)
+        else:
+            slug = model.replace("/", "_")
+            rp = Path(zwiad_dir)
+            benchmarks = sorted({
+                f.stem.replace(f"{slug}__", "")
+                for f in rp.glob(f"{slug}__*.json")})
     # Apply sharding
     if benchmark_start is not None or benchmark_end is not None:
         start = benchmark_start or 0
@@ -278,7 +284,7 @@ def collect_ground_truth(
     for i, bench in enumerate(benchmarks):
         print(f"\n[{i+1}/{total}] {bench}")
         rec = collect_benchmark_ground_truth(
-            model, bench, repscan_dir, limit, device,
+            model, bench, zwiad_dir, limit, device,
             methods, n_trials)
         if rec is not None:
             records.append(rec)

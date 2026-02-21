@@ -25,7 +25,11 @@ pub fn collect_tests_rust(
     };
 
     match session.perform_collect(args) {
-        Ok(collectors) => {
+        Ok((collectors, path_errors)) => {
+            for (path, error) in path_errors {
+                collection_errors.errors.push((path, error));
+            }
+
             let mut test_nodes = Vec::new();
 
             for collector in collectors {
@@ -52,6 +56,7 @@ fn collect_items_recursive(
         test_nodes.push(collector.nodeid().into());
     } else {
         let report = collect_one_node(collector);
+        collection_errors.warnings.extend(report.warnings);
         match report.outcome {
             CollectionOutcome::Passed => {
                 for child in report.result {

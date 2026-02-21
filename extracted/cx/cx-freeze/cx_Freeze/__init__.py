@@ -7,7 +7,9 @@ that Python runs on.
 
 from __future__ import annotations
 
+import importlib.metadata
 import sys
+from pathlib import Path
 
 import setuptools
 
@@ -49,7 +51,7 @@ else:
     __all__ += ["bdist_appimage", "bdist_deb", "bdist_rpm"]
 
 
-__version__ = "8.5.3"
+__version__ = importlib.metadata.version(__name__)
 
 
 def setup(**attrs) -> setuptools.Distribution:  # noqa: D103
@@ -79,9 +81,15 @@ def plugin_install(dist: setuptools.Distribution) -> None:
         return
     validate_executables(dist, "executables", dist.executables)
 
-    # Disable package discovery (setuptools >= 61) and/or misuse of packages
+    # Enable package discovery for src-layout
+    if Path("src").is_dir() and dist.packages is None:
+        if dist.package_dir is None:
+            dist.package_dir = {}
+        dist.package_dir.setdefault("", "src")
+    # Disable package discovery for modules
     dist.py_modules = []
-    dist.packages = []
+    # Disable subcommand build_py
+    dist.has_pure_modules = lambda: False
 
     # Add/update commands (provisional)
     cmdclass = dist.cmdclass
@@ -91,9 +99,6 @@ def plugin_install(dist: setuptools.Distribution) -> None:
 
     # Add build_exe as subcommand of setuptools build (plugin)
     build = dist.get_command_obj("build")
-    build.user_options.insert(
-        1,
-        ("build-exe=", None, "[REMOVED]"),
-    )
-    build.sub_commands = [*build.sub_commands, ("build_exe", None)]
+    build.user_options.insert(1, ("build-exe=", None, "[REMOVED]"))
     build.build_exe = None
+    build.sub_commands = [*build.sub_commands, ("build_exe", None)]

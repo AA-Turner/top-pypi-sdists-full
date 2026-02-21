@@ -214,13 +214,6 @@ def load_difflib(finder: ModuleFinder, module: Module) -> None:
     module.exclude_names.add("doctest")
 
 
-def load_docutils_frontend(finder: ModuleFinder, module: Module) -> None:
-    """The optik module is the old name for the optparse module; ignore the
-    module if it cannot be found.
-    """
-    module.ignore_names.add("optik")
-
-
 def load_flask_compress(finder: ModuleFinder, module: Module) -> None:
     """flask-compress requires its metadata."""
     module.update_distribution("Flask_Compress")
@@ -422,14 +415,6 @@ def load_pycountry(finder: ModuleFinder, module: Module) -> None:
     module.in_file_system = 1
 
 
-def load_pycparser(finder: ModuleFinder, module: Module) -> None:
-    """These files are missing which causes
-    permission denied issues on windows when they are regenerated.
-    """
-    finder.include_module("pycparser.lextab")
-    finder.include_module("pycparser.yacctab")
-
-
 def load_pyodbc(finder: ModuleFinder, module: Module) -> None:
     """The pyodbc module implicitly imports others modules;
     make sure this happens.
@@ -595,6 +580,13 @@ def load_win32file(finder: ModuleFinder, module: Module) -> None:
     finder.include_module("win32timezone")
 
 
+def load_win32print(finder: ModuleFinder, module: Module) -> None:
+    """The win32print module implicitly loads the pywintypes module;
+    make sure this happens.
+    """
+    finder.include_module("pywintypes")
+
+
 def load_xml_etree_cElementTree(finder: ModuleFinder, module: Module) -> None:
     """The xml.etree.cElementTree module implicitly loads the
     xml.etree.ElementTree module; make sure this happens.
@@ -627,13 +619,6 @@ def load_zlib(finder: ModuleFinder, module: Module) -> None:
             finder.include_files(source, target)
 
 
-def load_zope_component(finder: ModuleFinder, module: Module) -> None:
-    """The zope.component package requires the presence of the pkg_resources
-    module but it uses a dynamic, not static import to do its work.
-    """
-    finder.include_module("pkg_resources")
-
-
 #
 # missing section
 #
@@ -656,3 +641,10 @@ def missing_ltihooks(finder: ModuleFinder, caller: Module) -> None:
 def missing_six_moves(finder: ModuleFinder, caller: Module) -> None:
     """The six module creates fake modules."""
     caller.ignore_names.add("six.moves")
+
+
+def missing_typing_extensions(finder: ModuleFinder, caller: Module) -> None:
+    """The typing_extensions module is not required at runtime, so ignore it
+    when it cannot be found.
+    """
+    caller.ignore_names.add("typing_extensions")

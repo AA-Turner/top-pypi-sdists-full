@@ -274,7 +274,7 @@ def _run_cone_analysis(
         print(f"\n📝 Interpretation:")
         if result.has_cone_structure:
             print(f"   - Multiple directions mediate this behavior")
-            print(f"   - Consider using PRISM for multi-directional steering")
+            print(f"   - Consider using TECZA for multi-directional steering")
             print(f"   - CAA may capture only partial behavior")
         else:
             print(f"   - Single direction (CAA) is sufficient")

@@ -1650,12 +1650,23 @@ class Threads(Authenticated):
                     state = await Threads.State.get(
                         conn, config, subgraphs=False, ctx=ctx
                     )
-                    # Update thread values
-                    for thread in conn.store["threads"]:
-                        if thread["thread_id"] == thread_id:
-                            thread["values"] = state.values
-                            thread["state_updated_at"] = datetime.now(UTC)
-                            break
+                    # Update thread status, values, and interrupts
+                    await Threads.set_status(
+                        conn,
+                        thread_id,
+                        {
+                            "next": list(state.next),
+                            "values": state.values,
+                            "tasks": [
+                                {
+                                    "id": t.id,
+                                    "interrupts": list(t.interrupts),
+                                }
+                                for t in state.tasks
+                            ],
+                        },
+                        None,
+                    )
 
                     # Publish state update event
                     from langgraph_api.serde import json_dumpb  # noqa: PLC0415
@@ -1762,18 +1773,32 @@ class Threads(Authenticated):
                         conn, config, subgraphs=False, ctx=ctx
                     )
 
-                    # update thread values
-                    for thread in conn.store["threads"]:
-                        if thread["thread_id"] == thread_id:
-                            thread["values"] = state.values
-                            thread["state_updated_at"] = datetime.now(UTC)
-                            break
+                    # Update thread status, values, and interrupts
+                    await Threads.set_status(
+                        conn,
+                        thread_id,
+                        {
+                            "next": list(state.next),
+                            "values": state.values,
+                            "tasks": [
+                                {
+                                    "id": t.id,
+                                    "interrupts": list(t.interrupts),
+                                }
+                                for t in state.tasks
+                            ],
+                        },
+                        None,
+                    )
 
                     # Publish state update event
                     from langgraph_api.serde import json_dumpb  # noqa: PLC0415
+                    from langgraph_api.state import (  # noqa: PLC0415
+                        state_snapshot_to_thread_state,
+                    )
 
                     event_data = {
-                        "state": state,
+                        "state": state_snapshot_to_thread_state(state),
                         "thread_id": str(thread_id),
                     }
                     await Threads.Stream.publish(
@@ -2489,6 +2514,8 @@ class Runs(Authenticated):
             config.get("metadata") or {},
             metadata,
         )
+        # Always overwrite assistant_id to prevent user spoofing
+        merged_metadata["assistant_id"] = str(assistant_id)
         new_run = Run(
             run_id=run_id,
             thread_id=thread_id,

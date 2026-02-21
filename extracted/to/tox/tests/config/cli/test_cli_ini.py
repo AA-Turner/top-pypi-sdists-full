@@ -41,6 +41,7 @@ def default_options() -> dict[str, Any]:
         "install_pkg": None,
         "fail_fast": False,
         "no_test": False,
+        "no_capture": False,
         "override": [],
         "package_only": False,
         "quiet": 0,
@@ -51,6 +52,7 @@ def default_options() -> dict[str, Any]:
         "result_json": None,
         "skip_missing_interpreters": "config",
         "skip_pkg_install": False,
+        "skip_env_install": False,
         "verbose": 2,
         "work_dir": None,
         "root_dir": None,
@@ -60,6 +62,7 @@ def default_options() -> dict[str, Any]:
         "exit_and_dump_after": 0,
         "skip_env": "",
         "list_dependencies": is_ci(),
+        "remainder": [],
     }
 
 
@@ -215,6 +218,7 @@ def test_ini_exhaustive_parallel_values(core_handlers: dict[str, Callable[[State
         "install_pkg": None,
         "fail_fast": False,
         "no_test": True,
+        "no_capture": False,
         "override": [Override("a=b"), Override("c=d")],
         "package_only": False,
         "no_recreate_pkg": False,
@@ -228,6 +232,7 @@ def test_ini_exhaustive_parallel_values(core_handlers: dict[str, Callable[[State
         "result_json": None,
         "skip_missing_interpreters": "config",
         "skip_pkg_install": False,
+        "skip_env_install": False,
         "verbose": 5,
         "work_dir": None,
         "root_dir": None,
@@ -237,6 +242,7 @@ def test_ini_exhaustive_parallel_values(core_handlers: dict[str, Callable[[State
         "exit_and_dump_after": 0,
         "skip_env": "",
         "list_dependencies": is_ci(),
+        "remainder": [],
     }
     assert options.parsed.verbosity == 4
     assert options.cmd_handlers == core_handlers

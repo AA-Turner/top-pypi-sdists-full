@@ -1,4 +1,4 @@
-# ------------------ Memory Management 3.7.5 for the GPU Poor by DeepBeepMeep (mmgp)------------------
+# ------------------ Memory Management 3.7.6 for the GPU Poor by DeepBeepMeep (mmgp)------------------
 #
 # This module contains multiples optimisations so that models such as Flux (and derived), Mochi, CogView, HunyuanVideo, ...  can run smoothly on a 24 GB GPU limited card. 
 # This a replacement for the accelerate library that should in theory manage offloading, but doesn't work properly with models that are loaded / unloaded several
@@ -826,7 +826,7 @@ def _welcome():
     if welcome_displayed:
          return 
     welcome_displayed = True
-    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.5) by DeepBeepMeep ************{ENDC}{UNBOLD}")
+    print(f"{BOLD}{HEADER}************ Memory Management for the GPU Poor (mmgp 3.7.6) by DeepBeepMeep ************{ENDC}{UNBOLD}")
 
 def change_dtype(model, new_dtype, exclude_buffers = False):
     for submodule_name, submodule in model.named_modules():  
@@ -1327,7 +1327,6 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
         skip = False
         tied_weights = None
         state_dict = safetensors2.torch_load_file(path, writable_tensors= False)
-
         if preprocess_sd != None:
             state_dict = preprocess_sd(state_dict)
 
@@ -1351,6 +1350,18 @@ def load_loras_into_model(model, lora_path, lora_multi = None, activate_all_lora
                     new_state_dict[k] = v
                 state_dict = new_state_dict
                 del new_state_dict
+
+            src_suffixes = (".default.weight", ".lora.A.weight", ".lora.B.weight", ".lora.down.weight", ".lora.up.weight")
+            tgt_suffixes = (".weight", ".lora_A.weight", ".lora_B.weight", ".lora_down.weight", ".lora_up.weight")
+            new_sd = {}
+            for k,v in state_dict.items():
+                for src, tgt in zip(src_suffixes, tgt_suffixes):
+                    if k.endswith(src):
+                        k = k[:-len(src)] + tgt
+                        break
+                new_sd[k] = v
+            state_dict = new_sd
+            del new_sd,k,v
 
         if not fail:
             lokr_split_chunks = {}

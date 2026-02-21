@@ -243,7 +243,7 @@ class TwoCaptcha():
         if not lang or lang not in ("en", "ru", "de", "el", "pt", "fr"):
             raise ValidationException(f'Lang not in "en", "ru", "de", "el", "pt", "fr". You send {lang}')
 
-        result = self.solve(body=body, method=method, **kwargs)
+        result = self.solve(body=body, method=method, lang=lang, **kwargs)
         return result
 
     def text(self, text, **kwargs):
@@ -685,6 +685,8 @@ class TwoCaptcha():
             Value of captcha_id parameter you found on target website.
         url: str
             Full URL of the page where you see Geetest captcha.
+        risk_type: str, optional
+            Value of risk_type parameter is contained in the captcha loading request.
         softId : int, optional
             ID of software developer. Developers who integrated their software with 2Captcha get reward: 10% of
             spendings of their software users.
@@ -1286,9 +1288,9 @@ class TwoCaptcha():
         '''
 
         rep = 'reportgood' if correct else 'reportbad'
-        self.api_client.res(key=self.API_KEY, action=rep, id=id_)
+        answer = self.api_client.res(key=self.API_KEY, action=rep, id=id_)
 
-        return
+        return answer
 
     def rename_params(self, params):
 

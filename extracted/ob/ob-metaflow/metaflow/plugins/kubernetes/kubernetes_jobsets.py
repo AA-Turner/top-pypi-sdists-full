@@ -398,7 +398,7 @@ class RunningJobSet(object):
     def is_unschedulable(self):
         self._control_job = self._fetch_control_job()
         # Safely check if the metadata and annotations fields exist to avoid KeyError
-        return self._control_job["metadata"]["annotations"].get("metaflow/job_status", "") in [
+        return self._control_job.get("metadata", {}).get("annotations", {}).get("metaflow/job_status", "") in [
                 "Incompatible_Node_Selector",
                 "Unsatisfiable_Resource_Request",
             ]

@@ -27,7 +27,7 @@ def execute_verify_steering(args):
     steering_type, config = _detect_steering_type(model_path)
     if steering_type is None:
         print(f"\n[ERROR] No steering configuration found at {model_path}")
-        print("Expected one of: titan_config.json, pulse_config.json, caa_config.json")
+        print("Expected one of: grom_config.json, tetno_config.json, caa_config.json")
         sys.exit(1)
 
     print(f"\nSteering type: {steering_type.upper()}")
@@ -100,7 +100,7 @@ def execute_verify_steering(args):
     gate_results = None
     intensity_results = None
 
-    if steering_type == "titan" and config.get("mode") in ("dynamic", "hybrid"):
+    if steering_type == "grom" and config.get("mode") in ("dynamic", "hybrid"):
         if args.check_gate or args.check_intensity:
             print("\n" + "-" * 64)
             print("GATE/INTENSITY NETWORK CHECK")
@@ -151,8 +151,8 @@ def execute_verify_steering(args):
 def _detect_steering_type(model_path: Path) -> tuple:
     """Detect steering type from config files."""
     configs = [
-        ("titan", model_path / "titan_config.json"),
-        ("pulse", model_path / "pulse_config.json"),
+        ("grom", model_path / "grom_config.json"),
+        ("tetno", model_path / "tetno_config.json"),
         ("caa", model_path / "caa_config.json"),
     ]
 
@@ -212,8 +212,8 @@ def _get_device(device_arg: str) -> str:
 def _load_steering_data(model_path: Path, steering_type: str) -> Optional[Dict]:
     """Load steering data (directions, networks, etc.)."""
     data_files = {
-        "titan": "titan_steering.pt",
-        "pulse": "pulse_steering.pt",
+        "grom": "grom_steering.pt",
+        "tetno": "tetno_steering.pt",
         "caa": "caa_steering.pt",
     }
 
@@ -252,7 +252,7 @@ def _extract_steering_directions(
     """Extract effective steering directions from steering data."""
     directions = {}
 
-    if steering_type == "titan":
+    if steering_type == "grom":
         raw_dirs = steering_data.get("directions", {})
         weights = steering_data.get("direction_weights", {})
 
@@ -265,7 +265,7 @@ def _extract_steering_directions(
             else:
                 directions[layer_name] = F.normalize(dirs[0], p=2, dim=-1)
 
-    elif steering_type == "pulse":
+    elif steering_type == "tetno":
         for layer_name, vec in steering_data.get("behavior_vectors", {}).items():
             directions[layer_name] = F.normalize(vec, p=2, dim=-1)
 
@@ -428,9 +428,9 @@ def _check_gate_intensity(
     check_intensity: bool,
 ) -> tuple:
     """Check gate and intensity network predictions."""
-    from wisent.core.weight_modification.standalone_loader import TITANHooks
+    from wisent.core.weight_modification.standalone_loader import GROMHooks
 
-    hooks = TITANHooks(steered_model, steering_data)
+    hooks = GROMHooks(steered_model, steering_data)
     hooks.install()
 
     gate_results = []

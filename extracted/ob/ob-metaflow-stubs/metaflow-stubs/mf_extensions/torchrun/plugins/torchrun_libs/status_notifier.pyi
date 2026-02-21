@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.19.19.1+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
-# Generated on 2026-02-19T20:41:45.670881                                                            #
+# MF version: 2.19.19.2+obcheckpoint(0.2.10);<unk>(<unk>);ob(v1)                                     #
+# Generated on 2026-02-20T21:41:16.046154                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,9 +9,9 @@ from __future__ import annotations
 import threading
 import typing
 if typing.TYPE_CHECKING:
+    import metaflow.mf_extensions.torchrun.plugins.torchrun_libs.datastore
     import threading
     import metaflow.mf_extensions.torchrun.plugins.torchrun_libs.status_notifier
-    import metaflow.mf_extensions.torchrun.plugins.torchrun_libs.datastore
 
 from .datastore import TorchrunDatastore as TorchrunDatastore
 

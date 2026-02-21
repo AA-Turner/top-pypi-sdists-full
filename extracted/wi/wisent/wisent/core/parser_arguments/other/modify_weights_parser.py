@@ -147,8 +147,8 @@ def setup_modify_weights_parser(parser: argparse.ArgumentParser) -> None:
         "--steering-method",
         type=str,
         default="auto",
-        choices=["auto", "caa", "hyperplane", "prism", "pulse", "titan", "mlp"],
-        help="Method for generating steering vectors: 'auto' (analyze geometry and pick best), 'caa' (mean difference), 'hyperplane' (SVM), 'prism' (sparse decomposition), 'pulse' (optimized), 'titan' (manifold-based), 'mlp' (neural probe). Default: auto"
+        choices=["auto", "caa", "ostrze", "tecza", "tetno", "grom", "mlp", "szlak", "wicher", "nurt"],
+        help="Method for generating steering vectors: auto, caa, ostrze, tecza, tetno, grom, mlp, szlak (geodesic OT), wicher (Newton), nurt (concept flow). Default: auto"
     )
 
     # Weight modification method
@@ -157,40 +157,40 @@ def setup_modify_weights_parser(parser: argparse.ArgumentParser) -> None:
         "--method",
         type=str,
         default="auto",
-        choices=["auto", "directional", "additive", "titan", "pulse", "prism"],
-        help="Weight modification method: 'auto' (analyze geometry and pick best), 'directional' (project onto/away from direction), 'additive' (add bias), 'titan' (manifold with dynamic gating), 'pulse' (conditional gating), or 'prism' (multi-directional). Default: auto"
+        choices=["auto", "directional", "additive", "grom", "tetno", "tecza", "nurt", "szlak", "wicher"],
+        help="Weight modification method: auto, directional, additive, grom, tetno, tecza, nurt (concept flow), szlak (geodesic OT), wicher (Newton). Default: auto"
     )
     
-    # TITAN-specific parameters
-    titan_group = parser.add_argument_group("titan parameters")
-    titan_group.add_argument(
-        "--titan-mode",
+    # GROM-specific parameters
+    grom_group = parser.add_argument_group("grom parameters")
+    grom_group.add_argument(
+        "--grom-mode",
         type=str,
         default="hybrid",
         choices=["static", "dynamic", "hybrid"],
-        help="TITAN mode: 'static' (bake directions only), 'dynamic' (hooks only), 'hybrid' (both, recommended). Default: hybrid"
+        help="GROM mode: 'static' (bake directions only), 'dynamic' (hooks only), 'hybrid' (both, recommended). Default: hybrid"
     )
-    titan_group.add_argument(
-        "--titan-num-directions",
+    grom_group.add_argument(
+        "--grom-num-directions",
         type=int,
         default=8,
-        help="Number of manifold directions for TITAN (default: 8)"
+        help="Number of manifold directions for GROM (default: 8)"
     )
 
-    # PRISM-specific parameters
-    prism_group = parser.add_argument_group("prism parameters")
-    prism_group.add_argument(
-        "--prism-mode",
+    # TECZA-specific parameters
+    tecza_group = parser.add_argument_group("tecza parameters")
+    tecza_group.add_argument(
+        "--tecza-mode",
         type=str,
         default="weighted",
         choices=["primary", "weighted", "full"],
-        help="PRISM mode: 'primary' (only first direction), 'weighted' (average all), 'full' (save all). Default: weighted"
+        help="TECZA mode: 'primary' (only first direction), 'weighted' (average all), 'full' (save all). Default: weighted"
     )
-    prism_group.add_argument(
-        "--prism-num-directions",
+    tecza_group.add_argument(
+        "--tecza-num-directions",
         type=int,
         default=3,
-        help="Number of directions per layer for PRISM (default: 3)"
+        help="Number of directions per layer for TECZA (default: 3)"
     )
 
     # Directional projection parameters

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.rootwrap
-Version: 7.8.0
+Version: 7.9.0
 Summary: Oslo Rootwrap
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 Project-URL: Homepage, https://docs.openstack.org/oslo.rootwrap
@@ -18,23 +18,22 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: debtcollector>=3.0.0
+Requires-Dist: pbr>=6.1.1
+Dynamic: license-file
+Dynamic: requires-dist
 
-========================
-Team and repository tags
-========================
+=============================================
+oslo.rootwrap -- Escalated Permission Control
+=============================================
 
 .. image:: https://governance.openstack.org/tc/badges/oslo.rootwrap.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
 
 .. Change things from this point on
-
-===============================================
- oslo.rootwrap -- Escalated Permission Control
-===============================================
 
 .. image:: https://img.shields.io/pypi/v/oslo.rootwrap.svg
     :target: https://pypi.org/project/oslo.rootwrap/

@@ -57,6 +57,8 @@ class InvokeEndpointAsyncInputTypeDef(TypedDict):
     Accept: NotRequired[str]
     CustomAttributes: NotRequired[str]
     InferenceId: NotRequired[str]
+    S3OutputPathExtension: NotRequired[str]
+    Filename: NotRequired[str]
     RequestTTLSeconds: NotRequired[int]
     InvocationTimeoutSeconds: NotRequired[int]
 

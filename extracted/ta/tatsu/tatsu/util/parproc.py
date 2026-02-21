@@ -1,5 +1,7 @@
 # Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
 # SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import io
 import multiprocessing
 import sys
@@ -11,10 +13,15 @@ from dataclasses import dataclass
 from functools import partial
 from itertools import batched
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, NamedTuple
 
-import rich
-from rich.progress import (
+try:
+    import rich  # pyright: ignore[reportMissingImports]
+except ImportError:
+    rich = SimpleNamespace()  # ty:ignore[invalid-assignment]
+
+from rich.progress import (  # pyright: ignore[reportMissingImports]
     BarColumn,
     Progress,
     TaskID,
@@ -24,17 +31,9 @@ from rich.progress import (
     TimeRemainingColumn,
 )
 
-from ..util import (
-    identity,
-    memory_use,
-    startscript,
-    try_read,
-)
-from ..util.datetime import iso_logpath
-from ..util.unicode_characters import (
-    U_CHECK_MARK,
-    U_CROSSED_SWORDS,
-)
+from . import identity, memory_use, startscript, try_read
+from .datetime import iso_logpath
+from .unicode_characters import U_CHECK_MARK, U_CROSSED_SWORDS
 
 __all__: list[str] = ['parallel_proc', 'processing_loop']
 
@@ -67,11 +66,11 @@ class ParprocResult:
 
 
 def process_payload(
-        process: Callable,
-        task: Any,
-        pickable: Callable = identity,
-        reraise: bool = False,
-    ) -> ParprocResult | None:
+    process: Callable,
+    task: Any,
+    pickable: Callable = identity,
+    reraise: bool = False,
+) -> ParprocResult | None:
     start_time = time.process_time()
     result = ParprocResult(task.payload)
     try:
@@ -92,8 +91,11 @@ def process_payload(
     return result
 
 
-def _executor_pmap(executor: Callable, process: Callable, tasks: Sequence[Any]) -> Iterable[
-    ParprocResult]:
+def _executor_pmap(
+    executor: Callable,
+    process: Callable,
+    tasks: Sequence[Any],
+) -> Iterable[ParprocResult]:
     nworkers = max(1, multiprocessing.cpu_count())
     n = nworkers * 8
     chunks = batched(tasks, n)
@@ -124,13 +126,20 @@ def _imap_pmap(process: Callable, tasks: Sequence[Any]) -> Iterable[ParprocResul
         with multiprocessing.Pool(processes=nworkers) as pool:
             yield from pool.imap_unordered(process, chunk)
     if len(tasks) != count:
-        raise RuntimeError('number of chunked tasks different %d != %d' % (len(tasks), count))
+        raise RuntimeError(
+            'number of chunked tasks different %d != %d' % (len(tasks), count),
+        )
 
 
 _active_pmap = _imap_pmap
 
 
-def parallel_proc(payloads: Iterable[Any], process: Callable, *args: Any, **kwargs: Any):
+def parallel_proc(
+    payloads: Iterable[Any],
+    process: Callable,
+    *args: Any,
+    **kwargs: Any,
+):
     pickable = kwargs.pop('pickable', identity)
     parallel = kwargs.pop('parallel', True)
     reraise = kwargs.pop('reraise', False)
@@ -165,12 +174,12 @@ def _build_progressbar(total: int) -> tuple[Progress, TaskID]:
 
 
 def processing_loop(
-        filenames: Sequence[str],
-        process: Callable,
-        *args: Any,
-        reraise: bool = False,
-        **kwargs: Any,
-    ) -> Iterable[ParprocResult]:
+    filenames: Sequence[str],
+    process: Callable,
+    *args: Any,
+    reraise: bool = False,
+    **kwargs: Any,
+) -> Iterable[ParprocResult]:
     try:
         total = len(filenames)
         total_time = 0.0
@@ -225,7 +234,11 @@ def processing_loop(
                     except Exception:
                         # in case of errors while serializing the exception
                         with logctx() as log:
-                            print('EXCEPTION', type(result.exception).__name__, file=log)
+                            print(
+                                'EXCEPTION',
+                                type(result.exception).__name__,
+                                file=log,
+                            )
                     if reraise:
                         raise result.exception
                 elif result.outcome is not None:
@@ -238,18 +251,23 @@ def processing_loop(
             progress.stop()
         with logctx() as log:
             file_process_summary(
-                filenames, total_time, run_time, success_count, success_linecount, log,
+                filenames,
+                total_time,
+                run_time,
+                success_count,
+                success_linecount,
+                log,
             )
     except KeyboardInterrupt:
         return
 
 
 def file_process_progress(
-        latest_result: ParprocResult,
-        count: int,
-        total: int,
-        total_time: float,
-    ):
+    latest_result: ParprocResult,
+    count: int,
+    total: int,
+    total_time: float,
+):
     filename = latest_result.payload
 
     percent = count / total
@@ -268,7 +286,8 @@ def file_process_progress(
         '%3dMiB' % mb_memory if mb_memory else '',
         (Path(filename).name + ' ' * 80)[:40],
         file=sys.stderr,
-        end=EOLCH)
+        end=EOLCH,
+    )
 
 
 def format_minutes(result: ParprocResult) -> str:
@@ -280,13 +299,13 @@ def format_hours(time: float) -> str:
 
 
 def file_process_summary(
-        filenames: Sequence[str],
-        total_time: float,
-        run_time: float,
-        success_count: int,
-        success_linecount: int,
-        log,
-    ):
+    filenames: Sequence[str],
+    total_time: float,
+    run_time: float,
+    success_count: int,
+    success_linecount: int,
+    log,
+):
     filecount = 0
     linecount = 0
     for fname in filenames:

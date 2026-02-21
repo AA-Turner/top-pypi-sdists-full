@@ -15,11 +15,11 @@ Stage 2: Strength Sweep
 
 Stage 3: Method-Specific Tuning
     - At best layer+strength, grid search method-specific params
-    - CAA/Hyperplane: just normalize (2 configs each)
+    - CAA/Ostrze: just normalize (2 configs each)
     - MLP: hidden_dim × num_layers × normalize
-    - PRISM: num_directions × optimization_steps × normalize
-    - PULSE: threshold × temperature × normalize
-    - TITAN: num_directions × max_alpha × temperature × normalize
+    - TECZA: num_directions × optimization_steps × normalize
+    - TETNO: threshold × temperature × normalize
+    - GROM: num_directions × max_alpha × temperature × normalize
 
 This gives FULL coverage of the search space in a tractable way.
 """
@@ -36,11 +36,11 @@ from . import (
     run_pipeline,
     MethodConfig,
     CAAConfig,
-    HyperplaneConfig,
+    OstrzeConfig,
     MLPConfig,
-    PRISMConfig,
-    PULSEConfig,
-    TITANConfig,
+    TECZAConfig,
+    TETNOConfig,
+    GROMConfig,
     OptimizationResult,
 )
 
@@ -72,15 +72,15 @@ class HierarchicalConfig:
     mlp_hidden_dims: List[int] = field(default_factory=lambda: [64, 128, 256, 512])
     mlp_num_layers: List[int] = field(default_factory=lambda: [1, 2, 3])
 
-    prism_num_directions: List[int] = field(default_factory=lambda: [1, 2, 3, 5])
-    prism_optimization_steps: List[int] = field(default_factory=lambda: [50, 100, 200])
+    tecza_num_directions: List[int] = field(default_factory=lambda: [1, 2, 3, 5])
+    tecza_optimization_steps: List[int] = field(default_factory=lambda: [50, 100, 200])
 
-    pulse_thresholds: List[float] = field(default_factory=lambda: [0.3, 0.5, 0.7])
-    pulse_temperatures: List[float] = field(default_factory=lambda: [0.05, 0.1, 0.2, 0.5])
+    tetno_thresholds: List[float] = field(default_factory=lambda: [0.3, 0.5, 0.7])
+    tetno_temperatures: List[float] = field(default_factory=lambda: [0.05, 0.1, 0.2, 0.5])
 
-    titan_num_directions: List[int] = field(default_factory=lambda: [3, 5, 8])
-    titan_max_alphas: List[float] = field(default_factory=lambda: [1.5, 2.0, 3.0])
-    titan_temperatures: List[float] = field(default_factory=lambda: [0.3, 0.5, 1.0])
+    grom_num_directions: List[int] = field(default_factory=lambda: [3, 5, 8])
+    grom_max_alphas: List[float] = field(default_factory=lambda: [1.5, 2.0, 3.0])
+    grom_temperatures: List[float] = field(default_factory=lambda: [0.3, 0.5, 1.0])
 
 
 def count_hierarchical_configs(
@@ -98,18 +98,18 @@ def count_hierarchical_configs(
 
         if method_upper == "CAA":
             stage3 = 2  # normalize True/False
-        elif method_upper == "HYPERPLANE":
+        elif method_upper == "OSTRZE":
             stage3 = 2
         elif method_upper == "MLP":
             stage3 = len(config.mlp_hidden_dims) * len(config.mlp_num_layers) * 2
-        elif method_upper == "PRISM":
-            stage3 = len(config.prism_num_directions) * len(config.prism_optimization_steps) * 2
-        elif method_upper == "PULSE":
-            stage3 = len(config.pulse_thresholds) * len(config.pulse_temperatures) * 2
-        elif method_upper == "TITAN":
-            stage3 = (len(config.titan_num_directions) *
-                     len(config.titan_max_alphas) *
-                     len(config.titan_temperatures) * 2)
+        elif method_upper == "TECZA":
+            stage3 = len(config.tecza_num_directions) * len(config.tecza_optimization_steps) * 2
+        elif method_upper == "TETNO":
+            stage3 = len(config.tetno_thresholds) * len(config.tetno_temperatures) * 2
+        elif method_upper == "GROM":
+            stage3 = (len(config.grom_num_directions) *
+                     len(config.grom_max_alphas) *
+                     len(config.grom_temperatures) * 2)
         else:
             stage3 = 2
 
@@ -134,23 +134,23 @@ def _create_config_for_layer_sweep(
 
     if method_upper == "CAA":
         return CAAConfig(method="CAA", layer=layer)
-    elif method_upper == "HYPERPLANE":
-        return HyperplaneConfig(method="Hyperplane", layer=layer)
+    elif method_upper == "OSTRZE":
+        return OstrzeConfig(method="Ostrze", layer=layer)
     elif method_upper == "MLP":
         return MLPConfig(method="MLP", layer=layer, hidden_dim=256, num_layers=2)
-    elif method_upper == "PRISM":
-        return PRISMConfig(method="PRISM", layer=layer, num_directions=3, optimization_steps=100)
-    elif method_upper == "PULSE":
-        return PULSEConfig(
-            method="PULSE",
+    elif method_upper == "TECZA":
+        return TECZAConfig(method="TECZA", layer=layer, num_directions=3, optimization_steps=100)
+    elif method_upper == "TETNO":
+        return TETNOConfig(
+            method="TETNO",
             sensor_layer=layer,
             steering_layers=[layer],
             condition_threshold=0.5,
             gate_temperature=0.1,
         )
-    elif method_upper == "TITAN":
-        return TITANConfig(
-            method="TITAN",
+    elif method_upper == "GROM":
+        return GROMConfig(
+            method="GROM",
             sensor_layer=layer,
             steering_layers=[layer],
             num_directions=5,
@@ -176,9 +176,9 @@ def _create_configs_for_stage3(
             cfg = CAAConfig(method="CAA", layer=layer)
             configs.append((cfg, {"normalize": normalize}))
 
-    elif method_upper == "HYPERPLANE":
+    elif method_upper == "OSTRZE":
         for normalize in [True, False]:
-            cfg = HyperplaneConfig(method="Hyperplane", layer=layer)
+            cfg = OstrzeConfig(method="Ostrze", layer=layer)
             configs.append((cfg, {"normalize": normalize}))
 
     elif method_upper == "MLP":
@@ -197,12 +197,12 @@ def _create_configs_for_stage3(
                         "normalize": normalize,
                     }))
 
-    elif method_upper == "PRISM":
-        for num_dirs in config.prism_num_directions:
-            for opt_steps in config.prism_optimization_steps:
+    elif method_upper == "TECZA":
+        for num_dirs in config.tecza_num_directions:
+            for opt_steps in config.tecza_optimization_steps:
                 for normalize in [True, False]:
-                    cfg = PRISMConfig(
-                        method="PRISM",
+                    cfg = TECZAConfig(
+                        method="TECZA",
                         layer=layer,
                         num_directions=num_dirs,
                         optimization_steps=opt_steps,
@@ -213,12 +213,12 @@ def _create_configs_for_stage3(
                         "normalize": normalize,
                     }))
 
-    elif method_upper == "PULSE":
-        for thresh in config.pulse_thresholds:
-            for temp in config.pulse_temperatures:
+    elif method_upper == "TETNO":
+        for thresh in config.tetno_thresholds:
+            for temp in config.tetno_temperatures:
                 for normalize in [True, False]:
-                    cfg = PULSEConfig(
-                        method="PULSE",
+                    cfg = TETNOConfig(
+                        method="TETNO",
                         sensor_layer=layer,
                         steering_layers=[layer],
                         condition_threshold=thresh,
@@ -230,13 +230,13 @@ def _create_configs_for_stage3(
                         "normalize": normalize,
                     }))
 
-    elif method_upper == "TITAN":
-        for num_dirs in config.titan_num_directions:
-            for max_alpha in config.titan_max_alphas:
-                for temp in config.titan_temperatures:
+    elif method_upper == "GROM":
+        for num_dirs in config.grom_num_directions:
+            for max_alpha in config.grom_max_alphas:
+                for temp in config.grom_temperatures:
                     for normalize in [True, False]:
-                        cfg = TITANConfig(
-                            method="TITAN",
+                        cfg = GROMConfig(
+                            method="GROM",
                             sensor_layer=layer,
                             steering_layers=[layer],
                             num_directions=num_dirs,

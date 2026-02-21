@@ -548,6 +548,7 @@ class AlertSubType(sgqlc.types.Enum):
     * `AGENT_METRIC_ANOMALIES`None
     * `AGENT_METRIC_ANOMALY`None
     * `AGENT_TRAJECTORY_BREACH`None
+    * `AGENT_VALIDATION_BREACH`None
     * `AIRFLOW_DAG_FAILURE`None
     * `ANOMALIES`None
     * `COMPARISON_RULE_BREACH`None
@@ -602,6 +603,7 @@ class AlertSubType(sgqlc.types.Enum):
         "AGENT_METRIC_ANOMALIES",
         "AGENT_METRIC_ANOMALY",
         "AGENT_TRAJECTORY_BREACH",
+        "AGENT_VALIDATION_BREACH",
         "AIRFLOW_DAG_FAILURE",
         "ANOMALIES",
         "COMPARISON_RULE_BREACH",
@@ -1519,6 +1521,7 @@ class CustomRuleModelRuleType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `AGENT_TRAJECTORY`: Agent Trajectory
+    * `AGENT_VALIDATION`: Agent Validation
     * `COMPARISON`: Comparison
     * `CUSTOM_SQL`: Custom SQL
     * `FIELD_QUALITY`: Metric - legacy
@@ -1532,6 +1535,7 @@ class CustomRuleModelRuleType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "AGENT_TRAJECTORY",
+        "AGENT_VALIDATION",
         "COMPARISON",
         "CUSTOM_SQL",
         "FIELD_QUALITY",
@@ -2218,6 +2222,7 @@ class EventModelEventType(sgqlc.types.Enum):
     * `AGENT_EVALUATION_ANOM`: Agent Evaluation Anomaly
     * `AGENT_METRIC_ANOM`: Agent Metric Anomaly
     * `AGENT_TRAJECTORY_ANOM`: Agent Trajectory Anomaly
+    * `AGENT_VALIDATION_ANOM`: Agent Validation Anomaly
     * `AIRFLOW_DAG_FAILURE`: Airflow DAG Failure
     * `COMMENT`: Timeline Comment
     * `COMPARISON_RULE_ANOM`: Comparison Rule Anomaly
@@ -2262,6 +2267,7 @@ class EventModelEventType(sgqlc.types.Enum):
         "AGENT_EVALUATION_ANOM",
         "AGENT_METRIC_ANOM",
         "AGENT_TRAJECTORY_ANOM",
+        "AGENT_VALIDATION_ANOM",
         "AIRFLOW_DAG_FAILURE",
         "COMMENT",
         "COMPARISON_RULE_ANOM",
@@ -3298,6 +3304,7 @@ class IncidentSubType(sgqlc.types.Enum):
     * `agent_evaluation_anomaly`None
     * `agent_metric_anomaly`None
     * `agent_trajectory_breach`None
+    * `agent_validation_breach`None
     * `airflow_dag_failure`None
     * `comparison_rule_breach`None
     * `data_added`None
@@ -3336,6 +3343,7 @@ class IncidentSubType(sgqlc.types.Enum):
         "agent_evaluation_anomaly",
         "agent_metric_anomaly",
         "agent_trajectory_breach",
+        "agent_validation_breach",
         "airflow_dag_failure",
         "comparison_rule_breach",
         "data_added",
@@ -5918,6 +5926,7 @@ class UserDefinedMonitorModelMonitorType(sgqlc.types.Enum):
     * `AGENT_EVALUATION`: Agent Evaluation
     * `AGENT_METRIC`: Agent Metric
     * `AGENT_TRAJECTORY`: Agent Trajectory
+    * `AGENT_VALIDATION`: Agent Validation
     * `CATEGORIES`: Dimension
     * `COMPARISON`: Comparison
     * `CUSTOM_SQL`: Custom SQL
@@ -5939,6 +5948,7 @@ class UserDefinedMonitorModelMonitorType(sgqlc.types.Enum):
         "AGENT_EVALUATION",
         "AGENT_METRIC",
         "AGENT_TRAJECTORY",
+        "AGENT_VALIDATION",
         "CATEGORIES",
         "COMPARISON",
         "CUSTOM_SQL",
@@ -6039,6 +6049,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
     * `AGENT_EVALUATION`: Agent Evaluation
     * `AGENT_METRIC`: Agent Metric
     * `AGENT_TRAJECTORY`: Agent Trajectory
+    * `AGENT_VALIDATION`: Agent Validation
     * `BULK_METRIC`: Bulk Monitor
     * `BULK_MONITOR`: Bulk Monitor
     * `CATEGORIES`: Dimension - legacy
@@ -6063,6 +6074,7 @@ class UserDefinedMonitors(sgqlc.types.Enum):
         "AGENT_EVALUATION",
         "AGENT_METRIC",
         "AGENT_TRAJECTORY",
+        "AGENT_VALIDATION",
         "BULK_METRIC",
         "BULK_MONITOR",
         "CATEGORIES",
@@ -12665,6 +12677,7 @@ class Account(sgqlc.types.Type):
         "enable_domain_metrics_digest",
         "validate_monitor_domains",
         "custom_dashboard_domain_validation",
+        "has_warehouses",
         "active_collection_regions",
         "internal_notifications",
         "can_generate_data_collector_template",
@@ -13259,6 +13272,13 @@ class Account(sgqlc.types.Type):
     )
     """When enabled, enforce domain requirement and access on custom
     dashboards.
+    """
+
+    has_warehouses = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="hasWarehouses")
+    """Whether the account has at least one warehouse and the currently
+    authenticated user has access to at least one of them. They may be
+    restricted by domain restrictions.Use the `warehouses` field to
+    get the list of the accessible warehouses.
     """
 
     active_collection_regions = sgqlc.types.Field(
@@ -18570,6 +18590,19 @@ class CreateOrUpdateAgentTrajectory(sgqlc.types.Type):
     """SQL queries that will be run by the monitor on each execution."""
 
 
+class CreateOrUpdateAgentValidation(sgqlc.types.Type):
+    """Create or update an agent validation monitor"""
+
+    __schema__ = schema
+    __field_names__ = ("agent_validation", "queries")
+    agent_validation = sgqlc.types.Field("CustomRule", graphql_name="agentValidation")
+
+    queries = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="queries"
+    )
+    """SQL queries that will be run by the monitor on each execution."""
+
+
 class CreateOrUpdateAlationIntegration(sgqlc.types.Type):
     """Create or update Alation integration"""
 
@@ -23478,6 +23511,7 @@ class EventTypeSummary(sgqlc.types.Type):
         "agent_metric_anom",
         "agent_evaluation_anom",
         "agent_trajectory_anom",
+        "agent_validation_anom",
         "agent_anom",
         "custom_rule_anom",
         "validation_anom",
@@ -23518,6 +23552,8 @@ class EventTypeSummary(sgqlc.types.Type):
     agent_evaluation_anom = sgqlc.types.Field(Int, graphql_name="agentEvaluationAnom")
 
     agent_trajectory_anom = sgqlc.types.Field(Int, graphql_name="agentTrajectoryAnom")
+
+    agent_validation_anom = sgqlc.types.Field(Int, graphql_name="agentValidationAnom")
 
     agent_anom = sgqlc.types.Field(Int, graphql_name="agentAnom")
 
@@ -28882,6 +28918,7 @@ class Mutation(sgqlc.types.Type):
         "create_or_update_tag_assignments",
         "create_or_update_data_operations_dashboard",
         "delete_data_operations_dashboard",
+        "create_or_update_agent_validation",
         "create_or_update_agent_trajectory",
         "create_or_update_validation",
         "caas_link_collection_resources",
@@ -30493,6 +30530,194 @@ class Mutation(sgqlc.types.Type):
 
     * `data_operations_dashboard_uuid` (`UUID`): UUID of the data
       operations dashboard to delete.
+    """
+
+    create_or_update_agent_validation = sgqlc.types.Field(
+        CreateOrUpdateAgentValidation,
+        graphql_name="createOrUpdateAgentValidation",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "agent_span_filters",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(
+                            sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanFilterInput))
+                        ),
+                        graphql_name="agentSpanFilters",
+                        default=None,
+                    ),
+                ),
+                (
+                    "alert_condition",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(FilterGroupInput),
+                        graphql_name="alertCondition",
+                        default=None,
+                    ),
+                ),
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "custom_rule_uuid",
+                    sgqlc.types.Arg(UUID, graphql_name="customRuleUuid", default=None),
+                ),
+                (
+                    "data_quality_dimension",
+                    sgqlc.types.Arg(String, graphql_name="dataQualityDimension", default=None),
+                ),
+                (
+                    "data_source",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DataSourceUnionInput),
+                        graphql_name="dataSource",
+                        default=None,
+                    ),
+                ),
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                (
+                    "domain_uuids",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(UUID)),
+                        graphql_name="domainUuids",
+                        default=None,
+                    ),
+                ),
+                ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=False)),
+                (
+                    "dw_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
+                ),
+                (
+                    "event_rollup_count",
+                    sgqlc.types.Arg(Int, graphql_name="eventRollupCount", default=None),
+                ),
+                (
+                    "event_rollup_until_changed",
+                    sgqlc.types.Arg(Boolean, graphql_name="eventRollupUntilChanged", default=None),
+                ),
+                (
+                    "exception_primary_key_column",
+                    sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
+                ),
+                (
+                    "failure_audiences",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="failureAudiences",
+                        default=None,
+                    ),
+                ),
+                (
+                    "filters",
+                    sgqlc.types.Arg(FilterGroupInput, graphql_name="filters", default=None),
+                ),
+                (
+                    "interval_minutes",
+                    sgqlc.types.Arg(Int, graphql_name="intervalMinutes", default=None),
+                ),
+                ("is_draft", sgqlc.types.Arg(Boolean, graphql_name="isDraft", default=False)),
+                (
+                    "labels",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(String), graphql_name="labels", default=None
+                    ),
+                ),
+                ("notes", sgqlc.types.Arg(String, graphql_name="notes", default="")),
+                (
+                    "notify_rule_run_failure",
+                    sgqlc.types.Arg(Boolean, graphql_name="notifyRuleRunFailure", default=None),
+                ),
+                ("priority", sgqlc.types.Arg(String, graphql_name="priority", default=None)),
+                (
+                    "schedule_config",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ScheduleConfigInput),
+                        graphql_name="scheduleConfig",
+                        default=None,
+                    ),
+                ),
+                ("severity", sgqlc.types.Arg(String, graphql_name="severity", default="")),
+                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
+                (
+                    "tags",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(TagKeyValuePairInput), graphql_name="tags", default=None
+                    ),
+                ),
+                (
+                    "time_filter",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(TimeFilterInput),
+                        graphql_name="timeFilter",
+                        default=None,
+                    ),
+                ),
+                ("timeout", sgqlc.types.Arg(Int, graphql_name="timeout", default=None)),
+                ("timezone", sgqlc.types.Arg(String, graphql_name="timezone", default=None)),
+            )
+        ),
+    )
+    """(experimental) Create or update agent validation.
+
+    Arguments:
+
+    * `agent_span_filters` (`[AgentSpanFilterInput!]!`): Filter by
+      agent span fields (agent, workflow, task, span_name)
+    * `alert_condition` (`FilterGroupInput!`)None
+    * `connection_id` (`UUID`): Specify a connection (e.g. query-
+      engine) to use
+    * `custom_rule_uuid` (`UUID`): UUID of custom rule, to update
+      existing rule
+    * `data_quality_dimension` (`String`): Data quality dimension on
+      the custom rule.
+    * `data_source` (`DataSourceUnionInput!`)None
+    * `description` (`String!`): Description of rule
+    * `domain_uuids` (`[UUID!]`): Please provide one and only one
+      valid domain uuid.
+    * `dry_run` (`Boolean`): Dry run the monitor creation or update
+      and return the MaC YAML and queries. (default: `false`)
+    * `dw_id` (`UUID!`): Warehouse UUID
+    * `event_rollup_count` (`Int`): The number of events to roll up
+      into a single incident
+    * `event_rollup_until_changed` (`Boolean`): If true, roll up
+      events until the value changes
+    * `exception_primary_key_column` (`String`): Specifies the column
+      which contains the primary key for sampled data used in
+      exception management.
+    * `failure_audiences` (`[String!]`): The audiences to notify on
+      failure
+    * `filters` (`FilterGroupInput`): Structured SQL filtering
+      conditions to apply to query
+    * `interval_minutes` (`Int`): How often to run scheduled custom
+      rule check (DEPRECATED, use schedule instead)
+    * `is_draft` (`Boolean`): Make target a draft monitor. (default:
+      `false`)
+    * `labels` (`[String]`): The monitor labels
+    * `notes` (`String`): Additional context for the monitor (default:
+      `""`)
+    * `notify_rule_run_failure` (`Boolean`): DEPRECATED: Completely
+      ignored. This field has no effect on anything. Use
+      `failure_audiences` to determine who is notified when run
+      failures occur.
+    * `priority` (`String`): The default priority for alerts involving
+      this monitor
+    * `schedule_config` (`ScheduleConfigInput!`): Schedule of the
+      agent validation monitor
+    * `severity` (`String`): DEPRECATED. Use priority instead. The
+      default severity for incidents involving this monitor (default:
+      `""`)
+    * `start_time` (`DateTime`): Start time of schedule (DEPRECATED,
+      use schedule instead)
+    * `tags` (`[TagKeyValuePairInput]`): The monitor tags.
+    * `time_filter` (`TimeFilterInput!`): Filter by time filter for
+      evaluation
+    * `timeout` (`Int`): Timeout for the SQL query
+    * `timezone` (`String`): Timezone (DEPRECATED, use timezone in
+      scheduleConfig instead
     """
 
     create_or_update_agent_trajectory = sgqlc.types.Field(
@@ -50273,7 +50498,6 @@ class Query(sgqlc.types.Type):
         "favorite_assets",
         "is_favorite",
         "get_user",
-        "get_user_by_id",
         "get_warehouses",
         "get_should_show_onboarding",
         "get_warehouse",
@@ -65903,8 +66127,6 @@ class Query(sgqlc.types.Type):
     """
 
     get_user = sgqlc.types.Field("User", graphql_name="getUser")
-
-    get_user_by_id = sgqlc.types.Field("User", graphql_name="getUserById")
 
     get_warehouses = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Warehouse"))),

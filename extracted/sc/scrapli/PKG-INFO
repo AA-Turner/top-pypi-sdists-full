@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: scrapli
-Version: 2025.1.30
+Version: 2026.2.20
 Summary: Fast, flexible, sync/async, Python 3.7+ screen scraping client specifically for network devices
 Author-email: Carl Montanari <carl.r.montanari@gmail.com>
 License: MIT License
@@ -117,6 +117,7 @@ Provides-Extra: asyncssh
 Requires-Dist: asyncssh<3.0.0,>=2.2.1; extra == "asyncssh"
 Provides-Extra: community
 Requires-Dist: scrapli_community>=2021.01.30; extra == "community"
+Dynamic: license-file
 
 <p center><a href=""><img src=https://github.com/carlmontanari/scrapli/blob/main/scrapli.svg?sanitize=true/></a></p>
 

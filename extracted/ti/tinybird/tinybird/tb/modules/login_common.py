@@ -63,7 +63,7 @@ class AuthHandler(http.server.SimpleHTTPRequestHandler):
                 const host = "{auth_host}";
                 fetch('/?code=' + code, {{method: 'POST'}})
                     .then(() => {{
-                        window.location.href = host + "/" + provider + "/" + region + "/cli-login?workspace=" + workspace;
+                        window.location.href = host + "/" + provider + "/" + region + "/cli-login?workspace=" + encodeURIComponent(workspace);
                     }});
             </script>
         </body>

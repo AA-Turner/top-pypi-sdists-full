@@ -900,7 +900,7 @@ class MyCli:
 
         def output_res(results: Generator[SQLResult], start: float) -> None:
             nonlocal mutating
-            result_count = 0
+            result_count = watch_count = 0
             for result in results:
                 title = result.title
                 cur = result.results
@@ -915,13 +915,15 @@ class MyCli:
                 # If this is a watch query, offset the start time on the 2nd+ iteration
                 # to account for the sleep duration
                 if command is not None and command["name"] == "watch":
-                    if result_count > 0:
+                    if watch_count > 0:
                         try:
                             watch_seconds = float(command["seconds"])
                             start += watch_seconds
                         except ValueError as e:
                             self.echo(f"Invalid watch sleep time provided ({e}).", err=True, fg="red")
                             sys.exit(1)
+                    else:
+                        watch_count += 1
                 if is_select(status) and isinstance(cur, Cursor) and cur.rowcount > threshold:
                     self.echo(
                         f"The result set has more than {threshold} rows.",
@@ -2354,6 +2356,16 @@ def do_config_checkup(mycli: MyCli) -> None:
     did_output_unsupported = False
     did_output_deprecated = False
 
+    print('\n### External executables:\n')
+    for executable in [
+        'less',
+        'fzf',
+    ]:
+        if shutil.which(executable):
+            print(f'The "{executable}" executable was found — good!')
+        else:
+            print(f'The recommended "{executable}" executable was not found — some functionality will suffer.')
+
     indent = '    '
     transitions = {
         f'{indent}[main]\n{indent}default_character_set': f'{indent}[connection]\n{indent}default_character_set',
@@ -2362,7 +2374,8 @@ def do_config_checkup(mycli: MyCli) -> None:
     reverse_transitions = {v: k for k, v in transitions.items()}
 
     if not list(mycli.config.keys()):
-        print('\nThe local ~/,myclirc is missing or empty.\n')
+        print('\n### Missing file:\n')
+        print('The local ~/,myclirc is missing or empty.\n')
         did_output_missing = True
     else:
         for section_name in mycli.config:
@@ -2393,6 +2406,14 @@ def do_config_checkup(mycli: MyCli) -> None:
                 if section_name == 'colors' and item_name.startswith('sql.'):
                     # these are commented out in the package myclirc
                     continue
+                if section_name in [
+                    'favorite_queries',
+                    'init-commands',
+                    'alias_dsn',
+                    'alias_dsn.init-commands',
+                ]:
+                    # these are free-entry sections, so a comparison per item is not meaningful
+                    continue
                 transition_key = f'{indent}[{section_name}]\n{indent}{item_name}'
                 if transition_key in transitions:
                     continue
@@ -2422,7 +2443,8 @@ def do_config_checkup(mycli: MyCli) -> None:
             'For more info on supported features, see the commentary and defaults at:\n\n    * https://github.com/dbcli/mycli/blob/main/mycli/myclirc\n'
         )
     else:
-        print('User configuration all up to date!')
+        print('\n### Configuration:\n')
+        print('User configuration all up to date!\n')
 
 
 if __name__ == "__main__":

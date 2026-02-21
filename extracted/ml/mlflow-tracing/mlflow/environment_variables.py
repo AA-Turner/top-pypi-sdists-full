@@ -106,6 +106,34 @@ MLFLOW_TRACKING_URI = _EnvironmentVariable("MLFLOW_TRACKING_URI", str, None)
 #: (default: ``None``)
 MLFLOW_REGISTRY_URI = _EnvironmentVariable("MLFLOW_REGISTRY_URI", str, None)
 
+#: Specifies the workspace provider backend URI.
+#: Defaults to the tracking URI when unset.
+MLFLOW_WORKSPACE_STORE_URI = _EnvironmentVariable("MLFLOW_WORKSPACE_STORE_URI", str, None)
+
+#: Enables workspace-aware behavior for MLflow servers and clients.
+#: When set, requests can include a workspace. Some workspace providers support default workspaces.
+#: (default: ``False``)
+MLFLOW_ENABLE_WORKSPACES = _BooleanEnvironmentVariable("MLFLOW_ENABLE_WORKSPACES", False)
+
+#: Specifies the active workspace for client operations.
+#: (default: ``None``)
+MLFLOW_WORKSPACE = _EnvironmentVariable("MLFLOW_WORKSPACE", str, None)
+
+#: Specifies the maximum number of entries in the workspace artifact root resolution cache.
+#: Increase this value if the server manages many workspaces.
+#: (default: ``128``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_CAPACITY", int, 128
+)
+
+#: Specifies the time-to-live in seconds for entries in the workspace artifact root resolution
+#: cache. Lower values improve consistency when running multiple server replicas; higher values
+#: reduce database load.
+#: (default: ``60``)
+MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS = _EnvironmentVariable(
+    "MLFLOW_WORKSPACE_ARTIFACT_ROOT_CACHE_TTL_SECONDS", int, 60
+)
+
 #: Specifies the ``dfs_tmpdir`` parameter to use for ``mlflow.spark.save_model``,
 #: ``mlflow.spark.log_model`` and ``mlflow.spark.load_model``. See
 #: https://www.mlflow.org/docs/latest/python_api/mlflow.spark.html#mlflow.spark.save_model
@@ -589,6 +617,13 @@ MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI = _EnvironmentVariable(
     "MLFLOW_GATEWAY_RATE_LIMITS_STORAGE_URI", str, None
 )
 
+#: If True, the gateway will attempt to resolve API keys from local file paths.
+#: This is only enabled for the legacy YAML-config gateway (``mlflow gateway start``).
+#: (default: ``False``)
+MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE = _BooleanEnvironmentVariable(
+    "MLFLOW_GATEWAY_RESOLVE_API_KEY_FROM_FILE", False
+)
+
 #: If True, MLflow fluent logging APIs, e.g., `mlflow.log_metric` will log asynchronously.
 MLFLOW_ENABLE_ASYNC_LOGGING = _BooleanEnvironmentVariable("MLFLOW_ENABLE_ASYNC_LOGGING", False)
 
@@ -684,6 +719,13 @@ MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS = _EnvironmentVariable(
     "MLFLOW_GENAI_EVAL_MAX_SCORER_WORKERS", int, 10
 )
 
+#: Maximum number of workers to use for running conversation simulations in parallel.
+#: Controls concurrency when simulating multiple test cases and fetching traces.
+#: (default: ``10``)
+MLFLOW_GENAI_SIMULATOR_MAX_WORKERS = _EnvironmentVariable(
+    "MLFLOW_GENAI_SIMULATOR_MAX_WORKERS", int, 10
+)
+
 #: Maximum number of worker threads to use for online scoring (both trace-level
 #: and session-level scoring). This controls the parallelism when processing multiple traces
 #: or sessions concurrently during background online scoring jobs. (default: ``10``)
@@ -729,6 +771,15 @@ MLFLOW_REQUIREMENTS_INFERENCE_RAISE_ERRORS = _BooleanEnvironmentVariable(
 # How many traces to display in Databricks Notebooks
 MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK = _EnvironmentVariable(
     "MLFLOW_MAX_TRACES_TO_DISPLAY_IN_NOTEBOOK", int, 10
+)
+
+#: Override the base URL used for the notebook trace iframe renderer.
+#: This is useful when the tracking URI is only reachable inside a container
+#: network (e.g. http://mlflow:5000) but the browser must load assets from a
+#: host-reachable URL (e.g. http://localhost:5000).
+#: (default: ``None``)
+MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL = _EnvironmentVariable(
+    "MLFLOW_NOTEBOOK_TRACE_RENDERER_BASE_URL", str, None
 )
 
 #: Specifies the sampling ratio for traces. Value should be between 0.0 and 1.0.
@@ -949,9 +1000,9 @@ MLFLOW_ASYNC_TRACE_LOGGING_MAX_QUEUE_SIZE = _EnvironmentVariable(
 #: set to true (default).
 #: Note: Currently only Unity Catalog table exporter supports batching. Other exporters will export
 #: spans immediately.
-#: (default: ``1`` = no batching)
+#: (default: ``5`` - based on internal benchmarking results)
 MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE = _EnvironmentVariable(
-    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 1
+    "MLFLOW_ASYNC_TRACE_LOGGING_MAX_SPAN_BATCH_SIZE", int, 5
 )
 
 #: Maximum interval in milliseconds between two batches. When the interval is reached,
@@ -1117,6 +1168,14 @@ MLFLOW_WEBHOOK_REQUEST_MAX_RETRIES = _EnvironmentVariable(
 #: Specifies the TTL in seconds for webhook list cache
 #: (default: ``60``)
 MLFLOW_WEBHOOK_CACHE_TTL = _EnvironmentVariable("MLFLOW_WEBHOOK_CACHE_TTL", int, 60)
+
+#: Whether to allow webhook URLs that resolve to private/internal IP addresses.
+#: When set to ``true``, SSRF protection is disabled and webhooks can target
+#: localhost, private IPs, and cloud metadata endpoints.
+#: This should only be enabled for local development. (default: ``false``)
+_MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS = _BooleanEnvironmentVariable(
+    "MLFLOW_WEBHOOK_ALLOW_PRIVATE_IPS", False
+)
 
 
 #: Whether to disable telemetry collection in MLflow. If set to True, no telemetry

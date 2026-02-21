@@ -1,4 +1,4 @@
-"""Null distribution tests for RepScan signal validation."""
+"""Null distribution tests for Zwiad signal validation."""
 
 from typing import Dict, List, Tuple
 import torch

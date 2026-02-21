@@ -56,7 +56,7 @@ except (OSError, subprocess.CalledProcessError):
     git_version = None
 
 if os.getenv('ONNXSIM_SDIST') is not None:
-    version = '0.4.36'
+    version = '0.5.0'
     git_version = None
 
 VersionInfo = namedtuple('VersionInfo', ['version', 'git_version'])(

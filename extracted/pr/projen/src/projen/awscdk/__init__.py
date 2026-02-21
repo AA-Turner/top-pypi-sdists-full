@@ -482,7 +482,7 @@ class AwsCdkConstructLibrary(
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -490,7 +490,7 @@ class AwsCdkConstructLibrary(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param author: (experimental) The name of the library author. Default: $GIT_USER_NAME
         :param author_address: (experimental) Email or URL of the library author. Default: $GIT_USER_EMAIL
         :param repository_url: (experimental) Git repository URL. Default: $GIT_REMOTE
@@ -947,7 +947,7 @@ class AwsCdkDeps(
         '''
         :param project: -
         :param dependency_type: (experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules. For libraries, use peer dependencies and for apps use runtime dependencies.
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -955,7 +955,7 @@ class AwsCdkDeps(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
 
         :stability: experimental
         '''
@@ -1122,7 +1122,7 @@ class AwsCdkDepsCommonOptions:
     ) -> None:
         '''(experimental) Options for ``AwsCdkDeps``.
 
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1130,7 +1130,7 @@ class AwsCdkDepsCommonOptions:
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
 
         :stability: experimental
         '''
@@ -1169,7 +1169,7 @@ class AwsCdkDepsCommonOptions:
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -1284,7 +1284,7 @@ class AwsCdkDepsCommonOptions:
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -1331,7 +1331,7 @@ class AwsCdkDepsJava(
         '''
         :param project: -
         :param dependency_type: (experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules. For libraries, use peer dependencies and for apps use runtime dependencies.
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1339,7 +1339,7 @@ class AwsCdkDepsJava(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
 
         :stability: experimental
         '''
@@ -1398,7 +1398,7 @@ class AwsCdkDepsJs(
         '''
         :param project: -
         :param dependency_type: (experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules. For libraries, use peer dependencies and for apps use runtime dependencies.
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1406,7 +1406,7 @@ class AwsCdkDepsJs(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
 
         :stability: experimental
         '''
@@ -1469,7 +1469,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         dependency_type: "_DependencyType_6b786d68",
     ) -> None:
         '''
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1477,7 +1477,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param dependency_type: (experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules. For libraries, use peer dependencies and for apps use runtime dependencies.
 
         :stability: experimental
@@ -1519,7 +1519,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -1634,7 +1634,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -1693,7 +1693,7 @@ class AwsCdkDepsPy(
         '''
         :param project: -
         :param dependency_type: (experimental) The type of dependency to use for runtime AWS CDK and ``constructs`` modules. For libraries, use peer dependencies and for apps use runtime dependencies.
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1701,7 +1701,7 @@ class AwsCdkDepsPy(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
 
         :stability: experimental
         '''
@@ -1823,7 +1823,7 @@ class AwsCdkJavaApp(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -1831,7 +1831,7 @@ class AwsCdkJavaApp(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param compile_options: (experimental) Compile options. Default: - defaults
         :param deps: (experimental) List of runtime dependencies for this project. Dependencies use the format: ``<groupId>/<artifactId>@<semver>`` Additional dependencies can be added via ``project.addDependency()``. Default: []
         :param distdir: (experimental) Final artifact output directory. Default: "dist/java"
@@ -2252,7 +2252,7 @@ class AwsCdkPythonApp(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -2260,7 +2260,7 @@ class AwsCdkPythonApp(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param auto_approve_options: (experimental) Enable and configure the 'auto approve' workflow. Default: - auto approve is disabled
         :param auto_merge: (experimental) Enable automatic merging on GitHub. Has no effect if ``github.mergify`` is set to false. Default: true
         :param auto_merge_options: (experimental) Configure options for automatic merging on GitHub. Has no effect if ``github.mergify`` or ``autoMerge`` is set to false. Default: - see defaults in ``AutoMergeOptions``
@@ -2684,7 +2684,7 @@ class AwsCdkTypeScriptApp(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -2692,7 +2692,7 @@ class AwsCdkTypeScriptApp(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param default_release_branch: (experimental) The name of the main release branch. Default: "main"
         :param artifacts_directory: (experimental) A directory which will contain build artifacts. Default: "dist"
         :param audit_deps: (experimental) Run security audit on dependencies. When enabled, creates an "audit" task that checks for known security vulnerabilities in dependencies. By default, runs during every build and checks for "high" severity vulnerabilities or above in all dependencies (including dev dependencies). Default: false
@@ -3822,7 +3822,7 @@ class ConstructLibraryAws(
         :param lambda_extension_auto_discover: (experimental) Automatically adds an ``awscdk.LambdaExtension`` for each ``.lambda-extension.ts`` entrypoint in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param lambda_options: (experimental) Common options for all AWS Lambda functions. Default: - default options
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -3830,7 +3830,7 @@ class ConstructLibraryAws(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param author: (experimental) The name of the library author. Default: $GIT_USER_NAME
         :param author_address: (experimental) Email or URL of the library author. Default: $GIT_USER_EMAIL
         :param repository_url: (experimental) Git repository URL. Default: $GIT_REMOTE
@@ -6753,7 +6753,7 @@ class AwsCdkConstructLibraryOptions(
         :param python: 
         :param rootdir: Default: "."
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -6761,7 +6761,7 @@ class AwsCdkConstructLibraryOptions(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param edge_lambda_auto_discover: (experimental) Automatically adds an ``cloudfront.experimental.EdgeFunction`` for each ``.edge-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param experimental_integ_runner: (experimental) Enable experimental support for the AWS CDK integ-runner. Default: false
         :param integration_test_auto_discover: (experimental) Automatically discovers and creates integration tests for each ``.integ.ts`` file under your test directory. Default: true
@@ -9570,7 +9570,7 @@ class AwsCdkConstructLibraryOptions(
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -9685,7 +9685,7 @@ class AwsCdkConstructLibraryOptions(
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -9973,7 +9973,7 @@ class AwsCdkJavaAppOptions(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -9981,7 +9981,7 @@ class AwsCdkJavaAppOptions(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param main_class: (experimental) The name of the Java class with the static ``main()`` method. This method should call ``app.synth()`` on the CDK app. Default: "org.acme.MyApp"
 
         :stability: experimental
@@ -10922,7 +10922,7 @@ class AwsCdkJavaAppOptions(
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -11037,7 +11037,7 @@ class AwsCdkJavaAppOptions(
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -11316,7 +11316,7 @@ class AwsCdkPythonAppOptions(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -11324,7 +11324,7 @@ class AwsCdkPythonAppOptions(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param app_entrypoint: (experimental) The CDK app's entrypoint (relative to the source directory, which is "src" by default). Default: "app.py"
         :param testdir: (deprecated) Python sources directory. Default: "tests"
 
@@ -12420,7 +12420,7 @@ class AwsCdkPythonAppOptions(
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -12535,7 +12535,7 @@ class AwsCdkPythonAppOptions(
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -13121,7 +13121,7 @@ class AwsCdkTypeScriptAppOptions(
         :param require_approval: (experimental) To protect you against unintended changes that affect your security posture, the AWS CDK Toolkit prompts you to approve security-related changes before deploying them. Default: ApprovalLevel.BROADENING
         :param watch_excludes: (experimental) Glob patterns to exclude from ``cdk watch``. Default: []
         :param watch_includes: (experimental) Glob patterns to include in ``cdk watch``. Default: []
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -13129,7 +13129,7 @@ class AwsCdkTypeScriptAppOptions(
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param app: (experimental) The command line to execute in order to synthesize the CDK application (language specific).
         :param app_entrypoint: (experimental) The CDK app's entrypoint (relative to the source directory, which is "src" by default). Default: "main.ts"
         :param edge_lambda_auto_discover: (experimental) Automatically adds an ``cloudfront.experimental.EdgeFunction`` for each ``.edge-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
@@ -15778,7 +15778,7 @@ class AwsCdkTypeScriptAppOptions(
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -15893,7 +15893,7 @@ class AwsCdkTypeScriptAppOptions(
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''
@@ -16691,7 +16691,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param python: 
         :param rootdir: Default: "."
         :param catalog: (experimental) Libraries will be picked up by the construct catalog when they are published to npm as jsii modules and will be published under:. https://awscdk.io/packages/[@SCOPE/]PACKAGE@VERSION The catalog will also post a tweet to https://twitter.com/awscdkio with the package name, description and the above link. You can disable these tweets through ``{ announce: false }``. You can also add a Twitter handle through ``{ twitter: 'xx' }`` which will be mentioned in the tweet. Default: - new version will be announced
-        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.1.0"
+        :param cdk_version: (experimental) Minimum version of the AWS CDK to depend on. Default: "2.189.1"
         :param cdk_assert: (deprecated) Warning: NodeJS only. Install the Default: - will be included by default for AWS CDK >= 1.0.0 < 2.0.0
         :param cdk_assertions: (experimental) Install the assertions library? Only needed for CDK 1.x. If using CDK 2.x then assertions is already included in 'aws-cdk-lib' Default: - will be included by default for AWS CDK >= 1.111.0 < 2.0.0
         :param cdk_cli_version: (experimental) Version range of the AWS CDK CLI to depend on. Can be either a specific version, or an NPM version range. By default, the latest 2.x version will be installed; you can use this option to restrict it to a specific version or version range. Default: "^2"
@@ -16699,7 +16699,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :param cdk_dependencies_as_deps: (deprecated) If this is enabled (default), all modules declared in ``cdkDependencies`` will be also added as normal ``dependencies`` (as well as ``peerDependencies``). This is to ensure that downstream consumers actually have your CDK dependencies installed when using npm < 7 or yarn, where peer dependencies are not automatically installed. If this is disabled, ``cdkDependencies`` will be added to ``devDependencies`` to ensure they are present during development. Note: this setting only applies to construct library projects Default: true
         :param cdk_test_dependencies: (deprecated) AWS CDK modules required for testing.
         :param cdk_version_pinning: (experimental) Use pinned version instead of caret version for CDK. You can use this to prevent mixed versions for your CDK dependencies and to prevent auto-updates. If you use experimental features this will let you define the moment you include breaking changes.
-        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.0.5".
+        :param constructs_version: (experimental) Minimum version of the ``constructs`` library to depend on. Default: - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is "10.5.1".
         :param edge_lambda_auto_discover: (experimental) Automatically adds an ``cloudfront.experimental.EdgeFunction`` for each ``.edge-lambda.ts`` handler in your source tree. If this is disabled, you can manually add an ``awscdk.AutoDiscover`` component to your project. Default: true
         :param experimental_integ_runner: (experimental) Enable experimental support for the AWS CDK integ-runner. Default: false
         :param integration_test_auto_discover: (experimental) Automatically discovers and creates integration tests for each ``.integ.ts`` file under your test directory. Default: true
@@ -19510,7 +19510,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
     def cdk_version(self) -> builtins.str:
         '''(experimental) Minimum version of the AWS CDK to depend on.
 
-        :default: "2.1.0"
+        :default: "2.189.1"
 
         :stability: experimental
         '''
@@ -19625,7 +19625,7 @@ class ConstructLibraryAwsOptions(AwsCdkConstructLibraryOptions):
         :default:
 
         - for CDK 1.x the default is "3.2.27", for CDK 2.x the default is
-        "10.0.5".
+        "10.5.1".
 
         :stability: experimental
         '''

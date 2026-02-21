@@ -40,6 +40,7 @@ __all__ = (
     "ResourceServiceName",
     "ResourceStatusType",
     "ServiceName",
+    "StatusReasonType",
     "TrustedAdvisorPublicAPIServiceName",
     "UpdateRecommendationLifecycleStageReasonCodeType",
     "UpdateRecommendationLifecycleStageType",
@@ -74,6 +75,7 @@ RecommendationSourceType = Literal[
     "aws_config",
     "compute_optimizer",
     "cost_explorer",
+    "cost_optimization_hub",
     "lse",
     "manual",
     "pse",
@@ -88,6 +90,7 @@ RecommendationSourceType = Literal[
 RecommendationStatusType = Literal["error", "ok", "warning"]
 RecommendationTypeType = Literal["priority", "standard"]
 ResourceStatusType = Literal["error", "ok", "warning"]
+StatusReasonType = Literal["no_data_ok"]
 UpdateRecommendationLifecycleStageReasonCodeType = Literal[
     "low_priority",
     "non_critical_account",
@@ -463,6 +466,7 @@ ServiceName = Literal[
     "sesv2",
     "shield",
     "signer",
+    "signer-data",
     "signin",
     "simspaceweaver",
     "snow-device-management",

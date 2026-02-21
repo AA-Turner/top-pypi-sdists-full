@@ -13,7 +13,7 @@ from huggingface_hub.errors import HFValidationError
 from huggingface_hub.utils import HfHubHTTPError, validate_repo_id
 
 from data_designer.config.utils.constants import HUGGINGFACE_HUB_DATASET_URL_PREFIX
-from data_designer.engine.dataset_builders.artifact_storage import (
+from data_designer.engine.storage.artifact_storage import (
     FINAL_DATASET_FOLDER_NAME,
     METADATA_FILENAME,
     PROCESSORS_OUTPUTS_FOLDER_NAME,
@@ -53,6 +53,43 @@ class HuggingFaceHubClient:
         """
         return self._token is not None
 
+    @classmethod
+    def push_to_hub_from_folder(
+        cls,
+        dataset_path: Path | str,
+        repo_id: str,
+        description: str,
+        *,
+        token: str | None = None,
+        private: bool = False,
+        tags: list[str] | None = None,
+    ) -> str:
+        """Upload a previously saved dataset folder to Hugging Face Hub.
+
+        Convenience classmethod that creates a client and delegates to upload_dataset.
+        Useful when you have artifacts from a prior DataDesigner.create() run and want
+        to push them without needing the original DatasetCreationResults object.
+
+        Args:
+            dataset_path: Path to the dataset directory (contains parquet-files/, metadata.json, etc.)
+            repo_id: Hugging Face dataset repo ID (e.g., "username/dataset-name")
+            description: Custom description text for dataset card
+            token: Hugging Face API token. If None, resolved from HF_TOKEN env var or cached credentials.
+            private: Whether to create private repo
+            tags: Additional custom tags for the dataset
+
+        Returns:
+            URL to the uploaded dataset
+        """
+        client = cls(token=token)
+        return client.upload_dataset(
+            repo_id=repo_id,
+            base_dataset_path=Path(dataset_path),
+            description=description,
+            private=private,
+            tags=tags,
+        )
+
     def upload_dataset(
         self,
         repo_id: str,
@@ -66,6 +103,7 @@ class HuggingFaceHubClient:
 
         Uploads the complete dataset including:
         - Main parquet batch files from parquet-files/ → data/
+        - Images from images/ → images/ (if present)
         - Processor output batch files from processors-files/{name}/ → {name}/
         - Existing builder_config.json and metadata.json files
         - Auto-generated README.md (dataset card)
@@ -102,6 +140,7 @@ class HuggingFaceHubClient:
             raise HuggingFaceHubClientUploadError(f"Failed to upload dataset card: {e}") from e
 
         self._upload_main_dataset_files(repo_id=repo_id, parquet_folder=base_dataset_path / FINAL_DATASET_FOLDER_NAME)
+        self._upload_images_folder(repo_id=repo_id, images_folder=base_dataset_path / "images")
         self._upload_processor_files(
             repo_id=repo_id, processors_folder=base_dataset_path / PROCESSORS_OUTPUTS_FOLDER_NAME
         )
@@ -177,6 +216,36 @@ class HuggingFaceHubClient:
             )
         except Exception as e:
             raise HuggingFaceHubClientUploadError(f"Failed to upload parquet files: {e}") from e
+
+    def _upload_images_folder(self, repo_id: str, images_folder: Path) -> None:
+        """Upload images folder to Hugging Face Hub.
+
+        Args:
+            repo_id: Hugging Face dataset repo ID
+            images_folder: Path to images folder
+
+        Raises:
+            HuggingFaceUploadError: If upload fails
+        """
+        if not images_folder.exists():
+            return
+
+        image_files = list(images_folder.rglob("*.*"))
+        if not image_files:
+            return
+
+        logger.info(f"  |-- {RandomEmoji.loading()} Uploading {len(image_files)} image files...")
+
+        try:
+            self._api.upload_folder(
+                repo_id=repo_id,
+                folder_path=str(images_folder),
+                path_in_repo="images",
+                repo_type="dataset",
+                commit_message="Upload images",
+            )
+        except Exception as e:
+            raise HuggingFaceHubClientUploadError(f"Failed to upload images: {e}") from e
 
     def _upload_processor_files(self, repo_id: str, processors_folder: Path) -> None:
         """Upload processor output files.

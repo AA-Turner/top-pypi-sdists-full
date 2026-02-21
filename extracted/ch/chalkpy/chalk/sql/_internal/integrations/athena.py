@@ -61,6 +61,25 @@ class AthenaResultHandle:
         return dataset.to_table()
 
 
+@dataclasses.dataclass(frozen=True)
+class DetectedQuerySchema:
+    """
+    Result of detecting schema from a SQL query via LIMIT 0 pattern.
+
+    This is used for the Iceberg timestamp workaround to identify which columns
+    need VARCHAR casting before UNLOAD operations.
+    """
+
+    timestamp_columns: set[str]
+    """Set of column names that have timestamp types"""
+
+    column_names: list[str]
+    """Ordered list of all column names in the query result"""
+
+    schema: dict[str, pa.DataType]
+    """Mapping of column names to PyArrow types"""
+
+
 _ATHENA_AWS_REGION_NAME = "ATHENA_AWS_REGION"
 _ATHENA_AWS_ACCESS_KEY_ID_NAME = "ATHENA_AWS_ACCESS_KEY_ID"
 _ATHENA_AWS_ACCESS_KEY_SECRET_NAME = "ATHENA_AWS_ACCESS_KEY_SECRET"
@@ -468,6 +487,7 @@ class AthenaSourceImpl(BaseSQLSource):
                 raise ValueError("Could not query Athena, no s3_staging_dir set")
 
             formatted_op, positional_params, named_params = self.compile_query(finalized_query)
+
             assert (
                 len(positional_params) == 0 or len(named_params) == 0
             ), "Should not mix positional and named parameters"
@@ -482,16 +502,8 @@ class AthenaSourceImpl(BaseSQLSource):
                 paramstyle = "named"
 
             with self._pyathena_connection().cursor() as cursor:
-                job_id = str(uuid.uuid4())
-                job_prefix = f"chalk-unload/{job_id}"
-                s3_prefix = f"{self.s3_staging_dir.rstrip('/')}/{job_prefix}"
-
-                final_sql = self._rewrite_query_for_unload(
-                    sql=formatted_op,
-                    s3_staging_dir_for_job=s3_prefix,
-                )
-
                 with contextlib.ExitStack() as exit_stack:
+                    # Create temp tables FIRST (before schema detection)
                     for (
                         ext_table_name,
                         (ext_table_columns, ext_pa_table, _, _, _),
@@ -506,6 +518,15 @@ class AthenaSourceImpl(BaseSQLSource):
                                 cursor=cursor,
                             )
                         )
+
+                    # NOW run schema detection (after temp tables exist)
+                    final_sql, _ = self._prepare_query_for_unload(
+                        sql=formatted_op,
+                        cursor=cursor,
+                        schema=None,  # Detect schema from SQL
+                        execution_params=execution_params,
+                        paramstyle=paramstyle,
+                    )
 
                     # Use the common UNLOAD execution pattern
                     _query_id, result_handles_list = self._execute_unload_and_list_s3_results(
@@ -551,7 +572,22 @@ class AthenaSourceImpl(BaseSQLSource):
                             .cast(expected_type)
                         )
                 if actual_type != expected_type:
-                    column = column.cast(options=pc.CastOptions(target_type=expected_type, allow_time_truncate=True))
+                    # Special handling for VARCHAR -> timezone-aware timestamp conversion
+                    # This occurs when we apply the Iceberg timestamp workaround
+                    if (
+                        (pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type))
+                        and pa.types.is_timestamp(expected_type)
+                        and expected_type.tz is not None
+                    ):
+                        # Athena timestamps are timezone-naive but assumed to be UTC
+                        # Cast to timezone-naive timestamp first, then assume timezone
+                        naive_type = pa.timestamp(expected_type.unit)
+                        column = column.cast(naive_type)
+                        column = pc.assume_timezone(column, expected_type.tz)  # type: ignore[reportGeneralTypeIssues]
+                    else:
+                        column = column.cast(
+                            options=pc.CastOptions(target_type=expected_type, allow_time_truncate=True)
+                        )
                 if isinstance(column, pa.ChunkedArray):
                     column = column.combine_chunks()
                 columns.append(column)
@@ -561,6 +597,110 @@ class AthenaSourceImpl(BaseSQLSource):
                 raise
 
         return pa.RecordBatch.from_arrays(arrays=columns, names=column_names)
+
+    def _postprocess_batch_to_schema(
+        self, batch: pa.RecordBatch, expected_schema: Mapping[str, pa.DataType]
+    ) -> pa.RecordBatch:
+        """
+        Post-process a RecordBatch to match the expected schema.
+
+        This is similar to _postprocess_table but works with RecordBatches and
+        schema dicts instead of Tables and Features. Used by the engine ChalkSQL path.
+
+        Handles:
+        - VARCHAR -> timestamp conversion (for Iceberg timestamp workaround)
+        - Other type mismatches
+
+        Args:
+            batch: RecordBatch to post-process
+            expected_schema: Expected schema mapping column names to PyArrow types
+
+        Returns:
+            RecordBatch with columns converted to expected types
+        """
+        # Check if we need any conversions
+        needs_conversion = False
+        for col_name in expected_schema:
+            if col_name in batch.schema.names:
+                actual_type = batch.schema.field(col_name).type
+                expected_type = expected_schema[col_name]
+                if actual_type != expected_type:
+                    needs_conversion = True
+                    break
+
+        if not needs_conversion:
+            return batch
+
+        # Build new arrays with converted types
+        new_arrays = []
+        new_fields = []
+
+        for i, field in enumerate(batch.schema):
+            col_name = field.name
+            column_array = batch.column(i)
+
+            # If column not in expected schema, keep as-is
+            if col_name not in expected_schema:
+                new_arrays.append(column_array)
+                new_fields.append(field)
+                continue
+
+            expected_type = expected_schema[col_name]
+            actual_type = field.type
+
+            # Types match, no conversion needed
+            if actual_type == expected_type:
+                new_arrays.append(column_array)
+                new_fields.append(field)
+                continue
+
+            # Handle VARCHAR -> timestamp/date conversion (Iceberg workaround)
+            if (pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type)) and (
+                pa.types.is_timestamp(expected_type) or pa.types.is_date(expected_type)
+            ):
+                if pa.types.is_timestamp(expected_type):
+                    # Parse as timestamp using two-step cast
+                    # Athena CAST(timestamp AS VARCHAR) always produces microsecond precision: '2023-01-03 14:30:00.123000'
+                    # Step 1: Parse VARCHAR as timestamp[us] (to match the format)
+                    # Step 2: Cast to expected unit (ms, s, etc.) if different, with truncation allowed
+
+                    # First parse as timestamp[us] since Athena VARCHAR output has microsecond precision
+                    parsed_timestamp = pc.cast(column_array, pa.timestamp("us"))
+
+                    # Then cast to the expected unit if different
+                    if expected_type.unit != "us":
+                        timestamp_array = pc.cast(
+                            parsed_timestamp,
+                            options=pc.CastOptions(
+                                target_type=pa.timestamp(expected_type.unit), allow_time_truncate=True
+                            ),
+                        )
+                    else:
+                        timestamp_array = parsed_timestamp
+
+                    if expected_type.tz is not None:
+                        # Timezone-aware timestamp: assume timezone on the parsed naive timestamps
+                        converted = pc.assume_timezone(timestamp_array, expected_type.tz)  # type: ignore[reportGeneralTypeIssues]
+                    else:
+                        # Timezone-naive timestamp: use as-is
+                        converted = timestamp_array
+                elif pa.types.is_date(expected_type):
+                    # Parse as date (date32 or date64)
+                    # Cast VARCHAR directly to date type - PyArrow handles the parsing
+                    converted = pc.cast(column_array, options=pc.CastOptions(target_type=expected_type))
+                else:
+                    raise ValueError(f"Unexpected expected_type for VARCHAR conversion: {expected_type}")
+
+                new_arrays.append(converted)
+                new_fields.append(pa.field(col_name, expected_type))
+            else:
+                # For other type mismatches, keep the column as-is
+                # We only handle VARCHAR -> timestamp/date conversion above
+                # Other conversions are left to downstream processing
+                new_arrays.append(column_array)
+                new_fields.append(field)
+
+        return pa.RecordBatch.from_arrays(new_arrays, schema=pa.schema(new_fields))
 
     def _download_worker(
         self,
@@ -631,6 +771,8 @@ class AthenaSourceImpl(BaseSQLSource):
                 if len(tbl) == 0:
                     continue
                 assert isinstance(tbl, pa.Table)
+                # Convert decimal columns to float64 for compatibility
+                tbl = self._convert_decimals_to_float64_table(tbl)
                 features = columns_to_features(tbl.schema.names)
                 yield self._postprocess_table(features, tbl)
                 safe_incr("chalk.athena.downloaded_bytes", tbl.nbytes or 0)
@@ -904,6 +1046,316 @@ class AthenaSourceImpl(BaseSQLSource):
                 raise ValueError(f"Table '{table_name}' not found in catalog '{catalog}', schema '{schema}'")
 
             return as_arrow.schema
+
+    def _detect_timestamp_columns_from_sql(
+        self,
+        sql: str,
+        cursor: Any,
+        execution_params: Any = None,
+        paramstyle: str | None = None,
+    ) -> DetectedQuerySchema:
+        """
+        Detect timestamp columns by executing a LIMIT 0 query to get the result schema.
+
+        This determines the schema directly from the SQL query itself, which is more
+        reliable than trying to parse query metadata or use FinalizedChalkQuery properties.
+
+        Args:
+            sql: The SQL query to analyze
+            cursor: PyAthena cursor to execute the schema detection query
+            execution_params: Optional query parameters (positional list or named dict)
+            paramstyle: Optional parameter style ("named" for named parameters)
+
+        Returns:
+            DetectedQuerySchema containing timestamp columns, all column names, and schema dict
+        """
+        try:
+            from pyathena.arrow.result_set import AthenaArrowResultSet
+        except ModuleNotFoundError:
+            raise ImportError("chalkpy[athena] is required")
+
+        # Execute LIMIT 0 query to get schema without fetching data
+        schema_sql = f"SELECT * FROM ({sql}) AS _chalk_schema_detection LIMIT 0"
+
+        chalk_logger.debug(f"Detecting schema from SQL via LIMIT 0 query")
+
+        # Pass parameters to cursor.execute if provided
+        if execution_params is not None:
+            _query_id, query_fut = cursor.execute(
+                schema_sql,
+                parameters=execution_params,
+                paramstyle=paramstyle,
+            )
+        else:
+            _query_id, query_fut = cursor.execute(schema_sql)
+        query_result = query_fut.result()
+
+        assert isinstance(query_result, AthenaArrowResultSet), "Expected athena query result to be AthenaArrowResultSet"
+
+        if query_result.error_type and query_result.error_category and query_result.error_message:
+            raise ValueError(
+                f"Failed to detect schema from Athena query. Error info: Type: {query_result.error_type}, "
+                + f"Category: {query_result.error_category}, Message: {query_result.error_message}"
+            )
+
+        # Get the PyArrow schema from the result - need to call as_arrow() first
+        as_arrow = query_result.as_arrow()
+        if as_arrow is None:
+            raise ValueError("Failed to get Arrow table from query result")
+
+        schema = as_arrow.schema
+
+        # Extract timestamp columns, column names, and build schema dict
+        # Note: We include both DATE and TIMESTAMP columns in the VARCHAR cast workaround
+        # since DATE columns may also be affected by Iceberg UNLOAD precision issues
+        timestamp_columns = set()
+        column_names = []
+        schema_dict: dict[str, pa.DataType] = {}
+
+        for field in schema:
+            column_names.append(field.name)
+            schema_dict[field.name] = field.type
+            if pa.types.is_timestamp(field.type) or pa.types.is_date(field.type):
+                timestamp_columns.add(field.name)
+                chalk_logger.debug(f"Detected timestamp/date column '{field.name}' with type {field.type}")
+
+        chalk_logger.info(
+            f"Detected {len(timestamp_columns)} timestamp/date columns out of {len(column_names)} total columns: {timestamp_columns}"
+        )
+
+        return DetectedQuerySchema(timestamp_columns=timestamp_columns, column_names=column_names, schema=schema_dict)
+
+    def wrap_query_with_timestamp_varchar_casts(
+        self,
+        sql: str,
+        column_names: Sequence[str],
+        timestamp_columns: set[str],
+    ) -> str:
+        """
+        Wrap a SQL query in a subquery that casts timestamp columns to VARCHAR.
+
+        This works around Athena's timestamp precision limitation with Iceberg tables.
+        Instead of parsing the SQL, we wrap it in a subquery and apply CAST in the
+        outer SELECT, which works for any valid SQL query.
+
+        This method is used by both chalkpy direct queries and engine ChalkSQL queries.
+
+        Args:
+            sql: The original SQL query
+            column_names: Ordered list of column names in the result
+            timestamp_columns: Set of column names that are timestamps
+
+        Returns:
+            Modified SQL with timestamp columns cast to VARCHAR, or original SQL if no timestamps
+        """
+        if not timestamp_columns:
+            return sql
+
+        chalk_logger.info(
+            f"Wrapping Athena query with VARCHAR casts for {len(timestamp_columns)} timestamp columns "
+            + "to work around Iceberg timestamp(6) precision issue"
+        )
+
+        # Build SELECT list with casts for timestamp columns
+        select_items = []
+        for col_name in column_names:
+            # Escape column names with double quotes for Athena/Trino
+            escaped_name = col_name.replace('"', '""')
+
+            if col_name in timestamp_columns:
+                # Cast timestamp to VARCHAR to avoid precision mismatch
+                select_items.append(f'CAST("{escaped_name}" AS VARCHAR) AS "{escaped_name}"')
+            else:
+                select_items.append(f'"{escaped_name}"')
+
+        # Wrap the original query in a subquery
+        wrapped_sql = f"""
+SELECT {', '.join(select_items)}
+FROM (
+{sql}
+) AS _chalk_timestamp_cast_subquery
+"""
+        return wrapped_sql
+
+    def _prepare_query_for_unload(
+        self,
+        sql: str,
+        cursor: Any,
+        schema: Mapping[str, pa.DataType] | None = None,
+        execution_params: Any = None,
+        paramstyle: str | None = None,
+    ) -> tuple[str, DetectedQuerySchema]:
+        """
+        Prepare a SQL query for UNLOAD by detecting schema and wrapping with VARCHAR casts.
+
+        This consolidates the common preparation logic used by both chalkpy direct queries
+        and engine ChalkSQL queries. It handles:
+        1. Schema detection (if not provided) or extraction (if provided)
+        2. Wrapping query with VARCHAR casts for timestamp columns
+        3. Creating S3 job prefix and path
+        4. Rewriting query for UNLOAD
+
+        Args:
+            sql: The SQL query to prepare
+            cursor: PyAthena cursor for schema detection
+            schema: Optional pre-known schema mapping (column name -> PyArrow type)
+            execution_params: Optional query parameters (positional list or named dict)
+            paramstyle: Optional parameter style ("named" for named parameters)
+
+        Returns:
+            Tuple of (final_unload_sql, detected_schema)
+                - final_unload_sql: The rewritten UNLOAD SQL ready to execute
+                - detected_schema: DetectedQuerySchema with timestamp columns, column names, and schema dict
+        """
+        if self.s3_staging_dir is None:
+            raise ValueError("s3_staging_dir must be set to use Athena UNLOAD")
+
+        # Step 1: ALWAYS detect timestamp columns from SQL, not from provided schema
+        # The provided schema might have wrong types (e.g., strings instead of timestamps)
+        # if a previous conversion failed. Detecting from SQL gives us the true Athena types.
+        chalk_logger.debug(f"Detecting timestamp columns from SQL query. Provided schema: {schema is not None}")
+        detected_schema = self._detect_timestamp_columns_from_sql(sql, cursor, execution_params, paramstyle)
+
+        # Merge schemas if one was provided:
+        # - Use detected schema to identify timestamp columns (for VARCHAR wrapping)
+        # - But preserve timestamp precision from provided schema (for Iceberg timestamp(6) support)
+        # The detected schema from LIMIT 0 returns timestamp[ms] for Iceberg timestamp(6) columns,
+        # but we want to preserve the actual precision (timestamp[us]) if explicitly provided.
+        if schema is not None:
+            chalk_logger.debug(
+                f"Schema provided with {len(schema)} columns. Merging with detected schema "
+                + f"to preserve timestamp precision while using detected timestamp column identification."
+            )
+            # Build merged schema: use provided schema's types where available,
+            # fall back to detected schema for missing columns
+            merged_schema_dict = dict(detected_schema.schema)
+            for col_name, col_type in schema.items():
+                if col_name in merged_schema_dict:
+                    merged_schema_dict[col_name] = col_type
+
+            # Update detected_schema with merged types while keeping timestamp column identification
+            detected_schema = DetectedQuerySchema(
+                timestamp_columns=detected_schema.timestamp_columns,
+                column_names=detected_schema.column_names,
+                schema=merged_schema_dict,
+            )
+
+        # Step 2: Wrap query with VARCHAR casts for timestamp columns
+        query_to_unload = sql
+        if detected_schema.timestamp_columns and detected_schema.column_names:
+            query_to_unload = self.wrap_query_with_timestamp_varchar_casts(
+                sql, detected_schema.column_names, detected_schema.timestamp_columns
+            )
+
+        # Step 3: Create S3 job prefix and path
+        job_id = str(uuid.uuid4())
+        job_prefix = f"chalk-unload/{job_id}"
+        s3_prefix = f"{self.s3_staging_dir.rstrip('/')}/{job_prefix}"
+
+        # Step 4: Rewrite query for UNLOAD
+        final_sql = self._rewrite_query_for_unload(
+            sql=query_to_unload,
+            s3_staging_dir_for_job=s3_prefix,
+        )
+
+        return final_sql, detected_schema
+
+    def _convert_decimals_to_float64_table(self, tbl: pa.Table) -> pa.Table:
+        """
+        Convert decimal columns to float64 in a PyArrow Table.
+
+        Decimal types are not well supported in some contexts (like ChalkSQL),
+        so we convert them to float64. This may result in precision loss for
+        very large or very precise decimal values.
+
+        Args:
+            tbl: PyArrow Table that may contain decimal columns
+
+        Returns:
+            PyArrow Table with decimal columns converted to float64
+        """
+        # Check if any columns are decimal types
+        has_decimals = any(pa.types.is_decimal(field.type) for field in tbl.schema)
+        if not has_decimals:
+            return tbl
+
+        # Build new schema with decimals converted to float64
+        new_fields = []
+        for field in tbl.schema:
+            if pa.types.is_decimal(field.type):
+                new_fields.append(pa.field(field.name, pa.float64()))
+                chalk_logger.debug(f"Converting decimal column '{field.name}' with type {field.type} to float64")
+            else:
+                new_fields.append(field)
+
+        new_schema = pa.schema(new_fields)
+
+        # Convert decimal columns
+        new_columns = []
+        for i, field in enumerate(tbl.schema):
+            column = tbl.column(i)
+            if pa.types.is_decimal(field.type):
+                try:
+                    # Cast decimal to float64
+                    float_column = column.cast(pa.float64())
+                    new_columns.append(float_column)
+                except Exception as e:
+                    chalk_logger.warning(
+                        f"Failed to convert decimal column '{field.name}' to float64: {e}. Keeping original type."
+                    )
+                    new_columns.append(column)
+            else:
+                new_columns.append(column)
+
+        return pa.table(new_columns, schema=new_schema)
+
+    @staticmethod
+    def convert_decimals_to_float64_in_batch(batch: pa.RecordBatch) -> pa.RecordBatch:
+        """
+        Convert decimal columns to float64 in a PyArrow RecordBatch.
+
+        This is a static method that can be used by the engine's ChalkSQL executor.
+        Decimal types are not well supported in some contexts (like ChalkSQL),
+        so we convert them to float64. This may result in precision loss.
+
+        Args:
+            batch: RecordBatch that may contain decimal columns
+
+        Returns:
+            RecordBatch with decimal columns converted to float64
+        """
+        # Check if any columns are decimal types
+        has_decimals = any(pa.types.is_decimal(field.type) for field in batch.schema)
+        if not has_decimals:
+            return batch
+
+        # Build new arrays with decimals converted to float64
+        new_arrays = []
+        new_fields = []
+
+        for i, field in enumerate(batch.schema):
+            column_array = batch.column(i)
+
+            if pa.types.is_decimal(field.type):
+                # Convert decimal to float64
+                try:
+                    float_array = column_array.cast(pa.float64())
+                    new_arrays.append(float_array)
+                    new_fields.append(pa.field(field.name, pa.float64()))
+                except Exception as e:
+                    chalk_logger.warning(
+                        f"Failed to convert decimal column '{field.name}' to float64: {e}. Keeping original type."
+                    )
+                    new_arrays.append(column_array)
+                    new_fields.append(field)
+            else:
+                # Keep non-decimal columns as-is
+                new_arrays.append(column_array)
+                new_fields.append(field)
+
+        # Create new RecordBatch with converted arrays
+        new_schema = pa.schema(new_fields)
+        return pa.RecordBatch.from_arrays(new_arrays, schema=new_schema)
 
     def _recreate_integration_variables(self) -> dict[str, str]:
         return {

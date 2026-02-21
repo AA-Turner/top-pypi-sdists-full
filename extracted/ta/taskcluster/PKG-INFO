@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: taskcluster
-Version: 96.5.1
+Version: 96.5.2
 Summary: Python client for Taskcluster
 Project-URL: Homepage, https://github.com/taskcluster/taskcluster
 Project-URL: Repository, https://github.com/taskcluster/taskcluster

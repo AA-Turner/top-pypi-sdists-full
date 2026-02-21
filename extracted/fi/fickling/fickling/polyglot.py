@@ -1,12 +1,27 @@
 import os
 import shutil
+import stat
 import tarfile
 import tempfile
 import zipfile
+from pathlib import Path
+from typing import TypedDict
 
 import numpy.lib.format as npformat
 
 from fickling.fickle import Pickled, StackedPickle
+
+# Optional 7z support
+try:
+    import py7zr
+    import py7zr.exceptions
+    from py7zr.io import BytesIOFactory
+
+    HAS_7Z_SUPPORT = True
+    _7Z_ARCHIVE_ERROR: type[BaseException] = py7zr.exceptions.ArchiveError
+except ImportError:
+    HAS_7Z_SUPPORT = False
+    _7Z_ARCHIVE_ERROR = Exception  # Fallback, won't be used if HAS_7Z_SUPPORT is False
 
 """
 PyTorch file format identification:
@@ -62,6 +77,39 @@ def check_and_find_in_zip(
         return None if return_path else False
 
 
+def is_7z_file(file_path) -> bool:
+    """Check if a file is a 7z archive by reading its magic bytes."""
+    try:
+        with open(file_path, "rb") as f:
+            magic = f.read(6)
+            # 7z magic bytes: 37 7A BC AF 27 1C
+            return magic == b"7z\xbc\xaf'\x1c"
+    except OSError:
+        return False
+
+
+def check_and_find_in_7z(
+    archive_path, file_name_or_extension, return_path=False, check_extension=False
+):
+    """Check for a file in a 7z archive and return its path or boolean if found."""
+    if not HAS_7Z_SUPPORT:
+        return None if return_path else False
+
+    try:
+        with py7zr.SevenZipFile(archive_path, mode="r") as archive:
+            names = [f.filename for f in archive.list() if not f.is_symlink]
+            if not return_path:
+                if check_extension:
+                    return any(entry.endswith(file_name_or_extension) for entry in names)
+                return any(file_name_or_extension in entry for entry in names)
+            return next(
+                (entry for entry in names if entry.endswith(file_name_or_extension)),
+                None,
+            )
+    except (OSError, _7Z_ARCHIVE_ERROR):
+        return None if return_path else False
+
+
 def check_numpy(file):  # returns isNumpy,isNumpyPickle
     """Checks if the numpy magic bytes are there, and if they are, if the header
     claims the data is an object"""
@@ -106,7 +154,23 @@ def check_pickle(file, min_length=0):
             return False
 
 
-def find_file_properties(file_path, print_properties=False):
+class FileProperties(TypedDict):
+    is_torch_zip: bool
+    is_tar: bool
+    is_valid_pickle: bool
+    is_numpy: bool
+    is_numpy_pickle: bool
+    is_standard_zip: bool
+    is_standard_not_torch: bool
+    has_constants_pkl: bool
+    has_data_pkl: bool
+    has_version: bool
+    has_model_json: bool
+    has_attributes_pkl: bool
+    is_7z: bool
+
+
+def find_file_properties(file_path, print_properties=False) -> FileProperties:
     """For a more granular analysis, we separate property discovery and format identification"""
     properties = {}
     with open(file_path, "rb") as file:
@@ -160,6 +224,11 @@ def find_file_properties(file_path, print_properties=False):
                 for f in torch_zip_checks
             }
         properties.update(torch_zip_results)
+
+    # Check for 7z archive (requires file path, not file handle)
+    is_7z = is_7z_file(file_path)
+    properties["is_7z"] = is_7z
+
     if print_properties:
         print("\nproperties:", properties, "\n")
     return properties
@@ -181,30 +250,69 @@ def find_file_properties_recursively(file_path, print_properties=False):
     # actually check the zip
     if check_zip:
         properties["children"] = {}
-        with tempfile.TemporaryDirectory() as tempdir:
-            with zipfile.ZipFile(file_path) as zipped_file:
-                for fname in zipped_file.namelist():
-                    zipped_file.extract(fname, path=tempdir)
-                    fname_path = os.path.join(tempdir, fname)
-                    properties["children"][fname] = find_file_properties_recursively(
-                        fname_path, print_properties
-                    )
+        with zipfile.ZipFile(file_path) as zipped_file:
+            for fname in zipped_file.namelist():
+                info = zipped_file.getinfo(fname)
+                mode = info.external_attr >> 16
+                if info.is_dir():
+                    continue
+                if mode == 0 or stat.S_ISREG(mode):
+                    _tempfile = tempfile.NamedTemporaryFile(delete=False)
+                    try:
+                        _tempfile.write(zipped_file.read(fname))
+                        _tempfile.close()
+                        properties["children"][fname] = find_file_properties_recursively(
+                            _tempfile.name, print_properties
+                        )
+                    finally:
+                        Path(_tempfile.name).unlink()
 
     # check tar
     if properties["is_tar"]:  # tar archive
         properties["children"] = {}
-        with tempfile.TemporaryDirectory() as tempdir:
-            with tarfile.TarFile(file_path) as tarred_file:
-                for fname in tarred_file.getnames():
-                    content = tarred_file.extractfile(fname)
-                    if content is None:
-                        properties["children"][fname] = None
+        with tarfile.TarFile(file_path) as tarred_file:
+            for fname in tarred_file.getmembers():
+                if fname.isfile():
+                    if not (content := tarred_file.extractfile(fname)):
+                        properties["children"][fname.name] = None
                         continue
-                    fname_path = os.path.join(tempdir, os.path.basename(fname))
-                    open(fname_path, "wb").write(content.read())
-                    properties["children"][fname] = find_file_properties_recursively(
-                        fname_path, print_properties
-                    )
+                    _tempfile = tempfile.NamedTemporaryFile(delete=False)
+                    try:
+                        _tempfile.write(content.read())
+                        _tempfile.close()
+                        properties["children"][fname.name] = find_file_properties_recursively(
+                            _tempfile.name, print_properties
+                        )
+                    finally:
+                        Path(_tempfile.name).unlink()
+
+    # check 7z
+    if HAS_7Z_SUPPORT and properties.get("is_7z"):
+        if "children" not in properties:
+            properties["children"] = {}
+        try:
+            with py7zr.SevenZipFile(file_path, mode="r") as archive:
+                entries = archive.list()
+                targets = [e.filename for e in entries if e.is_file and not e.is_symlink]
+                if targets:
+                    max_size = max(e.uncompressed for e in entries if e.filename in set(targets))
+                    factory = BytesIOFactory(limit=max_size)
+                    archive.extract(targets=targets, factory=factory)
+                    for fname in targets:
+                        bio = factory.get(fname)
+                        bio.seek(0)
+                        _tempfile = tempfile.NamedTemporaryFile(delete=False)
+                        try:
+                            _tempfile.write(bio.read())
+                            _tempfile.close()
+                            properties["children"][fname] = find_file_properties_recursively(
+                                _tempfile.name, print_properties
+                            )
+                        finally:
+                            Path(_tempfile.name).unlink()
+        except (OSError, _7Z_ARCHIVE_ERROR):
+            # Graceful degradation on 7z errors
+            pass
 
     return properties
 
@@ -240,6 +348,13 @@ def check_if_model_archive_format(file, properties):
             file, ".pt", check_extension=True
         ) or check_and_find_in_zip(file, ".pth", check_extension=True)
         has_code = check_and_find_in_zip(file, ".py", check_extension=True)
+        return has_json and has_serialized_model and has_code
+    if properties.get("is_7z"):
+        has_json = check_and_find_in_7z(file, ".json", check_extension=True)
+        has_serialized_model = check_and_find_in_7z(
+            file, ".pt", check_extension=True
+        ) or check_and_find_in_7z(file, ".pth", check_extension=True)
+        has_code = check_and_find_in_7z(file, ".py", check_extension=True)
         return has_json and has_serialized_model and has_code
 
 
@@ -291,7 +406,7 @@ def identify_pytorch_file_format(file, print_properties=False, print_results=Fal
             formats.append("PyTorch v0.1.1")
     if properties["is_valid_pickle"]:
         formats.append("PyTorch v0.1.10")
-    if properties["is_standard_zip"]:
+    if properties["is_standard_zip"] or properties.get("is_7z"):
         is_model_archive_format = check_if_model_archive_format(file, properties)
         if is_model_archive_format:
             formats.append("PyTorch model archive format")
@@ -362,14 +477,13 @@ def create_standard_torchscript_polyglot(
         )
         version_path = check_and_find_in_zip(zip_b, "version", return_path=True)
         if constants_pkl_path and version_path:
-            zip_b.extract(constants_pkl_path, "temp")
-            zip_b.extract(version_path, "temp")
+            constants_data = zip_b.read(constants_pkl_path)
+            version_data = zip_b.read(version_path)
 
-    with zipfile.ZipFile(polyglot_file_name, "a") as zip_out:
-        zip_out.write(f"temp/{constants_pkl_path}", "constants.pkl")
-        zip_out.write(f"temp/{version_path}", "version")
+            with zipfile.ZipFile(polyglot_file_name, "a") as zip_out:
+                zip_out.writestr("constants.pkl", constants_data)
+                zip_out.writestr("version", version_data)
 
-    shutil.rmtree("temp")
     polyglot_found = True
     return polyglot_found
 

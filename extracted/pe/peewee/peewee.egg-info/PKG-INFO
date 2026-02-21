@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peewee
-Version: 3.19.0
+Version: 4.0.0
 Summary: a little orm
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/peewee
@@ -21,9 +21,20 @@ Provides-Extra: postgres
 Requires-Dist: psycopg2-binary; extra == "postgres"
 Provides-Extra: psycopg3
 Requires-Dist: psycopg[binary]; extra == "psycopg3"
+Provides-Extra: cysqlite
+Requires-Dist: cysqlite; extra == "cysqlite"
+Provides-Extra: aiosqlite
+Requires-Dist: aiosqlite; extra == "aiosqlite"
+Requires-Dist: greenlet; extra == "aiosqlite"
+Provides-Extra: aiomysql
+Requires-Dist: aiomysql; extra == "aiomysql"
+Requires-Dist: greenlet; extra == "aiomysql"
+Provides-Extra: asyncpg
+Requires-Dist: asyncpg; extra == "asyncpg"
+Requires-Dist: greenlet; extra == "asyncpg"
 Dynamic: license-file
 
-.. image:: https://media.charlesleifer.com/blog/photos/peewee3-logo.png
+.. image:: https://media.charlesleifer.com/blog/photos/peewee4-logo.png
 
 peewee
 ======
@@ -31,8 +42,9 @@ peewee
 Peewee is a simple and small ORM. It has few (but expressive) concepts, making it easy to learn and intuitive to use.
 
 * a small, expressive ORM
-* python 2.7+ and 3.4+
+* flexible query-builder that exposes full power of SQL
 * supports sqlite, mysql, mariadb, postgresql
+* asyncio support
 * tons of `extensions <http://docs.peewee-orm.com/en/latest/peewee/playhouse.html>`_
 
 New to peewee? These may help:
@@ -43,6 +55,26 @@ New to peewee? These may help:
 * `Models and fields <http://docs.peewee-orm.com/en/latest/peewee/models.html>`_
 * `Querying <http://docs.peewee-orm.com/en/latest/peewee/querying.html>`_
 * `Relationships and joins <http://docs.peewee-orm.com/en/latest/peewee/relationships.html>`_
+
+Installation:
+
+.. code-block:: console
+
+    pip install peewee
+
+Sqlite comes built-in provided by the standard-lib ``sqlite3`` module. Other
+backends can be installed using the following instead:
+
+.. code-block:: console
+
+    pip install peewee[mysql]  # Install peewee with pymysql.
+    pip install peewee[postgres]  # Install peewee with psycopg2.
+    pip install peewee[psycopg3]  # Install peewee with psycopg3.
+
+    # AsyncIO implementations.
+    pip install peewee[aiosqlite]  # Install peewee with aiosqlite.
+    pip install peewee[aiomysql]  # Install peewee with aiomysql.
+    pip install peewee[asyncpg]  # Install peewee with asyncpg.
 
 Examples
 --------

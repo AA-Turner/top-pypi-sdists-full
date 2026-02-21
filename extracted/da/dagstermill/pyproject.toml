@@ -1,0 +1,54 @@
+[build-system]
+requires = [
+    "setuptools>=69.0",
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "dagstermill"
+version = "0.28.15"
+description = "run notebooks using the Dagster tools"
+authors = [
+    { name = "Dagster Labs", email = "hello@dagsterlabs.com" },
+]
+license = "Apache-2.0"
+requires-python = ">=3.10,<3.15"
+classifiers = [
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "dagster==1.12.15",
+    "ipykernel>=4.9.0,!=5.4.0,!=5.4.1",
+    "ipython_genutils>=0.2.0",
+    "packaging>=20.9",
+    "papermill>=1.0.0",
+    "scrapbook>=0.5.0",
+    "nbconvert",
+    "jupyter-client<8",
+]
+
+[project.scripts]
+dagstermill = "dagstermill.cli:main"
+
+[project.optional-dependencies]
+test = [
+    "matplotlib",
+    "scikit-learn>=0.19.0",
+    "tqdm<=4.48",
+]
+
+[tool.setuptools.packages.find]
+exclude = [
+    "dagstermill_tests*",
+]
+
+[tool.check-manifest]
+ignore = [
+    ".coveragerc",
+    "tox.ini",
+    "pytest.ini",
+    "dagstermill_tests/**",
+    "dagstermill/examples/**",
+]

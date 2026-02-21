@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyomo
-Version: 6.9.5
+Version: 6.10.0
 Summary: The Pyomo optimization modeling framework
 Author-email: Pyomo Development Team <pyomo-developers@googlegroups.com>
 License-Expression: BSD-3-Clause
@@ -17,7 +17,6 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -27,18 +26,17 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: ply
 Provides-Extra: tests
 Requires-Dist: coverage; extra == "tests"
 Requires-Dist: parameterized; extra == "tests"
 Requires-Dist: pybind11; extra == "tests"
-Requires-Dist: pytest; extra == "tests"
+Requires-Dist: pytest!=9.0.0; extra == "tests"
 Requires-Dist: pytest-parallel; extra == "tests"
 Provides-Extra: docs
-Requires-Dist: Sphinx!=8.2.0,>4; extra == "docs"
+Requires-Dist: Sphinx!=8.2.0,!=9.0.*,!=9.1.0,>4; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx_rtd_theme>0.5; extra == "docs"
 Requires-Dist: sphinxcontrib-jsmath; extra == "docs"
@@ -72,7 +70,6 @@ Requires-Dist: pandas; implementation_name != "pypy" and extra == "optional"
 Requires-Dist: seaborn; implementation_name != "pypy" and extra == "optional"
 Dynamic: license-file
 Dynamic: provides-extra
-Dynamic: requires-dist
 
 [![GitHub Actions Status](https://github.com/Pyomo/pyomo/actions/workflows/test_pr_and_main.yml/badge.svg?branch=main&event=push)](https://github.com/Pyomo/pyomo/actions/workflows/test_pr_and_main.yml?query=branch%3Amain+event%3Apush)
 [![Jenkins Status](https://github.com/Pyomo/jenkins-status/blob/main/pyomo_main.svg)](https://pyomo-jenkins.sandia.gov/)
@@ -80,7 +77,7 @@ Dynamic: requires-dist
 [![Documentation Status](https://readthedocs.org/projects/pyomo/badge/?version=latest)](https://pyomo.readthedocs.org/en/latest/)
 [![Build services](https://github.com/Pyomo/jenkins-status/blob/main/pyomo_services.svg)](https://pyomo-jenkins.sandia.gov/)
 [![GitHub contributors](https://img.shields.io/github/contributors/pyomo/pyomo.svg)](https://github.com/pyomo/pyomo/graphs/contributors)
-[![Merged PRs](https://img.shields.io/github/issues-pr-closed-raw/pyomo/pyomo.svg?label=merged+PRs)](https://github.com/pyomo/pyomo/pulls?q=is:pr+is:merged)
+[![Merged PRs](https://img.shields.io/github/issues-pr-closed-raw/pyomo/pyomo.svg?label=merged+PRs&color=44cc11)](https://github.com/pyomo/pyomo/pulls?q=is:pr+is:merged)
 
 [![a COIN-OR project](https://www.coin-or.org/GitHub/coin-or-badge.png)](https://www.coin-or.org)
 
@@ -127,7 +124,7 @@ Pyomo is available under the BSD License - see the
 
 Pyomo is currently tested with the following Python implementations:
 
-* CPython: 3.9, 3.10, 3.11, 3.12, 3.13, 3.14
+* CPython: 3.10, 3.11, 3.12, 3.13, 3.14
 * PyPy: 3.11
 
 _Testing and support policy_:
@@ -137,11 +134,11 @@ version, we will remove testing for that Python version.
 
 ### Installation
 
-#### PyPI [![PyPI version](https://img.shields.io/pypi/v/pyomo.svg?maxAge=3600)](https://pypi.org/project/Pyomo/) [![PyPI downloads](https://img.shields.io/pypi/dm/pyomo.svg?maxAge=21600)](https://pypistats.org/packages/pyomo)
+#### PyPI &emsp; [![PyPI version](https://img.shields.io/pypi/v/pyomo.svg?maxAge=3600)](https://pypi.org/project/Pyomo/) [![PyPI downloads](https://img.shields.io/pypi/dm/pyomo.svg?maxAge=21600)](https://pypistats.org/packages/pyomo)
 
     pip install pyomo
 
-#### Anaconda [![Anaconda version](https://anaconda.org/conda-forge/pyomo/badges/version.svg)](https://anaconda.org/conda-forge/pyomo) [![Anaconda downloads](https://anaconda.org/conda-forge/pyomo/badges/downloads.svg)](https://anaconda.org/conda-forge/pyomo)
+#### Anaconda &emsp; [![Anaconda version](https://img.shields.io/conda/vn/conda-forge/pyomo.svg)](https://anaconda.org/conda-forge/pyomo) [![Anaconda downloads](https://img.shields.io/conda/dn/conda-forge/pyomo.svg)](https://anaconda.org/conda-forge/pyomo)
 
     conda install -c conda-forge pyomo
 

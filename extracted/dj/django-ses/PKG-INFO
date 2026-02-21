@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ses
-Version: 4.7.1
+Version: 4.7.2
 Summary: A Django email backend for Amazon's Simple Email Service (SES)
 License: MIT
 License-File: LICENSE

@@ -9,7 +9,7 @@ name = "sqlmodel"
 dynamic = []
 description = "SQLModel, SQL databases in Python, designed for simplicity, compatibility, and robustness."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     { name = "Sebastián Ramírez", email = "tiangolo@gmail.com" },
 ]
@@ -24,7 +24,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "Intended Audience :: System Administrators",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -41,7 +40,7 @@ dependencies = [
     "SQLAlchemy >=2.0.14,<2.1.0",
     "pydantic>=2.11.0",
 ]
-version = "0.0.34"
+version = "0.0.35"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/sqlmodel"
@@ -69,7 +68,7 @@ docs = [
     "mkdocstrings[python]==0.30.1",
     "pillow==11.3.0",
     "pyyaml>=5.3.1,<7.0.0",
-    "typer==0.23.1",
+    "typer==0.23.2",
 ]
 github-actions = [
     "httpx>=0.27.0,<0.29.0",

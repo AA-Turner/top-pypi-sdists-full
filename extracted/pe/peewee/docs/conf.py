@@ -27,7 +27,7 @@ import sys, os
 
 # Add any Sphinx extension module names here, as strings. They can be extensions
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
-extensions = ['sphinx.ext.autodoc', 'sphinx_rtd_theme']
+#extensions = ['sphinx.ext.autodoc', 'sphinx_rtd_theme']
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -42,8 +42,8 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 # General information about the project.
-project = u'peewee'
-copyright = u'charles leifer'
+project = 'peewee'
+copyright = 'charles leifer'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -96,13 +96,20 @@ add_module_names = False
 
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
-html_theme = 'sphinx_rtd_theme'
+#html_theme = 'sphinx_rtd_theme'
+html_theme = 'alabaster'
+html_theme_options = {
+    'github_user': 'coleifer',
+    'github_repo': 'peewee',
+    'page_width': '1000px',
+    'font_size': '15px',
+}
 
 # Theme options are theme-specific and customize the look and feel of a theme
 # further.  For a list of options available for each theme, see the
 # documentation.
 #html_theme_options = {
-#    'index_logo': 'peewee-white.png'
+#    'index_logo': 'peewee4-logo.png'
 #}
 
 # Add any paths that contain custom themes here, relative to this directory.

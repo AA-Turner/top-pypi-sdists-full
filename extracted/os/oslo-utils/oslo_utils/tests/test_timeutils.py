@@ -19,9 +19,9 @@ import time
 from unittest import mock
 
 import iso8601
-from oslotest import base as test_base
 from testtools import matchers
 
+from oslo_utils.tests import base as test_base
 from oslo_utils import timeutils
 
 
@@ -61,6 +61,26 @@ class TimeUtilsTest(test_base.BaseTestCase):
             tzinfo=iso8601.iso8601.UTC
         )
         self.assertEqual(skynet_self_aware_time_ms_utc, expect)
+
+    def test_parse_isotime_naive_treated_as_utc(self):
+        """Verify naive timestamps are treated as UTC (documented behavior)."""
+        # Naive string without timezone should be treated as UTC
+        result = timeutils.parse_isotime('2012-02-14T20:53:07')
+        self.assertIsNotNone(result.tzinfo)
+        assert result.tzinfo is not None  # for type checker
+        self.assertEqual(result.tzinfo.tzname(None), 'UTC')
+
+        # Explicit Z should also be UTC
+        result_z = timeutils.parse_isotime('2012-02-14T20:53:07Z')
+        assert result_z.tzinfo is not None  # for type checker
+        self.assertEqual(result_z.tzinfo.tzname(None), 'UTC')
+
+        # Explicit offset should be respected
+        result_offset = timeutils.parse_isotime('2012-02-14T20:53:07+05:30')
+        self.assertIsNotNone(result_offset.tzinfo)
+        assert result_offset.tzinfo is not None  # for type checker
+        offset = result_offset.tzinfo.utcoffset(None)
+        self.assertEqual(offset, datetime.timedelta(hours=5, minutes=30))
 
     def test_parse_strtime(self):
         perfect_time_format = self.skynet_self_aware_time_perfect_str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openai-chatkit
-Version: 1.6.1
+Version: 1.6.2
 Summary: A ChatKit backend SDK.
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: databricks-sqlalchemy
-Version: 2.0.8
+Version: 2.0.9
 Summary: Databricks SQLAlchemy plugin for Python
 License: Apache-2.0
 Author: Databricks

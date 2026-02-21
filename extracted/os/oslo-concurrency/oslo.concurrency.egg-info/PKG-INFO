@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oslo.concurrency
-Version: 7.3.0
+Version: 7.4.0
 Summary: Oslo Concurrency library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE

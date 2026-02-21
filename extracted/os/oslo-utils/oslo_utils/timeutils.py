@@ -25,7 +25,7 @@ import datetime
 import functools
 import logging
 import time
-from typing import Any
+from typing import Any, Literal, overload
 import zoneinfo
 
 import iso8601
@@ -41,7 +41,36 @@ now = time.monotonic
 
 
 def parse_isotime(timestr: str) -> datetime.datetime:
-    """Parse time from ISO 8601 format."""
+    """Parse time from ISO 8601 format.
+
+    :param timestr: ISO 8601 formatted datetime string
+    :returns: A timezone-aware datetime.datetime instance
+    :raises ValueError: When the string cannot be parsed as ISO 8601
+
+    .. note::
+       For historical reasons, datetime strings without explicit timezone
+       designators (Z, +HH:MM, -HH:MM) are treated as UTC timestamps rather
+       than naive/local time as specified by ISO 8601. This behavior is
+       preserved for backward compatibility.
+
+       For ISO 8601 compliant parsing that returns naive datetime objects
+       when no timezone is specified, consider using
+       ``datetime.datetime.fromisoformat()`` (Python 3.7+) or the ``iso8601``
+       library directly with ``default_timezone=None``.
+
+    Examples:
+
+    >>> # Strings without timezone designators are treated as UTC
+    >>> parse_isotime('2012-02-14T20:53:07')
+    datetime.datetime(2012, 2, 14, 20, 53, 7, tzinfo=<UTC>)
+
+    >>> # Explicit timezone designators are respected
+    >>> parse_isotime('2012-02-14T20:53:07Z')
+    datetime.datetime(2012, 2, 14, 20, 53, 7, tzinfo=<UTC>)
+
+    >>> parse_isotime('2012-02-14T20:53:07+05:30')
+    datetime.datetime(2012, 2, 14, 20, 53, 7, tzinfo=<+05:30>)
+    """
     try:
         return iso8601.parse_date(timestr)
     except iso8601.ParseError as e:
@@ -76,7 +105,7 @@ class _UTCNow:
 
         .. versionchanged:: 1.6
            Added *with_timezone* parameter.
-        """
+        """  # noqa: E501
         if self.override_time:
             if isinstance(self.override_time, datetime.datetime):
                 return self.override_time
@@ -313,7 +342,9 @@ class Split:
 def time_it(
     logger: logging.Logger,
     log_level: int = logging.DEBUG,
-    message: str = "It took %(seconds).02f seconds to run function '%(func_name)s'",
+    message: str = (
+        "It took %(seconds).02f seconds to run function '%(func_name)s'"
+    ),
     enabled: bool = True,
     min_duration: float = 0.01,
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
@@ -472,6 +503,12 @@ class StopWatch:
             self.stop()
         except RuntimeError:  # nosec: errors are meant to be ignored
             pass
+
+    @overload
+    def leftover(self, return_none: Literal[False] = False) -> float: ...
+
+    @overload
+    def leftover(self, return_none: Literal[True]) -> float | None: ...
 
     def leftover(self, return_none: bool = False) -> float | None:
         """Returns how many seconds are left until the watch expires.

@@ -1,7 +1,7 @@
 //! Collection node implementations.
 
 use super::config::CollectionConfig;
-use super::error::{CollectionError, CollectionOutcome, CollectionResult};
+use super::error::{CollectionError, CollectionOutcome, CollectionResult, CollectionWarning};
 use super::types::{Collector, Location};
 use super::utils::glob_match;
 use crate::python_discovery::{
@@ -45,10 +45,11 @@ impl Session {
             .collect()
     }
 
+    #[allow(clippy::type_complexity)]
     pub fn perform_collect(
         self: Rc<Self>,
         args: &[String],
-    ) -> CollectionResult<Vec<Box<dyn Collector>>> {
+    ) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<(String, CollectionError)>)> {
         let paths = if args.is_empty() {
             let pytest_config = crate::config::read_pytest_config(&self.rootpath);
 
@@ -73,11 +74,15 @@ impl Session {
             resolved
         };
 
-        Ok(paths
-            .into_iter()
-            .filter_map(|path| self.collect_path(&path).ok())
-            .flatten()
-            .collect())
+        let mut collectors: Vec<Box<dyn Collector>> = Vec::new();
+        let mut path_errors: Vec<(String, CollectionError)> = Vec::new();
+        for path in paths {
+            match self.collect_path(&path) {
+                Ok(items) => collectors.extend(items),
+                Err(e) => path_errors.push((path.to_string_lossy().into_owned(), e)),
+            }
+        }
+        Ok((collectors, path_errors))
     }
 
     fn collect_path(self: &Rc<Self>, path: &Path) -> CollectionResult<Vec<Box<dyn Collector>>> {
@@ -146,9 +151,9 @@ impl Collector for Session {
         None
     }
 
-    fn collect(&self) -> CollectionResult<Vec<Box<dyn Collector>>> {
+    fn collect(&self) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<CollectionWarning>)> {
         // Session collection is handled by perform_collect
-        Ok(vec![])
+        Ok((vec![], vec![]))
     }
 
     fn path(&self) -> &Path {
@@ -193,12 +198,12 @@ impl Collector for Directory {
         Some(self.session() as &dyn Collector)
     }
 
-    fn collect(&self) -> CollectionResult<Vec<Box<dyn Collector>>> {
+    fn collect(&self) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<CollectionWarning>)> {
         let read_dir_result = std::fs::read_dir(&self.path);
         let dir_entries = match read_dir_result {
             Ok(entries) => entries,
             Err(err) if err.kind() == std::io::ErrorKind::PermissionDenied => {
-                return Ok(vec![]);
+                return Ok((vec![], vec![]));
             }
             Err(err) => return Err(err.into()),
         };
@@ -228,7 +233,7 @@ impl Collector for Directory {
             }
         }
 
-        Ok(items)
+        Ok((items, vec![]))
     }
 
     fn path(&self) -> &Path {
@@ -273,7 +278,7 @@ impl Collector for Module {
         Some(self.session() as &dyn Collector)
     }
 
-    fn collect(&self) -> CollectionResult<Vec<Box<dyn Collector>>> {
+    fn collect(&self) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<CollectionWarning>)> {
         // Read the Python file
         let source = std::fs::read_to_string(&self.path)?;
 
@@ -286,15 +291,11 @@ impl Collector for Module {
         // Use the session's root path for module resolution
         let root_path = &self.session().rootpath;
 
-        let (tests, warnings) =
+        let (tests, discovery_warnings) =
             discover_tests_with_inheritance(&self.path, &source, &discovery_config, root_path)?;
 
-        // Print warnings to stderr
-        for warning in &warnings {
-            eprintln!("{}", warning);
-        }
+        let mut all_warnings: Vec<CollectionWarning> = discovery_warnings;
 
-        let mut expansion_warnings = Vec::new();
         let functions: Vec<Box<dyn Collector>> = tests
             .into_iter()
             .flat_map(|test| {
@@ -304,18 +305,19 @@ impl Collector for Module {
                     } else {
                         format!("{}::{}", self.nodeid, test.name)
                     };
-                    expansion_warnings.push(format_cannot_expand_warning(&nodeid, reason));
+                    let warning_str = format_cannot_expand_warning(&nodeid, reason);
+                    all_warnings.push(CollectionWarning {
+                        file_path: self.path.to_string_lossy().into_owned(),
+                        line: 0,
+                        message: warning_str,
+                    });
                 }
                 test_info_to_functions(&test, &self.path, &self.nodeid)
             })
             .map(|function| Box::new(function) as Box<dyn Collector>)
             .collect();
 
-        for warning in &expansion_warnings {
-            eprintln!("{}", warning);
-        }
-
-        Ok(functions)
+        Ok((functions, all_warnings))
     }
 
     fn path(&self) -> &Path {
@@ -341,9 +343,9 @@ impl Collector for Function {
         None // TODO: Store parent reference
     }
 
-    fn collect(&self) -> CollectionResult<Vec<Box<dyn Collector>>> {
+    fn collect(&self) -> CollectionResult<(Vec<Box<dyn Collector>>, Vec<CollectionWarning>)> {
         // Functions are leaf nodes, they don't collect
-        Ok(vec![])
+        Ok((vec![], vec![]))
     }
 
     fn path(&self) -> &Path {
@@ -364,6 +366,7 @@ pub struct CollectReport {
     pub longrepr: Option<String>,
     pub error_type: Option<CollectionError>,
     pub result: Vec<Box<dyn Collector>>,
+    pub warnings: Vec<CollectionWarning>,
 }
 
 impl CollectReport {
@@ -373,6 +376,7 @@ impl CollectReport {
         longrepr: Option<String>,
         error_type: Option<CollectionError>,
         result: Vec<Box<dyn Collector>>,
+        warnings: Vec<CollectionWarning>,
     ) -> Self {
         Self {
             nodeid,
@@ -380,6 +384,7 @@ impl CollectReport {
             longrepr,
             error_type,
             result,
+            warnings,
         }
     }
 }
@@ -387,12 +392,13 @@ impl CollectReport {
 /// Collect a single node and return a report
 pub fn collect_one_node(collector: &dyn Collector) -> CollectReport {
     match collector.collect() {
-        Ok(result) => CollectReport::new(
+        Ok((result, warnings)) => CollectReport::new(
             collector.nodeid().into(),
             CollectionOutcome::Passed,
             None,
             None,
             result,
+            warnings,
         ),
         Err(e) => CollectReport::new(
             collector.nodeid().into(),
@@ -400,6 +406,74 @@ pub fn collect_one_node(collector: &dyn Collector) -> CollectReport {
             Some(e.to_string()),
             Some(e),
             vec![],
+            vec![],
         ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    #[test]
+    fn test_perform_collect_returns_tuple_with_collectors_and_errors() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+        let root = temp_dir.path().canonicalize().expect("canonicalize");
+
+        // Create a valid test file
+        let valid_file = root.join("test_valid.py");
+        fs::write(&valid_file, "def test_ok():\n    pass\n").expect("failed to write valid file");
+
+        let session = Rc::new(Session::new(root.clone()));
+
+        // Pass the valid file explicitly as an arg
+        let result = session.perform_collect(&[valid_file.to_string_lossy().into_owned()]);
+        assert!(result.is_ok(), "perform_collect should succeed");
+        let (collectors, path_errors) = result.expect("expected Ok");
+        // The valid file should produce a Module collector
+        assert_eq!(
+            collectors.len(),
+            1,
+            "should have one collector for the valid file"
+        );
+        assert!(
+            path_errors.is_empty(),
+            "should have no path errors for valid file"
+        );
+    }
+
+    #[test]
+    fn test_perform_collect_explicit_nonexistent_path_returns_error() {
+        let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+        let root = temp_dir.path().canonicalize().expect("canonicalize");
+
+        let session = Rc::new(Session::new(root));
+
+        // Explicit args with non-existent path should return Err (FileNotFound)
+        let result = session.perform_collect(&["nonexistent.py".to_string()]);
+        assert!(result.is_err());
+        match result.expect_err("expected error") {
+            CollectionError::FileNotFound(_) => {}
+            other => panic!("expected FileNotFound, got: {other}"),
+        }
+    }
+
+    #[test]
+    fn test_perform_collect_signature_returns_errors_vec() {
+        // Verify that perform_collect returns the new tuple type
+        // by checking the type system accepts destructuring into
+        // (Vec<Box<dyn Collector>>, Vec<(String, CollectionError)>)
+        let temp_dir = tempfile::tempdir().expect("failed to create temp dir");
+        let root = temp_dir.path().canonicalize().expect("canonicalize");
+
+        let valid_file = root.join("test_a.py");
+        fs::write(&valid_file, "def test_a():\n    pass\n").expect("write");
+
+        let session = Rc::new(Session::new(root));
+        let result = session.perform_collect(&[valid_file.to_string_lossy().into_owned()]);
+        let (_collectors, errors) = result.expect("should succeed");
+        // With a valid file the errors vec should be empty
+        assert!(errors.is_empty());
     }
 }

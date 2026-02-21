@@ -1,10 +1,8 @@
 import concurrent
 
-from AOT_biomaps.AOT_Recon.ReconTools import get_apodization_vector_gpu
 from ._mainRecon import Recon
 from .ReconEnums import ReconType, OptimizerType, ProcessType, SMatrixType
 from .AOT_Optimizers import MLEM, LS
-from AOT_biomaps.Config import config
 from .AOT_SparseSMatrix import SparseSMatrix_CSR, SparseSMatrix_SELL
 
 import os
@@ -15,17 +13,13 @@ import matplotlib.animation as animation
 from IPython.display import HTML
 from datetime import datetime
 from tempfile import gettempdir
-import cupy as cp
-import cupyx.scipy.sparse as cpsparse
-import gc
-from tqdm import trange
 
 class AlgebraicRecon(Recon):
     """
     This class implements the Algebraic reconstruction process.
     It currently does not perform any operations but serves as a template for future implementations.
     """
-    def __init__(self, opti = OptimizerType.MLEM, numIterations = 10000, numSubsets = 1, isSavingEachIteration=True, maxSaves = 5000, alpha = None, denominatorThreshold = 1e-6, smatrixType = SMatrixType.SELL, sparseThreshold=0.1, device = None, **kwargs):
+    def __init__(self, opti = OptimizerType.MLEM, numIterations = 10000, numSubsets = 1, isSavingEachIteration=True, maxSaves = 5000, denominatorThreshold = 1e-6, smatrixType = SMatrixType.SELL, sparseThreshold=0.1, isComplexeRecon = False, device = None, **kwargs):
         super().__init__(**kwargs)
         self.reconType = ReconType.Algebraic
         self.optimizer = opti
@@ -37,7 +31,7 @@ class AlgebraicRecon(Recon):
         self.isSavingEachIteration = isSavingEachIteration
         self.maxSaves = maxSaves
         self.denominatorThreshold = denominatorThreshold
-        self.alpha = alpha  # Regularization parameter for LS
+        self.isComplexeRecon = isComplexeRecon
         self.device = device
         self.SMatrix = None  # system matrix
         self.smatrixType = smatrixType # SMatrixType.DENSE if no sparsing, else SMatrixType.SELL or SMatrixType.CSR or SMatrixType.COO
@@ -55,6 +49,16 @@ class AlgebraicRecon(Recon):
             raise TypeError("Number of subsets must be an integer.")
         
         print("Generating system matrix (processing acoustic fields)...")
+        if self.isComplexeRecon:
+            if self.experiment.AOsignal_withTumor is not None:
+                self.experiment.AOsignal_withTumor_demodulated = self.experiment.parse_and_demodulate(withTumor=True)
+            elif self.experiment.AOsignal_withoutTumor is not None:
+                self.experiment.AOsignal_withoutTumor_demodulated = self.experiment.parse_and_demodulate(withTumor=False)
+            else:
+                raise ValueError("No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
+            self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
+
+
         if self.smatrixType == SMatrixType.DENSE:
             self.SMatrix = self._fillDenseSMatrix()
         else:
@@ -887,6 +891,9 @@ class AlgebraicRecon(Recon):
             print("Reconstruction terminée avec succès.")
         self.load_reconCASToR(withTumor=withTumor)
     
+    def flipAngle(self):
+        if self.smatrixType == SMatrixType.CSR:
+            self.SMatrix.flip_angle()
     # STATIC METHODS
     @staticmethod
     def plot_mse_comparison(recon_list, labels=None):

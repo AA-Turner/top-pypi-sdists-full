@@ -253,7 +253,11 @@ class DependencyManager:
     )
     pydantic = Dependency("pydantic")
     zmq = Dependency("zmq")  # pyzmq for sandbox IPC kernels
+    torch = Dependency("torch")
     weave = Dependency("weave")
+    # Storage
+    obstore = Dependency("obstore")
+    fsspec = Dependency("fsspec")
 
     # Version requirements to properly support the new superfences introduced in
     # pymdown#2470

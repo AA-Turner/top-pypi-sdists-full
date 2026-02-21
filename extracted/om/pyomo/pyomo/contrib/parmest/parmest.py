@@ -1,13 +1,11 @@
-#  ___________________________________________________________________________
+# ____________________________________________________________________________________
 #
-#  Pyomo: Python Optimization Modeling Objects
-#  Copyright (c) 2008-2025
-#  National Technology and Engineering Solutions of Sandia, LLC
-#  Under the terms of Contract DE-NA0003525 with National Technology and
-#  Engineering Solutions of Sandia, LLC, the U.S. Government retains certain
-#  rights in this software.
-#  This software is distributed under the 3-clause BSD License.
-#  ___________________________________________________________________________
+# Pyomo: Python Optimization Modeling Objects
+# Copyright (c) 2008-2026 National Technology and Engineering Solutions of Sandia, LLC
+# Under the terms of Contract DE-NA0003525 with National Technology and Engineering
+# Solutions of Sandia, LLC, the U.S. Government retains certain rights in this
+# software.  This software is distributed under the 3-clause BSD License.
+# ____________________________________________________________________________________
 #### Using mpi-sppy instead of PySP; May 2020
 #### Adding option for "local" EF starting Sept 2020
 #### Wrapping mpi-sppy functionality and local option Jan 2021, Feb 2021
@@ -1048,7 +1046,7 @@ class Estimator:
                 for nd_name, Var, sol_val in ef_nonants(ef):
                     ind_vars.append(Var)
                 # calculate the reduced hessian
-                (solve_result, inv_red_hes) = (
+                solve_result, inv_red_hes = (
                     inverse_reduced_hessian.inv_reduced_hessian_barrier(
                         self.ef_instance,
                         independent_variables=ind_vars,
@@ -1191,7 +1189,7 @@ class Estimator:
             for nd_name, Var, sol_val in ef_nonants(self.ef_instance):
                 ind_vars.append(Var)
             # calculate the reduced hessian
-            (solve_result, inv_red_hes) = (
+            solve_result, inv_red_hes = (
                 inverse_reduced_hessian.inv_reduced_hessian_barrier(
                     self.ef_instance,
                     independent_variables=ind_vars,
@@ -1486,7 +1484,7 @@ class Estimator:
                 if self.diagnostic_mode:
                     print('      Experiment = ', snum)
                     print('     First solve with special diagnostics wrapper')
-                    (status_obj, solved, iters, time, regu) = (
+                    status_obj, solved, iters, time, regu = (
                         utils.ipopt_solve_with_stats(
                             instance, optimizer, max_iter=500, max_cpu_time=120
                         )
@@ -1604,11 +1602,9 @@ class Estimator:
 
                     attempts += 1
                     if attempts > num_samples:  # arbitrary timeout limit
-                        raise RuntimeError(
-                            """Internal error: timeout constructing
+                        raise RuntimeError("""Internal error: timeout constructing
                                            a sample, the dim of theta may be too
-                                           close to the samplesize"""
-                        )
+                                           close to the samplesize""")
 
                 samplelist.append((i, sample))
 
@@ -2493,7 +2489,7 @@ class _DeprecatedEstimator:
                 for ndname, Var, solval in ef_nonants(ef):
                     ind_vars.append(Var)
                 # calculate the reduced hessian
-                (solve_result, inv_red_hes) = (
+                solve_result, inv_red_hes = (
                     inverse_reduced_hessian.inv_reduced_hessian_barrier(
                         self.ef_instance,
                         independent_variables=ind_vars,
@@ -2689,7 +2685,7 @@ class _DeprecatedEstimator:
                 if self.diagnostic_mode:
                     print('      Experiment = ', snum)
                     print('     First solve with special diagnostics wrapper')
-                    (status_obj, solved, iters, time, regu) = (
+                    status_obj, solved, iters, time, regu = (
                         utils.ipopt_solve_with_stats(
                             instance, optimizer, max_iter=500, max_cpu_time=120
                         )
@@ -2807,11 +2803,9 @@ class _DeprecatedEstimator:
 
                     attempts += 1
                     if attempts > num_samples:  # arbitrary timeout limit
-                        raise RuntimeError(
-                            """Internal error: timeout constructing
+                        raise RuntimeError("""Internal error: timeout constructing
                                            a sample, the dim of theta may be too
-                                           close to the samplesize"""
-                        )
+                                           close to the samplesize""")
 
                 samplelist.append((i, sample))
 

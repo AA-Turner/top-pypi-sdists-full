@@ -17,7 +17,7 @@ from .analysis.evaluation.check_linearity import execute_check_linearity
 # Analysis geometry
 from .analysis.geometry.get_activations import execute_get_activations
 from .analysis.geometry.geometry_search import execute_geometry_search
-from .analysis.geometry.repscan import execute_repscan
+from .analysis.geometry.zwiad import execute_zwiad
 
 # Analysis training
 from .analysis.training.modify_weights import execute_modify_weights
@@ -84,7 +84,7 @@ __all__ = [
     'execute_optimize',
     'execute_geometry_search',
     'execute_verify_steering',
-    'execute_repscan',
+    'execute_zwiad',
     'execute_train_unified_goodness',
     'execute_check_linearity',
     'execute_cluster_benchmarks',

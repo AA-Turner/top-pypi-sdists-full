@@ -28,7 +28,7 @@ DESCRIPTION = ("Discover and advertise routes for Neutron prefixes "
 UPDATED_TIMESTAMP = '2016-05-10T15:37:00-00:00'
 BGP_SPEAKER_RESOURCE_NAME = 'bgp-speaker'
 BGP_SPEAKER_BODY_KEY_NAME = 'bgp_speaker'
-BGP_SPEAKERS = '%ss' % BGP_SPEAKER_BODY_KEY_NAME
+BGP_SPEAKERS = f'{BGP_SPEAKER_BODY_KEY_NAME}s'
 BGP_PEER_BODY_KEY_NAME = 'bgp_peer'
 
 
@@ -67,21 +67,21 @@ RESOURCE_ATTRIBUTE_MAP = {
                      'required_by_policy': False,
                      'enforce_policy': True},
         'advertise_floating_ip_host_routes': {
-                                      'allow_post': True,
-                                      'allow_put': True,
-                                      'convert_to': n_conv.convert_to_boolean,
-                                      'validate': {'type:boolean': None},
-                                      'is_visible': True, 'default': True,
-                                      'required_by_policy': False,
-                                      'enforce_policy': True},
+            'allow_post': True,
+            'allow_put': True,
+            'convert_to': n_conv.convert_to_boolean,
+            'validate': {'type:boolean': None},
+            'is_visible': True, 'default': True,
+            'required_by_policy': False,
+            'enforce_policy': True},
         'advertise_tenant_networks': {
-                                      'allow_post': True,
-                                      'allow_put': True,
-                                      'convert_to': n_conv.convert_to_boolean,
-                                      'validate': {'type:boolean': None},
-                                      'is_visible': True, 'default': True,
-                                      'required_by_policy': False,
-                                      'enforce_policy': True},
+            'allow_post': True,
+            'allow_put': True,
+            'convert_to': n_conv.convert_to_boolean,
+            'validate': {'type:boolean': None},
+            'is_visible': True, 'default': True,
+            'required_by_policy': False,
+            'enforce_policy': True},
     },
     'bgp-peers': {
         'id': {'allow_post': False, 'allow_put': False,

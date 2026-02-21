@@ -1,13 +1,20 @@
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations
+
 import io
 from collections.abc import Iterator
 from contextlib import contextmanager
 
 from ..util import trim
 
+BLACK_LINE_LENGTH = 88
+
 
 class IndentPrintMixin:
-    def __init__(self, default_indent: int = 4):
-        self.default_indent = default_indent
+
+    def __init__(self, indent_amount: int = 4):
+        self.indent_amount = indent_amount
         self.indent_stack: list[int] = [0]
         self.output_stream = io.StringIO()
 
@@ -27,11 +34,16 @@ class IndentPrintMixin:
         text = self.io_print(*args, **kwargs)
         return self.indented_lines(text)
 
+    def fitsfmt(self, line: str, addindents: int = 0):
+        assert addindents >= 0
+        total = self.indentation + len(line)
+        total += addindents * self.indent_amount
+        return total <= BLACK_LINE_LENGTH
+
     @contextmanager
     def indent(self, amount: int | None = None) -> Iterator:
         assert amount is None or amount >= 0
-        if amount is None:
-            amount = self.default_indent
+        amount = amount if amount is not None else self.indent_amount
 
         self.indent_stack.append(amount + self.indent_stack[-1])
         try:
@@ -40,8 +52,12 @@ class IndentPrintMixin:
             self.indent_stack.pop()
 
     @property
-    def current_indentation(self) -> str:
-        return ' ' * self.indent_stack[-1]
+    def indentation(self) -> int:
+        return self.indent_stack[-1]
+
+    @property
+    def indentstr(self) -> str:
+        return ' ' * self.indentation
 
     @staticmethod
     def io_print(*args, **kwargs) -> str:
@@ -61,6 +77,5 @@ class IndentPrintMixin:
     def indented_lines(self, text: str) -> list[str]:
         text = trim(text)
         return [
-            (self.current_indentation + line).rstrip()
-            for line in text.splitlines(keepends=False)
+            (self.indentstr + line).rstrip() for line in text.splitlines(keepends=False)
         ]

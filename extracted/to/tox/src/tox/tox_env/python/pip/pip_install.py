@@ -18,6 +18,7 @@ from tox.tox_env.installer import Installer
 from tox.tox_env.python.api import Python
 from tox.tox_env.python.package import EditableLegacyPackage, EditablePackage, SdistPackage, WheelPackage
 from tox.tox_env.python.pip.req_file import PythonConstraints, PythonDeps
+from tox.tox_env.python.pylock import Pylock
 
 if TYPE_CHECKING:
     from tox.config.main import Config
@@ -114,6 +115,8 @@ class Pip(PythonInstallerListDependencies):
     def install(self, arguments: Any, section: str, of_type: str) -> None:
         if isinstance(arguments, PythonDeps):
             self._install_requirement_file(arguments, section, of_type)
+        elif isinstance(arguments, Pylock):
+            self._install_pylock(arguments, section, of_type)
         elif isinstance(arguments, Sequence):
             self._install_list_of_deps(arguments, section, of_type)
         else:
@@ -199,7 +202,20 @@ class Pip(PythonInstallerListDependencies):
         msg = f"changed {of_type}{removed}{added}"
         raise Recreate(msg)
 
-    def _install_list_of_deps(  # noqa: C901
+    def _install_pylock(self, pylock: Pylock, section: str, of_type: str) -> None:
+        requirements = pylock.requirements()
+        new_reqs = sorted(str(r) for r in requirements)
+        with self._env.cache.compare(new_reqs, section, of_type) as (eq, old):
+            if not eq:
+                if old is not None and (missing := sorted(set(old) - set(new_reqs))):
+                    msg = f"pylock dependencies removed: {' '.join(missing)}"
+                    raise Recreate(msg)
+                if new_deps := sorted(set(new_reqs) - set(old or [])):
+                    req_file = Path(self._env.env_dir) / "pylock.txt"
+                    req_file.write_text("\n".join(new_deps))
+                    self._execute_installer(["--no-deps", "-r", str(req_file)], of_type)
+
+    def _install_list_of_deps(  # noqa: C901, PLR0912
         self,
         arguments: Sequence[
             Requirement | WheelPackage | SdistPackage | EditableLegacyPackage | EditablePackage | PathPackage
@@ -208,12 +224,15 @@ class Pip(PythonInstallerListDependencies):
         of_type: str,
     ) -> None:
         groups: dict[str, list[str]] = defaultdict(list)
+        config_settings: dict[str, str] = {}
         for arg in arguments:
             if isinstance(arg, Requirement):
                 groups["req"].append(str(arg))
             elif isinstance(arg, (WheelPackage, SdistPackage, EditablePackage)):
                 groups["req"].extend(self._apply_force_deps(arg.deps))
                 groups["pkg"].append(str(arg.path))
+                if isinstance(arg, SdistPackage) and arg.config_settings:
+                    config_settings.update(arg.config_settings)
             elif isinstance(arg, EditableLegacyPackage):
                 groups["req"].extend(self._apply_force_deps(arg.deps))
                 groups["dev_pkg"].append(str(arg.path))
@@ -234,10 +253,11 @@ class Pip(PythonInstallerListDependencies):
                     new_deps.extend(self.constraints.as_root_args)
                     self._execute_installer(new_deps, req_of_type)
         install_args = ["--force-reinstall", "--no-deps"]
+        cs_args = [f"--config-settings={k}={v}" for k, v in config_settings.items()]
         if groups["pkg"]:
             # we intentionally ignore constraints when installing the package itself
             # https://github.com/tox-dev/tox/issues/3550
-            self._execute_installer(install_args + groups["pkg"], of_type)
+            self._execute_installer(install_args + cs_args + groups["pkg"], of_type)
         if groups["dev_pkg"]:
             for entry in groups["dev_pkg"]:
                 install_args.extend(("-e", str(entry)))

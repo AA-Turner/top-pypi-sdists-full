@@ -24,7 +24,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestCalls:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.retrieve(
@@ -33,7 +33,7 @@ class TestCalls:
         )
         assert_matches_type(CallRetrieveResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.retrieve(
@@ -46,7 +46,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallRetrieveResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.retrieve(
@@ -61,7 +61,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -76,7 +76,7 @@ class TestCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.update(
@@ -85,7 +85,7 @@ class TestCalls:
         )
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.update(
@@ -102,7 +102,7 @@ class TestCalls:
         )
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.update(
@@ -115,7 +115,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.update(
@@ -130,7 +130,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -145,7 +145,7 @@ class TestCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_calls(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.calls(
@@ -156,7 +156,7 @@ class TestCalls:
         )
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_calls_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.calls(
@@ -201,13 +201,15 @@ class TestCalls:
             supervise_call_sid="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             supervising_role="monitor",
             texml='<?xml version="1.0" encoding="UTF-8"?><Response><Say>Hello</Say></Response>',
+            time_limit=3600,
+            timeout_seconds=60,
             trim="trim-silence",
             url="https://www.example.com/texml.xml",
             url_method="GET",
         )
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_calls(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.calls(
@@ -222,7 +224,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_calls(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.calls(
@@ -239,7 +241,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_calls(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -250,7 +252,7 @@ class TestCalls:
                 to="+13121230000",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve_calls(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.retrieve_calls(
@@ -258,7 +260,7 @@ class TestCalls:
         )
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve_calls_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.retrieve_calls(
@@ -278,7 +280,7 @@ class TestCalls:
         )
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve_calls(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.retrieve_calls(
@@ -290,7 +292,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve_calls(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.retrieve_calls(
@@ -304,7 +306,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve_calls(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -312,7 +314,7 @@ class TestCalls:
                 account_sid="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_siprec_json(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.siprec_json(
@@ -321,7 +323,7 @@ class TestCalls:
         )
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_siprec_json_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.siprec_json(
@@ -339,7 +341,7 @@ class TestCalls:
         )
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_siprec_json(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.siprec_json(
@@ -352,7 +354,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_siprec_json(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.siprec_json(
@@ -367,7 +369,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_siprec_json(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -382,7 +384,7 @@ class TestCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_streams_json(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.streams_json(
@@ -391,7 +393,7 @@ class TestCalls:
         )
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_streams_json_with_all_params(self, client: Telnyx) -> None:
         call = client.texml.accounts.calls.streams_json(
@@ -407,7 +409,7 @@ class TestCalls:
         )
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_streams_json(self, client: Telnyx) -> None:
         response = client.texml.accounts.calls.with_raw_response.streams_json(
@@ -420,7 +422,7 @@ class TestCalls:
         call = response.parse()
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_streams_json(self, client: Telnyx) -> None:
         with client.texml.accounts.calls.with_streaming_response.streams_json(
@@ -435,7 +437,7 @@ class TestCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_streams_json(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -456,7 +458,7 @@ class TestAsyncCalls:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.retrieve(
@@ -465,7 +467,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallRetrieveResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.retrieve(
@@ -478,7 +480,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallRetrieveResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.retrieve(
@@ -493,7 +495,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -508,7 +510,7 @@ class TestAsyncCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.update(
@@ -517,7 +519,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.update(
@@ -534,7 +536,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.update(
@@ -547,7 +549,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallUpdateResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.update(
@@ -562,7 +564,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -577,7 +579,7 @@ class TestAsyncCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_calls(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.calls(
@@ -588,7 +590,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_calls_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.calls(
@@ -633,13 +635,15 @@ class TestAsyncCalls:
             supervise_call_sid="v3:MdI91X4lWFEs7IgbBEOT9M4AigoY08M0WWZFISt1Yw2axZ_IiE4pqg",
             supervising_role="monitor",
             texml='<?xml version="1.0" encoding="UTF-8"?><Response><Say>Hello</Say></Response>',
+            time_limit=3600,
+            timeout_seconds=60,
             trim="trim-silence",
             url="https://www.example.com/texml.xml",
             url_method="GET",
         )
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_calls(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.calls(
@@ -654,7 +658,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_calls(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.calls(
@@ -671,7 +675,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_calls(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -682,7 +686,7 @@ class TestAsyncCalls:
                 to="+13121230000",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve_calls(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.retrieve_calls(
@@ -690,7 +694,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve_calls_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.retrieve_calls(
@@ -710,7 +714,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve_calls(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.retrieve_calls(
@@ -722,7 +726,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallRetrieveCallsResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve_calls(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.retrieve_calls(
@@ -736,7 +740,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve_calls(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -744,7 +748,7 @@ class TestAsyncCalls:
                 account_sid="",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_siprec_json(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.siprec_json(
@@ -753,7 +757,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_siprec_json_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.siprec_json(
@@ -771,7 +775,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_siprec_json(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.siprec_json(
@@ -784,7 +788,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallSiprecJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_siprec_json(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.siprec_json(
@@ -799,7 +803,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_siprec_json(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -814,7 +818,7 @@ class TestAsyncCalls:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_streams_json(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.streams_json(
@@ -823,7 +827,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_streams_json_with_all_params(self, async_client: AsyncTelnyx) -> None:
         call = await async_client.texml.accounts.calls.streams_json(
@@ -839,7 +843,7 @@ class TestAsyncCalls:
         )
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_streams_json(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.calls.with_raw_response.streams_json(
@@ -852,7 +856,7 @@ class TestAsyncCalls:
         call = await response.parse()
         assert_matches_type(CallStreamsJsonResponse, call, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_streams_json(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.calls.with_streaming_response.streams_json(
@@ -867,7 +871,7 @@ class TestAsyncCalls:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_streams_json(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):

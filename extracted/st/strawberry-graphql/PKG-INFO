@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strawberry-graphql
-Version: 0.297.0
+Version: 0.299.0
 Summary: A library for creating GraphQL APIs
 License: MIT
 License-File: LICENSE
@@ -19,7 +19,6 @@ Provides-Extra: chalice
 Provides-Extra: channels
 Provides-Extra: cli
 Provides-Extra: debug
-Provides-Extra: debug-server
 Provides-Extra: django
 Provides-Extra: fastapi
 Provides-Extra: flask
@@ -41,35 +40,27 @@ Requires-Dist: flask (>=1.1) ; extra == "flask"
 Requires-Dist: graphql-core (>=3.2.0,<3.4.0)
 Requires-Dist: libcst ; extra == "cli"
 Requires-Dist: libcst ; extra == "debug"
-Requires-Dist: libcst ; extra == "debug-server"
 Requires-Dist: litestar (>=2) ; (python_version ~= "3.10") and (extra == "litestar")
 Requires-Dist: opentelemetry-api (<2) ; extra == "opentelemetry"
 Requires-Dist: opentelemetry-sdk (<2) ; extra == "opentelemetry"
 Requires-Dist: packaging (>=23)
 Requires-Dist: pydantic (>1.6.1) ; extra == "pydantic"
 Requires-Dist: pygments (>=2.3) ; extra == "cli"
-Requires-Dist: pygments (>=2.3) ; extra == "debug-server"
 Requires-Dist: pyinstrument (>=4.0.0) ; extra == "pyinstrument"
 Requires-Dist: python-dateutil (>=2.7)
 Requires-Dist: python-multipart (>=0.0.7) ; extra == "asgi"
 Requires-Dist: python-multipart (>=0.0.7) ; extra == "cli"
-Requires-Dist: python-multipart (>=0.0.7) ; extra == "debug-server"
 Requires-Dist: python-multipart (>=0.0.7) ; extra == "fastapi"
 Requires-Dist: quart (>=0.19.3) ; extra == "quart"
 Requires-Dist: rich (>=12.0.0) ; extra == "cli"
 Requires-Dist: rich (>=12.0.0) ; extra == "debug"
-Requires-Dist: rich (>=12.0.0) ; extra == "debug-server"
 Requires-Dist: sanic (>=20.12.2) ; extra == "sanic"
 Requires-Dist: starlette (>=0.18.0) ; extra == "asgi"
 Requires-Dist: starlette (>=0.18.0) ; extra == "cli"
-Requires-Dist: starlette (>=0.18.0) ; extra == "debug-server"
 Requires-Dist: typer (>=0.12.4) ; extra == "cli"
-Requires-Dist: typer (>=0.12.4) ; extra == "debug-server"
 Requires-Dist: typing-extensions (>=4.5.0)
 Requires-Dist: uvicorn (>=0.11.6) ; extra == "cli"
-Requires-Dist: uvicorn (>=0.11.6) ; extra == "debug-server"
 Requires-Dist: websockets (>=15.0.1,<16) ; extra == "cli"
-Requires-Dist: websockets (>=15.0.1,<16) ; extra == "debug-server"
 Project-URL: Changelog, https://strawberry.rocks/changelog
 Project-URL: Documentation, https://strawberry.rocks/
 Project-URL: Discord, https://discord.com/invite/3uQ2PaY

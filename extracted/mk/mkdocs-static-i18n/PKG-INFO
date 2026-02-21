@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-static-i18n
-Version: 1.3.0
+Version: 1.3.1
 Summary: MkDocs i18n plugin using static translation markdown files
 Project-URL: Documentation, https://github.com/ultrabug/mkdocs-static-i18n#readme
 Project-URL: Download, https://github.com/ultrabug/mkdocs-static-i18n/tags
@@ -22,11 +22,12 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.8
 Requires-Dist: mkdocs>=1.5.2
 Provides-Extra: material
-Requires-Dist: mkdocs-material>=9.2.5; extra == 'material'
+Requires-Dist: mkdocs-material<9.7.2; extra == 'material'
 Description-Content-Type: text/markdown
 
 ![logo by max.icons](https://github.com/ultrabug/mkdocs-static-i18n/blob/main/docs/assets/logo_by_maxicons.png)
@@ -87,14 +88,14 @@ The project is managed with `hatch`. [Install `hatch`](https://hatch.pypa.io/1.9
 
 Run the tests:
 
-```
+```shell
 hatch run test:test
 hatch run style:check
 ```
 
 Serve the documentation:
 
-```
+```shell
 hatch run doc:serve
 ```
 

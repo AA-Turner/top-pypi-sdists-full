@@ -9,15 +9,14 @@ import tempfile
 import unittest
 import uuid
 from collections.abc import (
+    Callable,
     Collection,
     Iterable,
 )
 from ssl import SSLError
 from typing import (
     Any,
-    Callable,
     Literal,
-    Union,
 )
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -26,6 +25,7 @@ import pytest
 
 import bioblend
 from bioblend.galaxy import dataset_collections
+from bioblend.galaxy.invocations import INVOCATION_SUCCESS_STATES
 from bioblend.galaxy.objects import (
     galaxy_instance,
     wrappers,
@@ -128,7 +128,7 @@ def is_reachable(url: str) -> bool:
     res = None
     try:
         res = urlopen(url, timeout=5)
-    except (SSLError, URLError, socket.timeout):
+    except (SSLError, URLError, TimeoutError):
         return False
     if res is not None:
         res.close()
@@ -358,7 +358,7 @@ class TestInvocation(GalaxyObjectsTestBase):
     def test_wait(self):
         inv = self._obj_invoke_workflow()
         inv.wait()
-        assert inv.state == "scheduled"
+        assert inv.state in INVOCATION_SUCCESS_STATES
 
     def test_refresh(self):
         inv = self._obj_invoke_workflow()
@@ -366,7 +366,7 @@ class TestInvocation(GalaxyObjectsTestBase):
         # use wait_for_invocation() directly, because inv.wait() will update inv automatically
         self.gi.gi.invocations.wait_for_invocation(inv.id)
         inv.refresh()
-        assert inv.state == "scheduled"
+        assert inv.state in INVOCATION_SUCCESS_STATES
 
     def test_run_step_actions(self):
         inv = self.workflow_pause.invoke(
@@ -445,7 +445,7 @@ class TestObjInvocationClient(GalaxyObjectsTestBase):
         assert inv.id == self.inv.id
         assert inv.workflow_id == self.workflow.id
         assert inv.history_id == self.history.id
-        assert inv.state == "scheduled"
+        assert inv.state in INVOCATION_SUCCESS_STATES
         assert inv.update_time == self.inv.update_time
         assert inv.uuid == self.inv.uuid
 
@@ -456,7 +456,7 @@ class TestObjInvocationClient(GalaxyObjectsTestBase):
         assert inv_preview.id == self.inv.id
         assert inv_preview.workflow_id == self.workflow.id
         assert inv_preview.history_id == self.history.id
-        assert inv_preview.state == "scheduled"
+        assert inv_preview.state in INVOCATION_SUCCESS_STATES
         assert inv_preview.update_time == self.inv.update_time
         assert inv_preview.uuid == self.inv.uuid
 
@@ -466,7 +466,7 @@ class TestObjInvocationClient(GalaxyObjectsTestBase):
         assert inv.id == self.inv.id
         assert inv.workflow_id == self.workflow.id
         assert inv.history_id == self.history.id
-        assert inv.state == "scheduled"
+        assert inv.state in INVOCATION_SUCCESS_STATES
         assert inv.update_time == self.inv.update_time
         assert inv.uuid == self.inv.uuid
         assert len(self.inv.steps) > 0
@@ -990,7 +990,7 @@ class TestRunWorkflow(GalaxyObjectsTestBase):
     def _test(self, existing_hist: bool = False, pass_params: bool = False) -> None:
         hist_name = f"test_{uuid.uuid4().hex}"
         if existing_hist:
-            hist: Union[str, wrappers.History] = self.gi.histories.create(hist_name)
+            hist: str | wrappers.History = self.gi.histories.create(hist_name)
         else:
             hist = hist_name
         if pass_params:

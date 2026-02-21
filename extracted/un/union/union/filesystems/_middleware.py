@@ -1,3 +1,4 @@
+import asyncio
 import typing
 from logging import getLogger
 from typing import AsyncIterable, Callable
@@ -6,6 +7,22 @@ import grpc
 from flytekit.clients.auth.authenticator import Authenticator
 
 from union._interceptor import generate_random_str
+
+# Retry settings for transient stream connection errors (RST_STREAM, UNAVAILABLE, etc.)
+_STREAM_RETRY_MAX_ATTEMPTS = 10
+_STREAM_RETRY_INITIAL_BACKOFF_S = 0.5
+_STREAM_RETRY_MAX_BACKOFF_S = 30.0
+_STREAM_RETRY_BACKOFF_MULTIPLIER = 2.0
+
+
+def _is_transient_stream_error(e: grpc.aio.AioRpcError) -> bool:
+    """Return True if the gRPC error is a transient connection-level failure that warrants a stream reconnect."""
+    if e.code() == grpc.StatusCode.UNAVAILABLE:
+        return True
+    if e.code() == grpc.StatusCode.INTERNAL and e.details() and "RST_STREAM" in e.details():
+        return True
+    return False
+
 
 DEFAULT_KUBERNETES_TOKEN_PATH = "/var/run/secrets/kubernetes.io/serviceaccount/token"
 
@@ -167,17 +184,46 @@ class UnaryStreamClientAuthInterceptor(grpc.aio.UnaryStreamClientInterceptor, Au
 
         async def _auth_retry_iterator():
             nonlocal stream
+            consecutive_retries = 0
+            backoff = _STREAM_RETRY_INITIAL_BACKOFF_S
             while True:
                 try:
                     async for response in stream:
+                        # Reset retry budget after every successful message
+                        consecutive_retries = 0
+                        backoff = _STREAM_RETRY_INITIAL_BACKOFF_S
                         yield response
                     return
                 except grpc.aio.AioRpcError as e:
-                    if e.code() not in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.UNKNOWN):
-                        raise
-                    logger.info("Stream received %s, refreshing credentials and reconnecting", e.code())
-                    self._authenticator.refresh_credentials()
-                    stream = await _open_stream()
+                    if e.code() in (grpc.StatusCode.UNAUTHENTICATED, grpc.StatusCode.UNKNOWN):
+                        logger.info("Stream received %s, refreshing credentials and reconnecting", e.code())
+                        self._authenticator.refresh_credentials()
+                        stream = await _open_stream()
+                        continue
+
+                    if _is_transient_stream_error(e):
+                        consecutive_retries += 1
+                        if consecutive_retries > _STREAM_RETRY_MAX_ATTEMPTS:
+                            logger.error(
+                                "Stream failed after %d consecutive retries, giving up: %s",
+                                _STREAM_RETRY_MAX_ATTEMPTS,
+                                e,
+                            )
+                            raise
+                        logger.info(
+                            "Stream received transient error (%s: %s), reconnecting in %.1fs (attempt %d/%d)",
+                            e.code(),
+                            e.details(),
+                            backoff,
+                            consecutive_retries,
+                            _STREAM_RETRY_MAX_ATTEMPTS,
+                        )
+                        await asyncio.sleep(backoff)
+                        backoff = min(backoff * _STREAM_RETRY_BACKOFF_MULTIPLIER, _STREAM_RETRY_MAX_BACKOFF_S)
+                        stream = await _open_stream()
+                        continue
+
+                    raise
 
         return _auth_retry_iterator()
 

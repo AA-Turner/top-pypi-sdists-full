@@ -31,6 +31,7 @@ class ConnectorsApiMock:
         self.mock_get_connector_queue = MagicMock()
         self.mock_get_connector_queues = MagicMock()
         self.mock_get_connector_usage_metrics = MagicMock()
+        self.mock_get_connectors_simple_status = MagicMock()
         self.mock_get_encrypted_data = MagicMock()
         self.mock_get_instance = MagicMock()
         self.mock_get_ipsec_connector = MagicMock()
@@ -226,6 +227,12 @@ class ConnectorsApiMock:
         This method mocks the original api ConnectorsApi.get_connector_usage_metrics with MagicMock.
         """
         return self.mock_get_connector_usage_metrics(self, *args, **kwargs)
+
+    def get_connectors_simple_status(self, *args, **kwargs):
+        """
+        This method mocks the original api ConnectorsApi.get_connectors_simple_status with MagicMock.
+        """
+        return self.mock_get_connectors_simple_status(self, *args, **kwargs)
 
     def get_encrypted_data(self, *args, **kwargs):
         """

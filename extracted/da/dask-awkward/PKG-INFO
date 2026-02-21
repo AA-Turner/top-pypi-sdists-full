@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dask-awkward
-Version: 2025.9.0
+Version: 2026.2.0
 Summary: Awkward Array meets Dask
 Project-URL: Homepage, https://github.com/dask-contrib/dask-awkward
 Project-URL: Bug Tracker, https://github.com/dask-contrib/dask-awkward/issues
@@ -15,20 +15,20 @@ Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Information Analysis
 Classifier: Topic :: Scientific/Engineering :: Mathematics
 Classifier: Topic :: Scientific/Engineering :: Physics
 Classifier: Topic :: Software Development
 Requires-Python: >=3.9
-Requires-Dist: awkward>=2.5.1
+Requires-Dist: awkward>=2.8.12
 Requires-Dist: cachetools
-Requires-Dist: dask<2025.4.0,>=2023.04.0
+Requires-Dist: dask<2025.4.0,>=2023.4.0
 Requires-Dist: typing-extensions>=4.8.0
 Provides-Extra: complete
 Requires-Dist: pyarrow; extra == 'complete'
@@ -43,7 +43,7 @@ Provides-Extra: test
 Requires-Dist: aiohttp; (python_version < '3.12') and extra == 'test'
 Requires-Dist: dask-histogram; extra == 'test'
 Requires-Dist: dask[dataframe]; extra == 'test'
-Requires-Dist: distributed; extra == 'test'
+Requires-Dist: distributed<2025.4.0,>=2025.3.1; extra == 'test'
 Requires-Dist: hist; extra == 'test'
 Requires-Dist: pandas; extra == 'test'
 Requires-Dist: pyarrow; extra == 'test'

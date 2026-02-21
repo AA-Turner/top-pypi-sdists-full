@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "arthur-client"
-version = "1.4.1823"
+version = "1.4.1830"
 description = "Arthur Python API Client Library"
 readme = "README.md"
 urls = { "Arthur Homepage" = "https://arthur.ai", "Documentation" = "https://docs.arthur.ai" }
@@ -35,7 +35,7 @@ requests = ">=2,<3"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.0"
-responses = "^0.25.7"
+responses = "^0.26.0"
 
 
 [tool.pytest.ini_options]

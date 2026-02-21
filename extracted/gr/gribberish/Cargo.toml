@@ -1,7 +1,7 @@
 [workspace]
 resolver = "2"
 
-members = ["gribberish", "python"]
+members = ["macros", "types", "gribberish", "python"]
 
 [profile.release]
 debug = true

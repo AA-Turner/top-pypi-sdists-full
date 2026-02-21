@@ -84,10 +84,13 @@ fn path_to_module_path(file_path: &Path, root_path: &Path) -> Vec<String> {
             let name_str = name.to_string_lossy();
 
             // Strip .py extension from the last component
-            if name_str.ends_with(".py") && Some(component) == last_component {
-                let without_ext = name_str.strip_suffix(".py").unwrap();
-                if without_ext != "__init__" {
-                    parts.push(without_ext.to_string());
+            if Some(component) == last_component {
+                if let Some(without_ext) = name_str.strip_suffix(".py") {
+                    if without_ext != "__init__" {
+                        parts.push(without_ext.to_string());
+                    }
+                } else {
+                    parts.push(name_str.to_string());
                 }
             } else {
                 parts.push(name_str.to_string());
@@ -430,6 +433,71 @@ class TestChild(TestParent):
                 child_tests[0].cases_expansion
             );
         }
+    }
+
+    #[test]
+    fn test_stdlib_inheritance_graceful() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let test_path = temp_dir.path().join("test_enum.py");
+
+        let source = r#"
+from enum import Enum
+
+class TestStatus(Enum):
+    A = 1
+
+class TestReal:
+    def test_works(self):
+        pass
+"#;
+        fs::write(&test_path, source).unwrap();
+
+        let config = TestDiscoveryConfig::default();
+        let (tests, _warnings) =
+            discover_tests_with_inheritance(&test_path, source, &config, temp_dir.path()).unwrap();
+
+        // TestStatus(Enum) should be skipped gracefully, TestReal::test_works collected
+        let test_names: Vec<&str> = tests.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            test_names.contains(&"test_works"),
+            "Expected test_works, got: {:?}",
+            test_names
+        );
+        assert_eq!(tests.len(), 1, "Expected only 1 test, got: {:?}", tests);
+    }
+
+    #[test]
+    fn test_external_package_inheritance_graceful() {
+        use std::fs;
+        use tempfile::TempDir;
+
+        let temp_dir = TempDir::new().unwrap();
+        let test_path = temp_dir.path().join("test_external.py");
+
+        let source = r#"
+from nonexistent_package import SomeBase
+
+class TestDerived(SomeBase):
+    def test_method(self):
+        pass
+"#;
+        fs::write(&test_path, source).unwrap();
+
+        let config = TestDiscoveryConfig::default();
+        let (tests, _warnings) =
+            discover_tests_with_inheritance(&test_path, source, &config, temp_dir.path()).unwrap();
+
+        // Should not crash; TestDerived::test_method should still be collected
+        let test_names: Vec<&str> = tests.iter().map(|t| t.name.as_str()).collect();
+        assert!(
+            test_names.contains(&"test_method"),
+            "Expected test_method, got: {:?}",
+            test_names
+        );
+        assert_eq!(tests.len(), 1, "Expected 1 test, got: {:?}", tests);
     }
 
     #[test]

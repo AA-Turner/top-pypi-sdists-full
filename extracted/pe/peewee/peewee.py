@@ -39,6 +39,7 @@ except ImportError:
 else:
     if pysq3 and pysq3.sqlite_version_info >= sqlite3.sqlite_version_info:
         sqlite3 = pysq3
+
 try:
     from psycopg2cffi import compat
     compat.register()
@@ -46,22 +47,21 @@ except ImportError:
     pass
 try:
     import psycopg2
+    from psycopg2 import errors as pg_errors
     from psycopg2 import extensions as pg_extensions
-    try:
-        from psycopg2 import errors as pg_errors
-    except ImportError:
-        pg_errors = None
-except ImportError:
-    psycopg2 = pg_errors = None
-try:
     from psycopg2.extras import register_uuid as pg_register_uuid
+    from psycopg2.extras import Json as Json_pg2
     pg_register_uuid()
-except Exception:
-    pass
-try:
-    from psycopg import errors as pg3_errors
 except ImportError:
-    pg3_errors = None
+    psycopg2 = pg_errors = Json_pg2 = None
+try:
+    import psycopg
+    from psycopg import errors as pg3_errors
+    from psycopg.pq import TransactionStatus
+    from psycopg.types.json import Json as Json_pg3
+    from psycopg.types.json import Jsonb as Jsonb_pg3
+except ImportError:
+    psycopg = pg3_errors = Json_pg3 = Jsonb_pg3 = None
 
 mysql_passwd = False
 try:
@@ -74,7 +74,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '3.19.0'
+__version__ = '4.0.0'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -276,6 +276,9 @@ def _sqlite_date_trunc(lookup_type, datetime_string):
     dt = format_date_time(datetime_string, __sqlite_datetime_formats__)
     return dt.strftime(__sqlite_date_trunc__[lookup_type])
 
+def _sqlite_regexp(regex, value):
+    return re.search(regex, value) is not None
+
 
 def __deprecated__(s):
     warnings.warn(s, DeprecationWarning)
@@ -334,6 +337,7 @@ DJANGO_MAP = attrdict({
     'ne': operator.ne,
     'in': operator.lshift,
     'is': lambda l, r: Expression(l, OP.IS, r),
+    'is_not': lambda l, r: Expression(l, OP.IS_NOT, r),
     'like': lambda l, r: Expression(l, OP.LIKE, r),
     'ilike': lambda l, r: Expression(l, OP.ILIKE, r),
     'regexp': lambda l, r: Expression(l, OP.REGEXP, r),
@@ -1485,8 +1489,8 @@ class ValueLiterals(WrappedNode):
             return ctx.sql(self.node)
 
 
-def AsIs(value):
-    return Value(value, unpack=False)
+def AsIs(value, converter=None):
+    return Value(value, converter, unpack=False)
 
 
 class Cast(WrappedNode):
@@ -2937,7 +2941,7 @@ class Delete(_WriteQuery):
 
 class Index(Node):
     def __init__(self, name, table, expressions, unique=False, safe=False,
-                 where=None, using=None):
+                 where=None, using=None, nulls_distinct=None):
         self._name = name
         self._table = Entity(table) if not isinstance(table, Table) else table
         self._expressions = expressions
@@ -2945,6 +2949,9 @@ class Index(Node):
         self._unique = unique
         self._safe = safe
         self._using = using
+        self._nulls_distinct = nulls_distinct
+        if self._nulls_distinct is not None and not self._unique:
+            raise ValueError('NULLS DISTINCT is only available with UNIQUE.')
 
     @Node.copy
     def safe(self, _safe=True):
@@ -2959,6 +2966,12 @@ class Index(Node):
     @Node.copy
     def using(self, _using=None):
         self._using = _using
+
+    @Node.copy
+    def nulls_distinct(self, nulls_distinct=None):
+        if nulls_distinct is not None and not self._unique:
+            raise ValueError('NULLS DISTINCT is only available with UNIQUE.')
+        self._nulls_distinct = nulls_distinct
 
     def __sql__(self, ctx):
         statement = 'CREATE UNIQUE INDEX ' if self._unique else 'CREATE INDEX '
@@ -2997,12 +3010,16 @@ class Index(Node):
             if self._where is not None:
                 ctx.literal(' WHERE ').sql(self._where)
 
+            if self._nulls_distinct is not None:
+                ctx.literal(' NULLS DISTINCT' if self._nulls_distinct else
+                            ' NULLS NOT DISTINCT')
+
         return ctx
 
 
 class ModelIndex(Index):
     def __init__(self, model, fields, unique=False, safe=True, where=None,
-                 using=None, name=None):
+                 using=None, name=None, nulls_distinct=None):
         self._model = model
         if name is None:
             name = self._generate_name_from_fields(model, fields)
@@ -3017,7 +3034,8 @@ class ModelIndex(Index):
             unique=unique,
             safe=safe,
             where=where,
-            using=using)
+            using=using,
+            nulls_distinct=nulls_distinct)
 
     def _generate_name_from_fields(self, model, fields):
         accum = []
@@ -3303,9 +3321,7 @@ class Database(_callable_context_manager):
             self.connect()
         return self._state.conn
 
-    def cursor(self, commit=None, named_cursor=None):
-        if commit is not None:
-            __deprecated__('"commit" has been deprecated and is a no-op.')
+    def cursor(self, named_cursor=None):
         if self.is_closed():
             if self.autoconnect:
                 self.connect()
@@ -3313,18 +3329,14 @@ class Database(_callable_context_manager):
                 raise InterfaceError('Error, database connection not opened.')
         return self._state.conn.cursor()
 
-    def execute_sql(self, sql, params=None, commit=None):
-        if commit is not None:
-            __deprecated__('"commit" has been deprecated and is a no-op.')
+    def execute_sql(self, sql, params=None):
         logger.debug((sql, params))
         with __exception_wrapper__:
             cursor = self.cursor()
             cursor.execute(sql, params or ())
         return cursor
 
-    def execute(self, query, commit=None, **context_options):
-        if commit is not None:
-            __deprecated__('"commit" has been deprecated and is a no-op.')
+    def execute(self, query, **context_options):
         ctx = self.get_sql_context(**context_options)
         sql, params = ctx.sql(query).query()
         return self.execute_sql(sql, params)
@@ -3568,19 +3580,20 @@ class SqliteDatabase(Database):
     server_version = __sqlite_version__
     truncate_table = False
 
-    def __init__(self, database, *args, **kwargs):
+    def __init__(self, database, regexp_function=False, *args, **kwargs):
         self._pragmas = kwargs.pop('pragmas', ())
         super(SqliteDatabase, self).__init__(database, *args, **kwargs)
         self._aggregates = {}
         self._collations = {}
         self._functions = {}
         self._window_functions = {}
-        self._table_functions = []
         self._extensions = set()
         self._attached = {}
+        self.nulls_ordering = self.server_version >= (3, 30, 0)
         self.register_function(_sqlite_date_part, 'date_part', 2)
         self.register_function(_sqlite_date_trunc, 'date_trunc', 2)
-        self.nulls_ordering = self.server_version >= (3, 30, 0)
+        if regexp_function:
+            self.register_function(_sqlite_regexp, 'regexp', 2)
 
     def init(self, database, pragmas=None, timeout=5, returning_clause=None,
              **kwargs):
@@ -3620,9 +3633,6 @@ class SqliteDatabase(Database):
         self._load_functions(conn)
         if self.server_version >= (3, 25, 0):
             self._load_window_functions(conn)
-        if self._table_functions:
-            for table_function in self._table_functions:
-                table_function.register(conn)
         if self._extensions:
             self._load_extensions(conn)
 
@@ -3750,19 +3760,6 @@ class SqliteDatabase(Database):
             return klass
         return decorator
 
-    def register_table_function(self, klass, name=None):
-        if name is not None:
-            klass.name = name
-        self._table_functions.append(klass)
-        if not self.is_closed():
-            klass.register(self.connection())
-
-    def table_function(self, name=None):
-        def decorator(klass):
-            self.register_table_function(klass, name)
-            return klass
-        return decorator
-
     def unregister_aggregate(self, name):
         del(self._aggregates[name])
 
@@ -3774,15 +3771,6 @@ class SqliteDatabase(Database):
 
     def unregister_window_function(self, name):
         del(self._window_functions[name])
-
-    def unregister_table_function(self, name):
-        for idx, klass in enumerate(self._table_functions):
-            if klass.name == name:
-                break
-        else:
-            return False
-        self._table_functions.pop(idx)
-        return True
 
     def _load_extensions(self, conn):
         conn.enable_load_extension(True)
@@ -3841,11 +3829,11 @@ class SqliteDatabase(Database):
 
     def commit(self):
         with __exception_wrapper__:
-            return self._state.conn.commit()
+            return self.execute_sql('COMMIT')
 
     def rollback(self):
         with __exception_wrapper__:
-            return self._state.conn.rollback()
+            return self.execute_sql('ROLLBACK')
 
     def get_tables(self, schema=None):
         schema = schema or 'main'
@@ -3958,6 +3946,116 @@ class SqliteDatabase(Database):
         return fn.datetime(date_field, 'unixepoch')
 
 
+class Psycopg2Adapter(object):
+    def __init__(self):
+        self.json_type = Json_pg2
+        self.jsonb_type = Json_pg2
+        self.cast_json_case = True
+
+    def check_driver(self):
+        if psycopg2 is None:
+            raise ImproperlyConfigured('psycopg2 postgres driver not found.')
+
+    def get_binary_type(self):
+        return psycopg2.Binary
+
+    def connect(self, db, **params):
+        if db.database.startswith('postgresql://'):
+            params.setdefault('dsn', db.database)
+        else:
+            params.setdefault('dbname', db.database)
+
+        conn = psycopg2.connect(**params)
+        if db._register_unicode:
+            pg_extensions.register_type(pg_extensions.UNICODE, conn)
+            pg_extensions.register_type(pg_extensions.UNICODEARRAY, conn)
+        if db._encoding:
+            conn.set_client_encoding(db._encoding)
+        return conn
+
+    def get_server_version(self, conn):
+        return conn.server_version
+
+    def is_connection_usable(self, conn):
+        txn_status = conn.get_transaction_status()
+        return txn_status < pg_extensions.TRANSACTION_STATUS_INERROR
+
+    def is_connection_reusable(self, conn):
+        txn_status = conn.get_transaction_status()
+        # Do not return connection in an error state, as subsequent queries
+        # will all fail. If the status is unknown then we lost the connection
+        # to the server and the connection should not be re-used.
+        if txn_status == pg_extensions.TRANSACTION_STATUS_UNKNOWN:
+            return False
+        elif txn_status == pg_extensions.TRANSACTION_STATUS_INERROR:
+            conn.reset()
+        elif txn_status != pg_extensions.TRANSACTION_STATUS_IDLE:
+            conn.rollback()
+        return True
+
+    def is_connection_closed(self, conn):
+        txn_status = conn.get_transaction_status()
+        if txn_status == pg_extensions.TRANSACTION_STATUS_UNKNOWN:
+            return True
+        elif txn_status != pg_extensions.TRANSACTION_STATUS_IDLE:
+            conn.rollback()
+        return False
+
+    def extract_date(self, date_part, date_field):
+        return fn.EXTRACT(NodeList((date_part, SQL('FROM'), date_field)))
+
+
+class Psycopg3Adapter(object):
+    def __init__(self):
+        self.json_type = Json_pg3
+        self.jsonb_type = Jsonb_pg3
+        self.cast_json_case = False
+
+    def check_driver(self):
+        if psycopg is None:
+            raise ImproperlyConfigured('psycopg postgres driver not found.')
+
+    def get_binary_type(self):
+        return psycopg.Binary
+
+    def connect(self, db, **params):
+        if db.database.startswith('postgresql://'):
+            params.setdefault('conninfo', db.database)
+        else:
+            params.setdefault('dbname', db.database)
+        return psycopg.connect(**params)
+
+    def get_server_version(self, conn):
+        return conn.pgconn.server_version
+
+    def is_connection_usable(self, conn):
+        return conn.pgconn.transaction_status < TransactionStatus.INERROR
+
+    def is_connection_reusable(self, conn):
+        txn_status = conn.pgconn.transaction_status
+        # Do not return connection in an error state, as subsequent queries
+        # will all fail. If the status is unknown then we lost the connection
+        # to the server and the connection should not be re-used.
+        if txn_status == TransactionStatus.UNKNOWN:
+            return False
+        elif txn_status == TransactionStatus.INERROR:
+            conn.reset()
+        elif txn_status != TransactionStatus.IDLE:
+            conn.rollback()
+        return True
+
+    def is_connection_closed(self, conn):
+        txn_status = conn.pgconn.transaction_status
+        if txn_status == TransactionStatus.UNKNOWN:
+            return True
+        elif txn_status != TransactionStatus.IDLE:
+            conn.rollback()
+        return False
+
+    def extract_date(self, date_part, date_field):
+        return fn.EXTRACT(NodeList((SQL(date_part), SQL('FROM'), date_field)))
+
+
 class PostgresqlDatabase(Database):
     field_types = {
         'AUTO': 'SERIAL',
@@ -3979,38 +4077,38 @@ class PostgresqlDatabase(Database):
     safe_create_index = False
     sequences = True
 
+    psycopg2_adapter = Psycopg2Adapter
+    psycopg3_adapter = Psycopg3Adapter
+
     def init(self, database, register_unicode=True, encoding=None,
              isolation_level=None, **kwargs):
         self._register_unicode = register_unicode
         self._encoding = encoding
         self._isolation_level = isolation_level
+
+        prefer_psycopg3 = kwargs.pop('prefer_psycopg3', False)
+        if psycopg is not None and prefer_psycopg3:
+            self._adapter = self.psycopg3_adapter()
+        else:
+            self._adapter = self.psycopg2_adapter()
+
         super(PostgresqlDatabase, self).init(database, **kwargs)
 
     def _connect(self):
-        if psycopg2 is None:
-            raise ImproperlyConfigured('Postgres driver not installed!')
+        self._adapter.check_driver()
 
-        # Handle connection-strings nicely, since psycopg2 will accept them,
+        # Handle connection-strings nicely, since psycopg will accept them,
         # and they may be easier when lots of parameters are specified.
-        params = self.connect_params.copy()
-        if self.database.startswith('postgresql://'):
-            params.setdefault('dsn', self.database)
-        else:
-            params.setdefault('dbname', self.database)
+        conn = self._adapter.connect(self, **self.connect_params)
 
-        conn = psycopg2.connect(**params)
-        if self._register_unicode:
-            pg_extensions.register_type(pg_extensions.UNICODE, conn)
-            pg_extensions.register_type(pg_extensions.UNICODEARRAY, conn)
-        if self._encoding:
-            conn.set_client_encoding(self._encoding)
         if self._isolation_level:
             conn.set_isolation_level(self._isolation_level)
+
         conn.autocommit = True
         return conn
 
     def _set_server_version(self, conn):
-        self.server_version = conn.server_version
+        self.server_version = self._adapter.get_server_version(conn)
         if self.server_version >= 90600:
             self.safe_create_index = True
 
@@ -4021,8 +4119,7 @@ class PostgresqlDatabase(Database):
         # Returns True if we are idle, running a command, or in an active
         # connection. If the connection is in an error state or the connection
         # is otherwise unusable, return False.
-        txn_status = self._state.conn.get_transaction_status()
-        return txn_status < pg_extensions.TRANSACTION_STATUS_INERROR
+        return self._adapter.is_connection_usable(self._state.conn)
 
     def last_insert_id(self, cursor, query_type=None):
         try:
@@ -4136,7 +4233,7 @@ class PostgresqlDatabase(Database):
         return bool(res.fetchone()[0])
 
     def get_binary_type(self):
-        return psycopg2.Binary
+        return self._adapter.get_binary_type()
 
     def conflict_statement(self, on_conflict, query):
         return
@@ -4167,7 +4264,7 @@ class PostgresqlDatabase(Database):
         return self._build_on_conflict_update(oc, query)
 
     def extract_date(self, date_part, date_field):
-        return fn.EXTRACT(NodeList((date_part, SQL('FROM'), date_field)))
+        return self._adapter.extract_date(date_part, date_field)
 
     def truncate_date(self, date_part, date_field):
         return fn.DATE_TRUNC(date_part, date_field)
@@ -4848,7 +4945,7 @@ class Field(ColumnBase):
     def python_value(self, value):
         return value if value is None else self.adapt(value)
 
-    def to_value(self, value):
+    def to_value(self, value, case=False):
         return Value(value, self.db_value, unpack=False)
 
     def get_sort_key(self, ctx):
@@ -5030,7 +5127,28 @@ class TextField(_StringField):
     field_type = 'TEXT'
 
 
-class BlobField(Field):
+class FieldDatabaseHook(object):
+    def _db_hook(self, database):
+        raise NotImplementedError('Subclasses must implement')
+
+    def bind(self, model, name, set_attribute=True):
+        if model._meta.database is not None:
+            if isinstance(model._meta.database, Proxy):
+                model._meta.database.attach_callback(self._db_hook)
+                self._db_hook(None)
+            else:
+                self._db_hook(model._meta.database)
+        else:
+            self._db_hook(None)
+
+        # Attach a hook to the model metadata; in the event the database is
+        # changed or set at run-time, we will be sure to apply our callback and
+        # use the proper data-type for our database driver.
+        model._meta._db_hooks.append(self._db_hook)
+        return super(FieldDatabaseHook, self).bind(model, name, set_attribute)
+
+
+class BlobField(FieldDatabaseHook, Field):
     field_type = 'BLOB'
 
     def _db_hook(self, database):
@@ -5038,20 +5156,6 @@ class BlobField(Field):
             self._constructor = bytearray
         else:
             self._constructor = database.get_binary_type()
-
-    def bind(self, model, name, set_attribute=True):
-        self._constructor = bytearray
-        if model._meta.database:
-            if isinstance(model._meta.database, Proxy):
-                model._meta.database.attach_callback(self._db_hook)
-            else:
-                self._db_hook(model._meta.database)
-
-        # Attach a hook to the model metadata; in the event the database is
-        # changed or set at run-time, we will be sure to apply our callback and
-        # use the proper data-type for our database driver.
-        model._meta._db_hooks.append(self._db_hook)
-        return super(BlobField, self).bind(model, name, set_attribute)
 
     def db_value(self, value):
         if isinstance(value, text_type):
@@ -5314,6 +5418,8 @@ class DateTimeField(_BaseFormattedField):
     formats = [
         '%Y-%m-%d %H:%M:%S.%f',
         '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S.%f%z',
+        '%Y-%m-%d %H:%M:%S%z',
         '%Y-%m-%d',
     ]
 
@@ -6812,7 +6918,7 @@ class Model(with_metaclass(ModelBase, Node)):
                 for model in batch:
                     value = getattr(model, attr)
                     if not isinstance(value, Node):
-                        value = field.to_value(value)
+                        value = field.to_value(value, case=True)
                     accum.append((pk.to_value(model._pk), value))
                 case = Case(pk, accum)
                 update[field] = case
@@ -6973,6 +7079,11 @@ class Model(with_metaclass(ModelBase, Node)):
     @property
     def dirty_fields(self):
         return [f for f in self._meta.sorted_fields if f.name in self._dirty]
+
+    @property
+    def dirty_field_names(self):
+        return [f.name for f in self._meta.sorted_fields
+                if f.name in self._dirty]
 
     def dependencies(self, search_nullable=True, exclude_null_children=False):
         model_class = type(self)

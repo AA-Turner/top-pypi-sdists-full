@@ -1,4 +1,4 @@
-"""Signal metrics for RepScan Step 1: Signal Test."""
+"""Signal metrics for Zwiad Step 1: Signal Test."""
 
 from typing import Dict, List
 import torch

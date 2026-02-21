@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: robotframework-robocop
-Version: 8.0.0
+Version: 8.1.1
 Summary: Static code analysis tool (linter) and code formatter for Robot Framework
 Project-URL: Bug tracker, https://github.com/MarketSquare/robotframework-robocop/issues
 Project-URL: Source code, https://github.com/MarketSquare/robotframework-robocop
@@ -35,7 +35,7 @@ Requires-Dist: rich>=10.11.0
 Requires-Dist: robotframework<7.5,>=5.0
 Requires-Dist: tomli-w>=1.0
 Requires-Dist: tomli==2.2.1; python_version < '3.11'
-Requires-Dist: typer-slim>=0.12.5
+Requires-Dist: typer>=0.12.5
 Requires-Dist: typing-extensions>=4.15.0
 Provides-Extra: mcp
 Requires-Dist: fastmcp>=2.13.0; extra == 'mcp'

@@ -504,8 +504,8 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[DiscoverPollEndpointRequestTypeDef]
     ) -> DiscoverPollEndpointResponseTypeDef:
         """
-        This action is only used by the Amazon ECS agent, and it is not intended for
-        use outside of the agent.
+        <note> <p>This action is only used by the Amazon ECS agent, and it is not
+        intended for use outside of the agent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/discover_poll_endpoint.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#discover_poll_endpoint)
@@ -688,8 +688,8 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[RegisterContainerInstanceRequestTypeDef]
     ) -> RegisterContainerInstanceResponseTypeDef:
         """
-        This action is only used by the Amazon ECS agent, and it is not intended for
-        use outside of the agent.
+        <note> <p>This action is only used by the Amazon ECS agent, and it is not
+        intended for use outside of the agent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/register_container_instance.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#register_container_instance)
@@ -745,8 +745,8 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[SubmitAttachmentStateChangesRequestTypeDef]
     ) -> SubmitAttachmentStateChangesResponseTypeDef:
         """
-        This action is only used by the Amazon ECS agent, and it is not intended for
-        use outside of the agent.
+        <note> <p>This action is only used by the Amazon ECS agent, and it is not
+        intended for use outside of the agent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/submit_attachment_state_changes.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#submit_attachment_state_changes)
@@ -756,8 +756,8 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[SubmitContainerStateChangeRequestTypeDef]
     ) -> SubmitContainerStateChangeResponseTypeDef:
         """
-        This action is only used by the Amazon ECS agent, and it is not intended for
-        use outside of the agent.
+        <note> <p>This action is only used by the Amazon ECS agent, and it is not
+        intended for use outside of the agent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/submit_container_state_change.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#submit_container_state_change)
@@ -767,8 +767,8 @@ class ECSClient(BaseClient):
         self, **kwargs: Unpack[SubmitTaskStateChangeRequestTypeDef]
     ) -> SubmitTaskStateChangeResponseTypeDef:
         """
-        This action is only used by the Amazon ECS agent, and it is not intended for
-        use outside of the agent.
+        <note> <p>This action is only used by the Amazon ECS agent, and it is not
+        intended for use outside of the agent.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/client/submit_task_state_change.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/client/#submit_task_state_change)

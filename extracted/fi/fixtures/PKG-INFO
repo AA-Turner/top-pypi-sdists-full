@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fixtures
-Version: 4.2.8
+Version: 4.3.0
 Summary: Fixtures, reusable state for writing clean tests and more.
 Project-URL: Homepage, https://github.com/testing-cabal/fixtures
 Project-URL: Bug Tracker, https://github.com/testing-cabal/fixtures/issues
@@ -25,6 +25,7 @@ Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Provides-Extra: docs
 Requires-Dist: docutils; extra == 'docs'

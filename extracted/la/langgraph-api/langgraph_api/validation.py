@@ -1,9 +1,13 @@
 import copy
 import pathlib
 import re
+import typing
 
 import jsonschema_rs
 import orjson
+import structlog
+
+logger = structlog.getLogger(__name__)
 
 with open(pathlib.Path(__file__).parent.parent / "openapi.json") as f:
     openapi_str = f.read()
@@ -60,9 +64,7 @@ def _apply_validator_only_security_guards(spec: dict) -> None:
     if isinstance(config_schema, dict):
         _set_property_names_pattern(config_schema, NO_NULL_OR_ESCAPED_PATTERN)
         if configurable := _get_object_property(config_schema, "configurable"):
-            _set_property_names_pattern(
-                configurable, RESERVED_OR_NULL_OR_ESCAPED_PATTERN
-            )
+            _set_property_names_pattern(configurable, NO_NULL_OR_ESCAPED_PATTERN)
 
     for schema_name in WRITE_SCHEMAS_WITH_CONFIG_OR_CONTEXT:
         schema = schemas.get(schema_name)
@@ -73,12 +75,58 @@ def _apply_validator_only_security_guards(spec: dict) -> None:
         if config:
             _set_property_names_pattern(config, NO_NULL_OR_ESCAPED_PATTERN)
             if configurable := _get_object_property(config, "configurable"):
-                _set_property_names_pattern(
-                    configurable, RESERVED_OR_NULL_OR_ESCAPED_PATTERN
-                )
+                _set_property_names_pattern(configurable, NO_NULL_OR_ESCAPED_PATTERN)
 
         if context := _get_object_property(schema, "context"):
-            _set_property_names_pattern(context, RESERVED_OR_NULL_OR_ESCAPED_PATTERN)
+            _set_property_names_pattern(context, NO_NULL_OR_ESCAPED_PATTERN)
+
+
+_RESERVED_KEYS_SET = frozenset(RESERVED_CONFIGURABLE_KEYS)
+
+
+def _strip_reserved(d: dict, location: str) -> None:
+    """Remove reserved keys from *d* in-place and log a warning."""
+    found = [k for k in d if k in _RESERVED_KEYS_SET]
+    if found:
+        for k in found:
+            del d[k]
+        logger.warning(
+            "Stripped reserved keys from request",
+            location=location,
+            keys=found,
+        )
+
+
+def sanitize_reserved_keys(data: typing.Any) -> None:
+    """Strip server-reserved configurable/context keys from parsed request data.
+
+    Instead of rejecting the request with a 422, silently remove the keys and
+    log a warning so callers are not broken by accidental inclusion of
+    internal keys like ``__after_seconds__``.
+    """
+    if isinstance(data, list):
+        for item in data:
+            sanitize_reserved_keys(item)
+        return
+    if not isinstance(data, dict):
+        return
+
+    # write schemas: config.configurable
+    config = data.get("config")
+    if isinstance(config, dict):
+        configurable = config.get("configurable")
+        if isinstance(configurable, dict):
+            _strip_reserved(configurable, "config.configurable")
+
+    # Config schema: top-level configurable
+    configurable = data.get("configurable")
+    if isinstance(configurable, dict):
+        _strip_reserved(configurable, "configurable")
+
+    # write schemas: context
+    context = data.get("context")
+    if isinstance(context, dict):
+        _strip_reserved(context, "context")
 
 
 _validation_openapi = copy.deepcopy(openapi)

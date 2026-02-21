@@ -1,5 +1,5 @@
 from AOT_biomaps.Config import config
-from AOT_biomaps.AOT_Experiment.Tomography import Tomography, hex_to_binary_profile
+from AOT_biomaps.AOT_Experiment.Tomography import Tomography
 from .ReconEnums import ReconType
 from .ReconTools import mse, ssim
 

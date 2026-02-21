@@ -1,12 +1,13 @@
 from __future__ import annotations
 
+import sys
 from textwrap import dedent
 from typing import TYPE_CHECKING
 
 import pytest
 
 from tox.config.loader.ini import IniLoader
-from tox.config.loader.ini.factor import filter_for_env, find_envs
+from tox.config.loader.ini.factor import LATEST_PYTHON_MINOR_MAX, LATEST_PYTHON_MINOR_MIN, filter_for_env, find_envs
 from tox.config.source.ini_section import IniSection
 
 if TYPE_CHECKING:
@@ -229,8 +230,31 @@ def test_factor_config_no_env_list_creates_env(tox_ini_conf: ToxIniCreator) -> N
         ),
         pytest.param("py3{13-11}", ["py313", "py312", "py311"], id="Expand negative ranges"),
         pytest.param("3.{10-13}", ["3.10", "3.11", "3.12", "3.13"], id="Expand new-style python envs"),
-        pytest.param("py3{-11}", ["py3-11"], id="Don't expand left-open numerical range"),
-        pytest.param("foo{11-}", ["foo11-"], id="Don't expand right-open numerical range"),
+        pytest.param(
+            "py3{9-}",
+            [f"py3{v}" for v in range(9, LATEST_PYTHON_MINOR_MAX + 1)],
+            id="Expand right-open range to LATEST_PYTHON_MINOR_MAX",
+        ),
+        pytest.param(
+            "3.{10-}",
+            [f"3.{v}" for v in range(10, LATEST_PYTHON_MINOR_MAX + 1)],
+            id="Expand right-open range new-style envs",
+        ),
+        pytest.param(
+            "py3{-13}",
+            [f"py3{v}" for v in range(LATEST_PYTHON_MINOR_MIN, 14)],
+            id="Expand left-open range from LATEST_PYTHON_MINOR_MIN",
+        ),
+        pytest.param(
+            "foo{11-}",
+            [f"foo{v}" for v in range(11, LATEST_PYTHON_MINOR_MAX + 1)],
+            id="Expand right-open numerical range",
+        ),
+        pytest.param(
+            "py3{-11}",
+            [f"py3{v}" for v in range(LATEST_PYTHON_MINOR_MIN, 12)],
+            id="Expand left-open numerical range",
+        ),
         pytest.param("foo{a-}", ["fooa-"], id="Don't expand right-open range"),
         pytest.param("foo{-a}", ["foo-a"], id="Don't expand left-open range"),
         pytest.param("foo{a-11}", ["fooa-11"], id="Don't expand alpha-umerical range"),
@@ -266,6 +290,90 @@ def test_ini_loader_raw_with_factors(
     loader = IniLoader(
         section=IniSection(None, "testenv"),
         parser=mk_ini_conf(f"[tox]\nenvlist=py35,py36\n[testenv]\ncommands={commands}"),
+        overrides=[],
+        core_section=IniSection(None, "tox"),
+    )
+    outcome = loader.load_raw(key="commands", conf=empty_config, env_name=env)
+    assert outcome == result
+
+
+@pytest.mark.parametrize(
+    ("env", "result"),
+    [
+        ("foo", "python -c \"print('foo')\"\npython -c \"print('bar')\""),
+        ("bar", "python -c \"print('bar')\""),
+    ],
+)
+def test_ini_loader_factor_multiline_command(
+    mk_ini_conf: Callable[[str], ConfigParser],
+    env: str,
+    result: str,
+    empty_config: Config,
+) -> None:
+    commands = "foo: python -c \"\\\n        print('foo')\"\n    python -c \"print('bar')\""
+    loader = IniLoader(
+        section=IniSection(None, "testenv"),
+        parser=mk_ini_conf(f"[tox]\nenvlist=foo,bar\n[testenv]\ncommands={commands}"),
+        overrides=[],
+        core_section=IniSection(None, "tox"),
+    )
+    outcome = loader.load_raw(key="commands", conf=empty_config, env_name=env)
+    assert outcome == result
+
+
+@pytest.mark.parametrize(
+    ("env", "result"),
+    [
+        ("py-cov", "coverage run somefile.py"),
+        ("py-no_cov", "python somefile.py"),
+    ],
+)
+def test_ini_loader_factor_conditional_continuation(
+    mk_ini_conf: Callable[[str], ConfigParser],
+    env: str,
+    result: str,
+    empty_config: Config,
+) -> None:
+    commands = "cov: coverage run \\\n    !cov: python \\\n        somefile.py"
+    loader = IniLoader(
+        section=IniSection(None, "testenv"),
+        parser=mk_ini_conf(f"[tox]\nenvlist=py-cov,py-no_cov\n[testenv]\ncommands={commands}"),
+        overrides=[],
+        core_section=IniSection(None, "tox"),
+    )
+    outcome = loader.load_raw(key="commands", conf=empty_config, env_name=env)
+    assert outcome == result
+
+
+@pytest.mark.parametrize(
+    ("env", "result"),
+    [
+        ("py312", "pytest --remote-data --durations=10"),
+        ("py312-coverage", "coverage run -m pytest --remote-data --durations=10"),
+    ],
+)
+def test_ini_loader_factor_mixed_continuation(
+    mk_ini_conf: Callable[[str], ConfigParser],
+    env: str,
+    result: str,
+    empty_config: Config,
+) -> None:
+    ini = dedent("""\
+        [tox]
+        envlist = py312,py312-coverage,py312-devdeps,py312-compatibility,py312-mocks3
+        [testenv]
+        commands =
+            coverage: coverage run -m \\
+            pytest \\
+            devdeps: -W some_warning
+            compatibility: integration_tests/ \\
+            mocks3: tests/ \\
+            --remote-data \\
+            --durations=10
+        """)
+    loader = IniLoader(
+        section=IniSection(None, "testenv"),
+        parser=mk_ini_conf(ini),
         overrides=[],
         core_section=IniSection(None, "tox"),
     )
@@ -347,3 +455,59 @@ def test_multiple_factor_match(tox_ini_conf: ToxIniCreator) -> None:
     env_config.add_config(keys="conf", of_type=str, default="", desc="conf")
     deps = env_config["conf"]
     assert deps == "x"
+
+
+def test_platform_factor_filter_for_env() -> None:
+    value = dedent(
+        """
+        linux: Linux command
+        darwin: Darwin command
+        win32: Windows command
+        default command
+        """,
+    )
+
+    result = filter_for_env(value, name="task")
+    assert "default command" in result
+    if sys.platform == "linux":
+        assert "Linux command" in result
+        assert "Darwin command" not in result
+        assert "Windows command" not in result
+    elif sys.platform == "darwin":
+        assert "Darwin command" in result
+        assert "Linux command" not in result
+        assert "Windows command" not in result
+    elif sys.platform == "win32":
+        assert "Windows command" in result
+        assert "Linux command" not in result
+        assert "Darwin command" not in result
+
+
+def test_platform_factor(tox_ini_conf: ToxIniCreator) -> None:
+    config = tox_ini_conf(
+        """
+        [testenv:task]
+        commands =
+            linux: python -c 'print("Linux")'
+            darwin: python -c 'print("Darwin")'
+            win32: python -c 'print("Windows")'
+            default command
+        """,
+    )
+    env_config = config.get_env("task")
+    env_config.add_config(keys="commands", of_type=list[str], default=[], desc="commands")
+    commands = env_config["commands"]
+
+    assert "default command" in str(commands)
+    if sys.platform == "linux":
+        assert 'print("Linux")' in str(commands)
+        assert 'print("Darwin")' not in str(commands)
+        assert 'print("Windows")' not in str(commands)
+    elif sys.platform == "darwin":
+        assert 'print("Darwin")' in str(commands)
+        assert 'print("Linux")' not in str(commands)
+        assert 'print("Windows")' not in str(commands)
+    elif sys.platform == "win32":
+        assert 'print("Windows")' in str(commands)
+        assert 'print("Linux")' not in str(commands)
+        assert 'print("Darwin")' not in str(commands)

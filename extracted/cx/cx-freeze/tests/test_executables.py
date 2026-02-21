@@ -232,7 +232,7 @@ def test_executables(
         file_created = tmp_package.executable(f"test_{i}")
         assert file_created.is_file(), f"file not found: {file_created}"
 
-        result = tmp_package.run(file_created, timeout=10)
+        result = tmp_package.run(file_created)
         result.stdout.fnmatch_lines("Hello from cx_Freeze*")
 
 
@@ -273,10 +273,11 @@ TEST_VALID_PARAMETERS += [
         id="base-absolutepath-console_test",
     ),
 ]
-# base=gui and base=service are available on Windows
+# base=gui* and base=service are available on Windows
 if IS_WINDOWS or IS_MINGW:
     TEST_VALID_PARAMETERS += [
         ("base", "gui", f"bases/gui-{SOABI}{EXE_SUFFIX}"),
+        ("base", "gui_dgpu", f"bases/gui_dgpu-{SOABI}{EXE_SUFFIX}"),
         ("base", "service", f"bases/service-{SOABI}{EXE_SUFFIX}"),
     ]
     # In Python < 3.13 legacy bases are available
@@ -299,6 +300,7 @@ if IS_WINDOWS or IS_MINGW:
 else:
     TEST_VALID_PARAMETERS += [
         ("base", "gui", f"bases/console-{SOABI}{EXE_SUFFIX}"),
+        ("base", "gui_dgpu", f"bases/console-{SOABI}{EXE_SUFFIX}"),
         ("base", "service", f"bases/console-{SOABI}{EXE_SUFFIX}"),
     ]
     # In Python < 3.13 legacy console is available
@@ -338,7 +340,10 @@ def test_valid(tmp_package, option, value, result) -> None:
     if expected_app_type is None:
         base = value or "console" if option == "base" else executable.base.stem
         expected_app_type = (
-            base.lower().removeprefix("win32").removesuffix(f"-{SOABI}")
+            base.lower()
+            .removeprefix("win32")
+            .removesuffix(f"-{SOABI}")
+            .removesuffix("_dgpu")
         )
     assert executable.app_type == expected_app_type
 
@@ -442,7 +447,7 @@ def test_valid_icon(tmp_package) -> None:
     file_created = tmp_package.executable("test_icon")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    result = tmp_package.run(file_created, timeout=10)
+    result = tmp_package.run(file_created)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
@@ -515,11 +520,11 @@ def test_executable_rename(tmp_package) -> None:
     file_created = tmp_package.executable("test_0")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    result = tmp_package.run(file_created, timeout=10)
+    result = tmp_package.run(file_created)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
     file_renamed = file_created.rename(file_created.parent / "test_zero")
-    result = tmp_package.run(file_renamed, timeout=10)
+    result = tmp_package.run(file_renamed)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
@@ -604,7 +609,7 @@ def test_executable_namespace(
     file_created = tmp_package.executable("test")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    result = tmp_package.run(file_created, timeout=10)
+    result = tmp_package.run(file_created)
     start = 0
     stop = hello
     expected = ["Hello from cx_Freeze*" for _i in range(start, stop)]
@@ -667,5 +672,5 @@ def test_valid_sys_path(tmp_package) -> None:
     file_created = tmp_package.executable("test_sys_path")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    result = tmp_package.run(file_created, timeout=10)
+    result = tmp_package.run(file_created)
     result.stdout.fnmatch_lines(["Hello from cx_Freeze", "numpy loaded!"])

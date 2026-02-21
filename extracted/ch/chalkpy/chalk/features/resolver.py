@@ -2854,6 +2854,8 @@ class StreamResolver(Resolver[P, T]):
         message_producer_parsed: StreamResolverMessageProducerParsed | None,
         skip_online: bool = False,
         skip_offline: bool = False,
+        include_message_envelope: bool = False,
+        message_header_filters: list[tuple[str, bytes]] | None = None,
     ):
         super().__init__(
             function_definition=function_definition,
@@ -2924,6 +2926,8 @@ class StreamResolver(Resolver[P, T]):
         self.message_producer_parsed: StreamResolverMessageProducerParsed | None = message_producer_parsed
         self.skip_online = skip_online
         self.skip_offline = skip_offline
+        self.include_message_envelope = include_message_envelope
+        self.message_header_filters = message_header_filters
 
     @property
     def output_features(self) -> Sequence[Feature]:
@@ -3839,6 +3843,8 @@ def make_stream_resolver(
     skip_online: bool = False,
     skip_offline: bool = False,
     update_aggregates: bool = True,
+    include_message_envelope: bool = False,
+    message_header_filters: list[tuple[str, bytes]] | None = None,
 ) -> StreamResolver:
     """Constructs a streaming resolver that, instead of a Python function,
     defines its output features as column projections on an input message.
@@ -4047,6 +4053,14 @@ def make_stream_resolver(
             additional_output_features, error_builder, "additional_output_features", message_type, name
         )
 
+    if message_header_filters and not source.supports_message_headers():
+        error_builder.add_diagnostic(
+            message=f"Stream resolver {name} has message-header-based filtering, but {type(source)} does not support message headers.",
+            code="195",
+            label="Invalid stream resolver config 'message_header_filters'",
+            range=error_builder.function_arg_range_by_name("message_header_filters"),
+        )
+
     resolver = StreamResolver(
         function_definition=caller_source,
         # No captured globals, the function "definition" is a bunch of static expressions
@@ -4081,6 +4095,8 @@ def make_stream_resolver(
         message_producer_parsed=message_producer_parsed,
         skip_online=skip_online,
         skip_offline=skip_offline,
+        include_message_envelope=include_message_envelope,
+        message_header_filters=message_header_filters,
     )
     resolver.add_to_registry(override=False)
     return resolver

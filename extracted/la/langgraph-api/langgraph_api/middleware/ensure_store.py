@@ -17,8 +17,11 @@ class EnsureStoreAccessible:
         if _CONFIG is None:
             _CONFIG = await _get_partial_conf()
 
-        var_child_runnable_config.set(_CONFIG)
-        await self.app(scope, receive, send)
+        token = var_child_runnable_config.set(_CONFIG)
+        try:
+            await self.app(scope, receive, send)
+        finally:
+            var_child_runnable_config.reset(token)
 
 
 async def _get_partial_conf() -> RunnableConfig:

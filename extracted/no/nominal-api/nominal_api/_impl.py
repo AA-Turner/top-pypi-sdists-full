@@ -19238,16 +19238,18 @@ class persistent_compute_api_SubscriptionOptions(ConjureBeanType):
             'min_delay': ConjureFieldDefinition('minDelay', persistent_compute_api_Milliseconds),
             'allow_appends': ConjureFieldDefinition('allowAppends', OptionalTypeWrapper[bool]),
             'result_configuration': ConjureFieldDefinition('resultConfiguration', OptionalTypeWrapper[persistent_compute_api_ResultConfiguration]),
-            'use_flink': ConjureFieldDefinition('useFlink', OptionalTypeWrapper[bool])
+            'use_flink': ConjureFieldDefinition('useFlink', OptionalTypeWrapper[bool]),
+            'allowed_lateness': ConjureFieldDefinition('allowedLateness', OptionalTypeWrapper[scout_run_api_Duration])
         }
 
-    __slots__: List[str] = ['_min_delay', '_allow_appends', '_result_configuration', '_use_flink']
+    __slots__: List[str] = ['_min_delay', '_allow_appends', '_result_configuration', '_use_flink', '_allowed_lateness']
 
-    def __init__(self, min_delay: int, allow_appends: Optional[bool] = None, result_configuration: Optional["persistent_compute_api_ResultConfiguration"] = None, use_flink: Optional[bool] = None) -> None:
+    def __init__(self, min_delay: int, allow_appends: Optional[bool] = None, allowed_lateness: Optional["scout_run_api_Duration"] = None, result_configuration: Optional["persistent_compute_api_ResultConfiguration"] = None, use_flink: Optional[bool] = None) -> None:
         self._min_delay = min_delay
         self._allow_appends = allow_appends
         self._result_configuration = result_configuration
         self._use_flink = use_flink
+        self._allowed_lateness = allowed_lateness
 
     @builtins.property
     def min_delay(self) -> int:
@@ -19280,6 +19282,15 @@ defined by `allowAppends`.
 Defaults to false if not specified.
         """
         return self._use_flink
+
+    @builtins.property
+    def allowed_lateness(self) -> Optional["scout_run_api_Duration"]:
+        """Configures the lateness threshold for the raw points.
+Results will be delayed by the duration specified by this setting.
+Note this configuration is only available if we are using Flink.
+Defaults to 1 second.
+        """
+        return self._allowed_lateness
 
 
 persistent_compute_api_SubscriptionOptions.__name__ = "SubscriptionOptions"
@@ -98652,13 +98663,19 @@ The variable name is the map key.
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
+            'name': ConjureFieldDefinition('name', scout_workbookcommon_api_WorkbookDataScopeInputName),
             'value': ConjureFieldDefinition('value', scout_workbookcommon_api_DataScopeInputValue)
         }
 
-    __slots__: List[str] = ['_value']
+    __slots__: List[str] = ['_name', '_value']
 
-    def __init__(self, value: "scout_workbookcommon_api_DataScopeInputValue") -> None:
+    def __init__(self, name: str, value: "scout_workbookcommon_api_DataScopeInputValue") -> None:
+        self._name = name
         self._value = value
+
+    @builtins.property
+    def name(self) -> str:
+        return self._name
 
     @builtins.property
     def value(self) -> "scout_workbookcommon_api_DataScopeInputValue":
@@ -98733,7 +98750,7 @@ class scout_workbookcommon_api_WorkbookDataScopeInputsV1(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'inputs': ConjureFieldDefinition('inputs', Dict[scout_workbookcommon_api_WorkbookDataScopeInputName, scout_workbookcommon_api_WorkbookDataScopeInput])
+            'inputs': ConjureFieldDefinition('inputs', Dict[scout_workbookcommon_api_WorkbookDataScopeInputId, scout_workbookcommon_api_WorkbookDataScopeInput])
         }
 
     __slots__: List[str] = ['_inputs']
@@ -107314,6 +107331,8 @@ scout_datasource_connection_api_MeasurementName = str
 scout_compute_api_FunctionParameterName = str
 
 scout_compute_api_LocalVariableName = str
+
+scout_workbookcommon_api_WorkbookDataScopeInputId = str
 
 scout_channelvariables_api_ChannelVariableName = str
 

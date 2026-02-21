@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: fastfeedparser
-Version: 0.5.5
+Version: 0.5.7
 Summary: High performance RSS, Atom, JSON and RDF feed parser in Python
 Home-page: https://github.com/kagisearch/fastfeedparser
 Author: Vladimir Prelovac
@@ -25,6 +25,7 @@ Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 Provides-Extra: dateparser
 Provides-Extra: brotli
+Provides-Extra: orjson
 Provides-Extra: full
 License-File: LICENSE
 
@@ -146,7 +147,7 @@ Speedup: 50.1x
 
 ### Main Functions
 
-- `parse(source)`: Parse feed from a source that can be URL or a string
+- `parse(source, *, include_content=True, include_tags=True, include_media=True, include_enclosures=True)`: Parse feed from a URL/XML/JSON source, with optional field extraction toggles for faster parsing.
 
 
 ### Feed Object Structure

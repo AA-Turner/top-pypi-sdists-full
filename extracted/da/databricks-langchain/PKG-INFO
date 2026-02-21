@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-langchain
-Version: 0.15.0
+Version: 0.16.0
 Summary: Support for Databricks AI support in LangChain
 Author-email: Databricks <agent-feedback@databricks.com>
 License: Apache-2.0

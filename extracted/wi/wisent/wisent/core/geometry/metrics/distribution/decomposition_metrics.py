@@ -1,4 +1,4 @@
-"""Decomposition metrics for RepScan Step 3: Decomposition Test."""
+"""Decomposition metrics for Zwiad Step 3: Decomposition Test."""
 
 from typing import List, Tuple, Dict
 import torch

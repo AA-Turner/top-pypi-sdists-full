@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow
-Version: 3.9.0
+Version: 3.10.0
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,20 +224,20 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: mlflow-skinny==3.9.0
-Requires-Dist: mlflow-tracing==3.9.0
+Requires-Dist: mlflow-skinny==3.10.0
+Requires-Dist: mlflow-tracing==3.10.0
 Requires-Dist: Flask-CORS<7
 Requires-Dist: Flask<4
 Requires-Dist: alembic!=1.10.0,<2
 Requires-Dist: cryptography<47,>=43.0.0
 Requires-Dist: docker<8,>=4.0.0
 Requires-Dist: graphene<4
-Requires-Dist: gunicorn<24; platform_system != "Windows"
+Requires-Dist: gunicorn<26; platform_system != "Windows"
 Requires-Dist: huey<3,>=2.5.4
 Requires-Dist: matplotlib<4
 Requires-Dist: numpy<3
 Requires-Dist: pandas<3
-Requires-Dist: pyarrow<23,>=4.0.0
+Requires-Dist: pyarrow<24,>=4.0.0
 Requires-Dist: scikit-learn<2
 Requires-Dist: scipy<2
 Requires-Dist: skops<1
@@ -252,7 +252,6 @@ Requires-Dist: google-cloud-storage>=1.30.0; extra == "extras"
 Requires-Dist: azureml-core>=1.2.0; extra == "extras"
 Requires-Dist: pysftp; extra == "extras"
 Requires-Dist: kubernetes; extra == "extras"
-Requires-Dist: virtualenv; extra == "extras"
 Requires-Dist: prometheus-flask-exporter; extra == "extras"
 Provides-Extra: db
 Requires-Dist: PyMySQL; extra == "db"
@@ -279,6 +278,7 @@ Provides-Extra: genai
 Requires-Dist: aiohttp<4; extra == "genai"
 Requires-Dist: boto3<2,>=1.28.56; extra == "genai"
 Requires-Dist: fastapi<1; extra == "genai"
+Requires-Dist: gepa<1,>=0.0.26; extra == "genai"
 Requires-Dist: litellm<2,>=1.0.0; extra == "genai"
 Requires-Dist: slowapi<1,>=0.1.9; extra == "genai"
 Requires-Dist: tiktoken<1; extra == "genai"
@@ -294,7 +294,7 @@ Requires-Dist: aliyunstoreplugin; extra == "aliyun-oss"
 Provides-Extra: jfrog
 Requires-Dist: mlflow-jfrog-plugin; extra == "jfrog"
 Provides-Extra: langchain
-Requires-Dist: langchain<=1.2.3,>=0.3.15; extra == "langchain"
+Requires-Dist: langchain<=1.2.9,>=0.3.19; extra == "langchain"
 Provides-Extra: auth
 Requires-Dist: Flask-WTF<2; extra == "auth"
 Dynamic: license-file
@@ -618,6 +618,7 @@ MLflow is currently maintained by the following core members with significant co
 - [Gabriel Fu](https://github.com/gabrielfu)
 - [Harutaka Kawamura](https://github.com/harupy)
 - [Joel Robin P](https://github.com/joelrobin18)
+- [Matt Prahl](https://github.com/mprahl)
 - [Serena Ruan](https://github.com/serena-ruan)
 - [Tomu Hirata](https://github.com/TomeHirata)
 - [Weichen Xu](https://github.com/WeichenXu123)

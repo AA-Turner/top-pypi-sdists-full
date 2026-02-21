@@ -122,7 +122,7 @@ class AsyncTwoCaptcha():
         if not lang or lang not in ("en", "ru", "de", "el", "pt", "fr"):
             raise ValidationException(f'Lang not in "en", "ru", "de", "el", "pt", "fr". You send {lang}')
 
-        result = await self.solve(body=body, method=method, **kwargs)
+        result = await self.solve(body=body, method=method, lang=lang, **kwargs)
         return result
 
     async def text(self, text, **kwargs):
@@ -555,6 +555,8 @@ class AsyncTwoCaptcha():
             Value of captcha_id parameter you found on target website.
         url: str
             Full URL of the page where you see Geetest captcha.
+        risk_type: str, optional
+            Value of risk_type parameter is contained in the captcha loading request.
         softId : int, optional
             ID of software developer. Developers who integrated their software with 2Captcha get reward: 10% of
             spendings of their software users.
@@ -1143,8 +1145,8 @@ class AsyncTwoCaptcha():
 
         '''
         rep = 'reportgood' if correct else 'reportbad'
-        await self.api_client.res(key=self.API_KEY, action=rep, id=id_)
-        return
+        answer = await self.api_client.res(key=self.API_KEY, action=rep, id=id_)
+        return answer
 
     def rename_params(self, params):
         replace = {

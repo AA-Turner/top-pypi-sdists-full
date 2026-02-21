@@ -31,6 +31,37 @@ jira_mcp = FastMCP(
 )
 
 
+def _parse_additional_fields(
+    additional_fields: dict[str, Any] | str | None,
+) -> dict[str, Any]:
+    """Parse additional_fields from dict or JSON string.
+
+    Args:
+        additional_fields: Dict, JSON string, or None.
+
+    Returns:
+        Parsed dict of additional fields.
+
+    Raises:
+        ValueError: If the input is not valid JSON or not a dict.
+    """
+    if additional_fields is None:
+        return {}
+    if isinstance(additional_fields, dict):
+        return additional_fields
+    if isinstance(additional_fields, str):
+        try:
+            parsed = json.loads(additional_fields)
+            if not isinstance(parsed, dict):
+                raise ValueError(
+                    "Parsed additional_fields is not a JSON object (dict)."
+                )
+            return parsed
+        except json.JSONDecodeError as e:
+            raise ValueError(f"additional_fields is not valid JSON: {e}") from e
+    raise ValueError("additional_fields must be a dictionary or JSON string.")
+
+
 @jira_mcp.tool(
     tags={"jira", "read"},
     annotations={"title": "Get User Profile", "readOnlyHint": True},
@@ -308,6 +339,74 @@ async def search_fields(
     """
     jira = await get_jira_fetcher(ctx)
     result = jira.search_fields(keyword, limit=limit, refresh=refresh)
+    return json.dumps(result, indent=2, ensure_ascii=False)
+
+
+@jira_mcp.tool(
+    tags={"jira", "read"},
+    annotations={"title": "Get Field Options", "readOnlyHint": True},
+)
+async def get_field_options(
+    ctx: Context,
+    field_id: Annotated[
+        str,
+        Field(
+            description="Custom field ID (e.g., 'customfield_10001'). "
+            "Use jira_search_fields to find field IDs."
+        ),
+    ],
+    context_id: Annotated[
+        str | None,
+        Field(
+            description="Field context ID (Cloud only). "
+            "If omitted, auto-resolves to the global context.",
+            default=None,
+        ),
+    ] = None,
+    project_key: Annotated[
+        str | None,
+        Field(
+            description="Project key (required for Server/DC). Example: 'PROJ'",
+            default=None,
+        ),
+    ] = None,
+    issue_type: Annotated[
+        str | None,
+        Field(
+            description="Issue type name (required for Server/DC). Example: 'Bug'",
+            default=None,
+        ),
+    ] = None,
+) -> str:
+    """Get allowed option values for a custom field.
+
+    Returns the list of valid options for select, multi-select, radio,
+    checkbox, and cascading select custom fields.
+
+    Cloud: Uses the Field Context Option API. If context_id is not provided,
+    automatically resolves to the global context.
+
+    Server/DC: Uses createmeta to get allowedValues. Requires project_key
+    and issue_type parameters.
+
+    Args:
+        ctx: The FastMCP context.
+        field_id: The custom field ID.
+        context_id: Field context ID (Cloud only, auto-resolved if omitted).
+        project_key: Project key (required for Server/DC).
+        issue_type: Issue type name (required for Server/DC).
+
+    Returns:
+        JSON string with the list of available options.
+    """
+    jira = await get_jira_fetcher(ctx)
+    options = jira.get_field_options(
+        field_id=field_id,
+        context_id=context_id,
+        project_key=project_key,
+        issue_type=issue_type,
+    )
+    result = [opt.to_simplified_dict() for opt in options]
     return json.dumps(result, indent=2, ensure_ascii=False)
 
 
@@ -830,23 +929,7 @@ async def create_issue(
             comp.strip() for comp in components.split(",") if comp.strip()
         ]
 
-    # Use additional_fields directly as dict
-    # Accept either dict or JSON string for additional fields
-    if additional_fields is None:
-        extra_fields: dict[str, Any] = {}
-    elif isinstance(additional_fields, dict):
-        extra_fields = additional_fields
-    elif isinstance(additional_fields, str):
-        try:
-            extra_fields = json.loads(additional_fields)
-            if not isinstance(extra_fields, dict):
-                raise ValueError(
-                    "Parsed additional_fields is not a JSON object (dict)."
-                )
-        except json.JSONDecodeError as e:
-            raise ValueError(f"additional_fields is not valid JSON: {e}") from e
-    else:
-        raise ValueError("additional_fields must be a dictionary or JSON string.")
+    extra_fields = _parse_additional_fields(additional_fields)
 
     issue = jira.create_issue(
         project_key=project_key,
@@ -1037,9 +1120,22 @@ async def update_issue(
         ),
     ],
     additional_fields: Annotated[
-        dict[str, Any] | None,
+        dict[str, Any] | str | None,
         Field(
-            description="(Optional) Dictionary of additional fields to update. Use this for custom fields or more complex updates.",
+            description=(
+                "(Optional) Dictionary or JSON string of additional fields to update. "
+                "Use this for custom fields or more complex updates."
+            ),
+            default=None,
+        ),
+    ] = None,
+    components: Annotated[
+        str | None,
+        Field(
+            description=(
+                "(Optional) Comma-separated list of component names "
+                "(e.g., 'Frontend,API')"
+            ),
             default=None,
         ),
     ] = None,
@@ -1060,7 +1156,8 @@ async def update_issue(
         ctx: The FastMCP context.
         issue_key: Jira issue key.
         fields: Dictionary of fields to update. Text fields like 'description' should use Markdown format.
-        additional_fields: Optional dictionary of additional fields.
+        additional_fields: Optional dictionary or JSON string of additional fields.
+        components: Comma-separated list of component names.
         attachments: Optional JSON array string or comma-separated list of file paths.
 
     Returns:
@@ -1073,10 +1170,14 @@ async def update_issue(
     # Use fields directly as dict
     update_fields = fields
 
-    # Use additional_fields directly as dict
-    extra_fields = additional_fields or {}
-    if not isinstance(extra_fields, dict):
-        raise ValueError("additional_fields must be a dictionary.")
+    # Parse components from comma-separated string to list
+    components_list = None
+    if components and isinstance(components, str):
+        components_list = [
+            comp.strip() for comp in components.split(",") if comp.strip()
+        ]
+
+    extra_fields = _parse_additional_fields(additional_fields)
 
     # Parse attachments
     attachment_paths = []
@@ -1100,6 +1201,8 @@ async def update_issue(
 
     # Combine fields and additional_fields
     all_updates = {**update_fields, **extra_fields}
+    if components_list:
+        all_updates["components"] = components_list
     if attachment_paths:
         all_updates["attachments"] = attachment_paths
 

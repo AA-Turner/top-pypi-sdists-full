@@ -11,6 +11,7 @@ from ...image.copy_images import save_response_media
 from ...providers.response import *
 from ...tools.media import render_messages
 from ...tools.run_tools import AuthManager
+from ...config import AppConfig
 from ...errors import MissingAuthError
 from ... import debug
 
@@ -43,7 +44,7 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
             try:
                 if api_key is None and cls.api_key is not None:
                     api_key = cls.api_key
-                if not api_key:
+                if not api_key or AppConfig.disable_custom_api_key:
                     api_key = AuthManager.load_api_key(cls)
                 if base_url is None:
                     base_url = cls.base_url if cls.is_provider_api_key(api_key) else cls.backup_url
@@ -58,9 +59,12 @@ class OpenaiTemplate(AsyncGeneratorProvider, ProviderModelMixin, RaiseErrorMixin
                 cls.image_models = [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data if model.get("image") or model.get("type") == "image" or model.get("supports_images")]
                 cls.vision_models = cls.vision_models.copy()
                 cls.vision_models += [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data if model.get("vision")]
-                cls.models = [model.get("name") if cls.use_model_names else model.get("id", model.get("name")) for model in data]
+                cls.models = {model.get("name") if cls.use_model_names else model.get("id", model.get("name")): model for model in data}
+                for key, value in cls.models.items():
+                    value.pop("id")
+                    cls.models[key] = {"id": key, **value}
                 cls.models_count = {model.get("name") if cls.use_model_names else model.get("id", model.get("name")): len(model.get("providers", [])) for model in data if len(model.get("providers", [])) > 1}
-                if cls.sort_models:
+                if cls.sort_models and isinstance(cls.models, list):
                     cls.models.sort()
             except MissingAuthError:
                 raise

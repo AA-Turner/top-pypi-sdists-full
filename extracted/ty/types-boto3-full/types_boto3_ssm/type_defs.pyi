@@ -3543,6 +3543,7 @@ class AssociationDescriptionTypeDef(TypedDict):
     TargetMaps: NotRequired[list[dict[str, list[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 class AssociationVersionInfoTypeDef(TypedDict):
     AssociationId: NotRequired[str]
@@ -3565,6 +3566,7 @@ class AssociationVersionInfoTypeDef(TypedDict):
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
     TargetMaps: NotRequired[list[dict[str, list[str]]]]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 class CreateAssociationBatchRequestEntryOutputTypeDef(TypedDict):
     Name: str
@@ -4061,6 +4063,7 @@ class CreateAssociationRequestTypeDef(TypedDict):
     TargetMaps: NotRequired[Sequence[Mapping[str, Sequence[str]]]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     AlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 class RunbookTypeDef(TypedDict):
     DocumentName: str
@@ -4111,6 +4114,7 @@ class UpdateAssociationRequestTypeDef(TypedDict):
     Duration: NotRequired[int]
     TargetMaps: NotRequired[Sequence[Mapping[str, Sequence[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 PatchRuleUnionTypeDef = Union[PatchRuleTypeDef, PatchRuleOutputTypeDef]
 
@@ -4132,6 +4136,7 @@ class StartExecutionPreviewRequestTypeDef(TypedDict):
 
 class CreateAssociationBatchRequestTypeDef(TypedDict):
     Entries: Sequence[CreateAssociationBatchRequestEntryUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 class StartChangeRequestExecutionRequestTypeDef(TypedDict):
     DocumentName: str

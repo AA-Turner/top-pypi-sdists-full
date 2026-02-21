@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: Kurigram
-Version: 2.2.18
+Version: 2.2.19
 Summary: Elegant, modern and asynchronous Telegram MTProto API framework in Python for users and bots
 Project-URL: Homepage, https://kurigram.icu
 Project-URL: Documentation, https://docs.kurigram.icu

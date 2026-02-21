@@ -1,13 +1,11 @@
-#  ___________________________________________________________________________
+# ____________________________________________________________________________________
 #
-#  Pyomo: Python Optimization Modeling Objects
-#  Copyright (c) 2008-2025
-#  National Technology and Engineering Solutions of Sandia, LLC
-#  Under the terms of Contract DE-NA0003525 with National Technology and
-#  Engineering Solutions of Sandia, LLC, the U.S. Government retains certain
-#  rights in this software.
-#  This software is distributed under the 3-clause BSD License.
-#  ___________________________________________________________________________
+# Pyomo: Python Optimization Modeling Objects
+# Copyright (c) 2008-2026 National Technology and Engineering Solutions of Sandia, LLC
+# Under the terms of Contract DE-NA0003525 with National Technology and Engineering
+# Solutions of Sandia, LLC, the U.S. Government retains certain rights in this
+# software.  This software is distributed under the 3-clause BSD License.
+# ____________________________________________________________________________________
 
 from __future__ import annotations
 import sys
@@ -56,7 +54,6 @@ from pyomo.core.base.initializer import (
     IndexedCallInitializer,
     CountedCallInitializer,
 )
-
 
 logger = logging.getLogger('pyomo.core')
 
@@ -639,15 +636,15 @@ class Constraint(ActiveIndexedComponent):
     Satisfied = Feasible
 
     @overload
-    def __new__(
-        cls: Type[Constraint], *args, **kwds
-    ) -> Union[ScalarConstraint, IndexedConstraint]: ...
-
-    @overload
     def __new__(cls: Type[ScalarConstraint], *args, **kwds) -> ScalarConstraint: ...
 
     @overload
     def __new__(cls: Type[IndexedConstraint], *args, **kwds) -> IndexedConstraint: ...
+
+    @overload
+    def __new__(
+        cls: Type[Constraint], *args, **kwds
+    ) -> Union[ScalarConstraint, IndexedConstraint]: ...
 
     def __new__(cls, *args, **kwds):
         if cls != Constraint:
@@ -766,7 +763,7 @@ class Constraint(ActiveIndexedComponent):
                 ("Index", self._index_set if self.is_indexed() else None),
                 ("Active", self.active),
             ],
-            self.items(),
+            self.items,
             ("Lower", "Body", "Upper", "Active"),
             lambda k, v: [
                 "-Inf" if v.lower is None else v.lower,

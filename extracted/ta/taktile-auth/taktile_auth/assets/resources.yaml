@@ -194,6 +194,12 @@ workspace_management:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+workspace_feature_query:
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard
+  component: wildcard  # status|definition
+  current_status_live: wildcard  # active|inactive
 workspace_case_template:
   # read: can read workspace case templates
   # write: can create, update and delete case templates

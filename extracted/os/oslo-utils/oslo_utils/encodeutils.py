@@ -126,7 +126,7 @@ def to_utf8(text: str | bytes) -> bytes:
         )
 
 
-@debtcollector.removals.remove(
+@debtcollector.removals.remove(  # type: ignore
     message='Use str(exc) instead', category=DeprecationWarning
 )
 def exception_to_unicode(exc: Any) -> str:

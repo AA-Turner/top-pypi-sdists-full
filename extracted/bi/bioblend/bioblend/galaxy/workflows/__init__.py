@@ -7,7 +7,6 @@ import os
 from typing import (
     Any,
     Literal,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -29,7 +28,7 @@ class WorkflowClient(Client):
 
     # the 'deleted' option is not available for workflows
     def get_workflows(
-        self, workflow_id: Optional[str] = None, name: Optional[str] = None, published: bool = False
+        self, workflow_id: str | None = None, name: str | None = None, published: bool = False
     ) -> list[dict[str, Any]]:
         """
         Get all workflows, or select a subset by specifying optional arguments
@@ -68,9 +67,9 @@ class WorkflowClient(Client):
     def show_workflow(
         self,
         workflow_id: str,
-        version: Optional[int] = None,
-        instance: Optional[bool] = None,
-        legacy: Optional[bool] = None,
+        version: int | None = None,
+        instance: bool | None = None,
+        legacy: bool | None = None,
     ) -> dict[str, Any]:
         """
         Display information needed to run a workflow.
@@ -217,7 +216,7 @@ class WorkflowClient(Client):
         return self._post(url=url, payload=payload)
 
     def export_workflow_dict(
-        self, workflow_id: str, version: Optional[int] = None, style: Optional[Literal["ga", "format2"]] = None
+        self, workflow_id: str, version: int | None = None, style: Literal["ga", "format2"] | None = None
     ) -> dict[str, Any]:
         """
         Exports a workflow.
@@ -311,24 +310,24 @@ class WorkflowClient(Client):
     def invoke_workflow(
         self,
         workflow_id: str,
-        inputs: Optional[dict] = None,
-        params: Optional[dict] = None,
-        history_id: Optional[str] = None,
-        history_name: Optional[str] = None,
+        inputs: dict | None = None,
+        params: dict | None = None,
+        history_id: str | None = None,
+        history_name: str | None = None,
         import_inputs_to_history: bool = False,
-        replacement_params: Optional[dict] = None,
+        replacement_params: dict | None = None,
         allow_tool_state_corrections: bool = False,
-        inputs_by: Optional[InputsBy] = None,
+        inputs_by: InputsBy | None = None,
         parameters_normalized: bool = False,
         require_exact_tool_versions: bool = True,
-        version: Optional[int] = None,
+        version: int | None = None,
         use_cached_job: bool = False,
-        parameters: Optional[dict] = None,
+        parameters: dict | None = None,
         instance: bool = False,
-        resource_params: Optional[dict[str, Any]] = None,
-        preferred_object_store_id: Optional[str] = None,
-        preferred_intermediate_object_store_id: Optional[str] = None,
-        preferred_outputs_object_store_id: Optional[str] = None,
+        resource_params: dict[str, Any] | None = None,
+        preferred_object_store_id: str | None = None,
+        preferred_intermediate_object_store_id: str | None = None,
+        preferred_outputs_object_store_id: str | None = None,
     ) -> dict[str, Any]:
         """
         Invoke the workflow identified by ``workflow_id``. This will
@@ -423,17 +422,17 @@ class WorkflowClient(Client):
 
         :type preferred_object_store_id: str
         :param preferred_object_store_id: The object store id where you want all
-        outputs of this workflow run be stored.
+          outputs of this workflow run be stored.
 
         :type preferred_intermediate_object_store_id: str
         :param preferred_intermediate_object_store_id: The object store id where
-        you want the intermediate outputs of this workflow run to be stored.
-        Cannot be set if ``preferred_object_store_id`` is set.
+          you want the intermediate outputs of this workflow run to be stored.
+          Cannot be set if ``preferred_object_store_id`` is set.
 
         :type preferred_outputs_object_store_id: str
         :param preferred_outputs_object_store_id: The object store id where
-        you want the priamry outputs of this workflow run to be stored.
-        Cannot be set if ``preferred_object_store_id`` is set.
+          you want the priamry outputs of this workflow run to be stored.
+          Cannot be set if ``preferred_object_store_id`` is set.
 
         :rtype: dict
         :return: A dict containing the workflow invocation describing the
@@ -804,9 +803,9 @@ class WorkflowClient(Client):
         self,
         history_id: str,
         workflow_name: str,
-        job_ids: Optional[list[str]] = None,
-        dataset_hids: Optional[list[str]] = None,
-        dataset_collection_hids: Optional[list[str]] = None,
+        job_ids: list[str] | None = None,
+        dataset_hids: list[str] | None = None,
+        dataset_collection_hids: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Extract a workflow from a history.

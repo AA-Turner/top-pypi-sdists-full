@@ -5369,6 +5369,39 @@ def list_connectors(ctx, **kwargs):
     print(table)
 
 
+@cli.command(help="list connectors simple status")
+@click.option("--org-id", multiple=True)
+@click.option("--connector-id", multiple=True)
+@click.pass_context
+def list_connectors_simple_status(ctx, org_id, connector_id, **kwargs):
+    org_ids = []
+    if len(org_id) == 0:
+        org_id = None
+    elif len(org_id) == 1:
+        org_id = org_id[0]
+    else:
+        org_ids = list(org_id)
+
+    results = connectors.list_connectors_simple_status(
+        ctx,
+        org_id=org_id,
+        org_ids=org_ids,
+        connector_id_list=list(connector_id),
+        **kwargs,
+    )
+    columns = make_columns(
+        ctx,
+        results,
+        """
+           - org_id
+           - connectors:
+             - connector_id
+             - status
+        """,
+    )
+    print(format_table(ctx, results, columns))
+
+
 @cli.command(name="show-connector")
 @click.argument("connector-id")
 @click.option("--org-id", default=None)

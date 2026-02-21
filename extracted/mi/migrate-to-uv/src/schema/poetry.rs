@@ -38,6 +38,8 @@ pub struct Poetry {
 pub struct DependencyGroup {
     pub dependencies: IndexMap<String, DependencySpecification>,
     pub optional: Option<bool>,
+    #[serde(rename = "include-groups")]
+    pub include_groups: Option<Vec<String>>,
 }
 
 /// Represents a package source: <https://python-poetry.org/docs/repositories/#package-sources>.
@@ -81,7 +83,7 @@ pub enum Script {
 /// Represents the different ways dependencies can be defined in Poetry.
 ///
 /// See <https://python-poetry.org/docs/dependency-specification/> for details.
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 #[serde(untagged)]
 #[allow(clippy::large_enum_variant)]
 pub enum DependencySpecification {

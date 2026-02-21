@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pylint
-Version: 4.0.4
+Version: 4.0.5
 Summary: python code static checker
 Author-email: Python Code Quality Authority <code-quality@python.org>
 License-Expression: GPL-2.0-or-later
@@ -38,7 +38,7 @@ Requires-Dist: colorama>=0.4.5; sys_platform == "win32"
 Requires-Dist: dill>=0.2; python_version < "3.11"
 Requires-Dist: dill>=0.3.6; python_version >= "3.11"
 Requires-Dist: dill>=0.3.7; python_version >= "3.12"
-Requires-Dist: isort!=5.13,<8,>=5
+Requires-Dist: isort!=5.13,<9,>=5
 Requires-Dist: mccabe<0.8,>=0.6
 Requires-Dist: platformdirs>=2.2
 Requires-Dist: tomli>=1.1; python_version < "3.11"

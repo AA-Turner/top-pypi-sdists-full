@@ -21,9 +21,10 @@ __all__ = [
 
 @cache
 def cached_re_compile(
-        pattern: str | bytes | re.Pattern, /,
-        flags: int = 0,
-    ) -> re.Pattern:
+    pattern: str | bytes | re.Pattern,
+    /,
+    flags: int = 0,
+) -> re.Pattern:
     if isinstance(pattern, re.Pattern):
         return pattern
     pattern = str(pattern)
@@ -43,8 +44,4 @@ def platform_has_command(name) -> bool:
 
 
 def pathtomodulename(path: Path):
-    return (
-        str(path.with_suffix(''))
-        .replace('/', '.')
-        .replace('.__init__', '')
-    )
+    return str(path.with_suffix('')).replace('/', '.').replace('.__init__', '')

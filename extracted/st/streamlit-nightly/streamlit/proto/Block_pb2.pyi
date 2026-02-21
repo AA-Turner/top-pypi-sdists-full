@@ -205,23 +205,34 @@ class Block(_message.Message):
         LABEL_FIELD_NUMBER: _builtins.int
         EXPANDED_FIELD_NUMBER: _builtins.int
         ICON_FIELD_NUMBER: _builtins.int
+        ID_FIELD_NUMBER: _builtins.int
         label: _builtins.str
         expanded: _builtins.bool
         icon: _builtins.str
+        id: _builtins.str
+        """ID for dynamic expanders. Only set when on_change="rerun",
+        signaling the frontend to treat this as a stateful widget.
+        """
         def __init__(
             self,
             *,
             label: _builtins.str = ...,
             expanded: _builtins.bool | None = ...,
             icon: _builtins.str = ...,
+            id: _builtins.str | None = ...,
         ) -> None: ...
-        _HasFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "expanded", b"expanded"]  # noqa: Y015
+        _HasFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "_id", b"_id", "expanded", b"expanded", "id", b"id"]  # noqa: Y015
         def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-        _ClearFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "expanded", b"expanded", "icon", b"icon", "label", b"label"]  # noqa: Y015
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["_expanded", b"_expanded", "_id", b"_id", "expanded", b"expanded", "icon", b"icon", "id", b"id", "label", b"label"]  # noqa: Y015
         def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
         _WhichOneofReturnType__expanded: _TypeAlias = _typing.Literal["expanded"]  # noqa: Y015
         _WhichOneofArgType__expanded: _TypeAlias = _typing.Literal["_expanded", b"_expanded"]  # noqa: Y015
+        _WhichOneofReturnType__id: _TypeAlias = _typing.Literal["id"]  # noqa: Y015
+        _WhichOneofArgType__id: _TypeAlias = _typing.Literal["_id", b"_id"]  # noqa: Y015
+        @_typing.overload
         def WhichOneof(self, oneof_group: _WhichOneofArgType__expanded) -> _WhichOneofReturnType__expanded | None: ...
+        @_typing.overload
+        def WhichOneof(self, oneof_group: _WhichOneofArgType__id) -> _WhichOneofReturnType__id | None: ...
 
     @_typing.final
     class Dialog(_message.Message):

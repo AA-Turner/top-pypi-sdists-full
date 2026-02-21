@@ -272,3 +272,45 @@ class SparseSMatrix_CSR:
         total_nnz = int(self.row_ptr[-1])
         density = total_nnz / (num_rows * num_cols)
         return density
+    
+    def flipAngle(self):
+        """
+        Permute les colonnes de la matrice CSR correspondant à des angles opposés.
+        Suppose que N est pair et que les angles sont organisés de manière symétrique.
+        """
+        if self.N % 2 != 0:
+            raise ValueError("Le nombre d'angles doit être pair pour permuter les angles opposés.")
+
+        # 1. Créer une nouvelle indexation des colonnes
+        new_col_ind = self.h_col_ind.copy()
+        ZX = self.Z * self.X
+        # On suppose que les colonnes sont organisées comme [angle0, angle1, ..., angleN-1],
+        # et que chaque angle couvre Z*X colonnes consécutives.
+        angle_block_size = ZX // self.N
+
+        # 2. Pour chaque paire d'angles opposés
+        for n in range(self.N // 2):
+            n_opposite = n + self.N // 2
+            # Indices des blocs de colonnes à permuter
+            block_n_start = n * angle_block_size
+            block_n_end = (n + 1) * angle_block_size
+            block_opposite_start = n_opposite * angle_block_size
+            block_opposite_end = (n_opposite + 1) * angle_block_size
+
+            # 3. Trouver tous les éléments dans col_ind qui pointent vers ces blocs
+            mask_n = (self.h_col_ind >= block_n_start) & (self.h_col_ind < block_n_end)
+            mask_opposite = (self.h_col_ind >= block_opposite_start) & (self.h_col_ind < block_opposite_end)
+
+            # 4. Permuter les indices
+            new_col_ind[mask_n] = self.h_col_ind[mask_n] - block_n_start + block_opposite_start
+            new_col_ind[mask_opposite] = self.h_col_ind[mask_opposite] - block_opposite_start + block_n_start
+
+        # 5. Mettre à jour h_col_ind
+        self.h_col_ind = new_col_ind
+
+        # 6. Recalculer norm_factor_inv (car les colonnes ont changé)
+        self.compute_norm_factor_from_csr()
+
+        # 7. Mettre à jour les données sur le GPU
+        drv.memcpy_htod(self.col_ind_gpu, self.h_col_ind)
+        print("Permutation des angles opposés effectuée.")

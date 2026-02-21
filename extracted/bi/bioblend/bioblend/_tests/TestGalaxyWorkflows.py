@@ -6,12 +6,12 @@ import time
 from typing import (
     Any,
     Literal,
-    Optional,
 )
 
 import pytest
 
 from bioblend import ConnectionError
+from bioblend.galaxy.invocations import INVOCATION_SUCCESS_STATES
 from . import (
     GalaxyTestBase,
     test_util,
@@ -64,13 +64,13 @@ class TestGalaxyWorkflows(GalaxyTestBase.GalaxyTestBase):
         assert self.gi.workflows.show_invocation_step(workflow_id, invocation_id, pause_step["id"])["action"]
         for _ in range(20):
             invocation = self.gi.workflows.show_invocation(workflow_id, invocation_id)
-            if invocation["state"] == "scheduled":
+            if invocation["state"] in INVOCATION_SUCCESS_STATES:
                 break
 
             time.sleep(0.5)
 
         invocation = self.gi.workflows.show_invocation(workflow_id, invocation_id)
-        assert invocation["state"] == "scheduled"
+        assert invocation["state"] in INVOCATION_SUCCESS_STATES
 
     def test_invoke_workflow_parameters_normalized(self):
         path = test_util.get_abspath(os.path.join("data", "paste_columns_subworkflow.ga"))
@@ -155,7 +155,7 @@ class TestGalaxyWorkflows(GalaxyTestBase.GalaxyTestBase):
         assert not imported_wf_by_new_user["deleted"]
         assert not imported_wf_by_new_user["published"]
 
-    def _import_export(self, style: Optional[Literal["ga", "format2"]] = None):
+    def _import_export(self, style: Literal["ga", "format2"] | None = None):
         path = test_util.get_abspath(os.path.join("data", "paste_columns.ga"))
         with open(path) as f:
             wf_dict = json.load(f)

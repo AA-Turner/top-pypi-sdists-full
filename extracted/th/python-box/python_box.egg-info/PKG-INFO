@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: python-box
-Version: 7.3.2
+Version: 7.3.3
 Summary: Advanced Python dictionaries with dot notation access
 Home-page: https://github.com/cdgriffith/Box
 Author: Chris Griffith
@@ -9,11 +9,11 @@ License: MIT
 Platform: any
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Natural Language :: English
@@ -28,13 +28,13 @@ Description-Content-Type: text/x-rst
 License-File: LICENSE
 License-File: AUTHORS.rst
 Provides-Extra: all
-Requires-Dist: ruamel.yaml>=0.17; extra == "all"
+Requires-Dist: ruamel.yaml>=0.19.1; extra == "all"
 Requires-Dist: toml; extra == "all"
 Requires-Dist: msgpack; extra == "all"
 Provides-Extra: yaml
-Requires-Dist: ruamel.yaml>=0.17; extra == "yaml"
+Requires-Dist: ruamel.yaml>=0.19.1; extra == "yaml"
 Provides-Extra: ruamel-yaml
-Requires-Dist: ruamel.yaml>=0.17; extra == "ruamel-yaml"
+Requires-Dist: ruamel.yaml>=0.19.1; extra == "ruamel-yaml"
 Provides-Extra: pyyaml
 Requires-Dist: PyYAML; extra == "pyyaml"
 Provides-Extra: tomli
@@ -51,6 +51,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: platform
 Dynamic: provides-extra
 Dynamic: requires-python
@@ -197,7 +198,7 @@ Also special shout-out to PythonBytes_, who featured Box on their podcast.
 License
 =======
 
-MIT License, Copyright (c) 2017-2023 Chris Griffith. See LICENSE_ file.
+MIT License, Copyright (c) 2017-2026 Chris Griffith. See LICENSE_ file.
 
 
 .. |BoxImage| image:: https://raw.githubusercontent.com/cdgriffith/Box/master/box_logo.png

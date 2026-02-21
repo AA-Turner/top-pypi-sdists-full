@@ -33,7 +33,7 @@ def _collect(args) -> None:
         model=args.model,
         benchmarks=benchmarks,
         output_path=args.output,
-        repscan_dir=getattr(args, "repscan_dir", "repscan_results"),
+        zwiad_dir=getattr(args, "zwiad_dir", "zwiad_results"),
         limit=getattr(args, "limit", 100),
         device=getattr(args, "device", None),
         methods=methods,

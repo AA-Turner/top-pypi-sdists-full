@@ -13,7 +13,6 @@ from typing import (
     Any,
     IO,
     Literal,
-    Optional,
     overload,
     Union,
 )
@@ -41,7 +40,7 @@ class HistoryClient(Client):
     def __init__(self, galaxy_instance: "GalaxyInstance") -> None:
         super().__init__(galaxy_instance)
 
-    def create_history(self, name: Optional[str] = None) -> dict[str, Any]:
+    def create_history(self, name: str | None = None) -> dict[str, Any]:
         """
         Create a new history, optionally setting the ``name``.
 
@@ -56,7 +55,32 @@ class HistoryClient(Client):
             payload["name"] = name
         return self._post(payload)
 
-    def import_history(self, file_path: Optional[str] = None, url: Optional[str] = None) -> dict[str, Any]:
+    def copy_history(self, history_id: str, name: str | None = None, all_datasets: bool = False) -> dict[str, Any]:
+        """
+        Create a new history by copying an existing one.
+
+        :type history_id: str
+        :param history_id: ID of the history to copy.
+
+        :type name: str
+        :param name: Optional name for new history
+
+        :type all_datasets: bool
+        :param all_datasets: Whether to copy also deleted datasets and dataset collections.
+
+        :rtype: dict
+        :return: Dictionary containing information about the newly created history
+        """
+        payload: dict[str, Any] = {"source": "history"}
+        if name is not None:
+            payload["name"] = name
+        payload["history_id"] = history_id
+        if all_datasets:
+            payload["all_datasets"] = all_datasets
+
+        return self._post(payload)
+
+    def import_history(self, file_path: str | None = None, url: str | None = None) -> dict[str, Any]:
         """
         Import a history from an archive on disk or a URL.
 
@@ -86,20 +110,20 @@ class HistoryClient(Client):
 
     def _get_histories(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         deleted: bool = False,
-        filter_user_published: Optional[bool] = None,
+        filter_user_published: bool | None = None,
         get_all_published: bool = False,
-        slug: Optional[str] = None,
-        all: Optional[bool] = False,
-        create_time_min: Optional[str] = None,
-        create_time_max: Optional[str] = None,
-        update_time_min: Optional[str] = None,
-        update_time_max: Optional[str] = None,
-        view: Optional[Literal["summary", "detailed"]] = None,
-        keys: Optional[list[str]] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        slug: str | None = None,
+        all: bool | None = False,
+        create_time_min: str | None = None,
+        create_time_max: str | None = None,
+        update_time_min: str | None = None,
+        update_time_max: str | None = None,
+        view: Literal["summary", "detailed"] | None = None,
+        keys: list[str] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         """
         Hidden method to be used by both get_histories() and get_published_histories()
@@ -148,20 +172,20 @@ class HistoryClient(Client):
 
     def get_histories(
         self,
-        history_id: Optional[str] = None,
-        name: Optional[str] = None,
+        history_id: str | None = None,
+        name: str | None = None,
         deleted: bool = False,
-        published: Optional[bool] = None,
-        slug: Optional[str] = None,
-        all: Optional[bool] = False,
-        create_time_min: Optional[str] = None,
-        create_time_max: Optional[str] = None,
-        update_time_min: Optional[str] = None,
-        update_time_max: Optional[str] = None,
-        view: Optional[Literal["summary", "detailed"]] = None,
-        keys: Optional[list[str]] = None,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None,
+        published: bool | None = None,
+        slug: str | None = None,
+        all: bool | None = False,
+        create_time_min: str | None = None,
+        create_time_max: str | None = None,
+        update_time_min: str | None = None,
+        update_time_max: str | None = None,
+        view: Literal["summary", "detailed"] | None = None,
+        keys: list[str] | None = None,
+        limit: int | None = None,
+        offset: int | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get all histories, or select a subset by specifying optional arguments
@@ -249,13 +273,13 @@ class HistoryClient(Client):
 
     def get_published_histories(
         self,
-        name: Optional[str] = None,
+        name: str | None = None,
         deleted: bool = False,
-        slug: Optional[str] = None,
-        create_time_min: Optional[str] = None,
-        create_time_max: Optional[str] = None,
-        update_time_min: Optional[str] = None,
-        update_time_max: Optional[str] = None,
+        slug: str | None = None,
+        create_time_min: str | None = None,
+        create_time_max: str | None = None,
+        update_time_min: str | None = None,
+        update_time_max: str | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get all published histories (by any user), or select a subset by
@@ -314,23 +338,23 @@ class HistoryClient(Client):
         self,
         history_id: str,
         contents: Literal[True],
-        deleted: Optional[bool] = None,
-        visible: Optional[bool] = None,
-        details: Optional[str] = None,
-        types: Optional[list[str]] = None,
-        keys: Optional[list[str]] = None,
+        deleted: bool | None = None,
+        visible: bool | None = None,
+        details: str | None = None,
+        types: list[str] | None = None,
+        keys: list[str] | None = None,
     ) -> list[dict[str, Any]]: ...
 
     def show_history(
         self,
         history_id: str,
         contents: bool = False,
-        deleted: Optional[bool] = None,
-        visible: Optional[bool] = None,
-        details: Optional[str] = None,
-        types: Optional[list[str]] = None,
-        keys: Optional[list[str]] = None,
-    ) -> Union[dict[str, Any], list[dict[str, Any]]]:
+        deleted: bool | None = None,
+        visible: bool | None = None,
+        details: str | None = None,
+        types: list[str] | None = None,
+        keys: list[str] | None = None,
+    ) -> dict[str, Any] | list[dict[str, Any]]:
         """
         Get details of a given history. By default, just get the history meta
         information.
@@ -377,7 +401,7 @@ class HistoryClient(Client):
             more extensive functionality for filtering and ordering the results.
 
         """
-        params: dict[str, Union[bool, list, str]] = {}
+        params: dict[str, bool | list | str] = {}
         if contents:
             if details:
                 params["details"] = details
@@ -477,7 +501,7 @@ class HistoryClient(Client):
         return self._get(url=url)
 
     def show_matching_datasets(
-        self, history_id: str, name_filter: Optional[Union[str, Pattern[str]]] = None
+        self, history_id: str, name_filter: str | Pattern[str] | None = None
     ) -> list[dict[str, Any]]:
         """
         Get dataset details for matching datasets within a history.
@@ -541,7 +565,19 @@ class HistoryClient(Client):
         params = {"follow": follow}
         return self._get(url=url, params=params)
 
-    def update_history(self, history_id: str, **kwargs: Any) -> dict[str, Any]:
+    def update_history(
+        self,
+        history_id: str,
+        *,
+        name: str | None = None,
+        annotation: str | None = None,
+        deleted: bool | None = None,
+        purged: bool | None = None,
+        published: bool | None = None,
+        importable: bool | None = None,
+        tags: list[str] | None = None,
+        preferred_object_store_id: str | None = None,
+    ) -> dict[str, Any]:
         """
         Update history metadata information. Some of the attributes that can be
         modified are documented below.
@@ -570,13 +606,34 @@ class HistoryClient(Client):
         :type tags: list
         :param tags: Replace history tags with the given list
 
+        :type preferred_object_store_id: str
+        :param preferred_object_store_id: The ID of the object store that should
+          be used to store new datasets in this history
+
         :rtype: dict
         :return: details of the updated history
 
         .. versionchanged:: 0.8.0
             Changed the return value from the status code (type int) to a dict.
         """
-        return self._put(payload=kwargs, id=history_id)
+        payload: dict[str, Any] = {}
+        if name is not None:
+            payload["name"] = name
+        if annotation is not None:
+            payload["annotation"] = annotation
+        if deleted is not None:
+            payload["deleted"] = deleted
+        if purged is not None:
+            payload["purged"] = purged
+        if published is not None:
+            payload["published"] = published
+        if importable is not None:
+            payload["importable"] = importable
+        if tags is not None:
+            payload["tags"] = tags
+        if preferred_object_store_id is not None:
+            payload["preferred_object_store_id"] = preferred_object_store_id
+        return self._put(payload=payload, id=history_id)
 
     def update_dataset(self, history_id: str, dataset_id: str, **kwargs: Any) -> dict[str, Any]:
         """
@@ -826,7 +883,7 @@ class HistoryClient(Client):
         include_hidden: bool = False,
         include_deleted: bool = False,
         wait: bool = False,
-        maxwait: Optional[float] = None,
+        maxwait: float | None = None,
     ) -> str:
         """
         Start a job to create an export archive for the given history.

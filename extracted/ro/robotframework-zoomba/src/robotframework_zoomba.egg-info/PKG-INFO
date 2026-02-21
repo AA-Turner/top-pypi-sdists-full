@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: robotframework-zoomba
-Version: 4.5.0
+Version: 4.6.0
 Summary: Robot Framework mini-framework.
 Home-page: https://github.com/Accruent/zoomba
 Maintainer: Alex Calandra, Michael Hintz, Keith Smoland, Matthew Giardina, Brandon Wolfe, Neil Howell, Tommy Hoang
@@ -15,12 +15,12 @@ Classifier:         Topic :: Software Development :: Testing
 Classifier:         Framework :: Robot Framework :: Library
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: robotframework==7.4
+Requires-Dist: robotframework==7.4.1
 Requires-Dist: robotframework-requests==0.9.7
 Requires-Dist: robotframework-seleniumlibrary==6.8.0
 Requires-Dist: robotframework-sudslibrary-aljcalandra==1.1.4
 Requires-Dist: requests==2.32.5
-Requires-Dist: selenium==4.39.0
+Requires-Dist: selenium==4.41.0
 Requires-Dist: python-dateutil>=2.8.2
 Requires-Dist: pandas>=1.3.5
 Requires-Dist: zipp>=3.19.1

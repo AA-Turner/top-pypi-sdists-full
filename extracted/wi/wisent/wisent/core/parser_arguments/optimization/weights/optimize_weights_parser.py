@@ -280,11 +280,11 @@ def setup_optimize_weights_parser(parser: argparse.ArgumentParser) -> None:
         "--method",
         type=str,
         default="directional",
-        choices=["directional", "additive", "titan", "prism", "pulse"],
+        choices=["directional", "additive", "grom", "tecza", "tetno"],
         help=(
             "Weight modification method. Default: directional. "
             "Options: directional (single direction), additive (bias-based), "
-            "titan/prism/pulse (multi-direction, better for non-linear representations)"
+            "grom/tecza/tetno (multi-direction, better for non-linear representations)"
         )
     )
     method_group.add_argument(
@@ -307,8 +307,8 @@ def setup_optimize_weights_parser(parser: argparse.ArgumentParser) -> None:
         help="Disable norm-preserving directional projection"
     )
     
-    # Multi-direction method options (titan, prism, pulse)
-    multi_dir_group = parser.add_argument_group("multi-direction options (titan/prism/pulse)")
+    # Multi-direction method options (grom, tecza, tetno)
+    multi_dir_group = parser.add_argument_group("multi-direction options (grom/tecza/tetno)")
     multi_dir_group.add_argument(
         "--num-directions",
         type=int,

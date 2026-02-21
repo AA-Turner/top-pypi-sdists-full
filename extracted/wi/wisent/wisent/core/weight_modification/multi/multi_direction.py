@@ -1,5 +1,5 @@
 """
-Multi-direction weight modification: Bake TITAN/PRISM/PULSE directions into weights.
+Multi-direction weight modification: Bake GROM/TECZA/TETNO directions into weights.
 
 These methods learn multiple steering directions per layer. When baking into weights,
 we lose the input-dependent gating but keep the multi-directional coverage.
@@ -29,9 +29,9 @@ if TYPE_CHECKING:
 __all__ = [
     "MultiDirectionConfig",
     "MultiDirectionResult", 
-    "train_and_bake_titan",
-    "train_and_bake_prism",
-    "train_and_bake_pulse",
+    "train_and_bake_grom",
+    "train_and_bake_tecza",
+    "train_and_bake_tetno",
     "bake_multi_directions",
     "combine_directions",
 ]
@@ -44,8 +44,8 @@ class MultiDirectionConfig:
     """Configuration for multi-direction weight modification."""
     
     # Method selection
-    method: str = "titan"
-    """Which method to use: 'titan', 'prism', or 'pulse'"""
+    method: str = "grom"
+    """Which method to use: 'grom', 'tecza', or 'tetno'"""
     
     # Direction combination
     combination_strategy: str = "learned"
@@ -80,7 +80,7 @@ class MultiDirectionResult:
     """Result from multi-direction training and baking."""
     
     method: str
-    """Method used (titan/prism/pulse)"""
+    """Method used (grom/tecza/tetno)"""
     
     num_directions: int
     """Number of directions per layer"""
@@ -216,42 +216,42 @@ def bake_multi_directions(
     )
 
 
-def train_and_bake_titan(
+def train_and_bake_grom(
     model: Module,
     pair_set: "ContrastivePairSet",
     config: Optional[MultiDirectionConfig] = None,
-    titan_config: Optional[Dict[str, Any]] = None,
+    grom_config: Optional[Dict[str, Any]] = None,
 ) -> MultiDirectionResult:
     """
-    Train TITAN and bake directions into model weights.
+    Train GROM and bake directions into model weights.
     
     Args:
         model: Model to modify
         pair_set: ContrastivePairSet with activations
         config: Multi-direction config
-        titan_config: Additional TITAN-specific config
+        grom_config: Additional GROM-specific config
         
     Returns:
         MultiDirectionResult
     """
-    from wisent.core.steering_methods.methods.titan import TITANMethod, TITANConfig
+    from wisent.core.steering_methods.methods.grom import GROMMethod, GROMConfig
     
-    cfg = config or MultiDirectionConfig(method="titan")
+    cfg = config or MultiDirectionConfig(method="grom")
     
-    # Build TITAN config
-    t_cfg = TITANConfig(
+    # Build GROM config
+    t_cfg = GROMConfig(
         num_directions=cfg.num_directions,
         optimization_steps=cfg.optimization_steps,
     )
-    if titan_config:
-        for k, v in titan_config.items():
+    if grom_config:
+        for k, v in grom_config.items():
             if hasattr(t_cfg, k):
                 setattr(t_cfg, k, v)
     
-    # Train TITAN
-    print(f"\nTraining TITAN with {cfg.num_directions} directions...")
-    titan = TITANMethod(config=t_cfg)
-    result = titan.train_titan(pair_set)
+    # Train GROM
+    print(f"\nTraining GROM with {cfg.num_directions} directions...")
+    grom = GROMMethod(config=t_cfg)
+    result = grom.train_grom(pair_set)
     
     # Extract directions and weights
     directions = result.directions
@@ -266,44 +266,44 @@ def train_and_bake_titan(
     return bake_multi_directions(model, directions, weights, cfg)
 
 
-def train_and_bake_prism(
+def train_and_bake_tecza(
     model: Module,
     pair_set: "ContrastivePairSet",
     config: Optional[MultiDirectionConfig] = None,
-    prism_config: Optional[Dict[str, Any]] = None,
+    tecza_config: Optional[Dict[str, Any]] = None,
 ) -> MultiDirectionResult:
     """
-    Train PRISM and bake directions into model weights.
+    Train TECZA and bake directions into model weights.
     
     Args:
         model: Model to modify
         pair_set: ContrastivePairSet with activations
         config: Multi-direction config
-        prism_config: Additional PRISM-specific config
+        tecza_config: Additional TECZA-specific config
         
     Returns:
         MultiDirectionResult
     """
-    from wisent.core.steering_methods.methods.advanced import PRISMMethod, PRISMConfig
+    from wisent.core.steering_methods.methods.advanced import TECZAMethod, TECZAConfig
     
-    cfg = config or MultiDirectionConfig(method="prism")
+    cfg = config or MultiDirectionConfig(method="tecza")
     
-    # Build PRISM config
-    p_cfg = PRISMConfig(
+    # Build TECZA config
+    p_cfg = TECZAConfig(
         num_directions=cfg.num_directions,
         optimization_steps=cfg.optimization_steps,
     )
-    if prism_config:
-        for k, v in prism_config.items():
+    if tecza_config:
+        for k, v in tecza_config.items():
             if hasattr(p_cfg, k):
                 setattr(p_cfg, k, v)
     
-    # Train PRISM
-    print(f"\nTraining PRISM with {cfg.num_directions} directions...")
-    prism = PRISMMethod(config=p_cfg)
-    result = prism.train_prism(pair_set)
+    # Train TECZA
+    print(f"\nTraining TECZA with {cfg.num_directions} directions...")
+    tecza = TECZAMethod(config=p_cfg)
+    result = tecza.train_tecza(pair_set)
     
-    # Extract directions (PRISM doesn't have learned weights, use uniform)
+    # Extract directions (TECZA doesn't have learned weights, use uniform)
     directions = result.directions
     
     print(f"Trained {len(directions)} layers")
@@ -315,44 +315,44 @@ def train_and_bake_prism(
     return bake_multi_directions(model, directions, None, cfg)
 
 
-def train_and_bake_pulse(
+def train_and_bake_tetno(
     model: Module,
     pair_set: "ContrastivePairSet",
     config: Optional[MultiDirectionConfig] = None,
-    pulse_config: Optional[Dict[str, Any]] = None,
+    tetno_config: Optional[Dict[str, Any]] = None,
 ) -> MultiDirectionResult:
     """
-    Train PULSE and bake directions into model weights.
+    Train TETNO and bake directions into model weights.
     
-    PULSE uses single direction per layer with conditional gating.
+    TETNO uses single direction per layer with conditional gating.
     When baking, we lose the gating but keep the behavior vectors.
     
     Args:
         model: Model to modify
         pair_set: ContrastivePairSet with activations
         config: Multi-direction config
-        pulse_config: Additional PULSE-specific config
+        tetno_config: Additional TETNO-specific config
         
     Returns:
         MultiDirectionResult
     """
-    from wisent.core.steering_methods.methods.advanced import PULSEMethod, PULSEConfig
+    from wisent.core.steering_methods.methods.advanced import TETNOMethod, TETNOConfig
     
-    cfg = config or MultiDirectionConfig(method="pulse")
+    cfg = config or MultiDirectionConfig(method="tetno")
     
-    # Build PULSE config
-    pu_cfg = PULSEConfig(
+    # Build TETNO config
+    pu_cfg = TETNOConfig(
         optimization_steps=cfg.optimization_steps,
     )
-    if pulse_config:
-        for k, v in pulse_config.items():
+    if tetno_config:
+        for k, v in tetno_config.items():
             if hasattr(pu_cfg, k):
                 setattr(pu_cfg, k, v)
     
-    # Train PULSE
-    print(f"\nTraining PULSE...")
-    pulse = PULSEMethod(config=pu_cfg)
-    result = pulse.train_pulse(pair_set)
+    # Train TETNO
+    print(f"\nTraining TETNO...")
+    tetno = TETNOMethod(config=pu_cfg)
+    result = tetno.train_tetno(pair_set)
     
     # Extract behavior vectors and layer weights
     behavior_vectors = result.behavior_vectors
@@ -378,7 +378,7 @@ def train_and_bake_pulse(
 def train_and_bake(
     model: Module,
     pair_set: "ContrastivePairSet",
-    method: str = "titan",
+    method: str = "grom",
     config: Optional[MultiDirectionConfig] = None,
     **method_kwargs,
 ) -> MultiDirectionResult:
@@ -388,7 +388,7 @@ def train_and_bake(
     Args:
         model: Model to modify
         pair_set: ContrastivePairSet with activations
-        method: 'titan', 'prism', or 'pulse'
+        method: 'grom', 'tecza', or 'tetno'
         config: Multi-direction config
         **method_kwargs: Additional method-specific config
         
@@ -400,11 +400,11 @@ def train_and_bake(
     else:
         config.method = method
     
-    if method == "titan":
-        return train_and_bake_titan(model, pair_set, config, method_kwargs)
-    elif method == "prism":
-        return train_and_bake_prism(model, pair_set, config, method_kwargs)
-    elif method == "pulse":
-        return train_and_bake_pulse(model, pair_set, config, method_kwargs)
+    if method == "grom":
+        return train_and_bake_grom(model, pair_set, config, method_kwargs)
+    elif method == "tecza":
+        return train_and_bake_tecza(model, pair_set, config, method_kwargs)
+    elif method == "tetno":
+        return train_and_bake_tetno(model, pair_set, config, method_kwargs)
     else:
-        raise ValueError(f"Unknown method: {method}. Use 'titan', 'prism', or 'pulse'")
+        raise ValueError(f"Unknown method: {method}. Use 'grom', 'tecza', or 'tetno'")

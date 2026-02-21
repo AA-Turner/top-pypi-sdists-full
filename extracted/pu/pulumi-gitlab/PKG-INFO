@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_gitlab
-Version: 9.8.2
+Version: 9.9.0
 Summary: A Pulumi package for creating and managing GitLab resources.
 License: Apache-2.0
 Project-URL: Homepage, https://pulumi.io

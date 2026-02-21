@@ -39,10 +39,7 @@ _THRESHOLD_BOUNDS = {
 def _weight_bounds(name: str) -> tuple[float, float]:
     if name in ("not_viable_scale", "confidence_base"):
         return (0.1, 1.0)
-    default = ScoreWeights.__dataclass_fields__[name].default
-    if default < 0:
-        return (-5.0, 0.0)
-    return (0.0, 5.0)
+    return (-5.0, 5.0)
 
 
 class RecommendationOptimizer(BaseOptimizer):

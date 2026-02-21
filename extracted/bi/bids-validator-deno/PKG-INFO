@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: bids-validator-deno
-Version: 2.4.0
+Version: 2.4.1
 Summary: Typescript implementation of the BIDS validator
 Keywords: BIDS,BIDS validator
 Author: bids-standard developers

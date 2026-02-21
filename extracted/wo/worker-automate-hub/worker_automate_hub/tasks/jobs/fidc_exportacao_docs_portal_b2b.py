@@ -64,7 +64,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
         folders_paths = await get_config_by_name("Folders_Fidc")
         #Abre um novo emsys
         await kill_all_emsys()
-        app = Application(backend='win32').start("C:\\Rezende\\EMSys3\\EMSys3.exe")
+        app = Application(backend='win32').start("C:\\Rezende\\EMSys3\\EMSys3_38.exe")
         warnings.filterwarnings("ignore", category=UserWarning, message="32-bit application should be automated using 32-bit Python")
         console.print("\nEMSys iniciando...", style="bold green")
         return_login = await login_emsys(config.conConfiguracao, app, task)
@@ -79,7 +79,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             logger.info(f"\nError Message: {return_login.retorno}")
             console.print(f"\nError Message: {return_login.retorno}", style="bold red")
             return return_login
-        await worker_sleep(5)
+        await worker_sleep(15)
         # Identificando jenela principal
         app = Application().connect(class_name="TFrmEnviaEmailBoletaTitulo", backend="win32")
         main_window_envia_boletos = app["TFrmEnviaEmailBoletaTitulo"]
@@ -160,7 +160,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
 
         #Clica em Pesquisar
         pyautogui.click(602, 588)
-        await worker_sleep(5)
+        await worker_sleep(15)
 
         #Deseja selecionar as empresas para pesquisa?
         try:
@@ -177,7 +177,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
                 pyautogui.click(720, 623)
                 await worker_sleep(5)
                 #Remove filial 189
-                window_company_select.child_window(class_name='TEdit').type_keys('189')
+                window_company_select.child_window(class_name='TEdit', found_index=1).type_keys('189')
                 await worker_sleep(2)
                 pyautogui.click(690, 440)
         except Exception as ex:
@@ -185,7 +185,7 @@ async def exportacao_docs_portal_b2b(task: RpaProcessoEntradaDTO) -> RpaRetornoP
             console.print(log_msg, style="bold red")
             return RpaRetornoProcessoDTO(sucesso=False, retorno=log_msg, status=RpaHistoricoStatusEnum.Falha, tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)])
         
-        pyautogui.click(1092, 658)
+        pyautogui.click(1125, 658)
         await worker_sleep(2)
         #Aguarda botão pesqiusar inativar
         current_try = 0

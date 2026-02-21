@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: pontos
-Version: 25.8.1
+Version: 26.2.0
 Summary: Common utilities and tools maintained by Greenbone Networks
 License: GPL-3.0-or-later
+License-File: LICENSE
 Author: Greenbone AG
 Author-email: info@greenbone.net
 Requires-Python: >=3.9,<4.0
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: colorful (>=0.5.4)
 Requires-Dist: httpx[http2] (>=0.23)

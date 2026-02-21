@@ -59,7 +59,7 @@ class ServicesInactiveWaiter(Waiter):
     [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#servicesinactivewaiter)
     """
     def wait(  # type: ignore[override]
-        self, **kwargs: Unpack[DescribeServicesRequestWaitExtraTypeDef]
+        self, **kwargs: Unpack[DescribeServicesRequestWaitTypeDef]
     ) -> None:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/ServicesInactive.html#ECS.Waiter.ServicesInactive.wait)
@@ -72,7 +72,7 @@ class ServicesStableWaiter(Waiter):
     [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ecs/waiters/#servicesstablewaiter)
     """
     def wait(  # type: ignore[override]
-        self, **kwargs: Unpack[DescribeServicesRequestWaitTypeDef]
+        self, **kwargs: Unpack[DescribeServicesRequestWaitExtraTypeDef]
     ) -> None:
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ecs/waiter/ServicesStable.html#ECS.Waiter.ServicesStable.wait)

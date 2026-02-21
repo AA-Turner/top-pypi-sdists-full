@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cupy
-Version: 14.0.0
+Version: 14.0.1
 Summary: CuPy: NumPy & SciPy for GPU
 Author-email: Seiya Tokui <tokui@preferred.jp>
 Maintainer: CuPy Developers

@@ -80,14 +80,20 @@ pub(crate) fn extract_list_marker_and_content(line: &str) -> (String, String) {
 
     // Handle bullet lists
     // Trim trailing whitespace while preserving hard breaks
-    if let Some(rest) = trimmed.strip_prefix("- ") {
-        return (format!("{indent}- "), trim_preserving_hard_break(rest));
-    }
-    if let Some(rest) = trimmed.strip_prefix("* ") {
-        return (format!("{indent}* "), trim_preserving_hard_break(rest));
-    }
-    if let Some(rest) = trimmed.strip_prefix("+ ") {
-        return (format!("{indent}+ "), trim_preserving_hard_break(rest));
+    for bullet in ["- ", "* ", "+ "] {
+        if let Some(rest) = trimmed.strip_prefix(bullet) {
+            let marker_prefix = &bullet[..bullet.len() - 1]; // "-", "*", or "+"
+            // Include GFM task list checkboxes in the non-wrappable marker prefix
+            for checkbox in ["[ ] ", "[x] ", "[X] "] {
+                if let Some(content) = rest.strip_prefix(checkbox) {
+                    return (
+                        format!("{indent}{marker_prefix} {checkbox}"),
+                        trim_preserving_hard_break(content),
+                    );
+                }
+            }
+            return (format!("{indent}{bullet}"), trim_preserving_hard_break(rest));
+        }
     }
 
     // Handle numbered lists on trimmed content
@@ -170,35 +176,20 @@ pub(crate) fn is_list_item(line: &str) -> bool {
     is_numbered_list_item(line)
 }
 
-/// Check if a line contains only template directives (no other content)
+/// Returns true if the content looks like a GitHub Flavored Markdown alert marker.
 ///
-/// Detects common template syntax used in static site generators:
-/// - Handlebars/mdBook/Mustache: `{{...}}`
-/// - Jinja2/Liquid/Jekyll: `{%...%}`
-/// - Hugo shortcodes: `{{<...>}}` or `{{%...%}}`
+/// GFM alert markers take the form `[!TYPE]` where TYPE is uppercase ASCII letters,
+/// optionally followed by content on the same line. They appear as the first line of
+/// a blockquote alert block and must not be merged with subsequent content lines.
 ///
-/// Template directives are preprocessor directives, not Markdown content,
-/// so they should be treated as paragraph boundaries like HTML comments.
-pub(crate) fn is_template_directive_only(line: &str) -> bool {
-    let trimmed = line.trim();
-
-    // Empty lines are not template directives
-    if trimmed.is_empty() {
+/// Standard types: NOTE, TIP, IMPORTANT, WARNING, CAUTION.
+pub(crate) fn is_github_alert_marker(trimmed: &str) -> bool {
+    if !trimmed.starts_with("[!") {
         return false;
     }
-
-    // Check for various template syntaxes
-    // Handlebars/mdBook/Mustache: {{...}}
-    if trimmed.starts_with("{{") && trimmed.ends_with("}}") {
-        return true;
-    }
-
-    // Jinja2/Liquid/Jekyll: {%...%}
-    if trimmed.starts_with("{%") && trimmed.ends_with("%}") {
-        return true;
-    }
-
-    false
+    let rest = &trimmed[2..];
+    let end = rest.find(|c: char| !c.is_ascii_uppercase()).unwrap_or(rest.len());
+    end > 0 && rest[end..].starts_with(']')
 }
 
 #[cfg(test)]
@@ -233,6 +224,44 @@ mod tests {
     }
 
     #[test]
+    fn test_extract_list_marker_task_checkboxes() {
+        // Unchecked task item: checkbox becomes part of the marker prefix
+        assert_eq!(
+            extract_list_marker_and_content("- [ ] some content"),
+            ("- [ ] ".to_string(), "some content".to_string())
+        );
+        // Checked task item (lowercase x)
+        assert_eq!(
+            extract_list_marker_and_content("- [x] done item"),
+            ("- [x] ".to_string(), "done item".to_string())
+        );
+        // Checked task item (uppercase X)
+        assert_eq!(
+            extract_list_marker_and_content("- [X] also done"),
+            ("- [X] ".to_string(), "also done".to_string())
+        );
+        // Other bullet markers preserve checkbox
+        assert_eq!(
+            extract_list_marker_and_content("* [ ] star task"),
+            ("* [ ] ".to_string(), "star task".to_string())
+        );
+        assert_eq!(
+            extract_list_marker_and_content("+ [ ] plus task"),
+            ("+ [ ] ".to_string(), "plus task".to_string())
+        );
+        // Indented task item
+        assert_eq!(
+            extract_list_marker_and_content("  - [ ] indented task"),
+            ("  - [ ] ".to_string(), "indented task".to_string())
+        );
+        // Regular bullet (no checkbox) is unchanged
+        assert_eq!(
+            extract_list_marker_and_content("- regular item"),
+            ("- ".to_string(), "regular item".to_string())
+        );
+    }
+
+    #[test]
     fn test_is_list_item_bullet_and_numbered() {
         // Bullet list items
         assert!(is_list_item("- Item"));
@@ -249,5 +278,31 @@ mod tests {
 
         // Year at end of sentence = not a list item
         assert!(!is_list_item("2019."));
+    }
+
+    #[test]
+    fn test_is_github_alert_marker() {
+        // Standard GFM alert types
+        assert!(is_github_alert_marker("[!NOTE]"));
+        assert!(is_github_alert_marker("[!TIP]"));
+        assert!(is_github_alert_marker("[!WARNING]"));
+        assert!(is_github_alert_marker("[!CAUTION]"));
+        assert!(is_github_alert_marker("[!IMPORTANT]"));
+
+        // Alert with trailing content on the same line
+        assert!(is_github_alert_marker("[!NOTE] Some inline content here"));
+        assert!(is_github_alert_marker("[!WARNING] Do not do this"));
+
+        // Custom uppercase type (not standard but structurally valid)
+        assert!(is_github_alert_marker("[!CUSTOM]"));
+
+        // Not an alert marker
+        assert!(!is_github_alert_marker("[!note]")); // lowercase
+        assert!(!is_github_alert_marker("[Note]")); // missing !
+        assert!(!is_github_alert_marker("[!]")); // empty type
+        assert!(!is_github_alert_marker("[!NOTE")); // missing closing bracket
+        assert!(!is_github_alert_marker("NOTE")); // no brackets
+        assert!(!is_github_alert_marker("[link]: url")); // link definition
+        assert!(!is_github_alert_marker("Some text [!NOTE]")); // not at start
     }
 }

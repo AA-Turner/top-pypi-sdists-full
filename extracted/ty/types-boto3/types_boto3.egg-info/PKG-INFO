@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-boto3
-Version: 1.42.53
-Summary: Type annotations for boto3 1.42.53 generated with mypy-boto3-builder 8.12.0
+Version: 1.42.54
+Summary: Type annotations for boto3 1.42.54 generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -34,7 +34,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-boto3-full<1.43.0,>=1.42.0; extra == "full"
 Provides-Extra: boto3
-Requires-Dist: boto3==1.42.53; extra == "boto3"
+Requires-Dist: boto3==1.42.54; extra == "boto3"
 Provides-Extra: all
 Requires-Dist: types-boto3-accessanalyzer<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-account<1.43.0,>=1.42.0; extra == "all"
@@ -397,6 +397,7 @@ Requires-Dist: types-boto3-ses<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-sesv2<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-shield<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-signer<1.43.0,>=1.42.0; extra == "all"
+Requires-Dist: types-boto3-signer-data<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-signin<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-simspaceweaver<1.43.0,>=1.42.0; extra == "all"
 Requires-Dist: types-boto3-snow-device-management<1.43.0,>=1.42.0; extra == "all"
@@ -1178,6 +1179,8 @@ Provides-Extra: shield
 Requires-Dist: types-boto3-shield<1.43.0,>=1.42.0; extra == "shield"
 Provides-Extra: signer
 Requires-Dist: types-boto3-signer<1.43.0,>=1.42.0; extra == "signer"
+Provides-Extra: signer-data
+Requires-Dist: types-boto3-signer-data<1.43.0,>=1.42.0; extra == "signer-data"
 Provides-Extra: signin
 Requires-Dist: types-boto3-signin<1.43.0,>=1.42.0; extra == "signin"
 Provides-Extra: simspaceweaver
@@ -1293,7 +1296,7 @@ Dynamic: license-file
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 1.42.53](https://pypi.org/project/boto3/)
+Type annotations for [boto3 1.42.54](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1351,7 +1354,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.42.53' mypy-boto3-builder`
+   `uvx --with 'boto3==1.42.54' mypy-boto3-builder`
 2. Select `boto3` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1679,9 +1682,9 @@ repository.
 
 ## Submodules
 
-- `types-boto3[full]` - Type annotations for all 412 services in one package
+- `types-boto3[full]` - Type annotations for all 413 services in one package
   (recommended).
-- `types-boto3[all]` - Type annotations for all 412 services in separate
+- `types-boto3[all]` - Type annotations for all 413 services in separate
   packages.
 - `types-boto3[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_boto3_docs/types_boto3_cloudformation/),
@@ -2744,6 +2747,9 @@ repository.
   service.
 - `types-boto3[signer]` - Type annotations for
   [Signer](https://youtype.github.io/types_boto3_docs/types_boto3_signer/)
+  service.
+- `types-boto3[signer-data]` - Type annotations for
+  [SignerDataPlane](https://youtype.github.io/types_boto3_docs/types_boto3_signer_data/)
   service.
 - `types-boto3[signin]` - Type annotations for
   [SignInService](https://youtype.github.io/types_boto3_docs/types_boto3_signin/)

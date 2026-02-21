@@ -159,6 +159,17 @@ def get(ctx, connector_id, **kwargs):
     return apiclient.connectors_api.get_connector(connector_id, **params)
 
 
+def list_connectors_simple_status(ctx, **kwargs):
+    token = context.get_token(ctx)
+    apiclient = context.get_apiclient(ctx, token)
+    org_id = get_org_from_input_or_ctx(ctx, **kwargs)
+
+    params = kwargs
+    params["org_id"] = org_id
+    input_helpers.update_if_not_none(params, kwargs)
+    return apiclient.connectors_api.get_connectors_simple_status(**params).connectors
+
+
 def get_instance(ctx, connector_id, connector_instance_id, **kwargs):
     token = context.get_token(ctx)
     apiclient = context.get_apiclient(ctx, token)

@@ -1,29 +1,30 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: jsonschema-path
-Version: 0.3.4
+Version: 0.4.1
 Summary: JSONSchema Spec with object-oriented paths
 License: Apache-2.0
+License-File: LICENSE
 Keywords: jsonschema,swagger,spec
 Author: Artur Maciag
 Author-email: maciag.artur@gmail.com
-Requires-Python: >=3.8.0,<4.0.0
+Requires-Python: >=3.10,<4.0.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: requests
 Requires-Dist: PyYAML (>=5.1)
-Requires-Dist: pathable (>=0.4.1,<0.5.0)
-Requires-Dist: referencing (<0.37.0)
-Requires-Dist: requests (>=2.31.0,<3.0.0)
+Requires-Dist: pathable (>=0.5.0,<0.6.0)
+Requires-Dist: referencing (<0.38.0)
+Requires-Dist: requests (>=2.31.0,<3.0.0) ; extra == "requests"
 Project-URL: Repository, https://github.com/p1c2u/jsonschema-path
 Description-Content-Type: text/x-rst
 
@@ -119,6 +120,43 @@ Usage
    {'type': 'string', 'default': '1.0'}
 
 
+Benchmarks
+##########
+
+Benchmarks mirror the lightweight (dependency-free) JSON output format used in
+`pathable`.
+
+Run locally with Poetry:
+
+.. code-block:: console
+
+   poetry run python -m tests.benchmarks.bench_parse --output reports/bench-parse.json
+   poetry run python -m tests.benchmarks.bench_lookup --output reports/bench-lookup.json
+
+For a quick smoke run:
+
+.. code-block:: console
+
+   poetry run python -m tests.benchmarks.bench_parse --output reports/bench-parse.quick.json --quick
+   poetry run python -m tests.benchmarks.bench_lookup --output reports/bench-lookup.quick.json --quick
+
+You can also control repeats/warmup via env vars:
+
+.. code-block:: console
+
+   export JSONSCHEMA_PATH_BENCH_REPEATS=5
+   export JSONSCHEMA_PATH_BENCH_WARMUP=1
+
+Compare two results:
+
+.. code-block:: console
+
+    poetry run python -m tests.benchmarks.compare_results \
+       --baseline reports/bench-lookup-master.json \
+       --candidate reports/bench-lookup.json \
+       --tolerance 0.20
+
+
 Related projects
 ################
 
@@ -132,5 +170,5 @@ Related projects
 License
 #######
 
-Copyright (c) 2017-2022, Artur Maciag, All rights reserved. Apache-2.0
+Copyright (c) 2017-2025, Artur Maciag, All rights reserved. Apache-2.0
 

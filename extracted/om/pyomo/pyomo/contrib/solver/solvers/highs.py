@@ -1,13 +1,11 @@
-#  ___________________________________________________________________________
+# ____________________________________________________________________________________
 #
-#  Pyomo: Python Optimization Modeling Objects
-#  Copyright (c) 2008-2025
-#  National Technology and Engineering Solutions of Sandia, LLC
-#  Under the terms of Contract DE-NA0003525 with National Technology and
-#  Engineering Solutions of Sandia, LLC, the U.S. Government retains certain
-#  rights in this software.
-#  This software is distributed under the 3-clause BSD License.
-#  ___________________________________________________________________________
+# Pyomo: Python Optimization Modeling Objects
+# Copyright (c) 2008-2026 National Technology and Engineering Solutions of Sandia, LLC
+# Under the terms of Contract DE-NA0003525 with National Technology and Engineering
+# Solutions of Sandia, LLC, the U.S. Government retains certain rights in this
+# software.  This software is distributed under the 3-clause BSD License.
+# ____________________________________________________________________________________
 
 import logging
 import io
@@ -750,7 +748,15 @@ class Highs(PersistentSolverMixin, PersistentSolverUtils, PersistentSolverBase):
                     results.objective_bound = None
             else:
                 results.objective_bound = info.mip_dual_bound
-            results.iteration_count = info.simplex_iteration_count
+
+            if info.valid:
+                results.extra_info.simplex_iteration_count = (
+                    info.simplex_iteration_count
+                )
+                results.extra_info.ipm_iteration_count = info.ipm_iteration_count
+                results.extra_info.mip_node_count = info.mip_node_count
+                results.extra_info.pdlp_iteration_count = info.pdlp_iteration_count
+                results.extra_info.qp_iteration_count = info.qp_iteration_count
 
         if config.load_solutions:
             if has_feasible_solution:

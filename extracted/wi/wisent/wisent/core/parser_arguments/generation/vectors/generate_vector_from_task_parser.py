@@ -88,7 +88,7 @@ def setup_generate_vector_from_task_parser(parser: argparse.ArgumentParser) -> N
     parser.add_argument(
         "--method",
         type=str,
-        choices=["caa", "prism", "pulse", "titan", "concept_flow"],
+        choices=["caa", "tecza", "tetno", "grom", "nurt"],
         default="caa",
         help="Steering method to use (default: caa). If optimal config exists, method is auto-selected."
     )
@@ -105,24 +105,24 @@ def setup_generate_vector_from_task_parser(parser: argparse.ArgumentParser) -> N
         help="Do not L2-normalize steering vectors"
     )
     
-    # Universal Subspace options (PRISM/TITAN)
+    # Universal Subspace options (TECZA/GROM)
     parser.add_argument(
         "--auto-num-directions",
         action="store_true",
         default=False,
-        help="Automatically determine num_directions based on explained variance (PRISM/TITAN)"
+        help="Automatically determine num_directions based on explained variance (TECZA/GROM)"
     )
     parser.add_argument(
         "--use-universal-basis-init",
         action="store_true",
         default=False,
-        help="Initialize directions from universal basis (PRISM/TITAN)"
+        help="Initialize directions from universal basis (TECZA/GROM)"
     )
     parser.add_argument(
         "--num-directions",
         type=int,
         default=3,
-        help="Number of steering directions for PRISM/TITAN (default: 3)"
+        help="Number of steering directions for TECZA/GROM (default: 3)"
     )
     
     # Intermediate file handling

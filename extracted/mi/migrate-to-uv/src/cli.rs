@@ -56,12 +56,8 @@ struct Cli {
         help = "Enforce a specific package manager instead of auto-detecting it"
     )]
     package_manager: Option<PackageManager>,
-    #[arg(
-        long,
-        default_value = "set-default-groups",
-        help = "Strategy to use when migrating dependency groups"
-    )]
-    dependency_groups_strategy: DependencyGroupsStrategy,
+    #[arg(long, help = "Strategy to use when migrating dependency groups")]
+    dependency_groups_strategy: Option<DependencyGroupsStrategy>,
     #[arg(
         long,
         conflicts_with = "keep_current_build_backend",
@@ -76,6 +72,8 @@ struct Cli {
     keep_current_build_backend: bool,
     #[arg(long, help = "Keep data from current package manager")]
     keep_current_data: bool,
+    #[arg(long, help = "Perform the migration even if there are errors")]
+    ignore_errors: bool,
     #[arg(long, default_values = vec!["requirements.txt"], help = "Requirements file to migrate")]
     requirements_file: Vec<String>,
     #[arg(long, default_values = vec!["requirements-dev.txt"], help = "Development requirements file to migrate")]
@@ -98,6 +96,7 @@ pub fn cli() {
         replace_project_section: cli.replace_project_section,
         keep_current_build_backend: cli.keep_current_build_backend,
         keep_old_metadata: cli.keep_current_data,
+        ignore_errors: cli.ignore_errors,
         dependency_groups_strategy: cli.dependency_groups_strategy,
         build_backend: cli.build_backend,
     };

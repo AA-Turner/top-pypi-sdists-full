@@ -7,8 +7,8 @@ import json
 from dataclasses import dataclass, fields, asdict
 from pathlib import Path
 
-METHODS = ("CAA", "Hyperplane", "MLP", "PRISM", "PULSE", "TITAN",
-           "Concept Flow")
+METHODS = ("CAA", "Ostrze", "MLP", "TECZA", "TETNO", "GROM",
+           "Concept Flow", "SZLAK", "WICHER")
 
 
 @dataclass(slots=True)
@@ -33,43 +33,65 @@ class Thresholds:
 
 @dataclass(slots=True)
 class ScoreWeights:
-    linear_high_caa: float = 2.0
-    linear_high_hyperplane: float = 2.0
-    linear_high_cf: float = 1.0
-    linear_low_mlp: float = 1.0
-    linear_low_pulse: float = 1.0
-    linear_low_titan: float = 1.0
-    linear_low_cf: float = 0.5
-    nonlin_gap_mlp: float = 1.5
-    nonlin_gap_pulse: float = 0.5
-    nonlin_gap_titan: float = 0.5
-    nonlin_gap_cf: float = 1.0
-    multi_concept_prism: float = 2.0
-    multi_concept_titan: float = 1.0
-    multi_concept_cf: float = 1.5
-    multi_concept_caa: float = -1.0
-    multi_concept_hyperplane: float = -0.5
-    stab_high_caa: float = 1.0
-    stab_high_hyperplane: float = 0.5
-    stab_high_cf: float = 0.5
-    stab_low_titan: float = 1.0
-    stab_low_pulse: float = 0.5
-    stab_low_cf: float = 1.0
-    stab_low_caa: float = -0.5
-    icd_high_caa: float = 1.0
-    icd_high_hyperplane: float = 0.5
-    icd_high_cf: float = 0.5
-    icd_low_titan: float = 0.5
-    icd_low_pulse: float = 0.5
-    coh_high_caa: float = 0.5
-    coh_low_prism: float = 0.5
-    coh_low_titan: float = 0.5
-    coh_low_cf: float = 0.5
-    var_pc1_cf: float = 1.0
-    icd_top5_cf: float = 0.5
-    mdir_gain_cf: float = 1.0
-    mdir_gain_prism: float = 0.5
-    eff_dims_cf: float = 0.5
+    linear_high_caa: float = 0.0
+    linear_high_ostrze: float = 0.0
+    linear_high_cf: float = 0.0
+    linear_low_mlp: float = 0.0
+    linear_low_tetno: float = 0.0
+    linear_low_grom: float = 0.0
+    linear_low_cf: float = 0.0
+    nonlin_gap_mlp: float = 0.0
+    nonlin_gap_tetno: float = 0.0
+    nonlin_gap_grom: float = 0.0
+    nonlin_gap_cf: float = 0.0
+    multi_concept_tecza: float = 0.0
+    multi_concept_grom: float = 0.0
+    multi_concept_cf: float = 0.0
+    multi_concept_caa: float = 0.0
+    multi_concept_ostrze: float = 0.0
+    stab_high_caa: float = 0.0
+    stab_high_ostrze: float = 0.0
+    stab_high_cf: float = 0.0
+    stab_low_grom: float = 0.0
+    stab_low_tetno: float = 0.0
+    stab_low_cf: float = 0.0
+    stab_low_caa: float = 0.0
+    icd_high_caa: float = 0.0
+    icd_high_ostrze: float = 0.0
+    icd_high_cf: float = 0.0
+    icd_low_grom: float = 0.0
+    icd_low_tetno: float = 0.0
+    coh_high_caa: float = 0.0
+    coh_low_tecza: float = 0.0
+    coh_low_grom: float = 0.0
+    coh_low_cf: float = 0.0
+    var_pc1_cf: float = 0.0
+    icd_top5_cf: float = 0.0
+    mdir_gain_cf: float = 0.0
+    mdir_gain_tecza: float = 0.0
+    eff_dims_cf: float = 0.0
+    linear_high_szlak: float = 0.0
+    linear_low_szlak: float = 0.0
+    nonlin_gap_szlak: float = 0.0
+    multi_concept_szlak: float = 0.0
+    stab_high_szlak: float = 0.0
+    stab_low_szlak: float = 0.0
+    icd_high_szlak: float = 0.0
+    icd_low_szlak: float = 0.0
+    coh_low_szlak: float = 0.0
+    var_pc1_szlak: float = 0.0
+    mdir_gain_szlak: float = 0.0
+    eff_dims_szlak: float = 0.0
+    linear_high_wicher: float = 0.0
+    linear_low_wicher: float = 0.0
+    nonlin_gap_wicher: float = 0.0
+    multi_concept_wicher: float = 0.0
+    stab_high_wicher: float = 0.0
+    stab_low_wicher: float = 0.0
+    icd_high_wicher: float = 0.0
+    icd_low_wicher: float = 0.0
+    coh_high_wicher: float = 0.0
+    coh_low_wicher: float = 0.0
     not_viable_scale: float = 0.5
     confidence_base: float = 0.5
 

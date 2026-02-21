@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "marimo"
-version = "0.19.11"
+version = "0.20.1"
 description = "A library for making reactive notebooks and apps"
 # We try to keep dependencies to a minimum, to avoid conflicts with
 # user environments; we need a very compelling reason for each dependency added.
@@ -127,7 +127,7 @@ dev = [
     # Stubs for optional dataframe backends
     "pyarrow-stubs",
     # For linting
-    "ruff>=0.13.2",
+    "ruff>=0.14.0,<0.15.2", # TODO: remove upper bound once we fix the ruff issues
     # For AI
     "pydantic-ai-slim[openai]>=1.52.0",
 ]
@@ -170,6 +170,8 @@ test-optional = [
     "polars>=1.32.2",
     "sqlglot[rs]>=26.2.0,<28.7.0",  # <28.7.0 due to ibis compatibility issue
     "sqlalchemy>=2.0.40",
+    "obstore>=0.8.2",
+    "fsspec>=2026.2.0",
     "pyiceberg>=0.9.0",
     "cloudpathlib>=0.23.0",
     # For testing clickhouse
@@ -246,6 +248,8 @@ dependencies = [
     "matplotlib>=3.8.0",
     "sqlglot[rs]>=26.2.0",
     "sqlalchemy>=2.0.40",
+    "obstore>=0.8.2",
+    "fsspec>=2026.2.0",
     "pydantic-ai-slim[google,anthropic,bedrock,openai]>=1.52.0",
     "loro>=1.5.0",
     "pandas-stubs>=1.5.3.230321",
@@ -301,7 +305,7 @@ python = ["3.10", "3.11", "3.12", "3.13", "3.14"]
 [tool.hatch.envs.docs]
 dependencies = [
     "marimo_docs @ file://docs",
-    "ruff>=0.13.2",
+    "ruff>=0.14.0,<0.15.2", # TODO: remove upper bound once we fix the ruff issues
     "mkdocs>=1.6.1",
     # Live reloading broken in >= 9.6.21: https://github.com/squidfunk/mkdocs-material/issues/8478
     "mkdocs-material==9.6.20",
@@ -485,6 +489,8 @@ banned-module-level-imports = [
     "pyarrow",
     "redis",
     "sqlalchemy",
+    "obstore",
+    "fsspec",
     "sqlglot",
     "tomlkit",
     "typing_extensions",
@@ -551,7 +557,8 @@ extend-exclude = [
     "**/__demo__/*",
     "base64.test.ts",
     "SECURITY.md", # Contains usernames that trigger typos
-    "patches/*", # Patches may contain typos from source code
+    "patches/*", # Patches may contain typos from source code,
+    "frontend/dist/assets/*", # Assets may contain typos from source code
     "tests/_sql/test_sql_parse.py", # Contains intentional invalid SQL for testing
 ]
 
@@ -569,6 +576,7 @@ format_on_save = true
 [tool.marimo.experimental]
 multi_column = true
 cache_panel = true
+storage_inspector = true
 
 [tool.marimo.display]
 dataframes = "rich"
@@ -605,4 +613,3 @@ pip = ">=25.0.1,<26"
 
 [tool.pixi.pypi-dependencies]
 marimo = {path = ".", editable = true}
-

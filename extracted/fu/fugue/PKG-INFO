@@ -1,36 +1,35 @@
 Metadata-Version: 2.4
 Name: fugue
-Version: 0.9.6
-Summary: An abstraction layer for distributed computation
-Home-page: http://github.com/fugue-project/fugue
-Author: The Fugue Development Team
-Author-email: hello@fugue.ai
+Version: 0.9.7
+Summary: An abstraction layer for distributed computing
+Author-email: The Fugue Development Team <hello@fugue.ai>
 License: Apache-2.0
-Keywords: distributed spark dask ray sql dsl domain specific language
+Project-URL: Homepage, http://github.com/fugue-project/fugue
+Project-URL: Repository, http://github.com/fugue-project/fugue
+Keywords: distributed,spark,dask,ray,duckdb,sql,dsl,domain specific language
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: triad>=1.0.0
+Requires-Dist: triad>=1.0.1
 Requires-Dist: adagio>=0.2.6
 Requires-Dist: pandas<3
 Provides-Extra: sql
-Requires-Dist: qpd>=0.4.4; extra == "sql"
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == "sql"
+Requires-Dist: duckdb>=0.5.0; extra == "sql"
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == "sql"
 Requires-Dist: sqlglot<28; extra == "sql"
 Requires-Dist: jinja2; extra == "sql"
 Provides-Extra: cpp-sql-parser
-Requires-Dist: fugue-sql-antlr[cpp]>=0.2.0; extra == "cpp-sql-parser"
+Requires-Dist: fugue-sql-antlr[cpp]>=0.2.4; extra == "cpp-sql-parser"
 Provides-Extra: spark
 Requires-Dist: pyspark>=3.1.1; extra == "spark"
 Requires-Dist: zstandard>=0.25.0; extra == "spark"
@@ -39,13 +38,12 @@ Requires-Dist: dask[dataframe,distributed]>=2024.4.0; extra == "dask"
 Requires-Dist: pyarrow>=7.0.0; extra == "dask"
 Requires-Dist: pandas>=2.0.2; extra == "dask"
 Provides-Extra: ray
-Requires-Dist: ray[data]>=2.30.0; extra == "ray"
+Requires-Dist: ray[data]>=2.30.0; python_version < "3.14" and extra == "ray"
 Requires-Dist: duckdb>=0.5.0; extra == "ray"
 Requires-Dist: pyarrow>=7.0.0; extra == "ray"
 Requires-Dist: pandas; extra == "ray"
 Provides-Extra: duckdb
-Requires-Dist: qpd>=0.4.4; extra == "duckdb"
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == "duckdb"
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == "duckdb"
 Requires-Dist: sqlglot<28; extra == "duckdb"
 Requires-Dist: jinja2; extra == "duckdb"
 Requires-Dist: duckdb>=0.5.0; extra == "duckdb"
@@ -53,8 +51,7 @@ Requires-Dist: numpy; extra == "duckdb"
 Provides-Extra: polars
 Requires-Dist: polars; extra == "polars"
 Provides-Extra: ibis
-Requires-Dist: qpd>=0.4.4; extra == "ibis"
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == "ibis"
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == "ibis"
 Requires-Dist: sqlglot<28; extra == "ibis"
 Requires-Dist: jinja2; extra == "ibis"
 Requires-Dist: ibis-framework[pandas]; extra == "ibis"
@@ -63,14 +60,13 @@ Requires-Dist: notebook; extra == "notebook"
 Requires-Dist: jupyterlab; extra == "notebook"
 Requires-Dist: ipython>=7.10.0; extra == "notebook"
 Provides-Extra: all
-Requires-Dist: qpd>=0.4.4; extra == "all"
-Requires-Dist: fugue-sql-antlr>=0.2.0; extra == "all"
+Requires-Dist: fugue-sql-antlr>=0.2.4; extra == "all"
 Requires-Dist: sqlglot<28; extra == "all"
 Requires-Dist: jinja2; extra == "all"
 Requires-Dist: pyspark>=3.1.1; extra == "all"
 Requires-Dist: dask[dataframe,distributed]>=2024.4.0; extra == "all"
 Requires-Dist: dask-sql; extra == "all"
-Requires-Dist: ray[data]>=2.30.0; extra == "all"
+Requires-Dist: ray[data]>=2.30.0; python_version < "3.14" and extra == "all"
 Requires-Dist: notebook; extra == "all"
 Requires-Dist: jupyterlab; extra == "all"
 Requires-Dist: ipython>=7.10.0; extra == "all"
@@ -79,26 +75,14 @@ Requires-Dist: pyarrow>=6.0.1; extra == "all"
 Requires-Dist: pandas>=2.0.2; extra == "all"
 Requires-Dist: ibis-framework[duckdb,pandas]; extra == "all"
 Requires-Dist: polars; extra == "all"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: keywords
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
-# Fugue
+# <img src="./images/logo.svg" width="200">
 
 [![PyPI version](https://badge.fury.io/py/fugue.svg)](https://pypi.python.org/pypi/fugue/)
 [![PyPI pyversions](https://img.shields.io/pypi/pyversions/fugue.svg)](https://pypi.python.org/pypi/fugue/)
 [![PyPI license](https://img.shields.io/pypi/l/fugue.svg)](https://pypi.python.org/pypi/fugue/)
-[![codecov](https://codecov.io/gh/fugue-project/fugue/branch/master/graph/badge.svg?token=ZO9YD5N3IA)](https://codecov.io/gh/fugue-project/fugue)
+[![codecov](https://codecov.io/gh/fugue-project/fugue/graph/badge.svg?token=ZO9YD5N3IA)](https://codecov.io/gh/fugue-project/fugue)
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/4fa5f2f53e6f48aaa1218a89f4808b91)](https://www.codacy.com/gh/fugue-project/fugue/dashboard?utm_source=github.com&utm_medium=referral&utm_content=fugue-project/fugue&utm_campaign=Badge_Grade)
 [![Downloads](https://static.pepy.tech/badge/fugue)](https://pepy.tech/project/fugue)
 

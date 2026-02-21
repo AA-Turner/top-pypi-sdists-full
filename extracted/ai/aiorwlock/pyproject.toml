@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "aiorwlock"
-version = "1.5.0"
+version = "1.5.1"
 description = "Read write lock for asyncio."
 authors = ["Nikolay Novik <nickolainovik@gmail.com>"]
 license = "Apache-2.0"
@@ -26,17 +26,17 @@ classifiers = [
 python = ">=3.9"
 
 [tool.poetry.dev-dependencies]
-bandit = "1.7.10"
-black = "24.10.0"
-flake8-bugbear = "24.10.31"
-flake8 = "7.1.1"
-isort = "5.13.2"
-mypy = "1.13.0"
-pyroma = "4.2"
-pytest-asyncio = "0.24.0"
-pytest-cov = "6.0.0"
-pytest = "8.3.3"
-coverage = "^7.6.7"
+bandit = "1.8.6"
+black = "25.11.0"
+flake8-bugbear = "24.12.12"
+flake8 = "7.3.0"
+isort = "6.1.0"
+mypy = "1.19.1"
+pyroma = "5.0.1"
+pytest-asyncio = "1.2.0"
+pytest-cov = "7.0.0"
+pytest = "8.4.2"
+coverage = "^7.10.7"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

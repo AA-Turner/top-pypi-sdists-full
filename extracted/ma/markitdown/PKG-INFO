@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markitdown
-Version: 0.1.4
+Version: 0.1.5
 Summary: Utility tool for converting various files to Markdown
 Project-URL: Documentation, https://github.com/microsoft/markitdown#readme
 Project-URL: Issues, https://github.com/microsoft/markitdown/issues
@@ -21,7 +21,6 @@ Requires-Dist: charset-normalizer
 Requires-Dist: defusedxml
 Requires-Dist: magika~=0.6.1
 Requires-Dist: markdownify
-Requires-Dist: onnxruntime<=1.20.1; sys_platform == 'win32'
 Requires-Dist: requests
 Provides-Extra: all
 Requires-Dist: azure-ai-documentintelligence; extra == 'all'
@@ -31,7 +30,8 @@ Requires-Dist: mammoth~=1.11.0; extra == 'all'
 Requires-Dist: olefile; extra == 'all'
 Requires-Dist: openpyxl; extra == 'all'
 Requires-Dist: pandas; extra == 'all'
-Requires-Dist: pdfminer-six>=20251107; extra == 'all'
+Requires-Dist: pdfminer-six>=20251230; extra == 'all'
+Requires-Dist: pdfplumber>=0.11.9; extra == 'all'
 Requires-Dist: pydub; extra == 'all'
 Requires-Dist: python-pptx; extra == 'all'
 Requires-Dist: speechrecognition; extra == 'all'
@@ -49,7 +49,8 @@ Requires-Dist: mammoth~=1.11.0; extra == 'docx'
 Provides-Extra: outlook
 Requires-Dist: olefile; extra == 'outlook'
 Provides-Extra: pdf
-Requires-Dist: pdfminer-six; extra == 'pdf'
+Requires-Dist: pdfminer-six>=20251230; extra == 'pdf'
+Requires-Dist: pdfplumber>=0.11.9; extra == 'pdf'
 Provides-Extra: pptx
 Requires-Dist: python-pptx; extra == 'pptx'
 Provides-Extra: xls

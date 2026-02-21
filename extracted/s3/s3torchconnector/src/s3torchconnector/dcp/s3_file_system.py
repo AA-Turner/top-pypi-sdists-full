@@ -1,15 +1,17 @@
 #  Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
 #  // SPDX-License-Identifier: BSD
 
+import dataclasses
 import io
 import logging
 import os
 import urllib.parse
 from contextlib import contextmanager
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Generator, Union, Optional
-from typing import List
+from typing import Generator, Union, Optional, List
 
+import torch
 from s3torchconnectorclient._mountpoint_s3_client import S3Exception
 from tenacity import (
     retry,
@@ -24,11 +26,16 @@ from torch.distributed.checkpoint.filesystem import (
     FileSystemWriter,
     FileSystemBase,
 )
-import torch
+from torch.distributed.checkpoint.planner import SavePlan, LoadPlan
+
 
 from s3torchconnector._s3client import S3Client
 from s3torchconnector._s3dataset_common import parse_s3_uri
-from ..s3reader import S3ReaderConstructor, S3ReaderConstructorProtocol
+from ..s3reader import (
+    S3ReaderConstructor,
+    S3ReaderConstructorProtocol,
+    DCPS3ReaderConstructorProtocol,
+)
 from .. import S3ClientConfig
 from .s3_prefix_strategy import S3PrefixStrategyBase, DefaultPrefixStrategy
 from .._user_agent import UserAgent
@@ -37,6 +44,8 @@ logger = logging.getLogger(__name__)
 
 
 class S3FileSystem(FileSystemBase):
+    """S3-based implementation of PyTorch's FileSystemBase for distributed checkpointing."""
+
     def __init__(
         self,
         region: str,
@@ -252,11 +261,6 @@ class S3FileSystem(FileSystemBase):
         return "/".join(parts)
 
 
-from torch.distributed.checkpoint.planner import SavePlan
-import dataclasses
-from dataclasses import dataclass
-
-
 @dataclass
 class StorageMetadata:
     """Metadata for S3 storage prefix."""
@@ -265,12 +269,15 @@ class StorageMetadata:
 
 
 class S3StorageWriter(FileSystemWriter):
+    """S3 implementation of PyTorch's FileSystemWriter for distributed checkpoints."""
+
     def __init__(
         self,
         region: str,
         path: str,
         s3client_config: Optional[S3ClientConfig] = None,
         prefix_strategy: Optional[S3PrefixStrategyBase] = None,
+        thread_count: int = 1,
         **kwargs,
     ) -> None:
         """
@@ -282,11 +289,13 @@ class S3StorageWriter(FileSystemWriter):
             s3client_config (Optional[S3ClientConfig]): Optional S3ClientConfig with parameters for S3 client.
             prefix_strategy (Optional[S3PrefixStrategyBase]): Optional strategy for generating S3 prefixes to
                 optimize checkpoint organization and prevent throttling.
+            thread_count (int): Number of IO threads to use to write. Defaults to 1 (Pytorch Default)
             kwargs (dict): Keyword arguments to pass to the parent :class:`FileSystemWriter`.
         """
         super().__init__(
             path=path,
             sync_files=False,  # FIXME: setting this to True makes the run to fail (L#333: `os.fsync(stream.fileno())`)
+            thread_count=thread_count,
             **kwargs,
         )
         self.fs = S3FileSystem(region, s3client_config=s3client_config)  # type: ignore
@@ -316,12 +325,24 @@ class S3StorageWriter(FileSystemWriter):
 
 
 class S3StorageReader(FileSystemReader):
+    """S3 implementation of PyTorch's FileSystemReader with configurable reader strategies.
+
+    By default, uses DCPOptimizedS3Reader for improved checkpoint loading performance.
+    For unsupported or non-DCP access patterns, please use the generic reader:
+        storage_reader = S3StorageReader(
+            region, path,
+            reader_constructor=S3ReaderConstructor.default()
+        )
+    """
+
     def __init__(
         self,
         region: str,
         path: Union[str, os.PathLike],
         s3client_config: Optional[S3ClientConfig] = None,
-        reader_constructor: Optional[S3ReaderConstructorProtocol] = None,
+        reader_constructor: Optional[
+            Union[S3ReaderConstructorProtocol, DCPS3ReaderConstructorProtocol]
+        ] = None,
     ) -> None:
         """
         Initialize an S3 reader for distributed checkpointing.
@@ -330,17 +351,54 @@ class S3StorageReader(FileSystemReader):
             region (str): The AWS region for S3.
             path (Union[str, os.PathLike]): The S3 path to read checkpoints from.
             s3client_config (Optional[S3ClientConfig]): Optional S3ClientConfig with parameters for S3 client.
-            reader_constructor (Optional[S3ReaderConstructorProtocol]): Optional partial(S3Reader) created using S3ReaderConstructor
-                e.g. S3ReaderConstructor.sequential() or S3ReaderConstructor.range_based()
+            reader_constructor (Optional[S3ReaderConstructorProtocol]): Reader constructor created using
+                S3ReaderConstructor. Defaults to ``S3ReaderConstructor.dcp_optimized()`` for best performance.
+                Use ``S3ReaderConstructor.sequential()`` for unsupported/non-DCP access patterns.
         """
         super().__init__(path)
-        self.fs = S3FileSystem(region, s3client_config=s3client_config, reader_constructor=reader_constructor)  # type: ignore
+        self._reader_constructor = (
+            reader_constructor or S3ReaderConstructor.dcp_optimized()
+        )
+        self.fs: S3FileSystem = S3FileSystem(  # type: ignore[assignment] # since we overrode self.fs: FileSystem
+            region,
+            s3client_config=s3client_config,
+            reader_constructor=self._reader_constructor,
+        )
         self.path = self.fs.init_path(path)
         self.sync_files = False
 
     @classmethod
     def validate_checkpoint_id(cls, checkpoint_id: Union[str, os.PathLike]) -> bool:
         return S3FileSystem.validate_checkpoint_id(checkpoint_id)
+
+    def prepare_local_plan(self, plan: LoadPlan) -> LoadPlan:
+        """
+        Performs two key optimizations:
+
+            1. **Load Ordering**: Sorts load items by storage offset to enable sequential access
+
+            2. **Range Injection**: Provides byte range metadata to DCP reader constructors to enable
+            usage of DCPOptimizedS3Reader for range-based streams and range coalescing
+
+        Args:
+            plan (LoadPlan): The load plan from PyTorch DCP.
+
+        Returns:
+            LoadPlan: The same plan with items sorted by storage offset.
+
+        Note:
+            Both optimizations are required for DCPOptimizedS3Reader.
+        """
+        # Sort items in plan based on their offset in checkpoints shards
+        plan.items.sort(key=lambda item: self.storage_data[item.storage_index].offset)
+
+        # Inject ranges if using DCP optimized reader constructor
+        if isinstance(self._reader_constructor, DCPS3ReaderConstructorProtocol):
+            self._reader_constructor.set_item_ranges_by_file(
+                plan.items, self.storage_data, self.path
+            )
+
+        return plan
 
 
 def _path_or_str_to_str(path: Union[str, os.PathLike]) -> str:

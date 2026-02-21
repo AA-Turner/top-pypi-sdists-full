@@ -11,14 +11,18 @@ use crate::utils::range_utils::LineIndex;
 use crate::utils::range_utils::calculate_excess_range;
 use crate::utils::regex_cache::{IMAGE_REF_PATTERN, LINK_REF_PATTERN, URL_PATTERN};
 use crate::utils::table_utils::TableUtils;
-use crate::utils::text_reflow::{ReflowLengthMode, split_into_sentences};
+use crate::utils::text_reflow::{
+    BlockquoteLineData, ReflowLengthMode, blockquote_continuation_style, dominant_blockquote_prefix,
+    reflow_blockquote_content, split_into_sentences,
+};
 use pulldown_cmark::LinkType;
 use toml;
 
 mod helpers;
 pub mod md013_config;
+use crate::utils::is_template_directive_only;
 use helpers::{
-    extract_list_marker_and_content, has_hard_break, is_horizontal_rule, is_list_item, is_template_directive_only,
+    extract_list_marker_and_content, has_hard_break, is_github_alert_marker, is_horizontal_rule, is_list_item,
     split_into_segments, trim_preserving_hard_break,
 };
 pub use md013_config::MD013Config;
@@ -31,6 +35,12 @@ use unicode_width::UnicodeWidthStr;
 #[derive(Clone, Default)]
 pub struct MD013LineLength {
     pub(crate) config: MD013Config,
+}
+
+/// Blockquote paragraph line collected for reflow, with original line index for range computation.
+struct CollectedBlockquoteLine {
+    line_idx: usize,
+    data: BlockquoteLineData,
 }
 
 impl MD013LineLength {
@@ -486,6 +496,253 @@ impl Rule for MD013LineLength {
 }
 
 impl MD013LineLength {
+    fn is_blockquote_content_boundary(
+        &self,
+        content: &str,
+        line_num: usize,
+        ctx: &crate::lint_context::LintContext,
+    ) -> bool {
+        let trimmed = content.trim();
+
+        trimmed.is_empty()
+            || ctx.line_info(line_num).is_some_and(|info| {
+                info.in_code_block
+                    || info.in_front_matter
+                    || info.in_html_block
+                    || info.in_html_comment
+                    || info.in_esm_block
+                    || info.in_jsx_expression
+                    || info.in_mdx_comment
+                    || info.in_mkdocstrings
+                    || info.in_mkdocs_container()
+                    || info.is_div_marker
+            })
+            || trimmed.starts_with('#')
+            || trimmed.starts_with("```")
+            || trimmed.starts_with("~~~")
+            || trimmed.starts_with('>')
+            || TableUtils::is_potential_table_row(content)
+            || is_list_item(trimmed)
+            || is_horizontal_rule(trimmed)
+            || (trimmed.starts_with('[') && content.contains("]:"))
+            || is_template_directive_only(content)
+            || is_standalone_attr_list(content)
+            || is_snippet_block_delimiter(content)
+            || is_github_alert_marker(trimmed)
+    }
+
+    fn generate_blockquote_paragraph_fix(
+        &self,
+        ctx: &crate::lint_context::LintContext,
+        config: &MD013Config,
+        lines: &[&str],
+        line_index: &LineIndex,
+        start_idx: usize,
+    ) -> (Option<LintWarning>, usize) {
+        let Some(start_bq) = ctx.lines.get(start_idx).and_then(|line| line.blockquote.as_deref()) else {
+            return (None, start_idx + 1);
+        };
+        let target_level = start_bq.nesting_level;
+
+        let mut collected: Vec<CollectedBlockquoteLine> = Vec::new();
+        let mut i = start_idx;
+
+        while i < lines.len() {
+            if !collected.is_empty() && has_hard_break(&collected[collected.len() - 1].data.content) {
+                break;
+            }
+
+            let line_num = i + 1;
+            if line_num > ctx.lines.len() {
+                break;
+            }
+
+            if lines[i].trim().is_empty() {
+                break;
+            }
+
+            let line_bq = ctx.lines[i].blockquote.as_deref();
+            if let Some(bq) = line_bq {
+                if bq.nesting_level != target_level {
+                    break;
+                }
+
+                if self.is_blockquote_content_boundary(&bq.content, line_num, ctx) {
+                    break;
+                }
+
+                collected.push(CollectedBlockquoteLine {
+                    line_idx: i,
+                    data: BlockquoteLineData::explicit(trim_preserving_hard_break(&bq.content), bq.prefix.clone()),
+                });
+                i += 1;
+                continue;
+            }
+
+            let lazy_content = lines[i].trim_start();
+            if self.is_blockquote_content_boundary(lazy_content, line_num, ctx) {
+                break;
+            }
+
+            collected.push(CollectedBlockquoteLine {
+                line_idx: i,
+                data: BlockquoteLineData::lazy(trim_preserving_hard_break(lazy_content)),
+            });
+            i += 1;
+        }
+
+        if collected.is_empty() {
+            return (None, start_idx + 1);
+        }
+
+        let next_idx = i;
+        let paragraph_start = collected[0].line_idx;
+        let end_line = collected[collected.len() - 1].line_idx;
+        let line_data: Vec<BlockquoteLineData> = collected.iter().map(|l| l.data.clone()).collect();
+        let paragraph_text = line_data
+            .iter()
+            .map(|d| d.content.as_str())
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let contains_definition_list = line_data
+            .iter()
+            .any(|d| crate::utils::is_definition_list_item(&d.content));
+        if contains_definition_list {
+            return (None, next_idx);
+        }
+
+        let contains_snippets = line_data.iter().any(|d| is_snippet_block_delimiter(&d.content));
+        if contains_snippets {
+            return (None, next_idx);
+        }
+
+        let needs_reflow = match config.reflow_mode {
+            ReflowMode::Normalize => line_data.len() > 1,
+            ReflowMode::SentencePerLine => {
+                let sentences = split_into_sentences(&paragraph_text);
+                sentences.len() > 1 || line_data.len() > 1
+            }
+            ReflowMode::SemanticLineBreaks => {
+                let sentences = split_into_sentences(&paragraph_text);
+                sentences.len() > 1
+                    || line_data.len() > 1
+                    || collected
+                        .iter()
+                        .any(|l| self.calculate_effective_length(lines[l.line_idx]) > config.line_length.get())
+            }
+            ReflowMode::Default => collected
+                .iter()
+                .any(|l| self.calculate_effective_length(lines[l.line_idx]) > config.line_length.get()),
+        };
+
+        if !needs_reflow {
+            return (None, next_idx);
+        }
+
+        let fallback_prefix = start_bq.prefix.clone();
+        let explicit_prefix = dominant_blockquote_prefix(&line_data, &fallback_prefix);
+        let continuation_style = blockquote_continuation_style(&line_data);
+
+        let reflow_line_length = if config.line_length.is_unlimited() {
+            usize::MAX
+        } else {
+            config
+                .line_length
+                .get()
+                .saturating_sub(self.calculate_string_length(&explicit_prefix))
+                .max(1)
+        };
+
+        let reflow_options = crate::utils::text_reflow::ReflowOptions {
+            line_length: reflow_line_length,
+            break_on_sentences: true,
+            preserve_breaks: false,
+            sentence_per_line: config.reflow_mode == ReflowMode::SentencePerLine,
+            semantic_line_breaks: config.reflow_mode == ReflowMode::SemanticLineBreaks,
+            abbreviations: config.abbreviations_for_reflow(),
+            length_mode: self.reflow_length_mode(),
+        };
+
+        let reflowed_with_style =
+            reflow_blockquote_content(&line_data, &explicit_prefix, continuation_style, &reflow_options);
+
+        if reflowed_with_style.is_empty() {
+            return (None, next_idx);
+        }
+
+        let reflowed_text = reflowed_with_style.join("\n");
+
+        let start_range = line_index.whole_line_range(paragraph_start + 1);
+        let end_range = if end_line == lines.len() - 1 && !ctx.content.ends_with('\n') {
+            line_index.line_text_range(end_line + 1, 1, lines[end_line].len() + 1)
+        } else {
+            line_index.whole_line_range(end_line + 1)
+        };
+        let byte_range = start_range.start..end_range.end;
+
+        let replacement = if end_line < lines.len() - 1 || ctx.content.ends_with('\n') {
+            format!("{reflowed_text}\n")
+        } else {
+            reflowed_text
+        };
+
+        let original_text = &ctx.content[byte_range.clone()];
+        if original_text == replacement {
+            return (None, next_idx);
+        }
+
+        let (warning_line, warning_end_line) = match config.reflow_mode {
+            ReflowMode::Normalize => (paragraph_start + 1, end_line + 1),
+            ReflowMode::SentencePerLine | ReflowMode::SemanticLineBreaks => (paragraph_start + 1, end_line + 1),
+            ReflowMode::Default => {
+                let violating_line = collected
+                    .iter()
+                    .find(|line| self.calculate_effective_length(lines[line.line_idx]) > config.line_length.get())
+                    .map(|line| line.line_idx + 1)
+                    .unwrap_or(paragraph_start + 1);
+                (violating_line, violating_line)
+            }
+        };
+
+        let warning = LintWarning {
+            rule_name: Some(self.name().to_string()),
+            message: match config.reflow_mode {
+                ReflowMode::Normalize => format!(
+                    "Paragraph could be normalized to use line length of {} characters",
+                    config.line_length.get()
+                ),
+                ReflowMode::SentencePerLine => {
+                    let num_sentences = split_into_sentences(&paragraph_text).len();
+                    if line_data.len() == 1 {
+                        format!("Line contains {num_sentences} sentences (one sentence per line required)")
+                    } else {
+                        let num_lines = line_data.len();
+                        format!(
+                            "Paragraph should have one sentence per line (found {num_sentences} sentences across {num_lines} lines)"
+                        )
+                    }
+                }
+                ReflowMode::SemanticLineBreaks => {
+                    let num_sentences = split_into_sentences(&paragraph_text).len();
+                    format!("Paragraph should use semantic line breaks ({num_sentences} sentences)")
+                }
+                ReflowMode::Default => format!("Line length exceeds {} characters", config.line_length.get()),
+            },
+            line: warning_line,
+            column: 1,
+            end_line: warning_end_line,
+            end_column: lines[warning_end_line.saturating_sub(1)].len() + 1,
+            severity: Severity::Warning,
+            fix: Some(crate::rule::Fix {
+                range: byte_range,
+                replacement,
+            }),
+        };
+
+        (Some(warning), next_idx)
+    }
+
     /// Generate paragraph-based fixes
     fn generate_paragraph_fixes(
         &self,
@@ -500,6 +757,16 @@ impl MD013LineLength {
         while i < lines.len() {
             let line_num = i + 1;
 
+            // Handle blockquote paragraphs with style-preserving reflow.
+            if line_num > 0 && line_num <= ctx.lines.len() && ctx.lines[line_num - 1].blockquote.is_some() {
+                let (warning, next_idx) = self.generate_blockquote_paragraph_fix(ctx, config, lines, &line_index, i);
+                if let Some(warning) = warning {
+                    warnings.push(warning);
+                }
+                i = next_idx;
+                continue;
+            }
+
             // Skip special structures (but NOT MkDocs containers - those get special handling)
             let should_skip_due_to_line_info = ctx.line_info(line_num).is_some_and(|info| {
                 info.in_code_block
@@ -513,7 +780,6 @@ impl MD013LineLength {
             });
 
             if should_skip_due_to_line_info
-                || (line_num > 0 && line_num <= ctx.lines.len() && ctx.lines[line_num - 1].blockquote.is_some())
                 || lines[i].trim().starts_with('#')
                 || TableUtils::is_potential_table_row(lines[i])
                 || lines[i].trim().is_empty()
@@ -724,7 +990,6 @@ impl MD013LineLength {
                     Empty,
                 }
 
-                let mut actual_indent: Option<usize> = None;
                 let mut list_item_lines: Vec<LineType> = vec![LineType::Content(first_content)];
                 i += 1;
 
@@ -806,11 +1071,6 @@ impl MD013LineLength {
 
                         // Normal continuation: marker_len to marker_len+3
                         if indent <= marker_len + 3 {
-                            // Set actual_indent from first non-code continuation if not set
-                            if actual_indent.is_none() {
-                                actual_indent = Some(indent);
-                            }
-
                             // Extract content (remove indentation and trailing whitespace)
                             // Preserve hard breaks (2 trailing spaces) while removing excessive whitespace
                             // See: https://github.com/rvben/rumdl/issues/76
@@ -852,8 +1112,7 @@ impl MD013LineLength {
                     }
                 }
 
-                // Use detected indent or fallback to marker length
-                let indent_size = actual_indent.unwrap_or(marker_len);
+                let indent_size = marker_len;
                 let expected_indent = " ".repeat(indent_size);
 
                 // Split list_item_lines into blocks (paragraphs, code blocks, nested lists, semantic lines, and HTML blocks)
@@ -1429,9 +1688,10 @@ impl MD013LineLength {
                                     }
                                 }
 
-                                // Add blank line after paragraph block if there's a next block
-                                // BUT: check if next block is a code block that doesn't want a preceding blank
-                                // Also don't add blank lines before snippet lines (they should stay tight)
+                                // Add blank line after paragraph block if there's a next block.
+                                // Check if next block is a code block that doesn't want a preceding blank.
+                                // Also don't add blank lines before snippet lines (they should stay tight).
+                                // Only add if not already ending with one (avoids double blanks).
                                 if block_idx < blocks.len() - 1 {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
@@ -1441,7 +1701,8 @@ impl MD013LineLength {
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
                                     };
-                                    if should_add_blank {
+                                    if should_add_blank && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true)
+                                    {
                                         result.push(String::new());
                                     }
                                 }
@@ -1470,8 +1731,10 @@ impl MD013LineLength {
                                 }
                             }
                             Block::NestedList(nested_items) => {
-                                // Preserve nested list items as-is with original indentation
-                                if !is_first_block {
+                                // Preserve nested list items as-is with original indentation.
+                                // Only add blank before if not already ending with one (avoids
+                                // double blanks when the preceding block already added one).
+                                if !is_first_block && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true) {
                                     result.push(String::new());
                                 }
 
@@ -1490,8 +1753,9 @@ impl MD013LineLength {
                                     }
                                 }
 
-                                // Add blank line after nested list if there's a next block
-                                // Check if next block is a code block that doesn't want a preceding blank
+                                // Add blank line after nested list if there's a next block.
+                                // Only add if not already ending with one (avoids double blanks
+                                // when the last nested item was already a blank line).
                                 if block_idx < blocks.len() - 1 {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
@@ -1501,15 +1765,16 @@ impl MD013LineLength {
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
                                     };
-                                    if should_add_blank {
+                                    if should_add_blank && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true)
+                                    {
                                         result.push(String::new());
                                     }
                                 }
                             }
                             Block::SemanticLine(content) => {
-                                // Preserve semantic lines (NOTE:, WARNING:, etc.) as-is on their own line
-                                // Add blank line before if not first block
-                                if !is_first_block {
+                                // Preserve semantic lines (NOTE:, WARNING:, etc.) as-is on their own line.
+                                // Only add blank before if not already ending with one.
+                                if !is_first_block && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true) {
                                     result.push(String::new());
                                 }
 
@@ -1522,8 +1787,8 @@ impl MD013LineLength {
                                     result.push(format!("{expected_indent}{content}"));
                                 }
 
-                                // Add blank line after semantic line if there's a next block
-                                // Check if next block is a code block that doesn't want a preceding blank
+                                // Add blank line after semantic line if there's a next block.
+                                // Only add if not already ending with one.
                                 if block_idx < blocks.len() - 1 {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
@@ -1533,7 +1798,8 @@ impl MD013LineLength {
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
                                     };
-                                    if should_add_blank {
+                                    if should_add_blank && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true)
+                                    {
                                         result.push(String::new());
                                     }
                                 }
@@ -1581,7 +1847,9 @@ impl MD013LineLength {
                                     }
                                 }
 
-                                // Add blank line after HTML block if there's a next block
+                                // Add blank line after HTML block if there's a next block.
+                                // Only add if not already ending with one (avoids double blanks
+                                // when the HTML block itself contained a trailing blank line).
                                 if block_idx < blocks.len() - 1 {
                                     let next_block = &blocks[block_idx + 1];
                                     let should_add_blank = match next_block {
@@ -1594,7 +1862,8 @@ impl MD013LineLength {
                                         Block::SnippetLine(_) | Block::DivMarker(_) => false,
                                         _ => true, // For all other blocks, add blank line
                                     };
-                                    if should_add_blank {
+                                    if should_add_blank && result.last().map(|s: &String| !s.is_empty()).unwrap_or(true)
+                                    {
                                         result.push(String::new());
                                     }
                                 }

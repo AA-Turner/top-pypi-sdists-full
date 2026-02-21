@@ -994,6 +994,108 @@ fn test_reflow_with_unbalanced_markdown() {
 }
 
 #[test]
+fn test_reflow_italic_paragraph() {
+    // Issue #441: full-paragraph italic was not reflowed
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "# Lorem\n\n*Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed.*\n";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+
+    // Every non-empty line must fit within 80 chars
+    for line in fixed.lines() {
+        assert!(
+            line.len() <= 80,
+            "Line still exceeds limit after reflow: {:?} ({} chars)",
+            line,
+            line.len()
+        );
+    }
+    // Opening and closing markers must be preserved
+    assert!(fixed.contains('*'), "Italic markers lost after reflow: {fixed}");
+}
+
+#[test]
+fn test_reflow_bold_paragraph() {
+    // Issue #441: full-paragraph bold was not reflowed
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(80),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "**Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed.**\n";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+
+    for line in fixed.lines() {
+        assert!(
+            line.len() <= 80,
+            "Line still exceeds limit after reflow: {:?} ({} chars)",
+            line,
+            line.len()
+        );
+    }
+    assert!(fixed.contains("**"), "Bold markers lost after reflow: {fixed}");
+}
+
+#[test]
+fn test_reflow_underscore_italic_paragraph() {
+    // Underscore italic variant should also reflow
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(40),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "_Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo rhoncus._\n";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+
+    for line in fixed.lines() {
+        assert!(
+            line.len() <= 40,
+            "Line still exceeds limit after reflow: {:?} ({} chars)",
+            line,
+            line.len()
+        );
+    }
+    assert!(
+        fixed.contains('_'),
+        "Underscore italic markers lost after reflow: {fixed}"
+    );
+}
+
+#[test]
+fn test_reflow_inline_italic_not_broken() {
+    // Inline italic (short) embedded in a longer line must remain intact
+    let config = MD013Config {
+        line_length: crate::types::LineLength::from_const(60),
+        reflow: true,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Line is 62 chars; the italic span is short and should stay intact
+    let content = "This paragraph has some *italic text* that should stay intact.\n";
+    let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+
+    let fixed = rule.fix(&ctx).unwrap();
+
+    assert!(fixed.contains("*italic text*"), "Short inline italic broken: {fixed}");
+}
+
+#[test]
 fn test_reflow_fix_indicator() {
     // Test that reflow provides fix indicators
     let config = MD013Config {
@@ -3013,4 +3115,515 @@ fn test_semantic_link_in_list_item() {
     let result = rule.check(&ctx).unwrap();
     // Text-only: "- Click [here] now." = 19 chars, under 40
     assert!(result.is_empty(), "Should suppress link URL excess in list items");
+}
+
+#[test]
+fn test_blockquote_reflow_generates_fix_for_explicit_quote() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(40),
+        reflow: true,
+        reflow_mode: ReflowMode::Default,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "> This is a very long blockquote line that should be reflowed by MD013 when reflow is enabled.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert_eq!(result.len(), 1);
+    assert!(result[0].fix.is_some(), "Expected a blockquote reflow fix");
+
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_ne!(fixed, content);
+    assert!(fixed.lines().all(|line| line.starts_with("> ")));
+}
+
+#[test]
+fn test_blockquote_reflow_preserves_lazy_style() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(42),
+        reflow: true,
+        reflow_mode: ReflowMode::Default,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "> This opening quoted line is long enough that reflow must wrap it to multiple lines and preserve style.\nthis lazy continuation should remain lazy when safe to do so.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    let fixed_lines: Vec<&str> = fixed.lines().collect();
+
+    assert!(!fixed_lines.is_empty());
+    assert!(fixed_lines[0].starts_with("> "));
+    assert!(
+        fixed_lines.iter().skip(1).any(|line| !line.starts_with('>')),
+        "Expected at least one lazy continuation line: {fixed}"
+    );
+}
+
+#[test]
+fn test_blockquote_reflow_mixed_style_tie_resolves_explicit() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(44),
+        reflow: true,
+        reflow_mode: ReflowMode::Default,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "> This is an explicit quoted line that is intentionally long for wrapping behavior.\nlazy continuation text that participates in the same quote paragraph.\n> Another explicit continuation line to create a style tie for continuations.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+    let fixed_lines: Vec<&str> = fixed.lines().collect();
+
+    assert!(!fixed_lines.is_empty());
+    assert!(
+        fixed_lines.iter().all(|line| line.starts_with("> ")),
+        "Tie should resolve to explicit continuation style: {fixed}"
+    );
+}
+
+#[test]
+fn test_blockquote_reflow_preserves_nested_prefix_style() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(40),
+        reflow: true,
+        reflow_mode: ReflowMode::Default,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    let content = "> > This nested quote paragraph is very long and should be wrapped while preserving the spaced nested prefix style.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+
+    assert!(
+        fixed.lines().all(|line| line.starts_with("> > ")),
+        "Expected spaced nested blockquote prefix to be preserved: {fixed}"
+    );
+}
+
+#[test]
+fn test_blockquote_reflow_preserves_hard_break_markers() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(36),
+        reflow: true,
+        reflow_mode: ReflowMode::Default,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Line 0 ends with backslash hard break; line 1 is a lazy continuation but
+    // follows a hard-break segment, so it becomes a separate paragraph.
+    let content = "> This quoted line ends with a hard break marker and should keep it after wrapping.\\\nsecond sentence that should remain in the same quote paragraph and be wrapped.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    let fixed = rule.fix(&ctx).unwrap();
+
+    // The backslash marker must appear on a blockquote line (with "> " prefix),
+    // not on an unwrapped or lazy continuation line.
+    assert!(
+        fixed.lines().any(|line| line.starts_with("> ") && line.ends_with('\\')),
+        "Expected hard break marker on a '> '-prefixed blockquote line: {fixed}"
+    );
+
+    // There should be exactly one hard-break marker in the output.
+    let backslash_count = fixed.lines().filter(|l| l.ends_with('\\')).count();
+    assert_eq!(
+        backslash_count, 1,
+        "Expected exactly one hard break marker in output, got {backslash_count}: {fixed}"
+    );
+
+    // All lines before the marker line must NOT end with '\' (marker is at segment boundary).
+    let lines: Vec<&str> = fixed.lines().collect();
+    let marker_pos = lines.iter().position(|l| l.ends_with('\\')).unwrap();
+    for line in &lines[..marker_pos] {
+        assert!(
+            !line.ends_with('\\'),
+            "Found unexpected backslash before segment boundary in: {line:?}\nFull output: {fixed}"
+        );
+    }
+}
+
+/// Verify that reflow does not introduce double blank lines between blocks.
+/// Tests the dedup guard on all block types (Paragraph, Html, NestedList, SemanticLine).
+#[test]
+fn test_reflow_no_double_blanks_between_blocks() {
+    use crate::fix_coordinator::FixCoordinator;
+    use crate::rules::Rule;
+    use crate::rules::md013_line_length::MD013LineLength;
+
+    // Case 1: HTML block followed by a code block inside a list item.
+    // The HTML block may capture a trailing blank, and the paragraph after-blank
+    // logic should not add a second blank.
+    let content = "\
+* `debug`: Enables you to set up a debugger. Currently, VS Code supports debugging Node.js and Python MCP servers.
+
+    <details>
+    <summary>Node.js MCP server</summary>
+
+    To debug a Node.js MCP server, set the property to `node`.
+
+    ```json
+    {\"servers\": {}}
+    ```
+
+    </details>
+";
+    let rule: Box<dyn Rule> = Box::new(MD013LineLength::new(80, false, false, false, true));
+    let rules = vec![rule];
+    let mut fixed = content.to_string();
+    let coordinator = FixCoordinator::new();
+    coordinator
+        .apply_fixes_iterative(&rules, &[], &mut fixed, &Default::default(), 10, None)
+        .expect("fix should not fail");
+
+    // No double blank lines should appear in the output.
+    let lines: Vec<&str> = fixed.lines().collect();
+    for i in 0..lines.len().saturating_sub(1) {
+        assert!(
+            !(lines[i].is_empty() && lines[i + 1].is_empty()),
+            "Double blank at lines {},{} in:\n{fixed}",
+            i + 1,
+            i + 2
+        );
+    }
+
+    // Case 2: Nested list followed by a paragraph (NestedList after-blank dedup).
+    let content2 = "\
+1. Review the workflow configuration
+
+    1. Select **Models** > **Conversion** in the sidebar
+
+    The workflow will always execute the conversion step. This step cannot be disabled because it transforms the model.
+";
+    let rule2: Box<dyn Rule> = Box::new(MD013LineLength::new(80, false, false, false, true));
+    let rules2 = vec![rule2];
+    let mut fixed2 = content2.to_string();
+    let coordinator2 = FixCoordinator::new();
+    coordinator2
+        .apply_fixes_iterative(&rules2, &[], &mut fixed2, &Default::default(), 10, None)
+        .expect("fix should not fail");
+
+    let lines2: Vec<&str> = fixed2.lines().collect();
+    for i in 0..lines2.len().saturating_sub(1) {
+        assert!(
+            !(lines2[i].is_empty() && lines2[i + 1].is_empty()),
+            "Double blank at lines {},{} in:\n{fixed2}",
+            i + 1,
+            i + 2
+        );
+    }
+}
+
+#[test]
+fn test_issue_439_overindented_continuation_normalized() {
+    // Regression test for issue #439:
+    // When a list item has a continuation line with incorrect (over-indented) indentation,
+    // reflow should normalize it to marker_len spaces, not preserve the wrong indent.
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Bullet list: marker "- " (marker_len=2), continuation has 4-space indent (wrong)
+    // Expected: reflow produces 2-space continuation
+    let content = "- Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed. Lorem ipsum dolor sit amet, consectetur adipiscing\n    elit. Sed quam leo, rhoncus sodales erat sed.";
+    let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+
+    assert!(!result.is_empty(), "Should detect line exceeding 80 chars");
+    let fix = result[0].fix.as_ref().expect("Should have a fix");
+
+    // All continuation lines should use 2-space indent (marker_len for "- ")
+    for line in fix.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            assert!(
+                line.starts_with("  ") && !line.starts_with("   "),
+                "Continuation line should have exactly 2-space indent (marker_len), got: {line:?}"
+            );
+        }
+    }
+
+    // Ordered list: marker "1. " (marker_len=3), continuation has 4-space indent (wrong)
+    // Expected: reflow produces 3-space continuation
+    let content2 = "1. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed quam leo, rhoncus sodales erat sed. Lorem ipsum dolor sit amet, consectetur adipiscing\n    elit. Sed quam leo, rhoncus sodales erat sed.";
+    let ctx2 = crate::lint_context::LintContext::new(content2, crate::config::MarkdownFlavor::Standard, None);
+    let result2 = rule.check(&ctx2).unwrap();
+
+    assert!(!result2.is_empty(), "Should detect line exceeding 80 chars");
+    let fix2 = result2[0].fix.as_ref().expect("Should have a fix");
+
+    // All continuation lines should use 3-space indent (marker_len for "1. ")
+    for line in fix2.replacement.lines().skip(1) {
+        if !line.is_empty() {
+            assert!(
+                line.starts_with("   ") && !line.starts_with("    "),
+                "Continuation line should have exactly 3-space indent (marker_len), got: {line:?}"
+            );
+        }
+    }
+}
+
+#[test]
+fn test_overindented_continuation_all_list_types() {
+    // Verify that over-indented continuations are normalized for all common list marker types
+    let config = MD013Config {
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        line_length: crate::types::LineLength::from_const(80),
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+
+    // Test cases: (content, expected_continuation_indent, description)
+    let cases = [
+        (
+            "- Item text that is long enough to be reflowed when reaching the limit here\n    over-indented continuation",
+            2,
+            "bullet '- '",
+        ),
+        (
+            "* Item text that is long enough to be reflowed when reaching the limit here\n    over-indented continuation",
+            2,
+            "bullet '* '",
+        ),
+        (
+            "+ Item text that is long enough to be reflowed when reaching the limit here\n    over-indented continuation",
+            2,
+            "bullet '+ '",
+        ),
+        (
+            "1. Item text that is long enough to be reflowed when reaching the limit here\n      over-indented continuation",
+            3,
+            "ordered '1. '",
+        ),
+        (
+            "10. Item text that is long enough to be reflowed when reaching the limit here\n       over-indented continuation",
+            4,
+            "ordered '10. '",
+        ),
+    ];
+
+    for (content, expected_indent, description) in &cases {
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        if !result.is_empty() {
+            let fix = result[0].fix.as_ref().expect("Should have a fix");
+            for line in fix.replacement.lines().skip(1) {
+                if !line.is_empty() {
+                    let leading_spaces = line.len() - line.trim_start_matches(' ').len();
+                    assert_eq!(
+                        leading_spaces, *expected_indent,
+                        "For {description}: continuation should have {expected_indent} spaces, got {leading_spaces} in line {:?}\nFull fix: {}",
+                        line, fix.replacement
+                    );
+                }
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod test_task_list_reflow {
+    use super::*;
+    use crate::config::MarkdownFlavor;
+    use crate::lint_context::LintContext;
+
+    fn make_rule(line_length: usize) -> MD013LineLength {
+        MD013LineLength::from_config_struct(MD013Config {
+            reflow: true,
+            reflow_mode: ReflowMode::Normalize,
+            line_length: crate::types::LineLength::from_const(line_length),
+            ..Default::default()
+        })
+    }
+
+    #[test]
+    fn test_task_item_long_url_no_warning() {
+        // Regression test for issue #436: task item with a long URL should not be flagged
+        let rule = make_rule(80);
+        let content = "- [ ] [some article](https://stackoverflow.blog/2020/11/25/how-to-write-an-effective-developer-resume-advice-from-a-hiring-manager/)\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(
+            result.is_empty(),
+            "Task item with long URL should not trigger MD013 (URL exemption): {result:?}"
+        );
+    }
+
+    #[test]
+    fn test_task_item_checked_long_url_no_warning() {
+        // Checked tasks ([x] and [X]) should also be exempt for long URLs
+        let rule = make_rule(80);
+        for checkbox in ["[x]", "[X]"] {
+            let content = format!(
+                "- {checkbox} [some article](https://stackoverflow.blog/2020/11/25/how-to-write-an-effective-developer-resume-advice-from-a-hiring-manager/)\n"
+            );
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let result = rule.check(&ctx).unwrap();
+            assert!(
+                result.is_empty(),
+                "Task item with {checkbox} and long URL should not trigger MD013: {result:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_task_item_long_text_wraps_correctly() {
+        // Task item with wrappable long text should wrap with correct 6-space continuation
+        let rule = make_rule(80);
+        let content = "- [ ] This task has a really long description that exceeds the line limit and should be wrapped at the boundary\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert!(!result.is_empty(), "Long-text task item should trigger MD013");
+        let fix = result[0].fix.as_ref().expect("Should have fix");
+        // Continuation should be indented 6 spaces (matching "- [ ] " prefix)
+        for line in fix.replacement.lines().skip(1) {
+            if !line.is_empty() {
+                assert!(
+                    line.starts_with("      ") && !line.starts_with("       "),
+                    "Continuation should have exactly 6-space indent for '- [ ] ' prefix, got: {line:?}"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_task_item_fix_does_not_corrupt_checkbox() {
+        // The fix should never produce "[]" from "[ ]"
+        let rule = make_rule(80);
+        let content = "- [ ] This task has a really long description that exceeds the line limit and should be wrapped at the boundary\n";
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        if let Some(warning) = result.first()
+            && let Some(fix) = &warning.fix
+        {
+            assert!(
+                !fix.replacement.contains("[]"),
+                "Fix must not corrupt '[ ]' to '[]': {}",
+                fix.replacement
+            );
+            assert!(
+                fix.replacement.starts_with("- [ ] "),
+                "Fix must preserve task checkbox: {}",
+                fix.replacement
+            );
+        }
+    }
+
+    #[test]
+    fn test_task_item_all_bullet_markers() {
+        // All bullet markers (-, *, +) should handle task checkboxes correctly
+        let rule = make_rule(80);
+        let url = "https://stackoverflow.blog/2020/11/25/how-to-write-an-effective-developer-resume-advice-from-a-hiring-manager/";
+        for bullet in ["-", "*", "+"] {
+            let content = format!("{bullet} [ ] [article]({url})\n");
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let result = rule.check(&ctx).unwrap();
+            assert!(
+                result.is_empty(),
+                "'{bullet} [ ]' task item with long URL should not trigger MD013: {result:?}"
+            );
+        }
+    }
+}
+
+mod test_github_alert_reflow {
+    use super::*;
+
+    fn make_rule_reflow(line_length: usize) -> MD013LineLength {
+        let config = MD013Config {
+            line_length: crate::types::LineLength::from_const(line_length),
+            reflow: true,
+            reflow_mode: ReflowMode::Normalize,
+            ..Default::default()
+        };
+        MD013LineLength::from_config_struct(config)
+    }
+
+    #[test]
+    fn test_github_alert_marker_not_merged_with_content() {
+        // [!NOTE] on its own line must never be merged with the following content line
+        let content = "\
+# Heading
+
+> [!NOTE]
+> This is alert content that should stay on its own line and not be merged with the NOTE marker above.
+";
+        let rule = make_rule_reflow(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.fix(&ctx).unwrap();
+        assert!(
+            result.contains("> [!NOTE]\n"),
+            "[!NOTE] line must remain on its own line; got:\n{result}"
+        );
+        assert!(
+            !result.contains("[!NOTE] This"),
+            "[!NOTE] must not be merged with content; got:\n{result}"
+        );
+    }
+
+    #[test]
+    fn test_all_standard_alert_types_preserved() {
+        for alert_type in ["NOTE", "TIP", "WARNING", "CAUTION", "IMPORTANT"] {
+            let content = format!(
+                "# Heading\n\n> [!{alert_type}]\n> Content for the {alert_type} alert that is quite long and tests wrapping behavior.\n"
+            );
+            let rule = make_rule_reflow(80);
+            let ctx = LintContext::new(&content, MarkdownFlavor::Standard, None);
+            let result = rule.fix(&ctx).unwrap();
+            assert!(
+                result.contains(&format!("> [!{alert_type}]\n")),
+                "[!{alert_type}] must remain on its own line; got:\n{result}"
+            );
+        }
+    }
+
+    #[test]
+    fn test_alert_idempotent() {
+        // Applying the fix twice must produce the same result
+        let content = "\
+# Heading
+
+> [!NOTE]
+> This is a note with content that is long enough to potentially cause issues if the alert marker gets merged with this line.
+
+Regular paragraph after the alert block.
+";
+        let rule = make_rule_reflow(80);
+        let ctx1 = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let first = rule.fix(&ctx1).unwrap();
+
+        let ctx2 = LintContext::new(&first, MarkdownFlavor::Standard, None);
+        let second = rule.fix(&ctx2).unwrap();
+
+        assert_eq!(first, second, "Fix must be idempotent for GitHub alert blocks");
+    }
+
+    #[test]
+    fn test_regular_blockquote_still_reflowed() {
+        // Non-alert blockquotes with long content spanning multiple lines
+        // should still be normalized when in normalize mode
+        let content = "\
+# Heading
+
+> This is a long line in a regular blockquote that
+> continues on the next line and together exceeds eighty characters.
+";
+        let rule = make_rule_reflow(80);
+        let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+        let result = rule.fix(&ctx).unwrap();
+        // The two lines get merged and re-wrapped - content is still there
+        assert!(
+            result.contains("> This is a long line"),
+            "Regular blockquote content should be preserved; got:\n{result}"
+        );
+        // Should not contain alert markers
+        assert!(!result.contains("[!"), "No alert markers should appear in result");
+    }
 }

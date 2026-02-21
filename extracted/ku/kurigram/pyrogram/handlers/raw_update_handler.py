@@ -42,7 +42,7 @@ class RawUpdateHandler(Handler):
         client (:obj:`~pyrogram.Client`):
             The Client itself, useful when you want to call other API methods inside the update handler.
 
-        update (``Update``):
+        update (:obj:`~pyrogram.raw.base.Update`):
             The received update, which can be one of the many single Updates listed in the
             :obj:`~pyrogram.raw.base.Update` base type.
 

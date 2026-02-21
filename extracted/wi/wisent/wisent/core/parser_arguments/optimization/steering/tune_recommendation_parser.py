@@ -14,13 +14,13 @@ def setup_tune_recommendation_parser(parser):
                      help="HuggingFace model name or path")
     cgt.add_argument("--benchmarks", type=str, default=None,
                      help="Comma-separated benchmark names "
-                          "(default: all with repscan results)")
+                          "(default: all with zwiad results)")
     cgt.add_argument("--output", type=str,
                      default="ground_truth.json",
                      help="Output JSON path (default: ground_truth.json)")
-    cgt.add_argument("--repscan-dir", type=str,
-                     default="repscan_results",
-                     help="Directory containing repscan JSON files")
+    cgt.add_argument("--zwiad-dir", type=str,
+                     default="zwiad_results",
+                     help="Directory containing zwiad JSON files")
     cgt.add_argument("--limit", type=int, default=100,
                      help="Max samples per benchmark (default: 100)")
     cgt.add_argument("--device", type=str, default=None,

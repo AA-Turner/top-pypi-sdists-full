@@ -25,9 +25,9 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.viewcode",
     "sphinx.ext.extlinks",
+    "sphinx_inline_tabs",
     "sphinx_issues",
     "sphinx_new_tab_link",
-    "sphinx_tabs.tabs",
     "myst_parser",
 ]
 
@@ -45,15 +45,30 @@ master_doc = "index"
 
 # General information about the project.
 project = "cx_Freeze"
-copyright = "2025, Marcelo Duarte"  # noqa: A001
-__version__ = "8.5.3"
+copyright = "2026, Marcelo Duarte"  # noqa: A001
+
+
+# Get version from pyproject
+def _get_version() -> str:
+    import sys
+    import tomllib
+    from pathlib import Path
+
+    pyproject_toml = Path("../../pyproject.toml")
+    if not pyproject_toml.exists():
+        print("pyproject.toml not found", file=sys.stderr)
+        sys.exit(1)
+    with pyproject_toml.open("rb") as file:
+        config = tomllib.load(file)
+    return config["project"]["version"]
+
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
 # built documents.
 #
 # The full version, including alpha/beta/rc tags.
-release = __version__
+release = _get_version()
 # The short X.Y version.
 version = ".".join(release.split(".")[:2])
 
@@ -249,9 +264,6 @@ extlinks = {
 
 # sphinx_issues
 issues_github_path = "marcelotduarte/cx_Freeze"
-
-# sphinx_tabs.tabs
-sphinx_tabs_disable_tab_closing = True
 
 # sphinx-new-tab-link
 new_tab_link_show_external_link_icon = True

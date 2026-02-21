@@ -53,17 +53,12 @@ pub fn get_build_backend(
     packages: Option<&Vec<Package>>,
     include: Option<&Vec<Include>>,
     exclude: Option<&Vec<String>>,
-) -> Result<Option<Hatch>, Vec<String>> {
+) -> (Option<Hatch>, Vec<String>) {
     let mut errors = Vec::new();
 
     let mut targets = IndexMap::new();
-    let hatch_targets_include = match get_include(project_path, packages, include) {
-        Ok(hatch_targets_include) => hatch_targets_include,
-        Err(e) => {
-            errors.extend(e);
-            HatchTargetsInclude::default()
-        }
-    };
+    let (hatch_targets_include, include_errors) = get_include(project_path, packages, include);
+    errors.extend(include_errors);
 
     let sdist_target = BuildTarget {
         include: hatch_targets_include.sdist_include,
@@ -85,19 +80,17 @@ pub fn get_build_backend(
         targets.insert("wheel".to_string(), wheel_target);
     }
 
-    if !errors.is_empty() {
-        return Err(errors);
-    }
+    let hatch = if targets.is_empty() {
+        None
+    } else {
+        Some(Hatch {
+            build: Some(Build {
+                targets: Some(targets),
+            }),
+        })
+    };
 
-    if targets.is_empty() {
-        return Ok(None);
-    }
-
-    Ok(Some(Hatch {
-        build: Some(Build {
-            targets: Some(targets),
-        }),
-    }))
+    (hatch, errors)
 }
 
 /// Inclusion behavior: <https://hatch.pypa.io/latest/config/build/#patterns>
@@ -106,7 +99,7 @@ fn get_include(
     project_path: &Path,
     packages: Option<&Vec<Package>>,
     include: Option<&Vec<Include>>,
-) -> Result<HatchTargetsInclude, Vec<String>> {
+) -> (HatchTargetsInclude, Vec<String>) {
     let mut sdist_include = Vec::new();
     let mut wheel_include = Vec::new();
     let mut sdist_force_include = IndexMap::new();
@@ -124,6 +117,8 @@ fn get_include(
             to,
         } in packages
         {
+            let mut has_error = false;
+
             let include_with_from = PathBuf::from(from.as_ref().map_or("", |from| from))
                 .join(include)
                 .display()
@@ -133,26 +128,28 @@ fn get_include(
 
             let (add_to_sdist, add_to_wheel) = get_packages_distribution_format(format.as_ref());
 
-            if add_to_sdist {
-                sdist_include.push(include_with_from.clone());
-            }
-
             if add_to_wheel {
-                wheel_include.push(include_with_from.clone());
-
                 match get_source(
                     project_path,
                     include.clone(),
-                    include_with_from,
+                    include_with_from.clone(),
                     to.as_ref(),
                     from.as_ref(),
                 ) {
                     Ok(Some((from, to))) => {
+                        wheel_include.push(include_with_from.clone());
                         wheel_sources.insert(from, to);
                     }
-                    Err(e) => errors.push(e),
-                    Ok(None) => (),
+                    Err(e) => {
+                        errors.push(e);
+                        has_error = true;
+                    }
+                    Ok(None) => wheel_include.push(include_with_from.clone()),
                 }
+            }
+
+            if add_to_sdist && !has_error {
+                sdist_include.push(include_with_from);
             }
         }
     }
@@ -176,17 +173,15 @@ fn get_include(
         }
     }
 
-    if !errors.is_empty() {
-        return Err(errors);
-    }
-
-    Ok(HatchTargetsInclude::new(
+    let hatch_targets_include = HatchTargetsInclude::new(
         sdist_include,
         wheel_include,
         sdist_force_include,
         wheel_force_include,
         wheel_sources,
-    ))
+    );
+
+    (hatch_targets_include, errors)
 }
 
 /// Get hatch source, to rewrite path from a directory to another directory in the built artifact.

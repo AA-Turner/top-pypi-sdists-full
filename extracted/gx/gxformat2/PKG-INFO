@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gxformat2
-Version: 0.21.0
+Version: 0.22.0
 Summary: Galaxy Workflow Format 2 Descriptions
 Home-page: https://github.com/galaxyproject/gxformat2
 Author: Galaxy Project and Community
 Author-email: jmchilton@gmail.com
 License: MIT
 Keywords: galaxy
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: Environment :: Console
@@ -23,7 +22,22 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 License-File: LICENSE
+Requires-Dist: bioblend
+Requires-Dist: pyyaml
+Requires-Dist: schema-salad>8.7.20241010092723
+Requires-Dist: typing_extensions
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
 
 
 .. image:: https://readthedocs.org/projects/gxformat2/badge/?version=latest
@@ -96,9 +110,20 @@ History
 .. to_doc
 
 ---------------------
+0.22.0 (2026-02-20)
+---------------------
+* Support URL and TRS URL references in subworkflow run: fields (thanks to
+  `@mvdbeek`_). `Pull Request 130`_
+* Add ``--compact`` flag (thanks to `@mvdbeek`_). `Pull Request 112`_
+* Add support for Python 3.14 (thanks to `@nsoranzo`_). `Pull Request 117`_
+* Drop unmaintained codecov.io dependency (thanks to `@nsoranzo`_). `Pull
+  Request 125`_
+* Enable dependabot version updates for GitHub actions (thanks to
+  `@nsoranzo`_). `Pull Request 116`_
+
+---------------------
 0.21.0 (2025-09-19)
 ---------------------
-
 * Fix gxformat2 to .ga conversion if ``hide: true`` specified on output (thanks to
   `@mvdbeek`_). `Pull Request 106`_
 * Upgrade schema-salad version and auto-generated documents (thanks to
@@ -384,6 +409,11 @@ History
   based on planemo testing.
 
 .. github_links
+.. _Pull Request 130: https://github.com/galaxyproject/gxformat2/pull/130
+.. _Pull Request 112: https://github.com/galaxyproject/gxformat2/pull/112
+.. _Pull Request 117: https://github.com/galaxyproject/gxformat2/pull/117
+.. _Pull Request 125: https://github.com/galaxyproject/gxformat2/pull/125
+.. _Pull Request 116: https://github.com/galaxyproject/gxformat2/pull/116
 .. _Pull Request 106: https://github.com/galaxyproject/gxformat2/pull/106
 .. _Pull Request 107: https://github.com/galaxyproject/gxformat2/pull/107
 .. _Pull Request 108: https://github.com/galaxyproject/gxformat2/pull/108
@@ -404,5 +434,3 @@ History
 .. _@mr-c: https://github.com/mr-c
 .. _@nsoranzo: https://github.com/nsoranzo
 .. _@jmchilton: https://github.com/jmchilton
-
-

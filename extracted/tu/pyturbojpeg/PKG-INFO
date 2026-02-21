@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyTurboJPEG
-Version: 2.1.0
+Version: 2.2.0
 Summary: A Python wrapper of libjpeg-turbo for decoding and encoding JPEG image.
 Home-page: https://github.com/lilohuang/PyTurboJPEG
 Author: Lilo Huang
@@ -25,6 +25,11 @@ Dynamic: summary
 # PyTurboJPEG
 
 A Python wrapper for libjpeg-turbo that enables efficient JPEG image decoding and encoding.
+
+[![PyPI Version](https://img.shields.io/pypi/v/pyturbojpeg.svg?style=flat-square&color=blue)](https://pypi.org/project/pyturbojpeg/)
+![Python Version](https://img.shields.io/badge/python-3.6+-blue?logo=python&logoColor=white)
+[![Downloads](https://img.shields.io/pypi/dm/pyturbojpeg.svg?style=flat-square&color=orange)](https://pypistats.org/packages/pyturbojpeg)
+[![License](https://img.shields.io/github/license/lilohuang/PyTurboJPEG.svg?style=flat-square)](https://github.com/lilohuang/PyTurboJPEG/blob/master/LICENSE)
 
 ## Prerequisites
 
@@ -239,6 +244,73 @@ cv2.imshow('transposed_image', transposed_image)
 cv2.waitKey(0)
 ```
 
+### ICC Color Management Workflow
+
+```python
+import io
+import numpy as np
+from PIL import Image, ImageCms
+from turbojpeg import TurboJPEG, TJPF_BGR
+
+def decode_jpeg_with_color_management(jpeg_path):
+    """
+    Decodes a JPEG and applies color management (ICC Profile to sRGB).
+    
+    Args:
+        jpeg_path (str): Path to the input JPEG file.
+        
+    Returns:
+        PIL.Image: The color-corrected sRGB Image object.
+    """
+    # 1. Initialize TurboJPEG
+    jpeg = TurboJPEG()
+    
+    with open(jpeg_path, 'rb') as f:
+        jpeg_data = f.read()
+    
+    # 2. Get image headers and decode pixels
+    # Using TJPF_BGR format (OpenCV standard) for the raw buffer
+    width, height, _, _ = jpeg.decode_header(jpeg_data)
+    pixels = jpeg.decode(jpeg_data, pixel_format=TJPF_BGR)
+    
+    # 3. Encapsulate into a Pillow Image object
+    # Key: Use 'raw' and 'BGR' decoder to correctly map BGR bytes to an RGB Image object
+    img = Image.frombytes('RGB', (width, height), pixels, 'raw', 'BGR')
+    
+    # 4. Handle ICC Profile transformation
+    try:
+        # Extract embedded ICC Profile
+        icc_profile = jpeg.get_icc_profile(jpeg_data)
+        
+        if icc_profile:
+            # Create Source and Destination Profile objects
+            src_profile = ImageCms.getOpenProfile(io.BytesIO(icc_profile))
+            dst_profile = ImageCms.createProfile("sRGB")
+            
+            # Perform color transformation (similar to "Convert to Profile" in Photoshop)
+            # This step recalculates pixel values to align with sRGB standards
+            img = ImageCms.profileToProfile(
+                img, 
+                src_profile, 
+                dst_profile, 
+                outputMode='RGB'
+            )
+            print(f"Successfully applied ICC profile from {jpeg_path}")
+        else:
+            print("No ICC profile found, assuming sRGB.")
+            
+    except Exception as e:
+        print(f"Color Management Error: {e}. Returning original raw image.")
+        
+    return img
+
+# --- Example Usage ---
+if __name__ == "__main__":
+    result_img = decode_jpeg_with_color_management('icc_profile.jpg')
+    result_img.show()
+    # result_img.save('output_srgb.jpg', quality=95)
+```
+
 ## High-Precision JPEG Support
 
 PyTurboJPEG 2.0+ supports 12-bit and 16-bit precision JPEG encoding and decoding using libjpeg-turbo 3.0+ APIs. This feature is ideal for medical imaging, scientific photography, and other applications requiring higher bit depth.
@@ -278,7 +350,34 @@ with open('output_12bit.jpg', 'rb') as f:
     decoded_from_file = jpeg.decode_12bit(f.read())
 ```
 
-### 16-bit JPEG (Lossless)
+### Lossless JPEG for 12-bit and 16-bit
+
+12-bit and 16-bit JPEG support lossless compression for perfect reconstruction:
+
+#### 12-bit Lossless JPEG
+
+12-bit precision with lossless compression:
+
+```python
+import numpy as np
+from turbojpeg import TurboJPEG
+
+jpeg = TurboJPEG()
+
+# Create 12-bit image
+img_12bit = np.random.randint(0, 4096, (480, 640, 3), dtype=np.uint16)
+
+# Encode to 12-bit lossless JPEG using encode_12bit() with lossless=True
+jpeg_data = jpeg.encode_12bit(img_12bit, lossless=True)
+
+# Decode using decode_12bit()
+decoded_img = jpeg.decode_12bit(jpeg_data)
+
+# Perfect reconstruction
+assert np.array_equal(img_12bit, decoded_img)  # True
+```
+
+#### 16-bit Lossless JPEG
 
 16-bit JPEG provides the highest precision with perfect reconstruction through lossless compression. The JPEG standard only supports 16-bit for lossless mode.
 
@@ -307,33 +406,6 @@ with open('output_16bit_lossless.jpg', 'wb') as f:
 # Load from file
 with open('output_16bit_lossless.jpg', 'rb') as f:
     decoded_from_file = jpeg.decode_16bit(f.read())
-```
-
-### Lossless JPEG for 12-bit and 16-bit
-
-12-bit and 16-bit JPEG support lossless compression for perfect reconstruction:
-
-#### 12-bit Lossless JPEG
-
-12-bit precision with lossless compression:
-
-```python
-import numpy as np
-from turbojpeg import TurboJPEG
-
-jpeg = TurboJPEG()
-
-# Create 12-bit image
-img_12bit = np.random.randint(0, 4096, (480, 640, 3), dtype=np.uint16)
-
-# Encode to 12-bit lossless JPEG using encode_12bit() with lossless=True
-jpeg_data = jpeg.encode_12bit(img_12bit, lossless=True)
-
-# Decode using decode_12bit()
-decoded_img = jpeg.decode_12bit(jpeg_data)
-
-# Perfect reconstruction
-assert np.array_equal(img_12bit, decoded_img)  # True
 ```
 
 ### Medical and Scientific Imaging

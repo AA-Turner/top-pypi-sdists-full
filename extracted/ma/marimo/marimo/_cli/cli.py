@@ -22,7 +22,7 @@ from marimo._cli.convert.commands import convert
 from marimo._cli.development.commands import development
 from marimo._cli.envinfo import get_system_info
 from marimo._cli.export.commands import export
-from marimo._cli.file_path import validate_name
+from marimo._cli.files.file_path import validate_name
 from marimo._cli.help_formatter import ColoredGroup
 from marimo._cli.parse_args import parse_args
 from marimo._cli.print import bright_green, light_blue, red
@@ -517,7 +517,7 @@ def edit(
         from marimo._dependencies.dependencies import DependencyManager
 
         if not DependencyManager.zmq.has():
-            raise click.UsageError(
+            raise click.ClickException(
                 "pyzmq is required when running the marimo edit server on a directory with --sandbox.\n"
                 "Install it with: pip install 'marimo[sandbox]'\n"
                 "Or: pip install pyzmq"
@@ -1117,7 +1117,7 @@ def run(
         from marimo._dependencies.dependencies import DependencyManager
 
         if not DependencyManager.zmq.has():
-            raise click.UsageError(
+            raise click.ClickException(
                 "pyzmq is required when running a gallery with --sandbox.\n"
                 "Install it with: pip install 'marimo[sandbox]'\n"
                 "Or: pip install pyzmq"

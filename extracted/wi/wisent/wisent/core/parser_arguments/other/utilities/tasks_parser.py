@@ -292,7 +292,7 @@ def setup_tasks_parser(parser):
     parser.add_argument(
         "--steering-mode",
         action="store_true",
-        help="STEERING MODE: Train steering vectors to modify model behavior. Uses repscan to auto-select best method (CAA/TITAN/PRISM). Evaluates baseline vs steered accuracy."
+        help="STEERING MODE: Train steering vectors to modify model behavior. Uses zwiad to auto-select best method (CAA/GROM/TECZA). Evaluates baseline vs steered accuracy."
     )
     parser.add_argument(
         "--classification-mode",

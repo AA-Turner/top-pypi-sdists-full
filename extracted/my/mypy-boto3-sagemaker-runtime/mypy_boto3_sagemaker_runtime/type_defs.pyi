@@ -3,7 +3,7 @@ Type annotations for sagemaker-runtime service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_sagemaker_runtime/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -54,6 +54,8 @@ class InvokeEndpointAsyncInputTypeDef(TypedDict):
     Accept: NotRequired[str]
     CustomAttributes: NotRequired[str]
     InferenceId: NotRequired[str]
+    S3OutputPathExtension: NotRequired[str]
+    Filename: NotRequired[str]
     RequestTTLSeconds: NotRequired[int]
     InvocationTimeoutSeconds: NotRequired[int]
 

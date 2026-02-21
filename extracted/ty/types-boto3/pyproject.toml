@@ -4,10 +4,10 @@
 
 [project]
 name = "types-boto3"
-version = "1.42.53"
+version = "1.42.54"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 1.42.53 generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 1.42.54 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "types-boto3-full>=1.42.0, <1.43.0",
 ]
 boto3 = [
-    "boto3==1.42.53",
+    "boto3==1.42.54",
 ]
 all = [
     "types-boto3-accessanalyzer>=1.42.0, <1.43.0",
@@ -433,6 +433,7 @@ all = [
     "types-boto3-sesv2>=1.42.0, <1.43.0",
     "types-boto3-shield>=1.42.0, <1.43.0",
     "types-boto3-signer>=1.42.0, <1.43.0",
+    "types-boto3-signer-data>=1.42.0, <1.43.0",
     "types-boto3-signin>=1.42.0, <1.43.0",
     "types-boto3-simspaceweaver>=1.42.0, <1.43.0",
     "types-boto3-snow-device-management>=1.42.0, <1.43.0",
@@ -1576,6 +1577,9 @@ shield = [
 ]
 signer = [
     "types-boto3-signer>=1.42.0, <1.43.0",
+]
+signer-data = [
+    "types-boto3-signer-data>=1.42.0, <1.43.0",
 ]
 signin = [
     "types-boto3-signin>=1.42.0, <1.43.0",

@@ -174,6 +174,35 @@ class TestGitStorage:
             assert body["base_repo"]["provider"] == "github"
 
     @pytest.mark.asyncio
+    async def test_create_repo_with_public_github_base_repo_auth(
+        self, git_storage_options: dict
+    ) -> None:
+        """Test creating a repository with public GitHub base repo auth."""
+        storage = GitStorage(git_storage_options)
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.is_success = True
+
+        with patch("httpx.AsyncClient") as mock_client:
+            mock_post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.post = mock_post
+
+            await storage.create_repo(
+                id="test-repo",
+                base_repo={
+                    "owner": "octocat",
+                    "name": "Hello-World",
+                    "auth": {"auth_type": "public"},
+                },
+            )
+
+            call_kwargs = mock_post.call_args[1]
+            body = call_kwargs["json"]
+            assert body["base_repo"]["provider"] == "github"
+            assert body["base_repo"]["auth"]["auth_type"] == "public"
+
+    @pytest.mark.asyncio
     async def test_create_repo_with_fork_base_repo(self, git_storage_options: dict) -> None:
         """Test creating a forked repository."""
         storage = GitStorage(git_storage_options)

@@ -314,11 +314,17 @@ const AMBIGUOUS: ScopedReachabilityConstraintId = ScopedReachabilityConstraintId
 const ALWAYS_FALSE: ScopedReachabilityConstraintId = ScopedReachabilityConstraintId::ALWAYS_FALSE;
 const SMALLEST_TERMINAL: ScopedReachabilityConstraintId = ALWAYS_FALSE;
 
+/// Maximum number of interior TDD nodes per scope. When exceeded, new constraint
+/// operations return `AMBIGUOUS` to prevent exponential blowup on pathological inputs
+/// (e.g., a 5000-line while loop with hundreds of if-branches). This can lead to less precise
+/// reachability analysis and type narrowing.
+const MAX_INTERIOR_NODES: usize = 512 * 1024;
+
 fn singleton_to_type(db: &dyn Db, singleton: ruff_python_ast::Singleton) -> Type<'_> {
     let ty = match singleton {
         ruff_python_ast::Singleton::None => Type::none(db),
-        ruff_python_ast::Singleton::True => Type::BooleanLiteral(true),
-        ruff_python_ast::Singleton::False => Type::BooleanLiteral(false),
+        ruff_python_ast::Singleton::True => Type::bool_literal(true),
+        ruff_python_ast::Singleton::False => Type::bool_literal(false),
     };
     debug_assert!(ty.is_singleton(db));
     ty
@@ -588,6 +594,11 @@ impl ReachabilityConstraintsBuilder {
         if let Some(cached) = self.not_cache.get(&a) {
             return *cached;
         }
+
+        if self.interiors.len() >= MAX_INTERIOR_NODES {
+            return AMBIGUOUS;
+        }
+
         let a_node = self.interiors[a];
         let if_true = self.add_not_constraint(a_node.if_true);
         let if_ambiguous = self.add_not_constraint(a_node.if_ambiguous);
@@ -619,6 +630,10 @@ impl ReachabilityConstraintsBuilder {
         let (a, b) = if b.0 < a.0 { (b, a) } else { (a, b) };
         if let Some(cached) = self.or_cache.get(&(a, b)) {
             return *cached;
+        }
+
+        if self.interiors.len() >= MAX_INTERIOR_NODES {
+            return AMBIGUOUS;
         }
 
         let (atom, if_true, if_ambiguous, if_false) = match self.cmp_atoms(a, b) {
@@ -685,6 +700,10 @@ impl ReachabilityConstraintsBuilder {
         let (a, b) = if b.0 < a.0 { (b, a) } else { (a, b) };
         if let Some(cached) = self.and_cache.get(&(a, b)) {
             return *cached;
+        }
+
+        if self.interiors.len() >= MAX_INTERIOR_NODES {
+            return AMBIGUOUS;
         }
 
         let (atom, if_true, if_ambiguous, if_false) = match self.cmp_atoms(a, b) {
@@ -1081,18 +1100,18 @@ impl ReachabilityConstraints {
                     return Truthiness::AlwaysFalse.negate_if(!predicate.is_positive);
                 };
 
-                let (no_overloads_return_never, all_overloads_return_never) = overloads_iterator
-                    .fold((true, true), |(none, all), overload| {
-                        let overload_returns_never =
-                            overload.return_ty.is_equivalent_to(db, Type::Never);
+                let mut no_overloads_return_never = true;
+                let mut all_overloads_return_never = true;
+                let mut any_overload_is_generic = false;
 
-                        (
-                            none && !overload_returns_never,
-                            all && overload_returns_never,
-                        )
-                    });
+                for overload in overloads_iterator {
+                    let returns_never = overload.return_ty.is_equivalent_to(db, Type::Never);
+                    no_overloads_return_never &= !returns_never;
+                    all_overloads_return_never &= returns_never;
+                    any_overload_is_generic |= overload.return_ty.has_typevar(db);
+                }
 
-                if no_overloads_return_never {
+                if no_overloads_return_never && !any_overload_is_generic {
                     Truthiness::AlwaysFalse
                 } else if all_overloads_return_never {
                     Truthiness::AlwaysTrue

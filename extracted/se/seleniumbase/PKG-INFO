@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seleniumbase
-Version: 4.46.5
+Version: 4.47.0
 Summary: A complete web automation framework for end-to-end testing.
 Home-page: https://github.com/seleniumbase/SeleniumBase
 Author: Michael Mintz
@@ -69,18 +69,18 @@ Requires-Dist: exceptiongroup>=1.3.1
 Requires-Dist: websockets~=15.0.1; python_version < "3.10"
 Requires-Dist: websockets>=16.0; python_version >= "3.10"
 Requires-Dist: filelock~=3.19.1; python_version < "3.10"
-Requires-Dist: filelock>=3.20.3; python_version >= "3.10"
+Requires-Dist: filelock>=3.24.3; python_version >= "3.10"
 Requires-Dist: fasteners>=0.20
 Requires-Dist: mycdp>=1.3.2
 Requires-Dist: pynose>=1.5.5
 Requires-Dist: platformdirs~=4.4.0; python_version < "3.10"
-Requires-Dist: platformdirs>=4.5.1; python_version >= "3.10"
+Requires-Dist: platformdirs>=4.9.2; python_version >= "3.10"
 Requires-Dist: typing-extensions>=4.15.0
 Requires-Dist: sbvirtualdisplay>=1.4.0
 Requires-Dist: MarkupSafe>=3.0.3
 Requires-Dist: Jinja2>=3.1.6
 Requires-Dist: six>=1.17.0
-Requires-Dist: parse>=1.21.0
+Requires-Dist: parse>=1.21.1
 Requires-Dist: parse-type>=0.6.6
 Requires-Dist: colorama>=0.4.6
 Requires-Dist: pyyaml>=6.0.3
@@ -98,13 +98,13 @@ Requires-Dist: sniffio==1.3.1
 Requires-Dist: h11==0.16.0
 Requires-Dist: outcome==1.3.0.post0
 Requires-Dist: trio<1,>=0.31.0; python_version < "3.10"
-Requires-Dist: trio<1,>=0.32.0; python_version >= "3.10"
+Requires-Dist: trio<1,>=0.33.0; python_version >= "3.10"
 Requires-Dist: trio-websocket~=0.12.2
 Requires-Dist: wsproto==1.2.0; python_version < "3.10"
 Requires-Dist: wsproto~=1.3.2; python_version >= "3.10"
 Requires-Dist: websocket-client~=1.9.0
 Requires-Dist: selenium==4.32.0; python_version < "3.10"
-Requires-Dist: selenium==4.40.0; python_version >= "3.10"
+Requires-Dist: selenium==4.41.0; python_version >= "3.10"
 Requires-Dist: cssselect==1.3.0; python_version < "3.10"
 Requires-Dist: cssselect<2,>=1.4.0; python_version >= "3.10"
 Requires-Dist: nest-asyncio==1.6.0
@@ -132,7 +132,7 @@ Requires-Dist: PyAutoGUI>=0.9.54; platform_system == "Linux"
 Requires-Dist: markdown-it-py==3.0.0; python_version < "3.10"
 Requires-Dist: markdown-it-py==4.0.0; python_version >= "3.10"
 Requires-Dist: mdurl==0.1.2
-Requires-Dist: rich<15,>=14.3.2
+Requires-Dist: rich<15,>=14.3.3
 Provides-Extra: allure
 Requires-Dist: allure-pytest>=2.13.5; extra == "allure"
 Requires-Dist: allure-python-commons>=2.13.5; extra == "allure"
@@ -384,6 +384,16 @@ pytest test_demo_site.py
 > Easy to type, click, select, toggle, drag & drop, and more.
 
 (For more examples, see the <a href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/ReadMe.md">SeleniumBase/examples/</a> folder.)
+
+--------
+
+<p align="left">📓 Here's a high-level stealthy architecture overview of SeleniumBase:</p>
+
+
+
+<img src="https://seleniumbase.github.io/other/sb_stealth.png" width="650" alt="High-Level Stealthy Architecture Overview" title="High-Level Stealthy Architecture Overview" />
+
+(For maximum stealth, use <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/ReadMe.md">CDP Mode</a>, which is used by <a translate="no" href="https://github.com/seleniumbase/SeleniumBase/blob/master/examples/cdp_mode/playwright/ReadMe.md">Stealthy Playwright Mode</a>)
 
 --------
 

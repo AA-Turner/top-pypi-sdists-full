@@ -38,16 +38,18 @@ def _get_api():
 
 
 def _retry_upload(fn, max_retries=8, base_wait=120):
-    """Call fn(); on 429 rate-limit, back off and retry."""
+    """Call fn(); on 429/412/timeout, back off and retry."""
+    import random
     for attempt in range(max_retries):
         try:
             return fn()
         except Exception as exc:
-            is_429 = "429" in str(exc) or "Too Many Requests" in str(exc)
-            if not is_429 or attempt == max_retries - 1:
+            msg = str(exc)
+            retryable = any(k in msg for k in ("429", "412", "Precondition", "ReadTimeout", "timed out"))
+            if not retryable or attempt == max_retries - 1:
                 raise
-            wait = base_wait * (2 ** attempt)
-            print(f"  Rate limited (429). Waiting {wait}s (attempt {attempt + 1}/{max_retries})...")
+            wait = int(base_wait * (2 ** min(attempt, 3)) * random.uniform(0.5, 1.5))
+            print(f"  Retryable error. Waiting {wait}s (attempt {attempt + 1}/{max_retries})...")
             time.sleep(wait)
 
 

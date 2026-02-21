@@ -94,7 +94,7 @@ impl<'db> ClassBase<'db> {
     pub(super) fn try_from_type(
         db: &'db dyn Db,
         ty: Type<'db>,
-        subclass: ClassLiteral<'db>,
+        subclass: Option<ClassLiteral<'db>>,
     ) -> Option<Self> {
         match ty {
             Type::Dynamic(dynamic) => Some(Self::Dynamic(dynamic)),
@@ -160,7 +160,7 @@ impl<'db> ClassBase<'db> {
             }
 
             Type::PropertyInstance(_)
-            | Type::BooleanLiteral(_)
+            | Type::LiteralValue(_)
             | Type::FunctionLiteral(_)
             | Type::Callable(..)
             | Type::BoundMethod(_)
@@ -168,11 +168,6 @@ impl<'db> ClassBase<'db> {
             | Type::WrapperDescriptor(_)
             | Type::DataclassDecorator(_)
             | Type::DataclassTransformer(_)
-            | Type::BytesLiteral(_)
-            | Type::IntLiteral(_)
-            | Type::EnumLiteral(_)
-            | Type::StringLiteral(_)
-            | Type::LiteralString
             | Type::ModuleLiteral(_)
             | Type::TypeVar(_)
             | Type::BoundSuper(_)
@@ -252,7 +247,7 @@ impl<'db> ClassBase<'db> {
                 SpecialFormType::Generic => Some(Self::Generic),
 
                 SpecialFormType::NamedTuple => {
-                    let class = subclass.as_static()?;
+                    let class = subclass?.as_static()?;
                     let fields = class.own_fields(db, None, CodeGeneratorKind::NamedTuple);
                     Self::try_from_type(
                         db,

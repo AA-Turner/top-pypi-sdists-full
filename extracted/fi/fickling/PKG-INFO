@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fickling
-Version: 0.1.7
+Version: 0.1.8
 Summary: A static analyzer and interpreter for Python pickle data
 Project-URL: Homepage, https://pypi.org/project/fickling
 Project-URL: Issues, https://github.com/trailofbits/fickling/issues
@@ -178,46 +178,50 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Science/Research
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Security
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities
-Requires-Python: >=3.9
-Requires-Dist: stdlib-list~=0.11.1
+Requires-Python: >=3.10
+Provides-Extra: archive
+Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'archive'
 Provides-Extra: dev
 Requires-Dist: coverage[toml]>=7.0.0; extra == 'dev'
-Requires-Dist: mypy>=1.10.0; extra == 'dev'
-Requires-Dist: numpy; extra == 'dev'
-Requires-Dist: numpy>=1.24.0; extra == 'dev'
-Requires-Dist: pre-commit>=3.5.0; extra == 'dev'
+Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'dev'
+Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'dev'
+Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'dev'
 Requires-Dist: pytest-cov>=5.0.0; extra == 'dev'
 Requires-Dist: pytest>=8.0.0; extra == 'dev'
 Requires-Dist: ruff>=0.8.0; extra == 'dev'
 Requires-Dist: torch>=2.1.0; extra == 'dev'
-Requires-Dist: torchvision>=0.16.1; extra == 'dev'
+Requires-Dist: torchvision>=0.24.1; extra == 'dev'
+Requires-Dist: ty>=0.0.12; extra == 'dev'
 Requires-Dist: typing-extensions; (python_version < '3.12') and extra == 'dev'
 Provides-Extra: examples
 Requires-Dist: numpy; extra == 'examples'
 Requires-Dist: pytorchfi; extra == 'examples'
 Provides-Extra: lint
-Requires-Dist: mypy>=1.10.0; extra == 'lint'
 Requires-Dist: ruff>=0.8.0; extra == 'lint'
+Requires-Dist: ty>=0.0.12; extra == 'lint'
 Requires-Dist: typing-extensions; (python_version < '3.12') and extra == 'lint'
 Provides-Extra: test
 Requires-Dist: coverage[toml]>=7.0.0; extra == 'test'
-Requires-Dist: numpy; extra == 'test'
+Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'test'
+Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'test'
+Requires-Dist: py7zr!=1.1.2,>=1.1.0; extra == 'test'
 Requires-Dist: pytest-cov>=5.0.0; extra == 'test'
 Requires-Dist: pytest>=8.0.0; extra == 'test'
 Requires-Dist: torch>=2.1.0; extra == 'test'
-Requires-Dist: torchvision>=0.16.1; extra == 'test'
+Requires-Dist: torchvision>=0.24.1; extra == 'test'
 Provides-Extra: torch
-Requires-Dist: numpy>=1.24.0; extra == 'torch'
+Requires-Dist: numpy<2.3,>=2.2.6; (python_version == '3.10') and extra == 'torch'
+Requires-Dist: numpy>=2.3.5; (python_version >= '3.11') and extra == 'torch'
 Requires-Dist: torch>=2.1.0; extra == 'torch'
-Requires-Dist: torchvision>=0.16.1; extra == 'torch'
+Requires-Dist: torchvision>=0.24.1; extra == 'torch'
 Description-Content-Type: text/markdown
 
 # Fickling

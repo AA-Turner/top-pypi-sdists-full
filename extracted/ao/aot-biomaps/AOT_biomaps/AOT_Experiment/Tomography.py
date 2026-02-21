@@ -1,3 +1,5 @@
+from AOT_biomaps.AOT_Acoustic.AcousticTools import format_angle
+
 from ._mainExperiment import Experiment
 from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
@@ -925,5 +927,115 @@ class Tomography(Experiment):
                 demodulated_fields[key] = ((real - 1j * imag) / (2/np.pi)).astype(np.complex64)
                     
         print(f"Acoustic Operator complete: {len(demodulated_fields)} configurations processed.")
-        self.demodulate_acoustic_fields = demodulated_fields
+        return demodulated_fields
+
+    def flipProbe(self, flipPattern=True, flipAngle=True):
+        """
+        Flip the probe (binary pattern and/or angle) for all acoustic fields and AO signals.
+
+        Args:
+            flipPattern (bool): If True, reverse the order of active elements in the binary pattern.
+            flipAngle (bool): If True, invert the sign of the angle.
+        """
+        if self.AcousticFields is None:
+            raise ValueError("AcousticFields is not initialized. Please generate the system matrix first.")
+
+        num_elements = self.params.acoustic['probe']['num_elements']
+        hex_chars_expected = (num_elements + 3) // 4  # Number of hex chars expected for num_elements bits
+
+        new_AcousticFields = []
+        new_ActiveList = []
+        new_DelayLaw = []
+        new_theta = []
+        new_decimations = []
+
+        # Flip AO signals if they exist
+        if self.AOsignal_withTumor is not None:
+            if flipPattern:
+                self.AOsignal_withTumor = self.AOsignal_withTumor[:, ::-1]  # Inverse l'ordre des colonnes (N)
+        if self.AOsignal_withoutTumor is not None:
+            if flipPattern:
+                self.AOsignal_withoutTumor = self.AOsignal_withoutTumor[:, ::-1]  # Inverse l'ordre des colonnes (N)
+
+        for field in self.AcousticFields:
+            # Extract the current pattern and angle from the field name
+            field_name = field.getName_field()
+            if not field_name.startswith("field_"):
+                raise ValueError(f"Unexpected field name format: {field_name}. Expected 'field_hexa_angle'.")
+
+            hex_part, angle_str = field_name[6:].split('_')  # Remove 'field_' prefix
+
+            # Flip the binary pattern if requested
+            if flipPattern:
+                bits = bin(int(hex_part, 16))[2:].zfill(num_elements)
+                flipped_bits = bits[::-1]  # Reverse the bits
+                flipped_hex = f"{int(flipped_bits, 2):0{hex_chars_expected}x}"
+            else:
+                flipped_hex = hex_part  # Keep the original pattern
+
+            # Flip the angle if requested
+            is_neg = angle_str[0] == '1'
+            val = int(angle_str[1:])
+            current_angle = -val if is_neg else val
+
+            if flipAngle:
+                new_angle = -current_angle  # Invert the angle
+            else:
+                new_angle = current_angle  # Keep the original angle
+
+            new_angle_str = format_angle(new_angle)
+            new_field_name = f"field_{flipped_hex}_{new_angle_str}"
+
+            # Create a new StructuredWave with the flipped pattern and/or angle
+            new_field = StructuredWave(
+                fileName=new_field_name,
+                params=self.params,
+                medium=self.medium
+            )
+
+            # Copy the field data (flipping columns if flipPattern is True)
+            if flipPattern:
+                new_field.field = field.field[:, ::-1, :]  # Reverse the order of elements (columns)
+            else:
+                new_field.field = field.field.copy()  # Keep the original field data
+
+            new_AcousticFields.append(new_field)
+            new_theta.append(new_angle)
+
+            # Update ActiveList (binary profile)
+            new_profile = hex_to_binary_profile(flipped_hex, num_elements)
+            new_ActiveList.append(new_profile)
+
+            # Update DelayLaw
+            new_Delay = 1000 * (1/self.params.acoustic['medium']['c0']) * np.sin(np.deg2rad(new_angle)) * np.arange(1, num_elements + 1) * self.params.acoustic['probe']['element_width']
+            new_DelayLaw.append(new_Delay - np.min(new_Delay))
+
+            # Update decimations (recalculate if pattern is flipped)
+            if flipPattern:
+                if set(flipped_hex.lower().replace(" ", "")) == {'f'}:
+                    fs_key = 0.0  # fs_key in mm^-1 (0.0 mm^-1 for all elements active)
+                else:
+                    ft_prof = np.fft.fft(new_profile)
+                    idx_max = np.argmax(np.abs(ft_prof[1:len(new_profile)//2])) + 1
+                    freqs = np.fft.fftfreq(len(new_profile), d=self.params.general['dx'])
+                    fs_m_inv = abs(freqs[idx_max])
+                    fs_key = fs_m_inv  # Spatial frequency in mm^-1
+                new_decimations.append(int(fs_key / (1/(len(new_profile)*self.params.general['dx']))))
+            else:
+                new_decimations.append(field.f_s)  # Keep the original decimation
+
+        # Update the attributes
+        self.AcousticFields = new_AcousticFields
+        self.ActiveList = new_ActiveList
+        self.DelayLaw = new_DelayLaw
+        self.theta = new_theta
+        self.decimations = new_decimations
+        if flipPattern and flipAngle:
+            print(f"Flipped both probe and AO signals (pattern and angle).")
+        elif flipPattern and not flipAngle:
+            print(f"Flipped probe and AO signals (pattern).")
+        elif not flipPattern and flipAngle:
+            print(f"Flipped probe and AO signals (angle).")
+        else:   
+            print(f"No flipping applied.")
 

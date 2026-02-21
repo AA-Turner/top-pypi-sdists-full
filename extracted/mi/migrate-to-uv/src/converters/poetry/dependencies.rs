@@ -4,7 +4,9 @@ use crate::errors::{add_recoverable_error, add_unrecoverable_error};
 use crate::schema;
 use crate::schema::poetry::DependencySpecification;
 use crate::schema::pyproject::DependencyGroupSpecification;
+use crate::schema::utils::SingleOrVec;
 use crate::schema::uv::{SourceContainer, SourceIndex};
+use crate::utils::normalize_dependency_name;
 use indexmap::IndexMap;
 use owo_colors::OwoColorize;
 use std::collections::HashSet;
@@ -97,6 +99,7 @@ pub fn get_optional(
 ) -> Option<IndexMap<String, Vec<String>>> {
     let extras = extras?;
     let poetry_dependencies = poetry_dependencies.as_mut()?;
+    let normalized_poetry_dependencies = get_normalized_dependencies(poetry_dependencies.clone());
 
     let mut dependencies_to_remove: HashSet<&str> = HashSet::new();
 
@@ -109,24 +112,26 @@ pub fn get_optional(
                     .iter()
                     .filter_map(|dependency| {
                         // If dependency listed in extra does not exist, warn the user.
-                        poetry_dependencies.get(dependency).map_or_else(
-                            || {
-                                add_recoverable_error(format!(
-                                    "Could not find dependency \"{}\" listed in \"{}\" extra.",
-                                    dependency.bold(),
-                                    extra.bold()
-                                ));
-                                None
-                            },
-                            |dependency_specification| {
-                                dependencies_to_remove.insert(dependency);
-                                Some(format!(
-                                    "{}{}",
-                                    dependency,
-                                    dependency_specification.to_pep_508().unwrap(),
-                                ))
-                            },
-                        )
+                        normalized_poetry_dependencies
+                            .get(normalize_dependency_name(dependency).as_str())
+                            .map_or_else(
+                                || {
+                                    add_recoverable_error(format!(
+                                        "Could not find dependency \"{}\" listed in \"{}\" extra.",
+                                        dependency.bold(),
+                                        extra.bold()
+                                    ));
+                                    None
+                                },
+                                |(dep, dependency_specification)| {
+                                    dependencies_to_remove.insert(dep);
+                                    Some(format!(
+                                        "{}{}",
+                                        dep,
+                                        dependency_specification.to_pep_508().unwrap(),
+                                    ))
+                                },
+                            )
                     })
                     .collect(),
             )
@@ -144,14 +149,28 @@ pub fn get_optional(
     Some(optional_dependencies)
 }
 
+/// Get a mapping of normalized dependency names to their original specifications.
+fn get_normalized_dependencies(
+    dependencies: IndexMap<String, DependencySpecification>,
+) -> IndexMap<String, (String, DependencySpecification)> {
+    let mut normalized_dependencies = IndexMap::new();
+
+    for (k, v) in dependencies {
+        normalized_dependencies.insert(normalize_dependency_name(k.as_str()), (k, v));
+    }
+
+    normalized_dependencies
+}
+
 pub fn get_dependency_groups_and_default_groups(
     poetry: &schema::poetry::Poetry,
     uv_source_index: &mut IndexMap<String, SourceContainer>,
-    dependency_groups_strategy: DependencyGroupsStrategy,
+    dependency_groups_strategy: Option<DependencyGroupsStrategy>,
 ) -> DependencyGroupsAndDefaultGroups {
     let mut dependency_groups: IndexMap<String, Vec<DependencyGroupSpecification>> =
         IndexMap::new();
     let mut default_groups: Vec<String> = Vec::new();
+    let mut all_default_groups = false;
 
     // Add dependencies from legacy `[poetry.dev-dependencies]` into `dev` dependency group.
     if let Some(dev_dependencies) = &poetry.dev_dependencies {
@@ -177,13 +196,17 @@ pub fn get_dependency_groups_and_default_groups(
                 optional_groups.insert(group.clone());
             }
 
+            let group_key = if dependency_groups_strategy
+                == Some(DependencyGroupsStrategy::MergeIntoDev)
+                && !optional_groups.contains(group)
+            {
+                "dev".to_string()
+            } else {
+                group.clone()
+            };
+
             dependency_groups
-                .entry(match dependency_groups_strategy {
-                    DependencyGroupsStrategy::MergeIntoDev if !optional_groups.contains(group) => {
-                        "dev".to_string()
-                    }
-                    _ => group.clone(),
-                })
+                .entry(group_key.clone())
                 .or_default()
                 .extend(
                     get(Some(&dependency_group.dependencies), uv_source_index)
@@ -191,13 +214,42 @@ pub fn get_dependency_groups_and_default_groups(
                         .into_iter()
                         .map(DependencyGroupSpecification::String),
                 );
+
+            if dependency_groups_strategy != Some(DependencyGroupsStrategy::MergeIntoDev) {
+                dependency_groups.entry(group_key).or_default().extend(
+                    dependency_group
+                        .include_groups
+                        .clone()
+                        .unwrap_or_default()
+                        .iter()
+                        .map(|group| DependencyGroupSpecification::Map {
+                            include_group: Some(group.clone()),
+                        }),
+                );
+            }
         }
 
         match dependency_groups_strategy {
+            // When using `SetDefaultGroupsAll` strategy, set `default-groups` to "all" under
+            // `[tool.uv]`, to closely match what Poetry does by default, since it includes all
+            // dependency groups.
+            None if optional_groups.is_empty() => {
+                all_default_groups = true;
+            }
+            Some(DependencyGroupsStrategy::SetDefaultGroupsAll) => {
+                if !optional_groups.is_empty() {
+                    add_unrecoverable_error(format!(
+                        "Could not migrate dependency groups with \"{}\" strategy because there are optional groups.",
+                        "set-default-groups-all".bold(),
+                    ));
+                }
+
+                all_default_groups = true;
+            }
             // When using `SetDefaultGroups` strategy, all non-optional dependency groups are
             // referenced in `default-groups` under `[tool.uv]` section. If we only have `dev`
             // dependency group, do not set `default-groups`, as this is already uv's default.
-            DependencyGroupsStrategy::SetDefaultGroups => {
+            None | Some(DependencyGroupsStrategy::SetDefaultGroups) => {
                 if !dependency_groups.keys().eq(["dev"]) {
                     default_groups.extend(
                         dependency_groups
@@ -209,14 +261,32 @@ pub fn get_dependency_groups_and_default_groups(
             }
             // When using `IncludeInDev` strategy, non-optional dependency groups (except `dev` one)
             // are referenced from `dev` dependency group with `{ include-group = "<group>" }`.
-            DependencyGroupsStrategy::IncludeInDev => {
+            Some(DependencyGroupsStrategy::IncludeInDev) => {
+                // Some groups might already have been included with Poetry's `include-groups`, so
+                // we first retrieve the already defined included groups.
+                let already_included_groups = dependency_groups
+                    .get("dev")
+                    .unwrap_or(&Vec::new())
+                    .iter()
+                    .filter_map(|spec| match spec {
+                        DependencyGroupSpecification::Map {
+                            include_group: Some(group),
+                        } => Some(group).cloned(),
+                        _ => None,
+                    })
+                    .collect::<HashSet<_>>();
+
                 dependency_groups
                     .entry("dev".to_string())
                     .or_default()
                     .extend(
                         poetry_group
                             .keys()
-                            .filter(|&k| k != "dev" && !optional_groups.contains(k))
+                            .filter(|&k| {
+                                k != "dev"
+                                    && !optional_groups.contains(k)
+                                    && !already_included_groups.contains(k)
+                            })
                             .map(|g| DependencyGroupSpecification::Map {
                                 include_group: Some(g.clone()),
                             }),
@@ -230,12 +300,13 @@ pub fn get_dependency_groups_and_default_groups(
         return (None, None);
     }
 
-    (
-        Some(dependency_groups),
-        if default_groups.is_empty() {
-            None
-        } else {
-            Some(default_groups)
-        },
-    )
+    let default_groups = if all_default_groups {
+        Some(SingleOrVec::Single("all".to_string()))
+    } else if default_groups.is_empty() {
+        None
+    } else {
+        Some(SingleOrVec::Vec(default_groups))
+    };
+
+    (Some(dependency_groups), default_groups)
 }

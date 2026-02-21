@@ -97,6 +97,7 @@ class Slider(_message.Message):
     LABEL_VISIBILITY_FIELD_NUMBER: _builtins.int
     TYPE_FIELD_NUMBER: _builtins.int
     RAW_VALUE_FIELD_NUMBER: _builtins.int
+    QUERY_PARAM_KEY_FIELD_NUMBER: _builtins.int
     id: _builtins.str
     form_id: _builtins.str
     label: _builtins.str
@@ -109,6 +110,10 @@ class Slider(_message.Message):
     help: _builtins.str
     disabled: _builtins.bool
     type: Global___Slider.Type.ValueType
+    query_param_key: _builtins.str
+    """If set, widget value is bound to this query parameter key
+    Next: 20
+    """
     @_builtins.property
     def default(self) -> _containers.RepeatedScalarFieldContainer[_builtins.float]: ...
     @_builtins.property
@@ -143,10 +148,14 @@ class Slider(_message.Message):
         label_visibility: _LabelVisibility_pb2.LabelVisibility | None = ...,
         type: Global___Slider.Type.ValueType = ...,
         raw_value: _abc.Iterable[_builtins.str] | None = ...,
+        query_param_key: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["label_visibility", b"label_visibility"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key", "label_visibility", b"label_visibility", "query_param_key", b"query_param_key"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["data_type", b"data_type", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "format", b"format", "help", b"help", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "max", b"max", "min", b"min", "options", b"options", "raw_value", b"raw_value", "set_value", b"set_value", "step", b"step", "type", b"type", "value", b"value"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key", "data_type", b"data_type", "default", b"default", "disabled", b"disabled", "form_id", b"form_id", "format", b"format", "help", b"help", "id", b"id", "label", b"label", "label_visibility", b"label_visibility", "max", b"max", "min", b"min", "options", b"options", "query_param_key", b"query_param_key", "raw_value", b"raw_value", "set_value", b"set_value", "step", b"step", "type", b"type", "value", b"value"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__query_param_key: _TypeAlias = _typing.Literal["query_param_key"]  # noqa: Y015
+    _WhichOneofArgType__query_param_key: _TypeAlias = _typing.Literal["_query_param_key", b"_query_param_key"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__query_param_key) -> _WhichOneofReturnType__query_param_key | None: ...
 
 Global___Slider: _TypeAlias = Slider  # noqa: Y015

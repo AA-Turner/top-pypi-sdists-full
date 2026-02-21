@@ -21,7 +21,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestEmails:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: AIInbx) -> None:
         email = client.emails.retrieve(
@@ -29,7 +29,7 @@ class TestEmails:
         )
         assert_matches_type(EmailRetrieveResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: AIInbx) -> None:
         response = client.emails.with_raw_response.retrieve(
@@ -41,7 +41,7 @@ class TestEmails:
         email = response.parse()
         assert_matches_type(EmailRetrieveResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: AIInbx) -> None:
         with client.emails.with_streaming_response.retrieve(
@@ -55,7 +55,7 @@ class TestEmails:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: AIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `email_id` but received ''"):
@@ -63,7 +63,7 @@ class TestEmails:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_reply(self, client: AIInbx) -> None:
         email = client.emails.reply(
@@ -73,7 +73,7 @@ class TestEmails:
         )
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_reply_with_all_params(self, client: AIInbx) -> None:
         email = client.emails.reply(
@@ -102,7 +102,7 @@ class TestEmails:
         )
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_reply(self, client: AIInbx) -> None:
         response = client.emails.with_raw_response.reply(
@@ -116,7 +116,7 @@ class TestEmails:
         email = response.parse()
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_reply(self, client: AIInbx) -> None:
         with client.emails.with_streaming_response.reply(
@@ -132,7 +132,7 @@ class TestEmails:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_reply(self, client: AIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `email_id` but received ''"):
@@ -142,7 +142,7 @@ class TestEmails:
                 html="html",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_send(self, client: AIInbx) -> None:
         email = client.emails.send(
@@ -153,7 +153,7 @@ class TestEmails:
         )
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_send_with_all_params(self, client: AIInbx) -> None:
         email = client.emails.send(
@@ -184,7 +184,7 @@ class TestEmails:
         )
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_send(self, client: AIInbx) -> None:
         response = client.emails.with_raw_response.send(
@@ -199,7 +199,7 @@ class TestEmails:
         email = response.parse()
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_send(self, client: AIInbx) -> None:
         with client.emails.with_streaming_response.send(
@@ -222,7 +222,7 @@ class TestAsyncEmails:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncAIInbx) -> None:
         email = await async_client.emails.retrieve(
@@ -230,7 +230,7 @@ class TestAsyncEmails:
         )
         assert_matches_type(EmailRetrieveResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.emails.with_raw_response.retrieve(
@@ -242,7 +242,7 @@ class TestAsyncEmails:
         email = await response.parse()
         assert_matches_type(EmailRetrieveResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncAIInbx) -> None:
         async with async_client.emails.with_streaming_response.retrieve(
@@ -256,7 +256,7 @@ class TestAsyncEmails:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncAIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `email_id` but received ''"):
@@ -264,7 +264,7 @@ class TestAsyncEmails:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_reply(self, async_client: AsyncAIInbx) -> None:
         email = await async_client.emails.reply(
@@ -274,7 +274,7 @@ class TestAsyncEmails:
         )
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_reply_with_all_params(self, async_client: AsyncAIInbx) -> None:
         email = await async_client.emails.reply(
@@ -303,7 +303,7 @@ class TestAsyncEmails:
         )
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_reply(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.emails.with_raw_response.reply(
@@ -317,7 +317,7 @@ class TestAsyncEmails:
         email = await response.parse()
         assert_matches_type(EmailReplyResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_reply(self, async_client: AsyncAIInbx) -> None:
         async with async_client.emails.with_streaming_response.reply(
@@ -333,7 +333,7 @@ class TestAsyncEmails:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_reply(self, async_client: AsyncAIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `email_id` but received ''"):
@@ -343,7 +343,7 @@ class TestAsyncEmails:
                 html="html",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_send(self, async_client: AsyncAIInbx) -> None:
         email = await async_client.emails.send(
@@ -354,7 +354,7 @@ class TestAsyncEmails:
         )
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_send_with_all_params(self, async_client: AsyncAIInbx) -> None:
         email = await async_client.emails.send(
@@ -385,7 +385,7 @@ class TestAsyncEmails:
         )
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_send(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.emails.with_raw_response.send(
@@ -400,7 +400,7 @@ class TestAsyncEmails:
         email = await response.parse()
         assert_matches_type(EmailSendResponse, email, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_send(self, async_client: AsyncAIInbx) -> None:
         async with async_client.emails.with_streaming_response.send(

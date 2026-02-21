@@ -4,9 +4,12 @@ setuptools package is included.
 
 from __future__ import annotations
 
+import importlib.metadata
 import os
 import sys
 from typing import TYPE_CHECKING
+
+from packaging.requirements import Requirement
 
 from cx_Freeze._compat import IS_MINGW, IS_WINDOWS
 from cx_Freeze.module import Module, ModuleHook
@@ -29,47 +32,43 @@ class Hook(ModuleHook):
         finder.exclude_module("setuptools.tests")
         finder.exclude_module("setuptools._distutils.tests")
         finder.exclude_module("setuptools._vendor")
-        finder.include_package(f"{module.name}._distutils")
+        finder.include_package("setuptools._distutils")
 
-        vendor = os.path.normpath(module.file.parent / "_vendor")
-        names = (
-            "jaraco.collections",
-            "jaraco.context",
-            "jaraco.functools",
-            "jaraco.text",
-            "more_itertools",
-            "packaging",
-            "platformdirs",
-        )
+        try:
+            requires = importlib.metadata.requires(module.name)
+        except importlib.metadata.PackageNotFoundError:
+            requires = None
+        if requires:
+            core_names = set()
+            for requirement_string in requires:
+                require = Requirement(requirement_string)
+                if require.marker is None:
+                    continue
+                if require.marker.evaluate({"extra": "core"}):
+                    core_names.add(require.name)
+        else:
+            core_names = (
+                "jaraco.functools",
+                "jaraco.text",
+                "more_itertools",
+                "packaging",
+                "platformdirs",
+                "wheel",
+            )
         failed = []
-        for name in names:
+        for name in sorted(core_names):
             try:
                 finder.include_module(name)
             except ImportError:  # noqa: PERF203
                 failed.append(name)
-        finder.path.append(vendor)
-        for name in failed:
-            finder.include_module(name)
-        finder.path.pop()
-
-    def setuptools_command_bdist_egg(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_command_bdist_wheel(
-        self, finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-        try:
-            finder.include_module("wheel")
-        except ImportError:
-            vendor = os.path.normpath(module.root.file.parent / "_vendor")
-            finder.path.append(vendor)
-            finder.include_module("wheel")
+        vendor = module.file.parent / "_vendor"
+        if vendor.is_dir():
+            finder.path.append(os.path.normpath(vendor))
+            for name in failed:
+                try:  # noqa: SIM105
+                    finder.include_module(name)
+                except ImportError:  # noqa: PERF203
+                    pass
             finder.path.pop()
 
     def setuptools_command_build_ext(
@@ -79,12 +78,6 @@ class Hook(ModuleHook):
         module.ignore_names.update(
             ["Cython.Distutils.build_ext", "Cython.Compiler.Main", "dl"]
         )
-
-    def setuptools_command_editable_wheel(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
 
     def setuptools_compat_py310(
         self, finder: ModuleFinder, module: Module
@@ -102,51 +95,13 @@ class Hook(ModuleHook):
                 finder.include_module("tomli")
                 finder.path.pop()
 
-    def setuptools_compat_py311(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.update(["_typeshed", "typing_extensions"])
-
-    def setuptools_config__apply_pyprojecttoml(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_config_expand(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_config_pyprojecttoml(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_config_setupcfg(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_config__validate_pyproject_error_reporting(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
     def setuptools_config__validate_pyproject_formats(
         self, _finder: ModuleFinder, module: Module
     ) -> None:
         """Ignore optional modules."""
-        module.ignore_names.update(["trove_classifiers", "typing_extensions"])
-
-    def setuptools_dist(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
+        module.ignore_names.update(
+            ["setuptools._vendor.packaging", "trove_classifiers"]
+        )
 
     def setuptools_extension(
         self, _finder: ModuleFinder, module: Module
@@ -158,16 +113,6 @@ class Hook(ModuleHook):
             ["Cython.Distutils.build_ext", "Pyrex.Distutils.build_ext"]
         )
 
-    def setuptools_glob(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("_typeshed")
-
-    def setuptools__importlib(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("importlib_metadata")
-
     def setuptools_monkey(
         self,
         finder: ModuleFinder,
@@ -178,29 +123,8 @@ class Hook(ModuleHook):
 
     def setuptools_msvc(self, _finder: ModuleFinder, module: Module) -> None:
         """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
         if not (IS_MINGW or IS_WINDOWS):
             module.exclude_names.add("winreg")
-
-    def setuptools__path(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools__reqs(self, _finder: ModuleFinder, module: Module) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools__scripts(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
-
-    def setuptools_warnings(
-        self, _finder: ModuleFinder, module: Module
-    ) -> None:
-        """Ignore optional modules."""
-        module.ignore_names.add("typing_extensions")
 
     def setuptools_windows_support(
         self, _finder: ModuleFinder, module: Module

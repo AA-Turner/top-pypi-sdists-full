@@ -13,17 +13,17 @@ from invoke import (  # pyright: ignore[reportMissingImports, reportPrivateImpor
     Result,  # pyright: ignore[reportMissingImports, reportPrivateImportUsage]
     Task,  # pyright: ignore[reportMissingImports, reportPrivateImportUsage]
     task,  # pyright: ignore[reportMissingImports, reportPrivateImportUsage]
-)
+    )
 
 __copyright__: str = 'Copyright (c) 2017-2026 Juancarlo Añez'
 __license__: str = 'BSD-4-Clause'
-
 
 # by Gemini 2026-02-15
 # Defeat `ruff --fix` replacing `3.14` with `math.pi`
 # and breaking havock on `uv run --python PYTHON`
 # Fun using ord of the hidden STX char for '2'
-PYTHON: float = float(f'{math.pi:.{ord('')}f}')
+# PYTHON: float = float(f'{math.pi:.{ord('')}f}')
+PYTHON: float = 3.15
 
 LINE_PRE: int = 4
 THIN_LINE: str = '─'
@@ -39,36 +39,21 @@ def uv_python_pin(c: Context) -> float:
     return float(result.stdout.strip())
 
 
-def uv(
-        c: Context,
-        cmd: str,
-        args: str,
-        *,
-        quiet: bool = True,
-        python: float = PYTHON,
-        group: str = 'dev',
-        nogroup: str = '',
-        **kwargs: Any,
-) -> Result:
+def uv(c: Context, cmd: str, args: str | list[str], *, quiet: bool = True, python: float = PYTHON, group: str = 'dev',
+        nogroup: str = '', **kwargs: Any, ) -> Result:
     uvpython = uv_python_pin(c)
     q = ' --quiet' if quiet else ''
     p = f' --python {python!s}' if python and python != uvpython else ''
     g = f' --group {group}' if group else ''
     n = f' --no-group {nogroup}' if nogroup else ''
 
-    options = {'pty': True, **kwargs}
+    options = kwargs
+    args = ' '.join(args) if isinstance(args, list) else args
     return c.run(f'uv {cmd}{q}{p}{g}{n} {args}', **options) or Result()
 
 
-def uv_run(
-        c: Context,
-        args: str,
-        *,
-        python: float = PYTHON,
-        group: str = 'dev',
-        quiet: bool = True,
-        **kwargs: Any,
-) -> Result:
+def uv_run(c: Context, args: str | list[str], *, python: float = PYTHON, group: str = 'dev', quiet: bool = True,
+        **kwargs: Any, ) -> Result:
     return uv(c, 'run', args=args, python=python, group=group, quiet=quiet, **kwargs)
 
 
@@ -77,23 +62,11 @@ def uv_sync(c: Context):
 
 
 def version_python(c: Context, python: float = PYTHON) -> str:
-    return uv_run(
-        c,
-        'python3 --version',
-        python=python,
-        quiet=True,
-        hide='both',
-    ).stdout.strip()
+    return uv_run(c, 'python3 --version', python=python, quiet=True, hide='both', ).stdout.strip()
 
 
 def version_tatsu(c: Context, python: float = PYTHON) -> str:
-    return uv_run(
-        c,
-        'python3 -m tatsu --version',
-        python=python,
-        quiet=True,
-        hide='both',
-    ).stdout.strip()
+    return uv_run(c, 'python3 -m tatsu --version', python=python, quiet=True, hide='both', ).stdout.strip()
 
 
 def boundary_print(banner: str = '', line: str = THIN_LINE):
@@ -107,13 +80,11 @@ def boundary_print(banner: str = '', line: str = THIN_LINE):
 
 
 def success_print(target: str = '', *, task: TaskFun = None, line: str = THIN_LINE):
-    target += task.name if task else ''  # ty:ignore[unresolved-attribute] # pyright:ignore[reportFunctionMemberAccess]
+    target += task.name if task else ''  # ty:ignore[unresolved-attribute]  # pyright: ignore[reportFunctionMemberAccess]
     boundary_print(f'✔ {target}', line=line)
 
 
-def version_boundary_print(
-        c: Context, target: str = '', python: float = PYTHON, line: str = THICK_LINE,
-):
+def version_boundary_print(c: Context, target: str = '', python: float = PYTHON, line: str = THICK_LINE, ):
     verpython = version_python(c, python=python)
     vertatsu = version_tatsu(c, python=python)
     boundary_print(f'{target} {verpython} {vertatsu}', line=line)
@@ -146,24 +117,13 @@ def clean(c: Context, plus: bool = False):
 @task(pre=[clean])
 def ruff(c: Context, python: float = PYTHON):
     print('-> ruff')
-    uv_run(
-        c,
-        'ruff check -q --preview --fix tatsu tests examples',
-        python=python,
-        group='test',
-    )
+    uv_run(c, 'ruff check -q --preview tatsu tests examples', python=python, group='test', )
 
 
 @task(pre=[clean])
 def ty(c: Context, python: float = PYTHON):
     print('-> ty')
-    res = uv_run(
-        c,
-        'ty check tatsu tests examples',
-        python=python,
-        group='test',
-        hide='both',
-    )
+    res = uv_run(c, 'ty check tatsu tests examples', python=python, group='test', warn=True, hide='both', )
 
     if res.exited != 0 or 'All checks passed!' not in res.stdout:
         for r in [res.stdout, res.stderr]:
@@ -174,24 +134,43 @@ def ty(c: Context, python: float = PYTHON):
 @task(pre=[clean])
 def pyright(c: Context, python: float = PYTHON):
     print('-> pyright')
-    uv_run(
-        c,
-        'basedpyright tatsu tests examples',
-        python=python,
-        group='test',
-        hide='stdout',
-    )
+    uv_run(c, 'basedpyright tatsu tests examples', python=python, group='test', pty=True, hide='both', )
 
 
 @task(pre=[clean])
-def pytest(c: Context, python: float = PYTHON):
-    print('-> pytest')
+def pytest_fast(c: Context, python: float = PYTHON):
+    print('-> pytest fast')
     Path('./tmp').mkdir(exist_ok=True)
     Path('./tmp/__init__.py').touch()
-    uv_run(c, 'pytest --quiet tests/', python=python, group='test', hide='stdout')
+    uv_run(c, ['pytest', '--quiet', '-n auto', 'tests/', '--ignore-glob=tests/z*',
+        ], python=python, group='test', hide='stdout', pty=True, )
 
 
-@task(pre=[begin, clean, ruff, ty, pyright])
+@task(pre=[clean])
+def pytest_bootstrap(c: Context, python: float = PYTHON):
+    print('-> pytest bootstrap')
+    Path('./tmp').mkdir(exist_ok=True)
+    Path('./tmp/__init__.py').touch()
+    uv_run(c, ['pytest', '--quiet', 'tests/z_bootstrap_test.py',
+        ], python=python, group='test', hide='stdout', pty=True, )
+
+
+@task(pre=[clean, pytest_fast, pytest_bootstrap])
+def pytest(c: Context, python: float = PYTHON):
+    pass
+
+
+@task(pre=[clean])
+def black(c: Context, python: float = PYTHON):
+    print('-> black')
+    res = uv_run(c, ["black", "--check", "tatsu", "tests", "examples"], python=python, group='test', warn=True,
+        hide=True, pty=True, )
+    if res.exited != 0:
+        print(res.stdout.splitlines()[-1])
+        print('✖ failed!')
+
+
+@task(pre=[begin, clean, ruff, ty, pyright, black])
 def lint(c: Context):
     success_print(task=lint)
 
@@ -201,17 +180,17 @@ def test(c: Context):
     success_print(task=test)
 
 
-@task(pre=[begin])
+@task(pre=[clean])
+def doclint(c: Context, python: float = PYTHON):
+    print('-> doclint')
+    uv_run(c, 'vale README.rst docs/*.rst', group='doc', hide='stdout', pty=True, )
+
+
+@task(pre=[begin, doclint])
 def docs(c: Context):
     print('-> docs')
     with c.cd('docs'):
-        uv_run(
-            c,
-            'make -s html',
-            quiet=True,
-            group='doc',
-            hide='stdout',
-        )
+        uv_run(c, 'make -s html', quiet=True, group='doc', hide='stdout')
     success_print(task=docs)
 
 
@@ -227,6 +206,7 @@ def matrix_core(c: Context, python: float = PYTHON):
     ruff(c, python=python)
     ty(c, python=python)
     pyright(c, python=python)
+    black(c, python=python)
     pytest(c, python=python)
     success_print(str(python))
 
@@ -268,15 +248,8 @@ def _export_requirements(c: Context, filename: str, group: str = '', nogroup: st
     # note:
     #   We use pty=True here to ensure the shell redirection behaves
     #   and we see the output immediately if there's an error.
-    uv(
-        c,
-        'export',
-        f'--no-hashes --format requirements-txt -o {out_file}',
-        group=group,
-        nogroup=nogroup,
-        quiet=True,
-        pty=True,
-    )
+    uv(c, 'export', f'--no-hashes --format requirements-txt -o {out_file}', group=group, nogroup=nogroup, quiet=True,
+        pty=True, )
 
 
 @task
@@ -311,7 +284,6 @@ def reqs(c: Context):
 
 @task(pre=[build])
 def testpublish(c: Context):
-    c.run('uv tool install -q gh')
     print('-> test publish')
     workflow = 'test_publish.yml'
     c.run(f'gh workflow run {workflow}')
@@ -320,7 +292,6 @@ def testpublish(c: Context):
 
 @task(pre=[build])
 def publish(c: Context, dry_run: bool = True):
-    c.run('uv tool install -q gh')
     print('-> publish')
     workflow = 'publish.yml'
     c.run(f'gh workflow run {workflow}')

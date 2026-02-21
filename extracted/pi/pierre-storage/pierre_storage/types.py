@@ -41,6 +41,12 @@ class GitStorageOptions(TypedDict, total=False):
     default_ttl: Optional[int]
 
 
+class PublicGitHubBaseRepoAuth(TypedDict):
+    """Authentication mode for GitHub base repositories."""
+
+    auth_type: Literal["public"]
+
+
 class GitHubBaseRepo(TypedDict, total=False):
     """Base repository configuration for GitHub sync."""
 
@@ -48,6 +54,7 @@ class GitHubBaseRepo(TypedDict, total=False):
     owner: str  # required
     name: str  # required
     default_branch: Optional[str]
+    auth: PublicGitHubBaseRepoAuth
 
 
 class ForkBaseRepo(TypedDict, total=False):

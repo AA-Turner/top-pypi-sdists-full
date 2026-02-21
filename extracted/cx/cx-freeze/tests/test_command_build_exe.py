@@ -11,16 +11,6 @@ from cx_Freeze._compat import BUILD_EXE_DIR, IS_UCRT
 from cx_Freeze.command.build_exe import build_exe
 from cx_Freeze.exception import SetupError
 
-from .datatest import SUB_PACKAGE_TEST
-
-BUILD_EXE_CMD = (
-    "python setup.py build_exe"
-    " --excludes=tkinter,unittest --include-msvcr --silent"
-)
-
-OUTPUT0 = "Hello from cx_Freeze Advanced #{}"
-OUTPUT1 = "Test freeze module #{}"
-
 DIST_ATTRS = {
     "name": "foo",
     "version": "0.0",
@@ -352,9 +342,7 @@ def test_build_exe_finalize_options_raises(
             ["--silent-level=3"], {"silent": 3}, id="--silent-level=3->3"
         ),
         pytest.param(
-            [],
-            {"include_msvcr": False},
-            id="--include-msvcr(notused)",
+            [], {"include_msvcr": False}, id="--include-msvcr(notused)"
         ),
         pytest.param(
             ["--include-msvcr"],
@@ -393,59 +381,160 @@ def test_build_exe_script_args(
         assert getattr(cmd_obj, option) == value
 
 
-def test_build_exe_advanced(tmp_package) -> None:
-    """Test the advanced sample."""
-    tmp_package.create_from_sample("advanced")
-    tmp_package.freeze(BUILD_EXE_CMD)
-
-    executable = tmp_package.executable("advanced_1")
-    assert executable.is_file()
-    result = tmp_package.run(executable, timeout=10)
-    result.stdout.fnmatch_lines([OUTPUT0.format(1), OUTPUT1.format(1)])
-
-    executable = tmp_package.executable("advanced_2")
-    assert executable.is_file()
-    result = tmp_package.run(executable, timeout=10)
-    result.stdout.fnmatch_lines([OUTPUT0.format(2), OUTPUT1.format(2)])
-
-
 def test_build_exe_asmodule(tmp_package) -> None:
     """Test the asmodule sample."""
     tmp_package.create_from_sample("asmodule")
-    tmp_package.freeze(BUILD_EXE_CMD)
+    tmp_package.freeze(
+        "python setup.py build_exe"
+        " --excludes=tkinter,unittest --include-msvcr --silent"
+    )
 
     executable = tmp_package.executable("asmodule")
     assert executable.is_file()
-    result = tmp_package.run(executable, timeout=10)
+    result = tmp_package.run(executable)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 
-OUTPUT_SUBPACKAGE_TEST = ["This is p.p1", "This is p.q.q1"]
+SOURCE_FLAT_LAYOUT = """\
+test1.py
+    import importlib.metadata
+    import foobar.baz
+
+    print("version", importlib.metadata.version("foobar"))
+test2.py
+    __import__("second")
+pyproject.toml
+    [project]
+    name = "foobar"
+    version = "0.0.1"
+    description = "Sample cx_Freeze script"
+
+    [[tool.cxfreeze.executables]]
+    script = "test1.py"
+
+    [[tool.cxfreeze.executables]]
+    script = "test2.py"
+
+    [tool.cxfreeze.build_exe]
+    excludes = ["tkinter", "unittest"]
+    include_msvcr = true
+    include_path = ["extra"]
+    silent = true
+foobar/__init__.py
+    print("This is foobar")
+foobar/baz.py
+    print("This is foobar.baz")
+extra/second.py
+    print("This is second")
+"""
+
+SOURCE_SRC_LAYOUT = """\
+pyproject.toml
+    [project]
+    name = "foobar"
+    version = "0.0.1"
+    description = "Sample cx_Freeze script"
+
+    [[tool.cxfreeze.executables]]
+    script = "src/test1.py"
+
+    [[tool.cxfreeze.executables]]
+    script = "src/test2.py"
+
+    [tool.cxfreeze.build_exe]
+    excludes = ["tkinter", "unittest"]
+    include_msvcr = true
+    include_path = ["src/extra"]
+    silent = true
+src/test1.py
+    import importlib.metadata
+    import foobar.baz
+
+    print("version", importlib.metadata.version("foobar"))
+src/test2.py
+    __import__("second")
+src/foobar/__init__.py
+    print("This is foobar")
+src/foobar/baz.py
+    print("This is foobar.baz")
+src/extra/second.py
+    print("This is second")
+"""
 
 
-def test_zip_include_packages(tmp_package) -> None:
-    """Test the simple sample with zip_include_packages option."""
-    source = SUB_PACKAGE_TEST[4]
+@pytest.mark.parametrize(
+    ("source", "zip_packages"),
+    [
+        pytest.param(SOURCE_FLAT_LAYOUT, None, id="flat[]"),
+        pytest.param(
+            SOURCE_FLAT_LAYOUT, False, id="flat[zip_exclude_packages]"
+        ),
+        pytest.param(
+            SOURCE_FLAT_LAYOUT, True, id="flat[zip_include_packages]"
+        ),
+        pytest.param(SOURCE_SRC_LAYOUT, None, id="src[]"),
+        pytest.param(SOURCE_SRC_LAYOUT, False, id="src[zip_exclude_packages]"),
+        pytest.param(SOURCE_SRC_LAYOUT, True, id="src[zip_include_packages]"),
+    ],
+)
+def test_build_exe_advanced(
+    tmp_package, source: str, zip_packages: bool | None
+) -> None:
+    """Test an advanced sample."""
     tmp_package.create(source)
-    tmp_package.freeze(
-        f"{BUILD_EXE_CMD} --zip-exclude-packages=* --zip-include-packages=p",
+    pyproject = tmp_package.path / "pyproject.toml"
+    buf = pyproject.read_bytes().decode().splitlines()
+    if zip_packages is False:
+        buf += ['zip_exclude_packages = "*"', 'zip_include_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    elif zip_packages is True:
+        buf += ['zip_include_packages = "*"', 'zip_exclude_packages = ""']
+        pyproject.write_bytes("\n".join(buf).encode("utf_8"))
+    tmp_package.freeze()
+
+    executable = tmp_package.executable("test1")
+    assert executable.is_file()
+    result = tmp_package.run(executable)
+    result.stdout.fnmatch_lines(
+        ["This is foobar", "This is foobar.baz", "version 0.0.1"]
     )
 
-    executable = tmp_package.executable("main")
+    executable = tmp_package.executable("test2")
     assert executable.is_file()
-    result = tmp_package.run(executable, timeout=10)
-    result.stdout.fnmatch_lines(OUTPUT_SUBPACKAGE_TEST)
+    result = tmp_package.run(executable)
+    result.stdout.fnmatch_lines(["This is second"])
 
 
-def test_zip_exclude_packages(tmp_package) -> None:
-    """Test the simple sample with zip_exclude_packages option."""
-    source = SUB_PACKAGE_TEST[4]
+@pytest.mark.parametrize(
+    "source",
+    [
+        pytest.param(SOURCE_FLAT_LAYOUT, id="flat"),
+        pytest.param(SOURCE_SRC_LAYOUT, id="src"),
+    ],
+)
+def test_egg_info(tmp_package, source: str) -> None:
+    """Test version update."""
     tmp_package.create(source)
-    tmp_package.freeze(
-        f"{BUILD_EXE_CMD} --zip-exclude-packages=p --zip-include-packages=*",
+    # update the version in the pyproject
+    pyproject = tmp_package.path / "pyproject.toml"
+    buf = pyproject.read_bytes().replace(b"0.0.1", b"0.0.2")
+    pyproject.write_bytes(buf)
+    tmp_package.freeze()
+
+    executable = tmp_package.executable("test1")
+    assert executable.is_file()
+    result = tmp_package.run(executable)
+    result.stdout.fnmatch_lines(
+        ["This is foobar", "This is foobar.baz", "version 0.0.2"]
     )
 
-    executable = tmp_package.executable("main")
+    # new update
+    pyproject.write_bytes(buf.replace(b"0.0.2", b"0.0.3"))
+    tmp_package.freeze("cxfreeze build_exe")
+
+    executable = tmp_package.executable("test1")
     assert executable.is_file()
-    result = tmp_package.run(executable, timeout=10)
-    result.stdout.fnmatch_lines(OUTPUT_SUBPACKAGE_TEST)
+    result = tmp_package.run(executable)
+    result.stdout.fnmatch_lines(
+        ["This is foobar", "This is foobar.baz", "version 0.0.3"]
+    )

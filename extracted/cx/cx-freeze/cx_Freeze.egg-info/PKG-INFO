@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cx_Freeze
-Version: 8.5.3
+Version: 8.6.0
 Summary: Create standalone executables from Python scripts
 Author-email: Marcelo Duarte <marcelotduarte@users.noreply.github.com>, Anthony Tuininga <anthony.tuininga@gmail.com>
 License-Expression: PSF-2.0
@@ -30,11 +30,11 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: freeze-core>=0.4.0
-Requires-Dist: packaging>=24
-Requires-Dist: setuptools<81,>=78.1.1
+Requires-Dist: freeze-core>=0.6.0
+Requires-Dist: packaging>=25.0
+Requires-Dist: setuptools<=82.0,>=78.1.1
 Requires-Dist: tomli>=2.0.1; python_version == "3.10"
-Requires-Dist: filelock>=3.20.1; sys_platform == "linux"
+Requires-Dist: filelock>=3.20.3; sys_platform == "linux"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "x86_64"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "i686"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "aarch64"
@@ -42,27 +42,9 @@ Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_mach
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "ppc64le"
 Requires-Dist: patchelf<0.18,>=0.16.1; sys_platform == "linux" and platform_machine == "s390x"
 Requires-Dist: dmgbuild>=1.6.1; sys_platform == "darwin"
-Requires-Dist: lief<=0.17.1,>=0.15.1; sys_platform == "win32" and platform_machine != "ARM64"
-Requires-Dist: lief<=0.17.1,>=0.15.1; sys_platform == "win32" and platform_machine == "ARM64" and python_version <= "3.13"
+Requires-Dist: lief<=0.17.3,>=0.15.1; sys_platform == "win32" and platform_machine != "ARM64"
+Requires-Dist: lief<=0.17.3,>=0.15.1; sys_platform == "win32" and platform_machine == "ARM64" and python_version <= "3.13"
 Requires-Dist: python-msilib>=0.4.1; sys_platform == "win32" and python_version >= "3.13"
-Provides-Extra: dev
-Requires-Dist: bump-my-version==1.2.6; extra == "dev"
-Requires-Dist: pre-commit==4.5.1; extra == "dev"
-Provides-Extra: doc
-Requires-Dist: sphinx==8.2.3; python_version >= "3.11" and extra == "doc"
-Requires-Dist: sphinx-issues==5.0.1; python_version >= "3.11" and extra == "doc"
-Requires-Dist: sphinx-new-tab-link==0.8.1; python_version >= "3.11" and extra == "doc"
-Requires-Dist: sphinx-tabs==3.4.7; python_version >= "3.11" and extra == "doc"
-Requires-Dist: furo==2025.12.19; python_version >= "3.11" and extra == "doc"
-Requires-Dist: myst-parser==4.0.1; python_version >= "3.11" and extra == "doc"
-Provides-Extra: tests
-Requires-Dist: coverage==7.13.1; extra == "tests"
-Requires-Dist: filelock>=3.20.1; extra == "tests"
-Requires-Dist: pytest==9.0.2; extra == "tests"
-Requires-Dist: pluggy==1.6.0; extra == "tests"
-Requires-Dist: pytest-mock==3.15.1; extra == "tests"
-Requires-Dist: pytest-timeout==2.4.0; extra == "tests"
-Requires-Dist: pytest-xdist==3.8.0; extra == "tests"
 Dynamic: license-file
 
 **cx_Freeze** Creates standalone executables from Python scripts with the same performance

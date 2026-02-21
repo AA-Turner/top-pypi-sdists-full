@@ -1,17 +1,15 @@
 Metadata-Version: 2.4
 Name: dagstermill
-Version: 0.28.14
+Version: 0.28.15
 Summary: run notebooks using the Dagster tools
-Author: Dagster Labs
-Author-email: hello@dagsterlabs.com
-License: Apache-2.0
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<3.15
+Requires-Python: <3.15,>=3.10
 License-File: LICENSE
-Requires-Dist: dagster==1.12.14
+Requires-Dist: dagster==1.12.15
 Requires-Dist: ipykernel!=5.4.0,!=5.4.1,>=4.9.0
 Requires-Dist: ipython_genutils>=0.2.0
 Requires-Dist: packaging>=20.9
@@ -23,12 +21,4 @@ Provides-Extra: test
 Requires-Dist: matplotlib; extra == "test"
 Requires-Dist: scikit-learn>=0.19.0; extra == "test"
 Requires-Dist: tqdm<=4.48; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary

@@ -1,45 +1,33 @@
 Metadata-Version: 2.4
 Name: dagit
-Version: 1.12.14
+Version: 1.12.15
 Summary: Web UI for dagster.
-Home-page: https://github.com/dagster-io/dagster
-Author: Dagster Labs
-Author-email: hello@dagsterlabs.com
-License: Apache-2.0
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/dagster-io/dagster
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<3.15
-Description-Content-Type: text/markdown
+Requires-Python: <3.15,>=3.10
+Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: dagster-webserver==1.12.14
+Requires-Dist: dagster-webserver==1.12.15
 Provides-Extra: notebook
-Requires-Dist: dagster-webserver[notebook]==1.12.14; extra == "notebook"
+Requires-Dist: dagster-webserver[notebook]==1.12.15; extra == "notebook"
 Provides-Extra: test
-Requires-Dist: dagster-webserver[test]==1.12.14; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: dagster-webserver[test]==1.12.15; extra == "test"
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
-============
+=================
 Dagster UI
-============
+=================
 
 Usage
 ~~~~~
+
 Eg in dagster_examples
 
 .. code-block:: sh
@@ -49,5 +37,5 @@ Eg in dagster_examples
 Running dev ui:
 
 .. code-block:: sh
-  NEXT_PUBLIC_BACKEND_ORIGIN="http://localhost:3333" yarn start
 
+  NEXT_PUBLIC_BACKEND_ORIGIN="http://localhost:3333" yarn start

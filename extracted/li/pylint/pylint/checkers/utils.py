@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-import _string  # pylint: disable=wrong-import-order # Ruff and Isort disagree about the order here
+import _string
 import builtins
 import fnmatch
 import itertools
@@ -238,7 +238,13 @@ SUBSCRIPTABLE_CLASSES_PEP585 = frozenset(
 SINGLETON_VALUES = {True, False, None}
 
 TERMINATING_FUNCS_QNAMES = frozenset(
-    {"_sitebuiltins.Quitter", "sys.exit", "posix._exit", "nt._exit"}
+    {
+        "_sitebuiltins.Quitter",
+        "sys.exit",
+        "posix._exit",
+        "nt._exit",
+        "unittest.case.TestCase.fail",
+    }
 )
 
 
@@ -1750,6 +1756,22 @@ def is_assign_name_annotated_with(node: nodes.AssignName, typing_name: str) -> b
     annotation = node.parent.annotation
     if isinstance(annotation, nodes.Subscript):
         annotation = annotation.value
+    match annotation:
+        case nodes.Name(name=n) | nodes.Attribute(attrname=n) if n == typing_name:
+            return True
+    return False
+
+
+def is_assign_name_annotated_with_class_var_typing_name(
+    node: nodes.AssignName, typing_name: str
+) -> bool:
+    if not is_assign_name_annotated_with(node, "ClassVar"):
+        return False
+    annotation = node.parent.annotation
+    if isinstance(annotation, nodes.Subscript):
+        annotation = annotation.slice
+        if isinstance(annotation, nodes.Subscript):
+            annotation = annotation.value
     match annotation:
         case nodes.Name(name=n) | nodes.Attribute(attrname=n) if n == typing_name:
             return True

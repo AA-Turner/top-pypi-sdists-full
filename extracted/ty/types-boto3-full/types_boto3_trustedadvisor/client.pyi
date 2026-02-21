@@ -113,7 +113,7 @@ class TrustedAdvisorPublicAPIClient(BaseClient):
         self, **kwargs: Unpack[BatchUpdateRecommendationResourceExclusionRequestTypeDef]
     ) -> BatchUpdateRecommendationResourceExclusionResponseTypeDef:
         """
-        Update one or more exclusion status for a list of recommendation resources.
+        Update one or more exclusion statuses for a list of recommendation resources.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/trustedadvisor/client/batch_update_recommendation_resource_exclusion.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_trustedadvisor/client/#batch_update_recommendation_resource_exclusion)

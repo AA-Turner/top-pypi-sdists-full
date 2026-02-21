@@ -1,12 +1,12 @@
 """
-Standalone loader for TITAN and PULSE models.
+Standalone loader for GROM and TETNO models.
 
 This file is saved alongside exported models so users can load them
 without installing the full wisent package.
 
 Usage:
     from standalone_loader import load_model
-    model, tokenizer, hooks = load_model("./my_titan_model")
+    model, tokenizer, hooks = load_model("./my_grom_model")
 """
 
 import json
@@ -19,7 +19,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 
 class GatingNetwork(nn.Module):
-    """Learned gating network matching TITAN architecture."""
+    """Learned gating network matching GROM architecture."""
     def __init__(self, input_dim: int, hidden_dim: int = 128):
         super().__init__()
         self.net = nn.Sequential(
@@ -37,7 +37,7 @@ class GatingNetwork(nn.Module):
 
 
 class IntensityNetwork(nn.Module):
-    """Predicts per-layer steering intensity matching TITAN architecture."""
+    """Predicts per-layer steering intensity matching GROM architecture."""
     def __init__(self, input_dim: int, num_layers: int, hidden_dim: int = 64, max_alpha: float = 3.0):
         super().__init__()
         self.max_alpha = max_alpha
@@ -58,12 +58,12 @@ class IntensityNetwork(nn.Module):
         return self.max_alpha * torch.sigmoid(raw)
 
 
-class TITANHooks:
-    """Runtime hooks for TITAN dynamic steering."""
+class GROMHooks:
+    """Runtime hooks for GROM dynamic steering."""
     
-    def __init__(self, model, titan_data: Dict[str, Any], base_strength: float = 1.0):
+    def __init__(self, model, grom_data: Dict[str, Any], base_strength: float = 1.0):
         self.model = model
-        self.titan_data = titan_data
+        self.grom_data = grom_data
         self.base_strength = base_strength
         
         self._hooks = []
@@ -79,7 +79,7 @@ class TITANHooks:
             self._layers = model.layers
         
         # Setup layer mapping
-        self.layer_order = titan_data["layer_order"]
+        self.layer_order = grom_data["layer_order"]
         self._layer_name_to_idx = {}
         for layer_name in self.layer_order:
             try:
@@ -89,7 +89,7 @@ class TITANHooks:
                 pass
         
         # Find sensor layer
-        sensor_layer = titan_data.get("sensor_layer")
+        sensor_layer = grom_data.get("sensor_layer")
         if sensor_layer is None:
             sensor_layer = self._layer_name_to_idx.get(
                 self.layer_order[len(self.layer_order)//2], 15
@@ -97,30 +97,30 @@ class TITANHooks:
         self._sensor_layer_idx = sensor_layer
         
         # Load directions
-        self.directions = {k: v.to(model.device) for k, v in titan_data["directions"].items()}
-        self.direction_weights = {k: v.to(model.device) for k, v in titan_data["direction_weights"].items()}
+        self.directions = {k: v.to(model.device) for k, v in grom_data["directions"].items()}
+        self.direction_weights = {k: v.to(model.device) for k, v in grom_data["direction_weights"].items()}
         
         # Load networks if present
         self.gate_network = None
         self.intensity_network = None
         
-        if "gate_network_state" in titan_data:
-            config = titan_data["gate_network_config"]
+        if "gate_network_state" in grom_data:
+            config = grom_data["gate_network_config"]
             self.gate_network = GatingNetwork(config["input_dim"], config.get("hidden_dim", 128))
-            self.gate_network.load_state_dict(titan_data["gate_network_state"])
+            self.gate_network.load_state_dict(grom_data["gate_network_state"])
             self.gate_network = self.gate_network.to(model.device).eval()
         
-        if "intensity_network_state" in titan_data:
-            config = titan_data["intensity_network_config"]
+        if "intensity_network_state" in grom_data:
+            config = grom_data["intensity_network_config"]
             self.intensity_network = IntensityNetwork(
                 config["input_dim"], config["num_layers"], config.get("hidden_dim", 64),
-                max_alpha=titan_data.get("max_alpha", 3.0)
+                max_alpha=grom_data.get("max_alpha", 3.0)
             )
-            self.intensity_network.load_state_dict(titan_data["intensity_network_state"])
+            self.intensity_network.load_state_dict(grom_data["intensity_network_state"])
             self.intensity_network = self.intensity_network.to(model.device).eval()
         
-        self.gate_temperature = titan_data.get("gate_temperature", 0.5)
-        self.max_alpha = titan_data.get("max_alpha", 3.0)
+        self.gate_temperature = grom_data.get("gate_temperature", 0.5)
+        self.max_alpha = grom_data.get("max_alpha", 3.0)
     
     def _get_effective_direction(self, layer_name: str) -> torch.Tensor:
         """Get weighted combination of directions for a layer."""
@@ -214,12 +214,12 @@ class TITANHooks:
         return None
 
 
-class PULSEHooks:
-    """Runtime hooks for PULSE conditional steering."""
+class TETNOHooks:
+    """Runtime hooks for TETNO conditional steering."""
     
-    def __init__(self, model, pulse_data: Dict[str, Any], base_strength: float = 1.0):
+    def __init__(self, model, tetno_data: Dict[str, Any], base_strength: float = 1.0):
         self.model = model
-        self.pulse_data = pulse_data
+        self.tetno_data = tetno_data
         self.base_strength = base_strength
         
         self._hooks = []
@@ -233,10 +233,10 @@ class PULSEHooks:
             self._layers = model.layers
         
         # Load steering data
-        self.behavior_vectors = {k: v.to(model.device) for k, v in pulse_data["behavior_vectors"].items()}
-        self.condition_vector = pulse_data["condition_vector"].to(model.device)
-        self.layer_scales = pulse_data["layer_scales"]
-        self.optimal_threshold = pulse_data["optimal_threshold"]
+        self.behavior_vectors = {k: v.to(model.device) for k, v in tetno_data["behavior_vectors"].items()}
+        self.condition_vector = tetno_data["condition_vector"].to(model.device)
+        self.layer_scales = tetno_data["layer_scales"]
+        self.optimal_threshold = tetno_data["optimal_threshold"]
         
         # Map layer names to indices
         self._layer_name_to_idx = {}
@@ -326,7 +326,7 @@ def load_model(
     install_hooks: bool = True,
 ) -> Tuple[Any, Any, Optional[Any]]:
     """
-    Load a TITAN or PULSE steered model.
+    Load a GROM or TETNO steered model.
     
     Args:
         model_path: Path to model directory or HuggingFace repo
@@ -339,41 +339,41 @@ def load_model(
         - hooks is None if no dynamic steering or install_hooks=False
     
     Example:
-        model, tokenizer, hooks = load_model("./my_titan_model")
+        model, tokenizer, hooks = load_model("./my_grom_model")
         output = model.generate(...)
         print(f"Gate: {hooks.get_current_gate()}")
         hooks.remove()  # When done
     """
     model_path = Path(model_path) if not str(model_path).startswith(("http", "hf://")) else model_path
     
-    # Check for TITAN or PULSE config
+    # Check for GROM or TETNO config
     is_local = isinstance(model_path, Path) and model_path.exists()
     
-    titan_config = None
-    pulse_config = None
+    grom_config = None
+    tetno_config = None
     
     if is_local:
-        titan_config_path = model_path / "titan_config.json"
-        pulse_config_path = model_path / "pulse_config.json"
+        grom_config_path = model_path / "grom_config.json"
+        tetno_config_path = model_path / "tetno_config.json"
         
-        if titan_config_path.exists():
-            with open(titan_config_path) as f:
-                titan_config = json.load(f)
-        elif pulse_config_path.exists():
-            with open(pulse_config_path) as f:
-                pulse_config = json.load(f)
+        if grom_config_path.exists():
+            with open(grom_config_path) as f:
+                grom_config = json.load(f)
+        elif tetno_config_path.exists():
+            with open(tetno_config_path) as f:
+                tetno_config = json.load(f)
     else:
         # HuggingFace Hub
         from huggingface_hub import hf_hub_download
         try:
-            config_file = hf_hub_download(repo_id=str(model_path), filename="titan_config.json")
+            config_file = hf_hub_download(repo_id=str(model_path), filename="grom_config.json")
             with open(config_file) as f:
-                titan_config = json.load(f)
+                grom_config = json.load(f)
         except:
             try:
-                config_file = hf_hub_download(repo_id=str(model_path), filename="pulse_config.json")
+                config_file = hf_hub_download(repo_id=str(model_path), filename="tetno_config.json")
                 with open(config_file) as f:
-                    pulse_config = json.load(f)
+                    tetno_config = json.load(f)
             except:
                 pass
     
@@ -389,28 +389,28 @@ def load_model(
     hooks = None
     
     if install_hooks:
-        if titan_config and titan_config.get("mode") in ("dynamic", "hybrid"):
-            # Load TITAN data
+        if grom_config and grom_config.get("mode") in ("dynamic", "hybrid"):
+            # Load GROM data
             if is_local:
-                titan_data = torch.load(model_path / "titan_steering.pt", map_location="cpu")
+                grom_data = torch.load(model_path / "grom_steering.pt", map_location="cpu")
             else:
                 from huggingface_hub import hf_hub_download
-                data_file = hf_hub_download(repo_id=str(model_path), filename="titan_steering.pt")
-                titan_data = torch.load(data_file, map_location="cpu")
+                data_file = hf_hub_download(repo_id=str(model_path), filename="grom_steering.pt")
+                grom_data = torch.load(data_file, map_location="cpu")
             
-            hooks = TITANHooks(model, titan_data)
+            hooks = GROMHooks(model, grom_data)
             hooks.install()
         
-        elif pulse_config and pulse_config.get("mode") in ("dynamic", "hybrid"):
-            # Load PULSE data
+        elif tetno_config and tetno_config.get("mode") in ("dynamic", "hybrid"):
+            # Load TETNO data
             if is_local:
-                pulse_data = torch.load(model_path / "pulse_steering.pt", map_location="cpu")
+                tetno_data = torch.load(model_path / "tetno_steering.pt", map_location="cpu")
             else:
                 from huggingface_hub import hf_hub_download
-                data_file = hf_hub_download(repo_id=str(model_path), filename="pulse_steering.pt")
-                pulse_data = torch.load(data_file, map_location="cpu")
+                data_file = hf_hub_download(repo_id=str(model_path), filename="tetno_steering.pt")
+                tetno_data = torch.load(data_file, map_location="cpu")
             
-            hooks = PULSEHooks(model, pulse_data, base_strength=0.5)
+            hooks = TETNOHooks(model, tetno_data, base_strength=0.5)
             hooks.install()
     
     return model, tokenizer, hooks

@@ -26,7 +26,7 @@ class Recorder(abc.ABC):
     def handles_bytes(cls, first_bytes: bytes) -> bool: ...
 
     @abc.abstractmethod
-    def default_log_buffer(self, sample_count: int) -> int: ...
+    def default_log_buffer(self, sample_count: int, high_throughput: bool) -> int: ...
 
     @abc.abstractmethod
     def is_writeable(self) -> bool: ...
@@ -85,7 +85,7 @@ class Recorder(abc.ABC):
     @classmethod
     @abc.abstractmethod
     async def read_log_sample_summaries(
-        cls, location: str
+        cls, location: str, async_fs: AsyncFilesystem | None = None
     ) -> list[EvalSampleSummary]: ...
 
     @classmethod

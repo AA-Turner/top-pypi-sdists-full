@@ -16,11 +16,11 @@ from datetime import datetime
 from wisent.core.steering_methods.steering_object import (
     SteeringObjectMetadata,
     CAASteeringObject,
-    HyperplaneSteeringObject,
+    OstrzeSteeringObject,
     MLPSteeringObject,
-    PRISMSteeringObject,
-    PULSESteeringObject,
-    TITANSteeringObject,
+    TECZASteeringObject,
+    TETNOSteeringObject,
+    GROMSteeringObject,
     BaseSteeringObject,
 )
 from wisent.core.utils import preferred_dtype
@@ -139,30 +139,35 @@ def execute_create_steering_object(args):
         method_name = args.method.lower()
         print(f"\n🧠 Creating {method_name.upper()} steering object...")
         
-        if method_name in ('caa', 'hyperplane', 'mlp'):
+        if method_name in ('caa', 'ostrze', 'mlp'):
             steering_obj = _create_simple_steering_object(
                 method_name, metadata, layer_activations, available_layers, args
             )
-        elif method_name == 'prism':
-            steering_obj = _create_prism_steering_object(
+        elif method_name == 'tecza':
+            steering_obj = _create_tecza_steering_object(
                 metadata, layer_activations, available_layers, args
             )
-        elif method_name == 'pulse':
-            steering_obj = _create_pulse_steering_object(
+        elif method_name == 'tetno':
+            steering_obj = _create_tetno_steering_object(
                 metadata, layer_activations, available_layers, args
             )
-        elif method_name == 'titan':
-            steering_obj = _create_titan_steering_object(
+        elif method_name == 'grom':
+            steering_obj = _create_grom_steering_object(
                 metadata, layer_activations, available_layers, args
             )
-        elif method_name == 'concept_flow':
-            from wisent.core.cli.steering.core.create_concept_flow import _create_concept_flow_steering_object
-            steering_obj = _create_concept_flow_steering_object(
+        elif method_name == 'nurt':
+            from wisent.core.cli.steering.core.create_nurt import _create_nurt_steering_object
+            steering_obj = _create_nurt_steering_object(
                 metadata, layer_activations, available_layers, args
             )
-        elif method_name == 'geodesic_ot':
-            from wisent.core.steering_methods.methods.geodesic_ot.create import _create_geodesic_ot_steering_object
-            steering_obj = _create_geodesic_ot_steering_object(
+        elif method_name == 'szlak':
+            from wisent.core.steering_methods.methods.szlak.create import _create_szlak_steering_object
+            steering_obj = _create_szlak_steering_object(
+                metadata, layer_activations, available_layers, args
+            )
+        elif method_name == 'wicher':
+            from wisent.core.steering_methods.methods.wicher.create import _create_wicher_steering_object
+            steering_obj = _create_wicher_steering_object(
                 metadata, layer_activations, available_layers, args
             )
         else:
@@ -201,20 +206,20 @@ def _create_simple_steering_object(
     available_layers: list,
     args,
 ) -> BaseSteeringObject:
-    """Create CAA, Hyperplane, or MLP steering object."""
+    """Create CAA, Ostrze, or MLP steering object."""
     
     # Get method class
     if method_name == 'caa':
         from wisent.core.steering_methods.methods.caa import CAAMethod
         method = CAAMethod(normalize=getattr(args, 'normalize', True))
         obj_class = CAASteeringObject
-    elif method_name == 'hyperplane':
-        from wisent.core.steering_methods.methods.hyperplane import HyperplaneMethod
-        method = HyperplaneMethod(
+    elif method_name == 'ostrze':
+        from wisent.core.steering_methods.methods.ostrze import OstrzeMethod
+        method = OstrzeMethod(
             normalize=getattr(args, 'normalize', True),
-            C=getattr(args, 'hyperplane_C', 1.0),
+            C=getattr(args, 'ostrze_C', 1.0),
         )
-        obj_class = HyperplaneSteeringObject
+        obj_class = OstrzeSteeringObject
     elif method_name == 'mlp':
         from wisent.core.steering_methods.methods.mlp import MLPMethod
         method = MLPMethod(
@@ -246,21 +251,21 @@ def _create_simple_steering_object(
     return obj_class(metadata=metadata, vectors=vectors)
 
 
-def _create_prism_steering_object(
+def _create_tecza_steering_object(
     metadata: SteeringObjectMetadata,
     layer_activations: dict,
     available_layers: list,
     args,
-) -> PRISMSteeringObject:
-    """Create PRISM steering object with multiple directions."""
-    from wisent.core.steering_methods.methods.advanced import PRISMMethod
+) -> TECZASteeringObject:
+    """Create TECZA steering object with multiple directions."""
+    from wisent.core.steering_methods.methods.advanced import TECZAMethod
     
-    num_directions = getattr(args, 'prism_num_directions', 3)
+    num_directions = getattr(args, 'tecza_num_directions', 3)
     
-    method = PRISMMethod(
+    method = TECZAMethod(
         num_directions=num_directions,
-        optimization_steps=getattr(args, 'prism_optimization_steps', 100),
-        learning_rate=getattr(args, 'prism_learning_rate', 0.01),
+        optimization_steps=getattr(args, 'tecza_optimization_steps', 100),
+        learning_rate=getattr(args, 'tecza_learning_rate', 0.01),
         normalize=getattr(args, 'normalize', True),
     )
     
@@ -288,7 +293,7 @@ def _create_prism_steering_object(
         
         print(f"   Layer {layer_str}: {layer_dirs.shape[0]} directions, avg_cosine={meta.get('avg_cosine_similarity', 0):.3f}")
     
-    return PRISMSteeringObject(
+    return TECZASteeringObject(
         metadata=metadata,
         directions=directions,
         direction_weights=direction_weights,
@@ -296,27 +301,27 @@ def _create_prism_steering_object(
     )
 
 
-def _create_pulse_steering_object(
+def _create_tetno_steering_object(
     metadata: SteeringObjectMetadata,
     layer_activations: dict,
     available_layers: list,
     args,
-) -> PULSESteeringObject:
-    """Create PULSE steering object with conditional gating."""
-    from wisent.core.steering_methods.methods.advanced import PULSEMethod
+) -> TETNOSteeringObject:
+    """Create TETNO steering object with conditional gating."""
+    from wisent.core.steering_methods.methods.advanced import TETNOMethod
     
     # Determine sensor layer (default: 75% through network)
     num_layers = len(available_layers)
-    sensor_layer_idx = getattr(args, 'pulse_sensor_layer', None)
+    sensor_layer_idx = getattr(args, 'tetno_sensor_layer', None)
     if sensor_layer_idx is None:
         sensor_layer_idx = int(num_layers * 0.75)
     sensor_layer = int(available_layers[min(sensor_layer_idx, num_layers - 1)])
     
-    method = PULSEMethod(
+    method = TETNOMethod(
         sensor_layer=sensor_layer,
-        condition_threshold=getattr(args, 'pulse_condition_threshold', 0.5),
-        gate_temperature=getattr(args, 'pulse_gate_temperature', 0.1),
-        learn_threshold=getattr(args, 'pulse_learn_threshold', True),
+        condition_threshold=getattr(args, 'tetno_condition_threshold', 0.5),
+        gate_temperature=getattr(args, 'tetno_gate_temperature', 0.1),
+        learn_threshold=getattr(args, 'tetno_learn_threshold', True),
         normalize=getattr(args, 'normalize', True),
     )
     
@@ -398,50 +403,50 @@ def _create_pulse_steering_object(
     print(f"   Sensor layer: {sensor_layer}")
     print(f"   Optimal threshold: {best_threshold:.3f} (accuracy: {best_acc:.3f})")
     
-    return PULSESteeringObject(
+    return TETNOSteeringObject(
         metadata=metadata,
         behavior_vectors=behavior_vectors,
         condition_vector=condition_vec,
         sensor_layer=sensor_layer,
         threshold=best_threshold,
         layer_scales=layer_scales,
-        gate_temperature=getattr(args, 'pulse_gate_temperature', 0.1),
+        gate_temperature=getattr(args, 'tetno_gate_temperature', 0.1),
     )
 
 
-def _create_titan_steering_object(
+def _create_grom_steering_object(
     metadata: SteeringObjectMetadata,
     layer_activations: dict,
     available_layers: list,
     args,
-) -> TITANSteeringObject:
-    """Create TITAN steering object with learned networks."""
-    from wisent.core.steering_methods.methods.titan import TITANMethod
-    from wisent.core.steering_methods.steering_object import TITANGateNetwork, TITANIntensityNetwork
+) -> GROMSteeringObject:
+    """Create GROM steering object with learned networks."""
+    from wisent.core.steering_methods.methods.grom import GROMMethod
+    from wisent.core.steering_methods.steering_object import GROMGateNetwork, GROMIntensityNetwork
     
-    num_directions = getattr(args, 'titan_num_directions', 5)
+    num_directions = getattr(args, 'grom_num_directions', 5)
     hidden_dim = metadata.hidden_dim
     num_layers = len(available_layers)
     
     # Determine sensor layer
-    sensor_layer_idx = getattr(args, 'titan_sensor_layer', None)
+    sensor_layer_idx = getattr(args, 'grom_sensor_layer', None)
     if sensor_layer_idx is None:
         sensor_layer_idx = int(num_layers * 0.75)
     sensor_layer = int(available_layers[min(sensor_layer_idx, num_layers - 1)])
     
-    gate_hidden_dim = getattr(args, 'titan_gate_hidden_dim', None)
+    gate_hidden_dim = getattr(args, 'grom_gate_hidden_dim', None)
     if gate_hidden_dim is None:
         gate_hidden_dim = max(32, min(512, hidden_dim // 16))
-    intensity_hidden_dim = getattr(args, 'titan_intensity_hidden_dim', None)
+    intensity_hidden_dim = getattr(args, 'grom_intensity_hidden_dim', None)
     if intensity_hidden_dim is None:
         intensity_hidden_dim = max(16, min(256, hidden_dim // 32))
-    max_alpha = getattr(args, 'titan_max_alpha', None)
+    max_alpha = getattr(args, 'grom_max_alpha', None)
     if max_alpha is None:
         max_alpha = 3.0
     
     # Initialize networks
-    gate_network = TITANGateNetwork(hidden_dim, gate_hidden_dim)
-    intensity_network = TITANIntensityNetwork(hidden_dim, num_layers, intensity_hidden_dim, max_alpha)
+    gate_network = GROMGateNetwork(hidden_dim, gate_hidden_dim)
+    intensity_network = GROMIntensityNetwork(hidden_dim, num_layers, intensity_hidden_dim, max_alpha)
     
     # Prepare data
     layer_order = [int(l) for l in available_layers]
@@ -488,7 +493,7 @@ def _create_titan_steering_object(
     sensor_pos = all_pos[sensor_layer]
     sensor_neg = all_neg[sensor_layer]
     
-    print(f"   Training TITAN ({num_directions} directions, {len(layer_order)} layers)...")
+    print(f"   Training GROM ({num_directions} directions, {len(layer_order)} layers)...")
     
     for step in range(200):
         optimizer.zero_grad()
@@ -542,13 +547,13 @@ def _create_titan_steering_object(
     print(f"   Sensor layer: {sensor_layer}")
     print(f"   Final gate accuracy: pos={pos_gate.mean().item():.3f}, neg={neg_gate.mean().item():.3f}")
     
-    return TITANSteeringObject(
+    return GROMSteeringObject(
         metadata=metadata,
         directions=final_directions,
         direction_weights=final_weights,
         gate_network=gate_network,
         intensity_network=intensity_network,
         layer_order=layer_order,
-        gate_temperature=getattr(args, 'titan_gate_temperature', 0.5),
+        gate_temperature=getattr(args, 'grom_gate_temperature', 0.5),
         max_alpha=max_alpha,
     )

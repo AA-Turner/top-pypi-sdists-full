@@ -1,23 +1,22 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: odoo-test-helper
-Version: 2.1.1
-Summary: Odoo Test Helper
-Home-page: http://github.com/OCA/odoo-test-helper
-Author: Odoo Community Association (OCA)
-Author-email: support@odoo-community.org
-License: LGPLv3+
-Classifier: Development Status :: 5 - Production/Stable
-Classifier: Intended Audience :: Developers
+Version: 2.1.3
+Summary: Our Odoo project tools
+Author-email: ACSONE <info@acsone.eu>, Akretion <info@akretion.com>, Camptocamp <info@camptocamp.com>
+Project-URL: homepage, https://github.com/oca/odoo-test-helper
+Project-URL: documentation, https://github.com/oca/odoo-test-helper
+Project-URL: repository, https://github.com/oca/odoo-test-helper
+Keywords: odoo,project
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Framework :: Odoo
+Classifier: Development Status :: 2 - Pre-Alpha
+Classifier: Intended Audience :: Developers
+Classifier: Natural Language :: English
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
+Provides-Extra: test
+Provides-Extra: convert
 
 odoo-test-helper
 ================
@@ -93,10 +92,10 @@ Wrong way
 
 
 
-   class TestMixin(SavepointCase):
+   class FakeModel(SavepointCase):
        @classmethod
        def setUpClass(cls):
-           super(TestMixin, cls).setUpClass()
+           super(FakeModel, cls).setUpClass()
            cls.loader = FakeModelLoader(cls.env, cls.__module__)
            cls.loader.backup_registry()
 
@@ -105,7 +104,7 @@ Wrong way
        @classmethod
        def tearDownClass(cls):
            cls.loader.restore_registry()
-           super(TestMixin, cls).tearDownClass()
+           super(FakeModel, cls).tearDownClass()
 
        def test_create(self):
            partner = self.env["res.partner"].create({"name": "BAR", "test_char": "youhou"})
@@ -123,10 +122,10 @@ Right Way
     from odoo_test_helper import FakeModelLoader
 
 
-    class TestMixin(SavepointCase):
+    class FakeModel(SavepointCase):
         @classmethod
         def setUpClass(cls):
-            super(TestMixin, cls).setUpClass()
+            super(FakeModel, cls).setUpClass()
             cls.loader = FakeModelLoader(cls.env, cls.__module__)
             cls.loader.backup_registry()
 
@@ -138,7 +137,7 @@ Right Way
         @classmethod
         def tearDownClass(cls):
             cls.loader.restore_registry()
-            super(TestMixin, cls).tearDownClass()
+            super(FakeModel, cls).tearDownClass()
 
         def test_create(self):
             partner = self.env["res.partner"].create({"name": "BAR", "test_char": "youhou"})
@@ -179,78 +178,3 @@ This refactor try to load all class correctly like Odoo does with the exact same
 Note this refactor/extraction have been done to fix the test of the following issue
 
 https://github.com/shopinvader/odoo-shopinvader/pull/607
-
-Changes
-~~~~~~~
-
-.. Future (?)
-.. ----------
-.. - ...
-
-2.1.1
------
-
-[FIX] FakeModelLoader: avoid loading module again on restore_registry() for Odoo 15.0+
-[FIX] Ensures registy is cleaned up in addons without models
-
-
-2.1.0
------
-
-- [IMP] Allow to ignore Odoo core modules to avoid warning
-
-2.0.5
------
-
-- .gitignore added
-
-2.0.4
------
-
-- [FIX] AttributeError in Odoo 15+, regression introduced in 2.0.3
-
-2.0.3
------
-
-- [FIX] restore_registry in Odoo 16
-
-    See odoo/odoo@cd12293
-
-    This new attribute is the source of truth for the base classes
-    and in setup_models (called further down in the modified code in this PR),
-    the model's base classes are reset from it:
-
-    https://github.com/odoo/odoo/blob/e1f06479a526c703ccabc441b1e194646206b966/odoo/models.py#L2728-L2730.
-
-    The test failure fixed by this PR can be inspected in
-    https://app.travis-ci.com/github/OCA/odoo-test-helper/builds/258453331
-
-
-2.0.2
------
-
-- Fix ``mock`` import for v15
-
-2.0.1
------
-
-- Fix support for Odoo 15.0
-
-
-2.0.0
------
-
-- Move to OCA
-- Re-license to LGPL
-
-
-1.1.0
------
-
-- Refactoring (misc imp/fix)
-
-
-1.0.0
------
-
-- Initial release

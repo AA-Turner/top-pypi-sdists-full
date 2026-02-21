@@ -12,7 +12,6 @@
 
 import atexit
 import os
-import tempfile
 
 from ovsdbapp.backend.ovs_idl import connection
 from ovsdbapp import constants
@@ -20,36 +19,67 @@ from ovsdbapp.tests import base
 from ovsdbapp import venv
 
 
-class FunctionalTestCase(base.TestCase):
-    _connections = None
+class VenvPerClassFunctionalTestCase(base.TestCase):
+
+    @classmethod
+    def setUpClass(cls):
+        super().setUpClass()
+        cls.virtualenv = venv.VenvFixture(
+            remove=not bool(os.getenv("KEEP_VENV")))
+        cls.virtualenv.setUp()
+        cls.ovsvenvlog = None
+        if os.getenv('KEEP_VENV') and os.getenv('VIRTUAL_ENV'):
+            cls.ovsvenvlog = open(
+                os.path.join(os.getenv('VIRTUAL_ENV'),
+                             'ovsvenv.%s' % os.getpid()), 'a+')
+            cls.ovsvenvlog.write("%s\n" % cls.virtualenv.venvdir)
+
+    @classmethod
+    def tearDownClass(cls):
+        if cls.ovsvenvlog:
+            cls.ovsvenvlog.close()
+        cls.virtualenv.cleanUp()
+        super().tearDownClass()
+
+    @classmethod
+    def venv_log(cls, val):
+        if cls.ovsvenvlog:
+            cls.ovsvenvlog.write("%s\n" % val)
+
+    def setUp(self):
+        super().setUp()
+        self.venv_log(self.id())
+
+
+class FunctionalTestCase(VenvPerClassFunctionalTestCase):
+    _connections = {}
+    _teardown_called = False
     fixture_class = venv.OvsOvnVenvFixture
 
     @classmethod
     def setUpClass(cls):
         super().setUpClass()
         cls.ovsvenv = cls.fixture_class(
-            tempfile.mkdtemp(),
+            cls.virtualenv,
             ovsdir=os.getenv('OVS_SRCDIR'),
-            ovndir=os.getenv('OVN_SRCDIR'),
-            remove=not bool(os.getenv('KEEP_VENV')))
-        atexit.register(cls.ovsvenv.cleanUp)
+            ovndir=os.getenv('OVN_SRCDIR'))
         cls.ovsvenv.setUp()
         cls.schema_map = {'Open_vSwitch': cls.ovsvenv.ovs_connection,
                           'OVN_Northbound': cls.ovsvenv.ovnnb_connection,
                           'OVN_Southbound': cls.ovsvenv.ovnsb_connection,
                           }
-        cls.ovsvenvlog = None
-        if os.getenv('KEEP_VENV') and os.getenv('VIRTUAL_ENV'):
-            cls.ovsvenvlog = open(
-                os.path.join(os.getenv('VIRTUAL_ENV'),
-                             'ovsvenv.%s' % os.getpid()), 'a+')
-            atexit.register(cls.ovsvenvlog.close)
-            cls.ovsvenvlog.write("%s\n" % cls.ovsvenv.venv)
+        atexit.register(cls.tearDownClass)
+        cls.set_connection()  # subclass overrides its _connections
 
     @classmethod
-    def venv_log(cls, val):
-        if cls.ovsvenvlog:
-            cls.ovsvenvlog.write("%s\n" % val)
+    def tearDownClass(cls):
+        if cls._teardown_called:
+            return
+        cls._teardown_called = True
+        for conn in cls._connections.values():
+            conn.stop()
+        cls.ovsvenv.cleanUp()
+        super().tearDownClass()
 
     @property
     def connection(self):
@@ -59,9 +89,6 @@ class FunctionalTestCase(base.TestCase):
 
     @classmethod
     def set_connection(cls):
-        if cls._connections is not None:
-            return
-        cls._connections = {}
         for schema in cls.schemas:
             cls._connections[schema] = cls.create_connection(schema)
 
@@ -69,8 +96,3 @@ class FunctionalTestCase(base.TestCase):
     def create_connection(cls, schema):
         idl = connection.OvsdbIdl.from_server(cls.schema_map[schema], schema)
         return connection.Connection(idl, constants.DEFAULT_TIMEOUT)
-
-    def setUp(self):
-        super(FunctionalTestCase, self).setUp()
-        self.venv_log(self.id())
-        self.set_connection()

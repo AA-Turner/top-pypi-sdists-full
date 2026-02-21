@@ -3,7 +3,7 @@ Type annotations for ssm service type definitions.
 
 [Documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -4007,6 +4007,7 @@ class AssociationDescriptionTypeDef(TypedDict):
     TargetMaps: NotRequired[list[dict[str, list[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationOutputTypeDef]
     TriggeredAlarms: NotRequired[list[AlarmStateInformationTypeDef]]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 
 class AssociationVersionInfoTypeDef(TypedDict):
@@ -4030,6 +4031,7 @@ class AssociationVersionInfoTypeDef(TypedDict):
     ScheduleOffset: NotRequired[int]
     Duration: NotRequired[int]
     TargetMaps: NotRequired[list[dict[str, list[str]]]]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 
 class CreateAssociationBatchRequestEntryOutputTypeDef(TypedDict):
@@ -4573,6 +4575,7 @@ class CreateAssociationRequestTypeDef(TypedDict):
     TargetMaps: NotRequired[Sequence[Mapping[str, Sequence[str]]]]
     Tags: NotRequired[Sequence[TagTypeDef]]
     AlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 
 class RunbookTypeDef(TypedDict):
@@ -4626,6 +4629,7 @@ class UpdateAssociationRequestTypeDef(TypedDict):
     Duration: NotRequired[int]
     TargetMaps: NotRequired[Sequence[Mapping[str, Sequence[str]]]]
     AlarmConfiguration: NotRequired[AlarmConfigurationUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 
 PatchRuleUnionTypeDef = Union[PatchRuleTypeDef, PatchRuleOutputTypeDef]
@@ -4653,6 +4657,7 @@ class StartExecutionPreviewRequestTypeDef(TypedDict):
 
 class CreateAssociationBatchRequestTypeDef(TypedDict):
     Entries: Sequence[CreateAssociationBatchRequestEntryUnionTypeDef]
+    AssociationDispatchAssumeRole: NotRequired[str]
 
 
 class StartChangeRequestExecutionRequestTypeDef(TypedDict):

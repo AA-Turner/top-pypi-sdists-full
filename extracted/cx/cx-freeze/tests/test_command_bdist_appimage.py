@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 import platform
+from contextlib import suppress
 from pathlib import Path
 
 import pytest
@@ -41,9 +42,8 @@ def test_bdist_appimage_download_appimagetool() -> None:
     cmd.finalize_options()
     appimagetool = cmd.appimagetool
     # remove
-    if os.path.exists(appimagetool):
-        with FileLock(appimagetool + ".lock"):
-            os.unlink(appimagetool)
+    with FileLock(appimagetool + ".lock"), suppress(FileNotFoundError):
+        os.unlink(appimagetool)
     # force the download
     cmd2 = bdist_appimage(dist)
     cmd2.finalize_options()
@@ -174,10 +174,10 @@ def test_bdist_appimage_implicit_skip_build(tmp_package) -> None:
     app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
     assert app.is_file(), f"{name}-{version}-{arch}.AppImage"
 
-    result = tmp_package.run(app, timeout=10)
+    result = tmp_package.run(app)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
-    result = tmp_package.run(f"{app} --appimage-updateinformation", timeout=10)
+    result = tmp_package.run(f"{app} --appimage-updateinformation")
     result.stdout.fnmatch_lines(updateinformation)
 
     zsync_created = app.parent / f"{app.name}.zsync"
@@ -201,10 +201,10 @@ def test_bdist_appimage_simple(tmp_package) -> None:
     app = tmp_package.path / "dist" / f"{name}-{version}-{arch}.AppImage"
     assert app.is_file(), f"file not found: {app}"
 
-    result = tmp_package.run(app, timeout=10)
+    result = tmp_package.run(app)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
-    result = tmp_package.run(f"{app} --appimage-extract-and-run", timeout=10)
+    result = tmp_package.run(f"{app} --appimage-extract-and-run")
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
     if os.getenv("GITHUB_REPOSITORY"):

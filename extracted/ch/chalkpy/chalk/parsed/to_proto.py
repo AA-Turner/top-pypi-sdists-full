@@ -20,6 +20,11 @@ from chalk._gen.chalk.dataframe.v1.dataframe_pb2 import DataFramePlan
 from chalk._gen.chalk.expression.v1 import expression_pb2 as expr_pb
 from chalk._gen.chalk.expression.v1.expression_pb2 import LogicalExprNode
 from chalk._gen.chalk.graph.v1 import graph_pb2 as pb
+from chalk._gen.chalk.graph.v1.graph_pb2 import (
+    StreamHeaderFilter,
+    StreamMessageFormat,
+    StreamMessageHeaderEqualityCheck,
+)
 from chalk._gen.chalk.graph.v2 import sources_pb2 as sources_pb
 from chalk._gen.chalk.lsp.v1.lsp_pb2 import Location, Position, Range
 from chalk._validation.feature_validation import FeatureValidation
@@ -1370,6 +1375,17 @@ class ToProtoConverter:
                 explicit_schema_proto = PrimitiveFeatureConverter.convert_pa_dtype_to_proto_dtype(message_pa_dtype)
             else:
                 explicit_schema_proto = ToProtoConverter.convert_rich_type_to_protobuf(r.message)
+
+        stream_message_format = StreamMessageFormat.STREAM_MESSAGE_FORMAT_BODY_ONLY
+        if r.include_message_envelope:
+            stream_message_format = StreamMessageFormat.STREAM_MESSAGE_FORMAT_FULL_ENVELOPE
+
+        header_filters: list[StreamHeaderFilter] = []
+        for filt_key, filt_val in r.message_header_filters or []:
+            header_filters.append(
+                StreamHeaderFilter(equality_check=StreamMessageHeaderEqualityCheck(key=filt_key, value=filt_val))
+            )
+
         return pb.StreamResolver(
             fqn=r.fqn,
             params=[ToProtoConverter.convert_stream_resolver_param(p) for p in r.signature.params],
@@ -1406,6 +1422,8 @@ class ToProtoConverter:
             skip_online=r.skip_online,
             skip_offline=r.skip_offline,
             update_aggregates=r.updates_materialized_aggregations,
+            message_format=stream_message_format,
+            header_filters=header_filters,
         )
 
     @staticmethod

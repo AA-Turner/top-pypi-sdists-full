@@ -75,9 +75,9 @@ from wisent.core.geometry import (
     compute_saturation_check,
     find_optimal_pair_count,
     compute_icd,
-    run_full_repscan,
-    run_full_repscan_with_layer_search,
-    run_full_repscan_with_steering_eval,
+    run_full_zwiad,
+    run_full_zwiad_with_layer_search,
+    run_full_zwiad_with_steering_eval,
     evaluate_steering_effectiveness,
     evaluate_activation_regions,
     compute_geometry_metrics,
@@ -477,8 +477,8 @@ class GeometrySearchResults:
 
 
 @dataclass
-class RepScanResult:
-    """Complete result from run_full_repscan()."""
+class ZwiadResult:
+    """Complete result from run_full_zwiad()."""
     # Basic info
     benchmark: str
     model_name: str
@@ -494,7 +494,7 @@ class RepScanResult:
     signal_type: str  # "LINEAR", "NONLINEAR", "MULTIMODAL", "NO_SIGNAL"
     
     # Method recommendation
-    recommended_method: str  # "CAA", "PRISM", "PULSE", "TITAN", "NO_METHOD"
+    recommended_method: str  # "CAA", "TECZA", "TETNO", "GROM", "NO_METHOD"
     confidence: float
     reason: str
     
@@ -561,10 +561,10 @@ class RepScanResult:
 
 
 @dataclass
-class RepScanLayerResult:
-    """Result from layer search - extends RepScanResult with layer analysis."""
+class ZwiadLayerResult:
+    """Result from layer search - extends ZwiadResult with layer analysis."""
     # Best layer result
-    best_result: RepScanResult
+    best_result: ZwiadResult
     
     # Layer search info
     optimal_layer: int

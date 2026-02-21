@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: awslambdaric
-Version: 3.1.1
+Version: 4.0.0
 Summary: AWS Lambda Runtime Interface Client for Python
 Home-page: https://github.com/aws/aws-lambda-python-runtime-interface-client
 Author: Amazon Web Services

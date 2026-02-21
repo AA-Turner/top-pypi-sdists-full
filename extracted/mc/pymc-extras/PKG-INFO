@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc-extras
-Version: 0.8.0
+Version: 0.9.0
 Summary: A home for new additions to PyMC, which may include unusual probability distribitions, advanced model fitting algorithms, or any code that may be inappropriate to include in the pymc repository, but may want to be made available to users.
 Project-URL: Documentation, https://pymc-extras.readthedocs.io/
 Project-URL: Repository, https://github.com/pymc-devs/pymc-extras.git
@@ -247,7 +247,6 @@ Requires-Dist: xhistogram; extra == 'dask-histogram'
 Provides-Extra: dev
 Requires-Dist: blackjax>=0.12; extra == 'dev'
 Requires-Dist: dask[all]<2025.1.1; extra == 'dev'
-Requires-Dist: pytest-mock; extra == 'dev'
 Requires-Dist: pytest>=6.0; extra == 'dev'
 Requires-Dist: statsmodels; extra == 'dev'
 Provides-Extra: docs

@@ -11,13 +11,7 @@ from typing import Any, Protocol, runtime_checkable
 
 from .abctools import as_namedtuple, isiter, rowselect
 
-__all__ = [
-    'AsJSONMixin',
-    'JSONSerializable',
-    'asjson',
-    'asjsons',
-    'plainjson',
-]
+__all__ = ['AsJSONMixin', 'JSONSerializable', 'asjson', 'asjsons', 'plainjson']
 
 
 @runtime_checkable
@@ -30,10 +24,7 @@ class AsJSONMixin:
 
     def __json__(self, seen: set[int] | None = None) -> Any:
         pub = self.__pub__()
-        return {
-            '__class__': type(self).__name__,
-            **asjson(pub, seen=seen),
-        }
+        return {'__class__': type(self).__name__, **asjson(pub, seen=seen)}
 
     def __pub__(self) -> dict[str, Any]:
         # Gemini (2026-01-26)
@@ -48,8 +39,6 @@ def asjson(obj: Any, seen: set[int] | None = None) -> Any:
     Produce a JSON-serializable version of the input structure.
     """
     # Gemini (2026-01-26)
-
-    memo: dict[int, Any] = {}
     seen = seen if seen is not None else set()
 
     def dfs(node: Any) -> Any:
@@ -59,8 +48,6 @@ def asjson(obj: Any, seen: set[int] | None = None) -> Any:
         node_id = id(node)
         if node_id in seen:
             return f"{type(node).__name__}@0x{hex(node_id).upper()[2:]}"
-        if node_id in memo:
-            return memo[node_id]
 
         seen.add(node_id)
         try:
@@ -72,9 +59,12 @@ def asjson(obj: Any, seen: set[int] | None = None) -> Any:
                         result = serializable
                 case enum.Enum() as en:
                     result = dfs(en.value)
-                case _ if isinstance(node, (weakref.ReferenceType, *weakref.ProxyTypes)):
+                case _ if isinstance(
+                    node,
+                    (weakref.ReferenceType, *weakref.ProxyTypes),
+                ):
                     result = f"{type(node).__name__}@0x{hex(node_id).upper()[2:]}"
-                case _ if (nt := as_namedtuple(node)):
+                case _ if nt := as_namedtuple(node):
                     result = dfs(nt._asdict())
                 case Mapping() as mapping:
                     result = {str(k): dfs(v) for k, v in mapping.items()}
@@ -84,8 +74,6 @@ def asjson(obj: Any, seen: set[int] | None = None) -> Any:
                     result = [dfs(e) for e in node]
                 case _:
                     result = repr(node)
-
-            memo[node_id] = result
             return result
         finally:
             seen.discard(node_id)

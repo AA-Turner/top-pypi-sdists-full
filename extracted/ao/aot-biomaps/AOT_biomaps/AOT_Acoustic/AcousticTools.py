@@ -6,6 +6,7 @@ import h5py
 import numpy as np
 import torch
 from concurrent.futures import ThreadPoolExecutor
+from scipy.stats import linregress
 
 def loadmat(param_path_mat):
     """
@@ -213,6 +214,9 @@ def getAngle(pathFile):
         print(f"Error reading angle from file: {e}")
         return None
 
+def format_angle(a):
+    return f"{'1' if a < 0 else '0'}{abs(int(a)):02d}"
+        
 def next_power_of_2(n):
     """Calculate the next power of 2 greater than or equal to n."""
     return int(2 ** np.ceil(np.log2(n)))
@@ -234,3 +238,33 @@ def hex_to_binary_profile(hex_string, n_piezos=192):
         return np.array([int(b) for b in binary_str])
     except ValueError:
         return np.zeros(n_piezos, dtype=int)
+    
+def calculate_angle_from_delays(delays, c=1540):
+    """
+    Calcule l'angle d'incidence θ (en degrés) à partir d'un tableau de 192 retards.
+    Utilise une régression linéaire pour estimer la pente des retards.
+    Args:
+        delays: Tableau de 192 retards (en secondes).
+        c: Vitesse du son (m/s).
+    Returns:
+        theta: Angle en degrés (positif à droite, négatif à gauche).
+    """
+    pitch = 0.2e-3  # Espacement entre éléments (m)
+    x = np.linspace(-(192-1)/2 * pitch, (192-1)/2 * pitch, 192)  # Positions des éléments (m)
+
+    # Régression linéaire pour estimer la pente (sinθ / c)
+    slope, _, _, _, _ = linregress(x, delays)
+
+    # Calcul de l'angle (en degrés)
+    theta = np.rad2deg(np.arcsin(slope * c))
+
+    # Déterminer le signe en fonction de la position du retard maximal
+    max_index = np.argmax(delays)
+    if max_index < 95:  # Gauche
+        theta = -abs(theta)
+    elif max_index > 95:  # Droite
+        theta = abs(theta)
+    else:  # Centre (θ ≈ 0)
+        theta = 0.0
+
+    return int(np.round(theta,0))

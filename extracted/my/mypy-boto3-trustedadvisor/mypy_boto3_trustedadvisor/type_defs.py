@@ -3,7 +3,7 @@ Type annotations for trustedadvisor service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_trustedadvisor/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -35,9 +35,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 
 __all__ = (
@@ -90,12 +90,12 @@ __all__ = (
 class AccountRecommendationLifecycleSummaryTypeDef(TypedDict):
     accountId: NotRequired[str]
     accountRecommendationArn: NotRequired[str]
-    lastUpdatedAt: NotRequired[datetime]
     lifecycleStage: NotRequired[RecommendationLifecycleStageType]
-    updateReason: NotRequired[str]
-    updateReasonCode: NotRequired[UpdateRecommendationLifecycleStageReasonCodeType]
     updatedOnBehalfOf: NotRequired[str]
     updatedOnBehalfOfJobTitle: NotRequired[str]
+    updateReason: NotRequired[str]
+    updateReasonCode: NotRequired[UpdateRecommendationLifecycleStageReasonCodeType]
+    lastUpdatedAt: NotRequired[datetime]
 
 
 class RecommendationResourceExclusionTypeDef(TypedDict):
@@ -120,14 +120,14 @@ class UpdateRecommendationResourceExclusionErrorTypeDef(TypedDict):
 CheckSummaryTypeDef = TypedDict(
     "CheckSummaryTypeDef",
     {
-        "arn": str,
-        "awsServices": list[str],
-        "description": str,
         "id": str,
-        "metadata": dict[str, str],
+        "arn": str,
         "name": str,
+        "description": str,
         "pillars": list[RecommendationPillarType],
+        "awsServices": list[str],
         "source": RecommendationSourceType,
+        "metadata": dict[str, str],
     },
 )
 
@@ -138,6 +138,7 @@ class GetOrganizationRecommendationRequestTypeDef(TypedDict):
 
 class GetRecommendationRequestTypeDef(TypedDict):
     recommendationIdentifier: str
+    language: NotRequired[RecommendationLanguageType]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -147,44 +148,44 @@ class PaginatorConfigTypeDef(TypedDict):
 
 
 class ListChecksRequestTypeDef(TypedDict):
-    awsService: NotRequired[str]
-    language: NotRequired[RecommendationLanguageType]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
     pillar: NotRequired[RecommendationPillarType]
+    awsService: NotRequired[str]
     source: NotRequired[RecommendationSourceType]
+    language: NotRequired[RecommendationLanguageType]
 
 
 class ListOrganizationRecommendationAccountsRequestTypeDef(TypedDict):
     organizationRecommendationIdentifier: str
-    affectedAccountId: NotRequired[str]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    maxResults: NotRequired[int]
+    affectedAccountId: NotRequired[str]
 
 
 class ListOrganizationRecommendationResourcesRequestTypeDef(TypedDict):
     organizationRecommendationIdentifier: str
-    affectedAccountId: NotRequired[str]
-    exclusionStatus: NotRequired[ExclusionStatusType]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    regionCode: NotRequired[str]
+    maxResults: NotRequired[int]
     status: NotRequired[ResourceStatusType]
+    exclusionStatus: NotRequired[ExclusionStatusType]
+    regionCode: NotRequired[str]
+    affectedAccountId: NotRequired[str]
 
 
 OrganizationRecommendationResourceSummaryTypeDef = TypedDict(
     "OrganizationRecommendationResourceSummaryTypeDef",
     {
+        "id": str,
         "arn": str,
         "awsResourceId": str,
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "metadata": dict[str, str],
-        "recommendationArn": str,
         "regionCode": str,
         "status": ResourceStatusType,
-        "accountId": NotRequired[str],
+        "metadata": dict[str, str],
+        "lastUpdatedAt": datetime,
+        "recommendationArn": str,
         "exclusionStatus": NotRequired[ExclusionStatusType],
+        "accountId": NotRequired[str],
     },
 )
 TimestampTypeDef = Union[datetime, str]
@@ -192,33 +193,35 @@ TimestampTypeDef = Union[datetime, str]
 
 class ListRecommendationResourcesRequestTypeDef(TypedDict):
     recommendationIdentifier: str
-    exclusionStatus: NotRequired[ExclusionStatusType]
-    maxResults: NotRequired[int]
     nextToken: NotRequired[str]
-    regionCode: NotRequired[str]
+    maxResults: NotRequired[int]
     status: NotRequired[ResourceStatusType]
+    exclusionStatus: NotRequired[ExclusionStatusType]
+    regionCode: NotRequired[str]
+    language: NotRequired[RecommendationLanguageType]
 
 
 RecommendationResourceSummaryTypeDef = TypedDict(
     "RecommendationResourceSummaryTypeDef",
     {
+        "id": str,
         "arn": str,
         "awsResourceId": str,
-        "id": str,
-        "lastUpdatedAt": datetime,
-        "metadata": dict[str, str],
-        "recommendationArn": str,
         "regionCode": str,
         "status": ResourceStatusType,
+        "metadata": dict[str, str],
+        "lastUpdatedAt": datetime,
+        "recommendationArn": str,
         "exclusionStatus": NotRequired[ExclusionStatusType],
     },
 )
 
 
 class RecommendationResourcesAggregatesTypeDef(TypedDict):
-    errorCount: int
     okCount: int
     warningCount: int
+    errorCount: int
+    excludedCount: NotRequired[int]
 
 
 class RecommendationCostOptimizingAggregatesTypeDef(TypedDict):
@@ -268,10 +271,10 @@ class ListChecksResponseTypeDef(TypedDict):
 
 
 class ListChecksRequestPaginateTypeDef(TypedDict):
-    awsService: NotRequired[str]
-    language: NotRequired[RecommendationLanguageType]
     pillar: NotRequired[RecommendationPillarType]
+    awsService: NotRequired[str]
     source: NotRequired[RecommendationSourceType]
+    language: NotRequired[RecommendationLanguageType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -283,18 +286,19 @@ class ListOrganizationRecommendationAccountsRequestPaginateTypeDef(TypedDict):
 
 class ListOrganizationRecommendationResourcesRequestPaginateTypeDef(TypedDict):
     organizationRecommendationIdentifier: str
-    affectedAccountId: NotRequired[str]
+    status: NotRequired[ResourceStatusType]
     exclusionStatus: NotRequired[ExclusionStatusType]
     regionCode: NotRequired[str]
-    status: NotRequired[ResourceStatusType]
+    affectedAccountId: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
 class ListRecommendationResourcesRequestPaginateTypeDef(TypedDict):
     recommendationIdentifier: str
+    status: NotRequired[ResourceStatusType]
     exclusionStatus: NotRequired[ExclusionStatusType]
     regionCode: NotRequired[str]
-    status: NotRequired[ResourceStatusType]
+    language: NotRequired[RecommendationLanguageType]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -309,59 +313,61 @@ class ListOrganizationRecommendationResourcesResponseTypeDef(TypedDict):
 ListOrganizationRecommendationsRequestPaginateTypeDef = TypedDict(
     "ListOrganizationRecommendationsRequestPaginateTypeDef",
     {
-        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "awsService": NotRequired[str],
-        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "checkIdentifier": NotRequired[str],
-        "pillar": NotRequired[RecommendationPillarType],
-        "source": NotRequired[RecommendationSourceType],
-        "status": NotRequired[RecommendationStatusType],
         "type": NotRequired[RecommendationTypeType],
+        "status": NotRequired[RecommendationStatusType],
+        "pillar": NotRequired[RecommendationPillarType],
+        "awsService": NotRequired[str],
+        "source": NotRequired[RecommendationSourceType],
+        "checkIdentifier": NotRequired[str],
+        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
 ListOrganizationRecommendationsRequestTypeDef = TypedDict(
     "ListOrganizationRecommendationsRequestTypeDef",
     {
-        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "awsService": NotRequired[str],
-        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "checkIdentifier": NotRequired[str],
-        "maxResults": NotRequired[int],
         "nextToken": NotRequired[str],
-        "pillar": NotRequired[RecommendationPillarType],
-        "source": NotRequired[RecommendationSourceType],
-        "status": NotRequired[RecommendationStatusType],
+        "maxResults": NotRequired[int],
         "type": NotRequired[RecommendationTypeType],
+        "status": NotRequired[RecommendationStatusType],
+        "pillar": NotRequired[RecommendationPillarType],
+        "awsService": NotRequired[str],
+        "source": NotRequired[RecommendationSourceType],
+        "checkIdentifier": NotRequired[str],
+        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
     },
 )
 ListRecommendationsRequestPaginateTypeDef = TypedDict(
     "ListRecommendationsRequestPaginateTypeDef",
     {
-        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "awsService": NotRequired[str],
-        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "checkIdentifier": NotRequired[str],
-        "pillar": NotRequired[RecommendationPillarType],
-        "source": NotRequired[RecommendationSourceType],
-        "status": NotRequired[RecommendationStatusType],
         "type": NotRequired[RecommendationTypeType],
+        "status": NotRequired[RecommendationStatusType],
+        "pillar": NotRequired[RecommendationPillarType],
+        "awsService": NotRequired[str],
+        "source": NotRequired[RecommendationSourceType],
+        "checkIdentifier": NotRequired[str],
+        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "language": NotRequired[RecommendationLanguageType],
         "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
     },
 )
 ListRecommendationsRequestTypeDef = TypedDict(
     "ListRecommendationsRequestTypeDef",
     {
-        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "awsService": NotRequired[str],
-        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
-        "checkIdentifier": NotRequired[str],
-        "maxResults": NotRequired[int],
         "nextToken": NotRequired[str],
-        "pillar": NotRequired[RecommendationPillarType],
-        "source": NotRequired[RecommendationSourceType],
-        "status": NotRequired[RecommendationStatusType],
+        "maxResults": NotRequired[int],
         "type": NotRequired[RecommendationTypeType],
+        "status": NotRequired[RecommendationStatusType],
+        "pillar": NotRequired[RecommendationPillarType],
+        "awsService": NotRequired[str],
+        "source": NotRequired[RecommendationSourceType],
+        "checkIdentifier": NotRequired[str],
+        "afterLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "beforeLastUpdatedAt": NotRequired[TimestampTypeDef],
+        "language": NotRequired[RecommendationLanguageType],
     },
 )
 
@@ -379,91 +385,93 @@ class RecommendationPillarSpecificAggregatesTypeDef(TypedDict):
 OrganizationRecommendationSummaryTypeDef = TypedDict(
     "OrganizationRecommendationSummaryTypeDef",
     {
-        "arn": str,
         "id": str,
-        "name": str,
-        "pillars": list[RecommendationPillarType],
-        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
-        "source": RecommendationSourceType,
-        "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[list[str]],
+        "status": RecommendationStatusType,
+        "pillars": list[RecommendationPillarType],
+        "source": RecommendationSourceType,
+        "name": str,
+        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
+        "arn": str,
         "checkArn": NotRequired[str],
+        "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
+        "awsServices": NotRequired[list[str]],
+        "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
-        "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
-        "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
     },
 )
 OrganizationRecommendationTypeDef = TypedDict(
     "OrganizationRecommendationTypeDef",
     {
+        "id": str,
+        "type": RecommendationTypeType,
+        "status": RecommendationStatusType,
+        "pillars": list[RecommendationPillarType],
+        "source": RecommendationSourceType,
+        "name": str,
+        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "arn": str,
         "description": str,
-        "id": str,
-        "name": str,
-        "pillars": list[RecommendationPillarType],
-        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
-        "source": RecommendationSourceType,
-        "status": RecommendationStatusType,
-        "type": RecommendationTypeType,
-        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "lastUpdatedAt": NotRequired[datetime],
         "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
+        "awsServices": NotRequired[list[str]],
         "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
-        "resolvedAt": NotRequired[datetime],
-        "updateReason": NotRequired[str],
-        "updateReasonCode": NotRequired[UpdateRecommendationLifecycleStageReasonCodeType],
+        "createdAt": NotRequired[datetime],
+        "lastUpdatedAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
         "updatedOnBehalfOf": NotRequired[str],
         "updatedOnBehalfOfJobTitle": NotRequired[str],
+        "updateReason": NotRequired[str],
+        "updateReasonCode": NotRequired[UpdateRecommendationLifecycleStageReasonCodeType],
+        "resolvedAt": NotRequired[datetime],
     },
 )
 RecommendationSummaryTypeDef = TypedDict(
     "RecommendationSummaryTypeDef",
     {
-        "arn": str,
         "id": str,
-        "name": str,
-        "pillars": list[RecommendationPillarType],
-        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
-        "source": RecommendationSourceType,
-        "status": RecommendationStatusType,
         "type": RecommendationTypeType,
-        "awsServices": NotRequired[list[str]],
+        "status": RecommendationStatusType,
+        "pillars": list[RecommendationPillarType],
+        "source": RecommendationSourceType,
+        "name": str,
+        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
+        "arn": str,
         "checkArn": NotRequired[str],
+        "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
+        "awsServices": NotRequired[list[str]],
+        "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
         "createdAt": NotRequired[datetime],
         "lastUpdatedAt": NotRequired[datetime],
-        "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
-        "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
+        "statusReason": NotRequired[Literal["no_data_ok"]],
     },
 )
 RecommendationTypeDef = TypedDict(
     "RecommendationTypeDef",
     {
+        "id": str,
+        "type": RecommendationTypeType,
+        "status": RecommendationStatusType,
+        "pillars": list[RecommendationPillarType],
+        "source": RecommendationSourceType,
+        "name": str,
+        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
         "arn": str,
         "description": str,
-        "id": str,
-        "name": str,
-        "pillars": list[RecommendationPillarType],
-        "resourcesAggregates": RecommendationResourcesAggregatesTypeDef,
-        "source": RecommendationSourceType,
-        "status": RecommendationStatusType,
-        "type": RecommendationTypeType,
-        "awsServices": NotRequired[list[str]],
         "checkArn": NotRequired[str],
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "lastUpdatedAt": NotRequired[datetime],
         "lifecycleStage": NotRequired[RecommendationLifecycleStageType],
+        "awsServices": NotRequired[list[str]],
         "pillarSpecificAggregates": NotRequired[RecommendationPillarSpecificAggregatesTypeDef],
-        "resolvedAt": NotRequired[datetime],
-        "updateReason": NotRequired[str],
-        "updateReasonCode": NotRequired[UpdateRecommendationLifecycleStageReasonCodeType],
+        "createdAt": NotRequired[datetime],
+        "lastUpdatedAt": NotRequired[datetime],
+        "statusReason": NotRequired[Literal["no_data_ok"]],
+        "createdBy": NotRequired[str],
         "updatedOnBehalfOf": NotRequired[str],
         "updatedOnBehalfOfJobTitle": NotRequired[str],
+        "updateReason": NotRequired[str],
+        "updateReasonCode": NotRequired[UpdateRecommendationLifecycleStageReasonCodeType],
+        "resolvedAt": NotRequired[datetime],
     },
 )
 

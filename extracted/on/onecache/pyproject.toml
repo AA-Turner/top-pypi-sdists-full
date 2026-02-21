@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "onecache"
-version = "0.8.0"
+version = "0.8.1"
 description = "Python cache for sync and async code"
 authors = ["Johanderson Mogollon <johander1822@gmail.com>"]
 license = "MIT"
@@ -14,12 +14,15 @@ classifiers = [
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: PyPy",
 ]
 # packages = [{include = "onecache"}]
 
 [tool.poetry.dependencies]
-python = ">=3.8,<3.15"
+python = ">=3.8"
 
 [tool.poetry.group.test.dependencies]
 flake8 =  {version= "^7.1.0", python = ">=3.8.1"}

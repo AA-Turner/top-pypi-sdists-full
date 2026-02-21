@@ -1,22 +1,20 @@
 Metadata-Version: 2.4
 Name: dagster-snowflake-pandas
-Version: 0.28.14
+Version: 0.28.15
 Summary: Package for integrating Snowflake and Pandas with Dagster.
-Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-snowflake-pandas
-Author: Dagster Labs
-Author-email: hello@dagsterlabs.com
-License: Apache-2.0
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-snowflake-pandas
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<3.15
+Requires-Python: <3.15,>=3.10
 License-File: LICENSE
-Requires-Dist: dagster==1.12.14
-Requires-Dist: dagster-snowflake==0.28.14
+Requires-Dist: dagster==1.12.15
+Requires-Dist: dagster-snowflake==0.28.15
 Requires-Dist: pandas<3.0.0
 Requires-Dist: requests
 Requires-Dist: snowflake-connector-python[pandas]>=3.4.0
@@ -24,13 +22,4 @@ Requires-Dist: sqlalchemy!=1.4.42
 Requires-Dist: snowflake-sqlalchemy>=1.2
 Provides-Extra: test
 Requires-Dist: certifi==2025.1.31; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary

@@ -38,10 +38,10 @@ classifiers = [
 dependencies = [
     "mkdocstrings>=0.30",
     "mkdocs-autorefs>=1.4",
-    "griffe>=1.13",
+    "griffelib>=2.0",
     "typing-extensions>=4.0; python_version < '3.11'",
 ]
-version = "2.0.2"
+version = "2.0.3"
 
 [project.urls]
 Homepage = "https://mkdocstrings.github.io/python"

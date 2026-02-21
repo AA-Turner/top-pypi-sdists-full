@@ -1,10 +1,10 @@
 """Steering methods package."""
 
 from .methods.caa import CAAMethod
-from .methods.advanced import PRISMMethod, PRISMConfig, MultiDirectionResult
-from .methods.advanced import PULSEMethod, PULSEConfig, PULSEResult
-from .methods.titan import TITANMethod, TITANConfig, TITANResult, GatingNetwork, IntensityNetwork
-from .methods.concept_flow import ConceptFlowMethod, ConceptFlowConfig, ConceptFlowResult
+from .methods.advanced import TECZAMethod, TECZAConfig, MultiDirectionResult
+from .methods.advanced import TETNOMethod, TETNOConfig, TETNOResult
+from .methods.grom import GROMMethod, GROMConfig, GROMResult, GatingNetwork, IntensityNetwork
+from .methods.nurt import NurtMethod, NurtConfig, NurtResult
 from .rotator import SteeringMethodRotator
 from .registry import (
     SteeringMethodRegistry,
@@ -18,34 +18,34 @@ from .registry import (
 
 # Aliases for backward compatibility
 CAA = CAAMethod
-PRISM = PRISMMethod
-PULSE = PULSEMethod
-TITAN = TITANMethod
-ConceptFlow = ConceptFlowMethod
+TECZA = TECZAMethod
+TETNO = TETNOMethod
+GROM = GROMMethod
+Nurt = NurtMethod
 SteeringMethod = CAAMethod  # Default steering method
 
 __all__ = [
     # Method classes
     "CAAMethod",
     "CAA",
-    "PRISMMethod",
-    "PRISM",
-    "PRISMConfig",
+    "TECZAMethod",
+    "TECZA",
+    "TECZAConfig",
     "MultiDirectionResult",
-    "PULSEMethod",
-    "PULSE",
-    "PULSEConfig",
-    "PULSEResult",
-    "TITANMethod",
-    "TITAN",
-    "TITANConfig",
-    "TITANResult",
+    "TETNOMethod",
+    "TETNO",
+    "TETNOConfig",
+    "TETNOResult",
+    "GROMMethod",
+    "GROM",
+    "GROMConfig",
+    "GROMResult",
     "GatingNetwork",
     "IntensityNetwork",
-    "ConceptFlowMethod",
-    "ConceptFlow",
-    "ConceptFlowConfig",
-    "ConceptFlowResult",
+    "NurtMethod",
+    "Nurt",
+    "NurtConfig",
+    "NurtResult",
     "SteeringMethod",
     "SteeringMethodRotator",
     # Registry

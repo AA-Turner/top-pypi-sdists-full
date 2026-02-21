@@ -5,7 +5,6 @@ import types
 import warnings
 from collections.abc import Sequence
 from types import ModuleType
-from typing import Union
 
 import fickling.loader as loader
 
@@ -33,7 +32,7 @@ with open("example_pickle_file.pkl", "rb") as file:
 
 
 class FickleLoader(importlib.abc.Loader):
-    def create_module(self, spec: importlib.machinery.ModuleSpec) -> types.ModuleType:
+    def create_module(self, spec: importlib.machinery.ModuleSpec) -> types.ModuleType | None:
         return None
 
     def exec_module(self, module: types.ModuleType) -> None:
@@ -47,9 +46,9 @@ class PickleFinder(importlib.abc.MetaPathFinder):
     def find_spec(
         self,
         fullname: str,
-        path: Sequence[Union[bytes, str]] | None,
+        path: Sequence[bytes | str] | None,
         target: ModuleType | None = None,
-    ):
+    ) -> importlib.machinery.ModuleSpec | None:
         if fullname == "pickle":
             if self.verbose:
                 print("Pickle module found: Running import hook")

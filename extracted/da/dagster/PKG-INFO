@@ -1,10 +1,9 @@
 Metadata-Version: 2.4
 Name: dagster
-Version: 1.12.14
+Version: 1.12.15
 Summary: Dagster is an orchestration platform for the development, production, and observation of data assets.
-Author: Dagster Labs
-Author-email: hello@dagsterlabs.com
-License: Apache-2.0
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://dagster.io
 Project-URL: GitHub, https://github.com/dagster-io/dagster
 Project-URL: Documentation, https://docs.dagster.io
@@ -25,25 +24,27 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Topic :: System :: Monitoring
 Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.10,<3.15
+Requires-Python: <3.15,>=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+License-File: COPYING
 Requires-Dist: click<9.0,>=5.0
 Requires-Dist: coloredlogs<=14.0,>=6.1
 Requires-Dist: Jinja2
 Requires-Dist: alembic!=1.11.0,!=1.6.3,!=1.7.0,>=1.2.1
-Requires-Dist: grpcio>=1.44.0
-Requires-Dist: grpcio-health-checking>=1.44.0
+Requires-Dist: grpcio>=1.66.2; python_version >= "3.13"
+Requires-Dist: grpcio>=1.44.0; python_version < "3.13"
+Requires-Dist: grpcio-health-checking>=1.66.2; python_version >= "3.13"
+Requires-Dist: grpcio-health-checking>=1.44.0; python_version < "3.13"
 Requires-Dist: protobuf<7,>=3.20.0; python_version < "3.11"
 Requires-Dist: protobuf<7,>=4; python_version >= "3.11"
 Requires-Dist: python-dotenv
 Requires-Dist: pytz
 Requires-Dist: requests
-Requires-Dist: setuptools
+Requires-Dist: setuptools<82
 Requires-Dist: six
 Requires-Dist: tabulate
 Requires-Dist: tomli<3
@@ -60,14 +61,15 @@ Requires-Dist: universal_pathlib; python_version < "3.12"
 Requires-Dist: universal_pathlib>=0.2.0; python_version >= "3.12"
 Requires-Dist: rich
 Requires-Dist: filelock
-Requires-Dist: dagster-pipes==1.12.14
-Requires-Dist: dagster-shared==1.12.14
+Requires-Dist: dagster-pipes==1.12.15
+Requires-Dist: dagster-shared==1.12.15
 Requires-Dist: antlr4-python3-runtime
 Provides-Extra: docker
 Requires-Dist: docker; extra == "docker"
 Provides-Extra: test
 Requires-Dist: docker; extra == "test"
-Requires-Dist: grpcio-tools>=1.44.0; extra == "test"
+Requires-Dist: grpcio-tools>=1.66.2; python_version >= "3.13" and extra == "test"
+Requires-Dist: grpcio-tools>=1.44.0; python_version < "3.13" and extra == "test"
 Requires-Dist: mypy-protobuf; extra == "test"
 Requires-Dist: objgraph; extra == "test"
 Requires-Dist: pytest-cov==5.0.0; extra == "test"
@@ -84,7 +86,7 @@ Requires-Dist: fsspec<2024.5.0; extra == "test"
 Requires-Dist: rapidfuzz; extra == "test"
 Requires-Dist: flaky; extra == "test"
 Requires-Dist: psutil; extra == "test"
-Requires-Dist: ruff==0.11.5; extra == "test"
+Requires-Dist: ruff==0.15.0; extra == "test"
 Provides-Extra: test-components
 Requires-Dist: tomlkit; extra == "test-components"
 Requires-Dist: jsonschema; extra == "test-components"
@@ -112,19 +114,8 @@ Requires-Dist: types-tabulate; extra == "pyright"
 Requires-Dist: types-tzlocal; extra == "pyright"
 Requires-Dist: types-toml; extra == "pyright"
 Provides-Extra: ruff
-Requires-Dist: ruff==0.11.5; extra == "ruff"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: license
+Requires-Dist: ruff==0.15.0; extra == "ruff"
 Dynamic: license-file
-Dynamic: project-url
-Dynamic: provides-extra
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 <div align="center">
   <!-- Note: Do not try adding the dark mode version here with the `picture` element, it will break formatting in PyPI -->

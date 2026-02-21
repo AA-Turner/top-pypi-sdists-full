@@ -6,6 +6,10 @@ from .collector import (
     collect_ground_truth, collect_benchmark_ground_truth,
 )
 from .optimizer import RecommendationOptimizer
+from wisent.core.geometry.zwiad.geometry_types import (
+    GeometryType, GeometryProfile, classify_geometry,
+    select_representative_benchmarks,
+)
 
 __all__ = [
     "RecommendationConfig", "Thresholds", "ScoreWeights", "METHODS",
@@ -13,4 +17,6 @@ __all__ = [
     "MethodResult", "BenchmarkGroundTruth", "GroundTruthDataset",
     "collect_ground_truth", "collect_benchmark_ground_truth",
     "RecommendationOptimizer",
+    "GeometryType", "GeometryProfile", "classify_geometry",
+    "select_representative_benchmarks",
 ]

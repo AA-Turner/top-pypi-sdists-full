@@ -255,7 +255,7 @@ def run_comprehensive_geometry_analysis(
                     neg_tensor = torch.stack(neg_acts)
                     
                     print("\nSteering method compatibility:")
-                    for method in ["caa", "titan", "prism", "pulse"]:
+                    for method in ["caa", "grom", "tecza", "tetno"]:
                         try:
                             check = run_preflight_check(pos_tensor, neg_tensor, method)
                             print(f"  {method.upper()}: {check.compatibility_score:.0%} compatible")

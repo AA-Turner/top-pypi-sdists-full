@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: onnxsim
-Version: 0.4.36
+Version: 0.5.0
 Summary: Simplify your ONNX model
 Home-page: https://github.com/daquexian/onnx-simplifier
 Author: ONNX Simplifier Authors
@@ -23,6 +23,18 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: onnx
 Requires-Dist: rich
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # ONNX Simplifier
 

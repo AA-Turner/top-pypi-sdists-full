@@ -1,9 +1,9 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aiorwlock
-Version: 1.5.0
+Version: 1.5.1
 Summary: Read write lock for asyncio.
-Home-page: https://github.com/aio-libs/aiorwlock
 License: Apache-2.0
+License-File: LICENSE
 Keywords: aiorwlock,lock,asyncio
 Author: Nikolay Novik
 Author-email: nickolainovik@gmail.com
@@ -19,5 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Project-URL: Documentation, https://github.com/aio-libs/aiorwlock
+Project-URL: Homepage, https://github.com/aio-libs/aiorwlock
 Project-URL: Repository, https://github.com/aio-libs/aiorwlock

@@ -5,7 +5,6 @@ Contains possible interactions with the Galaxy workflow invocations
 import logging
 from typing import (
     Any,
-    Optional,
     TYPE_CHECKING,
 )
 
@@ -25,7 +24,8 @@ if TYPE_CHECKING:
 
 log = logging.getLogger(__name__)
 
-INVOCATION_TERMINAL_STATES = {"cancelled", "failed", "scheduled"}
+INVOCATION_SUCCESS_STATES = {"scheduled", "completed"}
+INVOCATION_TERMINAL_STATES = INVOCATION_SUCCESS_STATES | {"cancelled", "failed"}
 # Invocation non-terminal states are: "cancelling", "new", "ready"
 
 
@@ -38,16 +38,16 @@ class InvocationClient(Client):
 
     def get_invocations(
         self,
-        workflow_id: Optional[str] = None,
-        history_id: Optional[str] = None,
-        user_id: Optional[str] = None,
+        workflow_id: str | None = None,
+        history_id: str | None = None,
+        user_id: str | None = None,
         include_terminal: bool = True,
-        limit: Optional[int] = None,
+        limit: int | None = None,
         *,
-        offset: Optional[int] = None,
+        offset: int | None = None,
         view: str = "collection",
         step_details: bool = False,
-        job_id: Optional[int] = None,
+        job_id: int | None = None,
     ) -> list[dict[str, Any]]:
         """
         Get all workflow invocations, or select a subset by specifying optional
@@ -163,16 +163,16 @@ class InvocationClient(Client):
     def rerun_invocation(
         self,
         invocation_id: str,
-        inputs_update: Optional[dict] = None,
-        params_update: Optional[dict] = None,
-        history_id: Optional[str] = None,
-        history_name: Optional[str] = None,
+        inputs_update: dict | None = None,
+        params_update: dict | None = None,
+        history_id: str | None = None,
+        history_name: str | None = None,
         import_inputs_to_history: bool = False,
-        replacement_params: Optional[dict] = None,
+        replacement_params: dict | None = None,
         allow_tool_state_corrections: bool = False,
-        inputs_by: Optional[InputsBy] = None,
+        inputs_by: InputsBy | None = None,
         parameters_normalized: bool = False,
-        resource_params: Optional[dict[str, Any]] = None,
+        resource_params: dict[str, Any] | None = None,
         use_cached_job: bool = True,
     ) -> dict[str, Any]:
         """
@@ -504,10 +504,10 @@ class InvocationClient(Client):
         include_deleted: bool = False,
         include_hidden: bool = False,
         bco_merge_history_metadata: bool = False,
-        bco_override_environment_variables: Optional[dict[str, Any]] = None,
-        bco_override_empirical_error: Optional[dict[str, Any]] = None,
-        bco_override_algorithmic_error: Optional[dict[str, Any]] = None,
-        bco_override_xref: Optional[dict[str, Any]] = None,
+        bco_override_environment_variables: dict[str, Any] | None = None,
+        bco_override_empirical_error: dict[str, Any] | None = None,
+        bco_override_algorithmic_error: dict[str, Any] | None = None,
+        bco_override_xref: dict[str, Any] | None = None,
         maxwait: float = 1200,
     ) -> requests.Response:
         """
@@ -632,7 +632,7 @@ class InvocationClient(Client):
             invocation = self.gi.invocations.show_invocation(invocation_id)
             state = invocation["state"]
             if state in INVOCATION_TERMINAL_STATES:
-                if check and state != "scheduled":
+                if check and state not in INVOCATION_SUCCESS_STATES:
                     raise Exception(f"Invocation {invocation_id} is in terminal state {state}")
                 return invocation
             raise NotReady(f"Invocation {invocation_id} is in non-terminal state {state}")

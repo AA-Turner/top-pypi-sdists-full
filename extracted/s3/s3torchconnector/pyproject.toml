@@ -4,9 +4,9 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "s3torchconnector"
-version = "1.4.3"
+version = "1.5.0"
 description = "S3 connector integration for PyTorch"
-requires-python = ">=3.8,<3.14"
+requires-python = ">=3.8,<3.15"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -17,6 +17,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: BSD License",
     "Operating System :: OS Independent",
     "Topic :: Utilities"
@@ -24,7 +25,7 @@ classifiers = [
 
 dependencies = [
     "torch >= 2.0.1, != 2.5.0",
-    "s3torchconnectorclient == 1.4.3",
+    "s3torchconnectorclient == 1.5.0",
 ]
 
 [project.optional-dependencies]
@@ -34,7 +35,8 @@ test = [
     "hypothesis",
     "flake8",
     "black",
-    "mypy"
+    "mypy",
+    "importlib_metadata; python_version == '3.9'", # PyTorch 2.7.0+ DCP w/ Python 3.9 requires this module; for dcp_optimized reader unit tests
 ]
 
 e2e = [
@@ -47,7 +49,8 @@ e2e = [
 ]
 
 lightning = [
-    "lightning >= 2.0"
+    "lightning >= 2.0",
+    "packaging",
 ]
 
 lightning-tests = [
@@ -59,12 +62,13 @@ lightning-tests = [
 dcp = [
     "tenacity",
     "torch >= 2.3, != 2.5.0",
+    "importlib_metadata; python_version == '3.9'", # PyTorch 2.7.0+ DCP w/ Python 3.9 requires this module
 ]
 
 dcp-test = [
     "s3torchconnector[dcp]",
     "pytest",
-    "importlib_metadata; python_version == '3.9'",
+    "zstandard",
 ]
 
 [tool.setuptools.packages]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 7.1.2
+Version: 7.1.4
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -32,7 +32,7 @@ Requires-Dist: aiohttp_socks; extra == "all"
 Requires-Dist: pillow; extra == "all"
 Requires-Dist: cairosvg; extra == "all"
 Requires-Dist: werkzeug; extra == "all"
-Requires-Dist: flask; extra == "all"
+Requires-Dist: flask[async]; extra == "all"
 Requires-Dist: fastapi; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
 Requires-Dist: nodriver; extra == "all"
@@ -52,7 +52,7 @@ Requires-Dist: beautifulsoup4; extra == "slim"
 Requires-Dist: aiohttp_socks; extra == "slim"
 Requires-Dist: pillow; extra == "slim"
 Requires-Dist: werkzeug; extra == "slim"
-Requires-Dist: flask; extra == "slim"
+Requires-Dist: flask[async]; extra == "slim"
 Requires-Dist: fastapi; extra == "slim"
 Requires-Dist: uvicorn; extra == "slim"
 Requires-Dist: nodriver; extra == "slim"
@@ -80,7 +80,7 @@ Requires-Dist: python-multipart; extra == "api"
 Requires-Dist: a2wsgi; extra == "api"
 Provides-Extra: gui
 Requires-Dist: werkzeug; extra == "gui"
-Requires-Dist: flask; extra == "gui"
+Requires-Dist: flask[async]; extra == "gui"
 Requires-Dist: beautifulsoup4; extra == "gui"
 Requires-Dist: pillow; extra == "gui"
 Provides-Extra: search

@@ -245,6 +245,14 @@ class UnionRemote(FlyteRemote):
         request = StreamEventsRequest(filters=event_types)
         return self.hooks_async_client.StreamEvents(request)
 
+    async def close_async_channel(self):
+        """Close the async gRPC channel if one was created."""
+        try:
+            channel = self._async_channel
+        except AttributeError:
+            return
+        await channel.close()
+
     def _ack_event(self, event_id: str) -> AcknowledgeEventResponse:
         ack_request = AcknowledgeEventRequest(id=event_id)
         return self.hooks_sync_client.AcknowledgeEvent(ack_request)
@@ -844,3 +852,5 @@ class UnionRemote(FlyteRemote):
         except Exception as e:
             logger.warning(f"Error streaming events: {e}")
             raise
+        finally:
+            await self.close_async_channel()

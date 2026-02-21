@@ -15,19 +15,10 @@ from chellow.models import (
     RSession,
     User,
 )
-from chellow.utils import (
-    csv_make_val,
-    req_checkbox,
-)
+from chellow.utils import csv_make_val, req_checkbox
 
 
-def _make_bundles(
-    sess,
-    contract_ids,
-    owner_ids,
-    supply_ids,
-    limit=None,
-):
+def _make_bundles(sess, contract_ids, owner_ids, supply_ids, is_opens, limit=None):
     q = select(Issue).order_by(Issue.is_open.desc(), Issue.date_created)
     if limit is not None:
         q = q.limit(limit)
@@ -38,12 +29,14 @@ def _make_bundles(
     if len(supply_ids) > 0:
         ids_jsonb = array([cast([sid], JSONB) for sid in supply_ids])
         q = q.where(Issue.properties["supply_ids"].op("@>")(any_(ids_jsonb)))
+    if len(is_opens) > 0:
+        q = q.where(Issue.is_open.in_(is_opens))
     issues = sess.scalars(q)
     return make_issue_bundles(sess, issues)
 
 
-def _make_vals(sess, contract_ids, owner_ids, supply_ids):
-    for bundle in _make_bundles(sess, contract_ids, owner_ids, supply_ids):
+def _make_vals(sess, contract_ids, owner_ids, supply_ids, is_opens):
+    for bundle in _make_bundles(sess, contract_ids, owner_ids, supply_ids, is_opens):
         issue = bundle["issue"]
         props = issue.properties
         owner = bundle["owner"]
@@ -83,7 +76,7 @@ def _make_vals(sess, contract_ids, owner_ids, supply_ids):
                 yield values
 
 
-def content(user_id, contract_ids, owner_ids, supply_ids):
+def content(user_id, contract_ids, owner_ids, supply_ids, is_opens):
     f = writer = None
     try:
         with RSession() as sess:
@@ -106,7 +99,7 @@ def content(user_id, contract_ids, owner_ids, supply_ids):
                 "latest_entry_markdown",
             )
             writer.writerow(titles)
-            for vals in _make_vals(sess, contract_ids, owner_ids, supply_ids):
+            for vals in _make_vals(sess, contract_ids, owner_ids, supply_ids, is_opens):
                 writer.writerow(csv_make_val(vals[t]) for t in titles)
 
     except BaseException:
@@ -125,21 +118,23 @@ def do_get(sess):
     contract_ids = [int(x) for x in request.values.getlist("contract_id")]
     owner_ids = [int(x) for x in request.values.getlist("owner_id")]
     supply_ids = [int(x) for x in request.values.getlist("supply_id")]
+    is_opens = [x == "true" for x in request.values.getlist("is_open")]
     as_csv = req_checkbox("as_csv")
 
     if as_csv:
-        args = (g.user.id, contract_ids, owner_ids, supply_ids)
+        args = g.user.id, contract_ids, owner_ids, supply_ids, is_opens
         threading.Thread(target=content, args=args).start()
         return redirect("/downloads", 303)
     else:
         issue_bundles = _make_bundles(
-            sess, contract_ids, owner_ids, supply_ids, limit=LIMIT
+            sess, contract_ids, owner_ids, supply_ids, is_opens, limit=LIMIT
         )
         return render_template(
             "reports/issues.html",
             contract_ids=contract_ids,
             owner_ids=owner_ids,
             supply_ids=supply_ids,
+            is_opens=is_opens,
             limit=LIMIT,
             issue_bundles=issue_bundles,
         )

@@ -1,21 +1,19 @@
-#  ___________________________________________________________________________
+# ____________________________________________________________________________________
 #
-#  Pyomo: Python Optimization Modeling Objects
-#  Copyright (c) 2008-2025
-#  National Technology and Engineering Solutions of Sandia, LLC
-#  Under the terms of Contract DE-NA0003525 with National Technology and
-#  Engineering Solutions of Sandia, LLC, the U.S. Government retains certain
-#  rights in this software.
-#  This software is distributed under the 3-clause BSD License.
-#  ___________________________________________________________________________
+# Pyomo: Python Optimization Modeling Objects
+# Copyright (c) 2008-2026 National Technology and Engineering Solutions of Sandia, LLC
+# Under the terms of Contract DE-NA0003525 with National Technology and Engineering
+# Solutions of Sandia, LLC, the U.S. Government retains certain rights in this
+# software.  This software is distributed under the 3-clause BSD License.
+# ____________________________________________________________________________________
 #
-#  This module was originally developed as part of the PyUtilib project
-#  Copyright (c) 2008 Sandia Corporation.
-#  This software is distributed under the BSD License.
-#  Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
-#  the U.S. Government retains certain rights in this software.
-#  ___________________________________________________________________________
-#
+# This module was originally developed as part of the PyUtilib project
+# Copyright (c) 2008 Sandia Corporation.
+# This software is distributed under the BSD License.
+# Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+# the U.S. Government retains certain rights in this software.
+# ____________________________________________________________________________________
+
 import collections.abc
 import io
 import logging
@@ -77,8 +75,7 @@ class _SignalFlush:
             failCount = 0
             while 1:
                 try:
-                    fcn(*args)
-                    break
+                    return fcn(*args)
                 except (OSError, BlockingIOError):
                     failCount += 1
                     if failCount >= retries:
@@ -89,10 +86,12 @@ class _SignalFlush:
             self._retry(self._ostream.flush)
             self._handle.flush = True
 
-        def write(self, data):
+        def write(self, data: str) -> int:
+            ans = 0
             chunksize = _pipe_buffersize >> 1  # 1/2 the buffer size
             for i in range(0, len(data), chunksize):
-                self._retry(self._ostream.write, data[i : i + chunksize])
+                ans += self._retry(self._ostream.write, data[i : i + chunksize])
+            return ans
 
         def writelines(self, data):
             for line in data:
@@ -116,9 +115,10 @@ class _AutoFlush(_SignalFlush):
         # Because we define write() and writelines() under windows, we
         # need to make sure that _AutoFlush calls them
 
-        def write(self, data):
-            super().write(data)
+        def write(self, data: str) -> int:
+            ans = super().write(data)
             self.flush()
+            return ans
 
         def writelines(self, data):
             super().writelines(data)
@@ -126,9 +126,10 @@ class _AutoFlush(_SignalFlush):
 
     else:
 
-        def write(self, data):
-            self._ostream.write(data)
+        def write(self, data: str) -> int:
+            ans = self._ostream.write(data)
             self.flush()
+            return ans
 
         def writelines(self, data):
             self._ostream.writelines(data)

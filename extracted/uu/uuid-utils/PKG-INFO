@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: uuid_utils
-Version: 0.14.0
-Classifier: Development Status :: 4 - Beta
+Version: 0.14.1
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
@@ -13,12 +13,12 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 License-File: LICENSE.md
 Summary: Fast, drop-in replacement for Python's uuid module, powered by Rust.
 Keywords: rust,uuid
 Author-email: Amin Alaee <mohammadamin.alaee@gmail.com>
+License-Expression: BSD-3-Clause
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown; charset=UTF-8; variant=GFM
 Project-URL: Documentation, https://github.com/aminalaee/uuid-utils
@@ -39,7 +39,7 @@ Project-URL: Source, https://github.com/aminalaee/uuid-utils
 
 Fast, drop-in replacement for Python's uuid module, powered by Rust.
 
-Avaialble UUID versions:
+Available UUID versions:
 
 - `uuid1` - Version 1 UUIDs using a timestamp and monotonic counter.
 - `uuid3` - Version 3 UUIDs based on the MD5 hash of some data.
@@ -85,7 +85,7 @@ UUID('6fa459ea-ee8a-3ca4-894e-db77e160355e')
 ## Compatibility with Python UUID
 
 In some cases, for example if you are using `Django`, you might need `UUID` instances to be returned
-from the standrad-library `uuid`, not a custom `UUID` class.
+from the standard-library `uuid`, not a custom `UUID` class.
 In that case you can use the `uuid_utils.compat` which comes with a performance penalty
 in comparison with the `uuid_utils` default behaviour, but is still faster than the standard-library.
 
@@ -124,6 +124,6 @@ $ make test
 Or:
 
 ```shell
-$ RUSTFLAGS="--cfg uuid_unstable" maturin develop --release
+$ maturin develop --release
 ```
 

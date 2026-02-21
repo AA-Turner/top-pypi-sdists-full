@@ -16,6 +16,7 @@ import configparser
 import logging
 import logging.handlers
 import os
+import shutil
 import tempfile
 from unittest import mock
 import uuid
@@ -31,7 +32,6 @@ from oslo_rootwrap import wrapper
 
 
 class RootwrapLoaderTestCase(testtools.TestCase):
-
     def test_privsep_in_loader(self):
         privsep = ["privsep-helper", "--context", "foo"]
         filterlist = wrapper.load_filters([])
@@ -42,8 +42,10 @@ class RootwrapLoaderTestCase(testtools.TestCase):
             filtermatch = wrapper.match_filter(filterlist, privsep)
 
             self.assertIsNotNone(filtermatch)
-            self.assertEqual(["/fake/privsep-helper", "--context", "foo"],
-                             filtermatch.get_command(privsep))
+            self.assertEqual(
+                ["/fake/privsep-helper", "--context", "foo"],
+                filtermatch.get_command(privsep),
+            )
 
     def test_strict_switched_off_in_configparser(self):
         temp_dir = self.useFixture(fixtures.TempDir()).path
@@ -72,7 +74,7 @@ class RootwrapTestCase(testtools.TestCase):
             filters.CommandFilter("/usr/bin/foo_bar_not_exist", "root"),
             filters.RegExpFilter("/bin/cat", "root", 'cat', '/[a-z]+'),
             filters.CommandFilter("/nonexistent/cat", "root"),
-            filters.CommandFilter("/bin/cat", "root")  # Keep this one last
+            filters.CommandFilter("/bin/cat", "root"),  # Keep this one last
         ]
 
     def test_CommandFilter(self):
@@ -105,31 +107,54 @@ class RootwrapTestCase(testtools.TestCase):
         usercmd = ["ls", "/root"]
         filtermatch = wrapper.match_filter(self.filters, usercmd)
         self.assertFalse(filtermatch is None)
-        self.assertEqual(["/bin/ls", "/root"],
-                         filtermatch.get_command(usercmd))
+        self.assertEqual(
+            ["/bin/ls", "/root"], filtermatch.get_command(usercmd)
+        )
 
     def test_RegExpFilter_reject(self):
         usercmd = ["ls", "root"]
-        self.assertRaises(wrapper.NoFilterMatched,
-                          wrapper.match_filter, self.filters, usercmd)
+        self.assertRaises(
+            wrapper.NoFilterMatched,
+            wrapper.match_filter,
+            self.filters,
+            usercmd,
+        )
 
     def test_missing_command(self):
         valid_but_missing = ["foo_bar_not_exist"]
         invalid = ["foo_bar_not_exist_and_not_matched"]
-        self.assertRaises(wrapper.FilterMatchNotExecutable,
-                          wrapper.match_filter,
-                          self.filters, valid_but_missing)
-        self.assertRaises(wrapper.NoFilterMatched,
-                          wrapper.match_filter, self.filters, invalid)
+        self.assertRaises(
+            wrapper.FilterMatchNotExecutable,
+            wrapper.match_filter,
+            self.filters,
+            valid_but_missing,
+        )
+        self.assertRaises(
+            wrapper.NoFilterMatched,
+            wrapper.match_filter,
+            self.filters,
+            invalid,
+        )
 
     def _test_EnvFilter_as_DnsMasq(self, config_file_arg):
-        usercmd = ['env', config_file_arg + '=A', 'NETWORK_ID=foobar',
-                   'dnsmasq', 'foo']
-        f = filters.EnvFilter("env", "root", config_file_arg + '=A',
-                              'NETWORK_ID=', "/usr/bin/dnsmasq")
+        usercmd = [
+            'env',
+            config_file_arg + '=A',
+            'NETWORK_ID=foobar',
+            'dnsmasq',
+            'foo',
+        ]
+        f = filters.EnvFilter(
+            "env",
+            "root",
+            config_file_arg + '=A',
+            'NETWORK_ID=',
+            "/usr/bin/dnsmasq",
+        )
         self.assertTrue(f.match(usercmd))
         self.assertEqual(['/usr/bin/dnsmasq', 'foo'], f.get_command(usercmd))
         env = f.get_environment(usercmd)
+        assert env is not None
         self.assertEqual('A', env.get(config_file_arg))
         self.assertEqual('foobar', env.get('NETWORK_ID'))
 
@@ -153,7 +178,7 @@ class RootwrapTestCase(testtools.TestCase):
         self.assertTrue(f.match(usercmd))
 
         # require given environment variables to match
-        self.assertFalse(f.match([envcmd, 'C=ELSE']))
+        self.assertFalse(f.match(envcmd + ['C=ELSE']))
         self.assertFalse(f.match(['env', 'C=xx']))
         self.assertFalse(f.match(['env', 'A=xx']))
 
@@ -167,6 +192,7 @@ class RootwrapTestCase(testtools.TestCase):
         # ensure that the env command is stripped when executing
         self.assertEqual(realcmd, f.exec_args(usercmd))
         env = f.get_environment(usercmd)
+        assert env is not None
         # check that environment variables are set
         self.assertEqual('/some/thing', env.get('A'))
         self.assertEqual('somethingelse', env.get('B'))
@@ -186,57 +212,66 @@ class RootwrapTestCase(testtools.TestCase):
         self.assertEqual(realcmd, f.get_command(envset + realcmd))
 
         env = f.get_environment(envset + realcmd)
+        assert env is not None
         # check that environment variables are set
         self.assertEqual('/some/thing', env.get('A'))
         self.assertEqual('somethingelse', env.get('B'))
         self.assertNotIn('sleep', env.keys())
 
     def test_KillFilter(self):
-        if not os.path.exists("/proc/%d" % os.getpid()):
+        if not os.path.exists(f"/proc/{os.getpid()}"):
             self.skipTest("Test requires /proc filesystem (procfs)")
-        p = subprocess.Popen(["cat"], stdin=subprocess.PIPE,
-                             stdout=subprocess.PIPE,
-                             stderr=subprocess.STDOUT)
-        try:
-            f = filters.KillFilter("root", "/bin/cat", "-9", "-HUP")
-            f2 = filters.KillFilter("root", "/usr/bin/cat", "-9", "-HUP")
-            f3 = filters.KillFilter("root", "/usr/bin/coreutils", "-9", "-HUP")
-            usercmd = ['kill', '-ALRM', p.pid]
-            # Incorrect signal should fail
-            self.assertFalse(f.match(usercmd) or f2.match(usercmd))
-            usercmd = ['kill', p.pid]
-            # Providing no signal should fail
-            self.assertFalse(f.match(usercmd) or f2.match(usercmd))
-            # Providing matching signal should be allowed
-            usercmd = ['kill', '-9', p.pid]
-            self.assertTrue(f.match(usercmd) or
-                            f2.match(usercmd) or
-                            f3.match(usercmd))
 
-            f = filters.KillFilter("root", "/bin/cat")
-            f2 = filters.KillFilter("root", "/usr/bin/cat")
-            f3 = filters.KillFilter("root", "/usr/bin/coreutils")
-            usercmd = ['kill', os.getpid()]
+        cat_cmd = "cat"
+        cat_path = shutil.which(cat_cmd)
+        if cat_path is None:
+            self.skipTest("Test requires cat command")
+
+        assert cat_path is not None
+        # NOTE(tkajinam): In RHEL9 containers the cat command is a symlink
+        #                 See bug 2037383 for details.
+        if os.path.islink(cat_path):
+            cat_path = os.path.realpath(cat_path)
+            cat_cmd = os.path.basename(cat_path)
+
+        p = subprocess.Popen(
+            ["cat"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+
+        try:
+            f = filters.KillFilter("root", cat_path, "-9", "-HUP")
+            usercmd = ['kill', '-ALRM', str(p.pid)]
+            # Incorrect signal should fail
+            self.assertFalse(f.match(usercmd))
+            usercmd = ['kill', str(p.pid)]
+            # Providing no signal should fail
+            self.assertFalse(f.match(usercmd))
+            # Providing matching signal should be allowed
+            usercmd = ['kill', '-9', str(p.pid)]
+            self.assertTrue(f.match(usercmd))
+
+            f = filters.KillFilter("root", cat_path)
+            usercmd = ['kill', str(os.getpid())]
             # Our own PID does not match /bin/sleep, so it should fail
-            self.assertFalse(f.match(usercmd) or f2.match(usercmd))
-            usercmd = ['kill', 999999]
+            self.assertFalse(f.match(usercmd))
+            usercmd = ['kill', '999999']
             # Nonexistent PID should fail
-            self.assertFalse(f.match(usercmd) or f2.match(usercmd))
-            usercmd = ['kill', p.pid]
+            self.assertFalse(f.match(usercmd))
+            usercmd = ['kill', str(p.pid)]
             # Providing no signal should work
-            self.assertTrue(f.match(usercmd) or
-                            f2.match(usercmd) or
-                            f3.match(usercmd))
+            self.assertTrue(f.match(usercmd))
 
             # verify that relative paths are matched against $PATH
-            f = filters.KillFilter("root", "cat")
-            f2 = filters.KillFilter("root", "coreutils")
+            f = filters.KillFilter("root", cat_cmd)
             # Our own PID does not match so it should fail
-            usercmd = ['kill', os.getpid()]
+            usercmd = ['kill', str(os.getpid())]
             self.assertFalse(f.match(usercmd))
             # Filter should find cat in /bin or /usr/bin
-            usercmd = ['kill', p.pid]
-            self.assertTrue(f.match(usercmd) or f2.match(usercmd))
+            usercmd = ['kill', str(p.pid)]
+            self.assertTrue(f.match(usercmd))
             # Filter shouldn't be able to find binary in $PATH, so fail
             with fixtures.EnvironmentVariable("PATH", "/foo:/bar"):
                 self.assertFalse(f.match(usercmd))
@@ -252,7 +287,7 @@ class RootwrapTestCase(testtools.TestCase):
         """Makes sure ValueError from bug 926412 is gone."""
         f = filters.KillFilter("root", "")
         # Providing anything other than kill should be False
-        usercmd = ['notkill', 999999]
+        usercmd = ['notkill', '999999']
         self.assertFalse(f.match(usercmd))
         # Providing something that is not a pid should be False
         usercmd = ['kill', 'notapid']
@@ -265,13 +300,15 @@ class RootwrapTestCase(testtools.TestCase):
         """Makes sure deleted exe's are killed correctly."""
         command = "/bin/commandddddd"
         f = filters.KillFilter("root", command)
-        usercmd = ['kill', 1234]
+        usercmd = ['kill', '1234']
         # Providing no signal should work
         with mock.patch('os.readlink') as readlink:
             readlink.return_value = command + ' (deleted)'
             with mock.patch('os.path.isfile') as exists:
+
                 def fake_exists(path):
                     return path == command
+
                 exists.side_effect = fake_exists
                 self.assertTrue(f.match(usercmd))
 
@@ -281,7 +318,7 @@ class RootwrapTestCase(testtools.TestCase):
         """Makes sure upgraded exe's are killed correctly."""
         f = filters.KillFilter("root", "/bin/commandddddd")
         command = "/bin/commandddddd"
-        usercmd = ['kill', 1234]
+        usercmd = ['kill', '1234']
 
         def fake_exists(path):
             return path == command
@@ -294,12 +331,13 @@ class RootwrapTestCase(testtools.TestCase):
     @mock.patch('os.path.isfile')
     @mock.patch('os.path.exists')
     @mock.patch('os.access')
-    def test_KillFilter_renamed_exe(self, mock_access, mock_exists,
-                                    mock_isfile, mock_readlink):
+    def test_KillFilter_renamed_exe(
+        self, mock_access, mock_exists, mock_isfile, mock_readlink
+    ):
         """Makes sure renamed exe's are killed correctly."""
         command = "/bin/commandddddd"
         f = filters.KillFilter("root", command)
-        usercmd = ['kill', 1234]
+        usercmd = ['kill', '1234']
 
         def fake_os_func(path, *args):
             return path == command
@@ -326,8 +364,9 @@ class RootwrapTestCase(testtools.TestCase):
         self.assertTrue(f.match(['ip', 'link', 'list']))
         self.assertTrue(f.match(['ip', '-s', 'link', 'list']))
         self.assertTrue(f.match(['ip', '-s', '-v', 'netns', 'add']))
-        self.assertTrue(f.match(['ip', 'link', 'set', 'interface',
-                                 'netns', 'somens']))
+        self.assertTrue(
+            f.match(['ip', 'link', 'set', 'interface', 'netns', 'somens'])
+        )
 
     def test_IpFilter_netns(self):
         f = filters.IpFilter(self._ip, 'root')
@@ -354,7 +393,8 @@ class RootwrapTestCase(testtools.TestCase):
     def test_IpNetnsExecFilter_match(self):
         f = filters.IpNetnsExecFilter(self._ip, 'root')
         self.assertTrue(
-            f.match(['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list']))
+            f.match(['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list'])
+        )
         self.assertTrue(f.match(['ip', 'net', 'exec', 'foo', 'bar']))
         self.assertTrue(f.match(['ip', 'netn', 'e', 'foo', 'bar']))
         self.assertTrue(f.match(['ip', 'net', 'e', 'foo', 'bar']))
@@ -375,64 +415,97 @@ class RootwrapTestCase(testtools.TestCase):
     def test_IpNetnsExecFilter_nomatch_nonroot(self):
         f = filters.IpNetnsExecFilter(self._ip, 'user')
         self.assertFalse(
-            f.match(['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list']))
+            f.match(['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list'])
+        )
 
     def test_match_filter_recurses_exec_command_filter_matches(self):
-        filter_list = [filters.IpNetnsExecFilter(self._ip, 'root'),
-                       filters.IpFilter(self._ip, 'root')]
+        filter_list = [
+            filters.IpNetnsExecFilter(self._ip, 'root'),
+            filters.IpFilter(self._ip, 'root'),
+        ]
         args = ['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list']
 
         self.assertIsNotNone(wrapper.match_filter(filter_list, args))
 
     def test_match_filter_recurses_exec_command_matches_user(self):
-        filter_list = [filters.IpNetnsExecFilter(self._ip, 'root'),
-                       filters.IpFilter(self._ip, 'user')]
+        filter_list = [
+            filters.IpNetnsExecFilter(self._ip, 'root'),
+            filters.IpFilter(self._ip, 'user'),
+        ]
         args = ['ip', 'netns', 'exec', 'foo', 'ip', 'link', 'list']
 
         # Currently ip netns exec requires root, so verify that
         # no non-root filter is matched, as that would escalate privileges
-        self.assertRaises(wrapper.NoFilterMatched,
-                          wrapper.match_filter, filter_list, args)
+        self.assertRaises(
+            wrapper.NoFilterMatched, wrapper.match_filter, filter_list, args
+        )
 
     def test_match_filter_recurses_exec_command_filter_does_not_match(self):
-        filter_list = [filters.IpNetnsExecFilter(self._ip, 'root'),
-                       filters.IpFilter(self._ip, 'root')]
-        args = ['ip', 'netns', 'exec', 'foo', 'ip', 'netns', 'exec', 'bar',
-                'ip', 'link', 'list']
+        filter_list = [
+            filters.IpNetnsExecFilter(self._ip, 'root'),
+            filters.IpFilter(self._ip, 'root'),
+        ]
+        args = [
+            'ip',
+            'netns',
+            'exec',
+            'foo',
+            'ip',
+            'netns',
+            'exec',
+            'bar',
+            'ip',
+            'link',
+            'list',
+        ]
 
-        self.assertRaises(wrapper.NoFilterMatched,
-                          wrapper.match_filter, filter_list, args)
+        self.assertRaises(
+            wrapper.NoFilterMatched, wrapper.match_filter, filter_list, args
+        )
 
     def test_ChainingRegExpFilter_match(self):
-        filter_list = [filters.ChainingRegExpFilter('nice', 'root',
-                                                    'nice', r'-?\d+'),
-                       filters.CommandFilter('cat', 'root')]
+        filter_list = [
+            filters.ChainingRegExpFilter('nice', 'root', 'nice', r'-?\d+'),
+            filters.CommandFilter('cat', 'root'),
+        ]
         args = ['nice', '5', 'cat', '/a']
         dirs = ['/bin', '/usr/bin']
 
         self.assertIsNotNone(wrapper.match_filter(filter_list, args, dirs))
 
     def test_ChainingRegExpFilter_not_match(self):
-        filter_list = [filters.ChainingRegExpFilter('nice', 'root',
-                                                    'nice', r'-?\d+'),
-                       filters.CommandFilter('cat', 'root')]
-        args_invalid = (['nice', '5', 'ls', '/a'],
-                        ['nice', '--5', 'cat', '/a'],
-                        ['nice2', '5', 'cat', '/a'],
-                        ['nice', 'cat', '/a'],
-                        ['nice', '5'])
+        filter_list = [
+            filters.ChainingRegExpFilter('nice', 'root', 'nice', r'-?\d+'),
+            filters.CommandFilter('cat', 'root'),
+        ]
+        args_invalid = (
+            ['nice', '5', 'ls', '/a'],
+            ['nice', '--5', 'cat', '/a'],
+            ['nice2', '5', 'cat', '/a'],
+            ['nice', 'cat', '/a'],
+            ['nice', '5'],
+        )
         dirs = ['/bin', '/usr/bin']
 
         for args in args_invalid:
-            self.assertRaises(wrapper.NoFilterMatched,
-                              wrapper.match_filter, filter_list, args, dirs)
+            self.assertRaises(
+                wrapper.NoFilterMatched,
+                wrapper.match_filter,
+                filter_list,
+                args,
+                dirs,
+            )
 
     def test_ChainingRegExpFilter_multiple(self):
-        filter_list = [filters.ChainingRegExpFilter('ionice', 'root', 'ionice',
-                                                    '-c[0-3]'),
-                       filters.ChainingRegExpFilter('ionice', 'root', 'ionice',
-                                                    '-c[0-3]', '-n[0-7]'),
-                       filters.CommandFilter('cat', 'root')]
+        filter_list = [
+            filters.ChainingRegExpFilter(
+                'ionice', 'root', 'ionice', '-c[0-3]'
+            ),
+            filters.ChainingRegExpFilter(
+                'ionice', 'root', 'ionice', '-c[0-3]', '-n[0-7]'
+            ),
+            filters.CommandFilter('cat', 'root'),
+        ]
         # both filters match to ['ionice', '-c2'], but only the second accepts
         args = ['ionice', '-c2', '-n7', 'cat', '/a']
         dirs = ['/bin', '/usr/bin']
@@ -450,9 +523,10 @@ class RootwrapTestCase(testtools.TestCase):
         f = filters.CommandFilter("cat", "root")
         usercmd = ['cat', '/f']
         self.assertTrue(f.match(usercmd))
-        self.assertTrue(f.get_command(usercmd,
-                                      exec_dirs=['/bin', '/usr/bin'])
-                        in (['/bin/cat', '/f'], ['/usr/bin/cat', '/f']))
+        self.assertTrue(
+            f.get_command(usercmd, exec_dirs=['/bin', '/usr/bin'])
+            in (['/bin/cat', '/f'], ['/usr/bin/cat', '/f'])
+        )
 
     def test_skips(self):
         # Check that all filters are skipped and that the last matches
@@ -464,8 +538,7 @@ class RootwrapTestCase(testtools.TestCase):
         raw = configparser.RawConfigParser()
 
         # Empty config should raise configparser.Error
-        self.assertRaises(configparser.Error,
-                          wrapper.RootwrapConfig, raw)
+        self.assertRaises(configparser.Error, wrapper.RootwrapConfig, raw)
 
         # Check default values
         raw.set('DEFAULT', 'filters_path', '/a,/b')
@@ -478,8 +551,10 @@ class RootwrapTestCase(testtools.TestCase):
             self.assertEqual([], c.exec_dirs)
 
         self.assertFalse(config.use_syslog)
-        self.assertEqual(logging.handlers.SysLogHandler.LOG_SYSLOG,
-                         config.syslog_log_facility)
+        self.assertEqual(
+            logging.handlers.SysLogHandler.LOG_SYSLOG,
+            config.syslog_log_facility,
+        )
         self.assertEqual(logging.ERROR, config.syslog_log_level)
 
         # Check general values
@@ -497,12 +572,15 @@ class RootwrapTestCase(testtools.TestCase):
         self.assertRaises(ValueError, wrapper.RootwrapConfig, raw)
         raw.set('DEFAULT', 'syslog_log_facility', 'local0')
         config = wrapper.RootwrapConfig(raw)
-        self.assertEqual(logging.handlers.SysLogHandler.LOG_LOCAL0,
-                         config.syslog_log_facility)
+        self.assertEqual(
+            logging.handlers.SysLogHandler.LOG_LOCAL0,
+            config.syslog_log_facility,
+        )
         raw.set('DEFAULT', 'syslog_log_facility', 'LOG_AUTH')
         config = wrapper.RootwrapConfig(raw)
-        self.assertEqual(logging.handlers.SysLogHandler.LOG_AUTH,
-                         config.syslog_log_facility)
+        self.assertEqual(
+            logging.handlers.SysLogHandler.LOG_AUTH, config.syslog_log_facility
+        )
 
         raw.set('DEFAULT', 'syslog_log_level', 'bar')
         self.assertRaises(ValueError, wrapper.RootwrapConfig, raw)
@@ -520,7 +598,8 @@ class RootwrapTestCase(testtools.TestCase):
             with mock.patch('os.getlogin') as os_getlogin:
                 os_getenv.side_effect = [None, None, 'bar']
                 os_getlogin.side_effect = OSError(
-                    '[Errno 22] Invalid argument')
+                    '[Errno 22] Invalid argument'
+                )
                 self.assertEqual('bar', wrapper._getlogin())
                 os_getlogin.assert_called_once_with()
                 self.assertEqual(3, os_getenv.call_count)
@@ -536,30 +615,40 @@ class PathFilterTestCase(testtools.TestCase):
 
         self.f = filters.PathFilter('/bin/chown', 'root', 'nova', tmpdir.path)
 
-        gen_name = lambda: str(uuid.uuid4())
+        def gen_name():
+            return str(uuid.uuid4())
 
         self.SIMPLE_FILE_WITHIN_DIR = os.path.join(tmpdir.path, 'some')
         self.SIMPLE_FILE_OUTSIDE_DIR = os.path.join(self.tmp_root_dir, 'some')
-        self.TRAVERSAL_WITHIN_DIR = os.path.join(tmpdir.path, 'a', '..',
-                                                 'some')
+        self.TRAVERSAL_WITHIN_DIR = os.path.join(
+            tmpdir.path, 'a', '..', 'some'
+        )
         self.TRAVERSAL_OUTSIDE_DIR = os.path.join(tmpdir.path, '..', 'some')
 
-        self.TRAVERSAL_SYMLINK_WITHIN_DIR = os.path.join(tmpdir.path,
-                                                         gen_name())
-        os.symlink(os.path.join(tmpdir.path, 'a', '..', 'a'),
-                   self.TRAVERSAL_SYMLINK_WITHIN_DIR)
+        self.TRAVERSAL_SYMLINK_WITHIN_DIR = os.path.join(
+            tmpdir.path, gen_name()
+        )
+        os.symlink(
+            os.path.join(tmpdir.path, 'a', '..', 'a'),
+            self.TRAVERSAL_SYMLINK_WITHIN_DIR,
+        )
 
-        self.TRAVERSAL_SYMLINK_OUTSIDE_DIR = os.path.join(tmpdir.path,
-                                                          gen_name())
-        os.symlink(os.path.join(tmpdir.path, 'a', '..', '..', '..', 'etc'),
-                   self.TRAVERSAL_SYMLINK_OUTSIDE_DIR)
+        self.TRAVERSAL_SYMLINK_OUTSIDE_DIR = os.path.join(
+            tmpdir.path, gen_name()
+        )
+        os.symlink(
+            os.path.join(tmpdir.path, 'a', '..', '..', '..', 'etc'),
+            self.TRAVERSAL_SYMLINK_OUTSIDE_DIR,
+        )
 
         self.SYMLINK_WITHIN_DIR = os.path.join(tmpdir.path, gen_name())
         os.symlink(os.path.join(tmpdir.path, 'a'), self.SYMLINK_WITHIN_DIR)
 
         self.SYMLINK_OUTSIDE_DIR = os.path.join(tmpdir.path, gen_name())
-        os.symlink(os.path.join(self.tmp_root_dir, 'some_file'),
-                   self.SYMLINK_OUTSIDE_DIR)
+        os.symlink(
+            os.path.join(self.tmp_root_dir, 'some_file'),
+            self.SYMLINK_OUTSIDE_DIR,
+        )
 
     def test_empty_args(self):
         self.assertFalse(self.f.match([]))
@@ -629,32 +718,47 @@ class PathFilterTestCase(testtools.TestCase):
 
     def test_get_command_traversal(self):
         args = ['chown', 'nova', self.TRAVERSAL_WITHIN_DIR]
-        expected = ['/bin/chown', 'nova',
-                    os.path.realpath(self.TRAVERSAL_WITHIN_DIR)]
+        expected = [
+            '/bin/chown',
+            'nova',
+            os.path.realpath(self.TRAVERSAL_WITHIN_DIR),
+        ]
 
         self.assertEqual(expected, self.f.get_command(args))
 
     def test_get_command_symlink(self):
         args = ['chown', 'nova', self.SYMLINK_WITHIN_DIR]
-        expected = ['/bin/chown', 'nova',
-                    os.path.realpath(self.SYMLINK_WITHIN_DIR)]
+        expected = [
+            '/bin/chown',
+            'nova',
+            os.path.realpath(self.SYMLINK_WITHIN_DIR),
+        ]
 
         self.assertEqual(expected, self.f.get_command(args))
 
     def test_get_command_traversal_symlink(self):
         args = ['chown', 'nova', self.TRAVERSAL_SYMLINK_WITHIN_DIR]
-        expected = ['/bin/chown', 'nova',
-                    os.path.realpath(self.TRAVERSAL_SYMLINK_WITHIN_DIR)]
+        expected = [
+            '/bin/chown',
+            'nova',
+            os.path.realpath(self.TRAVERSAL_SYMLINK_WITHIN_DIR),
+        ]
 
         self.assertEqual(expected, self.f.get_command(args))
 
 
 class RunOneCommandTestCase(testtools.TestCase):
-    def _test_returncode_helper(self, returncode, expected):
+    def _test_returncode_helper(self, returncode: int, expected: int) -> None:
         with mock.patch.object(wrapper, 'start_subprocess') as mock_start:
             with mock.patch('sys.exit') as mock_exit:
                 mock_start.return_value.wait.return_value = returncode
-                cmd.run_one_command(None, mock.Mock(), None, None)
+                # Using mocks for testing, so ignore arg types
+                cmd.run_one_command(
+                    None,  # type: ignore[arg-type]
+                    mock.Mock(),
+                    None,  # type: ignore[arg-type]
+                    None,  # type: ignore[arg-type]
+                )
         mock_exit.assert_called_once_with(expected)
 
     def test_positive_returncode(self):
@@ -669,13 +773,18 @@ class DaemonCleanupException(Exception):
 
 
 class DaemonCleanupTestCase(testtools.TestCase):
-
     @mock.patch('os.chmod')
     @mock.patch('shutil.rmtree')
     @mock.patch('tempfile.mkdtemp')
-    @mock.patch('multiprocessing.managers.BaseManager.get_server',
-                side_effect=DaemonCleanupException)
+    @mock.patch(
+        'multiprocessing.managers.BaseManager.get_server',
+        side_effect=DaemonCleanupException,
+    )
     def test_daemon_no_cleanup_for_uninitialized_server(self, gs, mkd, *args):
         mkd.return_value = '/just_dir/123'
-        self.assertRaises(DaemonCleanupException, daemon.daemon_start,
-                          config=None, filters=None)
+        self.assertRaises(
+            DaemonCleanupException,
+            daemon.daemon_start,
+            config=None,
+            filters=None,
+        )

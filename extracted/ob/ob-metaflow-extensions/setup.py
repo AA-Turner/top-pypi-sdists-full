@@ -2,7 +2,7 @@ from setuptools import setup, find_namespace_packages
 from pathlib import Path
 
 
-version = "1.6.10"
+version = "1.6.11"
 this_directory = Path(__file__).parent
 long_description = (this_directory / "README.md").read_text()
 
@@ -19,6 +19,6 @@ setup(
     install_requires=[
         "boto3",
         "kubernetes",
-        "ob-metaflow == 2.19.19.1",
+        "ob-metaflow == 2.19.19.2",
     ],
 )

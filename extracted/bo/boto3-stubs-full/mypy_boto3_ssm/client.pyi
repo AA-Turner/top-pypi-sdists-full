@@ -1541,8 +1541,8 @@ class SSMClient(BaseClient):
         self, **kwargs: Unpack[ListDocumentMetadataHistoryRequestTypeDef]
     ) -> ListDocumentMetadataHistoryResponseTypeDef:
         """
-        Amazon Web Services Systems Manager Change Manager will no longer be open to
-        new customers starting November 7, 2025.
+        Amazon Web Services Systems Manager Change Manager is no longer open to new
+        customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/list_document_metadata_history.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#list_document_metadata_history)
@@ -1838,8 +1838,8 @@ class SSMClient(BaseClient):
         self, **kwargs: Unpack[StartChangeRequestExecutionRequestTypeDef]
     ) -> StartChangeRequestExecutionResultTypeDef:
         """
-        Amazon Web Services Systems Manager Change Manager will no longer be open to
-        new customers starting November 7, 2025.
+        Amazon Web Services Systems Manager Change Manager is no longer open to new
+        customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/start_change_request_execution.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#start_change_request_execution)
@@ -1943,8 +1943,8 @@ class SSMClient(BaseClient):
         self, **kwargs: Unpack[UpdateDocumentMetadataRequestTypeDef]
     ) -> dict[str, Any]:
         """
-        Amazon Web Services Systems Manager Change Manager will no longer be open to
-        new customers starting November 7, 2025.
+        Amazon Web Services Systems Manager Change Manager is no longer open to new
+        customers.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/client/update_document_metadata.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ssm/client/#update_document_metadata)

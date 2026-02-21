@@ -15,69 +15,6 @@ from coloraide import algebra as alg  # noqa: E402
 from coloraide.channels import ANGLE_DEG  # noqa: E402
 
 
-def plot_interpolation(
-    fig,
-    space,
-    interp_colors,
-    interp_space,
-    interp_method,
-    hue,
-    carryfoward,
-    powerless,
-    extrapolate,
-    steps,
-    gmap,
-    opacity=1
-):
-    """Plot interpolations, but force Lab to operate like LCh."""
-
-    if not interp_colors:
-        return
-
-    colors = Color.steps(
-        interp_colors.split(';'),
-        space=interp_space,
-        steps=steps,
-        hue=hue,
-        carryfoward=carryfoward,
-        powerless=powerless,
-        extrapolate=extrapolate,
-        method=interp_method
-    )
-
-    target = Color.CS_MAP[space]
-    flags = {
-        'is_cyl': target.is_polar(),
-        'is_labish': isinstance(target, plt3d.Labish),
-        'is_lchish': isinstance(target, plt3d.LChish),
-        'is_hslish': isinstance(target, plt3d.HSLish),
-        'is_hwbish': isinstance(target, plt3d.HWBish),
-        'is_hsvish': isinstance(target, plt3d.HSVish)
-    }
-
-    x = []
-    y = []
-    z = []
-    cmap = []
-    for c in colors:
-        c.convert(space, in_place=True)
-        plt3d.store_coords(c, x, y, z, flags)
-
-        c.convert('srgb', in_place=True)
-        c.fit(**gmap)
-        cmap.append(c.to_string(hex=True))
-
-    trace = go.Scatter3d(
-        x=x, y=y, z=z,
-        mode='markers',
-        marker={'color': cmap},
-        showlegend=False
-    )
-
-    trace.update(opacity=opacity)
-    fig.add_trace(trace)
-
-
 def raytrace(args):
     """Test ray tracing directly."""
 
@@ -136,6 +73,8 @@ def simulate_raytrace_gamut_mapping(args):
 
     points = []
     color = Color(args.gamut_color)
+
+    orig_space = color.space()
 
     gmap = json.loads(args.gmap)
     gmap['method'] = 'raytrace'
@@ -225,51 +164,53 @@ def simulate_raytrace_gamut_mapping(args):
 
         mapcolor.convert(space, in_place=True)
         last = mapcolor[:-1]
-        for i in range(4):
-            if i:
-                mapcolor.convert(pspace, in_place=True, norm=False)
-                print('Uncorrected:', mapcolor)
+        if any(mn > x or x > mx for x in last):
+            for i in range(4):
+                if i:
+                    mapcolor.convert(pspace, in_place=True, norm=False)
+                    print('Uncorrected:', mapcolor)
 
-                coords = mapcolor[:-1]
-                if adaptive:
-                    if polar:
-                        mapcolor[:-1] = fit.project_onto(coords, start, end)
+                    coords = mapcolor[:-1]
+                    if adaptive:
+                        if polar:
+                            mapcolor[:-1] = fit.project_onto(coords, start, end)
+                        else:
+                            mapcolor[:-1] = fit.to_rect(fit.project_onto(fit.to_polar(coords, a, b), start, end), a, b)
+
                     else:
-                        mapcolor[:-1] = fit.to_rect(fit.project_onto(fit.to_polar(coords, a, b), start, end), a, b)
+                        coords[l] = start[l]
+                        if polar:
+                            coords[h] = start[h]
+                        else:
+                            fit.to_polar(coords, a, b)
+                            coords[b] = start[b]
+                            fit.to_rect(coords, a, b)
+                        mapcolor[:-1] = coords
 
-                else:
-                    coords[l] = start[l]
-                    if polar:
-                        coords[h] = start[h]
-                    else:
-                        fit.to_polar(coords, a, b)
-                        coords[b] = start[b]
-                        fit.to_rect(coords, a, b)
-                    mapcolor[:-1] = coords
+                    print('Corrected:', mapcolor)
+                    mapcolor.convert(space, in_place=True)
+                    print('Corrected RGB:', mapcolor, '\n----')
 
-                print('Corrected:', mapcolor)
-                mapcolor.convert(space, in_place=True)
-                print('Corrected RGB:', mapcolor, '\n----')
+                coords = cs.from_base(mapcolor[:-1]) if coerced else mapcolor[:-1]
+                print('-->', anchor, coords)
+                intersection = fit.raytrace_box(anchor, coords, bmin=bmin, bmax=bmax)
+                print('===', intersection)
 
-            coords = cs.from_base(mapcolor[:-1]) if coerced else mapcolor[:-1]
-            print('-->', anchor, coords)
-            intersection = fit.raytrace_box(anchor, coords, bmin=bmin, bmax=bmax)
-            print('===', intersection)
+                if not intersection:
+                    mapcolor[:-1] = last
+                    break
 
-            if not intersection:
-                mapcolor[:-1] = last
-                break
+                if i and all(low < x < high for x in coords):
+                    anchor = coords
 
-            if i and all(low < x < high for x in coords):
-                anchor = coords
-
-            points.append(mapcolor[:-1])
-            points.append(intersection)
-            points.append(anchor)
-            mapcolor[:-1] = last = cs.to_base(intersection) if coerced else intersection
+                points.append(mapcolor[:-1])
+                points.append(intersection)
+                points.append(anchor)
+                mapcolor[:-1] = last = cs.to_base(intersection) if coerced else intersection
 
         print('Final:', mapcolor.convert(pspace, norm=False))
-        clip_channels(color.update(space, mapcolor[:-1], mapcolor[-1]))
+        clip_channels(mapcolor.convert(orig_space, in_place=True))
+        color.update(mapcolor)
         print('Clipped RGB:', color.convert(space))
 
     if mode == 'perceptual':
@@ -287,7 +228,7 @@ def simulate_raytrace_gamut_mapping(args):
                 indexes[:] = indexes[1], indexes[2], indexes[0]
                 points[e] = [temp[i] for i in indexes]
 
-    x, y, z = zip(*points)
+    x, y, z = zip(*points) if points else ([], [], [])
     data = []
     i = 0
     while i < len(x):
@@ -305,7 +246,7 @@ def simulate_raytrace_gamut_mapping(args):
     # Plot the color space
     fig = plt3d.plot_gamut_in_space(
         space if mode == 'rgb' else pspace,
-        {args.gamut_rgb: {'opacity': 0.2, 'resolution': 100}},
+        {args.gamut_rgb: {'opacity': 0.2, 'resolution': 10 if mode == 'rgb' else 100}},
         title=args.title,
         gmap=gmap,
         size=(args.width, args.height)
@@ -314,19 +255,16 @@ def simulate_raytrace_gamut_mapping(args):
     fig.add_traces(data)
 
     if args.gamut_interp:
-        plot_interpolation(
+        plt3d.plot_interpolation(
             fig,
             space if mode == 'rgb' else pspace,
             first.to_string(fit=False) + ';' + achroma.to_string(fit=False),
-            pspace,
-            'linear',
-            'shorter',
-            False,
-            False,
-            False,
-            100,
+            {"method": "linear", "hue": "shorter", "steps": 100},
             gmap,
-            opacity=0.3
+            False,
+            False,
+            (),
+            opacity=0.5
         )
 
     return fig

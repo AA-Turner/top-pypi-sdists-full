@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: oslo.utils
-Version: 9.2.0
+Version: 10.0.0
 Summary: Oslo Utility library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -17,6 +17,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -26,23 +27,19 @@ Requires-Dist: netaddr>=0.10.0
 Requires-Dist: debtcollector>=1.2.0
 Requires-Dist: pyparsing>=2.1.0
 Requires-Dist: packaging>=20.4
-Requires-Dist: tzdata>=2022.4
 Requires-Dist: PyYAML>=3.13
 Requires-Dist: psutil>=3.2.2
 Requires-Dist: pbr>=6.1.0
-
-========================
-Team and repository tags
-========================
-
-.. image:: https://governance.openstack.org/tc/badges/oslo.utils.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
-
-.. Change things from this point on
+Dynamic: license-file
+Dynamic: requires-dist
 
 ==========
 oslo.utils
 ==========
+
+.. image:: https://governance.openstack.org/tc/badges/oslo.utils.svg
+
+.. Change things from this point on
 
 .. image:: https://img.shields.io/pypi/v/oslo.utils.svg
     :target: https://pypi.org/project/oslo.utils/

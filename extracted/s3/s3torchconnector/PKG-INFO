@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: s3torchconnector
-Version: 1.4.3
+Version: 1.5.0
 Summary: S3 connector integration for PyTorch
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
@@ -10,16 +10,17 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Utilities
-Requires-Python: <3.14,>=3.8
+Requires-Python: <3.15,>=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: THIRD-PARTY-LICENSES
 License-File: NOTICE
 Requires-Dist: torch!=2.5.0,>=2.0.1
-Requires-Dist: s3torchconnectorclient==1.4.3
+Requires-Dist: s3torchconnectorclient==1.5.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-timeout; extra == "test"
@@ -27,6 +28,7 @@ Requires-Dist: hypothesis; extra == "test"
 Requires-Dist: flake8; extra == "test"
 Requires-Dist: black; extra == "test"
 Requires-Dist: mypy; extra == "test"
+Requires-Dist: importlib_metadata; python_version == "3.9" and extra == "test"
 Provides-Extra: e2e
 Requires-Dist: torchdata<=0.9.0; extra == "e2e"
 Requires-Dist: Pillow>=10.3.0; extra == "e2e"
@@ -36,6 +38,7 @@ Requires-Dist: pytest-xdist; extra == "e2e"
 Requires-Dist: fsspec==2025.3.0; python_version == "3.8" and extra == "e2e"
 Provides-Extra: lightning
 Requires-Dist: lightning>=2.0; extra == "lightning"
+Requires-Dist: packaging; extra == "lightning"
 Provides-Extra: lightning-tests
 Requires-Dist: s3torchconnector[lightning]; extra == "lightning-tests"
 Requires-Dist: s3fs; extra == "lightning-tests"
@@ -43,10 +46,11 @@ Requires-Dist: torchmetrics!=1.7.0,!=1.7.1; extra == "lightning-tests"
 Provides-Extra: dcp
 Requires-Dist: tenacity; extra == "dcp"
 Requires-Dist: torch!=2.5.0,>=2.3; extra == "dcp"
+Requires-Dist: importlib_metadata; python_version == "3.9" and extra == "dcp"
 Provides-Extra: dcp-test
 Requires-Dist: s3torchconnector[dcp]; extra == "dcp-test"
 Requires-Dist: pytest; extra == "dcp-test"
-Requires-Dist: importlib_metadata; python_version == "3.9" and extra == "dcp-test"
+Requires-Dist: zstandard; extra == "dcp-test"
 Dynamic: license-file
 
 # Amazon S3 Connector for PyTorch
@@ -70,7 +74,8 @@ Amazon S3, without first saving to local storage.
 
 ### Prerequisites
 
-- Python 3.8-3.13 is supported. 
+- Python 3.8-3.14 is supported. 
+  - Note: Python 3.8 support will be deprecated in a future release, see [#399](https://github.com/awslabs/s3-connector-for-pytorch/issues/399)
 - PyTorch >= 2.0 (TODO: Check with PyTorch 1.x)
 
 ### Installation
@@ -79,8 +84,9 @@ Amazon S3, without first saving to local storage.
 pip install s3torchconnector
 ```
 
-Amazon S3 Connector for PyTorch supports pre-built wheels via Pip only for Linux and MacOS for now. For other platforms,
-see [DEVELOPMENT](https://github.com/awslabs/s3-connector-for-pytorch/blob/main/DEVELOPMENT.md) for build instructions.
+Amazon S3 Connector for PyTorch supports pre-built wheels via Pip only for Linux and MacOS for now. 
+(Note: macOS x86_64 wheel support will be deprecated in a future release, see [#398](https://github.com/awslabs/s3-connector-for-pytorch/issues/398)) 
+For other platforms, see [DEVELOPMENT](https://github.com/awslabs/s3-connector-for-pytorch/blob/main/DEVELOPMENT.md) for build instructions.
 
 ### Configuration
 
@@ -179,7 +185,10 @@ Amazon S3 Connector for PyTorch provides robust support for PyTorch distributed 
 
 - `S3StorageWriter`: Implementation of PyTorch's StorageWriter interface.
 
-- `S3StorageReader`: Implementation of PyTorch's StorageReader interface. Supports configurable reading strategies via the `reader_constructor` parameter (see [Reader Configurations](#reader-configurations)).
+- `S3StorageReader`: Implementation of PyTorch's StorageReader interface. 
+  - Supports configurable reading strategies via the `reader_constructor` parameter (see [Reader Configurations](#reader-configurations)). 
+  - Uses `DCPOptimizedS3Reader` by default for faster loading and partial checkpoint optimizations. 
+  - Please refer to [DCPOptimizedS3Reader Errors](https://github.com/awslabs/s3-connector-for-pytorch/blob/main/docs/TROUBLESHOOTING.md#dcpoptimizeds3reader-errors) for troubleshooting.
 - `S3FileSystem`: An implementation of PyTorch's FileSystemBase.
 
 These tools enable seamless integration of Amazon S3 with 
@@ -213,16 +222,24 @@ REGION = "us-east-1"
 model = torchvision.models.resnet18()
 
 # Save distributed checkpoint to S3
-s3_storage_writer = S3StorageWriter(region=REGION, path=CHECKPOINT_URI)
+s3_storage_writer = S3StorageWriter(
+    region=REGION, 
+    path=CHECKPOINT_URI,
+    thread_count=8, # optional; number of IO threads to use to write
+) 
 DCP.save(
     state_dict=model.state_dict(),
     storage_writer=s3_storage_writer,
 )
 
 # Load distributed checkpoint from S3
+# S3StorageReader uses DCPOptimizedS3Reader by default for improved performance
 model = torchvision.models.resnet18()
 model_state_dict = model.state_dict()
-s3_storage_reader = S3StorageReader(region=REGION, path=CHECKPOINT_URI)
+s3_storage_reader = S3StorageReader(
+    region=REGION, 
+    path=CHECKPOINT_URI,
+)
 DCP.load(
     state_dict=model_state_dict,
     storage_reader=s3_storage_reader,
@@ -456,31 +473,43 @@ data = s3reader.read()
 
 ## Reader Configurations
 
-Amazon S3 Connector for PyTorch supports two types of readers, configurable through `S3ReaderConstructor`.
+Amazon S3 Connector for PyTorch supports three types of readers, configurable through `S3ReaderConstructor`.
 
 ### Reader Types
 
-#### 1. Sequential Reader (Default)
+#### 1. Sequential Reader
 
+- Default for non-DCP use cases.
 - Downloads and buffers the entire S3 object in memory.
 - Prioritizes performance over memory usage by buffering entire objects.
 
 #### 2. Range-based Reader
 
-- Performs byte-range requests to read specific portions of S3 objects without downloading the entire file.
-- Prioritizes memory efficiency, with performance gains only for sparse partial reads.
+- Performs byte-range requests to read specific portions of S3 objects without downloading the entire object.
+- Prioritizes memory efficiency, with performance gains only for sparse partial reads in large objects. 
 - Features adaptive buffering with forward overlap handling:
   - **Small reads** (< `buffer_size`): Use internal buffer to reduce S3 API calls.
   - **Large reads** (≥ `buffer_size`): Bypass buffer for direct transfer.
 
+#### 3. DCP-Optimized Reader
+
+- Default for PyTorch Distributed Checkpoint (DCP) loading with `S3StorageReader`.
+- Provides performance improvements through per-item buffers and zero-copy buffer management.
+- Enables efficient partial checkpoint loading (e.g. model-only) through selective data fetching with range coalescing.
+- Automatically handles range metadata injection from DCP load plan.
+- Requires sequential access patterns (automatically enforced in `S3StorageReader.prepare_local_plan()`)
+
 ### When to Use Each Reader
 
-- **Sequential Reader**: For processing entire files, and when repeated access to the data is required. Best for most general use cases.
+- **Sequential Reader**: For processing entire objects, and when repeated access to the data is required. Best for most general use cases.
 - **Range-based Reader**: For larger objects (100MB+) that require sparse partial reads, and in memory-constrained environments. 
+- **DCP-Optimized Reader**: For typical PyTorch Distributed Checkpoint loading scenarios for highest performance and memory-efficiency. (Default for `S3StorageReader`)
 
 **Note**: S3Reader instances are not thread-safe and should not be shared across threads. For multiprocessing with DataLoader, each worker process creates its own S3Reader instance automatically.
 
 ### Examples
+
+For `S3ReaderConstructor` usage details, please refer to the [`S3ReaderConstructor` documentation](https://awslabs.github.io/s3-connector-for-pytorch/autoapi/s3torchconnector/s3reader/constructor/index.html). Below are some examples for `S3ReaderConstructor` usage. 
 
 Direct method - `S3Client` usage with range-based reader without buffer:
 ```py
@@ -503,15 +532,14 @@ s3reader.seek(100 * 1024 * 1024)   # Skip to 100MB offset
 bytes_read = s3reader.readinto(buffer)  # Direct read into buffer
 ```
 
-DCP interface - `S3StorageReader` usage with range-based reader with buffer:
+DCP interface - `S3StorageReader` usage with dcp-optimized reader:
 ```py
-# Load distributed checkpoint with range-based reader to optimize memory usage for large checkpoint files
+# Load checkpoint with dcp-optimized reader for better performance
 from s3torchconnector.dcp import S3StorageReader
 from s3torchconnector import S3ReaderConstructor
 
-reader_constructor = S3ReaderConstructor.range_based(
-    buffer_size=16*1024*1024  # 16MB buffer
-)
+# dcp_optimized is already the default for S3StorageReader; demonstration purposes only. 
+reader_constructor = S3ReaderConstructor.dcp_optimized()
 s3_storage_reader = S3StorageReader(
     region=REGION, 
     path=CHECKPOINT_URI,
@@ -539,7 +567,6 @@ for item in dataset:
     ...
 ```
 
-For `S3ReaderConstructor` usage details, please refer to the [`S3ReaderConstructor` documentation](https://awslabs.github.io/s3-connector-for-pytorch/autoapi/s3torchconnector/s3reader/constructor/index.html).
 
 ## Contributing
 

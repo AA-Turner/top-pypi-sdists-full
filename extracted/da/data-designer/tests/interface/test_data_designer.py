@@ -4,15 +4,15 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
 
 import pytest
 from pydantic import ValidationError
 
+import data_designer.interface.data_designer as dd_mod
+import data_designer.lazy_heavy_imports as lazy
 from data_designer.config.column_configs import SamplerColumnConfig
 from data_designer.config.config_builder import DataDesignerConfigBuilder
-from data_designer.config.dataset_builders import BuildStage
 from data_designer.config.errors import InvalidConfigError
 from data_designer.config.models import ModelProvider
 from data_designer.config.processors import DropColumnsProcessorConfig
@@ -23,10 +23,6 @@ from data_designer.engine.secret_resolver import CompositeResolver, EnvironmentR
 from data_designer.engine.testing.stubs import StubHuggingFaceSeedReader
 from data_designer.interface.data_designer import DataDesigner
 from data_designer.interface.errors import DataDesignerGenerationError, DataDesignerProfilingError
-from data_designer.lazy_heavy_imports import pd
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 
 @pytest.fixture
@@ -240,7 +236,9 @@ def test_create_raises_error_when_profiler_fails(
         # Mock builder to succeed
         mock_builder = MagicMock()
         mock_builder.build.return_value = None
-        mock_builder.artifact_storage.load_dataset_with_dropped_columns.return_value = pd.DataFrame({"col": [1, 2, 3]})
+        mock_builder.artifact_storage.load_dataset_with_dropped_columns.return_value = lazy.pd.DataFrame(
+            {"col": [1, 2, 3]}
+        )
         mock_builder_method.return_value = mock_builder
 
         # Mock profiler to fail
@@ -291,8 +289,8 @@ def test_preview_raises_error_when_profiler_fails(
     ):
         # Mock builder to succeed
         mock_builder = MagicMock()
-        mock_builder.build_preview.return_value = pd.DataFrame({"col": [1, 2, 3]})
-        mock_builder.process_preview.return_value = pd.DataFrame({"col": [1, 2, 3]})
+        mock_builder.build_preview.return_value = lazy.pd.DataFrame({"col": [1, 2, 3]})
+        mock_builder.process_preview.return_value = lazy.pd.DataFrame({"col": [1, 2, 3]})
         mock_builder_method.return_value = mock_builder
 
         # Mock profiler to fail
@@ -323,11 +321,7 @@ def test_preview_with_dropped_columns(
         SamplerColumnConfig(name="uniform", sampler_type="uniform", params={"low": 1, "high": 100})
     )
 
-    config_builder.add_processor(
-        DropColumnsProcessorConfig(
-            name="drop_columns_processor", build_stage=BuildStage.POST_BATCH, column_names=["category"]
-        )
-    )
+    config_builder.add_processor(DropColumnsProcessorConfig(name="drop_columns_processor", column_names=["category"]))
 
     data_designer = DataDesigner(
         artifact_path=stub_artifact_path,
@@ -389,3 +383,17 @@ def test_validate_raises_error_when_seed_collides(
 
     with pytest.raises(InvalidConfigError):
         data_designer.validate(config_builder)
+
+
+def test_initialize_interface_runtime_runs_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    """_initialize_interface_runtime only runs initialization once."""
+    monkeypatch.setattr(dd_mod, "_interface_runtime_initialized", False)
+
+    with (
+        patch("data_designer.interface.data_designer.configure_logging") as mock_logging,
+        patch("data_designer.interface.data_designer.resolve_seed_default_model_settings") as mock_resolve,
+    ):
+        dd_mod._initialize_interface_runtime()
+        dd_mod._initialize_interface_runtime()
+        mock_logging.assert_called_once()
+        mock_resolve.assert_called_once()

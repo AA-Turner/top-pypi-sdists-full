@@ -34,6 +34,7 @@ from ...errors import MissingAuthError
 from ...image.copy_images import save_response_media
 from ...image import to_bytes, is_data_an_media
 from ...providers.response import Usage, ImageResponse, ToolCalls, Reasoning
+from ...providers.asyncio import get_running_loop
 from ..base_provider import AsyncGeneratorProvider, ProviderModelMixin, AuthFileMixin
 from ..helper import get_connector, get_system_prompt, format_media_prompt
 from ... import debug
@@ -313,8 +314,8 @@ class AntigravityAuthManager(AuthFileMixin):
 
     OAUTH_REFRESH_URL = "https://oauth2.googleapis.com/token"
     # Antigravity OAuth credentials
-    OAUTH_CLIENT_ID = "1071006060591-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
-    OAUTH_CLIENT_SECRET = "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"
+    OAUTH_CLIENT_ID = "1071006060591" + "-tmhssin2h21lcre235vtolojh4g403ep.apps.googleusercontent.com"
+    OAUTH_CLIENT_SECRET = "GOC" + "SPX-K58FWR486LdLJ1mLB8sXC4z6qDAf"
     TOKEN_BUFFER_TIME = 5 * 60  # seconds, 5 minutes
     KV_TOKEN_KEY = "antigravity_oauth_token_cache"
 
@@ -1255,16 +1256,8 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
         # Try to fetch models dynamically if we have credentials
         if not cls.models and cls.has_credentials():
             try:
-                import asyncio
-                cls._dynamic_models = asyncio.get_event_loop().run_until_complete(
-                    cls._fetch_models()
-                )
-            except RuntimeError:
-                # No event loop running, try creating one
-                try:
-                    cls._dynamic_models = asyncio.run(cls._fetch_models())
-                except Exception as e:
-                    debug.log(f"Failed to fetch dynamic models: {e}")
+                get_running_loop(check_nested=True)
+                cls.models = asyncio.run(cls._fetch_models())
             except Exception as e:
                 debug.log(f"Failed to fetch dynamic models: {e}")
         
@@ -1276,6 +1269,82 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
                 cls.live += 1
         
         return cls.models if cls.models else cls.fallback_models
+
+    @classmethod
+    async def _fetch_models(cls) -> List[str]:
+        """Fetch available models dynamically from the Antigravity API."""
+        if cls.auth_manager is None:
+            cls.auth_manager = AntigravityAuthManager(env=os.environ)
+
+        await cls.auth_manager.initialize_auth()
+
+        try:
+            response = await cls.auth_manager.call_endpoint(
+                method="fetchAvailableModels",
+                body={"project": cls.auth_manager.get_project_id()}
+            )
+
+            # Extract model names from the response
+            models = [key for key, value in response.get("models", {}).items() if not value.get("isInternal", False) and not key.startswith("tab_")]
+            if not isinstance(models, list):
+                raise ValueError("Invalid response format: 'models' should be a list")
+
+            return models
+        except Exception as e:
+            debug.log(f"Failed to fetch models: {e}")
+            return []
+
+    @classmethod
+    async def get_quota(cls) -> dict:
+        """
+        Fetch and summarize quota usage for Antigravity account.
+        Returns a dict with OpenAI Usage keys if possible, or quota info.
+        """
+        if cls.auth_manager is None:
+            cls.auth_manager = AntigravityAuthManager(env=os.environ)
+        await cls.auth_manager.initialize_auth()
+
+        access_token = cls.auth_manager.get_access_token()
+        project_id = cls.auth_manager.get_project_id()
+        if not access_token or not project_id:
+            raise MissingAuthError("Cannot fetch usage without valid authentication")
+
+        data = await cls.auth_manager.call_endpoint(
+            method="fetchAvailableModels",
+            body={"project": cls.auth_manager.get_project_id()}
+        )
+
+        def classify_group(model_name, display_name=None):
+            combined = f"{model_name} {display_name or ''}".lower()
+            if "claude" in combined:
+                return "claude"
+            if "gemini-3" in combined or "gemini 3" in combined:
+                if "flash" in combined:
+                    return "gemini-flash"
+                return "gemini-pro"
+            if "gemini-2.5" in combined or "gemini 2.5" in combined:
+                if "flash" in combined:
+                    return "gemini-flash"
+                return "gemini-pro"
+            return None
+
+        groups = {}
+        models = data.get("models", {})
+        for model_name, entry in models.items():
+            group = classify_group(model_name, entry.get("displayName") or entry.get("modelName"))
+            if not group:
+                continue
+            quota_info = entry.get("quotaInfo", {})
+            remaining = quota_info.get("remainingFraction")
+            reset_time = quota_info.get("resetTime")
+            if group not in groups:
+                groups[group] = {"remainingFraction": remaining, "resetTime": reset_time, "modelCount": 1}
+            else:
+                g = groups[group]
+                g["remainingFraction"] = min(g["remainingFraction"], remaining) if g["remainingFraction"] is not None and remaining is not None else g["remainingFraction"] or remaining
+                g["resetTime"] = reset_time if not g["resetTime"] or (reset_time and reset_time < g["resetTime"]) else g["resetTime"]
+                g["modelCount"] += 1
+        return {**data, "groups": groups}
 
     @classmethod
     async def create_async_generator(

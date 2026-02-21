@@ -31,6 +31,9 @@ from setuptools import find_namespace_packages
 def read_desc():
     with open('README.rst', encoding='utf-8') as stream:
         readme = stream.read()
+    # CHANGES.rst includes sphinx-specific markup, so
+    # it can't be in the long description without some processing
+    # that we're not doing -- its invalid ReST
 
     return readme
 
@@ -50,6 +53,7 @@ tests_require = [
     # method is invoked. So we now have to test side effects.
     # That's OK, and the same side effect test works on older
     # versions as well.
+    "erbsland-sphinx-ansi; python_version >= '3.10'",
 ]
 
 setup(
@@ -65,6 +69,14 @@ setup(
     long_description=read_desc(),
     keywords="sphinx cli command output program example",
     zip_safe=False,
+    project_urls={
+        'Homepage': "https://sphinxcontrib-programoutput.readthedocs.io/en/latest/",
+        'Documentation': "https://sphinxcontrib-programoutput.readthedocs.io/en/latest/",
+        "Repository": "https://github.com/OpenNTI/sphinxcontrib-programoutput/",
+        "Issues": "https://github.com/OpenNTI/sphinxcontrib-programoutput/issues",
+        "Changelog":
+            "https://github.com/OpenNTI/sphinxcontrib-programoutput/blob/master/CHANGES.rst",
+    },
     classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -78,6 +90,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
         "Programming Language :: Python :: Implementation :: CPython",
         "Programming Language :: Python :: Implementation :: PyPy",
         'Topic :: Documentation',

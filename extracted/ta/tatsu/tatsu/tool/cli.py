@@ -7,6 +7,7 @@ import importlib
 import sys
 from pathlib import Path
 
+from .. import railroads
 from .._version import __version__
 from ..exceptions import ParseException
 from ..ngcodegen import modelgen, pythongen
@@ -26,7 +27,9 @@ DESCRIPTION = (
 
 def parse_args():
     argparser = argparse.ArgumentParser(
-        prog='tatsu', description=DESCRIPTION, add_help=False,
+        prog='tatsu',
+        description=DESCRIPTION,
+        add_help=False,
     )
 
     main_mode = argparser.add_mutually_exclusive_group()
@@ -41,8 +44,14 @@ def parse_args():
         help=(
             'generate a diagram of the grammar'
             ' (.svg, .png, .jpeg, .dot, ...'
-             ' / requres --outfile)'
+            ' / requres --outfile)'
         ),
+        action='store_true',
+    )
+    main_mode.add_argument(
+        '--railroad',
+        '-r',
+        help='output a railroad diagram of the grammar in ASCII/Text Art',
         action='store_true',
     )
     main_mode.add_argument(
@@ -132,9 +141,7 @@ def parse_args():
 
             return getattr(module, spath[1])
         except Exception as e:
-            raise argparse.ArgumentTypeError(
-                f"Couldn't find class {path}",
-            ) from e
+            raise argparse.ArgumentTypeError(f"Couldn't find class {path}") from e
 
     generation_opts.add_argument(
         '--base-type',
@@ -145,7 +152,10 @@ def parse_args():
 
     std_args = argparser.add_argument_group('common options')
     std_args.add_argument(
-        '--help', '-h', help='show this help message and exit', action='help',
+        '--help',
+        '-h',
+        help='show this help message and exit',
+        action='help',
     )
     std_args.add_argument(
         '--version',
@@ -201,18 +211,19 @@ def tatsu_main():
             left_recursion=args.left_recursion,
             nameguard=args.nameguard,
             whitespace=str(args.whitespace),
-
         )
-        model = api.compile(
-            grammar,
-            args.name,
-            asmodel=True,
-            config=config,
-        )
+        model = api.compile(grammar, args.name, asmodel=True, config=config)
 
         if args.draw:
             from .. import diagrams
+
             diagrams.draw(outfile, model)
+        elif args.railroad:
+            railroad = railroads.text(model)
+            if outfile:
+                save(outfile, railroad)
+            else:
+                print(railroad)
         else:
             if args.pretty:
                 result = model.pretty()
@@ -236,9 +247,7 @@ def tatsu_main():
                 )
 
         print('─' * 72, file=sys.stderr)
-        print(
-            f'{len(grammar.split()):12,d}  lines in grammar', file=sys.stderr,
-        )
+        print(f'{len(grammar.split()):12,d}  lines in grammar', file=sys.stderr)
         print(f'{len(model.rules):12,d}  rules in grammar', file=sys.stderr)
         print(f'{model.nodecount():12,d}  nodes in AST', file=sys.stderr)
     except ParseException as e:

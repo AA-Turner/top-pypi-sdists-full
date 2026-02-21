@@ -20,6 +20,7 @@ pytest.importorskip(
 from prefect_dbt.core._orchestrator import (  # noqa: E402
     ExecutionMode,
     PrefectDbtOrchestrator,
+    TestStrategy,
 )
 from prefect_dbt.core.settings import PrefectDbtSettings  # noqa: E402
 
@@ -42,6 +43,41 @@ ALL_EXECUTABLE = {
     STG_CUSTOMERS,
     STG_ORDERS,
     CUSTOMER_SUMMARY,
+}
+
+# Test node IDs generated from schema.yml files in the test project.
+# These are deterministic: dbt derives them from model/column/test names
+# plus a short hash suffix.
+TEST_NOT_NULL_STG_CUSTOMERS_ID = (
+    "test.test_project.not_null_stg_customers_customer_id.e2cfb1f9aa"
+)
+TEST_NOT_NULL_STG_ORDERS_ORDER_ID = (
+    "test.test_project.not_null_stg_orders_order_id.81cfe2fe64"
+)
+TEST_NOT_NULL_STG_ORDERS_CUSTOMER_ID = (
+    "test.test_project.not_null_stg_orders_customer_id.af79d5e4b5"
+)
+TEST_UNIQUE_STG_CUSTOMERS_ID = (
+    "test.test_project.unique_stg_customers_customer_id.c7614daada"
+)
+TEST_UNIQUE_STG_ORDERS_ID = "test.test_project.unique_stg_orders_order_id.e3b841c71a"
+TEST_RELATIONSHIPS_ORDERS_CUSTOMERS = "test.test_project.relationships_stg_orders_customer_id__customer_id__ref_stg_customers_.430bf21500"
+TEST_NOT_NULL_SUMMARY_ID = (
+    "test.test_project.not_null_customer_summary_customer_id.a81d32eb67"
+)
+TEST_UNIQUE_SUMMARY_ID = (
+    "test.test_project.unique_customer_summary_customer_id.2fb01e9693"
+)
+
+ALL_TESTS = {
+    TEST_NOT_NULL_STG_CUSTOMERS_ID,
+    TEST_NOT_NULL_STG_ORDERS_ORDER_ID,
+    TEST_NOT_NULL_STG_ORDERS_CUSTOMER_ID,
+    TEST_UNIQUE_STG_CUSTOMERS_ID,
+    TEST_UNIQUE_STG_ORDERS_ID,
+    TEST_RELATIONSHIPS_ORDERS_CUSTOMERS,
+    TEST_NOT_NULL_SUMMARY_ID,
+    TEST_UNIQUE_SUMMARY_ID,
 }
 
 
@@ -105,9 +141,16 @@ def dbt_project(tmp_path_factory):
 
 @pytest.fixture
 def orchestrator(dbt_project):
-    """Factory fixture that creates a PrefectDbtOrchestrator for the test project."""
+    """Factory fixture that creates a PrefectDbtOrchestrator for the test project.
+
+    Defaults to `test_strategy=TestStrategy.SKIP` so that tests which are not
+    specifically exercising test-strategy behaviour get deterministic results
+    containing only model/seed nodes.  Tests in `TestTestStrategyIntegration`
+    override this by passing an explicit `test_strategy`.
+    """
 
     def _factory(**kwargs):
+        kwargs.setdefault("test_strategy", TestStrategy.SKIP)
         settings = PrefectDbtSettings(
             project_dir=dbt_project["project_dir"],
             profiles_dir=dbt_project["profiles_dir"],
@@ -346,9 +389,14 @@ def per_node_dbt_project(dbt_project, tmp_path):
 
 @pytest.fixture
 def per_node_orchestrator(per_node_dbt_project):
-    """Factory fixture that creates a PrefectDbtOrchestrator for PER_NODE tests."""
+    """Factory fixture that creates a PrefectDbtOrchestrator for PER_NODE tests.
+
+    Defaults to `test_strategy=TestStrategy.SKIP` for the same reason as
+    the `orchestrator` fixture.
+    """
 
     def _factory(**kwargs):
+        kwargs.setdefault("test_strategy", TestStrategy.SKIP)
         settings = PrefectDbtSettings(
             project_dir=per_node_dbt_project["project_dir"],
             profiles_dir=per_node_dbt_project["profiles_dir"],
@@ -358,6 +406,45 @@ def per_node_orchestrator(per_node_dbt_project):
             manifest_path=per_node_dbt_project["manifest_path"],
             **kwargs,
         )
+
+    return _factory
+
+
+@pytest.fixture
+def caching_orchestrator(per_node_dbt_project, tmp_path):
+    """Factory fixture for PER_NODE orchestrator with caching enabled.
+
+    Shares result_storage and cache_key_storage across calls so
+    cross-instance cache tests can verify persistence.
+
+    Uses ThreadPoolTaskRunner to avoid ProcessPoolTaskRunner limitations
+    with Prefect's cache key resolution across process boundaries.
+    """
+    from prefect.task_runners import ThreadPoolTaskRunner
+
+    result_dir = tmp_path / "result_storage"
+    result_dir.mkdir()
+    key_dir = tmp_path / "cache_key_storage"
+    key_dir.mkdir()
+
+    def _factory(**kwargs):
+        settings = PrefectDbtSettings(
+            project_dir=per_node_dbt_project["project_dir"],
+            profiles_dir=per_node_dbt_project["profiles_dir"],
+        )
+        defaults = {
+            "settings": settings,
+            "manifest_path": per_node_dbt_project["manifest_path"],
+            "execution_mode": ExecutionMode.PER_NODE,
+            "concurrency": 1,
+            "enable_caching": True,
+            "result_storage": result_dir,
+            "cache_key_storage": str(key_dir),
+            "task_runner_type": ThreadPoolTaskRunner,
+            "test_strategy": TestStrategy.SKIP,
+        }
+        defaults.update(kwargs)
+        return PrefectDbtOrchestrator(**defaults)
 
     return _factory
 
@@ -576,3 +663,464 @@ class TestPerNodeIntegration:
             assert result["status"] == "success", (
                 f"{node_id} failed: {result.get('error')}"
             )
+
+
+def _object_exists(db_path: Path, name: str) -> bool:
+    """Check whether a table or view exists in DuckDB."""
+    conn = duckdb.connect(str(db_path))
+    try:
+        conn.execute(f"select 1 from main.{name} limit 1")
+        return True
+    except duckdb.CatalogException:
+        return False
+    finally:
+        conn.close()
+
+
+def _drop_object(db_path: Path, name: str, kind: str = "TABLE") -> None:
+    """Drop a table or view from DuckDB."""
+    conn = duckdb.connect(str(db_path))
+    try:
+        conn.execute(f"DROP {kind} IF EXISTS main.{name}")
+    finally:
+        conn.close()
+
+
+def _row_count(db_path: Path, name: str) -> int:
+    """Return the row count of a table or view in DuckDB."""
+    conn = duckdb.connect(str(db_path))
+    try:
+        return conn.execute(f"select count(*) from main.{name}").fetchone()[0]
+    finally:
+        conn.close()
+
+
+class TestPerNodeCachingIntegration:
+    """Integration tests for PER_NODE caching against real DuckDB.
+
+    Cache-hit detection strategy ("drop table"):
+      1. Run 1: build all nodes (populates DuckDB + cache)
+      2. Drop a specific table/view from DuckDB
+      3. Run 2: build again
+      4. If the node was cached (not re-executed), the dropped object stays absent
+      5. If the node was re-executed, dbt recreates the object
+    """
+
+    def test_second_run_uses_cache(self, caching_orchestrator, per_node_dbt_project):
+        """A second identical build hits the cache — dbt does not re-execute."""
+        from prefect import flow
+
+        orch = caching_orchestrator()
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        @flow
+        def run():
+            return orch.run_build()
+
+        # Run 1: full build
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+        assert _object_exists(db_path, "customer_summary")
+
+        # Drop a mart table between runs
+        _drop_object(db_path, "customer_summary", "TABLE")
+        assert not _object_exists(db_path, "customer_summary")
+
+        # Run 2: should be entirely cached
+        r2 = run()
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was NOT recreated → dbt never re-executed it
+        assert not _object_exists(db_path, "customer_summary")
+
+    def test_sql_change_invalidates_affected_nodes(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """Changing a SQL file invalidates that node and cascades downstream.
+
+        stg_customers.sql is modified between runs.  The file-content hash
+        changes, which invalidates stg_customers' cache key.  Because
+        customer_summary includes stg_customers in its upstream_cache_keys,
+        its own key also changes — so it is re-executed as well.
+
+        We verify with the "drop table" trick: drop customer_summary after
+        run 1.  If it reappears after run 2 the cascade invalidation worked.
+        """
+        from prefect import flow
+
+        project_dir = per_node_dbt_project["project_dir"]
+        db_path = project_dir / "warehouse.duckdb"
+
+        orch = caching_orchestrator()
+
+        @flow
+        def run():
+            return orch.run_build()
+
+        # Run 1: full build
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+        assert _object_exists(db_path, "customer_summary")
+
+        # Modify stg_customers — changes its file_content_hash
+        stg_path = project_dir / "models" / "staging" / "stg_customers.sql"
+        stg_path.write_text(
+            "select customer_id, name, created_at::date as created_at\n"
+            "from {{ ref('customers') }}\n"
+            "where customer_id <= 3\n"
+        )
+
+        # Drop customer_summary TABLE.  If the downstream cascade works,
+        # dbt will re-create it in run 2.
+        _drop_object(db_path, "customer_summary", "TABLE")
+        assert not _object_exists(db_path, "customer_summary")
+
+        # Run 2: stg_customers cache miss (file changed) propagates to
+        # customer_summary cache miss (upstream key changed) → re-executed
+        r2 = run()
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was re-created → cascade invalidation worked
+        assert _object_exists(db_path, "customer_summary")
+
+        # stg_customers VIEW was also re-executed (file hash changed)
+        assert _row_count(db_path, "stg_customers") == 3
+
+    def test_full_refresh_bypasses_cache(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """full_refresh=True forces re-execution even when cache is warm."""
+        from prefect import flow
+
+        orch = caching_orchestrator()
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        @flow
+        def run(**kwargs):
+            return orch.run_build(**kwargs)
+
+        # Run 1: warm cache
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+
+        # Drop customer_summary
+        _drop_object(db_path, "customer_summary", "TABLE")
+
+        # Run 2 with full_refresh → cache is bypassed
+        r2 = run(full_refresh=True)
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was recreated because full_refresh bypassed cache
+        assert _object_exists(db_path, "customer_summary")
+
+    def test_cache_persists_across_orchestrator_instances(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """A second orchestrator instance (sharing storage) reuses the cache."""
+        from prefect import flow
+
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        # Instance 1: build and populate cache
+        orch1 = caching_orchestrator()
+
+        @flow
+        def run1():
+            return orch1.run_build()
+
+        r1 = run1()
+        assert all(r["status"] == "success" for r in r1.values())
+
+        # Drop customer_summary between instances
+        _drop_object(db_path, "customer_summary", "TABLE")
+
+        # Instance 2: shares the same storage dirs
+        orch2 = caching_orchestrator()
+
+        @flow
+        def run2():
+            return orch2.run_build()
+
+        r2 = run2()
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was NOT recreated → orch2 used orch1's cache
+        assert not _object_exists(db_path, "customer_summary")
+
+    def test_caching_disabled_executes_every_time(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """With enable_caching=False, every run re-executes all nodes."""
+        from prefect import flow
+
+        orch = caching_orchestrator(enable_caching=False)
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        @flow
+        def run():
+            return orch.run_build()
+
+        # Run 1
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+
+        # Drop customer_summary
+        _drop_object(db_path, "customer_summary", "TABLE")
+
+        # Run 2 without caching → dbt re-executes everything
+        r2 = run()
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was recreated (no caching = always re-executes)
+        assert _object_exists(db_path, "customer_summary")
+
+    def test_full_refresh_always_re_executes(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """Repeated full_refresh=True runs always execute (never cached)."""
+        from prefect import flow
+
+        orch = caching_orchestrator()
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        @flow
+        def run(**kwargs):
+            return orch.run_build(**kwargs)
+
+        # Run 1: full_refresh build — populates DB
+        r1 = run(full_refresh=True)
+        assert all(r["status"] == "success" for r in r1.values())
+        assert _object_exists(db_path, "customer_summary")
+
+        # Drop customer_summary between runs
+        _drop_object(db_path, "customer_summary", "TABLE")
+        assert not _object_exists(db_path, "customer_summary")
+
+        # Run 2: full_refresh again — must re-execute (not cached)
+        r2 = run(full_refresh=True)
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was recreated — full_refresh never caches
+        assert _object_exists(db_path, "customer_summary")
+
+    def test_normal_run_after_full_refresh_uses_cache(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """A normal run's cache isn't poisoned by a full_refresh run."""
+        from prefect import flow
+
+        orch = caching_orchestrator()
+        db_path = per_node_dbt_project["project_dir"] / "warehouse.duckdb"
+
+        @flow
+        def run(**kwargs):
+            return orch.run_build(**kwargs)
+
+        # Run 1: normal build — warms cache
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+
+        # Run 2: full_refresh — always executes
+        r2 = run(full_refresh=True)
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # Drop customer_summary
+        _drop_object(db_path, "customer_summary", "TABLE")
+        assert not _object_exists(db_path, "customer_summary")
+
+        # Run 3: normal build — should hit Run 1's cache
+        r3 = run()
+        assert all(r["status"] == "success" for r in r3.values())
+
+        # customer_summary was NOT recreated — Run 1's cache was used
+        assert not _object_exists(db_path, "customer_summary")
+
+    def test_macro_change_invalidates_cache(
+        self, caching_orchestrator, per_node_dbt_project
+    ):
+        """Editing a macro file invalidates cache for dependent nodes."""
+        from prefect import flow
+
+        project_dir = per_node_dbt_project["project_dir"]
+        db_path = project_dir / "warehouse.duckdb"
+
+        orch = caching_orchestrator()
+
+        @flow
+        def run():
+            return orch.run_build()
+
+        # Run 1: full build — warms cache
+        r1 = run()
+        assert all(r["status"] == "success" for r in r1.values())
+        assert _object_exists(db_path, "customer_summary")
+
+        # Modify the macro file on disk — changes the macro content hash
+        macro_path = project_dir / "macros" / "format_amount.sql"
+        macro_path.write_text(
+            "{% macro format_amount(column) %}\n"
+            "    coalesce({{ column }}, 0)\n"
+            "{% endmacro %}\n"
+        )
+
+        # Drop customer_summary — if cache miss, dbt will recreate it
+        _drop_object(db_path, "customer_summary", "TABLE")
+        assert not _object_exists(db_path, "customer_summary")
+
+        # Run 2: macro hash changed → customer_summary must re-execute
+        r2 = run()
+        assert all(r["status"] == "success" for r in r2.values())
+
+        # customer_summary was recreated — macro change invalidated cache
+        assert _object_exists(db_path, "customer_summary")
+
+
+class TestTestStrategyIntegration:
+    """Integration tests for test strategies against a real DuckDB dbt project.
+
+    The dbt test project includes schema.yml files that define not_null,
+    unique, and relationship tests on staging and mart models.  The expected
+    test node IDs are declared as constants (ALL_TESTS) so assertions are
+    deterministic.
+    """
+
+    def test_fixture_contains_test_definitions(self, dbt_project):
+        """Guard: verify the manifest contains the expected test nodes.
+
+        If this fails, the schema.yml files in dbt_test_project are missing
+        or dbt parse did not generate test nodes.
+        """
+        import json
+
+        manifest = json.loads(dbt_project["manifest_path"].read_text())
+        manifest_test_ids = {
+            uid for uid in manifest["nodes"] if uid.startswith("test.")
+        }
+        assert manifest_test_ids == ALL_TESTS, (
+            f"Manifest test nodes don't match ALL_TESTS.\n"
+            f"  Missing: {ALL_TESTS - manifest_test_ids}\n"
+            f"  Extra:   {manifest_test_ids - ALL_TESTS}"
+        )
+
+    def test_skip_produces_no_test_results(self, orchestrator):
+        """SKIP strategy: no test node IDs in results."""
+        orch = orchestrator(test_strategy=TestStrategy.SKIP)
+        results = orch.run_build()
+
+        test_ids = {k for k in results if k.startswith("test.")}
+        assert test_ids == set()
+        assert set(results.keys()) == ALL_EXECUTABLE
+
+    def test_immediate_per_wave_includes_tests(self, orchestrator):
+        """IMMEDIATE + PER_WAVE: all expected test nodes appear with success."""
+        orch = orchestrator(test_strategy=TestStrategy.IMMEDIATE)
+        results = orch.run_build()
+
+        model_ids = {k for k in results if not k.startswith("test.")}
+        test_ids = {k for k in results if k.startswith("test.")}
+
+        assert model_ids == ALL_EXECUTABLE
+        assert test_ids == ALL_TESTS
+        for tid in test_ids:
+            assert results[tid]["status"] == "success", (
+                f"Test {tid} failed: {results[tid].get('error')}"
+            )
+
+    def test_deferred_per_wave_includes_tests(self, orchestrator):
+        """DEFERRED + PER_WAVE: all expected test nodes appear with success."""
+        orch = orchestrator(test_strategy=TestStrategy.DEFERRED)
+        results = orch.run_build()
+
+        model_ids = {k for k in results if not k.startswith("test.")}
+        test_ids = {k for k in results if k.startswith("test.")}
+
+        assert model_ids == ALL_EXECUTABLE
+        assert test_ids == ALL_TESTS
+        for tid in test_ids:
+            assert results[tid]["status"] == "success", (
+                f"Test {tid} failed: {results[tid].get('error')}"
+            )
+
+    def test_immediate_per_node_includes_tests(self, per_node_orchestrator):
+        """IMMEDIATE + PER_NODE: all expected test nodes appear with success."""
+        from prefect import flow
+
+        orch = per_node_orchestrator(
+            execution_mode=ExecutionMode.PER_NODE,
+            concurrency=1,
+            test_strategy=TestStrategy.IMMEDIATE,
+        )
+
+        @flow
+        def test_flow():
+            return orch.run_build()
+
+        results = test_flow()
+
+        model_ids = {k for k in results if not k.startswith("test.")}
+        test_ids = {k for k in results if k.startswith("test.")}
+
+        assert model_ids == ALL_EXECUTABLE
+        assert test_ids == ALL_TESTS
+        for tid in test_ids:
+            assert results[tid]["status"] == "success", (
+                f"Test {tid} failed: {results[tid].get('error')}"
+            )
+
+    def test_deferred_per_node_includes_tests(self, per_node_orchestrator):
+        """DEFERRED + PER_NODE: test nodes run after all models."""
+        from prefect import flow
+
+        orch = per_node_orchestrator(
+            execution_mode=ExecutionMode.PER_NODE,
+            concurrency=1,
+            test_strategy=TestStrategy.DEFERRED,
+        )
+
+        @flow
+        def test_flow():
+            return orch.run_build()
+
+        results = test_flow()
+
+        model_ids = {k for k in results if not k.startswith("test.")}
+        test_ids = {k for k in results if k.startswith("test.")}
+
+        assert model_ids == ALL_EXECUTABLE
+        assert test_ids == ALL_TESTS
+
+        # All models must complete before any test starts
+        latest_model = max(results[m]["timing"]["completed_at"] for m in model_ids)
+        earliest_test = min(results[t]["timing"]["started_at"] for t in test_ids)
+        assert latest_model <= earliest_test
+
+    def test_relationship_test_passes(self, orchestrator):
+        """The relationship test between stg_orders.customer_id -> stg_customers passes."""
+        orch = orchestrator(test_strategy=TestStrategy.IMMEDIATE)
+        results = orch.run_build()
+
+        assert TEST_RELATIONSHIPS_ORDERS_CUSTOMERS in results
+        assert results[TEST_RELATIONSHIPS_ORDERS_CUSTOMERS]["status"] == "success", (
+            f"Relationship test failed: "
+            f"{results[TEST_RELATIONSHIPS_ORDERS_CUSTOMERS].get('error')}"
+        )
+
+    def test_per_node_skip_produces_no_test_results(self, per_node_orchestrator):
+        """SKIP + PER_NODE: no test results, backward compatible."""
+        from prefect import flow
+
+        orch = per_node_orchestrator(
+            execution_mode=ExecutionMode.PER_NODE,
+            concurrency=1,
+            test_strategy=TestStrategy.SKIP,
+        )
+
+        @flow
+        def test_flow():
+            return orch.run_build()
+
+        results = test_flow()
+
+        test_ids = {k for k in results if k.startswith("test.")}
+        assert test_ids == set()
+        assert set(results.keys()) == ALL_EXECUTABLE

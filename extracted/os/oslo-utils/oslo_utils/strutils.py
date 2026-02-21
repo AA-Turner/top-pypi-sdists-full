@@ -20,7 +20,7 @@ System-level utilities and helper functions.
 import collections.abc
 import math
 import re
-from typing import Any
+from typing import Any, Literal, overload
 import unicodedata
 import urllib.parse
 
@@ -227,6 +227,24 @@ def is_valid_boolstr(value: Any) -> bool:
     return str(value).lower() in boolstrs
 
 
+@overload
+def string_to_bytes(
+    text: str, unit_system: str = 'IEC', return_int: Literal[True] = ...
+) -> int: ...
+
+
+@overload
+def string_to_bytes(
+    text: str, unit_system: str = 'IEC', return_int: Literal[False] = ...
+) -> float: ...
+
+
+@overload
+def string_to_bytes(
+    text: str, unit_system: str = 'IEC', return_int: bool = False
+) -> int | float: ...
+
+
 def string_to_bytes(
     text: str, unit_system: str = 'IEC', return_int: bool = False
 ) -> int | float:
@@ -397,7 +415,7 @@ def to_slug(
 # this file or, even better, pick an existing pattern or key to use in
 # your application to ensure that the value is masked by this
 # function.
-def mask_password(message: str, secret: str = "***") -> str:  # noqa: S107
+def mask_password(message: object, secret: str = "***") -> str:  # noqa: S107
     """Replace password with *secret* in message.
 
     :param message: The string which includes security information.
@@ -440,12 +458,10 @@ def mask_password(message: str, secret: str = "***") -> str:  # noqa: S107
        Replace also ``'CHAPPASSWORD'`` key.
     """
 
-    try:
+    if isinstance(message, bytes):
+        message = message.decode(errors='ignore')
+    else:
         message = str(message)
-    except UnicodeDecodeError:  # nosec
-        # NOTE(jecarey): Temporary fix to handle cases where message is a
-        # byte string. A better solution will be provided in Kilo.
-        pass
 
     substitute1 = r'\g<1>' + secret
     substitute2 = r'\g<1>' + secret + r'\g<2>'
@@ -472,7 +488,8 @@ def mask_password(message: str, secret: str = "***") -> str:  # noqa: S107
 # TODO(stephenfin): The types aren't great for this. We want to indicate that
 # the types of values in the returned dict are always identical to those of the
 # input collection except if the value was a non-dict collection. It would be
-# better if we returned the same type of Mapping here that we received on input.
+# better if we returned the same type of Mapping here that we received on
+# input.
 def mask_dict_password(
     dictionary: collections.abc.Mapping[Any, Any],
     secret: str = "***",  # noqa: S107

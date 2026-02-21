@@ -1,23 +1,21 @@
 Metadata-Version: 2.4
 Name: dagster-cloud-cli
-Version: 1.12.14
-Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-cloud-cli
-Author: Dagster Labs
-Author-email: hello@dagsterlabs.com
-License: Apache-2.0
+Version: 1.12.15
+Author-email: Dagster Labs <hello@dagsterlabs.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-cloud-cli
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 License-File: LICENSE
-Requires-Dist: dagster-shared
+Requires-Dist: dagster-shared==1.12.15
 Requires-Dist: packaging>=20.9
 Requires-Dist: questionary
 Requires-Dist: requests
-Requires-Dist: typer>=0.4.1
+Requires-Dist: typer>=0.15.0
 Requires-Dist: click
 Requires-Dist: PyYAML>=5.1
 Requires-Dist: github3.py
@@ -31,11 +29,4 @@ Requires-Dist: pytest>=8; extra == "test"
 Requires-Dist: pytest-mock==3.14.0; extra == "test"
 Requires-Dist: flaky; extra == "test"
 Requires-Dist: pex<2.60.0,>=2.1.132; extra == "test"
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: provides-extra
-Dynamic: requires-dist

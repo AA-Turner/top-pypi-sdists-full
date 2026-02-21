@@ -3,7 +3,7 @@ Type annotations for appstream service type definitions.
 
 [Documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_appstream/type_defs/)
 
-Copyright 2025 Vlad Emelianov
+Copyright 2026 Vlad Emelianov
 
 Usage::
 
@@ -894,6 +894,7 @@ class AppBlockBuilderTypeDef(TypedDict):
     AppBlockBuilderErrors: NotRequired[list[ResourceErrorTypeDef]]
     StateChangeReason: NotRequired[AppBlockBuilderStateChangeReasonTypeDef]
     AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class ExportImageTaskTypeDef(TypedDict):
@@ -1270,6 +1271,7 @@ class FleetTypeDef(TypedDict):
     SessionScriptS3Location: NotRequired[S3LocationTypeDef]
     MaxSessionsPerInstance: NotRequired[int]
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class ImageBuilderTypeDef(TypedDict):
@@ -1293,6 +1295,7 @@ class ImageBuilderTypeDef(TypedDict):
     AccessEndpoints: NotRequired[list[AccessEndpointTypeDef]]
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
     LatestAppstreamAgentVersion: NotRequired[LatestAppstreamAgentVersionType]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class SessionTypeDef(TypedDict):
@@ -1640,6 +1643,7 @@ class CreateAppBlockBuilderRequestTypeDef(TypedDict):
     EnableDefaultInternetAccess: NotRequired[bool]
     IamRoleArn: NotRequired[str]
     AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class CreateFleetRequestTypeDef(TypedDict):
@@ -1666,6 +1670,7 @@ class CreateFleetRequestTypeDef(TypedDict):
     SessionScriptS3Location: NotRequired[S3LocationTypeDef]
     MaxSessionsPerInstance: NotRequired[int]
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class CreateImageBuilderRequestTypeDef(TypedDict):
@@ -1685,6 +1690,7 @@ class CreateImageBuilderRequestTypeDef(TypedDict):
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
     SoftwaresToInstall: NotRequired[Sequence[str]]
     SoftwaresToUninstall: NotRequired[Sequence[str]]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class UpdateAppBlockBuilderRequestTypeDef(TypedDict):
@@ -1698,6 +1704,7 @@ class UpdateAppBlockBuilderRequestTypeDef(TypedDict):
     IamRoleArn: NotRequired[str]
     AccessEndpoints: NotRequired[Sequence[AccessEndpointTypeDef]]
     AttributesToDelete: NotRequired[Sequence[AppBlockBuilderAttributeType]]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class UpdateFleetRequestTypeDef(TypedDict):
@@ -1724,6 +1731,7 @@ class UpdateFleetRequestTypeDef(TypedDict):
     SessionScriptS3Location: NotRequired[S3LocationTypeDef]
     MaxSessionsPerInstance: NotRequired[int]
     RootVolumeConfig: NotRequired[VolumeConfigTypeDef]
+    DisableIMDSV1: NotRequired[bool]
 
 
 class CreateImportedImageResultTypeDef(TypedDict):

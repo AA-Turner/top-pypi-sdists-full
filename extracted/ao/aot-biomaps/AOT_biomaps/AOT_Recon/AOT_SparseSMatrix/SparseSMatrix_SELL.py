@@ -376,3 +376,44 @@ class SparseSMatrix_SELL:
         total_bytes += self.norm_factor_inv_gpu_size
         
         return total_bytes / (1024 ** 3)  # Returns only the size in GB
+    
+    def flipAngle(self):
+        """
+        Permute les colonnes de la matrice SELL-C-σ correspondant à des angles opposés.
+        Suppose que N est pair et que les angles sont organisés de manière symétrique.
+        """
+        if self.N % 2 != 0:
+            raise ValueError("Le nombre d'angles doit être pair pour permuter les angles opposés.")
+
+        # 1. Calculer la taille d'un bloc d'angle (en colonnes)
+        ZX = self.Z * self.X
+        angle_block_size = ZX // self.N
+
+        # 2. Récupérer sell_colinds sur le host pour modification
+        sell_colinds_host = np.empty(self.total_storage, dtype=np.uint32)
+        drv.memcpy_dtoh(sell_colinds_host, self.sell_colinds_gpu)
+
+        # 3. Pour chaque paire d'angles opposés
+        for n in range(self.N // 2):
+            n_opposite = n + self.N // 2
+            # Indices des blocs de colonnes à permuter
+            block_n_start = n * angle_block_size
+            block_n_end = (n + 1) * angle_block_size
+            block_opposite_start = n_opposite * angle_block_size
+            block_opposite_end = (n_opposite + 1) * angle_block_size
+
+            # 4. Trouver tous les éléments dans sell_colinds_host qui pointent vers ces blocs
+            mask_n = (sell_colinds_host >= block_n_start) & (sell_colinds_host < block_n_end)
+            mask_opposite = (sell_colinds_host >= block_opposite_start) & (sell_colinds_host < block_opposite_end)
+
+            # 5. Permuter les indices
+            sell_colinds_host[mask_n] = sell_colinds_host[mask_n] - block_n_start + block_opposite_start
+            sell_colinds_host[mask_opposite] = sell_colinds_host[mask_opposite] - block_opposite_start + block_n_start
+
+        # 6. Mettre à jour sell_colinds_gpu
+        drv.memcpy_htod(self.sell_colinds_gpu, sell_colinds_host)
+
+        # 7. Recalculer norm_factor_inv (car les colonnes ont changé)
+        self.compute_norm_factor()
+
+        print("Permutation des angles opposés effectuée pour SELL-C-σ.")

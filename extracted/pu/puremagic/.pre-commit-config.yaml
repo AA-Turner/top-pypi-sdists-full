@@ -1,0 +1,63 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+    # Identify invalid files
+    - id: check-ast
+    - id: check-yaml
+    - id: check-json
+    - id: check-toml
+    # git checks
+    - id: check-merge-conflict
+    - id: check-added-large-files
+      exclude: ^test/resources/.+
+    - id: detect-private-key
+    - id: check-case-conflict
+    # Python checks
+    - id: check-docstring-first
+    - id: debug-statements
+    - id: requirements-txt-fixer
+    - id: fix-byte-order-marker
+    # General quality checks
+    - id: mixed-line-ending
+      args: [--fix=lf]
+      exclude: ^test/resources/
+    - id: trailing-whitespace
+      args: [--markdown-linebreak-ext=md]
+      exclude: |
+            (?x)^(
+                ^test/resources/.+|
+                ^puremagic/magic_data.json
+            )$
+    - id: check-executables-have-shebangs
+    - id: end-of-file-fixer
+      exclude: ^test/resources/.+
+
+-   repo: https://github.com/astral-sh/ruff-pre-commit
+    # Ruff version.
+    rev: v0.15.2
+    hooks:
+      # Run the linter.
+      - id: ruff-check
+        args: [ --fix ]
+      # Run the formatter.
+      - id: ruff-format
+
+-   repo: local
+    hooks:
+    - id: ty
+      name: ty
+      entry: uv run ty check
+      language: system
+      types: [python]
+      pass_filenames: false
+
+-   repo: https://github.com/tox-dev/pyproject-fmt
+    rev: v2.16.1
+    hooks:
+      - id: pyproject-fmt
+
+-   repo: https://github.com/abravalheri/validate-pyproject
+    rev: v0.25
+    hooks:
+      - id: validate-pyproject

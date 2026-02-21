@@ -157,6 +157,10 @@ def test_keyboard_interrupt(tox_project: ToxProjectCreator, demo_pkg_inline: Pat
     assert "send signal SIGINT" in out, out
     assert "interrupt finished with success" in out, out
     assert "interrupt tox environment: .pkg" in out, out
+    assert "BrokenPipeError" not in out, out
+    assert "BrokenPipeError" not in err, err
+    assert "KeyError" not in out, out
+    assert "KeyError" not in err, err
 
 
 def test_parallels_help(tox_project: ToxProjectCreator) -> None:
@@ -238,3 +242,28 @@ def test_parallel_no_spinner_legacy_with_parallel(tox_project: ToxProjectCreator
         has_spinner=False,
         live=False,
     )
+
+
+def test_parallel_list_dependencies(tox_project: ToxProjectCreator) -> None:
+    proj = tox_project({
+        "tox.toml": """
+        [env_run_base]
+        skip_install = true
+        commands = [["python", "-c", "print('ok')"]]
+        """
+    })
+    result = proj.run("p", "-e", "py", "--list-dependencies")
+    result.assert_success()
+    assert "pip==" in result.out
+
+
+def test_no_capture_with_parallel_fails(tox_project: ToxProjectCreator) -> None:
+    ini = "[testenv]\npackage=skip\ncommands=python --version"
+    result = tox_project({"tox.ini": ini}).run("p", "-e", "py", "--no-capture")
+    result.assert_failed()
+
+
+def test_no_capture_short_flag_with_parallel_fails(tox_project: ToxProjectCreator) -> None:
+    ini = "[testenv]\npackage=skip\ncommands=python --version"
+    result = tox_project({"tox.ini": ini}).run("p", "-e", "py", "-i")
+    result.assert_failed()

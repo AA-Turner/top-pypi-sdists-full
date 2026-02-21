@@ -35,6 +35,60 @@ MaterializedTable: TypeAlias = pyarrow.RecordBatch | pyarrow.Table
 
 
 @dataclass
+class _LazyFrameGroupBy:
+    """
+    A lazy representation of the chalkdf GroupBy class
+    """
+
+    _lf: LazyFramePlaceholder
+    _by: typing.Sequence[str | Underscore]
+
+    def _construct(self, *, function_name: str, args: tuple[Any, ...] = (), **kwargs: Any):
+        return self._lf._construct(  # pyright:ignore[reportPrivateUsage]
+            self_dataframe=self._lf._construct(  # pyright:ignore[reportPrivateUsage]
+                self_dataframe=self._lf,
+                function_name="group_by",
+                args=tuple(self._by),
+            ),
+            function_name=function_name,
+            args=args,
+            **kwargs,
+        )
+
+    def agg(self, *aggregations: Underscore):
+        """Apply the specified aggregation expressions to the group"""
+        return self._construct(function_name="agg", args=aggregations)
+
+    def all(self):
+        """Apply ``array_agg``"""
+        return self._construct(function_name="all")
+
+    def count(self):
+        """Apply ``count``"""
+        return self._construct(function_name="count")
+
+    def count_distinct(self):
+        """Apply ``count_distinct``"""
+        return self._construct(function_name="count_distinct")
+
+    def max(self):
+        """Apply ``max``"""
+        return self._construct(function_name="max")
+
+    def mean(self):
+        """Apply ``mean``"""
+        return self._construct(function_name="mean")
+
+    def min(self):
+        """Apply ``min``"""
+        return self._construct(function_name="min")
+
+    def sum(self):
+        """Apply ``sum``"""
+        return self._construct(function_name="sum")
+
+
+@dataclass
 class _LazyFrameConstructor:
     """
     A lazily-called function which will be used to construct a Chalk DataFrame.
@@ -874,6 +928,38 @@ class LazyFramePlaceholder:
     #     *expressions: WindowExpr,
     # ) -> LazyFramePlaceholder:
     #     ...
+
+    def group_by(self, *by: str | Underscore):
+        """Create a GroupBy object for chained aggregation operations.
+
+        This method returns a GroupBy object that can be used to apply
+        aggregation expressions via the `.agg()` method. This provides
+        an alternative syntax to `df.agg(by, *aggregations)`.
+
+        Parameters
+        ----------
+        *by
+            Column names to group by. Can be strings or underscore expressions.
+
+        Returns
+        -------
+        GroupBy object that can be used to apply aggregations via `.agg()`.
+
+        Examples
+        --------
+        >>> from chalkdf import DataFrame
+        >>> from chalk.features import _
+        >>> df = DataFrame.from_dict({"group": ["A", "A", "B"], "value": [1, 2, 3]})
+        >>> grouped = df.group_by("group").agg(_.value.sum().alias("total"))
+
+        Multiple grouping columns:
+        >>> df2 = DataFrame.from_dict({"g1": ["A", "A", "B"], "g2": ["X", "Y", "X"], "val": [1, 2, 3]})
+        >>> result = df2.group_by("g1", "g2").agg(_.val.sum().alias("sum"))
+
+        Using underscore expressions:
+        >>> result = df.group_by(_.group).agg(_.value.mean().alias("avg"))
+        """
+        return _LazyFrameGroupBy(_lf=self, _by=by)
 
     def agg(self, by: typing.Sequence[str | Underscore], *aggregations: Underscore) -> "LazyFramePlaceholder":
         """Group by columns and apply aggregation expressions.

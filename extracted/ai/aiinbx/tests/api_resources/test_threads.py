@@ -21,7 +21,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestThreads:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: AIInbx) -> None:
         thread = client.threads.retrieve(
@@ -29,7 +29,7 @@ class TestThreads:
         )
         assert_matches_type(ThreadRetrieveResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: AIInbx) -> None:
         response = client.threads.with_raw_response.retrieve(
@@ -41,7 +41,7 @@ class TestThreads:
         thread = response.parse()
         assert_matches_type(ThreadRetrieveResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: AIInbx) -> None:
         with client.threads.with_streaming_response.retrieve(
@@ -55,7 +55,7 @@ class TestThreads:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: AIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `thread_id` but received ''"):
@@ -63,7 +63,7 @@ class TestThreads:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_forward(self, client: AIInbx) -> None:
         thread = client.threads.forward(
@@ -72,7 +72,7 @@ class TestThreads:
         )
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_forward_with_all_params(self, client: AIInbx) -> None:
         thread = client.threads.forward(
@@ -99,7 +99,7 @@ class TestThreads:
         )
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_forward(self, client: AIInbx) -> None:
         response = client.threads.with_raw_response.forward(
@@ -112,7 +112,7 @@ class TestThreads:
         thread = response.parse()
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_forward(self, client: AIInbx) -> None:
         with client.threads.with_streaming_response.forward(
@@ -127,7 +127,7 @@ class TestThreads:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_forward(self, client: AIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `thread_id` but received ''"):
@@ -136,13 +136,13 @@ class TestThreads:
                 to="dev@stainless.com",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_search(self, client: AIInbx) -> None:
         thread = client.threads.search()
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_search_with_all_params(self, client: AIInbx) -> None:
         thread = client.threads.search(
@@ -165,7 +165,7 @@ class TestThreads:
         )
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_search(self, client: AIInbx) -> None:
         response = client.threads.with_raw_response.search()
@@ -175,7 +175,7 @@ class TestThreads:
         thread = response.parse()
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_search(self, client: AIInbx) -> None:
         with client.threads.with_streaming_response.search() as response:
@@ -193,7 +193,7 @@ class TestAsyncThreads:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncAIInbx) -> None:
         thread = await async_client.threads.retrieve(
@@ -201,7 +201,7 @@ class TestAsyncThreads:
         )
         assert_matches_type(ThreadRetrieveResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.threads.with_raw_response.retrieve(
@@ -213,7 +213,7 @@ class TestAsyncThreads:
         thread = await response.parse()
         assert_matches_type(ThreadRetrieveResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncAIInbx) -> None:
         async with async_client.threads.with_streaming_response.retrieve(
@@ -227,7 +227,7 @@ class TestAsyncThreads:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncAIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `thread_id` but received ''"):
@@ -235,7 +235,7 @@ class TestAsyncThreads:
                 "",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_forward(self, async_client: AsyncAIInbx) -> None:
         thread = await async_client.threads.forward(
@@ -244,7 +244,7 @@ class TestAsyncThreads:
         )
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_forward_with_all_params(self, async_client: AsyncAIInbx) -> None:
         thread = await async_client.threads.forward(
@@ -271,7 +271,7 @@ class TestAsyncThreads:
         )
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_forward(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.threads.with_raw_response.forward(
@@ -284,7 +284,7 @@ class TestAsyncThreads:
         thread = await response.parse()
         assert_matches_type(ThreadForwardResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_forward(self, async_client: AsyncAIInbx) -> None:
         async with async_client.threads.with_streaming_response.forward(
@@ -299,7 +299,7 @@ class TestAsyncThreads:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_forward(self, async_client: AsyncAIInbx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `thread_id` but received ''"):
@@ -308,13 +308,13 @@ class TestAsyncThreads:
                 to="dev@stainless.com",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_search(self, async_client: AsyncAIInbx) -> None:
         thread = await async_client.threads.search()
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_search_with_all_params(self, async_client: AsyncAIInbx) -> None:
         thread = await async_client.threads.search(
@@ -337,7 +337,7 @@ class TestAsyncThreads:
         )
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_search(self, async_client: AsyncAIInbx) -> None:
         response = await async_client.threads.with_raw_response.search()
@@ -347,7 +347,7 @@ class TestAsyncThreads:
         thread = await response.parse()
         assert_matches_type(ThreadSearchResponse, thread, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_search(self, async_client: AsyncAIInbx) -> None:
         async with async_client.threads.with_streaming_response.search() as response:

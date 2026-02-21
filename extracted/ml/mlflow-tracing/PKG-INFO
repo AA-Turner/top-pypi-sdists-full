@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow-tracing
-Version: 3.9.0
+Version: 3.10.0
 Summary: MLflow Tracing SDK is an open-source, lightweight Python package that only includes the minimum set of dependencies and functionality to instrument your code/models/agents with MLflow Tracing.
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,12 +224,12 @@ Classifier: Programming Language :: Python :: 3.10
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: cachetools<7,>=5.0.0
+Requires-Dist: cachetools<8,>=5.0.0
 Requires-Dist: databricks-sdk<1,>=0.20.0
 Requires-Dist: opentelemetry-api<3,>=1.9.0
 Requires-Dist: opentelemetry-proto<3,>=1.9.0
 Requires-Dist: opentelemetry-sdk<3,>=1.9.0
-Requires-Dist: packaging<26
+Requires-Dist: packaging<27
 Requires-Dist: protobuf<7,>=3.12.0
 Requires-Dist: pydantic<3,>=2.0.0
 Dynamic: license-file

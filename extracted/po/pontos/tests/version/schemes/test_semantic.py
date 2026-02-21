@@ -8,7 +8,12 @@ from datetime import datetime
 
 from pontos.version._errors import VersionError
 from pontos.version.schemes._pep440 import PEP440Version
-from pontos.version.schemes._semantic import SemanticVersion as Version
+from pontos.version.schemes._semantic import (
+    SemanticVersion,
+)
+from pontos.version.schemes._semantic import (
+    SemanticVersion as Version,
+)
 from pontos.version.schemes._semantic import (
     SemanticVersionCalculator as VersionCalculator,
 )
@@ -1026,3 +1031,15 @@ class SemanticVersionCalculatorTestCase(unittest.TestCase):
                 f"{release_version} is not the expected next development "
                 f"version {assert_version} for {current_version}",
             )
+
+    def test_hash(self):
+        self.assertEqual(
+            hash(SemanticVersion("22.2.2")), hash(SemanticVersion("22.2.2"))
+        )
+        self.assertNotEqual(
+            hash(SemanticVersion("22.2.1")), hash(SemanticVersion("22.2.2"))
+        )
+        self.assertNotEqual(hash(SemanticVersion("22.2.2")), hash("22.2.2"))
+        self.assertNotEqual(
+            hash(SemanticVersion("22.2.1")), hash(SemanticVersion("22.2.2"))
+        )

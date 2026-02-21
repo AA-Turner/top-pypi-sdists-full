@@ -27,7 +27,7 @@ class I18n(ExtendedPlugin):
 
     Current plugins we heard of and require that we control their order:
         - awesome-pages: this plugin should run before us
-        - with-pdf: this plugin is triggerd by us on the appropriate on_* events
+        - with-pdf: this plugin is triggered by us on the appropriate on_* events
     """
 
     @plugins.event_priority(-100)
@@ -155,23 +155,36 @@ class I18n(ExtendedPlugin):
         """
         admonition_translations = self.current_language_config.admonition_translations or {}
 
+        # Force lowercase keys for case insensitive matching
+        admonition_translations = {k.lower(): v for k, v in admonition_translations.items()}
+
         marker = r"!{3}"  # Admonition marker
         if "pymdownx.details" in config["markdown_extensions"]:
             marker = r"(?:\?{3}\+?|!{3})"  # Admonition or Details marker
 
         # Copied from https://github.com/Python-Markdown/markdown/blob/master/markdown/extensions/admonition.py and modified for a single-line processing
         # Adapted to match the details extension as well
-        RE = re.compile('^(' + marker + r' ?)([\w\-]+(?: +[\w\-]+)*)(?: +"(.*?)")? *$')
+        RE = re.compile(
+            r'^(?P<indent>[ \t]*)'  # leading spaces/tabs
+            r'(?P<marker>' + marker + r' ?)'  # marker (!!!, ???, ???+)
+            r'(?P<type>[\w\-]+(?: +[\w\-]+)*)'  # type (info, warning, etc.)
+            r'(?: +"(?P<title>.*?)")?'  # optional title in quotes
+            r' *$'  # optional trailing spaces/tabs
+        )
 
         def handle_admonition_translations(line):
             m = RE.match(line)
             if m:
-                type = m.group(2)
+                indent = m.group("indent")
+                marker = m.group("marker")
+                admonition_type = m.group("type")
+                title = m.group("title")
                 if (
-                    m.group(3) is None or m.group(3).strip() == ''
-                ) and type in admonition_translations:
-                    title = admonition_translations[type]
-                    line = m.group(1) + m.group(2) + f' "{title}"'
+                    not title or title.strip() == ""
+                ) and admonition_type.lower() in admonition_translations:
+                    new_title = admonition_translations[admonition_type.lower()]
+                    line = f'{indent}{marker}{admonition_type} "{new_title}"'
+
             return line
 
         out = []
@@ -188,7 +201,7 @@ class I18n(ExtendedPlugin):
         Page context only applies to Page() objects.
         We add some metadata for users as well as some neat reconfiguration features.
 
-        Overriden templates such as the sitemap.xml are not impacted by this method!
+        Overridden templates such as the sitemap.xml are not impacted by this method!
         """
         if isinstance(page, Page) and hasattr(page.file, "locale"):
             # export some useful i18n related variables on page context, see #75
@@ -224,7 +237,7 @@ class I18n(ExtendedPlugin):
 
         self.building = True
 
-        # Block time logging for internal builds and filter reduntant MkDocs log
+        # Block time logging for internal builds and filter redundant MkDocs log
         build_logger = logging.getLogger("mkdocs.commands.build")
         i18n_filter = I18nLoggingFilter()
         i18n_filter.filtered_prefixes.add("Documentation built in")

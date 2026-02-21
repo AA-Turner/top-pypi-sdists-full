@@ -22,7 +22,7 @@ base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 class TestParticipants:
     parametrize = pytest.mark.parametrize("client", [False, True], indirect=True, ids=["loose", "strict"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.retrieve(
@@ -32,7 +32,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantRetrieveResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve(self, client: Telnyx) -> None:
         response = client.texml.accounts.conferences.participants.with_raw_response.retrieve(
@@ -46,7 +46,7 @@ class TestParticipants:
         participant = response.parse()
         assert_matches_type(ParticipantRetrieveResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve(self, client: Telnyx) -> None:
         with client.texml.accounts.conferences.participants.with_streaming_response.retrieve(
@@ -62,7 +62,7 @@ class TestParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -88,7 +88,7 @@ class TestParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.update(
@@ -98,7 +98,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_update_with_all_params(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.update(
@@ -119,7 +119,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_update(self, client: Telnyx) -> None:
         response = client.texml.accounts.conferences.participants.with_raw_response.update(
@@ -133,7 +133,7 @@ class TestParticipants:
         participant = response.parse()
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_update(self, client: Telnyx) -> None:
         with client.texml.accounts.conferences.participants.with_streaming_response.update(
@@ -149,7 +149,7 @@ class TestParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_update(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -175,7 +175,7 @@ class TestParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_delete(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.delete(
@@ -185,7 +185,7 @@ class TestParticipants:
         )
         assert participant is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_delete(self, client: Telnyx) -> None:
         response = client.texml.accounts.conferences.participants.with_raw_response.delete(
@@ -199,7 +199,7 @@ class TestParticipants:
         participant = response.parse()
         assert participant is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_delete(self, client: Telnyx) -> None:
         with client.texml.accounts.conferences.participants.with_streaming_response.delete(
@@ -215,7 +215,7 @@ class TestParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_delete(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -241,7 +241,7 @@ class TestParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_participants(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.participants(
@@ -250,7 +250,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_participants_with_all_params(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.participants(
@@ -258,6 +258,7 @@ class TestParticipants:
             account_sid="account_sid",
             amd_status_callback="https://www.example.com/amd_result",
             amd_status_callback_method="GET",
+            application_sid="1846572522338780702",
             beep="onExit",
             caller_id="Info",
             call_sid_to_coach="v3:9X2vxPDFY2RHSJ1EdMS0RHRksMTg7ldNxdjWbVr9zBjbGjGsSe-aiQ",
@@ -311,7 +312,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_participants(self, client: Telnyx) -> None:
         response = client.texml.accounts.conferences.participants.with_raw_response.participants(
@@ -324,7 +325,7 @@ class TestParticipants:
         participant = response.parse()
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_participants(self, client: Telnyx) -> None:
         with client.texml.accounts.conferences.participants.with_streaming_response.participants(
@@ -339,7 +340,7 @@ class TestParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_participants(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -354,7 +355,7 @@ class TestParticipants:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_method_retrieve_participants(self, client: Telnyx) -> None:
         participant = client.texml.accounts.conferences.participants.retrieve_participants(
@@ -363,7 +364,7 @@ class TestParticipants:
         )
         assert_matches_type(ParticipantRetrieveParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_raw_response_retrieve_participants(self, client: Telnyx) -> None:
         response = client.texml.accounts.conferences.participants.with_raw_response.retrieve_participants(
@@ -376,7 +377,7 @@ class TestParticipants:
         participant = response.parse()
         assert_matches_type(ParticipantRetrieveParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_streaming_response_retrieve_participants(self, client: Telnyx) -> None:
         with client.texml.accounts.conferences.participants.with_streaming_response.retrieve_participants(
@@ -391,7 +392,7 @@ class TestParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     def test_path_params_retrieve_participants(self, client: Telnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -412,7 +413,7 @@ class TestAsyncParticipants:
         "async_client", [False, True, {"http_client": "aiohttp"}], indirect=True, ids=["loose", "strict", "aiohttp"]
     )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.retrieve(
@@ -422,7 +423,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantRetrieveResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.conferences.participants.with_raw_response.retrieve(
@@ -436,7 +437,7 @@ class TestAsyncParticipants:
         participant = await response.parse()
         assert_matches_type(ParticipantRetrieveResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.conferences.participants.with_streaming_response.retrieve(
@@ -452,7 +453,7 @@ class TestAsyncParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -478,7 +479,7 @@ class TestAsyncParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.update(
@@ -488,7 +489,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.update(
@@ -509,7 +510,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.conferences.participants.with_raw_response.update(
@@ -523,7 +524,7 @@ class TestAsyncParticipants:
         participant = await response.parse()
         assert_matches_type(ParticipantUpdateResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.conferences.participants.with_streaming_response.update(
@@ -539,7 +540,7 @@ class TestAsyncParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_update(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -565,7 +566,7 @@ class TestAsyncParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_delete(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.delete(
@@ -575,7 +576,7 @@ class TestAsyncParticipants:
         )
         assert participant is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.conferences.participants.with_raw_response.delete(
@@ -589,7 +590,7 @@ class TestAsyncParticipants:
         participant = await response.parse()
         assert participant is None
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.conferences.participants.with_streaming_response.delete(
@@ -605,7 +606,7 @@ class TestAsyncParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -631,7 +632,7 @@ class TestAsyncParticipants:
                 conference_sid="conference_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_participants(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.participants(
@@ -640,7 +641,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_participants_with_all_params(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.participants(
@@ -648,6 +649,7 @@ class TestAsyncParticipants:
             account_sid="account_sid",
             amd_status_callback="https://www.example.com/amd_result",
             amd_status_callback_method="GET",
+            application_sid="1846572522338780702",
             beep="onExit",
             caller_id="Info",
             call_sid_to_coach="v3:9X2vxPDFY2RHSJ1EdMS0RHRksMTg7ldNxdjWbVr9zBjbGjGsSe-aiQ",
@@ -701,7 +703,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_participants(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.conferences.participants.with_raw_response.participants(
@@ -714,7 +716,7 @@ class TestAsyncParticipants:
         participant = await response.parse()
         assert_matches_type(ParticipantParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_participants(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.conferences.participants.with_streaming_response.participants(
@@ -729,7 +731,7 @@ class TestAsyncParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_participants(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):
@@ -744,7 +746,7 @@ class TestAsyncParticipants:
                 account_sid="account_sid",
             )
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_method_retrieve_participants(self, async_client: AsyncTelnyx) -> None:
         participant = await async_client.texml.accounts.conferences.participants.retrieve_participants(
@@ -753,7 +755,7 @@ class TestAsyncParticipants:
         )
         assert_matches_type(ParticipantRetrieveParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_raw_response_retrieve_participants(self, async_client: AsyncTelnyx) -> None:
         response = await async_client.texml.accounts.conferences.participants.with_raw_response.retrieve_participants(
@@ -766,7 +768,7 @@ class TestAsyncParticipants:
         participant = await response.parse()
         assert_matches_type(ParticipantRetrieveParticipantsResponse, participant, path=["response"])
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_streaming_response_retrieve_participants(self, async_client: AsyncTelnyx) -> None:
         async with async_client.texml.accounts.conferences.participants.with_streaming_response.retrieve_participants(
@@ -781,7 +783,7 @@ class TestAsyncParticipants:
 
         assert cast(Any, response.is_closed) is True
 
-    @pytest.mark.skip(reason="Prism tests are disabled")
+    @pytest.mark.skip(reason="Mock server tests are disabled")
     @parametrize
     async def test_path_params_retrieve_participants(self, async_client: AsyncTelnyx) -> None:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `account_sid` but received ''"):

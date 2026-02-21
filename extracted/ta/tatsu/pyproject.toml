@@ -36,6 +36,8 @@ parproc = ["rich"]
 
 [dependency-groups]
 dev = [
+    "basedpyright>=1.38.0",
+    "black>=26.1.0",
     "build>=1.4.0",
     "colorama>=0.4.6",
     "diskcache>=5.6.3",
@@ -44,8 +46,11 @@ dev = [
     "ipython>=9.10.0",
     "progress>=1.6.1",
     "psutil>=7.2.2",
-    "rich>=14.3.2",
-    "rst2html5>=2.0.1",
+    "pytest>=9.0.2",
+    "pytest-dependency>=0.6.0",
+    "rich>=14.3.3",
+    "rich-click>=1.9.7",
+    "ruff>=0.15.1",
     "twine>=6.2.0",
     "uv>=0.10.2",
 ]
@@ -63,7 +68,6 @@ test = [
     "pytest-dependency>=0.6.0",
     "pytest-rerunfailures>=16.1",
     "pytest-xdist>=3.8.0",
-    "rich>=14.3.2",
     "ruff>=0.15.1",
     "ty>=0.0.17",
 ]
@@ -71,7 +75,6 @@ doc = [
     "docutils>=0.22.4",
     "myst-parser>=5.0.0",
     "pydata-sphinx-theme>=0.16.1",
-    "rich>=14.3.2",
     "sphinx>=9.1.0",
     "sphinx-autodoc2>=0.5.0",
     "sphinx-copybutton>=0.5.2",
@@ -126,10 +129,101 @@ respect-type-ignore-comments = true
 unresolved-import = "ignore"
 unused-ignore-comment = "ignore"
 
-[tool.ruff]
-line-length = 88
-exclude = [".git", "__pycache__", "dist"]
-
 [tool.coverage.run]
 omit = ["tests/*", "tatsu/diagrams.py", "tatsu/codegen/*", "**/test.py"]
 data_file = ".cache/coverage/.coverage"
+
+[tool.black]
+line-length = 88
+target-version = ['py312', 'py313', 'py314']
+skip-string-normalization = true
+skip-magic-trailing-comma = false
+include = '\.pyi?$'
+exclude = '''
+(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)
+|tatsu/bootstrap.py
+'''
+
+[tool.ruff]
+line-length = 88
+target-version = "py312"
+exclude = [".git", "__pycache__", "dist", "docs"]
+
+[tool.ruff.format]
+# Tell Ruff to match your Black preferences
+quote-style = "preserve"
+indent-style = "space"
+skip-magic-trailing-comma = false
+
+[tool.ruff.lint.isort]
+# These settings define the "criteria" for how Ruff handles imports
+combine-as-imports = true
+force-single-line = false
+lines-after-imports = 2
+known-first-party = ["tatsu"] # Replace with your project name
+
+
+[tool.ruff.lint.pylint]
+max-branches = 21
+max-nested-blocks = 8
+
+[tool.ruff.lint.mccabe]
+max-complexity = 10
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint]
+select = [
+    "F", "E", "W", "UP",
+    "I", "YTT", "S", "B",
+    "COM", "C4", "SIM",
+    "PTH", "TRY",
+    "FLY", "PERF", "FURB", "RUF",
+    "PL", "PGH", "RET",
+]
+
+ignore = [
+    "COM819", #  [*] Trailing comma prohibited"
+    "E501", #    line-too-long
+    "E402", #    module-import-not-at-top-of-file
+    "I001", #    [*] Import block is un-sorted or un-formatted
+    "FURB189", #  subclassing str
+    "PERF203", #  try-except within loop
+    "PGH003",
+    "PLC0415", # import-outside-top-level
+    "PLR6301", # no-self-use
+    "PLR0904", # too-many-public-methods
+    "PLR0913", # too-many-arguments
+    "PLR0915", # too-many-statements
+    "PLR0917", # too many positional arguments
+    "PLR2004", # magic-value-comparison
+    "PLW1514", # unspecified-encoding
+    "PLW3201", # bad-dunder-method-name
+    "RET504", #  assign before return
+    "RET505", #  superfluous-else-return
+    "RUF022", #  __all__ sorting
+    "RUF027", #  possible f-string
+    "S102", #    exec-builtin
+    "S101", #    use of assert
+    "S301", #    suspicious-pickle-usage
+    "S106", #    possible password
+    "S403", #    insecure modules
+    "SIM108", #  use ternary instead of if-else
+    "SIM114", #  if-with-same-arms
+    "TRY003", #  raise-vanilla-args
+    "TRY300", #  try-consider-else
+    "UP031", #   use of % formatting
+    "UP046", #   generic class uses `Generic` subclass instead of type parameters
+    "UP047", #   should use tyope in 3.12+ type parameters
+]

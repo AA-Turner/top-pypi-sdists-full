@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: sphinxcontrib-programoutput
-Version: 0.18
+Version: 0.19
 Summary: Sphinx extension to include program output
 Home-page: https://sphinxcontrib-programoutput.readthedocs.org/
 Author: Sebastian Wiesner
@@ -8,6 +8,11 @@ Author-email: lunaryorn@gmail.com
 Maintainer: Jason Madden
 Maintainer-email: jason@seecoresoftware.com
 License: BSD
+Project-URL: Homepage, https://sphinxcontrib-programoutput.readthedocs.io/en/latest/
+Project-URL: Documentation, https://sphinxcontrib-programoutput.readthedocs.io/en/latest/
+Project-URL: Repository, https://github.com/OpenNTI/sphinxcontrib-programoutput/
+Project-URL: Issues, https://github.com/OpenNTI/sphinxcontrib-programoutput/issues
+Project-URL: Changelog, https://github.com/OpenNTI/sphinxcontrib-programoutput/blob/master/CHANGES.rst
 Keywords: sphinx cli command output program example
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
@@ -22,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Documentation
@@ -32,18 +38,29 @@ Requires-Python: >=3.8
 License-File: LICENSE
 Requires-Dist: Sphinx>=5.0.0
 Provides-Extra: test
+Requires-Dist: erbsland-sphinx-ansi; python_version >= "3.10" and extra == "test"
 Provides-Extra: docs
 Requires-Dist: furo; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: platform
+Dynamic: project-url
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 =============================
  sphinxcontrib-programoutput
 =============================
-
-.. image:: https://github.com/NextThought/sphinxcontrib-programoutput/workflows/tests/badge.svg
-   :target: https://github.com/NextThought/sphinxcontrib-programoutput/actions?query=workflow%3Atests
-
-.. image:: https://coveralls.io/repos/github/NextThought/sphinxcontrib-programoutput/badge.svg
-   :target: https://coveralls.io/github/NextThought/sphinxcontrib-programoutput
 
 
 https://sphinxcontrib-programoutput.readthedocs.org
@@ -59,8 +76,7 @@ Install this extension from PyPI_::
 
    pip install sphinxcontrib-programoutput
 
-The extension requires Sphinx 1.7.0 and Python 2.7 or Python 3 (Python
-3.6+ is tested) at least.
+The extension requires Sphinx 5.0 and Python 3.8+.
 
 Usage
 =====
@@ -76,7 +92,7 @@ insert the output of programs.  The former just inserts the output::
 
 Output::
 
-   Python 2.7.1
+   Python 3.14.2
 
 The latter directive mimics a shell session, and is intended to show examples::
 
@@ -85,7 +101,7 @@ The latter directive mimics a shell session, and is intended to show examples::
 Output::
 
    $ python -V
-   Python 2.7.1
+   Python 3.14.2
 
 
 Please refer to the documentation_ for comprehensive information about usage and
@@ -100,5 +116,5 @@ development process.
 
 
 .. _Sphinx: http://www.sphinx-doc.org/en/stable/
-.. _PyPI: http://pypi.python.org/pypi/sphinxcontrib-programoutput
+.. _PyPI: http://pypi.org/project/sphinxcontrib-programoutput
 .. _documentation: http://sphinxcontrib-programoutput.readthedocs.org

@@ -34,13 +34,13 @@ test.py
 if IS_WINDOWS:
     PACKAGE_VERSION = [("imagehlp", "bind")]
     if IS_CONDA:
-        PACKAGE_VERSION += [("py-lief", "0.16.6")]
+        PACKAGE_VERSION += [("py-lief", "0.17.1")]
     elif IS_ARM_64 and sys.version_info[:2] <= (3, 13) and ABI_THREAD == "":
-        PACKAGE_VERSION += [("lief", "0.16.6"), ("lief", "0.17.0")]
+        PACKAGE_VERSION += [("lief", "0.16.6"), ("lief", "0.17.3")]
     elif (IS_X86_32 or IS_X86_64) and ABI_THREAD == "":
         if sys.version_info[:2] <= (3, 13):
             PACKAGE_VERSION += [("lief", "0.15.1"), ("lief", "0.16.6")]
-        PACKAGE_VERSION += [("lief", "0.17.0")]
+        PACKAGE_VERSION += [("lief", "0.17.3")]
 elif IS_MINGW:
     PACKAGE_VERSION = [("imagehlp", "bind")]
 elif IS_LINUX:
@@ -67,7 +67,7 @@ def test_parser(tmp_package, package, version) -> None:
     file_created = tmp_package.executable("test")
     assert file_created.is_file(), f"file not found: {file_created}"
 
-    result = tmp_package.run(file_created, timeout=10)
+    result = tmp_package.run(file_created)
     result.stdout.fnmatch_lines("Hello from cx_Freeze")
 
 

@@ -257,10 +257,10 @@ class WisentModel:
         
         Unlike apply_steering() which uses simple vector addition, this method
         uses the SteeringObject's compute_gate() and compute_intensity() methods
-        for conditional steering (PULSE, TITAN).
+        for conditional steering (TETNO, GROM).
         
         Args:
-            steering_obj: A SteeringObject (CAA, Hyperplane, MLP, PRISM, PULSE, or TITAN)
+            steering_obj: A SteeringObject (CAA, Ostrze, MLP, TECZA, TETNO, or GROM)
             base_strength: Base multiplier for steering intensity
             steering_strategy: How to apply steering over tokens:
                 - "constant": Same strength throughout generation
@@ -282,6 +282,8 @@ class WisentModel:
         from wisent.core.steering_methods.steering_object import BaseSteeringObject
         
         self.detach()
+        if hasattr(steering_obj, 'set_model_weights'):
+            steering_obj.set_model_weights(self.hf_model)
         config = steering_strategy_config or {}
         
         # Token counter shared across all hooks (mutable container)
@@ -573,7 +575,7 @@ class WisentModel:
                 optional SteeringPlan to use for this call only (overrides internal plan).
                 If None, uses the internal plan.
             steering_object:
-                optional SteeringObject (CAA, PRISM, PULSE, TITAN, etc.) to use for steering.
+                optional SteeringObject (CAA, TECZA, TETNO, GROM, etc.) to use for steering.
                 If provided, takes precedence over steering_plan. Uses full method-specific
                 logic including conditional gating and intensity networks.
             steering_strength:

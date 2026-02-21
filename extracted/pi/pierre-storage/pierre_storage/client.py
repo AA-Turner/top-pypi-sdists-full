@@ -116,7 +116,7 @@ class GitStorage:
             id: Repository ID (auto-generated if not provided)
             default_branch: Default branch name (default: "main" for non-forks)
             base_repo: Optional base repository for GitHub sync or fork
-                       GitHub: owner, name, default_branch
+                       GitHub: owner, name, default_branch, auth.auth_type="public"
                        Fork: id, ref, sha
             ttl: Token TTL in seconds
 

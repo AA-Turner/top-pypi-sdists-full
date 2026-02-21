@@ -91,15 +91,12 @@ def test_matplotlib(tmp_package, zip_packages: bool) -> None:
 
 
 @pytest.mark.xfail(
-    IS_WINDOWS and IS_ARM_64,
+    IS_WINDOWS
+    and IS_ARM_64
+    and sys.version_info[:2] == (3, 13)
+    and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
-    reason="pandas does not support Windows arm64",
-    strict=True,
-)
-@pytest.mark.xfail(
-    IS_WINDOWS and sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
-    raises=ModuleNotFoundError,
-    reason="pandas does not support Python 3.13t/3.14t on Windows",
+    reason="pandas does not support Python 3.13t on Windows arm64",
     strict=True,
 )
 @pytest.mark.venv
@@ -321,15 +318,21 @@ pyproject.toml
     strict=True,
 )
 @pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 13) and ABI_THREAD == "t",
+    sys.version_info[:2] == (3, 13) and ABI_THREAD == "t",
     raises=ModuleNotFoundError,
-    reason="vtkmodules (vtk) does not support Python 3.13t/3.14t",
+    reason="vtkmodules (vtk) does not support Python 3.13t",
     strict=True,
 )
 @pytest.mark.xfail(
-    sys.version_info[:2] >= (3, 14),
+    sys.version_info[:2] >= (3, 14) and ABI_THREAD == "t" and IS_WINDOWS,
     raises=ModuleNotFoundError,
-    reason="vtkmodules (vtk) does not support Python 3.14+",
+    reason="vtkmodules (vtk) does not support Python 3.14t in Windows",
+    strict=True,
+)
+@pytest.mark.xfail(
+    sys.version_info[:2] >= (3, 14) and ABI_THREAD == "t" and IS_MACOS,
+    raises=ModuleNotFoundError,
+    reason="vtkmodules (vtk) does not support Python 3.14t in macOS",
     strict=True,
 )
 @pytest.mark.venv

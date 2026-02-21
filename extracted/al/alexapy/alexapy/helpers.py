@@ -178,16 +178,11 @@ def _catch_all_exceptions(func):
             if login:
                 login.status["login_successful"] = False
             raise AlexapyLoginError from ex
-        except CancelledError as ex:
-            _LOGGER.warning(
-                "%s.%s(%s, %s): Timeout error occurred accessing AlexaAPI: %s",
-                func.__module__[func.__module__.find(".") + 1 :],
-                func.__name__,
-                obfuscate(args),
-                obfuscate(kwargs),
-                EXCEPTION_TEMPLATE.format(type(ex).__name__, ex.args),
-            )
-            return None
+        except CancelledError:
+            # Normal asyncio cancellation (eg. caller debounced/cancelled
+            # a scheduled probe). Do not log as warning and do not swallow;
+            # propagate cancellation correctly.
+            raise
         except AlexapyLoginCloseRequested:
             raise
         except Exception as ex:

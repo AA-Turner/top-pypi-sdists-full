@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: stevedore
-Version: 5.6.0
+Version: 5.7.0
 Summary: Manage dynamic plugins for Python applications
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
 License: Apache-2.0
@@ -17,20 +17,25 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
+Dynamic: license-file
 
 ===========================================================
 stevedore -- Manage dynamic plugins for Python applications
 ===========================================================
 
+.. image:: https://governance.openstack.org/tc/badges/stevedore.svg
+
 .. image:: https://img.shields.io/pypi/v/stevedore.svg
     :target: https://pypi.org/project/stevedore/
     :alt: Latest Version
 
-.. image:: https://governance.openstack.org/tc/badges/stevedore.svg
-    :target: https://governance.openstack.org/tc/reference/tags/index.html
+.. image:: https://img.shields.io/pypi/dm/stevedore.svg
+    :target: https://pypi.org/project/stevedore/
+    :alt: Downloads
 
 Python makes loading code dynamically easy, allowing you to configure
 and extend your application by discovering and loading extensions

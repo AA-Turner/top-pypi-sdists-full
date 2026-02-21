@@ -1,12 +1,12 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.1
 Name: aiosonic
-Version: 0.31.0
+Version: 0.31.1
 Summary: Async HTTP/WebSocket client
+Home-page: https://aiosonic.readthedocs.io/en/latest/
 License: MIT
-License-File: LICENSE
 Author: Johanderson Mogollon
 Author-email: johander1822@gmail.com
-Requires-Python: >=3.10.0,<3.15
+Requires-Python: >=3.10.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: AsyncIO
 Classifier: Intended Audience :: Developers
@@ -16,9 +16,9 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Internet :: WWW/HTTP
@@ -27,8 +27,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Networking
 Requires-Dist: charset-normalizer (>=2.0.0,<4.0.0)
 Requires-Dist: h2 (>=4.1.0,<5.0.0)
-Requires-Dist: onecache (>=0.8.0,<0.9.0)
-Project-URL: Homepage, https://aiosonic.readthedocs.io/en/latest/
+Requires-Dist: onecache (>=0.8.1,<0.9.0)
 Project-URL: Repository, https://github.com/sonic182/aiosonic
 Description-Content-Type: text/markdown
 

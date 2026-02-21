@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "django-polymorphic"
-version = "4.11.0"
+version = "4.11.1"
 description = "Seamless polymorphic inheritance for Django models."
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -31,7 +31,6 @@ classifiers = [
     "Environment :: Web Environment",
     "Framework :: Django",
     "Framework :: Django :: 4.2",
-    "Framework :: Django :: 5.1",
     "Framework :: Django :: 5.2",
     "Framework :: Django :: 6.0",
     "Intended Audience :: Developers",
@@ -241,8 +240,9 @@ mysql = [
     "mysqlclient>=1.4.0",
 ]
 cx_oracle = [
-    "cx-oracle>=8.3.0",
+    "cx-oracle>=8.3.0"
 ]
+
 oracledb = [
     "oracledb>=2.3.0",
 ]
@@ -273,6 +273,7 @@ dev = [
     { include-group = "drf" },
     { include-group = "lint" },
     { include-group = "precommit" },
+    "packaging>=24.2",
     "tomlkit>=0.13.3",
     "ipdb>=0.13.13",
     "ipython>=8.18.1",

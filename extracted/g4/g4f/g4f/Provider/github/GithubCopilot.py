@@ -4,14 +4,17 @@ import sys
 import json
 import time
 import asyncio
+import aiohttp
 from pathlib import Path
 from typing import Optional
 
 from ...typing import Messages, AsyncResult
+from ...errors import MissingAuthError
 from ..template import OpenaiTemplate
-from .githubOAuth2 import GithubOAuth2Client
-from .copilotTokenProvider import CopilotTokenProvider, EDITOR_VERSION, EDITOR_PLUGIN_VERSION
+from ...providers.asyncio import get_running_loop
+from .copilotTokenProvider import CopilotTokenProvider, EDITOR_VERSION, EDITOR_PLUGIN_VERSION, USER_AGENT, API_VERSION
 from .sharedTokenManager import TokenManagerError, SharedTokenManager
+from .githubOAuth2 import GithubOAuth2Client
 from .oauthFlow import launch_browser_for_oauth
 
 
@@ -46,7 +49,7 @@ class GithubCopilot(OpenaiTemplate):
     default_model = "gpt-4.1"
     base_url = "https://api.githubcopilot.com"
     
-    models = [
+    fallback_models = [
         # GPT-5 Series
         "gpt-5",
         "gpt-5-mini",
@@ -115,7 +118,6 @@ class GithubCopilot(OpenaiTemplate):
         messages: Messages,
         api_key: str = None,
         base_url: str = None,
-        headers: dict = None,
         **kwargs
     ) -> AsyncResult:
         """
@@ -140,6 +142,39 @@ class GithubCopilot(OpenaiTemplate):
                     ) from e
                 raise
         
+        # Use parent class for actual API calls
+        async for chunk in super().create_async_generator(
+            model,
+            messages,
+            api_key=api_key,
+            base_url=base_url or cls.base_url,
+            **kwargs
+        ):
+            yield chunk
+
+    @classmethod
+    def get_models(cls, api_key = None, base_url = None, timeout = None):
+        # If no API key provided, use OAuth token
+        if api_key is None:
+            try:
+                token_provider = cls._get_token_provider()
+                get_running_loop(check_nested=True)
+                creds = asyncio.run(token_provider.get_valid_token())
+                api_key = creds.get("token")
+                if not base_url:
+                    base_url = creds.get("endpoint", cls.base_url)
+            except TokenManagerError as e:
+                if "login" in str(e).lower() or "credentials" in str(e).lower():
+                    raise RuntimeError(
+                        "GitHub Copilot OAuth not configured. "
+                        "Please run 'g4f-github-copilot login' to authenticate."
+                    ) from e
+                raise
+        return super().get_models(api_key, base_url, timeout)
+
+    @classmethod
+    def get_headers(cls, stream: bool, api_key: str = None, headers: dict = None) -> dict:
+        headers = super().get_headers(stream, api_key, headers)
         # Add required Copilot headers
         copilot_headers = {
             "Editor-Version": EDITOR_VERSION,
@@ -150,17 +185,7 @@ class GithubCopilot(OpenaiTemplate):
         }
         if headers:
             copilot_headers.update(headers)
-        
-        # Use parent class for actual API calls
-        async for chunk in super().create_async_generator(
-            model,
-            messages,
-            api_key=api_key,
-            base_url=base_url or cls.base_url,
-            headers=copilot_headers,
-            **kwargs
-        ):
-            yield chunk
+        return copilot_headers
 
     @classmethod
     async def login(cls, credentials_path: Optional[Path] = None) -> SharedTokenManager:
@@ -211,6 +236,35 @@ class GithubCopilot(OpenaiTemplate):
             pass
         return None
 
+    @classmethod
+    async def get_quota(cls) -> dict:
+        """
+        Fetch and summarize current GitHub Copilot usage/quota information.
+        Returns a dictionary with usage details or raises an exception on failure.
+        """
+        client = GithubOAuth2Client()
+        github_creds = await client.sharedManager.getValidCredentials(client)
+        if not github_creds or not github_creds.get("access_token"):
+            raise MissingAuthError("No GitHub OAuth token available. Please login first.")
+        
+        github_token = github_creds["access_token"]
+        url = f"https://api.github.com/copilot_internal/user"
+        headers = {
+            "Accept": "application/json",
+            "authorization": f"token {github_token}",
+            "editor-version": EDITOR_VERSION,
+            "editor-plugin-version": EDITOR_PLUGIN_VERSION,
+            "user-agent": USER_AGENT,
+            "x-github-api-version": API_VERSION,
+            "x-vscode-user-agent-library-version": "electron-fetch",
+        }
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url, headers=headers) as resp:
+                if resp.status != 200:
+                    text = await resp.text()
+                    raise RuntimeError(f"Failed to fetch Copilot usage: {resp.status} {text}")
+                usage = await resp.json()
+        return usage
 
 async def main():
     """CLI entry point for GitHub Copilot OAuth authentication."""
