@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: karaoke-gen
-Version: 0.118.0
+Version: 0.118.3
 Summary: Generate karaoke videos with synchronized lyrics. Handles the entire process from downloading audio and lyrics to creating the final video with title screens.
 License: MIT
 License-File: LICENSE

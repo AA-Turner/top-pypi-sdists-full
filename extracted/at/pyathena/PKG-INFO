@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.28.0
+Version: 3.29.2
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/pyathena-dev/PyAthena/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/
@@ -43,6 +43,8 @@ Requires-Dist: botocore>=1.29.4
 Requires-Dist: fsspec
 Requires-Dist: python-dateutil
 Requires-Dist: tenacity>=4.1.0
+Provides-Extra: aiosqlalchemy
+Requires-Dist: sqlalchemy[asyncio]>=2.0.0; extra == 'aiosqlalchemy'
 Provides-Extra: arrow
 Requires-Dist: pyarrow>=10.0.0; (python_version < '3.14') and extra == 'arrow'
 Requires-Dist: pyarrow>=22.0.0; (python_version >= '3.14') and extra == 'arrow'
@@ -107,6 +109,22 @@ cursor = connect(s3_staging_dir="s3://YOUR_S3_BUCKET/path/to/",
 cursor.execute("SELECT * FROM one_row")
 print(cursor.description)
 print(cursor.fetchall())
+```
+
+Native asyncio is also supported:
+
+```python
+import asyncio
+from pyathena import aio_connect
+
+async def main():
+    async with await aio_connect(s3_staging_dir="s3://YOUR_S3_BUCKET/path/to/",
+                              region_name="us-west-2") as conn:
+        cursor = conn.cursor()
+        await cursor.execute("SELECT 1")
+        print(await cursor.fetchone())
+
+asyncio.run(main())
 ```
 
 ## License

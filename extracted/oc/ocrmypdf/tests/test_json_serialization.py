@@ -149,7 +149,7 @@ def test_json_serialization_with_none_values():
     reconstructed = OcrOptions.model_validate_json_safe(options_json)
 
     # Verify None values are preserved (check actual defaults from model)
-    assert reconstructed.tesseract_timeout == 0.0  # Default value, not None
+    assert reconstructed.tesseract_timeout is None  # Default value
     assert reconstructed.fast_web_view == 1.0  # Default value, not None
     assert (
         reconstructed.color_conversion_strategy == "LeaveColorUnchanged"

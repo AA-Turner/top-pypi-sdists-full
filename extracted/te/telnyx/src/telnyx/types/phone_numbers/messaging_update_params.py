@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from typing_extensions import TypedDict
 
+from ..._types import SequenceNotStr
+
 __all__ = ["MessagingUpdateParams"]
 
 
@@ -23,3 +25,6 @@ class MessagingUpdateParams(TypedDict, total=False):
     - Set this field to a quoted UUID of a messaging profile to assign this number
       to that messaging profile
     """
+
+    tags: SequenceNotStr[str]
+    """Tags to set on this phone number."""

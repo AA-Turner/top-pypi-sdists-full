@@ -1,15 +1,19 @@
-Metadata-Version: 2.1
-Name: disjoint_set
-Version: 0.8.0
-Summary: Disjoint set data structure implementation for Python
-Home-page: https://github.com/mrapacz/disjoint_set
-Maintainer: Maciej Rapacz
-Maintainer-email: python.disjointset@gmail.com
+Metadata-Version: 2.4
+Name: disjoint-set
+Version: 0.9.0
+Summary: Disjoint Set data structure implementation for Python
+Author: Maciej Rapacz
+Author-email: Maciej Rapacz <mmrapacz@protonmail.ch>
+License-Expression: MIT
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Operating System :: OS Independent
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Dist: typing-extensions
+Requires-Python: >=3.10, <4
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 # disjoint-set
 
@@ -22,11 +26,11 @@ License-File: LICENSE
 
 ## Prerequisites
 
-The only requirement is using **Python 3.8+**. You can verify this by running:
+The only requirement is using **Python 3.10+**. You can verify this by running:
 
 ```bash
 $ python --version
-Python 3.8.18
+Python 3.10.18
 ```
 
 ## Installation
@@ -40,7 +44,7 @@ You can verify you're running the latest package version by running:
 ```python
 >>> import disjoint_set
 >>> disjoint_set.__version__
-'0.8.0'
+'0.9.0'
 
 ```
 

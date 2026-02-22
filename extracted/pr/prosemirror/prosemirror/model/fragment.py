@@ -68,8 +68,8 @@ class Fragment:
         self,
         from_: int,
         to: int,
-        block_separator: str = "",
-        leaf_text: Callable[["Node"], str] | str = "",
+        block_separator: str | None = None,
+        leaf_text: Callable[["Node"], str] | str | None = None,
     ) -> str:
         text = []
         first = True
@@ -85,10 +85,16 @@ class Fragment:
             node_text: str
             if node.is_text:
                 text_node = cast("TextNode", node)
-                node_text = text_node.text[max(from_, pos) - pos : to - pos]
+                start = max(from_, pos) - pos
+                end = to - pos
+                node_text = text_node.text.encode("utf-16-le")[
+                    2 * start : 2 * end
+                ].decode("utf-16-le")
             elif node.is_leaf:
                 if leaf_text:
-                    node_text = leaf_text(node) if callable(leaf_text) else leaf_text
+                    node_text = (
+                        leaf_text if isinstance(leaf_text, str) else leaf_text(node)
+                    )
                 elif (node_leaf_text := node.type.spec.get("leafText")) is not None:
                     node_text = node_leaf_text(node)
                 else:
@@ -162,7 +168,7 @@ class Fragment:
             i += 1
         return Fragment(result, size)
 
-    def cut_by_index(self, from_: int, to: int | None = None) -> "Fragment":
+    def cut_by_index(self, from_: int, to: int) -> "Fragment":
         if from_ == to:
             return Fragment.empty
         if from_ == 0 and to == len(self.content):
@@ -202,13 +208,15 @@ class Fragment:
         return len(self.content)
 
     def child(self, index: int) -> "Node":
-        found = self.content[index] if index < len(self.content) else None
+        found = self.content[index] if 0 <= index < len(self.content) else None
         if not found:
             msg = f"Index {index} out of range for {self}"
             raise IndexError(msg)
         return found
 
     def maybe_child(self, index: int) -> Optional["Node"]:
+        if index < 0:
+            return None
         try:
             return self.content[index]
         except IndexError:
@@ -315,7 +323,12 @@ class Fragment:
             return cls.from_array(cast(list["Node"], list(nodes)))
         if hasattr(nodes, "attrs"):
             return cls([nodes], nodes.node_size)
-        msg = f"cannot convert {nodes!r} to a fragment"
+        hint = (
+            " (looks like multiple versions of prosemirror-model were loaded)"
+            if hasattr(nodes, "nodes_between")
+            else ""
+        )
+        msg = f"Can not convert {nodes!r} to a Fragment{hint}"
         raise ValueError(msg)
 
     def to_string_inner(self) -> str:

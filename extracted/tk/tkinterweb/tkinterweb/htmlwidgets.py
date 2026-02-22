@@ -167,6 +167,7 @@ class HtmlFrame(Frame):
         
         # State and settings variables
         self._current_url = ""
+        self._current_html = ""
         self._previous_url = ""
         self._accumulated_styles = []
         self._waiting_for_reset = False
@@ -219,8 +220,8 @@ class HtmlFrame(Frame):
             "find_current_text_color": {"default": "#000", "type": str},
             "selected_text_highlight_color": {"default": "#9bc6fa", "type": str},
             "selected_text_color": {"default": "#000", "type": str},
-            "default_style": {"default": utilities.DEFAULT_STYLE, "deprecated": "utilities.DEFAULT_STYLE"},
-            "dark_style": {"default": utilities.DARK_STYLE, "deprecated": "utilities.DARK_STYLE"},
+            "default_style": {"default": utilities.DEFAULT_STYLE, "deprecated": "utilities.DEFAULT_STYLE or defaultstyle"},
+            "dark_style": {"default": utilities.DARK_STYLE, "deprecated": "utilities.DARK_STYLE or defaultstyle"},
             "request_func": {"default": None, "type": "callable"},
             "insecure_https": {"default": False, "type": bool},
             "ssl_cafile": {"default": None, "type": "nonestr"},
@@ -334,10 +335,12 @@ class HtmlFrame(Frame):
     
     @property
     def base_url(self):
-        """The documents's base url. This is automatically generated from :attr:`~tkinterweb.HtmlFrame.current_url` but will also change if explicitly specified by the document.
+        """The documents's base url. This is automatically generated from but will also change if explicitly specified by the document.
         
         :rtype: str"""
         return self._html.base_url
+    
+    # TODO: should I make a property for self._current_html?
     
     @property # could use utilities.lazy_manager(None) and save some work, but then autocomplete fails
     def document(self):
@@ -378,17 +381,7 @@ class HtmlFrame(Frame):
         utilities.warn("pack_propagate is being ignored, because since version 4.13 widget geometry is always respected by default. If this is a problem, please file a bug report.")
         pass
 
-    def _check_deprecations(self, **kwargs):
-        if "default_style" in kwargs:
-            utilities.deprecate_param("default_style", "utilities.DEFAULT_STYLE")
-        if "dark_style" in kwargs:
-            utilities.deprecate_param("dark_style", "utilities.DARK_STYLE")
-        if "about_page_background" in kwargs:
-            utilities.deprecate_param("about_page_background", "ttk.Style().configure('TFrame', background=)")
-        if "about_page_foreground" in kwargs:
-            utilities.deprecate_param("about_page_foreground", "ttk.Style().configure('TFrame', foreground=)")
-
-    def load_html(self, html_source, base_url=None, fragment=None, _thread_safe=False):
+    def load_html(self, html_source, base_url=None, fragment=None):
         """Clear the current page and parse the given HTML code.
         
         :param html_source: The HTML code to render.
@@ -396,28 +389,39 @@ class HtmlFrame(Frame):
         :param base_url: The base url to use when parsing stylesheets and images. If this argument is not supplied, it will be set to the current working directory.
         :type base_url: str, optional
         :param fragment: The url fragment to scroll to after the document loads.
-        :type fragment: str, optional"""
-        if self._thread_in_progress:
-            self._thread_in_progress.stop()
-        self._html.reset(_thread_safe)
-
-        if fragment: fragment = "".join(char for char in fragment if char.isalnum() or char in ("-", "_", ".")).replace(".", r"\.")
+        :type fragment: str, optional"""        
 
         if base_url == None:
             path = utilities.WORKING_DIR
             if not path.startswith("/"):
                 path = f"/{path}"
             base_url = f"file://{path}/"
-        self._html.base_url = self._current_url = base_url
+
+        self._current_url = ""
+
+        self._load_html(html_source, base_url, fragment)    
+
+    def _load_html(self, html_source, base_url=None, fragment=None, _thread_safe=False):
+        if self._thread_in_progress:
+            self._thread_in_progress.stop()
+        if fragment: 
+            fragment = "".join(char for char in fragment if char.isalnum() or char in ("-", "_", ".")).replace(".", r"\.")
+        if self._html.caches_enabled:
+            self._current_html = html_source
+        else:
+            self._current_html = ""
+
+        self._html.reset(_thread_safe)
+        self._html.base_url = base_url
         self._html.fragment = fragment
         self._html.parse(html_source, _thread_safe)
 
         if _thread_safe:
-            self._html.post_to_queue(self._load_html)
+            self._html.post_to_queue(self._finish_loading_html)
         else:
-            self._load_html()
+            self._finish_loading_html()
     
-    def _load_html(self):
+    def _finish_loading_html(self):
         # NOTE: must be run from main thread
         
         self._finish_css()
@@ -471,11 +475,14 @@ class HtmlFrame(Frame):
         :type decode: str or None, optional
         :param force: Force the page to reload all elements.
         :type force: bool, optional"""
+        ### TODO: Maybe consider merging load_url, load_file, and load_website into one
+        ### One could use the checker from the sample web browser
         if not self._current_url == url:
             self._previous_url = self._current_url
         if url in utilities.BUILTIN_PAGES:
             utilities.BUILTIN_PAGES._html = self._html
-            return self.load_html(self._get_about_page(url), url)
+            self._current_url = url
+            return self._load_html(self._get_about_page(url), url)
 
         self._waiting_for_reset = True
 
@@ -515,31 +522,46 @@ class HtmlFrame(Frame):
         else:
             self._continue_loading(url, data, method, decode)
 
-    def add_html(self, html_source, return_element=False):
+    def reload(self):
+        """Reload the page.
+
+        For optimal behaviour, ensure caching is enabled (the default).
+        
+        New in version 4.21"""
+        # TODO: consider adding the option to bypass the cache
+        if self._current_url:
+            self.load_url(self._current_url, force=True)
+        elif self._current_html:
+            self._load_html(self._current_html, self._html.base_url)
+        # else, we could snapshot the page and load that
+        # But I think that's completely useless
+
+    def add_html(self, html_source, return_element=False, index=-1):
         """Parse HTML and add it to the end of the current document. Unlike :meth:`HtmlFrame.load_html`, :meth:`HtmlFrame.add_html` adds rendered HTML code without clearing the original document.
         
         :param html_source: The HTML code to render.
         :type html_source: str
         :param return_element: If True, return the root element of the added HTML.
         :type return_element: :class:`~tkinterweb.dom.HTMLElement`
+        :param index: The index of the element to insert before. Default -1. New in version 4.22.
+        :type index: int
         :return: :class:`~tkinterweb.dom.HTMLElement` or None"""
 
         self._previous_url = ""
-        #if not self._html.base_url:
-        #    path = WORKING_DIR
-        #    if not path.startswith("/"):
-        #        path = f"/{path}"
-        #    base_url = f"file://{path}/"
-        #    self._html.base_url = self._current_url = base_url
-
-        if return_element:
+        node = None
+        
+        if return_element or index != -1:
             node = self._html.parse_fragment(html_source)
             body = self.document.body.node
-            self._html.insert_node(body, node)
-            node = dom.HTMLElement(self.document, node)
+            if index == -1:
+                self._html.insert_node(body, node)
+            else:
+                child = self._html.get_node_children(body)[index]
+                self._html.insert_node_before(body, node, child)
+            if return_element:
+                node = dom.HTMLElement(self.document, node)
         else:
             self._html.parse(html_source)
-            node = None
 
         self._finish_css()
         self._handle_html_resize(force=True)
@@ -547,36 +569,8 @@ class HtmlFrame(Frame):
         return node
     
     def insert_html(self, html_source, index=0, return_element=False):
-        """Parse HTML and insert it into the current document.
-        
-        :param html_source: The HTML code to render.
-        :type html_source: str
-        :param index: The index of the element to insert before.
-        :type index: int
-        :param return_element: If True, return the root element of the inserted HTML.
-        :type return_element: :class:`~tkinterweb.dom.HTMLElement`
-        :return: :class:`~tkinterweb.dom.HTMLElement` or None
-        
-        New in version 4.4."""
-
-        self._previous_url = ""
-        #if not self._html.base_url:
-        #    path = WORKING_DIR
-        #    if not path.startswith("/"):
-        #        path = f"/{path}"
-        #    base_url = f"file://{path}/"
-        #    self._html.base_url = self._current_url = base_url
-
-        node = self._html.parse_fragment(html_source)
-        body = self.document.body.node
-        child = self._html.get_node_children(body)[index]
-        self._html.insert_node_before(body, node, child)
- 
-        self._finish_css()
-        self._handle_html_resize(force=True)
-
-        if return_element:
-            return dom.HTMLElement(self.document, node)
+        utilities.deprecate_param("insert_html", "add_html")
+        self.add_html(html_source, return_element, index)
     
     def add_css(self, css_source, priority="author"):
         """Send CSS stylesheets to the parser. This can be used to alter the appearance of already-loaded documents.
@@ -730,15 +724,28 @@ class HtmlFrame(Frame):
             raise NotImplementedError("the page could not be printed because print_page is an experimental feature")
 
     def save_page(self, filename=None):
-        """Save the page as an HTML file.
+        """Return the page's HTML code or save the page as an HTML file.
+
+        As of version 4.21, this method returns or saves the page's original HTML. 
+        Consider using :meth:`HtmlFrame.snapshot_page` or :attr:`HTMLElement.innerHTML` to get the page's HTML in real-time.
+
+        For optimal behaviour, ensure caching is enabled (the default).
                 
         :param filename: The file path to save the page to. If None, the image is not saved to the disk.
         :type filename: str or None, optional
         :return: A string containing the page's HTML/CSS code.
         :rtype: str"""
-        self._html.post_message(f"Saving {self._current_url}...")
-        html = self.document.documentElement.innerHTML
+        # At the moment <script> and <style> tags don't show in innerHTML
+        # So we save the page's html into a variable when loading
+        # TODO: Only add HTML to _current_html if it's not already cached by the lru_cache
+
+        if self._current_html:
+            html = self._current_html
+        else:
+            html = self._html.serialize_node()
+
         if filename:
+            self._html.post_message(f"Saving {self._current_url}...")
             with open(filename, "w+") as handle:
                 handle.write(html)
             self._html.post_message("Saved!")
@@ -800,9 +807,8 @@ class HtmlFrame(Frame):
         """
         if self.winfo_exists():
             if not self._button:
-                self._button = tk.Button(self, text="Try Again")
-            self._button.configure(command=lambda url=self._current_url: self.load_url(url, None, True))
-            self.load_html(self._get_about_page("about:error", code, self._button), url)
+                self._button = tk.Button(self, text="Try Again", command=self.reload)
+            self._load_html(self._get_about_page("about:error", code, self._button), url)
 
     def resolve_url(self, url):
         """Generate a full url from the specified url. This can be used to generate full urls when given a relative url.
@@ -1227,12 +1233,15 @@ class HtmlFrame(Frame):
                 newurl, data, filetype, code = self._html.download_url(url, data, method, decode)
                 self._html.post_message(f"Successfully connected to {location}", True)
 
+                if view_source:
+                    newurl = "view-source:"+newurl
+
                 if thread.isrunning():
+                    if self._current_url != newurl:
+                        self._current_url = newurl
+                        self._html.post_event(utilities.URL_CHANGED_EVENT, True)
+
                     if view_source:
-                        newurl = "view-source:"+newurl
-                        if self._current_url != newurl:
-                            self._current_url = newurl
-                            self._html.post_event(utilities.URL_CHANGED_EVENT, True)
                         data = str(data).replace("<","&lt;").replace(">", "&gt;")
                         data = data.splitlines()
                         length = int(len(str(len(data))))
@@ -1243,19 +1252,16 @@ class HtmlFrame(Frame):
                         else:
                             data = "".join(data)
                         text = self._get_about_page("about:view-source", length*9, data)
-                        self.load_html(text, newurl, _thread_safe=thread_safe)
+                        self._load_html(text, newurl, _thread_safe=thread_safe)
                     elif "image" in filetype:
                         name = self._html.image_manager.allocate_image_name()
                         if name:
                             data, data_is_image = self._html.image_manager.check_images(data, name, url, filetype, thread.is_subthread)
                             self._html.post_to_queue(lambda data=data, name=name, url=url, filetype=filetype, data_is_image=data_is_image: self._finish_loading_image(data, name, url, filetype, data_is_image))
                         else:
-                            self.load_html(self._get_about_page("about:image", name), newurl, _thread_safe=thread_safe)
+                            self._load_html(self._get_about_page("about:image", name), newurl, _thread_safe=thread_safe)
                     else:
-                        if self._current_url != newurl:
-                            self._current_url = newurl
-                            self._html.post_event(utilities.URL_CHANGED_EVENT, True)
-                        self.load_html(data, newurl, fragment, _thread_safe=thread_safe)
+                        self._load_html(data, newurl, fragment, _thread_safe=thread_safe)
             else:
                 # If no requests need to be made, we can signal that the page is done loading, handle fragments, etc.
                 self._html.fragment = fragment
@@ -1269,11 +1275,9 @@ class HtmlFrame(Frame):
         # NOTE: must be run in main thread
         # Inject the image into the webpage, as it has already been downloaded
 
-        if self._current_url != url:
-            self._html.post_event(utilities.URL_CHANGED_EVENT)
         text = self._get_about_page("about:image", name)
         self._html.image_manager.finish_fetching_images(data, name, url, filetype, data_is_image)
-        self.load_html(text, url)
+        self._load_html(text, url)
     
     def _finish_loading_nothing(self):
         # NOTE: must be run in main thread
@@ -1298,7 +1302,7 @@ Otherwise, use 'HtmlFrame(master, insecure_https=True)' to ignore website certif
         if self.on_navigate_fail is not None:
             self.on_navigate_fail(url, error, code)
 
-    def _finish_css(self):     
+    def _finish_css(self):
         ### TODO: consider handling add_html/insert_html this way too   
         ### But then again I don't think they're quite as commonly used
         ### And these days one could just bind to DOM_CONTENT_LOADED_EVENT
@@ -1358,7 +1362,7 @@ Otherwise, use 'HtmlFrame(master, insecure_https=True)' to ignore website certif
     def _check_value(self, key, settings, value):
         """Ensure new configuration option values are a valid type and post deprecation warnings."""
         if "deprecated" in settings:
-            utilities.deprecate_param(key, settings["deprecated"])
+            utilities.deprecate_param(key, settings["deprecated"], 5)
         if "type" in settings:
             expected_type = settings["type"]
             extras = ""
@@ -1521,7 +1525,8 @@ class HtmlLabel(HtmlFrame):
         # This stops infinite flickering when tables are present
         # My computer was having this bug for a while but now I don't experience it
         # But this doesn't seem to have any major side effects
-        if _relayout:
+        if _relayout and self.winfo_ismapped(): 
+            # Note to self: without the winfo_ismapped(), the window may teleport across the galaxy
             self.update_idletasks()
             self._html.relayout()
 

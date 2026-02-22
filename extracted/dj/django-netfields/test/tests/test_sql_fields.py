@@ -1,7 +1,6 @@
-from __future__ import unicode_literals
 import warnings
 import django
-from django import VERSION
+from django import VERSION as DJANGO_VERSION
 from django.core.exceptions import ValidationError
 from ipaddress import (
     IPv4Address,
@@ -15,6 +14,8 @@ from ipaddress import (
     ip_network,
 )
 from netaddr import EUI
+import sys
+
 
 from django.db import IntegrityError
 from django.db.models import F
@@ -39,6 +40,9 @@ from test.models import (
     AggregateTestModel,
     AggregateTestChildModel
 )
+
+
+PYTHON_VERSION = (sys.version_info.major, sys.version_info.minor)
 
 
 class BaseSqlTestCase(object):
@@ -145,7 +149,7 @@ class BaseInetTestCase(BaseSqlTestCase):
         )
 
     def test_search_lookup_fails(self):
-        if VERSION >= (2, 0):
+        if DJANGO_VERSION >= (2, 0):
             expected = FieldError
         else:
             expected = NotImplementedError
@@ -244,7 +248,6 @@ class BaseInetTestCase(BaseSqlTestCase):
     def test_query_filter_f_expression(self):
         self.model.objects.filter(field=F('field'))
 
-    @skipIf(VERSION < (1, 11), 'Subquery added in Django 1.11. https://docs.djangoproject.com/en/1.11/ref/models/expressions/#subquery-expressions')
     def test_query_filter_subquery(self):
         from django.db.models import OuterRef, Subquery
         self.model.objects.annotate(
@@ -485,6 +488,12 @@ class TestInetFieldNoPrefix(BaseInetFieldTestCase, TestCase):
         self.assertEqual(query.count(), 1)
         self.assertEqual(query[0].field, ip_address('10.1.2.1'))
 
+    @skipIf(PYTHON_VERSION < (3, 9), 'Scopes were added in Python 3.9')
+    def test_ipv6_strip_scope(self):
+        instance = self.model.objects.create(field='2001:db8::1%foo')
+        instance = self.model.objects.get(pk=instance.pk)
+        self.assertEqual(str(instance.field), '2001:db8::1')
+
 
 class TestCidrField(BaseCidrFieldTestCase, TestCase):
     def setUp(self):
@@ -599,7 +608,6 @@ class BaseMacTestCase(BaseSqlTestCase):
     def test_query_filter_f_expression(self):
         self.model.objects.filter(field=F('field'))
 
-    @skipIf(VERSION < (1, 11), 'Subquery added in Django 1.11. https://docs.djangoproject.com/en/1.11/ref/models/expressions/#subquery-expressions')
     def test_query_filter_subquery(self):
         from django.db.models import OuterRef, Subquery
         self.model.objects.annotate(
@@ -679,7 +687,9 @@ class TestInetAddressFieldArray(TestCase):
     def test_save_multiple_items(self):
         InetArrayTestModel(field=['10.1.1.1', '10.1.1.2']).save()
 
-    @skipIf(VERSION < (1, 10), 'ArrayField does not return correct types in Django < 1.10. https://code.djangoproject.com/ticket/25143')
+    def test_save_with_null_item(self):
+        InetArrayTestModel(field=['10.1.1.1', None]).save()
+
     def test_retrieves_ipv4_ipinterface_type(self):
         instance = InetArrayTestModel(field=['10.1.1.1/24'])
         instance.save()
@@ -698,7 +708,9 @@ class TestCidrAddressFieldArray(TestCase):
     def test_save_multiple_items(self):
         CidrArrayTestModel(field=['10.1.1.0/24', '10.1.2.0/24']).save()
 
-    @skipIf(VERSION < (1, 10), 'ArrayField does not return correct types in Django < 1.10. https://code.djangoproject.com/ticket/25143')
+    def test_save_with_null_item(self):
+        CidrArrayTestModel(field=['10.1.1.0/24', None]).save()
+
     def test_retrieves_ipv4_ipnetwork_type(self):
         instance = CidrArrayTestModel(field=['10.1.1.0/24'])
         instance.save()
@@ -717,7 +729,9 @@ class TestMACAddressFieldArray(TestCase):
     def test_save_multiple_items(self):
         MACArrayTestModel(field=['00:aa:2b:c3:dd:44', '00:aa:2b:c3:dd:45']).save()
 
-    @skipIf(VERSION < (1, 10), 'ArrayField does not return correct types in Django < 1.10. https://code.djangoproject.com/ticket/25143')
+    def test_save_with_null_item(self):
+        MACArrayTestModel(field=['00:aa:2b:c3:dd:44', None]).save()
+
     def test_retrieves_eui_type(self):
         instance = MACArrayTestModel(field=['00:aa:2b:c3:dd:44'])
         instance.save()
@@ -736,7 +750,9 @@ class TestMACAddress8FieldArray(TestCase):
     def test_save_multiple_items(self):
         MAC8ArrayTestModel(field=['00:aa:2b:c3:dd:44:55:ff', '00:aa:2b:c3:dd:45:7e:6b']).save()
 
-    @skipIf(VERSION < (1, 10), 'ArrayField does not return correct types in Django < 1.10. https://code.djangoproject.com/ticket/25143')
+    def test_save_with_null_item(self):
+        MAC8ArrayTestModel(field=['00:aa:2b:c3:dd:44:55:ff', None]).save()
+
     def test_retrieves_eui_type(self):
         instance = MAC8ArrayTestModel(field=['00:aa:2b:c3:dd:44:55:67'])
         instance.save()
@@ -746,7 +762,6 @@ class TestMACAddress8FieldArray(TestCase):
 
 
 class TestAggregate(TestCase):
-    @skipIf(VERSION < (1, 9), 'Postgres aggregates not supported in Django < 1.9')
     def test_aggregate_inet(self):
         from django.contrib.postgres.aggregates import ArrayAgg
         inet = IPv4Interface('10.20.30.20/32')
@@ -760,7 +775,6 @@ class TestAggregate(TestCase):
         AggregateTestChildModel.objects.create(parent=parent, network=network, inet=inet)
         self.assertEqual(inet_qs[0].agg_inet, [inet])
 
-    @skipIf(VERSION < (1, 9), 'Postgres aggregates not supported in Django < 1.9')
     def test_aggregate_network(self):
         from django.contrib.postgres.aggregates import ArrayAgg
         inet = IPv4Interface('10.20.30.20/32')
@@ -776,7 +790,7 @@ class TestAggregate(TestCase):
 
 class TestConstraints(TestCase):
 
-    @skipIf(VERSION < (4, 1), 'Check constraint validation is supported from django 4.1 onwards')
+    @skipIf(DJANGO_VERSION < (4, 1), 'Check constraint validation is supported from django 4.1 onwards')
     def test_check_constraint(self):
         from test.models import ConstraintModel
 

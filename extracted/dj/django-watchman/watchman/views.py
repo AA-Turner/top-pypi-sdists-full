@@ -1,11 +1,8 @@
-# -*- coding: utf-8 -*-
-
-from __future__ import unicode_literals
-
 import warnings
+from typing import Any
 
 from django.db.transaction import non_atomic_requests
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpRequest, HttpResponse, JsonResponse
 from django.shortcuts import render
 from django.utils.translation import gettext as _
 
@@ -13,12 +10,14 @@ from watchman import __version__, settings
 from watchman.decorators import auth
 from watchman.utils import get_checks
 
-WATCHMAN_VERSION_HEADER = "X-Watchman-Version"
+WATCHMAN_VERSION_HEADER: str = "X-Watchman-Version"
 
 
-def _get_check_params(request):
-    check_list = None
-    skip_list = None
+def _get_check_params(
+    request: HttpRequest,
+) -> tuple[list[str] | None, list[str] | None]:
+    check_list: list[str] | None = None
+    skip_list: list[str] | None = None
 
     if len(request.GET) > 0:
         if "check" in request.GET:
@@ -29,15 +28,16 @@ def _get_check_params(request):
     return (check_list, skip_list)
 
 
-def _deprecation_warnings():
+def _deprecation_warnings() -> None:
     if settings.WATCHMAN_TOKEN:
         warnings.warn(
             "`WATCHMAN_TOKEN` setting is deprecated, use `WATCHMAN_TOKENS` instead. It will be removed in django-watchman 1.0",
             DeprecationWarning,
+            stacklevel=2,
         )
 
 
-def _disable_apm():
+def _disable_apm() -> None:
     # New Relic
     try:
         import newrelic.agent
@@ -55,14 +55,14 @@ def _disable_apm():
         pass
 
 
-def run_checks(request):
+def run_checks(request: HttpRequest) -> tuple[dict[str, Any], bool]:
     _deprecation_warnings()
 
     if settings.WATCHMAN_DISABLE_APM:
         _disable_apm()
 
-    checks = {}
-    ok = True
+    checks: dict[str, Any] = {}
+    ok: bool = True
 
     check_list, skip_list = _get_check_params(request)
 
@@ -72,11 +72,11 @@ def run_checks(request):
             # Set our HTTP status code if there were any errors
             if settings.WATCHMAN_ERROR_CODE != 200:
                 for _type in _check:
-                    if type(_check[_type]) == dict:
+                    if isinstance(_check[_type], dict):
                         result = _check[_type]
                         if not result["ok"]:
                             ok = False
-                    elif type(_check[_type]) == list:
+                    elif isinstance(_check[_type], list):
                         for entry in _check[_type]:
                             for result in entry:
                                 if not entry[result]["ok"]:
@@ -88,7 +88,7 @@ def run_checks(request):
 
 @auth
 @non_atomic_requests
-def status(request):
+def status(request: HttpRequest) -> HttpResponse:
     checks, ok = run_checks(request)
 
     if not checks:
@@ -110,13 +110,13 @@ def status(request):
 
 
 @non_atomic_requests
-def bare_status(request):
+def bare_status(request: HttpRequest) -> HttpResponse:
     checks, ok = run_checks(request)
     http_code = 200 if ok else settings.WATCHMAN_ERROR_CODE
     return HttpResponse(status=http_code, content_type="text/plain")
 
 
-def ping(request):
+def ping(request: HttpRequest) -> HttpResponse:
     if settings.WATCHMAN_DISABLE_APM:
         _disable_apm()
     return HttpResponse("pong", content_type="text/plain")
@@ -124,10 +124,10 @@ def ping(request):
 
 @auth
 @non_atomic_requests
-def dashboard(request):
+def dashboard(request: HttpRequest) -> HttpResponse:
     checks, overall_status = run_checks(request)
 
-    expanded_checks = {}
+    expanded_checks: dict[str, Any] = {}
     for key, value in checks.items():
         if isinstance(value, dict):
             # For some systems (eg: email, storage) value is a
@@ -146,7 +146,7 @@ def dashboard(request):
             # }
             single_status = value.copy()
             single_status["name"] = ""
-            expanded_check = {
+            expanded_check: dict[str, Any] = {
                 "ok": value["ok"],
                 "statuses": [single_status],
             }
@@ -169,7 +169,7 @@ def dashboard(request):
             #         }
             #     },
             # ]
-            statuses = []
+            statuses: list[dict[str, Any]] = []
             for outer_status in value:
                 for name, inner_status in outer_status.items():
                     detail = inner_status.copy()

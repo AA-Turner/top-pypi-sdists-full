@@ -1,29 +1,31 @@
 use crate::load::value::Value;
 
-pub type NodeId = usize;
+pub(crate) type NodeId = usize;
 
 #[derive(Debug)]
-pub struct Arena {
-    nodes: Vec<Value>,
+pub(crate) struct Arena<'a> {
+    nodes: Vec<Value<'a>>,
 }
 
-impl Arena {
+impl<'a> Arena<'a> {
     #[inline]
-    pub fn with_capacity(cap: usize) -> Self {
+    pub(crate) fn with_capacity(cap: usize) -> Self {
         Self {
             nodes: Vec::with_capacity(cap),
         }
     }
 
     #[inline]
-    pub fn push(&mut self, value: Value) -> NodeId {
+    pub(crate) fn push(&mut self, value: Value<'a>) -> NodeId {
         let id = self.nodes.len();
         self.nodes.push(value);
         id
     }
 
     #[inline]
-    pub fn get(&self, id: NodeId) -> &Value {
+    pub(crate) fn get(&self, id: NodeId) -> &Value<'_> {
+        // SAFETY: `id` is produced by `push` and nodes are never removed,
+        // so it is always a valid index.
         unsafe { self.nodes.get_unchecked(id) }
     }
 }

@@ -39,7 +39,7 @@ class ResolvedPos:
     def index(self, depth: int | None = None) -> int:
         return cast(int, self.path[self.resolve_depth(depth) * 3 + 1])
 
-    def index_after(self, depth: int) -> int:
+    def index_after(self, depth: int | None = None) -> int:
         depth = self.resolve_depth(depth)
         return self.index(depth) + (
             0 if depth == self.depth and not self.text_offset else 1
@@ -228,7 +228,11 @@ _RESOLVE_CACHE_SIZE = 12
 
 class _ResolveCache:
     def __init__(self, doc: "Node") -> None:
-        self.doc_ref = weakref.ref(doc)
+        doc_id = id(doc)
+        self.doc_ref = weakref.ref(
+            doc,
+            lambda _ref: _resolve_cache.pop(doc_id, None),
+        )
         self.elts: list[ResolvedPos | None] = [None] * _RESOLVE_CACHE_SIZE
         self.i = 0
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncer
-Version: 0.0.15
+Version: 0.0.17
 Summary: Asyncer, async and await, focused on developer experience.
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT

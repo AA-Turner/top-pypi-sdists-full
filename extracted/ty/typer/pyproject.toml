@@ -43,7 +43,7 @@ dependencies = [
     "annotated-doc >=0.0.2",
 ]
 readme = "README.md"
-version = "0.24.0"
+version = "0.24.1"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/typer"
@@ -106,48 +106,6 @@ source-includes = [
     "tests/",
     "docs_src/",
     "scripts/",
-]
-
-[tool.tiangolo._internal-slim-build.packages.typer-slim.project]
-name = "typer-slim"
-readme = "typer-slim/README.md"
-dependencies = [
-    "typer",
-]
-
-[tool.tiangolo._internal-slim-build.packages.typer-slim.project.optional-dependencies]
-
-[tool.tiangolo._internal-slim-build.packages.typer-slim.project.scripts]
-
-[tool.tiangolo._internal-slim-build.packages.typer-slim.tool.pdm.build]
-excludes = [
-    "typer",
-    "tests",
-    "pdm_build.py",
-]
-source-includes = [
-    "",
-]
-
-[tool.tiangolo._internal-slim-build.packages.typer-cli.project]
-name = "typer-cli"
-readme = "typer-cli/README.md"
-dependencies = [
-    "typer",
-]
-
-[tool.tiangolo._internal-slim-build.packages.typer-cli.project.optional-dependencies]
-
-[tool.tiangolo._internal-slim-build.packages.typer-cli.project.scripts]
-
-[tool.tiangolo._internal-slim-build.packages.typer-cli.tool.pdm.build]
-excludes = [
-    "typer",
-    "tests",
-    "pdm_build.py",
-]
-source-includes = [
-    "",
 ]
 
 [tool.pytest.ini_options]

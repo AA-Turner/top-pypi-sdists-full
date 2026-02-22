@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/*", "extensions/*", "rust/*"]
 
 [workspace.package]
-version = "0.7.31"  # We use git tags for versioning. This is just a placeholder.
+version = "0.7.32"  # We use git tags for versioning. This is just a placeholder.
 # tombi: lint.rules.deprecated.disabled = true
 authors = ["ya7010 <ya7010@outlook.com>"]
 edition = "2024"

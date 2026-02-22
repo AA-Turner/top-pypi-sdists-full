@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nbstripout
-Version: 0.9.0
+Version: 0.9.1
 Summary: Strips outputs from Jupyter and IPython notebooks
 Author-email: Florian Rathgeber <florian.rathgeber@gmail.com>
 Maintainer-email: Florian Rathgeber <florian.rathgeber@gmail.com>
@@ -32,6 +32,7 @@ Dynamic: license-file
 
 <!-- markdownlint-disable MD030 -->
 <!-- markdownlint-disable MD041 -->
+<!-- markdownlint-disable MD046 -->
 [![tests](https://github.com/kynan/nbstripout/actions/workflows/tests.yml/badge.svg)](https://github.com/kynan/nbstripout/actions/workflows/tests.yml)
 [![downloads](https://img.shields.io/pypi/dm/nbstripout)](https://pypi.org/project/nbstripout)
 [![PyPI version](https://img.shields.io/pypi/v/nbstripout)](https://pypi.org/project/nbstripout)
@@ -342,6 +343,13 @@ To drop all cells tagged with "solution" run:
 
 The option accepts a list of tags separated by whitespace.
 
+### Forcing UNIX newlines
+
+Force UNIX (LF) newlines in the output (useful on Windows to keep consistent
+line endings in filtered output or textconv diffs):
+
+    nbstripout --unix-newlines FILE.ipynb
+
 ### Keeping some output
 
 Do not strip the execution count/prompt number:
@@ -369,7 +377,7 @@ Drop all output except specific output types:
 
     nbstripout --keep-output-type execute_result
 
-_**Note: `--keep-output-type` will override `--max-size` for outputs that match.**_
+**Note: `--keep-output-type` will override `--max-size` for outputs that match.**
 
 For stripping certain outputs that have names (like `stream` which can be
 `stderr` or `stdout`) you can use a colon to specify the name. The following
@@ -551,7 +559,7 @@ to the `.pre-commit-config.yaml` in your repository:
 
     repos:
     - repo: https://github.com/kynan/nbstripout
-      rev: 0.9.0
+      rev: 0.9.1
       hooks:
         - id: nbstripout
 
@@ -562,7 +570,7 @@ When passing parameters to the hook, be aware that arguments with spaces such as
 
     repos:
     - repo: https://github.com/kynan/nbstripout
-      rev: 0.9.0
+      rev: 0.9.1
       hooks:
         - id: nbstripout
           args: ['--extra-keys=metadata.celltoolbar cell.metadata.heading_collapsed']
@@ -575,7 +583,7 @@ When passing parameters to the hook, be aware that arguments with spaces such as
 > In its regular mode, `nbstripout` acts as a filter and only modifies what git
 > gets to see for committing or diffing. The working copy stays intact.
 
-## Guard PRs with a GitHub Action 
+## Guard PRs with a GitHub Action
 
 `nbstripout` offers a re-usable GitHub action that verifies notebooks are properly stripped of output before merging. This is useful for enforcing clean notebooks in your CI/CD pipeline without modifying local files.
 
@@ -613,7 +621,7 @@ jobs:
 All inputs are optional and have sensible defaults:
 
 | Input | Description | Default |
-|-------|-------------|---------|
+| ----- | ----------- | ------- |
 | `python-version` | Python version to use (supports versions, ranges, or "3.x") | `'3.x'` |
 | `paths` | Space-separated list of paths to check (supports wildcards) | `'**/*.ipynb'` |
 | `extra-keys` | Extra metadata keys to strip (space-separated) | `''` |
@@ -675,6 +683,7 @@ All inputs are optional and have sensible defaults:
 The action runs `nbstripout --verify` on the specified notebooks, which performs a dry-run check without modifying files. If any notebook would be modified by stripping, the action fails and reports which files need to be cleaned.
 
 This approach ensures that:
+
 - Notebooks in pull requests are properly stripped before merging
 - The check is non-destructive (doesn't modify your working copy)
 - Developers are notified when they forgot to strip output
@@ -683,6 +692,7 @@ This approach ensures that:
 ### Combining with pre-commit hooks
 
 For the best developer experience, use both:
+
 1. **Git filter or pre-commit hook** (local): Automatically strips output before committing
 2. **GitHub Action** (CI): Guards against accidentally pushed non-stripped notebooks
 

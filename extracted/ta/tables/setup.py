@@ -11,6 +11,7 @@ import fnmatch
 import platform
 import tempfile
 import textwrap
+import sysconfig
 import subprocess
 from typing import NamedTuple
 from pathlib import Path
@@ -18,6 +19,7 @@ from pathlib import Path
 # Using ``setuptools`` enables lots of goodies
 from setuptools import setup, Extension
 from packaging.version import Version
+from wheel.bdist_wheel import bdist_wheel
 from setuptools.command.build_ext import build_ext
 
 # The name for the pkg-config utility
@@ -41,6 +43,10 @@ def exit_with_error(head, body=""):
 
 def print_warning(head, body=""):
     _print_admonition("warning", head, body)
+
+
+def is_freethreaded():
+    return bool(sysconfig.get_config_var("Py_GIL_DISABLED"))
 
 
 # Get the HDF5 version provided the 'H5public.h' header
@@ -69,7 +75,7 @@ def get_blosc_version(headername):
         elif "BLOSC_VERSION_MINOR" in line:
             minor = int(line.split()[2])
         elif "BLOSC_VERSION_RELEASE" in line:
-            release = int(line.split()[2])
+            release = line.split()[2]
         if None not in (major, minor, release):
             break
     else:
@@ -86,7 +92,7 @@ def get_blosc2_version(headername):
         elif "BLOSC2_VERSION_MINOR" in line and "minor" in line:
             minor = int(line.split()[2])
         elif "BLOSC2_VERSION_RELEASE" in line and "tweaks" in line:
-            release = int(line.split()[2])
+            release = line.split()[2]
         if None not in (major, minor, release):
             break
     else:
@@ -106,14 +112,17 @@ def get_blosc2_directories():
     include_path = library_path = runtime_path = None
     for line in open(recinfo):
         path, _ = line.split(",", 1)
-        if fnmatch.fnmatch(path, "**/bin/libblosc2*"):
+        if fnmatch.fnmatch(path, "**/bin/libblosc2*") or (
+            sys.platform.startswith("win")
+            and fnmatch.fnmatch(path, "**/lib/libblosc2*")
+        ):
             runtime_path = basepath.parent.joinpath(path).resolve()
             if not runtime_path.is_file():
                 raise FileNotFoundError(
                     f"File does not exists: {runtime_path}"
                 )
             runtime_path = runtime_path.parent.resolve()
-        elif fnmatch.fnmatch(path, "**/libblosc2*"):
+        if fnmatch.fnmatch(path, "**/libblosc2*"):
             library_path = basepath.parent.joinpath(path).resolve()
             if not library_path.is_file():
                 raise FileNotFoundError(
@@ -238,6 +247,17 @@ class BuildExtensions(build_ext):
                 ext.include_dirs.append(numpy_incl)
 
         build_ext.run(self)
+
+
+# https://github.com/joerick/python-abi3-package-sample/blob/main/setup.py
+class bdist_wheel_abi3(bdist_wheel):  # noqa: D101
+    def get_tag(self):  # noqa: D102
+        python, abi, plat = super().get_tag()
+
+        if python.startswith("cp"):
+            return "cp311", "abi3", plat
+
+        return python, abi, plat
 
 
 class DefaultDirs(NamedTuple):
@@ -375,9 +395,11 @@ class BasePackage:
         for location in locations:
             for prefix in self._runtime_prefixes:
                 for suffix in self._runtime_suffixes:
-                    abs_path = f"{location}/{prefix}{self.runtime_name}{suffix}"
+                    abs_path = (
+                        f"{location}/{prefix}{self.runtime_name}{suffix}"
+                    )
                     # Debug: print("find_runtime_path() trying ", abs_path)
-                          
+
                     try:
                         ctypes.CDLL(abs_path)
                     except OSError:
@@ -514,7 +536,7 @@ class BasePackage:
                     directories[idx] = Path(path[: path.rfind(name)])
                 else:
                     directories[idx] = Path(path).parent
-            #else:
+            # else:
             #    print("Warning: path is not set.")
         return tuple(directories)
 
@@ -568,10 +590,12 @@ if __name__ == "__main__":
     try:
         import cython
 
-        print(f"* Found cython {cython.__version__}")
+        cython_version = cython.__version__
+
+        print(f"* Found cython {cython_version}")
         del cython
     except ImportError:
-        pass
+        cython_version = "0.0"
 
     # Minimum required versions for numpy, numexpr and HDF5
     _min_versions = {}
@@ -850,7 +874,7 @@ if __name__ == "__main__":
         if package.tag == "BLOSC2":
             hook = blosc2_find_directories_hook
 
-        (hdrdir, libdir, rundir) = package.find_directories(
+        hdrdir, libdir, rundir = package.find_directories(
             location, use_pkgconfig=use_pkgconfig, hook=hook
         )
 
@@ -1047,6 +1071,17 @@ if __name__ == "__main__":
         "indexesextension",
     ]
 
+    cmdclass = {"build_ext": BuildExtensions}
+    compiler_directives = {"freethreading_compatible": True}
+    abi3_macros = []
+    abi3_ext_kwargs = {}
+    abi3_cflags = ""
+    if platform.python_implementation() == "CPython" and not is_freethreaded():
+        abi3_macros.append(("Py_LIMITED_API", "0x030B0000"))  # 3.11
+        abi3_cflags = f"-D{'='.join(abi3_macros[-1])}"
+        abi3_ext_kwargs["py_limited_api"] = True
+        cmdclass["bdist_wheel"] = bdist_wheel_abi3
+
     def get_cython_extfiles(extnames):
         extdir = Path("tables")
         extfiles = {}
@@ -1062,7 +1097,27 @@ if __name__ == "__main__":
                 # a hard requisite
                 from Cython.Build import cythonize
 
-                cythonize(str(extpfile), language_level="2")
+                # it would be nice to have an option or something to pass here, but
+                # there doesn't seem to be one according to the docs, so temporarily set
+                # the env var instead
+                orig_cflags = os.getenv("CFLAGS", None)
+                cflags = (
+                    f"{orig_cflags} {abi3_cflags}"
+                    if orig_cflags
+                    else abi3_cflags
+                )
+                os.environ["CFLAGS"] = cflags
+                try:
+                    cythonize(
+                        str(extpfile),
+                        compiler_directives=compiler_directives,
+                        language_level="2",
+                    )
+                finally:
+                    if orig_cflags is not None:
+                        os.environ["CFLAGS"] = orig_cflags
+                    else:
+                        del os.environ["CFLAGS"]
             extfiles[extname] = extcfile
 
         return extfiles
@@ -1195,6 +1250,8 @@ if __name__ == "__main__":
         "define_macros": def_macros,
         "include_dirs": inc_dirs,
     }
+    def_macros.extend(abi3_macros)
+    extension_kwargs.update(abi3_ext_kwargs)
 
     extensions = [
         Extension(
@@ -1277,5 +1334,5 @@ if __name__ == "__main__":
 
     setup(
         ext_modules=extensions,
-        cmdclass={"build_ext": BuildExtensions},
+        cmdclass=cmdclass,
     )

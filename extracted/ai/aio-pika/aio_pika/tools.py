@@ -7,20 +7,12 @@ from functools import wraps
 from itertools import chain
 from threading import Lock
 from typing import (
-    AbstractSet, Any, Awaitable, Callable, Coroutine, Generator, Iterator,
-    List,
-    MutableSet, Optional, TypeVar, Union, Generic,
+    AbstractSet, Any, Awaitable, Callable, Coroutine, Generator, Generic,
+    Iterator, List, MutableSet, Optional, ParamSpec, Protocol, TypeVar, Union,
 )
-
 from weakref import ReferenceType, WeakSet, ref
 
 from aio_pika.log import get_logger
-
-
-try:
-    from typing import ParamSpec, Protocol
-except ImportError:
-    from typing_extensions import ParamSpec, Protocol   # type: ignore
 
 
 log = get_logger(__name__)
@@ -264,8 +256,18 @@ class CallbackCollection(
                         result = cb(sender, *args, **kwargs)
                     if inspect.isawaitable(result):
                         futures.append(asyncio.ensure_future(result))
-                except Exception:
-                    log.exception("Callback %r error", cb)
+                except Exception as exc:
+                    log.error(
+                        "Callback %r error: %s: %s",
+                        cb,
+                        type(exc).__name__,
+                        exc,
+                    )
+                    log.debug(
+                        "Full traceback for callback %r error",
+                        cb,
+                        exc_info=True,
+                    )
 
         if not futures:
             return STUB_AWAITABLE
@@ -304,8 +306,18 @@ class OneShotCallback:
 
             try:
                 await self.callback(*args, **kwargs)
-            except Exception:
-                log.exception("Callback %r error", self)
+            except Exception as exc:
+                log.error(
+                    "Callback %r error: %s: %s",
+                    self,
+                    type(exc).__name__,
+                    exc,
+                )
+                log.debug(
+                    "Full traceback for callback %r error",
+                    self,
+                    exc_info=True,
+                )
             finally:
                 self.loop.call_soon(self.finished.set)
                 del self.callback

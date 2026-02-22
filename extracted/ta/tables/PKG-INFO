@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: tables
-Version: 3.10.2
+Version: 3.11.0
 Summary: Hierarchical datasets for Python
 Author: Francesc Alted, Ivan Vilata, Antonio Valentino, Anthony Scopatz, et al.
 Author-email: pytables@pytables.org
@@ -26,6 +26,7 @@ Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Database
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.11
@@ -36,7 +37,7 @@ Requires-Dist: numexpr>=2.6.2
 Requires-Dist: packaging
 Requires-Dist: py-cpuinfo
 Requires-Dist: blosc2>=2.3.0
-Requires-Dist: typing-extensions>=4.4.0
+Dynamic: license-file
 
 PyTables is a package for managing hierarchical datasets and
 designed to efficiently cope with extremely large amounts of

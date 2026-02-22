@@ -33,7 +33,12 @@ class Client:
     async def _init(self):
         self._client_context = await Context.create_client_context()
         self._encryption_context = EncryptionContext()
-        await self._sync()
+        try:
+            await self._sync()
+        except Exception as ex:
+            logger.error("Error during sync: %s", ex)
+            self._client_context.shutdown()
+            raise ex
 
     @classmethod
     async def create(cls, *args, **kwargs):
@@ -76,8 +81,8 @@ class Client:
         try:
             max_age = response.opt.max_age
             logger.debug(f"max age = {max_age}")
-        except:
-            logger.debug(f"no max age found in CoAP options")
+        except Exception:
+            logger.debug("no max age found in CoAP options")
         return state_reported["state"]["reported"], max_age
 
     async def observe_status(self):

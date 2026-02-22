@@ -75,6 +75,7 @@ class DeepResearchAgenticUnitModel(Base):
     # Outputs (populated after execution)
     result_s3_key = Column(String(512), nullable=True)
     result_summary = Column(Text, nullable=True)  # Concise answer to objective
+    planning_digest = Column(Text, nullable=True)  # Concise answer to objective
     entities_discovered = Column(Text, nullable=True)  # JSON: Entities found (if any)
     confidence = Column(Float, nullable=True)  # 0-1 confidence in results
     gaps_identified = Column(Text, nullable=True)  # JSON: What couldn't be answered

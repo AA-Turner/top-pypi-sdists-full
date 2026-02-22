@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: emukit
-Version: 0.5.0
+Version: 0.5.1
 Summary: Toolkit for decision making under uncertainty.
 Author: Emukit Authors
 License: 
@@ -230,8 +230,6 @@ Requires-Dist: numpy
 Requires-Dist: scipy
 Requires-Dist: matplotlib>=3.9
 Requires-Dist: emcee>=2.2.1
-Requires-Dist: PyDOE>=0.3.0
-Requires-Dist: sobol_seq>=0.1.2
 Provides-Extra: gpy
 Requires-Dist: GPy>=1.13.0; extra == "gpy"
 Provides-Extra: bnn

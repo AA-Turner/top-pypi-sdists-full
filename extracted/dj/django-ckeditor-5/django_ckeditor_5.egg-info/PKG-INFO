@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-ckeditor-5
-Version: 0.2.19
+Version: 0.2.20
 Summary: CKEditor 5 for Django.
 Author-email: Vladislav Khoboko <vladislah@gmail.com>
 License: BSD-3-Clause
@@ -9,27 +9,25 @@ Project-URL: repository, https://github.com/hvlads/django-ckeditor-5
 Keywords: CKEditor,CKEditor5,Django
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 2.2
-Classifier: Framework :: Django :: 3.0
-Classifier: Framework :: Django :: 4.0
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 4.2
+Classifier: Framework :: Django :: 5.2
+Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Internet :: WWW/HTTP
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django>=2.2
+Requires-Dist: Django>=4.2
 Requires-Dist: Pillow
 Provides-Extra: dev
 Requires-Dist: bandit[toml]==1.8.2; extra == "dev"
@@ -43,11 +41,13 @@ Requires-Dist: pytest-cov==6.0.0; extra == "dev"
 Requires-Dist: pytest-django==4.9.0; extra == "dev"
 Requires-Dist: pytest-mock==3.14.0; extra == "dev"
 Requires-Dist: safety==3.2.14; extra == "dev"
+Requires-Dist: tox==4.23.2; extra == "dev"
+Requires-Dist: tox-gh-actions==3.2.0; extra == "dev"
 Requires-Dist: types-setuptools==75.8.0.20250110; extra == "dev"
 Requires-Dist: typing_extensions==4.12.2; extra == "dev"
 Dynamic: license-file
 
-Django CKEditor 5 
+/Django CKEditor 5
 ==================
 
    CKEditor 5 for Django >= 2.0
@@ -422,6 +422,45 @@ or by registering a callback
     window.ckeditorUnregisterCallback("<id of your field>");
 
 
+Using JS callbacks in the config:
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Some CKEditor 5 plugins (e.g. Mention) require JavaScript functions in the config.
+Since the config is passed as JSON, you can use the ``callback:`` prefix to reference
+a function defined on ``window``.
+
+In your ``settings.py``:
+
+  .. code-block:: python
+
+      CKEDITOR_5_CONFIGS = {
+          'default': {
+              'toolbar': ['heading', '|', 'bold', 'italic'],
+              'mention': {
+                  'feeds': [{
+                      'marker': '@',
+                      'feed': 'callback:fetchMentions',
+                      'minimumCharacters': 1,
+                  }],
+              },
+          },
+      }
+
+In your template (loaded before CKEditor):
+
+  .. code-block:: html
+
+      <script>
+          window.fetchMentions = function(queryText) {
+              return fetch('/api/mentions/?q=' + queryText)
+                  .then(function(res) { return res.json(); });
+          };
+      </script>
+
+The JSON reviver detects any string value starting with ``callback:`` and replaces
+it with the corresponding ``window`` function. If the function is not found, the
+original string value is kept as-is.
+
+
 Allow file uploading as link:
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 By default only images can be uploaded and embedded in the content. To allow
@@ -444,6 +483,21 @@ content (e.g. a pdf which actually is an executable). Furthermore allowing file
 uploads disables any validation for the image upload as the backend can't
 distinguish between image and file upload. Exposing the file upload to
 all/untrusted users poses a risk!
+
+
+Automatic image cleanup:
+^^^^^^^^^^^^^^^^^^^^^^^^
+When an object with a ``CKEditor5Field`` is updated or deleted, images that
+are no longer referenced in the content can be automatically removed from
+storage. This requires an extra ``SELECT`` query on every update to compare
+old and new image references.
+
+This feature is **disabled by default**. To enable it, add the following to
+your ``settings.py``:
+
+ .. code-block:: python
+
+      CKEDITOR_5_IMAGE_CLEANUP = True
 
 
 Restrict upload file size:

@@ -17,6 +17,8 @@ from prosemirror.model.mark import Mark
 from prosemirror.model.node import Node, TextNode
 from prosemirror.utils import JSON, Attrs, JSONDict
 
+_MISSING = object()
+
 
 def default_attrs(attrs: "Attributes") -> Attrs | None:
     defaults = {}
@@ -30,10 +32,10 @@ def default_attrs(attrs: "Attributes") -> Attrs | None:
 def compute_attrs(attrs: "Attributes", value: Attrs | None) -> Attrs:
     built = {}
     for name in attrs:
-        given = None
+        given = _MISSING
         if value:
-            given = value.get(name)
-        if given is None:
+            given = value.get(name, _MISSING)
+        if given is _MISSING:
             attr = attrs[name]
             if attr.has_default:
                 given = attr.default
@@ -275,9 +277,14 @@ def _validate_type(
         name = (
             "null"
             if value is None
-            else {str: "string", int: "number", float: "number", bool: "boolean"}.get(
-                type(value), type(value).__name__
-            )
+            else {
+                str: "string",
+                int: "number",
+                float: "number",
+                bool: "boolean",
+                dict: "object",
+                list: "object",
+            }.get(type(value), type(value).__name__)
         )
         if name not in types:
             msg = (

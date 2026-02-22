@@ -52,6 +52,7 @@ class DeepResearchSubTaskResourceSchema(Schema):
     # Results
     result_s3_key = fields.String(allow_none=True)
     result_summary = fields.String(allow_none=True)
+    planning_digest = fields.String(allow_none=True)
     citations_count = fields.Integer(allow_none=True)
     documents_analyzed = fields.Integer(allow_none=True)
 

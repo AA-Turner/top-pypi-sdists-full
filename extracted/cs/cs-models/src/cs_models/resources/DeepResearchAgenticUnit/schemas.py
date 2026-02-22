@@ -21,6 +21,7 @@ class DeepResearchAgenticUnitResourceSchema(Schema):
     status = fields.String(allow_none=True)
     result_s3_key = fields.String(allow_none=True)
     result_summary = fields.String(allow_none=True)
+    planning_digest = fields.String(allow_none=True)
     entities_discovered = fields.String(allow_none=True)  # JSON string
     confidence = fields.Float(allow_none=True)
     gaps_identified = fields.String(allow_none=True)  # JSON string

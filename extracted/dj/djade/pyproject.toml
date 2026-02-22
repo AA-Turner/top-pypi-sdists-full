@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "maturin"
-requires = [ "maturin>=1,<2" ]
+requires = [ "maturin>=1.12,<2" ]
 
 [project]
 name = "djade"
-version = "1.7.0"
+version = "1.8.0"
 description = "A Django template formatter."
 readme = "README.rst"
 keywords = [
@@ -37,7 +37,6 @@ urls.Repository = "https://github.com/adamchainz/djade"
 bindings = "bin"
 manifest-path = "Cargo.toml"
 module-name = "djade"
-python-source = "python"
 strip = true
 include = [
   "rust-toolchain.toml",

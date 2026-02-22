@@ -4,7 +4,6 @@ import os
 from os import PathLike
 from typing import TYPE_CHECKING, Any, Callable, Dict, Iterable, Mapping, Optional, Sequence, TypeVar, Union
 
-import duckdb
 import pyarrow as pa
 from sqlalchemy.engine import Engine
 
@@ -32,6 +31,10 @@ class DuckDBSourceImpl(TableIngestMixIn, BaseSQLSource, SQLSourceWithTableIngest
         async_engine_args: Optional[Dict[str, Any]] = None,
         arrow_tables: dict[str, pa.Table] | None = None,
     ):
+        try:
+            import duckdb
+        except ImportError:
+            raise missing_dependency_exception("chalkpy[duckdb]")
         self.ingested_tables: Dict[str, Any] = {}
         self.filename = filename
         if engine_args is None:

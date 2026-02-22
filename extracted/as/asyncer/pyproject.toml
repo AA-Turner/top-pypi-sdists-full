@@ -40,7 +40,7 @@ dependencies = [
     "sniffio >=1.1",
     "typing_extensions >=4.12.0; python_version < '3.15'",
 ]
-version = "0.0.15"
+version = "0.0.17"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/asyncer"
@@ -96,28 +96,6 @@ source-includes = [
     "tests/",
     "docs_src/",
     "scripts/",
-]
-
-[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project]
-name = "asyncer-slim"
-readme = "asyncer-slim/README.md"
-dependencies = [
-    "asyncer",
-]
-
-[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project.optional-dependencies]
-
-[tool.tiangolo._internal-slim-build.packages.asyncer-slim.project.scripts]
-
-[tool.tiangolo._internal-slim-build.packages.asyncer-slim.tool.pdm.build]
-excludes = [
-    "asyncer",
-    "docs_src",
-    "tests",
-    "pdm_build.py",
-]
-source-includes = [
-    "",
 ]
 
 [tool.coverage.run]

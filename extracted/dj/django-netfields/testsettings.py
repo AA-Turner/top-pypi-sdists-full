@@ -1,23 +1,24 @@
 import os
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'netfields',
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": "netfields",
     }
 }
 
 INSTALLED_APPS = (
-    'netfields',
-    'test',
+    "django.contrib.postgres",
+    "netfields",
+    "test",
 )
 
 MIDDLEWARE_CLASSES = (
-    'django.contrib.sessions.middleware.SessionMiddleware',
-    'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
 )
 
 SECRET_KEY = "notimportant"
 
-DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"

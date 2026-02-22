@@ -127,7 +127,7 @@ import nbformat
 from nbstripout._utils import strip_output, strip_zeppelin_output
 
 __all__ = ['install', 'uninstall', 'status', 'main']
-__version__ = '0.9.0'
+__version__ = '0.9.1'
 
 
 INSTALL_LOCATION_LOCAL = 'local'
@@ -378,6 +378,9 @@ def process_jupyter_notebook(
     )
 
     any_change = nb_orig != nb_stripped
+    # Early exit when writing in-place and nothing changes.
+    if not any_change and output_stream is input_stream:
+        return any_change
 
     if args.dry_run:
         if any_change:
@@ -410,6 +413,9 @@ def process_zeppelin_notebook(
     nb_stripped = strip_zeppelin_output(nb)
 
     any_change = nb_orig != nb_stripped
+    # Early exit when writing in-place and nothing changes.
+    if not any_change and output_stream is input_stream:
+        return any_change
 
     if args.dry_run:
         if any_change:
@@ -525,6 +531,12 @@ def main():
 
     parser.add_argument('--textconv', '-t', action='store_true', help='Prints stripped files to STDOUT')
 
+    parser.add_argument(
+        '--unix-newlines',
+        action='store_true',
+        help='Force UNIX line endings in output (if unset, normalize to os.linesep)',
+    )
+
     parser.add_argument('files', nargs='*', help='Files to strip output from')
     args = parser.parse_args()
     git_config = ['git', 'config']
@@ -594,10 +606,14 @@ def main():
     keep_metadata_keys.extend(args.keep_metadata_keys.split())
     extra_keys = [i for i in extra_keys if i not in keep_metadata_keys]
 
+    # Note that we can't actually preserve newlines from the input file: nbformat implicitly converts all newlines to \n
+    # and setting newline='' disables normalization of newlines on output, so the output will always use \n as newlines.
+    newline = '' if args.unix_newlines else None
+
     # Wrap input/output stream in UTF-8 encoded text wrapper
     # https://stackoverflow.com/a/16549381
     input_stream = io.TextIOWrapper(sys.stdin.buffer, encoding='utf-8') if sys.stdin else None
-    output_stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', newline='')
+    output_stream = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8', newline=newline)
 
     process_notebook = {'jupyter': process_jupyter_notebook, 'zeppelin': process_zeppelin_notebook}[args.mode]
     any_change = False
@@ -606,7 +622,7 @@ def main():
             continue
 
         try:
-            with io.open(filename, 'r+', encoding='utf8') as f:
+            with io.open(filename, 'r+', encoding='utf8', newline=newline) as f:
                 out = output_stream if args.textconv or args.dry_run else f
                 if process_notebook(
                     input_stream=f, output_stream=out, args=args, extra_keys=extra_keys, filename=filename

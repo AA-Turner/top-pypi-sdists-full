@@ -1,0 +1,69 @@
+Metadata-Version: 2.4
+Name: griffe-typingdoc
+Version: 0.3.1
+Summary: Griffe extension for PEP 727 – Documentation Metadata in Typing.
+Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <pawamoy@pm.me>
+License-Expression: ISC
+License-File: LICENSE
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Documentation
+Classifier: Topic :: Software Development
+Classifier: Topic :: Software Development :: Documentation
+Classifier: Topic :: Utilities
+Classifier: Typing :: Typed
+Project-URL: Homepage, https://mkdocstrings.github.io/griffe-typingdoc
+Project-URL: Documentation, https://mkdocstrings.github.io/griffe-typingdoc
+Project-URL: Changelog, https://mkdocstrings.github.io/griffe-typingdoc/changelog
+Project-URL: Repository, https://github.com/mkdocstrings/griffe-typingdoc
+Project-URL: Issues, https://github.com/mkdocstrings/griffe-typingdoc/issues
+Project-URL: Discussions, https://github.com/mkdocstrings/griffe-typingdoc/discussions
+Project-URL: Gitter, https://gitter.im/mkdocstrings/griffe-typingdoc
+Project-URL: Funding, https://github.com/sponsors/pawamoy
+Requires-Python: >=3.10
+Requires-Dist: griffelib>=2.0
+Requires-Dist: typing-extensions>=4.7
+Description-Content-Type: text/markdown
+
+# Griffe TypingDoc
+
+[![ci](https://github.com/mkdocstrings/griffe-typingdoc/workflows/ci/badge.svg)](https://github.com/mkdocstrings/griffe-typingdoc/actions?query=workflow%3Aci)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://mkdocstrings.github.io/griffe-typingdoc/)
+[![pypi version](https://img.shields.io/pypi/v/griffe-typingdoc.svg)](https://pypi.org/project/griffe-typingdoc/)
+[![gitter](https://img.shields.io/badge/matrix-chat-4DB798.svg?style=flat)](https://app.gitter.im/#/room/#griffe-typingdoc:gitter.im)
+
+Griffe extension for [`annotated-doc`](https://pypi.org/project/annotated-doc/) (originally [PEP 727](https://peps.python.org/pep-0727/)):
+
+> Document parameters, class attributes, return types, and variables inline, with Annotated.
+
+## Installation
+
+```bash
+pip install griffe-typingdoc
+```
+
+To use the extension in a MkDocs project, use this configuration:
+
+```yaml
+# mkdocs.yml
+plugins:
+- mkdocstrings:
+    handlers:
+      python:
+        options:
+          extensions:
+          - griffe_typingdoc
+```
+
+## Sponsors
+
+<!-- sponsors-start -->
+<!-- sponsors-end -->

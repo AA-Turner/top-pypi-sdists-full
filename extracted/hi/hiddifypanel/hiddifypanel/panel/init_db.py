@@ -14,13 +14,48 @@ from hiddifypanel.database import db, db_execute
 
 
 from loguru import logger
-MAX_DB_VERSION = 120
+MAX_DB_VERSION = 130
+
+
+def _v113(child_id):
+    set_hconfig(ConfigEnum.telegram_lib, "telemt")
+
+def _v111(child_id):
+    set_hconfig(ConfigEnum.path_naive, hutils.random.get_random_string(7, 15))
+    set_hconfig(ConfigEnum.naive_port, hutils.random.get_random_unused_port())
+    
+    set_hconfig(ConfigEnum.h2_enable,True)
+
+    add_config_if_not_exist(ConfigEnum.naive_enable, True)
+    add_config_if_not_exist(ConfigEnum.mieru_enable, True)
+    
+
+    if p:=hutils.random.get_random_unused_port():
+        set_hconfig(ConfigEnum.mieru_tcp_ports, ",".join([f'{p+i}' for i in range(4)]))
+    if p:=hutils.random.get_random_unused_port():
+        set_hconfig(ConfigEnum.mieru_udp_ports, ",".join([f'{p+i}' for i in range(4)]))
+
+    db.session.bulk_save_objects([
+        Proxy(l3=ProxyL3.tls_h2_h1, transport=ProxyTransport.custom, cdn='direct', proto=ProxyProto.naive, enable=True, name="NaiveTLS"),
+        Proxy(l3=ProxyL3.h3_quic, transport=ProxyTransport.custom, cdn='direct', proto=ProxyProto.naive, enable=True, name="NaiveQuic"),
+        Proxy(l3=ProxyL3.custom, transport=ProxyTransport.tcp, cdn='direct', proto=ProxyProto.mieru, enable=True, name="MieruTCP"),
+        Proxy(l3=ProxyL3.custom, transport=ProxyTransport.udp, cdn='direct', proto=ProxyProto.mieru, enable=True, name="MieruUDP"),
+    ]    
+    )
+    add_config_if_not_exist(ConfigEnum.tls_fragment_packets, "tlshello")
+    add_config_if_not_exist(ConfigEnum.mieru_handshake, MieruHandshake.HANDSHAKE_NO_WAIT)
+    add_config_if_not_exist(ConfigEnum.mieru_multiplexing, MieruMultiplexing.MULTIPLEXING_HIGH)
+    add_config_if_not_exist(ConfigEnum.tls_ech_enable, False)
+    
 
 def _v108(child_id):
     Domain.query.filter(Domain.mode==DomainType.auto_cdn_ip).update({
         "mode":"cdn",
         "resolve_ip":True
     })
+
+
+
     
 def _v107(child_id):
     # set_hconfig(ConfigEnum.core_type,'xray') # disable singbox core temporary
@@ -797,9 +832,12 @@ def upgrade_database():
 
 def init_db():
     # set_hconfig(ConfigEnum.db_version, 71)
-    # set_hconfig(ConfigEnum.db_version,103)
+    # set_hconfig(ConfigEnum.db_version,110)
     db_version = current_db_version()
     if db_version == latest_db_version():
+        # Backfill new settings for already-upgraded installations.
+        db.create_all()
+        db.session.commit()
         return
     
     db.create_all()
@@ -830,6 +868,7 @@ def init_db():
         g.child = child
         db_version = int(hconfig(ConfigEnum.db_version, child.id) or 0)
         start_version = db_version
+
         for ver in range(1, MAX_DB_VERSION):
             if ver <= db_version:
                 continue

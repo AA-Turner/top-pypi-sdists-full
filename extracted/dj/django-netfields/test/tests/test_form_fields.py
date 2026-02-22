@@ -1,4 +1,3 @@
-from __future__ import unicode_literals
 from ipaddress import ip_address, ip_interface, ip_network
 from netaddr import EUI
 
@@ -225,6 +224,10 @@ class TestMacAddressFormField(TestCase):
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data['field'], self.mac)
 
+    def test_eui64(self):
+        form = MacAddressTestModelForm({'field': '00-AA-2B-C3-DD-44-EE-55'})
+        self.assertFalse(form.is_valid())
+
     def test_invalid(self):
         form = MacAddressTestModelForm({'field': 'notvalid'})
         self.assertFalse(form.is_valid())
@@ -274,6 +277,11 @@ class TestMacAddress8FormField(TestCase):
         form = MacAddress8TestModelForm({'field': ' 00:aa:2b:c3:dd:44:55:ff '})
         self.assertTrue(form.is_valid())
         self.assertEqual(form.cleaned_data['field'], self.mac)
+
+    def test_eui48(self):
+        form = MacAddress8TestModelForm({'field': '00:aa:2b:c3:dd:44'})
+        self.assertTrue(form.is_valid())
+        self.assertEqual(form.cleaned_data['field'], EUI('00:aa:2b:ff:fe:c3:dd:44', dialect=mac_eui64))
 
     def test_invalid(self):
         form = MacAddress8TestModelForm({'field': 'notvalid'})

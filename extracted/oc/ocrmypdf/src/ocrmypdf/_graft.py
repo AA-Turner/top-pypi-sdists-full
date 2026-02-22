@@ -117,6 +117,10 @@ def _build_text_layer_ctm(
 ):
     """Build transformation matrix to align text layer with page content.
 
+    Always computes the full CTM to handle non-zero page origins (e.g.,
+    JSTOR PDFs with MediaBox like [0, 100, 595, 982]) and minor scale
+    differences due to DPI rounding.
+
     Args:
         text_width: Width of text layer mediabox.
         text_height: Height of text layer mediabox.
@@ -127,11 +131,8 @@ def _build_text_layer_ctm(
         text_rotation: Rotation in degrees (clockwise) to apply to text layer.
 
     Returns:
-        pikepdf.Matrix transformation matrix, or None if no rotation needed.
+        pikepdf.Matrix transformation matrix, or None if identity.
     """
-    if text_rotation == 0:
-        return None
-
     from pikepdf import Matrix
 
     wt, ht = text_width, text_height
@@ -153,7 +154,14 @@ def _build_text_layer_ctm(
     scale_y = page_height / ht if ht else 1.0
     scale = Matrix().scaled(scale_x, scale_y)
 
-    return translate @ rotate @ scale @ untranslate @ corner
+    ctm = translate @ rotate @ scale @ untranslate @ corner
+
+    # Return None if the result is effectively identity
+    identity = Matrix()
+    if ctm == identity:
+        return None
+
+    return ctm
 
 
 log = logging.getLogger(__name__)

@@ -48,6 +48,7 @@ from pymc.logprob.basic import (
 # Add rewrites to the DBs
 import pymc.logprob.binary
 import pymc.logprob.censoring
+import pymc.logprob.arithmetic
 import pymc.logprob.cumsum
 import pymc.logprob.checks
 import pymc.logprob.linalg

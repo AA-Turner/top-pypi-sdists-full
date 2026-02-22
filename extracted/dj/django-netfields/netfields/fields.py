@@ -5,7 +5,7 @@ from ipaddress import ip_interface, ip_network
 from netaddr import EUI
 from netaddr.core import AddrFormatError
 
-from netfields.compat import DatabaseWrapper, is_psycopg3, with_metaclass, text_type
+from netfields.compat import DatabaseWrapper, is_psycopg3
 from netfields.forms import (
     InetAddressFormField,
     NoPrefixInetAddressFormField,
@@ -91,9 +91,10 @@ class _NetAddressField(models.Field):
         return str(self.to_python(value))
 
     def get_db_prep_value(self, value, connection, prepared=False):
-        # Django <= 1.8, ArrayField does not pass model to the base_field so we have to check for existance
-        model = getattr(self, 'model', None)
-        if model is None or model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
+        if value is None:
+            return None
+
+        if self.model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
             is_array_field = True
         else:
             is_array_field = False
@@ -194,7 +195,7 @@ class MACAddressField(models.Field):
             return value
 
         try:
-            return EUI(value, dialect=mac_unix_common)
+            return EUI(value, version=48, dialect=mac_unix_common)
         except (AddrFormatError, IndexError, TypeError) as e:
             raise ValidationError(e)
 
@@ -202,12 +203,13 @@ class MACAddressField(models.Field):
         if not value:
             return None
 
-        return text_type(self.to_python(value))
+        return str(self.to_python(value))
 
     def get_db_prep_value(self, value, connection, prepared=False):
-        # Django <= 1.8, ArrayField does not pass model to the base_field so we have to check for existance
-        model = getattr(self, 'model', None)
-        if model is None or model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
+        if value is None:
+            return None
+
+        if self.model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
             is_array_field = True
         else:
             is_array_field = False
@@ -240,7 +242,12 @@ class MACAddress8Field(models.Field):
             return value
 
         try:
-            return EUI(value, dialect=mac_eui64)
+            mac = EUI(value, dialect=mac_eui64)
+            if mac.version == 64:
+                return mac
+            mac = mac.eui64()
+            mac.dialect = mac_eui64
+            return mac
         except (AddrFormatError, IndexError, TypeError) as e:
             raise ValidationError(e)
 
@@ -248,12 +255,13 @@ class MACAddress8Field(models.Field):
         if not value:
             return None
 
-        return text_type(self.to_python(value))
+        return str(self.to_python(value))
 
     def get_db_prep_value(self, value, connection, prepared=False):
-        # Django <= 1.8, ArrayField does not pass model to the base_field, so we have to check for existence
-        model = getattr(self, 'model', None)
-        if model is None or model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
+        if value is None:
+            return None
+
+        if self.model._meta.get_field(self.name).get_internal_type() == 'ArrayField':
             is_array_field = True
         else:
             is_array_field = False

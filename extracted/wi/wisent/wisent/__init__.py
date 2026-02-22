@@ -1,7 +1,15 @@
 import os
 os.environ["NUMBA_NUM_THREADS"] = "1"
 
-__version__ = "0.7.1488"
+# Extend __path__ with only direct child directories (not nested descendants)
+# to prevent namespace collisions on different Python versions/platforms
+_base = os.path.dirname(__file__)
+for _entry in sorted(os.listdir(_base)):
+    _path = os.path.join(_base, _entry)
+    if os.path.isdir(_path) and not _entry.startswith(('.', '_')):
+        __path__.append(_path)
+
+__version__ = "0.7.1552"
 
 from wisent.core.tasks.base.diversity_processors import (
     OpenerPenaltyProcessor,

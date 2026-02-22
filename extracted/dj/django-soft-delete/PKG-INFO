@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-soft-delete
-Version: 1.0.22
+Version: 1.0.23
 Summary: Soft delete models, managers, queryset for Django
 Project-URL: Homepage, https://github.com/san4ezy/django_softdelete
 Author-email: Alexander Yudkin <san4ezy@gmail.com>
@@ -121,7 +121,9 @@ class Article(SoftDeleteModel):
 
 ### 3. Configure Your Project
 
-Add your new `core` app to the `INSTALLED_APPS` list in `myproject/settings.py`.
+Edit `myproject/settings.py`:
+- Add `django_softdelete` to the `INSTALLED_APPS` so Django can find required templates.
+- Add your new `core` app to the `INSTALLED_APPS` list in .
 
 ```python
 # myproject/settings.py
@@ -133,6 +135,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django_softdelete',
     # Add your app here
     'core',
 ]

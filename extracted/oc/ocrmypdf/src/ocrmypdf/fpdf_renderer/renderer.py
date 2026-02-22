@@ -128,6 +128,7 @@ class Fpdf2PdfRenderer:
         dpi: float,
         multi_font_manager: MultiFontManager,
         invisible_text: bool = True,
+        image: Path | None = None,
         debug_render_options: DebugRenderOptions | None = None,
     ):
         """Initialize renderer.
@@ -137,6 +138,8 @@ class Fpdf2PdfRenderer:
             dpi: Source image DPI
             multi_font_manager: MultiFontManager instance
             invisible_text: If True, render text as invisible (text mode 3)
+            image: Optional path to image to overlay on top of the text layer,
+                creating a sandwich PDF (text underneath, image on top)
             debug_render_options: Options for debug visualization
 
         Raises:
@@ -151,6 +154,7 @@ class Fpdf2PdfRenderer:
         self.dpi = dpi
         self.multi_font_manager = multi_font_manager
         self.invisible_text = invisible_text
+        self.image = image
         self.debug_options = debug_render_options or DebugRenderOptions()
 
         # Setup coordinate transform
@@ -225,6 +229,16 @@ class Fpdf2PdfRenderer:
         if not self.page.paragraphs:
             for line in self.page.lines:
                 self._render_line(pdf, line)
+
+        # Place image on top of text layer (sandwich mode)
+        if self.image is not None:
+            pdf.image(
+                str(self.image),
+                x=0,
+                y=0,
+                w=self.coord_transform.page_width_pt,
+                h=self.coord_transform.page_height_pt,
+            )
 
     def _register_font(self, pdf: FPDF, font_manager: FontManager) -> str:
         """Register font with fpdf2 if not already registered.

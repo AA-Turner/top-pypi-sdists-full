@@ -4,7 +4,6 @@ from netaddr import EUI, AddrFormatError
 from django import forms
 from django.core.exceptions import ValidationError
 
-from netfields.compat import text_type
 from netfields.mac import mac_unix_common, mac_eui64
 
 
@@ -24,7 +23,7 @@ class InetAddressFormField(forms.Field):
         if isinstance(value, _IPAddressBase):
             return value
 
-        if isinstance(value, text_type):
+        if isinstance(value, str):
             value = value.strip()
 
         try:
@@ -49,7 +48,7 @@ class NoPrefixInetAddressFormField(forms.Field):
         if isinstance(value, _IPAddressBase):
             return value
 
-        if isinstance(value, text_type):
+        if isinstance(value, str):
             value = value.strip()
 
         try:
@@ -75,7 +74,7 @@ class CidrAddressFormField(forms.Field):
         if isinstance(value, _BaseNetwork):
             network = value
 
-        if isinstance(value, text_type):
+        if isinstance(value, str):
             value = value.strip()
 
         try:
@@ -103,11 +102,11 @@ class MACAddressFormField(forms.Field):
         if isinstance(value, EUI):
             return value
 
-        if isinstance(value, text_type):
+        if isinstance(value, str):
             value = value.strip()
 
         try:
-            return EUI(value, dialect=mac_unix_common)
+            return EUI(value, version=48, dialect=mac_unix_common)
         except (AddrFormatError, IndexError, TypeError):
             raise ValidationError(self.error_messages['invalid'])
 
@@ -132,11 +131,16 @@ class MACAddress8FormField(forms.Field):
         if isinstance(value, EUI):
             return value
 
-        if isinstance(value, text_type):
+        if isinstance(value, str):
             value = value.strip()
 
         try:
-            return EUI(value, dialect=mac_eui64)
+            mac = EUI(value, dialect=mac_eui64)
+            if mac.version == 64:
+                return mac
+            mac = mac.eui64()
+            mac.dialect = mac_eui64
+            return mac
         except (AddrFormatError, IndexError, TypeError):
             raise ValidationError(self.error_messages['invalid'])
 

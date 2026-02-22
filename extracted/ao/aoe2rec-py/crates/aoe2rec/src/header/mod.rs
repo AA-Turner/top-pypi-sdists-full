@@ -256,13 +256,13 @@ pub struct GameSettings {
     pub unknown22: u8, // 13.13
     #[serde(skip_serializing)]
     pub unknown23: [u8; 2], // 13.13
-    pub timestamp: u32,
-    #[serde(skip_serializing)]
-    pub unknown25: u32,
     #[br(if(major >= 67))]
     pub unknown_de_67_2_1: u32,
     #[br(if(major >= 67))]
     pub unknown_de_67_2_2: u32,
+    pub timestamp: u32,
+    #[serde(skip_serializing)]
+    pub unknown25: u32,
 }
 
 #[binrw]
@@ -447,6 +447,8 @@ pub struct PlayerInit {
     pub saved_views: Vec<PlayerView>,
     pub spawn_location: Location,
     pub culture: u8,
+    #[br(if(major >= 67))]
+    pub name: DeString,
     pub civilization: u8,
     pub game_status: u8,
     #[br(pad_after = 1)]
@@ -454,7 +456,10 @@ pub struct PlayerInit {
     #[br(pad_after = 1)]
     pub player_color: u8,
     #[serde(skip_serializing)]
-    #[br(magic = b"\x00\x0B")]
+    #[br(if(major < 67))]
+    pub sep1: u8,
+    #[serde(skip_serializing)]
+    #[br(magic = b"\x0B")]
     pub unknown3: u8,
     #[serde(skip_serializing)]
     #[br(magic = b"\x0B")]

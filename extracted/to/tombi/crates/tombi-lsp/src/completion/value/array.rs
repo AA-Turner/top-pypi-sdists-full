@@ -4,9 +4,7 @@ use std::borrow::Cow;
 use tombi_document_tree::{ArrayKind, LiteralValueRef};
 use tombi_extension::{AddLeadingComma, AddTrailingComma, CompletionKind};
 use tombi_future::Boxable;
-use tombi_schema_store::{
-    Accessor, ArraySchema, CurrentSchema, DocumentSchema, SchemaUri, ValueSchema,
-};
+use tombi_schema_store::{Accessor, ArraySchema, CurrentSchema, SchemaUri, ValueSchema};
 
 use super::{
     CompletionHint, FindCompletionContents, all_of::find_all_of_completion_items,
@@ -38,6 +36,12 @@ impl FindCompletionContents for tombi_document_tree::Array {
         log::trace!("completion_hint = {:?}", completion_hint);
 
         async move {
+            // `range.end` points to the cursor position right after `]`.
+            // At that point, completion should not behave as "inside array".
+            if self.kind() == ArrayKind::Array && position >= self.range().end {
+                return Vec::with_capacity(0);
+            }
+
             if keys.is_empty()
                 && let Some((comment_directive_context, schema_uri)) =
                     get_array_comment_directive_content_with_schema_uri(self, position, accessors)
@@ -50,14 +54,10 @@ impl FindCompletionContents for tombi_document_tree::Array {
                 return completions;
             }
 
-            if let Some(Ok(DocumentSchema {
-                value_schema: Some(value_schema),
-                schema_uri,
-                definitions,
-                ..
-            })) = schema_context
+            if let Some(Ok(document_schema)) = schema_context
                 .get_subschema(accessors, current_schema)
                 .await
+                && let Some(value_schema) = &document_schema.value_schema
             {
                 return self
                     .find_completion_contents(
@@ -65,9 +65,9 @@ impl FindCompletionContents for tombi_document_tree::Array {
                         keys,
                         accessors,
                         Some(&CurrentSchema {
-                            value_schema: Cow::Owned(value_schema),
-                            schema_uri: Cow::Owned(schema_uri),
-                            definitions: Cow::Owned(definitions),
+                            value_schema: value_schema.clone(),
+                            schema_uri: Cow::Borrowed(&document_schema.schema_uri),
+                            definitions: Cow::Borrowed(&document_schema.definitions),
                         }),
                         schema_context,
                         completion_hint,

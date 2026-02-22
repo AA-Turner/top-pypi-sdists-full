@@ -16,6 +16,7 @@ class VacuumModes(RoborockModeEnum):
     TURBO = ("turbo", 103)
     MAX = ("max", 104)
     MAX_PLUS = ("max_plus", 108)
+    OFF_RAISE_MAIN_BRUSH = ("off_raise_main_brush", 109)
     CUSTOMIZED = ("custom", 106)
     SMART_MODE = ("smart_mode", 110)
 
@@ -45,6 +46,8 @@ class WaterModes(RoborockModeEnum):
     STANDARD = ("standard", 202)
     HIGH = ("high", 203)
     INTENSE = ("intense", 203)
+    MIN = ("min", 205)
+    MAX = ("max", 206)
     CUSTOMIZED = ("custom", 204)
     CUSTOM = ("custom_water_flow", 207)
     EXTREME = ("extreme", 208)
@@ -83,7 +86,10 @@ def get_clean_modes(features: DeviceFeatures) -> list[VacuumModes]:
         modes.append(VacuumModes.MAX_PLUS)
     if features.is_pure_clean_mop_supported:
         # If the vacuum is capable of 'pure mop clean' aka no vacuum
-        modes.append(VacuumModes.OFF)
+        if features.is_support_main_brush_up_down_supported:
+            modes.append(VacuumModes.OFF_RAISE_MAIN_BRUSH)
+        else:
+            modes.append(VacuumModes.OFF)
     else:
         # If not, we can add gentle
         modes.append(VacuumModes.GENTLE)

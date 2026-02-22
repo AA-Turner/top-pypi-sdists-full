@@ -109,6 +109,11 @@ class DeepResearchSessionModel(Base):
         ForeignKey("smart_grids.id"),
         nullable=True,
     )
+    current_report_version_id = Column(
+        Integer,
+        ForeignKey("deep_research_report_versions.id"),
+        nullable=True,
+    )
 
     # Metadata
     total_citations = Column(Integer, nullable=True, default=0)

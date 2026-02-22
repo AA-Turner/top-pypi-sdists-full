@@ -1,47 +1,35 @@
-from __future__ import absolute_import
-
 import json
-from optparse import make_option
+from argparse import ArgumentParser
+from typing import Any
 
 from django.core.management.base import BaseCommand, CommandError
 
 from watchman.utils import get_checks
 
 
-def _add_options(target):
-    return (
-        target(
+class Command(BaseCommand):
+    help = "Runs the default django-watchman checks"
+
+    def add_arguments(self, parser: ArgumentParser) -> None:
+        parser.add_argument(
             "-c",
             "--checks",
             dest="checks",
             help="A comma-separated list of watchman checks to run (full python dotted paths)",
-        ),
-        target(
+        )
+        parser.add_argument(
             "-s",
             "--skips",
             dest="skips",
             help="A comma-separated list of watchman checks to skip (full python dotted paths)",
-        ),
-    )
+        )
 
+    def handle(self, *args: Any, **options: Any) -> None:
+        check_list: list[str] | None = None
+        skip_list: list[str] | None = None
 
-class Command(BaseCommand):
-    help = "Runs the default django-watchman checks"
-
-    if hasattr(BaseCommand, "option_list"):
-        # Django < 1.10
-        option_list = BaseCommand.option_list + _add_options(make_option)
-    else:
-        # Django >= 1.10
-        def add_arguments(self, parser):
-            _add_options(parser.add_argument)
-
-    def handle(self, *args, **options):
-        check_list = None
-        skip_list = None
-
-        checks = options["checks"]
-        skips = options["skips"]
+        checks: str | None = options["checks"]
+        skips: str | None = options["skips"]
 
         if checks is not None:
             check_list = checks.split(",")
@@ -54,6 +42,5 @@ class Command(BaseCommand):
                 resp = json.dumps(check())
                 if '"ok": false' in resp:
                     raise CommandError(resp)
-                # Cast to int for Django < 1.8 (used to be a string value)
                 elif int(options["verbosity"]) >= 2:
                     self.stdout.write(resp)

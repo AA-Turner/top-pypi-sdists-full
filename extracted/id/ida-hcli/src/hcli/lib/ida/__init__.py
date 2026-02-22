@@ -177,6 +177,8 @@ def get_default_ida_install_directory(ver: IdaProduct) -> Path:
         # dependencies need to be installed). Version and platform are detected statically.
         #
         # see also the warnings in commands/ida/install.py.
+        #
+        # this is confirmed to be fixed in IDA 9.3 for Linux
         if ver.major == 9 and ver.minor == 2 and " " in app_directory_name:
             # "IDA Professional 9.2" -> "IDA-Professional-9.2"
             sanitized_name = app_directory_name.replace(" ", "-")
@@ -324,6 +326,7 @@ def accept_eula(install_dir: Path) -> None:
     ida_registry.reg_write_int("EULA 90", 1)
     ida_registry.reg_write_int("EULA 91", 1)
     ida_registry.reg_write_int("EULA 92", 1)
+    ida_registry.reg_write_int("EULA 93", 1)
     logger.info("EULA accepted")
 
 

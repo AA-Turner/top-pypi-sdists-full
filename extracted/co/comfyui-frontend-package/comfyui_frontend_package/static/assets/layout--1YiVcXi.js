@@ -1,2 +1,0 @@
-import{t as e}from"./src-B0kocU_l.js";const t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
-//# sourceMappingURL=layout--1YiVcXi.js.map

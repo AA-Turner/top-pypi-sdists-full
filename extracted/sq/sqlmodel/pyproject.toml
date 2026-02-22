@@ -40,7 +40,7 @@ dependencies = [
     "SQLAlchemy >=2.0.14,<2.1.0",
     "pydantic>=2.11.0",
 ]
-version = "0.0.35"
+version = "0.0.37"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/sqlmodel"
@@ -104,28 +104,6 @@ source-includes = [
     "docs_src/",
     "scripts/",
     "sqlmodel/sql/expression.py.jinja2",
-]
-
-[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project]
-name = "sqlmodel-slim"
-readme = "sqlmodel-slim/README.md"
-dependencies = [
-    "sqlmodel",
-]
-
-[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project.optional-dependencies]
-
-[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.project.scripts]
-
-[tool.tiangolo._internal-slim-build.packages.sqlmodel-slim.tool.pdm.build]
-excludes = [
-    "sqlmodel",
-    "docs_src",
-    "tests",
-    "pdm_build.py",
-]
-source-includes = [
-    "",
 ]
 
 [tool.coverage.run]

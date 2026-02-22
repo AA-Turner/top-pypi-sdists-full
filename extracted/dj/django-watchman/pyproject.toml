@@ -1,0 +1,93 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "django-watchman"
+dynamic = ["version"]
+description = "django-watchman exposes a status endpoint for your backing services"
+readme = "README.md"
+license = "BSD-3-Clause"
+authors = [{ name = "Michael Warkentin", email = "mwarkentin@gmail.com" }]
+keywords = ["django", "watchman", "health-check", "status"]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Framework :: Django",
+    "Framework :: Django :: 4.2",
+    "Framework :: Django :: 5.1",
+    "Framework :: Django :: 5.2",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: BSD License",
+    "Natural Language :: English",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+]
+requires-python = ">=3.10"
+dependencies = ["django>=4.2"]
+
+[project.urls]
+Homepage = "https://github.com/mwarkentin/django-watchman"
+Documentation = "https://django-watchman.readthedocs.io"
+Repository = "https://github.com/mwarkentin/django-watchman"
+Changelog = "https://github.com/mwarkentin/django-watchman/blob/main/CHANGELOG.md"
+
+[dependency-groups]
+dev = [
+    "coverage>=7.0",
+    "pytest>=8.0",
+    "pytest-django>=4.5",
+    "ruff>=0.9",
+    "ty>=0.0.1a7",
+]
+docs = [
+    "mkdocs>=1.6",
+    "mkdocs-material>=9.0",
+    "mkdocstrings[python]>=0.27",
+]
+mysql = [
+    "mysqlclient>=2.0",
+]
+
+[tool.hatch.version]
+path = "watchman/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/watchman",
+    "/tests",
+    "AUTHORS.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["watchman"]
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "C4", "UP"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["watchman"]
+
+[tool.ty.environment]
+python-version = "3.10"
+
+[tool.ty.analysis]
+# Optional APM packages that are conditionally imported
+allowed-unresolved-imports = ["newrelic.**", "ddtrace.**"]
+
+
+[tool.pytest.ini_options]
+DJANGO_SETTINGS_MODULE = "tests.settings"
+python_files = ["tests.py", "test_*.py", "*_tests.py"]

@@ -283,6 +283,34 @@ def _check_no_conflicting_ocr_params(
         )
 
 
+def _remap_language_to_languages(options_kwargs: dict) -> None:
+    """Map the public API 'language' parameter to OcrOptions 'languages' field.
+
+    The public API uses 'language' (matching CLI --language) but OcrOptions
+    uses 'languages' (plural). This also coerces a bare string to a list
+    and splits '+'-separated language codes (e.g. 'eng+deu' -> ['eng', 'deu'])
+    to match the CLI behavior.
+    """
+    if 'language' in options_kwargs and 'languages' not in options_kwargs:
+        lang = options_kwargs.pop('language')
+        if lang is None:
+            return
+        if isinstance(lang, str):
+            lang = lang.split('+')
+        else:
+            # Flatten any '+'-separated entries in the list
+            expanded: list[str] = []
+            for item in lang:
+                if isinstance(item, str) and '+' in item:
+                    expanded.extend(item.split('+'))
+                else:
+                    expanded.append(item)
+            lang = expanded
+        options_kwargs['languages'] = lang
+    elif 'language' in options_kwargs:
+        del options_kwargs['language']
+
+
 def create_options(
     *, input_file: PathOrIO, output_file: PathOrIO, parser: ArgumentParser, **kwargs
 ) -> OcrOptions:
@@ -303,6 +331,9 @@ def create_options(
     """
     # Prepare kwargs for direct OcrOptions construction
     options_kwargs = kwargs.copy()
+
+    # Map API parameter 'language' to OcrOptions field 'languages'
+    _remap_language_to_languages(options_kwargs)
 
     # Set input and output files
     options_kwargs['input_file'] = input_file
@@ -761,6 +792,9 @@ def _pdf_to_hocr(  # noqa: D417
             and param_value is not None
         ):
             options_kwargs[param_name] = param_value
+
+    # Map API parameter 'language' to OcrOptions field 'languages'
+    _remap_language_to_languages(options_kwargs)
 
     # Handle plugins
     if plugins:

@@ -1,4 +1,5 @@
 import os
+import sys
 from pathlib import Path
 import re
 from subprocess import run, PIPE
@@ -184,3 +185,49 @@ def test_make_errors(input_file: str, expected_errs: List[Union[str, Pattern]], 
             assert e.search(err_output)
         else:
             assert e in err_output
+
+
+def test_nochange_notebook_unchanged():
+    ipynb_file = NOTEBOOKS_FOLDER / 'test_nochange.ipynb'
+    ipynb_mtime_before = ipynb_file.stat().st_mtime_ns
+
+    run([nbstripout_exe(), ipynb_file])
+    ipynb_mtime_after = ipynb_file.stat().st_mtime_ns
+
+    assert ipynb_mtime_after == ipynb_mtime_before
+
+    zpln_file = NOTEBOOKS_FOLDER / 'test_zeppelin.zpln.expected'
+    zpln_mtime_before = zpln_file.stat().st_mtime_ns
+
+    run([nbstripout_exe(), '--force', '--mode', 'zeppelin', zpln_file])
+    zpln_mtime_after = zpln_file.stat().st_mtime_ns
+
+    assert zpln_mtime_after == zpln_mtime_before
+
+
+def test_newline_behavior(tmp_path: Path):
+    input_content = (NOTEBOOKS_FOLDER / 'test_drop_empty_cells.ipynb').read_bytes().replace(b'\n', b'\r\n')
+
+    to_os_eol = tmp_path / 'should-have-os-eol.ipynb'
+    to_os_eol.write_bytes(input_content)
+
+    run([nbstripout_exe(), to_os_eol])
+    if sys.platform == 'win32':
+        assert b'\r\n' in to_os_eol.read_bytes()
+    else:
+        assert b'\r\n' not in to_os_eol.read_bytes()
+
+    pc = run([nbstripout_exe(), '--textconv', to_os_eol], stdout=PIPE)
+    if sys.platform == 'win32':
+        assert b'\r\n' in pc.stdout
+    else:
+        assert b'\r\n' not in pc.stdout
+
+    to_lf_eol = tmp_path / 'should-have-lf-eol.ipynb'
+    to_lf_eol.write_bytes(input_content)
+
+    run([nbstripout_exe(), '--unix-newlines', to_lf_eol])
+    assert b'\r\n' not in to_lf_eol.read_bytes()
+
+    pc = run([nbstripout_exe(), '--unix-newlines', '--textconv', to_lf_eol], stdout=PIPE)
+    assert b'\r\n' not in pc.stdout

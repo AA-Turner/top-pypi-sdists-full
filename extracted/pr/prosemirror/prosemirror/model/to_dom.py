@@ -62,7 +62,7 @@ class Element(DocumentFragment):
         return f"<{open_tag_str}>{children_str}</{self.name}>"
 
 
-HTMLOutputSpec = str | Sequence[Any] | Element
+HTMLOutputSpec = str | Sequence[Any] | Element | dict[str, Any]
 
 
 class DOMSerializer:
@@ -163,7 +163,12 @@ class DOMSerializer:
 
     @classmethod
     def from_schema(cls, schema: Schema[Any, Any]) -> "DOMSerializer":
-        return cls(cls.nodes_from_schema(schema), cls.marks_from_schema(schema))
+        cached = schema.cached.get("domSerializer")
+        if isinstance(cached, DOMSerializer):
+            return cached
+        result = cls(cls.nodes_from_schema(schema), cls.marks_from_schema(schema))
+        schema.cached["domSerializer"] = result
+        return result
 
     @classmethod
     def nodes_from_schema(
@@ -214,6 +219,9 @@ def _render_spec(
         return html.escape(structure), None
     if isinstance(structure, Element):
         return structure, None
+    if isinstance(structure, dict):
+        d = cast(dict[str, Any], structure)
+        return d["dom"], d.get("contentDOM")
     tag_name = structure[0]
     if not isinstance(tag_name, str):
         msg = "Invalid array passed to renderSpec"
@@ -241,7 +249,7 @@ def _render_spec(
             if " " in name[1:]:
                 msg = "XML namespaces are not supported"
                 raise NotImplementedError(msg)
-            dom.attrs[name] = value
+            dom.attrs[name] = str(value)
     for i in range(start, len(structure)):
         child = structure[i]
         if child == 0:

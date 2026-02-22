@@ -273,7 +273,7 @@ class SUREVAE(nn.Module):
         
         if self.perturb_size>0:
             self.perturb_effect = ZeroBiasMLP3(
-                [self.perturb_size+self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
+                [self.perturb_size+self.latent_dim] + self.decoder_hidden_layers + [self.latent_dim],
                 activation=activate_fct,
                 output_activation=None,
                 post_layer_fct=post_layer_fct,
@@ -297,7 +297,7 @@ class SUREVAE(nn.Module):
                 )
             
         self.decoder_log_mu = MLP(
-                [self.latent_dim+self.latent_dim+self.latent_dim+self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.input_dim],
+                [self.latent_dim+self.latent_dim+self.latent_dim+self.latent_dim] + self.decoder_hidden_layers + [self.input_dim],
                 activation=activate_fct,
                 output_activation=None,
                 post_layer_fct=post_layer_fct,
@@ -431,7 +431,7 @@ class SUREVAE(nn.Module):
             else:
                 zcs = torch.zeros_like(zs)
             if (self.perturb_size>0) and (ps is not None):
-                zps = self.perturb_effect([ps, zs, zcs])
+                zps = self.perturb_effect([ps, zs+zcs])
             else:
                 zps = torch.zeros_like(zs)
             if (np.sum(self.covariate_sizes)>0) and (fs is not None):
@@ -448,7 +448,7 @@ class SUREVAE(nn.Module):
             zu_scale = torch.ones(batch_size, self.latent_dim, **self.options)
             zus = pyro.sample('zu', dist.Normal(zu_loc, zu_scale).to_event(1))
 
-            log_mu = self.decoder_log_mu([zs,zcs,zps,zfs,zus])
+            log_mu = self.decoder_log_mu([zs+zcs,zps,zfs,zus])
             if self.loss_func in ['bernoulli']:
                 log_theta = log_mu
             elif self.loss_func in ['negbinomial']:
@@ -652,7 +652,7 @@ class SUREVAE(nn.Module):
                 C_batch = zcs[idx].to(self.get_device())
                 P_batch = ps[idx].to(self.get_device())
                 
-                dzs = self.perturb_effect([P_batch,Z_batch,C_batch])
+                dzs = self.perturb_effect([P_batch,Z_batch+C_batch])
                 
                 A.append(tensor_to_numpy(dzs))
                 pbar.update(1)
@@ -708,7 +708,7 @@ class SUREVAE(nn.Module):
                     
                 if ps is not None:
                     P_batch = ps[idx].to(self.get_device())
-                    zps = self.perturb_effect([P_batch,z_basal,zcs])
+                    zps = self.perturb_effect([P_batch,z_basal+zcs])
                 else:
                     zps = torch.zeros_like(z_basal)
                     
@@ -723,7 +723,7 @@ class SUREVAE(nn.Module):
                 
                 zus = torch.zeros_like(z_basal)
                 
-                log_mu = self.decoder_log_mu([z_basal,zcs,zps,zfs,zus])
+                log_mu = self.decoder_log_mu([z_basal+zcs,zps,zfs,zus])
                 if self.loss_func == 'bernoulli':
                     counts = dist.Bernoulli(logits=log_mu).to_event(1).mean
                 else:
@@ -771,7 +771,7 @@ class SUREVAE(nn.Module):
                 
                 zus = torch.zeros_like(z_basal)
                 
-                log_mu = self.decoder_log_mu([z_basal,z_context,z_perturb,z_covariate,zus])
+                log_mu = self.decoder_log_mu([z_basal+z_context,z_perturb,z_covariate,zus])
                 if self.loss_func == 'bernoulli':
                     counts = dist.Bernoulli(logits=log_mu).to_event(1).mean
                 else:

@@ -120,6 +120,7 @@ class DeepResearchSubTaskModel(Base):
     # Results
     result_s3_key = Column(String(512), nullable=True)
     result_summary = Column(Text, nullable=True)  # Brief summary of findings
+    planning_digest = Column(Text, nullable=True)  # snapshot: unit themes/facts for planning
     citations_count = Column(Integer, nullable=True, default=0)
     documents_analyzed = Column(Integer, nullable=True, default=0)
 

@@ -27,6 +27,18 @@ class PanelMode(HEnum):
     child = auto()
 
 
+class MieruMultiplexing(HEnum):
+    MULTIPLEXING_DEFAULT = auto()
+    MULTIPLEXING_LOW = auto()
+    MULTIPLEXING_MIDDLE = auto()
+    MULTIPLEXING_HIGH = auto()
+
+class MieruHandshake(HEnum):
+    HANDSHAKE_DEFAULT = auto()
+    HANDSHAKE_NO_WAIT = auto()
+    HANDSHAKE_STANDARD = auto()
+    
+
 class LogLevel(HEnum):
     TRACE = auto()
     DEBUG = auto()
@@ -50,6 +62,7 @@ class ConfigCategory(StrEnum):
     tls_trick = auto()
     ssh = auto()
     ssfaketls = auto()
+    mieru = auto()
     shadowtls = auto()
     restls = auto()
     tuic = auto()
@@ -129,6 +142,7 @@ class ConfigEnum(metaclass=FastEnum):
     reality_public_key = _StrConfigDscr(ConfigCategory.reality, ApplyMode.apply_config, hide_in_virtual_child=True)
     reality_port = _StrConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config, hide_in_virtual_child=True)
     special_port = _StrConfigDscr(ConfigCategory.reality, ApplyMode.apply_config, hide_in_virtual_child=True)
+    
 
     restls1_2_domain = _StrConfigDscr(ConfigCategory.hidden)
     restls1_3_domain = _StrConfigDscr(ConfigCategory.hidden)
@@ -170,9 +184,12 @@ class ConfigEnum(metaclass=FastEnum):
     tls_fragment_enable = _BoolConfigDscr(ConfigCategory.tls_trick)
     tls_fragment_size = _StrConfigDscr(ConfigCategory.tls_trick)
     tls_fragment_sleep = _StrConfigDscr(ConfigCategory.tls_trick)
+    tls_fragment_packets = _StrConfigDscr(ConfigCategory.tls_trick)
     tls_mixed_case = _BoolConfigDscr(ConfigCategory.tls_trick)
     tls_padding_enable = _BoolConfigDscr(ConfigCategory.tls_trick, ApplyMode.apply_config)
     tls_padding_length = _StrConfigDscr(ConfigCategory.tls_trick, ApplyMode.apply_config)
+    tls_ech_enable = _BoolConfigDscr(ConfigCategory.tls, ApplyMode.apply_config)
+    
 
     # mux
     mux_enable = _BoolConfigDscr(ConfigCategory.mux, ApplyMode.apply_config)
@@ -186,6 +203,8 @@ class ConfigEnum(metaclass=FastEnum):
     mux_brutal_down_mbps = _IntConfigDscr(ConfigCategory.mux, ApplyMode.apply_config)
 
     http_ports = _StrConfigDscr(ConfigCategory.http, ApplyMode.apply_config)
+    mieru_tcp_ports = _StrConfigDscr(ConfigCategory.mieru, ApplyMode.apply_config, hide_in_virtual_child=True)
+    mieru_udp_ports = _StrConfigDscr(ConfigCategory.mieru, ApplyMode.apply_config, hide_in_virtual_child=True)
     kcp_ports = _StrConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config)
     kcp_enable = _BoolConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config)
     decoy_domain = _StrConfigDscr(ConfigCategory.general, ApplyMode.apply_config, hide_in_virtual_child=True)
@@ -246,11 +265,17 @@ class ConfigEnum(metaclass=FastEnum):
     httpupgrade_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
     xhttp_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
 
+    naive_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
+    naive_port = _StrConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
+    mieru_enable = _BoolConfigDscr(ConfigCategory.mieru, ApplyMode.apply_config)
+    mieru_multiplexing =_TypedConfigDscr(MieruMultiplexing, ConfigCategory.mieru)
+    mieru_handshake =_TypedConfigDscr(MieruHandshake, ConfigCategory.mieru)
     vless_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
     trojan_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
     reality_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
     tcp_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
     quic_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)
+    
     xtls_enable = _BoolConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config)#deprecated 
     h2_enable = _BoolConfigDscr(ConfigCategory.proxies, ApplyMode.apply_config)#deprecated
 
@@ -264,6 +289,7 @@ class ConfigEnum(metaclass=FastEnum):
     path_vmess = _StrConfigDscr(ConfigCategory.too_advanced, ApplyMode.apply_config, hide_in_virtual_child=True)
     path_vless = _StrConfigDscr(ConfigCategory.too_advanced, ApplyMode.apply_config, hide_in_virtual_child=True)
     path_trojan = _StrConfigDscr(ConfigCategory.too_advanced, ApplyMode.apply_config, hide_in_virtual_child=True)
+    path_naive = _StrConfigDscr(ConfigCategory.too_advanced, ApplyMode.apply_config, hide_in_virtual_child=True)
     path_v2ray = _StrConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config, hide_in_virtual_child=True)  # deprecated
     path_ss = _StrConfigDscr(ConfigCategory.hidden, ApplyMode.apply_config, hide_in_virtual_child=True)
 

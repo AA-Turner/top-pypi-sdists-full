@@ -1,5 +1,3 @@
-# -*- coding: utf-8 -*-
-
 """
 test_django-watchman
 ------------
@@ -7,12 +5,11 @@ test_django-watchman
 Tests for `django-watchman` views module.
 """
 
-from __future__ import unicode_literals
-
 import json
 import sys
 import unittest
 from importlib import reload
+from typing import cast
 from unittest.mock import patch
 
 import django
@@ -24,12 +21,13 @@ from django.test.client import RequestFactory
 from django.test.utils import override_settings
 
 from watchman import checks, views
+from watchman.types import CheckStatus
 
 
 class AuthenticatedUser(AnonymousUser):
     @property
     def is_authenticated(self):
-        class CallableTrue(object):
+        class CallableTrue:
             def __call__(self, *args, **kwargs):
                 return True
 
@@ -78,14 +76,14 @@ class TestWatchman(unittest.TestCase):
         self.assertCountEqual(expected_checks, content.keys())
 
     def test_check_database_handles_exception(self):
-        response = checks._check_database("foo")
+        response = cast(dict[str, CheckStatus], checks._check_database("foo"))
         self.assertFalse(response["foo"]["ok"])
         self.assertEqual(
             response["foo"]["error"], "The connection 'foo' doesn't exist."
         )
 
     def test_check_cache_handles_exception(self):
-        response = checks._check_cache("foo")
+        response = cast(dict[str, CheckStatus], checks._check_cache("foo"))
         self.assertFalse(response["foo"]["ok"])
         self.assertIn(
             response["foo"]["error"],
@@ -468,7 +466,7 @@ class TestEmailCheck(DjangoTestCase):
 
         sent_email = mail.outbox[0]
         expected_headers = {
-            "X-DJANGO-WATCHMAN": True,
+            "X-DJANGO-WATCHMAN": "true",
         }
         self.assertEqual(sent_email.extra_headers, expected_headers)
 
@@ -484,7 +482,7 @@ class TestEmailCheck(DjangoTestCase):
 
         sent_email = mail.outbox[0]
         expected_headers = {
-            "X-DJANGO-WATCHMAN": True,
+            "X-DJANGO-WATCHMAN": "true",
             "foo": "bar",
         }
         self.assertEqual(sent_email.extra_headers, expected_headers)

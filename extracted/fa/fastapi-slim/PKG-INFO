@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fastapi-slim
-Version: 0.129.0
+Version: 0.129.1
 Summary: FastAPI framework, high performance, easy to learn, fast to code, ready for production
 Author-Email: =?utf-8?q?Sebasti=C3=A1n_Ram=C3=ADrez?= <tiangolo@gmail.com>
 License-Expression: MIT
@@ -37,7 +37,7 @@ Project-URL: Repository, https://github.com/fastapi/fastapi
 Project-URL: Issues, https://github.com/fastapi/fastapi/issues
 Project-URL: Changelog, https://fastapi.tiangolo.com/release-notes/
 Requires-Python: >=3.10
-Requires-Dist: fastapi>=0.129.0
+Requires-Dist: fastapi>=0.129.1
 Description-Content-Type: text/markdown
 
 <p align="center">

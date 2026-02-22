@@ -454,6 +454,7 @@ pub enum OrderType {
     Unqueue = 4,
     UnknownOrder5 = 5,
     Garrison = 6,
+    UnknownOrder7 = 7,
     UnknownOrder8 = 8,
 }
 

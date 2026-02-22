@@ -44,6 +44,7 @@ class DeepResearchSessionResourceSchema(Schema):
     final_report_s3_key = fields.String(allow_none=True)
     executive_summary = fields.String(allow_none=True)
     smart_grid_id = fields.Integer(allow_none=True)
+    current_report_version_id = fields.Integer(allow_none=True)
 
     # Metadata
     total_citations = fields.Integer(allow_none=True)

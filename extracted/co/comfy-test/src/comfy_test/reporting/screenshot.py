@@ -236,6 +236,7 @@ class WorkflowScreenshot:
         self._page: Optional["Page"] = None
         self._console_logs: List[str] = []
 
+
     def start(self) -> None:
         """Start the headless browser."""
         if self._browser is not None:
@@ -244,24 +245,10 @@ class WorkflowScreenshot:
         self._log("Starting headless browser...")
         self._playwright = sync_playwright().start()
 
-        # Try GPU-accelerated rendering; fall back to software if unavailable
-        gpu_args = [
-            "--enable-gpu",
-            "--use-gl=egl",
-            "--ignore-gpu-blocklist",
-        ]
-        try:
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-                args=gpu_args,
-            )
-            self._log("  Browser launched with GPU acceleration")
-        except Exception:
-            self._log("  GPU launch failed, falling back to software rendering")
-            self._browser = self._playwright.chromium.launch(
-                headless=True,
-                args=["--disable-gpu"],
-            )
+        self._browser = self._playwright.chromium.launch(
+            headless=True,
+            args=["--disable-gpu", "--use-gl=angle", "--use-angle=swiftshader"],
+        )
         self._page = self._browser.new_page(
             viewport={"width": self.width, "height": self.height},
             device_scale_factor=2,  # HiDPI for crisp screenshots
@@ -397,7 +384,11 @@ class WorkflowScreenshot:
 
         ComfyUI's Load3d widget skips rendering unless isActive() is true.
         We find all such nodes and dispatch mouseenter on their DOM widgets
-        to set STATUS_MOUSE_ON_SCENE = true, then wait for a render cycle.
+        to set STATUS_MOUSE_ON_SCENE = true.
+
+        Does NOT unfreeze rAF — 3D viewers already rendered during execution
+        and their canvases retain the last frame.  Unfreezing would restart
+        heavy SwiftShader renders (e.g. 1.18M gaussians) causing 55s+ stalls.
         """
         try:
             self._page.evaluate("""
@@ -422,7 +413,6 @@ class WorkflowScreenshot:
                     }
                 })();
             """)
-            self._page.wait_for_timeout(2000)
         except Exception:
             pass  # Best effort
 
@@ -439,6 +429,7 @@ class WorkflowScreenshot:
 
         Also freezes iframes (3D viewers like gaussian splat run in iframes
         with their own window and rAF loop).
+
         """
         try:
             self._page.evaluate("""
@@ -1426,13 +1417,16 @@ class WorkflowScreenshot:
                 elapsed = time.time() - capture_start
                 log_snapshot = "\n".join(log_lines) if log_lines else ""
 
-                # Screenshot on node completion (no freeze — meaningful moment)
+                # Screenshot on node completion (with freeze to avoid GPU stalls)
                 if state["executedCount"] > last_executed_count:
                     self._log(f"  Node executed ({state['executedCount']} total), capturing...")
                     self._page.wait_for_timeout(150)  # let UI render
                     elapsed = time.time() - capture_start
                     try:
+                        self._page.evaluate(_QUICK_FREEZE_JS)
                         shot = self._page.screenshot(type="png", animations="disabled", scale="css")
+                        if not state["complete"]:
+                            self._page.evaluate(_QUICK_UNFREEZE_JS)
                         _save_frame_if_new(shot, round(elapsed, 2), log_snapshot)
                     except Exception:
                         pass
@@ -1462,6 +1456,57 @@ class WorkflowScreenshot:
                             node_error = None
                         self._log(f"  Execution error: {error_msg}")
                         raise WorkflowError(f"Workflow execution failed: {error_msg}", workflow_file=str(workflow_path), node_error=node_error)
+                    # Wait for 3D viewers to finish loading before final screenshot
+                    has_3d_viewer = self._page.evaluate("""
+                        (() => {
+                            const nodes = window.app.graph._nodes || [];
+                            return nodes.some(n => {
+                                const t = (n.type || '').toLowerCase();
+                                return t.includes('3d') || t.includes('load3d') || t.includes('preview3d') || t.includes('gaussian');
+                            });
+                        })()
+                    """)
+                    if has_3d_viewer:
+                        # Phase 1: Wait for built-in Load3D widget to finish loading
+                        # (Preview3D/Load3D show "Loading 3D Model..." text that disappears when done)
+                        try:
+                            self._log(f"  [3d-wait] Waiting for 'Loading 3D Model' text to disappear...")
+                            self._page.wait_for_function("""
+                                () => {
+                                    const body = document.body.innerText || '';
+                                    return !body.includes('Loading 3D Model');
+                                }
+                            """, timeout=60000)
+                            self._log(f"  [3d-wait] No more loading indicators")
+                        except Exception as e:
+                            self._log(f"  [3d-wait] Loading wait exception: {e}")
+
+                        # Phase 2: Handle iframe-based viewers (Gaussian splat)
+                        has_iframes = self._page.evaluate("document.querySelectorAll('iframe').length > 0")
+                        if has_iframes:
+                            try:
+                                matching_logs = [log for log in self._console_logs if "Loaded successfully" in log]
+                                viewer_ready = len(matching_logs) > 0
+                                self._log(f"  [3d-wait] iframe viewer_ready={viewer_ready}")
+                                if not viewer_ready:
+                                    self._log(f"  [3d-wait] Waiting for 'Loaded successfully' console message (timeout=60s)...")
+                                    self._page.wait_for_event(
+                                        "console",
+                                        predicate=lambda msg: "Loaded successfully" in msg.text,
+                                        timeout=60000,
+                                    )
+                                    self._log(f"  [3d-wait] Got it!")
+                                self._page.evaluate(_QUICK_UNFREEZE_JS)
+                                self._log(f"  [3d-wait] Unfrozen, waiting for first paint...")
+                                self._page.wait_for_timeout(500)
+                                self._page.evaluate(_QUICK_FREEZE_JS)
+                                self._log(f"  [3d-wait] Frozen after viewer render")
+                            except Exception as e:
+                                self._log(f"  [3d-wait] iframe wait exception: {e}")
+                                try:
+                                    self._page.evaluate(_QUICK_FREEZE_JS)
+                                except Exception:
+                                    pass
                     break
 
                 self._page.wait_for_timeout(100)
@@ -1589,21 +1634,6 @@ class WorkflowScreenshot:
                 t = time.time()
                 self._trigger_3d_previews()
                 self._log(f"  [timing] trigger_3d_previews: {time.time()-t:.1f}s")
-
-                # Fit graph first, then wait for canvas to redraw with images at final zoom
-                t = time.time()
-                self._fit_graph_to_view()
-                self._page.wait_for_timeout(500)
-                self._log(f"  [timing] fit_graph: {time.time()-t:.1f}s")
-
-                t = time.time()
-                self._log(f"  Waiting {final_screenshot_delay_ms}ms for previews to render...")
-                self._page.wait_for_timeout(final_screenshot_delay_ms)
-                self._log(f"  [timing] preview_wait: {time.time()-t:.1f}s")
-
-                t = time.time()
-                self._freeze_animations()
-                self._log(f"  [timing] freeze_animations: {time.time()-t:.1f}s")
 
                 t = time.time()
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:

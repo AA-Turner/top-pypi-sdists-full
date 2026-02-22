@@ -1,0 +1,2 @@
+const e=new Set([`.gltf`,`.glb`,`.obj`,`.fbx`,`.stl`,`.spz`,`.splat`,`.ply`,`.ksplat`]),t=[...e].join(`,`);window.comfyAPI=window.comfyAPI||{},window.comfyAPI.constants=window.comfyAPI.constants||{},window.comfyAPI.constants.SUPPORTED_EXTENSIONS=e,window.comfyAPI.constants.SUPPORTED_EXTENSIONS_ACCEPT=t;export{t as n,e as t};
+//# sourceMappingURL=constants-Bg5Vkm2P.js.map

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cosmic_ray
-Version: 8.4.3
+Version: 8.4.4
 Summary: Mutation testing
 Author-email: Sixty North AS <austin@sixty-north.com>
 License: Copyright (c) 2015-2017 Sixty North AS
@@ -40,6 +40,7 @@ Classifier: Topic :: Software Development :: Testing
 Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENCE.txt
+Requires-Dist: attrs
 Requires-Dist: aiohttp
 Requires-Dist: anybadge
 Requires-Dist: click

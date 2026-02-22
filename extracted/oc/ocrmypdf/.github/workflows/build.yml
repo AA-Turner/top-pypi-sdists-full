@@ -9,8 +9,6 @@ on:
       - ci
       - release/*
       - feature/*
-    tags:
-      - v*
     paths-ignore:
       - README*
   pull_request:
@@ -34,8 +32,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -112,8 +108,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Install Homebrew deps
         continue-on-error: true
@@ -176,8 +170,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -216,8 +208,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Install uv
         uses: astral-sh/setup-uv@v7
@@ -235,64 +225,42 @@ jobs:
             ./dist/*.whl
             ./dist/*.tar.gz
 
-  upload_pypi:
-    name: Deploy artifacts to PyPI
+  stage_release:
+    name: Stage release artifacts
     needs: [wheel_sdist_linux, test_linux, test_macos, test_windows]
     runs-on: ubuntu-latest
-    environment: release
+    if: github.ref == 'refs/heads/main'
     permissions:
-      id-token: write # mandatory for PyPI publishing
-    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
-    steps:
-      - uses: actions/download-artifact@v7
-        with:
-          name: artifact
-          path: dist
-
-      - name: Publish to PyPI
-        uses: pypa/gh-action-pypi-publish@release/v1
-
-  create_release:
-    name: Create GitHub release
-    needs: [upload_pypi]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'push' && startsWith(github.event.ref, 'refs/tags/v')
-    permissions:
-      # Required to create a release
       contents: write
-      id-token: write
     steps:
+      - uses: actions/checkout@v6
+
       - uses: actions/download-artifact@v7
         with:
           name: artifact
           path: dist
 
-      - name: Sign the dists with Sigstore
-        uses: sigstore/gh-action-sigstore-python@v3.2.0
-        with:
-          inputs: |
-            ./dist/*.tar.gz
-            ./dist/*.whl
+      - name: Read version from source
+        id: version
+        run: |
+          VERSION=$(python3 -c "exec(open('src/ocrmypdf/_version.py').read()); print(__version__)")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Create GitHub Release
+      - name: Create or update draft release
         env:
           GITHUB_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create
-          "$GITHUB_REF_NAME"
-          --repo "$GITHUB_REPOSITORY"
-          --notes ""
+        run: |
+          TAG="v${{ steps.version.outputs.version }}"
 
-      - name: Upload artifact signatures to GitHub Release
-        env:
-          GITHUB_TOKEN: ${{ github.token }}
-        # Upload to GitHub Release using the `gh` CLI.
-        # `dist/` contains the built packages, and the
-        # sigstore-produced signatures and certificates.
-        run: >-
-          gh release upload
-          "$GITHUB_REF_NAME" dist/**
-          --repo "$GITHUB_REPOSITORY"
+          # Delete existing draft release if it exists (ignore errors)
+          gh release delete "$TAG" --yes 2>/dev/null || true
+
+          # Create new draft release with all artifacts
+          gh release create "$TAG" \
+            --draft \
+            --title "$TAG" \
+            --notes "Draft release - will be updated when tag is pushed" \
+            dist/*
 
   docker_ubuntu:
     name: Build Ubuntu-based Docker image
@@ -314,8 +282,6 @@ jobs:
         run: echo "DOCKER_IMAGE_NAME=ocrmypdf" >> $GITHUB_ENV
 
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -362,8 +328,6 @@ jobs:
         run: echo "DOCKER_IMAGE_NAME=ocrmypdf-alpine" >> $GITHUB_ENV
 
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: "0" # 0=all, needed for setuptools-scm to resolve version tags
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3

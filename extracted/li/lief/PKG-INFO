@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: lief
-Version: 0.17.3
+Version: 0.17.4
 Summary: Library to instrument executable formats
 Keywords: parser,elf,pe,macho,reverse-engineering
 Author-Email: Romain Thomas <contact@lief.re>

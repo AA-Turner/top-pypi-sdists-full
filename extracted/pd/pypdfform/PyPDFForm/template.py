@@ -13,12 +13,11 @@ from io import BytesIO
 from typing import Dict, List, cast
 
 from pypdf import PdfReader, PdfWriter
-from pypdf.generic import (ArrayObject, DictionaryObject, FloatObject,
-                           NameObject, TextStringObject)
+from pypdf.generic import ArrayObject, DictionaryObject, NameObject
 
 from .annotations import AnnotationTypes
 from .constants import (COMB, MULTILINE, READ_ONLY, REQUIRED, WIDGET_TYPES,
-                        Annot, Annots, Contents, Rect, Subtype, Type)
+                        Annots)
 from .middleware.checkbox import Checkbox
 from .middleware.dropdown import Dropdown
 from .middleware.radio import Radio
@@ -149,7 +148,12 @@ def _populate_common_properties(widget: dict, _widget: WIDGET_TYPES) -> None:
     _widget.__dict__["required"] = check_field_flag(widget, REQUIRED)
     _widget.__dict__["hidden"] = get_field_hidden(widget)
 
-    _widget.x, _widget.y, _widget.width, _widget.height = get_field_rect(widget)
+    (
+        _widget.__dict__["x"],
+        _widget.__dict__["y"],
+        _widget.__dict__["width"],
+        _widget.__dict__["height"],
+    ) = get_field_rect(widget)
 
 
 def _populate_text_properties(widget: dict, _widget: Text) -> None:
@@ -196,10 +200,10 @@ def _handle_radio_widget(
     field_rect = get_field_rect(widget)
 
     if key not in results:
-        _widget.x = []
-        _widget.y = []
-        _widget.width = []
-        _widget.height = []
+        _widget.__dict__["x"] = []
+        _widget.__dict__["y"] = []
+        _widget.__dict__["width"] = []
+        _widget.__dict__["height"] = []
         results[key] = _widget
 
     radio = cast(Radio, results[key])
@@ -211,9 +215,9 @@ def _handle_radio_widget(
     if isinstance(radio.y, list):
         radio.y.append(field_rect[1])
     if isinstance(radio.width, list):
-        radio.width.append(field_rect[2])
+        radio.__dict__["width"].append(field_rect[2])
     if isinstance(radio.height, list):
-        radio.height.append(field_rect[3])
+        radio.__dict__["height"].append(field_rect[3])
 
     if get_radio_value(widget):
         radio.value = radio.number_of_options - 1
@@ -333,35 +337,6 @@ def _group_annotations_by_page(
     return result
 
 
-def _create_annotation_object(annotation: AnnotationTypes) -> DictionaryObject:
-    """
-    Creates a PDF dictionary object for an annotation.
-
-    Args:
-        annotation (AnnotationTypes): The annotation object to convert.
-
-    Returns:
-        DictionaryObject: The PDF dictionary object representing the annotation.
-    """
-    annot = DictionaryObject(
-        {
-            NameObject(Type): NameObject(Annot),
-            NameObject(Subtype): NameObject(getattr(annotation, "_annotation_type")),
-            NameObject(Rect): ArrayObject(
-                [
-                    FloatObject(annotation.x),
-                    FloatObject(annotation.y),
-                    FloatObject(annotation.x + annotation.width),
-                    FloatObject(annotation.y + annotation.height),
-                ]
-            ),
-            NameObject(Contents): TextStringObject(annotation.contents),
-        }
-    )
-    annot.update(**annotation.get_specific_properties())
-    return annot
-
-
 def create_annotations(
     template: bytes,
     annotations: List[AnnotationTypes],
@@ -393,7 +368,7 @@ def create_annotations(
 
         page_annotations = ArrayObject([])
         for annotation in annotations_by_page[page_num]:
-            page_annotations.append(_create_annotation_object(annotation))
+            page_annotations.append(annotation.get_specific_properties())
 
         if Annots in page:
             page[NameObject(Annots)] += page_annotations

@@ -31,6 +31,7 @@ from pymc.distributions.continuous import Gamma as RegularGamma
 from pymc.distributions.continuous import (
     HalfCauchyRV,
     HalfStudentTRV,
+    WeibullBetaRV,
     flat,
     halfflat,
     truncated_normal,
@@ -246,6 +247,8 @@ class Gamma(PositiveDimDistribution):
         if (alpha is not None) and (beta is not None):
             pass
         elif (mu is not None) and (sigma is not None):
+            mu = as_xtensor(mu)
+            sigma = as_xtensor(sigma)
             # Use sign of sigma to not let negative sigma fly by
             alpha = (mu**2 / sigma**2) * ptx.math.sign(sigma)
             beta = mu / sigma**2
@@ -268,6 +271,8 @@ class InverseGamma(PositiveDimDistribution):
                 beta = 1.0
         elif (mu is not None) and (sigma is not None):
             # Use sign of sigma to not let negative sigma fly by
+            mu = as_xtensor(mu)
+            sigma = as_xtensor(sigma)
             alpha = ((2 * sigma**2 + mu**2) / sigma**2) * ptx.math.sign(sigma)
             beta = mu * (mu**2 + sigma**2) / sigma**2
         else:
@@ -275,3 +280,18 @@ class InverseGamma(PositiveDimDistribution):
                 "Incompatible parameterization. Either use alpha and (optionally) beta, or mu and sigma"
             )
         return super().dist([alpha, beta], **kwargs)
+
+
+@copy_docstring(regular_dists.Weibull)
+class Weibull(PositiveDimDistribution):
+    @classmethod
+    def dist(cls, alpha, beta, **kwargs):
+        return super().dist([alpha, beta], **kwargs)
+
+    @classmethod
+    def xrv_op(self, alpha, beta, core_dims=None, extra_dims=None, rng=None):
+        alpha = as_xtensor(alpha)
+        beta = as_xtensor(beta)
+        core_rv = WeibullBetaRV.rv_op(alpha=alpha.values, beta=beta.values).owner.op
+        xop = ptxr.as_xrv(core_rv)
+        return xop(alpha, beta, core_dims=core_dims, extra_dims=extra_dims, rng=rng)

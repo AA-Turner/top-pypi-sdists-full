@@ -581,7 +581,7 @@ cdef hid_t get_native_float_type(hid_t type_id) nogil:
 # not implement support for H5Tget_native_type with some types, like
 # H5T_BITFIELD and probably others.  When 1.8.x would be a requisite,
 # this can be simplified.
-cdef hid_t get_native_type(hid_t type_id) nogil:
+cdef hid_t get_native_type(hid_t type_id) noexcept nogil:
   """Get the native type of a HDF5 type."""
 
   cdef H5T_class_t class_id, super_class_id
@@ -1602,9 +1602,9 @@ cdef int load_reference(hid_t dataset_id, hobj_ref_t *refbuf, size_t item_size, 
       # read entire dataset as numpy array
       stype_, shape_ = hdf5_to_np_ext_type(reftype_id, pure_numpy_types=True, atom=True)
       if stype_ == "_ref_":
-        dtype_ = np.dtype("O", shape_)
+        dtype_ = np.dtype(("O", shape_))
       else:
-        dtype_ = np.dtype(stype_, shape_)
+        dtype_ = np.dtype((stype_, shape_))
       shape = []
       for j in range(rank):
         shape.append(<int>dims[j])

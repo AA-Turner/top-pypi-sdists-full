@@ -45,6 +45,7 @@ if TYPE_CHECKING:
     from collections.abc import Iterable
     from typing import TypeVar
 
+    import rich.tree
     import tensorstore  # type: ignore
     import zarr  # type: ignore
     from fsspec import FSMap
@@ -485,6 +486,22 @@ class ZarrNode:
         """Return the underlying store mapping (read-only)."""
         return MappingProxyType(self._store)
 
+    def _full_path(self) -> tuple[FSMap, str, str]:
+        """Return (fsmap, full_path, protocol) for this node."""
+        mapper = self._store
+        if isinstance(mapper, _CachedMapper):
+            mapper = mapper._fsmap
+
+        if self._path:
+            full_path = f"{mapper.root.rstrip('/')}/{self._path}"
+        else:
+            full_path = mapper.root
+
+        protocol = mapper.fs.protocol
+        if isinstance(protocol, tuple):
+            protocol = protocol[0]
+        return mapper, full_path, protocol
+
     def to_zarr_python(self) -> zarr.Array | zarr.Group:
         """Convert to a zarr-python Array or Group object.
 
@@ -496,7 +513,8 @@ class ZarrNode:
         except ImportError as e:
             raise ImportError("zarr package is required for to_zarr_python()") from e
 
-        return zarr.open(self.store_path, mode="r")
+        mapper, full_path, _protocol = self._full_path()
+        return zarr.open(mapper.fs.unstrip_protocol(full_path), mode="r")
 
     @classmethod
     def node_type(cls) -> Literal["group", "array"]:
@@ -520,22 +538,10 @@ class ZarrNode:
         str
             A URI string that follows standard protocol://path format.
         """
-        # Unwrap cached mapper to access underlying FSMap
-        mapper = self._store
-        if isinstance(mapper, _CachedMapper):
-            mapper = mapper._fsmap
-
-        # Build the full path including our internal zarr path
-        if self._path:
-            full_path = f"{mapper.root.rstrip('/')}/{self._path}"
-        else:
-            full_path = mapper.root
+        mapper, full_path, protocol = self._full_path()
 
         # For local file systems, use Path.as_uri() for proper cross-platform
         # URI formatting (especially Windows which needs file:///C:/ not file://C:/)
-        protocol = mapper.fs.protocol
-        if isinstance(protocol, tuple):
-            protocol = protocol[0]
         if protocol in ("file", "local"):
             return Path(full_path).as_uri()
 
@@ -627,6 +633,61 @@ class ZarrGroup(ZarrNode):
 
         validate_zarr_store(self)
         return self
+
+    def tree(
+        self, *, depth: int | None = None, max_per_level: int | None = None
+    ) -> str:
+        """Return a tree representation of the zarr group hierarchy.
+
+        Parameters
+        ----------
+        depth : int | None, optional
+            Maximum depth to traverse. None for unlimited depth.
+            Using a smaller depth improves performance for large hierarchies.
+        max_per_level : int | None, optional
+            Maximum number of children to show at each level.
+            Additional children are indicated with an ellipsis.
+            None for unlimited children.
+
+        Returns
+        -------
+        str
+            String representation of the tree.
+
+        Notes
+        -----
+        Uses rich library for enhanced rendering if available,
+        otherwise falls back to plain text with Unicode box characters.
+
+        Icons:
+        - 📦 Array nodes
+        - 🖼️ Image groups (multiscales)
+        - 🏷️ Label image groups
+        - 🅾️ Other OME-zarr group nodes
+        - 📁 Regular group nodes
+        - ⋯  Indicates truncated children (when max_per_level is exceeded)
+
+        Examples
+        --------
+        >>> group = open_group("https://example.com/data.zarr")
+        >>> print(group.tree(depth=2, max_per_level=5))
+        🖼️ data.zarr
+        ├── 📁 A
+        │   ├── 🖼️ 1
+        │   ├── 🖼️ 2
+        │   ⋯ ...
+        └── 📦 labels (uint8, (100, 100))
+        """
+        from yaozarrs._tree import render_tree
+
+        return render_tree(self, depth=depth, max_per_level=max_per_level)
+
+    def __rich__(self) -> rich.tree.Tree:
+        """Rich representation for use with rich library."""
+        from yaozarrs._tree import _build_tree, _render_rich
+
+        tree = _build_tree(self, depth=4, max_per_level=6)
+        return _render_rich(tree)
 
     def ome_metadata(
         self, *, version: str | None = None

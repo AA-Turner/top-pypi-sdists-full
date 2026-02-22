@@ -204,7 +204,7 @@ class OcrOptions(BaseModel):
     tesseract_pagesegmode: int | None = None
     tesseract_oem: int | None = None
     tesseract_thresholding: int | None = None
-    tesseract_timeout: float = 0.0
+    tesseract_timeout: float | None = None
     tesseract_non_ocr_timeout: float | None = None
     tesseract_downsample_above: int = 32767
     tesseract_downsample_large_images: bool | None = None

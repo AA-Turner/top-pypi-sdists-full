@@ -3,6 +3,7 @@ mod cli;
 use clap::Parser;
 use cli::get_target_version;
 use regex::Regex;
+use std::borrow::Cow;
 use std::fs;
 use std::io::{self, Read};
 use std::sync::LazyLock;
@@ -112,26 +113,26 @@ const VARIABLE_TAG_START: &str = "{{";
 const COMMENT_TAG_START: &str = "{#";
 
 #[derive(Debug, Clone, PartialEq)]
-enum Token {
+enum Token<'a> {
     Text {
-        contents: String,
+        contents: Cow<'a, str>,
         lineno: usize,
     },
     Variable {
-        filter_expression: FilterExpression,
+        filter_expression: FilterExpression<'a>,
         lineno: usize,
     },
     Block {
-        bits: Vec<String>,
+        bits: Vec<Cow<'a, str>>,
         lineno: usize,
     },
     Comment {
-        contents: String,
+        contents: Cow<'a, str>,
         lineno: usize,
     },
 }
 
-fn lex(template_string: &str) -> Vec<Token> {
+fn lex<'a>(template_string: &'a str) -> Vec<Token<'a>> {
     let mut result = Vec::new();
     let mut verbatim = None;
     let mut lineno = 1;
@@ -162,19 +163,19 @@ fn lex(template_string: &str) -> Vec<Token> {
     result
 }
 
-fn create_token(
-    token_string: &str,
+fn create_token<'a>(
+    token_string: &'a str,
     lineno: usize,
     in_tag: bool,
     verbatim: &mut Option<String>,
-) -> Token {
+) -> Token<'a> {
     if in_tag {
         let content = token_string[2..token_string.len() - 2].trim();
         if token_string.starts_with(BLOCK_TAG_START) {
             if let Some(v) = &verbatim {
                 if content != v {
                     return Token::Text {
-                        contents: token_string.to_string(),
+                        contents: Cow::Borrowed(token_string),
                         lineno,
                     };
                 }
@@ -195,19 +196,19 @@ fn create_token(
             } else {
                 debug_assert!(token_string.starts_with(COMMENT_TAG_START));
                 Token::Comment {
-                    contents: content.to_string(),
+                    contents: Cow::Borrowed(content),
                     lineno,
                 }
             }
         } else {
             Token::Text {
-                contents: token_string.to_string(),
+                contents: Cow::Borrowed(token_string),
                 lineno,
             }
         }
     } else {
         Token::Text {
-            contents: token_string.to_string(),
+            contents: Cow::Borrowed(token_string),
             lineno,
         }
     }
@@ -253,27 +254,27 @@ static FILTER_RE: LazyLock<Regex> = LazyLock::new(|| {
 });
 
 #[derive(Debug, Clone, PartialEq)]
-enum Expression {
-    Constant(String),
-    Variable(String),
-    Unparsed(String),
+enum Expression<'a> {
+    Constant(Cow<'a, str>),
+    Variable(Cow<'a, str>),
+    Unparsed(Cow<'a, str>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct FilterExpression {
-    var: Expression,
-    filters: Vec<Filter>,
+struct FilterExpression<'a> {
+    var: Expression<'a>,
+    filters: Vec<Filter<'a>>,
 }
 
 #[derive(Debug, Clone, PartialEq)]
-struct Filter {
-    name: String,
-    arg: Option<Expression>,
+struct Filter<'a> {
+    name: Cow<'a, str>,
+    arg: Option<Expression<'a>>,
 }
 
-fn lex_filter_expression(expr: &str) -> FilterExpression {
+fn lex_filter_expression<'a>(expr: &'a str) -> FilterExpression<'a> {
     let mut filter_expression = FilterExpression {
-        var: Expression::Unparsed(expr.to_string()),
+        var: Expression::Unparsed(Cow::Borrowed(expr)),
         filters: Vec::new(),
     };
     let mut upto = 0;
@@ -283,29 +284,29 @@ fn lex_filter_expression(expr: &str) -> FilterExpression {
         if upto != start {
             // Syntax error - ignore it and return whole expression as constant
             return FilterExpression {
-                var: Expression::Unparsed(expr.to_string()),
+                var: Expression::Unparsed(Cow::Borrowed(expr)),
                 filters: Vec::new(),
             };
         }
 
         if !variable {
             if let Some(constant) = captures.name("constant") {
-                filter_expression.var = Expression::Constant(constant.as_str().to_string());
+                filter_expression.var = Expression::Constant(Cow::Borrowed(constant.as_str()));
             } else if let Some(variable) = captures.name("var") {
-                filter_expression.var = Expression::Variable(variable.as_str().to_string());
+                filter_expression.var = Expression::Variable(Cow::Borrowed(variable.as_str()));
             }
             variable = true;
         } else {
-            let filter_name = captures.name("filter_name").unwrap().as_str().to_string();
+            let filter_name = Cow::Borrowed(captures.name("filter_name").unwrap().as_str());
             if let Some(constant_arg) = captures.name("constant_arg") {
                 filter_expression.filters.push(Filter {
                     name: filter_name,
-                    arg: Some(Expression::Constant(constant_arg.as_str().to_string())),
+                    arg: Some(Expression::Constant(Cow::Borrowed(constant_arg.as_str()))),
                 });
             } else if let Some(var_arg) = captures.name("var_arg") {
                 filter_expression.filters.push(Filter {
                     name: filter_name,
-                    arg: Some(Expression::Variable(var_arg.as_str().to_string())),
+                    arg: Some(Expression::Variable(Cow::Borrowed(var_arg.as_str()))),
                 });
             } else {
                 filter_expression.filters.push(Filter {
@@ -319,7 +320,7 @@ fn lex_filter_expression(expr: &str) -> FilterExpression {
     if upto != expr.len() {
         // Syntax error - ignore it and return whole expression as constant
         return FilterExpression {
-            var: Expression::Unparsed(expr.to_string()),
+            var: Expression::Unparsed(Cow::Borrowed(expr)),
             filters: Vec::new(),
         };
     }
@@ -340,19 +341,23 @@ static SMART_SPLIT_RE: LazyLock<Regex> = LazyLock::new(|| {
     .unwrap()
 });
 
-fn smart_split(text: &str) -> Vec<String> {
+fn smart_split<'a>(text: &'a str) -> Vec<Cow<'a, str>> {
     SMART_SPLIT_RE
         .captures_iter(text)
-        .map(|cap| cap[0].to_string())
+        .map(|cap| Cow::Borrowed(cap.get(0).unwrap().as_str()))
         .collect()
 }
 
-fn split_contents(contents: &str) -> Vec<String> {
+fn split_contents<'a>(contents: &'a str) -> Vec<Cow<'a, str>> {
     let mut split = Vec::new();
     let mut bits = smart_split(contents).into_iter();
 
-    while let Some(mut bit) = bits.next() {
-        if bit.starts_with("_(\"") || bit.starts_with("_('") {
+    while let Some(bit) = bits.next() {
+        let mut chars = bit.chars();
+        if matches!(chars.next(), Some('_'))
+            && matches!(chars.next(), Some('('))
+            && matches!(chars.next(), Some('"' | '\''))
+        {
             let sentinel = format!("{})", &bit[2..3]);
             let mut trans_bit = vec![bit];
             while !trans_bit.last().unwrap().ends_with(&sentinel) {
@@ -362,10 +367,15 @@ fn split_contents(contents: &str) -> Vec<String> {
                     break;
                 }
             }
-            bit = trans_bit.join(" ");
+            let joined = trans_bit
+                .iter()
+                .map(|s| s.as_ref())
+                .collect::<Vec<_>>()
+                .join(" ");
+            split.push(Cow::Owned(joined));
+        } else {
+            split.push(bit);
         }
-
-        split.push(bit);
     }
     split
 }
@@ -427,13 +437,7 @@ fn detect_newline(content: &str) -> &str {
 #[inline(always)]
 fn format_variable(filter_expression: FilterExpression, result: &mut String) {
     match filter_expression.var {
-        Expression::Constant(value) => {
-            result.push_str(&value);
-        }
-        Expression::Variable(value) => {
-            result.push_str(&value);
-        }
-        Expression::Unparsed(value) => {
+        Expression::Constant(value) | Expression::Variable(value) | Expression::Unparsed(value) => {
             result.push_str(&value);
         }
     }
@@ -443,13 +447,9 @@ fn format_variable(filter_expression: FilterExpression, result: &mut String) {
         if let Some(arg) = filter.arg {
             result.push(':');
             match arg {
-                Expression::Constant(value) => {
-                    result.push_str(&value);
-                }
-                Expression::Variable(value) => {
-                    result.push_str(&value);
-                }
-                Expression::Unparsed(value) => {
+                Expression::Constant(value)
+                | Expression::Variable(value)
+                | Expression::Unparsed(value) => {
                     result.push_str(&value);
                 }
             }
@@ -462,7 +462,7 @@ fn format_variable(filter_expression: FilterExpression, result: &mut String) {
 static LENGTH_IS_RE: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"([\w.]+)\|length_is:(\w+)").unwrap());
 
-fn migrate_length_is(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
+fn migrate_length_is(tokens: &mut [Token<'_>], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (4, 2) {
         return;
     }
@@ -472,18 +472,18 @@ fn migrate_length_is(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
             if bits.len() != 2 {
                 continue;
             }
-            if let Some(captures) = LENGTH_IS_RE.captures(&bits[1]) {
+            if let Some(captures) = LENGTH_IS_RE.captures(bits[1].as_ref()) {
                 let var1 = captures.get(1).unwrap().as_str().to_string();
                 let var2 = captures.get(2).unwrap().as_str().to_string();
-                bits[1] = format!("{}|length", var1);
-                bits.push("==".to_string());
-                bits.push(var2.to_string());
+                bits[1] = Cow::Owned(format!("{}|length", var1));
+                bits.push(Cow::Borrowed("=="));
+                bits.push(Cow::Owned(var2));
             }
         }
     }
 }
 
-fn migrate_empty_json_script(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
+fn migrate_empty_json_script(tokens: &mut [Token<'_>], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (4, 1) {
         return;
     }
@@ -494,34 +494,33 @@ fn migrate_empty_json_script(tokens: &mut [Token], target_version: Option<(u8, u
         } = token
         {
             for filter in &mut filter_expression.filters {
-                if filter.name == "json_script" {
-                    if let Some(Expression::Constant(arg)) = &filter.arg {
-                        if arg == "\"\"" || arg == "''" {
-                            filter.arg = None;
-                        }
-                    }
+                if filter.name == "json_script"
+                    && let Some(Expression::Constant(arg)) = &filter.arg
+                    && (arg == "\"\"" || arg == "''")
+                {
+                    filter.arg = None;
                 }
             }
         }
     }
 }
 
-fn migrate_translation_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
+fn migrate_translation_tags(tokens: &mut [Token<'_>], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (3, 1) {
         return;
     }
 
     for token in tokens.iter_mut() {
         if let Token::Block { bits, .. } = token {
-            match bits[0].as_str() {
+            match bits[0].as_ref() {
                 "trans" => {
-                    bits[0] = "translate".to_string();
+                    bits[0] = Cow::Borrowed("translate");
                 }
                 "blocktrans" => {
-                    bits[0] = "blocktranslate".to_string();
+                    bits[0] = Cow::Borrowed("blocktranslate");
                 }
                 "endblocktrans" => {
-                    bits[0] = "endblocktranslate".to_string();
+                    bits[0] = Cow::Borrowed("endblocktranslate");
                 }
                 "load" => {
                     if bits.len() >= 4
@@ -530,9 +529,9 @@ fn migrate_translation_tags(tokens: &mut [Token], target_version: Option<(u8, u8
                     {
                         for i in 1..bits.len() - 2 {
                             if bits[i] == "trans" {
-                                bits[i] = "translate".to_string();
+                                bits[i] = Cow::Borrowed("translate");
                             } else if bits[i] == "blocktrans" {
-                                bits[i] = "blocktranslate".to_string();
+                                bits[i] = Cow::Borrowed("blocktranslate");
                             }
                         }
                     }
@@ -543,7 +542,7 @@ fn migrate_translation_tags(tokens: &mut [Token], target_version: Option<(u8, u8
     }
 }
 
-fn migrate_ifequal_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
+fn migrate_ifequal_tags(tokens: &mut [Token<'_>], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (3, 1) {
         return;
     }
@@ -553,17 +552,17 @@ fn migrate_ifequal_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) 
     let mut pairs = Vec::new();
     for (i, token) in tokens.iter().enumerate() {
         if let Token::Block { bits, .. } = token {
-            match bits[0].as_str() {
+            match bits[0].as_ref() {
                 "ifequal" | "ifnotequal" => {
                     if bits.len() == 3 {
                         stack.push(i)
                     }
                 }
                 "endifequal" | "endifnotequal" => {
-                    if let Some(start) = stack.pop() {
-                        if bits.len() == 1 {
-                            pairs.push((start, i));
-                        }
+                    if let Some(start) = stack.pop()
+                        && bits.len() == 1
+                    {
+                        pairs.push((start, i));
                     }
                 }
                 _ => {}
@@ -579,56 +578,53 @@ fn migrate_ifequal_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) 
             }),
             Some(Token::Block { .. }),
         ) = (tokens.get(start), tokens.get(end))
+            && start_bits.len() >= 3
         {
-            if start_bits.len() >= 3 {
-                let comparison = if start_bits[0] == "ifequal" {
-                    "=="
-                } else {
-                    "!="
-                };
-                let var1 = start_bits[1].clone();
-                let var2 = start_bits[2].clone();
+            let comparison = if start_bits[0] == "ifequal" {
+                "=="
+            } else {
+                "!="
+            };
+            let var1 = start_bits[1].clone();
+            let var2 = start_bits[2].clone();
 
-                // Update start token
-                if let Token::Block { bits, .. } = &mut tokens[start] {
-                    bits.clear();
-                    bits.push("if".to_string());
-                    bits.push(var1);
-                    bits.push(comparison.to_string());
-                    bits.push(var2);
-                }
+            if let Token::Block { bits, .. } = &mut tokens[start] {
+                bits.clear();
+                bits.push(Cow::Borrowed("if"));
+                bits.push(var1);
+                bits.push(Cow::Borrowed(comparison));
+                bits.push(var2);
+            }
 
-                // Update end token
-                if let Token::Block { bits, .. } = &mut tokens[end] {
-                    bits.clear();
-                    bits.push("endif".to_string());
-                }
+            if let Token::Block { bits, .. } = &mut tokens[end] {
+                bits.clear();
+                bits.push(Cow::Borrowed("endif"));
             }
         }
     }
 }
 
-fn migrate_static_load_tags(tokens: &mut [Token], target_version: Option<(u8, u8)>) {
+fn migrate_static_load_tags(tokens: &mut [Token<'_>], target_version: Option<(u8, u8)>) {
     if target_version.is_none() || target_version.unwrap() < (2, 1) {
         return;
     }
 
     for token in tokens.iter_mut() {
-        if let Token::Block { bits, .. } = token {
-            if bits[0] == "load" {
-                if bits.contains(&"from".to_string()) {
-                    if bits.len() >= 4 && bits[bits.len() - 2] == "from" {
-                        let last = bits.len() - 1;
-                        let library = bits[last].as_str();
-                        if library == "admin_static" || library == "staticfiles" {
-                            bits[last] = "static".to_string();
-                        }
+        if let Token::Block { bits, .. } = token
+            && bits[0] == "load"
+        {
+            if bits.iter().any(|b| b == "from") {
+                if bits.len() >= 4 && bits[bits.len() - 2] == "from" {
+                    let last = bits.len() - 1;
+                    let library = bits[last].as_ref();
+                    if library == "admin_static" || library == "staticfiles" {
+                        bits[last] = Cow::Borrowed("static");
                     }
-                } else {
-                    for bit in bits.iter_mut().skip(1) {
-                        if bit == "admin_static" || bit == "staticfiles" {
-                            *bit = "static".to_string();
-                        }
+                }
+            } else {
+                for bit in bits.iter_mut().skip(1) {
+                    if bit == "admin_static" || bit == "staticfiles" {
+                        *bit = Cow::Borrowed("static");
                     }
                 }
             }
@@ -636,10 +632,10 @@ fn migrate_static_load_tags(tokens: &mut [Token], target_version: Option<(u8, u8
     }
 }
 
-fn migrate_assignments(tokens: &mut [Token]) {
+fn migrate_assignments(tokens: &mut [Token<'_>]) {
     for token in tokens.iter_mut() {
         if let Token::Block { bits, .. } = token {
-            match bits[0].as_str() {
+            match bits[0].as_ref() {
                 "with" => migrate_assignments_with_tag(bits),
                 "blocktrans" | "blocktranslate" => migrate_assignments_blocktranslate_tag(bits),
                 _ => {}
@@ -648,13 +644,13 @@ fn migrate_assignments(tokens: &mut [Token]) {
     }
 }
 
-fn migrate_assignments_with_tag(bits: &mut Vec<String>) {
-    let mut new_bits = vec!["with".to_string()];
+fn migrate_assignments_with_tag(bits: &mut Vec<Cow<'_, str>>) {
+    let mut new_bits = vec![Cow::Borrowed("with")];
     let mut i = 1;
     while i < bits.len() {
         if i + 2 < bits.len() && bits[i + 1] == "as" {
             // Legacy format: "value as key"
-            new_bits.push(format!("{}={}", bits[i + 2], bits[i]));
+            new_bits.push(Cow::Owned(format!("{}={}", bits[i + 2], bits[i])));
             i += 3;
         } else if bits[i].contains('=') {
             // Modern format: "key=value"
@@ -674,21 +670,21 @@ fn migrate_assignments_with_tag(bits: &mut Vec<String>) {
     *bits = new_bits;
 }
 
-fn migrate_assignments_blocktranslate_tag(bits: &mut Vec<String>) {
+fn migrate_assignments_blocktranslate_tag(bits: &mut Vec<Cow<'_, str>>) {
     let mut new_bits = vec![bits[0].clone()];
     let mut i = 1;
     let mut found_with = false;
     let mut found_count = false;
     while i < bits.len() {
-        match bits[i].as_str() {
+        match bits[i].as_ref() {
             "with" if !found_with => {
                 found_with = true;
-                new_bits.push("with".to_string());
+                new_bits.push(Cow::Borrowed("with"));
                 i += 1;
                 while i < bits.len() {
                     if i + 2 < bits.len() && bits[i + 1] == "as" {
                         // Legacy format: "value as key"
-                        new_bits.push(format!("{}={}", bits[i + 2], bits[i]));
+                        new_bits.push(Cow::Owned(format!("{}={}", bits[i + 2], bits[i])));
                         i += 3;
                     } else if bits[i].contains('=') {
                         // Modern format: "key=value"
@@ -705,12 +701,12 @@ fn migrate_assignments_blocktranslate_tag(bits: &mut Vec<String>) {
             }
             "count" if !found_count => {
                 found_count = true;
-                new_bits.push("count".to_string());
+                new_bits.push(Cow::Borrowed("count"));
                 i += 1;
                 if i < bits.len() {
                     if i + 2 < bits.len() && bits[i + 1] == "as" {
                         // Legacy format: "value as count"
-                        new_bits.push(format!("{}={}", bits[i + 2], bits[i]));
+                        new_bits.push(Cow::Owned(format!("{}={}", bits[i + 2], bits[i])));
                         i += 2;
                     } else if bits[i].contains('=') {
                         // Modern format: "key=value"
@@ -730,100 +726,141 @@ fn migrate_assignments_blocktranslate_tag(bits: &mut Vec<String>) {
 
 // Formatters
 
-static LEADING_BLANK_LINES: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^(\s*\n)+").unwrap());
-
-fn update_leading_trailing_whitespace(tokens: &mut Vec<Token>, newline: &str) {
+fn update_leading_trailing_whitespace<'a>(tokens: &mut Vec<Token<'a>>, newline: &str) {
     if let Some(Token::Text { contents, .. }) = tokens.first_mut() {
-        *contents = LEADING_BLANK_LINES.replace(contents, "").to_string();
+        let s = contents.as_ref();
+        let mut pos = 0;
+
+        loop {
+            let start = pos;
+            let chars = s[pos..].chars();
+
+            for c in chars {
+                if matches!(c, ' ' | '\t' | '\r') {
+                    pos += c.len_utf8();
+                } else {
+                    break;
+                }
+            }
+
+            if s[pos..].starts_with('\n') {
+                pos += 1;
+            } else {
+                pos = start;
+                break;
+            }
+        }
+
+        if pos > 0 {
+            *contents = Cow::Owned(s[pos..].to_string());
+        }
     }
 
     if let Some(mut token) = tokens.last_mut() {
         if let Token::Text { contents, .. } = &mut token {
-            *contents = format!("{}{}", contents.trim_end(), newline);
+            let s = contents.as_ref();
+            let mut end = s.len();
+
+            for (idx, c) in s.char_indices().rev() {
+                if matches!(c, ' ' | '\t' | '\r' | '\n') {
+                    end = idx;
+                } else {
+                    break;
+                }
+            }
+
+            let trimmed = &s[..end];
+            let remainder = &s[end..];
+            let already_correct = end == s.len() && newline.is_empty() || remainder == newline;
+
+            if !already_correct {
+                *contents = Cow::Owned(format!("{}{}", trimmed, newline));
+            }
         } else {
             tokens.push(Token::Text {
-                contents: newline.to_string(),
+                contents: Cow::Owned(newline.to_string()),
                 lineno: 0,
             });
         }
     }
 }
 
-fn update_load_tags(tokens: &mut Vec<Token>) {
+fn update_load_tags<'a>(tokens: &mut Vec<Token<'a>>) {
     let mut i = 0;
     while i < tokens.len() {
-        if let Token::Block { ref bits, .. } = tokens[i] {
-            if bits[0] == "load" {
-                // load ... from ...
-                if bits.contains(&"from".to_string()) {
-                    if bits.len() >= 4 && bits[bits.len() - 2] == "from" {
-                        let library = bits[bits.len() - 1].as_str();
-                        let mut parts = bits[1..bits.len() - 2].to_vec();
-
-                        parts.sort_unstable();
-                        parts.dedup();
-                        parts.insert(0, "load".to_string());
-                        parts.push("from".to_string());
-                        parts.push(library.to_string());
-
-                        if let Token::Block { bits, .. } = &mut tokens[i] {
-                            bits.clear();
-                            bits.extend(parts);
-                        }
-                    }
-                // load ...
-                } else {
-                    let mut j = i + 1;
-                    let mut to_merge = vec![i];
-                    while j < tokens.len() {
-                        match &tokens[j] {
-                            Token::Text { contents, .. } if contents.trim().is_empty() => j += 1,
-                            Token::Block { bits, .. } if bits[0] == "load" => {
-                                if bits.contains(&"from".to_string()) {
-                                    break;
-                                }
-                                to_merge.push(j);
-                                j += 1
-                            }
-                            _ => break,
-                        }
-                    }
-                    if j > 0 {
-                        if let Token::Text { .. } = tokens[j - 1] {
-                            j -= 1;
-                        }
-                    }
-
-                    let mut parts: Vec<String> = to_merge
-                        .iter()
-                        .filter_map(|&idx| {
-                            if let Token::Block { bits, .. } = &tokens[idx] {
-                                Some(bits.iter().skip(1).cloned().collect::<Vec<_>>())
-                            } else {
-                                None
-                            }
-                        })
-                        .flatten()
-                        .collect();
+        if let Token::Block { ref bits, .. } = tokens[i]
+            && bits[0] == "load"
+        {
+            // load ... from ...
+            if bits.iter().any(|b| b == "from") {
+                if bits.len() >= 4 && bits[bits.len() - 2] == "from" {
+                    let library = bits[bits.len() - 1].clone();
+                    let mut parts = bits[1..bits.len() - 2].to_vec();
 
                     parts.sort_unstable();
                     parts.dedup();
-                    parts.insert(0, "load".to_string());
+                    parts.insert(0, Cow::Borrowed("load"));
+                    parts.push(Cow::Borrowed("from"));
+                    parts.push(library);
 
                     if let Token::Block { bits, .. } = &mut tokens[i] {
                         bits.clear();
                         bits.extend(parts);
                     }
-
-                    tokens.drain(i + 1..j);
                 }
+            // load ...
+            } else {
+                let mut j = i + 1;
+                let mut to_merge = vec![i];
+                while j < tokens.len() {
+                    match &tokens[j] {
+                        Token::Text { contents, .. } if contents.trim().is_empty() => j += 1,
+                        Token::Block { bits, .. } if bits[0] == "load" => {
+                            if bits.iter().any(|b| b == "from") {
+                                break;
+                            }
+                            to_merge.push(j);
+                            j += 1
+                        }
+                        _ => break,
+                    }
+                }
+                if j > 0
+                    && let Token::Text { .. } = tokens[j - 1]
+                {
+                    j -= 1;
+                }
+
+                let mut parts: Vec<Cow<'_, str>> = to_merge
+                    .iter()
+                    .filter_map(|&idx| {
+                        if let Token::Block { bits, .. } = &tokens[idx] {
+                            Some(bits.iter().skip(1).cloned().collect::<Vec<_>>())
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten()
+                    .collect();
+
+                parts.sort_unstable();
+                parts.dedup();
+                parts.insert(0, Cow::Borrowed("load"));
+
+                if let Token::Block { bits, .. } = &mut tokens[i] {
+                    bits.clear();
+                    bits.extend(parts);
+                }
+
+                tokens.drain(i + 1..j);
             }
         }
+
         i += 1;
     }
 }
 
-fn update_endblock_labels(tokens: &mut [Token]) {
+fn update_endblock_labels<'a>(tokens: &mut [Token<'a>]) {
     let mut block_stack = Vec::new();
     let mut i = 0;
     while i < tokens.len() {
@@ -838,9 +875,9 @@ fn update_endblock_labels(tokens: &mut [Token]) {
                     if bits.len() == 1 || (bits.len() == 2 && label == bits[1]) {
                         let same_line = start_lineno == *lineno;
                         Some(if same_line {
-                            vec!["endblock".to_string()]
+                            vec![Cow::Borrowed("endblock")]
                         } else {
-                            vec!["endblock".to_string(), label]
+                            vec![Cow::Borrowed("endblock"), label]
                         })
                     } else {
                         None
@@ -851,19 +888,19 @@ fn update_endblock_labels(tokens: &mut [Token]) {
             }
             _ => None,
         };
-        if let Some(new_bits) = update {
-            if let Token::Block { lineno, .. } = tokens[i] {
-                tokens[i] = Token::Block {
-                    bits: new_bits,
-                    lineno,
-                };
-            }
+        if let Some(new_bits) = update
+            && let Token::Block { lineno, .. } = tokens[i]
+        {
+            tokens[i] = Token::Block {
+                bits: new_bits,
+                lineno,
+            };
         }
         i += 1;
     }
 }
 
-fn update_top_level_block_indentation(tokens: &mut [Token]) {
+fn update_top_level_block_indentation<'a>(tokens: &mut [Token<'a>]) {
     let mut after_extends = false;
     let mut block_depth = 0;
 
@@ -894,15 +931,15 @@ fn update_top_level_block_indentation(tokens: &mut [Token]) {
 
 static INDENTATION_LINE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?m)^[ \t]+$\z").unwrap());
 
-fn unindent_token(tokens: &mut [Token], index: usize) {
-    if index > 0 {
-        if let Token::Text { contents, .. } = &mut tokens[index - 1] {
-            *contents = INDENTATION_LINE.replace_all(contents, "").to_string();
-        }
+fn unindent_token<'a>(tokens: &mut [Token<'a>], index: usize) {
+    if index > 0
+        && let Token::Text { contents, .. } = &mut tokens[index - 1]
+    {
+        *contents = Cow::Owned(INDENTATION_LINE.replace_all(contents, "").to_string());
     }
 }
 
-fn update_top_level_block_spacing(tokens: &mut [Token], newline: &str) {
+fn update_top_level_block_spacing<'a>(tokens: &mut [Token<'a>], newline: &str) {
     let mut has_extends = false;
     let mut depth = 0;
     let mut last_top_level_tag = None;
@@ -910,21 +947,19 @@ fn update_top_level_block_spacing(tokens: &mut [Token], newline: &str) {
 
     while i < tokens.len() {
         if let Token::Block { bits, .. } = &tokens[i] {
-            match bits[0].as_str() {
+            match bits[0].as_ref() {
                 "extends" => {
                     has_extends = true;
                     last_top_level_tag = Some(i);
                 }
                 "block" => {
                     if has_extends && depth == 0 {
-                        if let Some(last_end) = last_top_level_tag {
-                            if last_end == i - 2 {
-                                if let Token::Text { contents, .. } = &mut tokens[i - 1] {
-                                    if contents.trim().is_empty() {
-                                        *contents = format!("{}{}", newline, newline);
-                                    }
-                                }
-                            }
+                        if let Some(last_end) = last_top_level_tag
+                            && last_end == i - 2
+                            && let Token::Text { contents, .. } = &mut tokens[i - 1]
+                            && contents.trim().is_empty()
+                        {
+                            *contents = Cow::Owned(format!("{}{}", newline, newline));
                         }
                         last_top_level_tag = Some(i);
                     }

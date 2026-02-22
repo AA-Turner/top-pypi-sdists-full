@@ -2,7 +2,13 @@ from django import VERSION
 from django.contrib.postgres.fields import ArrayField
 from django.db.models import CASCADE, ForeignKey, Model
 
-from netfields import CidrAddressField, InetAddressField, MACAddress8Field, MACAddressField, NetManager
+from netfields import (
+    CidrAddressField,
+    InetAddressField,
+    MACAddress8Field,
+    MACAddressField,
+    NetManager,
+)
 
 
 class InetTestModel(Model):
@@ -10,7 +16,7 @@ class InetTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'inet'
+        db_table = "inet"
 
 
 class NullInetTestModel(Model):
@@ -18,7 +24,7 @@ class NullInetTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'nullinet'
+        db_table = "nullinet"
 
 
 class UniqueInetTestModel(Model):
@@ -26,7 +32,7 @@ class UniqueInetTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'uniqueinet'
+        db_table = "uniqueinet"
 
 
 class NoPrefixInetTestModel(Model):
@@ -34,7 +40,7 @@ class NoPrefixInetTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'noprefixinet'
+        db_table = "noprefixinet"
 
 
 class CidrTestModel(Model):
@@ -42,7 +48,7 @@ class CidrTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'cidr'
+        db_table = "cidr"
 
 
 class NullCidrTestModel(Model):
@@ -50,7 +56,7 @@ class NullCidrTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'nullcidr'
+        db_table = "nullcidr"
 
 
 class UniqueCidrTestModel(Model):
@@ -58,7 +64,7 @@ class UniqueCidrTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'uniquecidr'
+        db_table = "uniquecidr"
 
 
 class MACTestModel(Model):
@@ -66,7 +72,7 @@ class MACTestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'mac'
+        db_table = "mac"
 
 
 class MAC8TestModel(Model):
@@ -74,35 +80,35 @@ class MAC8TestModel(Model):
     objects = NetManager()
 
     class Meta:
-        db_table = 'mac8'
+        db_table = "mac8"
 
 
 class InetArrayTestModel(Model):
     field = ArrayField(InetAddressField(), blank=True, null=True)
 
     class Meta:
-        db_table = 'inetarray'
+        db_table = "inetarray"
 
 
 class CidrArrayTestModel(Model):
     field = ArrayField(CidrAddressField(), blank=True, null=True)
 
     class Meta:
-        db_table = 'cidrarray'
+        db_table = "cidrarray"
 
 
 class MACArrayTestModel(Model):
     field = ArrayField(MACAddressField(), blank=True, null=True)
 
     class Meta:
-        db_table = 'macarray'
+        db_table = "macarray"
 
 
 class MAC8ArrayTestModel(Model):
     field = ArrayField(MACAddress8Field(), blank=True, null=True)
 
     class Meta:
-        db_table = 'mac8array'
+        db_table = "mac8array"
 
 
 class AggregateTestModel(Model):
@@ -112,17 +118,16 @@ class AggregateTestModel(Model):
 
 class AggregateTestChildModel(Model):
     parent = ForeignKey(
-        'AggregateTestModel',
-        related_name='children',
+        "AggregateTestModel",
+        related_name="children",
         on_delete=CASCADE,
     )
     network = CidrAddressField()
     inet = InetAddressField()
 
 
-if VERSION >= (4, 1):
+if VERSION >= (5, 1):
     from django.db.models import F, Q, CheckConstraint
-
 
     class ConstraintModel(Model):
         network = CidrAddressField()
@@ -131,7 +136,22 @@ if VERSION >= (4, 1):
         class Meta:
             constraints = (
                 CheckConstraint(
-                    check=Q(network__net_contains=F('inet')),
-                    name='inet_contained',
+                    condition=Q(network__net_contains=F("inet")),
+                    name="inet_contained",
+                ),
+            )
+
+elif VERSION >= (4, 1):
+    from django.db.models import F, Q, CheckConstraint
+
+    class ConstraintModel(Model):
+        network = CidrAddressField()
+        inet = InetAddressField()
+
+        class Meta:
+            constraints = (
+                CheckConstraint(
+                    check=Q(network__net_contains=F("inet")),
+                    name="inet_contained",
                 ),
             )

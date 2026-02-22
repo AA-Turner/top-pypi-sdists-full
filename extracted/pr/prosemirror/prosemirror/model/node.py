@@ -24,6 +24,8 @@ class ChildInfo(TypedDict):
 
 
 class Node:
+    text: str | None = None
+
     def __init__(
         self,
         type: "NodeType",
@@ -85,8 +87,8 @@ class Node:
         self,
         from_: int,
         to: int,
-        block_separator: str = "",
-        leaf_text: Callable[["Node"], str] | str = "",
+        block_separator: str | None = None,
+        leaf_text: Callable[["Node"], str] | str | None = None,
     ) -> str:
         return self.content.text_between(from_, to, block_separator, leaf_text)
 
@@ -129,6 +131,8 @@ class Node:
         return self.__class__(self.type, self.attrs, self.content, marks)
 
     def cut(self, from_: int, to: int | None = None) -> "Node":
+        if to is None:
+            to = self.content.size
         if from_ == 0 and to == self.content.size:
             return self
         return self.copy(self.content.cut(from_, to))
@@ -365,6 +369,8 @@ class Node:
 
 
 class TextNode(Node):
+    text: str
+
     def __init__(
         self,
         type: "NodeType",
@@ -394,10 +400,10 @@ class TextNode(Node):
         self,
         from_: int,
         to: int,
-        block_separator: str = "",
-        leaf_text: Callable[["Node"], str] | str = "",
+        block_separator: str | None = None,
+        leaf_text: Callable[["Node"], str] | str | None = None,
     ) -> str:
-        return self.text[from_:to]
+        return self.text.encode("utf-16-le")[2 * from_ : 2 * to].decode("utf-16-le")
 
     @property
     def node_size(self) -> int:

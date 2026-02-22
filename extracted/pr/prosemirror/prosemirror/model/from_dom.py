@@ -140,16 +140,8 @@ class DOMParser:
             if r.node is not None and re.match(r"^(ul|ol)\b", r.tag) is not None
         ])
 
-    def parse(
-        self,
-        dom_: lxml.html.HtmlElement,
-        options: ParseOptions | None = None,
-    ) -> Node:
-        if options is None:
-            options = ParseOptions()
-
-        context = ParseContext(self, options, False)
-
+    @staticmethod
+    def _wrap_lxml_text(dom_: lxml.html.HtmlElement) -> None:
         for d in itertools.chain([dom_], dom_.iterdescendants()):
             if (
                 d.text is not None
@@ -169,15 +161,29 @@ class DOMParser:
                     parent.insert(parent.index(d) + 1, child)
                     d.tail = None
 
+    def parse(
+        self,
+        dom_: lxml.html.HtmlElement,
+        options: ParseOptions | None = None,
+    ) -> Node:
+        if options is None:
+            options = ParseOptions()
+
+        context = ParseContext(self, options, False)
+
+        self._wrap_lxml_text(dom_)
+
         context.add_all(dom_, Mark.none, options.from_, options.to_)
 
         return cast(Node, context.finish())
 
     def parse_slice(self, dom_: DOMNode, options: ParseOptions | None = None) -> Slice:
         if options is None:
-            options = ParseOptions(preserve_whitespace=True)
+            options = ParseOptions()
 
         context = ParseContext(self, options, True)
+
+        self._wrap_lxml_text(dom_)
 
         context.add_all(dom_, Mark.none, options.from_, options.to_)
 
@@ -443,7 +449,7 @@ class NodeContext:
         return self.match.find_wrapping(node.type)
 
     def finish(self, open_end: bool) -> Node | Fragment:
-        if not self.options & OPT_PRESERVE_WS:
+        if not (self.options & OPT_PRESERVE_WS):
             try:
                 last: Node | None = self.content[-1]
             except IndexError:
@@ -640,11 +646,11 @@ class ParseContext:
             normalize_list(dom_)
 
         rule_id = self.parser.match_tag(dom_, self, match_after)
-        rule = (
-            self.options.rule_from_node(dom_)
-            if self.options.rule_from_node
-            else rule_id
-        )
+        rule: TagParseRule | None = None
+        if self.options.rule_from_node:
+            rule = self.options.rule_from_node(dom_)
+        if not rule:
+            rule = rule_id
 
         if (rule and rule.ignore) or name in IGNORE_TAGS:
             self.find_inside(dom_)
@@ -713,7 +719,7 @@ class ParseContext:
 
     def ignore_fallback(self, dom_: DOMNode, marks: list[Mark]) -> None:
         if str(dom_.tag).upper() == "BR" and (
-            not self.top.type or self.top.type.inline_content
+            not self.top.type or not self.top.type.inline_content
         ):
             self.find_place(self.parser.schema.text("-"), marks, True)
 
@@ -805,10 +811,10 @@ class ParseContext:
 
             if isinstance(rule.content_element, str):
                 content_dom = dom_.cssselect(rule.content_element)[0]
-            elif callable(rule.content_element):
-                content_dom = rule.content_element(dom_)
-            elif rule.content_element is not None:
+            elif isinstance(rule.content_element, DOMNode):
                 content_dom = rule.content_element
+            elif rule.content_element is not None:
+                content_dom = rule.content_element(dom_)
 
             self.find_around(dom_, content_dom, True)
             self.add_all(content_dom, marks)
@@ -1067,18 +1073,14 @@ class ParseContext:
         )
         min_depth = -(option.depth + 1 if option is not None else 0) + int(not use_root)
 
-        def match(i: int, depth: int) -> bool:
-            while i >= 0:
+        def match(start: int, depth: int) -> bool:
+            for i in range(start, -1, -1):
                 part = parts[i]
 
                 if part == "":
                     if i == len(parts) - 1 or i == 0:
                         continue
-                    while depth >= min_depth:
-                        if match(i - 1, depth):
-                            return True
-                        depth -= 1
-                    return False
+                    return any(match(i - 1, d) for d in range(depth, min_depth - 1, -1))
                 else:
                     if depth > 0 or (depth == 0 and use_root):
                         next: NodeType | None = self.nodes[depth].type
@@ -1094,7 +1096,6 @@ class ParseContext:
                         return False
 
                     depth -= 1
-                i -= 1
             return True
 
         return match(len(parts) - 1, self.open)

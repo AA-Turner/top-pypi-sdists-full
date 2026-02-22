@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plum-dispatch
-Version: 2.7.0
+Version: 2.7.1
 Summary: Multiple dispatch in Python
 Project-URL: repository, https://github.com/beartype/plum
 Project-URL: documentation, https://beartype.github.io/plum

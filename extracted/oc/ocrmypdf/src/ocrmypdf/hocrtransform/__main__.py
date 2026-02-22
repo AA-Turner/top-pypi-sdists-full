@@ -32,7 +32,7 @@ if __name__ == "__main__":
         '-i',
         '--image',
         default=None,
-        help='Path to the image to be placed above the text (not yet supported)',
+        help='Path to the image to overlay on top of the text layer',
     )
     parser.add_argument('hocrfile', help='Path to the hocr file to be parsed')
     parser.add_argument('outputfile', help='Path to the PDF file to be generated')
@@ -59,17 +59,13 @@ if __name__ == "__main__":
     multi_font_manager = MultiFontManager(font_dir)
 
     # Render to PDF using fpdf2
+    image_path = Path(args.image) if args.image else None
     renderer = Fpdf2PdfRenderer(
         page=ocr_page,
         dpi=dpi,
         multi_font_manager=multi_font_manager,
-        invisible_text=False,
+        invisible_text=bool(args.image),
+        image=image_path,
         debug_render_options=debug_options,
     )
     renderer.render(Path(args.outputfile))
-
-    if args.image:
-        print(
-            f"Warning: Image overlay (--image {args.image}) is not yet supported "
-            "with the fpdf2 renderer."
-        )

@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.napoleon',
     'sphinx.ext.imgconverter',  # PDF docs needs this for SVG to PNG conversion
     'sphinx_issues',
+    'sphinx_reredirects',
     'sphinxcontrib.mermaid',
 ]
 
@@ -51,6 +52,9 @@ myst_enable_extensions = ['colon_fence', 'attrs_block', 'attrs_inline', 'substit
 intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
 napoleon_use_rtype = False
 issues_github_path = "ocrmypdf/OCRmyPDF"
+redirects = {
+    "release_notes": "releasenotes/index.html",
+}
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']

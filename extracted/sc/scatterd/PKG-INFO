@@ -1,37 +1,19 @@
 Metadata-Version: 2.4
 Name: scatterd
-Version: 1.4.1
+Version: 1.4.2
 Summary: scatterd is an easy and fast way of creating beautiful scatter plots.
 Author-email: Erdogan Taskesen <erdogant@gmail.com>
-License: MIT License
-        
-        Copyright (c) 2020 Erdogan Taskesen
-        scatterd - Python package
-        
-        Permission is hereby granted, free of charge, to any person obtaining a copy
-        of this software and associated documentation files (the "Software"), to deal
-        in the Software without restriction, including without limitation the rights
-        to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-        copies of the Software, and to permit persons to whom the Software is
-        furnished to do so, subject to the following conditions:
-        
-        The above copyright notice and this permission notice shall be included in all
-        copies or substantial portions of the Software.
-        
-        THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-        IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-        FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-        AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-        LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-        OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-        SOFTWARE.
-        
+License-Expression: MIT
 Project-URL: Homepage, https://erdogant.github.io/scatterd
 Project-URL: Download, https://github.com/erdogant/scatterd/archive/{version}.tar.gz
-Keywords: Python,
+Keywords: Python,scatter,scatter plot,visualization,data visualization,scatterd
 Classifier: Programming Language :: Python :: 3
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
+Classifier: Intended Audience :: Education
+Classifier: Intended Audience :: Science/Research
+Classifier: Operating System :: Unix
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: MacOS
 Requires-Python: >=3
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -91,55 +73,30 @@ On the [documentation pages](https://erdogant.github.io/scatterd/) you can find 
 
 # 
 
-* [Example: Quick scatterplot](https://erdogant.github.io/scatterd/pages/html/Examples.html#)
-
-<p align="left">
-  <a href="https://erdogant.github.io/scatterd/pages/html/Examples.html#">
-  <img src="https://github.com/erdogant/scatterd/blob/master/docs/figs/fig1_simple.png" width="600" />
-  </a>
-</p>
-
-# 
-
-* [Example: Coloring Dots](https://erdogant.github.io/scatterd/pages/html/Examples.html#coloring-dots)
-
-<p align="left">
-  <a href="https://erdogant.github.io/scatterd/pages/html/Examples.html#coloring-dots">
-  <img src="https://github.com/erdogant/scatterd/blob/master/docs/figs/fig2_red.png" width="600" />
-  </a>
-</p>
+| [Example: Coloring Dots](https://erdogant.github.io/scatterd/pages/html/Examples.html#coloring-dots) | [Example: Overlay with Kernel Density](https://erdogant.github.io/scatterd/pages/html/Examples.html#overlay-with-kernel-density) |
+|:--:|:--:|
+| [![](https://github.com/erdogant/scatterd/blob/master/docs/figs/fig2_red.png)](https://erdogant.github.io/scatterd/pages/html/Examples.html#coloring-dots) | [![](https://github.com/erdogant/scatterd/blob/master/docs/figs/fig_density_4.png)](https://erdogant.github.io/scatterd/pages/html/Examples.html#overlay-with-kernel-density) |
 
 
-# 
 
-* [Example: Overlay with Kernel Density](https://erdogant.github.io/scatterd/pages/html/Examples.html#overlay-with-kernel-density)
+| [Example: Dark scatterplot](https://erdogant.github.io/scatterd/pages/html/Examples.html#customized-colormap) | [Example with PCA projection](https://erdogant.github.io/scatterd/pages/html/Examples.html#pca) |
+|:--:|:--:|
+| [![](https://github.com/erdogant/scatterd/blob/master/docs/figs/custom_args.png)](https://erdogant.github.io/scatterd/pages/html/Examples.html#customized-colormap) | [![](https://github.com/erdogant/scatterd/blob/master/docs/figs/pca.png)](https://erdogant.github.io/scatterd/pages/html/Examples.html#pca) |
 
-<p align="left">
-  <a href="https://erdogant.github.io/scatterd/pages/html/Examples.html#overlay-with-kernel-density">
-  <img src="https://github.com/erdogant/scatterd/blob/master/docs/figs/fig_density_4.png" width="600" />
-  </a>
-</p>
-
-
-# 
-
-* [Example: Dark scatterplot](https://erdogant.github.io/scatterd/pages/html/Examples.html#customized-colormap)
-
-<p align="left">
-  <a href="https://erdogant.github.io/scatterd/pages/html/Examples.html#customized-colormap">
-  <img src="https://github.com/erdogant/scatterd/blob/master/docs/figs/custom_args.png" width="600" />
-  </a>
-</p>
 
 <hr>
 
-### Support
+### Contributors
 
-	This project needs some love! ❤️ You can help in various ways.
+<p align="left">
+  <a href="https://github.com/erdogant/scatterd/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=erdogant/scatterd" />
+  </a>
+</p>
 
-	* Become a Sponsor!
-	* Star this repo at the github page.
-	* Other contributions can be in the form of feature requests, idea discussions, reporting bugs, opening pull requests.
-	* Read more why becoming an sponsor is important on the Sponsor Github Page.
-	
-	Cheers Mate.
+### Maintainer
+* Erdogan Taskesen, github: [erdogant](https://github.com/erdogant)
+* Contributions are welcome.
+* Yes! This library is entirely **free** but it runs on coffee! :) Feel free to support with a <a href="https://erdogant.github.io/donate/?currency=USD&amount=5">Coffee</a>.
+
+[![Buy me a coffee](https://img.buymeacoffee.com/button-api/?text=Buy+me+a+coffee&emoji=&slug=erdogant&button_colour=FFDD00&font_colour=000000&font_family=Cookie&outline_colour=000000&coffee_colour=ffffff)](https://www.buymeacoffee.com/erdogant)

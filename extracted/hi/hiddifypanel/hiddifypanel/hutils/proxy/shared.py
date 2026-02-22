@@ -26,7 +26,8 @@ def get_ssh_hostkeys(hconfigs, dojson=False) -> list[str] | str:
 def is_proxy_valid(proxy: Proxy, domain_db: Domain, port: int) -> dict | None:
     name = proxy.name
     l3 = proxy.l3
-    if not port:
+    
+    if proxy.proto!=ProxyProto.mieru and not port:
         return {'name': name, 'msg': "port not defined", 'type': 'error', 'proto': proxy.proto}
     if "reality" not in l3 and 'reality' in domain_db.mode:
         return {'name': name, 'msg': "1reality proxy not in reality domain", 'type': 'debug', 'proto': proxy.proto}
@@ -93,15 +94,46 @@ def get_port(proxy: Proxy, hconfigs: dict, domain_db: Domain, ptls: int, phttp: 
         port = domain_db.internal_port_hysteria2
     elif l3 == 'ssh':
         port = hconfigs[ConfigEnum.ssh_server_port]
-    elif is_tls(l3):
+    elif proxy.proto==ProxyProto.naive and proxy.l3==ProxyL3.h3_quic:
+        port = domain_db.internal_port_naive
+    elif is_tls(l3) or proxy.proto==ProxyProto.naive:
         port = ptls
     elif l3 == "http":
         port = phttp
+    elif proxy.proto==ProxyProto.mieru:
+        port=0
     else:
         port = int(pport)  # type: ignore
     return port
 
 
+def ports_to_ranges(csv_ports: str) -> list[str]:
+    if not csv_ports.strip():
+        return []
+
+    ports = sorted(set(int(p.strip()) for p in csv_ports.split(",") if p.strip()))
+
+    ranges = []
+    start = prev = ports[0]
+
+    for port in ports[1:]:
+        if port == prev + 1:
+            prev = port
+        else:
+            
+            # if start == prev:
+            #     ranges.append(str(start))
+            # else:
+            ranges.append(f"{start}-{prev}")
+            start = prev = port
+
+    
+    # if start == prev:
+    #     ranges.append(str(start))
+    # else:
+    ranges.append(f"{start}-{prev}")
+
+    return ranges
 def is_tls(l3) -> bool:
 
     return 'tls' in l3 or "reality" in l3 or l3 in [ProxyL3.h3_quic]
@@ -114,6 +146,13 @@ def get_proxies(child_id: int = 0, only_enabled=False) -> list['Proxy']:
 
     if not hconfig(ConfigEnum.tuic_enable, child_id):
         proxies = [c for c in proxies if c.proto != ProxyProto.tuic]
+
+    if not hconfig(ConfigEnum.mieru_enable, child_id):
+        proxies = [c for c in proxies if c.proto != ProxyProto.mieru]
+
+    if not hconfig(ConfigEnum.naive_enable, child_id):
+        proxies = [c for c in proxies if c.proto != ProxyProto.naive]
+
     if not hconfig(ConfigEnum.wireguard_enable, child_id):
         proxies = [c for c in proxies if c.proto != ProxyProto.wireguard]
     if not hconfig(ConfigEnum.ssh_server_enable, child_id):
@@ -148,9 +187,9 @@ def get_proxies(child_id: int = 0, only_enabled=False) -> list['Proxy']:
     if not hconfig(ConfigEnum.grpc_enable, child_id):
         proxies = [c for c in proxies if ProxyTransport.grpc not in c.transport]
     if not hconfig(ConfigEnum.tcp_enable, child_id):
-        proxies = [c for c in proxies if 'tcp' not in c.transport]
+        proxies = [c for c in proxies if 'tcp' not in c.transport or c.proto == ProxyProto.mieru]
     if not hconfig(ConfigEnum.h2_enable, child_id):
-        proxies = [c for c in proxies if 'h2' not in c.transport and c.l3 not in [ProxyL3.tls_h2_h1, ProxyL3.tls_h2]]
+        proxies = [c for c in proxies if 'h2' not in c.transport and c.l3 not in [ProxyL3.tls_h2]]
     if not hconfig(ConfigEnum.kcp_enable, child_id):
         proxies = [c for c in proxies if 'kcp' not in c.l3]
     if not hconfig(ConfigEnum.reality_enable, child_id):
@@ -194,14 +233,15 @@ def get_valid_proxies(domains: list[Domain]) -> list[dict]:
             ips = hutils.network.get_domain_ips_cached(domain.domain)
         for proxy in proxeismap[domain.child_id]:
             noDomainProxies = False
-            if proxy.proto in [ProxyProto.ssh, ProxyProto.wireguard]:
+            if proxy.proto in [ProxyProto.ssh, ProxyProto.wireguard,ProxyProto.mieru]:
                 noDomainProxies = True
             if proxy.proto in [ProxyProto.ss] and proxy.transport not in [ProxyTransport.grpc, ProxyTransport.h2, ProxyTransport.WS, ProxyTransport.httpupgrade, ProxyTransport.xhttp]:
                 noDomainProxies = True
             options = []
             key = f'{proxy.proto}{proxy.transport}{proxy.cdn}{proxy.l3}'
 
-            if proxy.proto in [ProxyProto.ssh, ProxyProto.tuic, ProxyProto.hysteria2, ProxyProto.wireguard, ProxyProto.ss]:
+            if proxy.proto in [ProxyProto.ssh, ProxyProto.tuic, ProxyProto.hysteria2, ProxyProto.wireguard, ProxyProto.ss,ProxyProto.mieru] \
+                or (proxy.proto==ProxyProto.naive and proxy.l3==ProxyL3.h3_quic) :
                 if noDomainProxies and all([x in added_ip[key] for x in ips]):
                     continue
 
@@ -221,6 +261,10 @@ def get_valid_proxies(domains: list[Domain]) -> list[dict]:
                         options = [{'pport': 443}]
                 elif proxy.proto == ProxyProto.tuic:
                     options = [{'pport': hconfigs[ConfigEnum.tuic_port]}]
+                elif proxy.proto == ProxyProto.mieru:
+                    options = [{'pport':0}]
+                elif proxy.proto == ProxyProto.naive:
+                    options = [{'pport': hconfigs[ConfigEnum.naive_port]}]
                 elif proxy.proto == ProxyProto.hysteria2:
                     options = [{'pport': hconfigs[ConfigEnum.hysteria_port]}]
             else:
@@ -356,9 +400,30 @@ def make_proxy(hconfigs: dict, proxy: Proxy, domain_db: Domain, phttp=80, ptls=4
         'dbdomain': domain_db,
         'params': proxy.params or {},
     }
-    put_default_header(base['params'])
+    
+    if hconfigs.get(ConfigEnum.tls_ech_enable) and not proxy.l3 in {ProxyL3.reality}:
+        if ech:=hutils.network.get_ech_info(base.get('sni')):
+            base['ech'] = ech
 
     
+
+    if base['proto'] in {ProxyProto.naive}:
+        del base['fingerprint']
+        base['path']=f'/{hconfigs[ConfigEnum.path_naive]}{hconfigs[ConfigEnum.path_tcp]}'
+        base["quic"]=proxy.l3 in [ProxyL3.h3_quic]
+        base['password']="h"
+        return base
+    
+    if base['proto'] in {ProxyProto.mieru}:
+        base["password"]="h"
+        
+        base['tcp_ports']=ports_to_ranges(hconfigs.get(ConfigEnum.mieru_tcp_ports)) if proxy.transport == ProxyTransport.tcp else []
+        base['udp_ports']=ports_to_ranges(hconfigs.get(ConfigEnum.mieru_udp_ports)) if proxy.transport == ProxyTransport.udp else []
+        base['multiplexing']=hconfigs[ConfigEnum.mieru_multiplexing]
+        base['handshake']=hconfigs[ConfigEnum.mieru_handshake]
+        return base
+    if base['cdn'] or l3 == "http":
+        put_default_header(base['params'])
     if domain_db.download_domain:
         base['download'] = sni_host_server_extractor(domain_db.download_domain,hconfigs)
     else:
@@ -367,8 +432,11 @@ def make_proxy(hconfigs: dict, proxy: Proxy, domain_db: Domain, phttp=80, ptls=4
     if 'download' not in base['params']:
         base['params']['download']={}
     base['download']['params']=base['params']['download']
-    put_default_header(base['download']['params'])
-
+    if base['download']['cdn'] or l3 == "http":
+        put_default_header(base['download']['params'])
+    if hconfigs.get(ConfigEnum.tls_ech_enable) and not proxy.l3 in {ProxyL3.reality}:
+        if ech:=hutils.network.get_ech_info(base['download'].get('sni')):
+            base['download']['ech'] = ech
     base['download']['alpn']=base['params']['download'].get('alpn',alpn)
 
         
@@ -455,6 +523,7 @@ def make_proxy(hconfigs: dict, proxy: Proxy, domain_db: Domain, phttp=80, ptls=4
             base["tls_fragment_enable"] = True
             base["tls_fragment_size"] = hconfigs[ConfigEnum.tls_fragment_size]
             base["tls_fragment_sleep"] = hconfigs[ConfigEnum.tls_fragment_sleep]
+            base["tls_fragment_packets"] = hconfigs.get(ConfigEnum.tls_fragment_packets, "tlshello")
 
         if hconfigs[ConfigEnum.tls_mixed_case]:
             base["tls_mixed_case"] = hconfigs[ConfigEnum.tls_mixed_case]

@@ -1,15 +1,24 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: aioairctrl
-Version: 0.2.5
+Version: 0.2.6
 Summary: Library for controlling Philips air purifiers (using encrypted CoAP)
 Home-page: https://github.com/kongo09/aioairctrl
 Author: betaboon
 License: MIT
 Project-URL: Bug Tracker, https://github.com/kongo09/aioairctrl/issues
-Requires-Python: >=3.6
+Requires-Python: >=3.12
 License-File: LICENSE
 Requires-Dist: pycryptodomex
-Requires-Dist: aiocoap<0.5,>=0.4.7
+Requires-Dist: aiocoap<0.5,>=0.4.17
+Dynamic: author
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # aioairctrl
 

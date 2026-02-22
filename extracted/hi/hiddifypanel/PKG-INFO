@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hiddifypanel
-Version: 11.0.17
+Version: 12.0.0
 Summary: hiddifypanel multi proxy panel
 Author: hiddify
 License: 
@@ -195,10 +195,11 @@ Keywords: proxy,panel,multi
 Requires-Python: >=3.12
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
-Requires-Dist: apiflask[async]<3.0.0,>=2.2.1
-Requires-Dist: babel==2.16.0
-Requires-Dist: bleach==6.2.0
-Requires-Dist: bootstrap-flask==2.4.1
+Requires-Dist: apiflask[async]==3.0.2
+Requires-Dist: babel==2.18.0
+Requires-Dist: bleach==6.3.0
+Requires-Dist: bootstrap-flask==2.5.0
+Requires-Dist: celery<6.0.0,>=5.6.2
 Requires-Dist: flask-admin==1.6.1
 Requires-Dist: flask-adminlte3==1.0.9
 Requires-Dist: flask-classful==0.16.0
@@ -209,9 +210,9 @@ Requires-Dist: flask-session==0.8.0
 Requires-Dist: flask-wtf==1.2.2
 Requires-Dist: flask==3.1.2
 Requires-Dist: markupsafe==3.0.3
-Requires-Dist: pymysql==1.1.1
-Requires-Dist: pyyaml==6.0.2
-Requires-Dist: sqlalchemy-utils==0.41.2
+Requires-Dist: pymysql==1.1.2
+Requires-Dist: pyyaml==6.0.3
+Requires-Dist: sqlalchemy-utils==0.42.1
 Requires-Dist: sqlalchemy[asyncio]==2.0.46
 Requires-Dist: strenum==0.4.15
 Requires-Dist: wtforms==3.1.2
@@ -219,48 +220,43 @@ Requires-Dist: werkzeug==3.1.5
 Requires-Dist: ansi2html==1.9.2
 Requires-Dist: bjoern==3.2.2
 Requires-Dist: click==8.3.1
-Requires-Dist: cloudflare==3.1.0
-Requires-Dist: pydantic==2.9.2
+Requires-Dist: cloudflare==4.3.1
+Requires-Dist: pydantic==2.12.5
 Requires-Dist: cryptography<42
 Requires-Dist: fastenumplus==1.4.0
-Requires-Dist: flask-apispec==0.11.4
 Requires-Dist: flask-babel==4.0.0
-Requires-Dist: loguru==0.7.2
-Requires-Dist: maxminddb==2.6.2
-Requires-Dist: ping3==4.0.8
-Requires-Dist: psutil==6.1.0
+Requires-Dist: loguru==0.7.3
+Requires-Dist: maxminddb==3.0.0
+Requires-Dist: ping3==5.1.5
+Requires-Dist: psutil==7.2.0
 Requires-Dist: python-dateutil==2.9.0.post0
-Requires-Dist: python-dotenv==1.0.1
-Requires-Dist: python-redis-cache==4.0.1
+Requires-Dist: python-dotenv==1.2.1
+Requires-Dist: python-redis-cache==4.0.2
 Requires-Dist: python-slugify==8.0.4
-Requires-Dist: redis==5.2.0
-Requires-Dist: requests==2.32.3
-Requires-Dist: pytelegrambotapi==4.23.0
+Requires-Dist: redis==7.2.0
+Requires-Dist: requests==2.32.5
+Requires-Dist: pytelegrambotapi==4.31.0
 Requires-Dist: user-agents==2.2.0
 Requires-Dist: xtlsapi==3.3.0
-Requires-Dist: mysqlclient==2.2.5
-Requires-Dist: cachecontrol[filecache]<0.15.0
+Requires-Dist: mysqlclient==2.2.8
 Requires-Dist: sonora<1.0.0,>=0.2.3
 Requires-Dist: protobuf<6.0.0,>=5.26.1
 Requires-Dist: asgiref<4.0.0,>=3.8.1
-Requires-Dist: celery<6.0.0,>=5.4.0
 Requires-Dist: dynaconf<4.0.0,>=3.2.6
 Requires-Dist: json5<1.0.0,>=0.9.28
 Requires-Dist: jinja2>=3.1.6
-Requires-Dist: marshmallow<=3.26.1
-Requires-Dist: psutils>=3.3.9
-Requires-Dist: dotenv==0.9.9
-Requires-Dist: setuptools==80.0.0
-Requires-Dist: aiohttp==3.11.18
+Requires-Dist: marshmallow>=4.2.2
+Requires-Dist: setuptools==82.0.0
+Requires-Dist: dnspython>=2.8.0
 Provides-Extra: dev
 Requires-Dist: pytest==8.3.3; extra == "dev"
 Requires-Dist: coverage==7.6.4; extra == "dev"
-Requires-Dist: flake8==7.1.1; extra == "dev"
-Requires-Dist: black==24.10.0; extra == "dev"
-Requires-Dist: isort==5.13.2; extra == "dev"
+Requires-Dist: flake8==7.3.0; extra == "dev"
+Requires-Dist: black==26.1.0; extra == "dev"
+Requires-Dist: isort==7.0.0; extra == "dev"
 Requires-Dist: pytest-cov==6.0.0; extra == "dev"
 Requires-Dist: codecov==2.1.13; extra == "dev"
-Requires-Dist: mypy==1.13.0; extra == "dev"
+Requires-Dist: mypy==1.19.1; extra == "dev"
 Requires-Dist: gitchangelog==3.0.4; extra == "dev"
 Requires-Dist: mkdocs==1.6.1; extra == "dev"
 Requires-Dist: flask-debugtoolbar==0.16.0; extra == "dev"
@@ -277,7 +273,7 @@ Dynamic: license-file
 
 <div align=center>
     
-[![inlang status badge](https://inlang.com/badge?url=github.com/hiddify/hiddifypanel)](https://inlang.com/editor/github.com/hiddify/hiddifypanel?ref=badge)
+[Translation](https://fink.inlang.com/github.com/hiddify/hiddifypanel)
 </div>
 
 Improve existing languages or add new ones by manually editing the JSON files located in `/assets/translations` or by using the [Inlang online editor](https://inlang.com/editor/github.com/hiddify/hiddifypanel).

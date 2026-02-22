@@ -1,7 +1,14 @@
 import warnings
 from django.core.exceptions import FieldError
 from django.db.models import Lookup, Transform, IntegerField
-from django.db.models.lookups import EndsWith, IEndsWith, StartsWith, IStartsWith, Regex, IRegex
+from django.db.models.lookups import (
+    EndsWith,
+    IEndsWith,
+    StartsWith,
+    IStartsWith,
+    Regex,
+    IRegex,
+)
 import ipaddress
 from netfields.fields import InetAddressField, CidrAddressField
 
@@ -10,6 +17,7 @@ class InvalidLookup(Lookup):
     """
     Emulate Django 1.9 error for unsupported lookups
     """
+
     def as_sql(self, qn, connection):
         raise FieldError("Unsupported lookup '%s'" % self.lookup_name)
 
@@ -18,21 +26,28 @@ class InvalidSearchLookup(Lookup):
     """
     Emulate Django 1.9 error for unsupported search lookup
     """
-    lookup_name = 'search'
+
+    lookup_name = "search"
 
     def as_sql(self, qn, connection):
-        raise NotImplementedError("Full-text search is not implemented for this database backend")
+        raise NotImplementedError(
+            "Full-text search is not implemented for this database backend"
+        )
 
 
 class NetFieldDecoratorMixin(object):
     def process_lhs(self, qn, connection, lhs=None):
         lhs = lhs or self.lhs
         lhs_string, lhs_params = qn.compile(lhs)
-        if isinstance(lhs.source if hasattr(lhs, 'source') else lhs.output_field, InetAddressField):
-            lhs_string = 'HOST(%s)' % lhs_string
-        elif isinstance(lhs.source if hasattr(lhs, 'source') else lhs.output_field, CidrAddressField):
-            lhs_string = 'TEXT(%s)' % lhs_string
-        return lhs_string, lhs_params
+        if isinstance(
+            lhs.source if hasattr(lhs, "source") else lhs.output_field, InetAddressField
+        ):
+            lhs_string = "HOST(%s)" % lhs_string
+        elif isinstance(
+            lhs.source if hasattr(lhs, "source") else lhs.output_field, CidrAddressField
+        ):
+            lhs_string = "TEXT(%s)" % lhs_string
+        return lhs_string, list(lhs_params)
 
 
 class EndsWith(NetFieldDecoratorMixin, EndsWith):
@@ -61,7 +76,7 @@ class IRegex(NetFieldDecoratorMixin, IRegex):
 
 class NetworkLookup(object):
     def get_prep_lookup(self):
-        if hasattr(self.rhs, 'resolve_expression'):
+        if hasattr(self.rhs, "resolve_expression"):
             return self.rhs
         if isinstance(self.rhs, ipaddress._BaseNetwork):
             return str(self.rhs)
@@ -70,7 +85,7 @@ class NetworkLookup(object):
 
 class AddressLookup(object):
     def get_prep_lookup(self):
-        if hasattr(self.rhs, 'resolve_expression'):
+        if hasattr(self.rhs, "resolve_expression"):
             return self.rhs
         if isinstance(self.rhs, ipaddress._BaseAddress):
             return str(self.rhs)
@@ -78,67 +93,67 @@ class AddressLookup(object):
 
 
 class NetContains(AddressLookup, Lookup):
-    lookup_name = 'net_contains'
+    lookup_name = "net_contains"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s >> %s' % (lhs, rhs), params
+        return "%s >> %s" % (lhs, rhs), params
 
 
 class NetContained(NetworkLookup, Lookup):
-    lookup_name = 'net_contained'
+    lookup_name = "net_contained"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s << %s' % (lhs, rhs), params
+        return "%s << %s" % (lhs, rhs), params
 
 
 class NetContainsOrEquals(AddressLookup, Lookup):
-    lookup_name = 'net_contains_or_equals'
+    lookup_name = "net_contains_or_equals"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s >>= %s' % (lhs, rhs), params
+        return "%s >>= %s" % (lhs, rhs), params
 
 
 class NetContainedOrEqual(NetworkLookup, Lookup):
-    lookup_name = 'net_contained_or_equal'
+    lookup_name = "net_contained_or_equal"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s <<= %s' % (lhs, rhs), params
+        return "%s <<= %s" % (lhs, rhs), params
 
 
 class NetOverlaps(NetworkLookup, Lookup):
-    lookup_name = 'net_overlaps'
+    lookup_name = "net_overlaps"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return '%s && %s' % (lhs, rhs), params
+        return "%s && %s" % (lhs, rhs), params
 
 
 class HostMatches(AddressLookup, Lookup):
-    lookup_name = 'host'
+    lookup_name = "host"
 
     def as_sql(self, qn, connection):
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
-        return 'HOST(%s) = HOST(%s)' % (lhs, rhs), params
+        return "HOST(%s) = HOST(%s)" % (lhs, rhs), params
 
 
 class Family(Transform):
-    lookup_name = 'family'
+    lookup_name = "family"
 
     def as_sql(self, compiler, connection):
         lhs, params = compiler.compile(self.lhs)
@@ -154,11 +169,13 @@ class _PrefixlenMixin(object):
 
     def as_sql(self, qn, connection):
         warnings.warn(
-            'min_prefixlen and max_prefixlen will be depreciated in the future; '
-            'use prefixlen__gte and prefixlen__lte respectively',
-            DeprecationWarning
+            "min_prefixlen and max_prefixlen will be depreciated in the future; "
+            "use prefixlen__gte and prefixlen__lte respectively",
+            DeprecationWarning,
         )
-        assert self.format_string is not None, "Prefixlen lookups must specify a format_string"
+        assert (
+            self.format_string is not None
+        ), "Prefixlen lookups must specify a format_string"
         lhs, lhs_params = self.process_lhs(qn, connection)
         rhs, rhs_params = self.process_rhs(qn, connection)
         params = lhs_params + rhs_params
@@ -167,7 +184,7 @@ class _PrefixlenMixin(object):
     def process_lhs(self, qn, connection, lhs=None):
         lhs = lhs or self.lhs
         lhs_string, lhs_params = qn.compile(lhs)
-        lhs_string = 'MASKLEN(%s)' % lhs_string
+        lhs_string = "MASKLEN(%s)" % lhs_string
         return lhs_string, lhs_params
 
     def get_prep_lookup(self):
@@ -175,17 +192,17 @@ class _PrefixlenMixin(object):
 
 
 class MaxPrefixlen(_PrefixlenMixin, Lookup):
-    lookup_name = 'max_prefixlen'
-    format_string = '%s <= %s'
+    lookup_name = "max_prefixlen"
+    format_string = "%s <= %s"
 
 
 class MinPrefixlen(_PrefixlenMixin, Lookup):
-    lookup_name = 'min_prefixlen'
-    format_string = '%s >= %s'
+    lookup_name = "min_prefixlen"
+    format_string = "%s >= %s"
 
 
 class Prefixlen(Transform):
-    lookup_name = 'prefixlen'
+    lookup_name = "prefixlen"
 
     def as_sql(self, compiler, connection):
         lhs, params = compiler.compile(self.lhs)
