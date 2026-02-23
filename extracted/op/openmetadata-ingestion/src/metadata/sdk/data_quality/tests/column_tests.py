@@ -690,38 +690,29 @@ class ColumnValueLengthsToBeBetween(ColumnTest):
 
 
 class ColumnValuesToBeAtExpectedLocation(ColumnTest):
-    """Validates that lat/long values in a column are at the expected location.
+    """Validates that a specific value appears at an expected row position.
 
-    This test checks if the latitude/longitude values match the expected location
-    defined by a reference column (city or postal code) within a given radius.
+    This test checks for an exact value at a particular row index, useful for validating
+    sorted data, header rows, or expected entries at known positions.
 
     Args:
         column: Name of the column to validate
-        location_reference_type: Type of location reference - "CITY" or "POSTAL_CODE"
-        longitude_column_name: Name of the longitude column in the table
-        latitude_column_name: Name of the latitude column in the table
-        radius: Radius in meters from the expected location
+        expected_value: The exact value expected at the specified location
+        row_index: Zero-based row position to check (default: 0)
         name: Custom test case name
         display_name: Custom display name for UI
         description: Custom test description
 
     Examples:
-        >>> test = ColumnValuesToBeAtExpectedLocation(
-        ...     column="city",
-        ...     location_reference_type="CITY",
-        ...     longitude_column_name="lon",
-        ...     latitude_column_name="lat",
-        ...     radius=5000.0,
-        ... )
+        >>> test = ColumnValuesToBeAtExpectedLocation(column="id", expected_value="1", row_index=0)
+        >>> test = ColumnValuesToBeAtExpectedLocation(column="rank", expected_value="first", row_index=0)
     """
 
-    def __init__(  # pylint: disable=too-many-arguments
+    def __init__(
         self,
         column: str,
-        location_reference_type: str,
-        longitude_column_name: str,
-        latitude_column_name: str,
-        radius: float,
+        expected_value: str,
+        row_index: int = 0,
         name: Optional[str] = None,
         display_name: Optional[str] = None,
         description: Optional[str] = None,
@@ -729,24 +720,14 @@ class ColumnValuesToBeAtExpectedLocation(ColumnTest):
         super().__init__(
             test_definition_name="columnValuesToBeAtExpectedLocation",
             column=column,
-            name=name or f"{column}_at_expected_location",
-            display_name=display_name or f"Column '{column}' At Expected Location",
+            name=name or f"{column}_value_at_location",
+            display_name=display_name or f"Column '{column}' Value At Location",
             description=description
-            or f"Validates that lat/long values in column '{column}' are within {radius}m of expected location",
+            or f"Validates that column '{column}' has value '{expected_value}' at row {row_index}",
         )
         self.parameters.append(
-            TestCaseParameterValue(
-                name="locationReferenceType", value=location_reference_type
-            )
+            TestCaseParameterValue(name="expectedValue", value=expected_value)
         )
         self.parameters.append(
-            TestCaseParameterValue(
-                name="longitudeColumnName", value=longitude_column_name
-            )
+            TestCaseParameterValue(name="rowIndex", value=str(row_index))
         )
-        self.parameters.append(
-            TestCaseParameterValue(
-                name="latitudeColumnName", value=latitude_column_name
-            )
-        )
-        self.parameters.append(TestCaseParameterValue(name="radius", value=str(radius)))

@@ -4,6 +4,7 @@ from typing import Any, Callable, Iterable, Optional, TYPE_CHECKING
 import logging
 
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
+from wisent.core.constants import FEEDBACK_MAX_CHARS, EVAL_TIME_LIMIT_S, EVAL_CPU_LIMIT_S, EVAL_MEM_LIMIT_MB
 from wisent.core.evaluators.benchmark_specific.coding.safe_docker.core.runtime import DockerSandboxExecutor
 from wisent.core.evaluators.benchmark_specific.coding.metrics.core.atoms import SampleOutcome
 
@@ -46,11 +47,11 @@ class EvaluatorConfig:
     """
     image: str = "coding/sandbox:polyglot-1.0"
     runtime: Optional[str] = None
-    feedback_max_chars: int = 2000
+    feedback_max_chars: int = FEEDBACK_MAX_CHARS
     self_repair: bool = True
-    time_limit_s: int = 8
-    cpu_limit_s: int = 3
-    mem_limit_mb: int = 768
+    time_limit_s: int = EVAL_TIME_LIMIT_S
+    cpu_limit_s: int = EVAL_CPU_LIMIT_S
+    mem_limit_mb: int = EVAL_MEM_LIMIT_MB
     pre_sanitize: bool = True
 
 _SANITIZERS = {

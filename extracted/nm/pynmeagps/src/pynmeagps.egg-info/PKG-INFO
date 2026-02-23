@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynmeagps
-Version: 1.1.0
+Version: 1.1.1
 Summary: NMEA protocol parser and generator
 Author-email: Steve Smith <semuadmin@semuconsulting.com>
 Maintainer-email: Steve Smith <semuadmin@semuconsulting.com>
@@ -364,6 +364,8 @@ b'$EIGNQ,RMC*24\r\n'
  - `bearing` - finds bearing in degrees between two sets of (lat, lon) coordinates
  - `area` - finds spherical area bounded by two sets of (lat, lon) coordinates
  - `leapsecond` - find GPS UTC leapsecond offset for a given effective date
+ - `utc2wnotow` - converts UTC datetime to GPS WNO (week number), TOW (time of week in milliseconds) and Leapsecond offset
+ - `wnotow2utc` - converts GPS WNO, TOW and Leapsecond offset to UTC datetime
 
 See [Sphinx documentation](https://www.semuconsulting.com/pynmeagps/pynmeagps.html#module-pynmeagaps.nmeahelpers) for details.
 

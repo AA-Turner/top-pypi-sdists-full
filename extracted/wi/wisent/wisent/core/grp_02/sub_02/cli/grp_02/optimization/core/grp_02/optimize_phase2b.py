@@ -4,6 +4,7 @@ import json
 import os
 
 from wisent.core.cli.optimization.core.optimize_helpers import save_checkpoint
+from wisent.core.constants import DEFAULT_LAYER, DEFAULT_SCORE, DEFAULT_STRENGTH
 
 
 def run_safety_welfare_steering(args, results):
@@ -71,21 +72,21 @@ def run_safety_welfare_steering(args, results):
                         best_method = None
                         best_score = -1
                         for method, method_result in best_result.items():
-                            if isinstance(method_result, dict) and method_result.get("best_score", 0) > best_score:
+                            if isinstance(method_result, dict) and method_result.get("best_score", DEFAULT_SCORE) > best_score:
                                 best_score = method_result["best_score"]
                                 best_method = method
-                                best_layer = method_result.get("best_layer", 16)
+                                best_layer = method_result.get("best_layer", DEFAULT_LAYER)
                     else:
                         best_method = steering_result.get("best_method", "CAA")
-                        best_layer = steering_result.get("best_layer", 16)
-                        best_score = steering_result.get("best_score", 0.0)
+                        best_layer = steering_result.get("best_layer", DEFAULT_LAYER)
+                        best_score = steering_result.get("best_score", DEFAULT_SCORE)
                     
                     if best_method:
                         store_optimization(
                             model=args.model,
                             task=f"safety:{trait}",
                             layer=best_layer,
-                            strength=steering_result.get("best_strength", 1.0) if not isinstance(steering_result, dict) else 1.0,
+                            strength=steering_result.get("best_strength", DEFAULT_STRENGTH) if not isinstance(steering_result, dict) else DEFAULT_STRENGTH,
                             method=best_method.upper(),
                             score=best_score,
                         )
@@ -143,14 +144,14 @@ def run_safety_welfare_steering(args, results):
                 
                 if steering_result:
                     best_method = steering_result.get("best_method", "CAA")
-                    best_layer = steering_result.get("best_layer", 16)
-                    best_score = steering_result.get("best_score", 0.0)
+                    best_layer = steering_result.get("best_layer", DEFAULT_LAYER)
+                    best_score = steering_result.get("best_score", DEFAULT_SCORE)
                     
                     store_optimization(
                         model=args.model,
                         task=f"humanization:{trait}",
                         layer=best_layer,
-                        strength=steering_result.get("best_strength", 1.0),
+                        strength=steering_result.get("best_strength", DEFAULT_STRENGTH),
                         method=best_method.upper(),
                         score=best_score,
                     )
@@ -208,14 +209,14 @@ def run_safety_welfare_steering(args, results):
 
                 if steering_result:
                     best_method = steering_result.get("best_method", "CAA")
-                    best_layer = steering_result.get("best_layer", 16)
-                    best_score = steering_result.get("best_score", 0.0)
+                    best_layer = steering_result.get("best_layer", DEFAULT_LAYER)
+                    best_score = steering_result.get("best_score", DEFAULT_SCORE)
 
                     store_optimization(
                         model=args.model,
                         task=f"welfare:{trait}",
                         layer=best_layer,
-                        strength=steering_result.get("best_strength", 1.0),
+                        strength=steering_result.get("best_strength", DEFAULT_STRENGTH),
                         method=best_method.upper(),
                         score=best_score,
                     )

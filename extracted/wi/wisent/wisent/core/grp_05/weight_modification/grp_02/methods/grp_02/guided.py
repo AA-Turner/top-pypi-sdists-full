@@ -24,6 +24,7 @@ from typing import Dict, List, Optional, Tuple, Any, TYPE_CHECKING
 from enum import Enum
 
 from wisent.core.cli.cli_logger import setup_logger, bind
+from wisent.core.constants import DEFAULT_STRENGTH
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -68,7 +69,7 @@ class GuidedModificationConfig:
     use_fisher_weights: bool = True
     """Weight ablation strength by Fisher ratio."""
     
-    fisher_weight_scale: float = 1.0
+    fisher_weight_scale: float = DEFAULT_STRENGTH
     """Scale factor for Fisher-based weights."""
     
     fisher_weight_min: float = 0.1
@@ -96,7 +97,7 @@ class GuidedModificationConfig:
     """Extraction strategy for computing directions."""
     
     # General
-    base_strength: float = 1.0
+    base_strength: float = DEFAULT_STRENGTH
     """Base ablation strength before layer weighting."""
     
     normalize_vectors: bool = True

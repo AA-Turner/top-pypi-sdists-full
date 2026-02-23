@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optree
-Version: 0.18.0
+Version: 0.19.0
 Summary: Optimized PyTree Utilities.
 Author: OpTree Contributors
 License-Expression: Apache-2.0
@@ -43,14 +43,14 @@ Requires-Dist: numpy; extra == "numpy"
 Provides-Extra: torch
 Requires-Dist: torch; extra == "torch"
 Provides-Extra: lint
-Requires-Dist: ruff; extra == "lint"
-Requires-Dist: pylint[spelling]; extra == "lint"
-Requires-Dist: mypy; extra == "lint"
-Requires-Dist: doc8; extra == "lint"
-Requires-Dist: pyenchant; extra == "lint"
-Requires-Dist: xdoctest; extra == "lint"
 Requires-Dist: cpplint; extra == "lint"
+Requires-Dist: doc8; extra == "lint"
+Requires-Dist: mypy; extra == "lint"
 Requires-Dist: pre-commit; extra == "lint"
+Requires-Dist: pyenchant; extra == "lint"
+Requires-Dist: pylint[spelling]; extra == "lint"
+Requires-Dist: ruff; extra == "lint"
+Requires-Dist: xdoctest; extra == "lint"
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -63,13 +63,13 @@ Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform
 Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Darwin") and extra == "test"
 Requires-Dist: typing-extensions==4.12.0; (python_version >= "3.13" and platform_system == "Windows") and extra == "test"
 Provides-Extra: docs
-Requires-Dist: sphinx; extra == "docs"
+Requires-Dist: sphinx~=8.0; extra == "docs"
 Requires-Dist: sphinx-autoapi; extra == "docs"
 Requires-Dist: sphinx-autobuild; extra == "docs"
+Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinxcontrib-bibtex; extra == "docs"
-Requires-Dist: sphinx-autodoc-typehints; extra == "docs"
 Requires-Dist: docutils; extra == "docs"
 Requires-Dist: jax[cpu]; extra == "docs"
 Requires-Dist: numpy; extra == "docs"
@@ -131,8 +131,7 @@ pip3 install git+https://github.com/metaopt/optree.git#egg=optree
 Or, clone this repo and install manually:
 
 ```bash
-git clone --depth=1 https://github.com/metaopt/optree.git
-cd optree
+git clone --depth=1 https://github.com/metaopt/optree.git && cd optree
 
 pip3 install .
 ```
@@ -146,6 +145,7 @@ export CMAKE_CXX_STANDARD="20"  # C++17 is tested on Linux/macOS (C++20 is requi
 export OPTREE_CXX_WERROR="OFF"
 export _GLIBCXX_USE_CXX11_ABI="1"
 export pybind11_DIR="/path/to/custom/pybind11"
+
 pip3 install .
 ```
 
@@ -247,21 +247,21 @@ To flatten [`dict`](https://docs.python.org/3/library/stdtypes.html#dict) and [`
 > # User code
 > In [1]: import foo
 >
-> In [2]: foo.pytree.flatten({'a': 1, 'b': 2, 'c': foo.bar.Bar(3, 4.0)}))
+> In [2]: foo.pytree.flatten({'a': 1, 'b': 2, 'c': foo.bar.Bar(3, 4.0)})
 > Out[2]:
 > (
 >     [1, 2, 3, 4.0],
 >     PyTreeSpec({'a': *, 'b': *, 'c': CustomTreeNode(Bar[()], [*, *])}, namespace='foo')
 > )
 >
-> In [3]: foo.pytree.functools.reduce(lambda x, y: x * y, {'a': 1, 'b': 2, 'c': foo.bar.Bar(3, 4.0)}))
+> In [3]: foo.pytree.functools.reduce(lambda x, y: x * y, {'a': 1, 'b': 2, 'c': foo.bar.Bar(3, 4.0)})
 > Out[3]: 24.0
 > ```
 
 ### Tree Nodes and Leaves
 
 A tree is a collection of non-leaf nodes and leaf nodes, where the leaf nodes are opaque objects having no children to flatten.
-`optree.tree_flatten(...)` will flatten the tree and return a list of leaf nodes while the non-leaf nodes will store in the tree structure specification.
+`optree.tree_flatten(...)` will flatten the tree and return a list of leaf nodes while the non-leaf nodes will be stored in the tree structure specification.
 
 #### Built-in PyTree Node Types
 
@@ -278,9 +278,9 @@ OpTree out-of-box supports the following Python container types in the global re
 
 which are considered non-leaf nodes in the tree.
 
-Python objects that their type is not registered will be treated as leaf nodes.
+Python objects whose type is not registered will be treated as leaf nodes.
 The registry lookup uses the `is` operator to determine whether the type is matched.
-So subclasses will need to explicitly register in the registry, otherwise, an object of that type will be considered a leaf.
+So subclasses will need to be explicitly registered in the registry, otherwise, objects of that type will be considered leaves.
 The [`NoneType`](https://docs.python.org/3/library/constants.html#None) is a special case discussed in section [`None` is non-leaf Node vs. `None` is Leaf](#none-is-non-leaf-node-vs-none-is-leaf).
 
 #### Registering a Container-like Custom Type as Non-leaf Nodes
@@ -301,7 +301,7 @@ The `entries` can be omitted (only returns a pair) or is optional to implement (
 The following examples show how to register custom types and utilize them for `tree_flatten` and `tree_map`. Please refer to section [Notes about the PyTree Type Registry](#notes-about-the-pytree-type-registry) for more information.
 
 ```python
-# Registry a Python type with lambda functions
+# Register a Python type with lambda functions
 optree.register_pytree_node(
     set,
     # (set) -> (children, metadata, None)
@@ -440,7 +440,7 @@ class MyDict(UserDict):
 
 There are several key attributes of the pytree type registry:
 
-1. **The type registry is per-interpreter-dependent.** This means registering a custom type in the registry affects all modules that use OpTree.
+1. **The type registry is interpreter-dependent.** This means registering a custom type in the registry affects all modules that use OpTree in the same Python interpreter.
 
 > [!WARNING]
 > For safety reasons, a `namespace` must be specified while registering a custom type. It is
@@ -511,7 +511,7 @@ There are several key attributes of the pytree type registry:
 
     optree.register_pytree_node(
         np.ndarray,
-        # Children are nest lists of Python objects
+        # Children are nested lists of Python objects
         lambda array: (np.atleast_1d(array).tolist(), array.ndim == 0),
         lambda scalar, rows: np.asarray(rows) if not scalar else np.asarray(rows[0]),
         namespace='numpy1',
@@ -538,9 +538,9 @@ There are several key attributes of the pytree type registry:
 
     optree.register_pytree_node(
         torch.Tensor,
-        # Children are nest lists of Python objects
+        # Children are nested lists of Python objects
         lambda tensor: (torch.atleast_1d(tensor).tolist(), tensor.ndim == 0),
-        lambda scalar, rows: torch.tensor(rows) if not scalar else torch.tensor(rows[0])),
+        lambda scalar, rows: torch.tensor(rows) if not scalar else torch.tensor(rows[0]),
         namespace='torch1',
     )
 

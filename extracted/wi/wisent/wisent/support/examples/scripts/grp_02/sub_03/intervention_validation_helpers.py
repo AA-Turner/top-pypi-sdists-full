@@ -8,6 +8,7 @@ from dataclasses import dataclass, field
 
 import torch
 import numpy as np
+from wisent.core.constants import ZERO_THRESHOLD
 
 S3_BUCKET = "wisent-bucket"
 S3_PREFIX = "intervention_validation"
@@ -99,7 +100,7 @@ def compute_caa_direction(
     pos_mean = pos_activations.float().mean(dim=0)
     neg_mean = neg_activations.float().mean(dim=0)
     direction = pos_mean - neg_mean
-    return direction / (direction.norm() + 1e-10)
+    return direction / (direction.norm() + ZERO_THRESHOLD)
 
 
 def apply_steering_to_model(

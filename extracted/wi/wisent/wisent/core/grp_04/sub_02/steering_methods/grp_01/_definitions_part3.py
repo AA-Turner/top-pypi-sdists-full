@@ -5,6 +5,11 @@ from wisent.core.steering_methods.registry import (
     SteeringMethodParameter,
     SteeringMethodType,
 )
+from wisent.core.constants import (
+    DEFAULT_VARIANCE_THRESHOLD,
+    BROYDEN_DEFAULT_NUM_STEPS, BROYDEN_DEFAULT_ALPHA, BROYDEN_DEFAULT_ETA,
+    BROYDEN_DEFAULT_BETA, BROYDEN_DEFAULT_ALPHA_DECAY,
+)
 
 
 MLP_DEFINITION = SteeringMethodDefinition(
@@ -186,42 +191,42 @@ WICHER_DEFINITION = SteeringMethodDefinition(
         SteeringMethodParameter(
             name="variance_threshold",
             type=float,
-            default=0.80,
+            default=DEFAULT_VARIANCE_THRESHOLD,
             help="Cumulative variance threshold for auto dim selection",
             cli_flag="--wicher-variance-threshold",
         ),
         SteeringMethodParameter(
             name="num_steps",
             type=int,
-            default=3,
+            default=BROYDEN_DEFAULT_NUM_STEPS,
             help="Number of Broyden iterations per forward pass",
             cli_flag="--wicher-num-steps",
         ),
         SteeringMethodParameter(
             name="alpha",
             type=float,
-            default=1.0,
+            default=BROYDEN_DEFAULT_ALPHA,
             help="Base Tikhonov regularisation",
             cli_flag="--wicher-alpha",
         ),
         SteeringMethodParameter(
             name="eta",
             type=float,
-            default=0.5,
+            default=BROYDEN_DEFAULT_ETA,
             help="Step-size multiplier per Broyden iteration",
             cli_flag="--wicher-eta",
         ),
         SteeringMethodParameter(
             name="beta",
             type=float,
-            default=0.0,
+            default=BROYDEN_DEFAULT_BETA,
             help="EMA momentum coefficient (0 = disabled)",
             cli_flag="--wicher-beta",
         ),
         SteeringMethodParameter(
             name="alpha_decay",
             type=float,
-            default=1.0,
+            default=BROYDEN_DEFAULT_ALPHA_DECAY,
             help="Per-step decay factor for alpha",
             cli_flag="--wicher-alpha-decay",
         ),

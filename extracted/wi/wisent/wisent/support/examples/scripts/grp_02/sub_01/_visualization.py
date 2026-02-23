@@ -21,6 +21,7 @@ except ImportError:
     HAS_PACMAP = False
 
 from ._layer_analysis import compute_projection
+from wisent.core.constants import ZERO_THRESHOLD, VIZ_DPI, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
 
 
 def visualize_multi_method(
@@ -66,7 +67,7 @@ def visualize_multi_method(
     plt.tight_layout()
     
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=VIZ_DPI, bbox_inches='tight')
         print(f"  Saved to: {output_path}")
     
     if show_plot:
@@ -133,7 +134,7 @@ def visualize_layer_analysis(
     plt.tight_layout()
     
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=VIZ_DPI, bbox_inches='tight')
         print(f"  Saved to: {output_path}")
     
     if show_plot:
@@ -174,7 +175,7 @@ def attribute_pairs_to_concepts(
     concept_groups = k_result['concept_groups']  # List of sets of cluster IDs
     
     # Cluster all pairs
-    km = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    km = KMeans(n_clusters=optimal_k, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
     cluster_labels = km.fit_predict(diff_vectors)
     
     # Map cluster -> concept
@@ -201,7 +202,7 @@ def attribute_pairs_to_concepts(
         # Compute concept direction
         concept_diffs = diff_vectors[pair_indices]
         concept_direction = concept_diffs.mean(axis=0)
-        concept_direction = concept_direction / (np.linalg.norm(concept_direction) + 1e-10)
+        concept_direction = concept_direction / (np.linalg.norm(concept_direction) + ZERO_THRESHOLD)
         
         # Source distribution (if sources are available)
         sources_in_concept = [pairs[i].get('source', 'unknown') for i in pair_indices]

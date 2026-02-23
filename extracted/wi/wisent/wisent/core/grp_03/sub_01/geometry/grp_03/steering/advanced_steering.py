@@ -6,6 +6,10 @@ import torch.nn as nn
 from typing import Dict, List, Tuple, Optional, Callable
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+from wisent.core.constants import (
+    NORM_EPS, DEFAULT_STRENGTH, DIAG_NUM_COMPONENTS,
+    BLEND_DEFAULT, MLP_HIDDEN_DIM, MLP_OPTIMIZATION_STEPS,
+)
 
 
 @dataclass
@@ -41,7 +45,7 @@ class SteeringMethod(ABC):
 class LinearSteering(SteeringMethod):
     """Standard linear steering: activation + strength * direction."""
 
-    def __init__(self, strength: float = 1.0):
+    def __init__(self, strength: float = DEFAULT_STRENGTH):
         self.strength = strength
         self.direction = None
 
@@ -70,7 +74,7 @@ class ClampingSteering(SteeringMethod):
         self.pos_min = torch.from_numpy(pos_acts.min(axis=0) - self.margin * np.abs(pos_acts.min(axis=0))).float()
         self.pos_max = torch.from_numpy(pos_acts.max(axis=0) + self.margin * np.abs(pos_acts.max(axis=0))).float()
         direction = pos_acts.mean(axis=0) - neg_acts.mean(axis=0)
-        self.direction = torch.from_numpy(direction / (np.linalg.norm(direction) + 1e-8)).float()
+        self.direction = torch.from_numpy(direction / (np.linalg.norm(direction) + NORM_EPS)).float()
 
     def transform(self, activations: torch.Tensor) -> torch.Tensor:
         device = activations.device
@@ -85,7 +89,7 @@ class ClampingSteering(SteeringMethod):
 class ProjectionSteering(SteeringMethod):
     """Project activations away from untruthful subspace."""
 
-    def __init__(self, n_components: int = 5, strength: float = 1.0):
+    def __init__(self, n_components: int = DIAG_NUM_COMPONENTS, strength: float = DEFAULT_STRENGTH):
         self.n_components = n_components
         self.strength = strength
         self.untruthful_basis = None
@@ -119,7 +123,7 @@ class ProjectionSteering(SteeringMethod):
 class ReplacementSteering(SteeringMethod):
     """Replace activations with interpolation toward truthful prototype."""
 
-    def __init__(self, blend: float = 0.5):
+    def __init__(self, blend: float = BLEND_DEFAULT):
         self.blend = blend
         self.truthful_prototype = None
 
@@ -139,7 +143,7 @@ class ReplacementSteering(SteeringMethod):
 class ContrastSteering(SteeringMethod):
     """Maximize distance from untruthful centroid while preserving norm."""
 
-    def __init__(self, strength: float = 1.0):
+    def __init__(self, strength: float = DEFAULT_STRENGTH):
         self.strength = strength
         self.neg_centroid = None
         self.pos_centroid = None
@@ -154,10 +158,10 @@ class ContrastSteering(SteeringMethod):
         pos_c = self.pos_centroid.to(device)
         # Direction away from negative centroid
         away_dir = activations - neg_c
-        away_dir = away_dir / (torch.norm(away_dir, dim=-1, keepdim=True) + 1e-8)
+        away_dir = away_dir / (torch.norm(away_dir, dim=-1, keepdim=True) + NORM_EPS)
         # Also direction toward positive
         toward_dir = pos_c - activations
-        toward_dir = toward_dir / (torch.norm(toward_dir, dim=-1, keepdim=True) + 1e-8)
+        toward_dir = toward_dir / (torch.norm(toward_dir, dim=-1, keepdim=True) + NORM_EPS)
         # Combined push
         orig_norm = torch.norm(activations, dim=-1, keepdim=True)
         steered = activations + self.strength * (away_dir + toward_dir) * orig_norm * 0.1
@@ -171,7 +175,7 @@ class ContrastSteering(SteeringMethod):
 class MLPSteering(SteeringMethod):
     """Learned non-linear steering via small MLP."""
 
-    def __init__(self, hidden_dim: int = 256, epochs: int = 100):
+    def __init__(self, hidden_dim: int = MLP_HIDDEN_DIM, epochs: int = MLP_OPTIMIZATION_STEPS):
         self.hidden_dim = hidden_dim
         self.epochs = epochs
         self.mlp = None
@@ -229,7 +233,7 @@ class AdaptiveSteering(SteeringMethod):
         self.classifier = LogisticRegression()
         self.classifier.fit(X, y)
         direction = pos_acts.mean(axis=0) - neg_acts.mean(axis=0)
-        self.direction = torch.from_numpy(direction / (np.linalg.norm(direction) + 1e-8)).float()
+        self.direction = torch.from_numpy(direction / (np.linalg.norm(direction) + NORM_EPS)).float()
 
     def transform(self, activations: torch.Tensor) -> torch.Tensor:
         device = activations.device

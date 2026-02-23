@@ -2,6 +2,12 @@
 from __future__ import annotations
 import torch
 
+from wisent.core.constants import (
+    GROM_GATE_TEMPERATURE,
+    GROM_MAX_ALPHA,
+    GROM_NUM_DIRECTIONS,
+)
+
 
 def _create_grom_steering_object(
     metadata: SteeringObjectMetadata,
@@ -13,7 +19,7 @@ def _create_grom_steering_object(
     from wisent.core.steering_methods.methods.grom import GROMMethod
     from wisent.core.steering_methods.steering_object import GROMGateNetwork, GROMIntensityNetwork
     
-    num_directions = getattr(args, 'grom_num_directions', 5)
+    num_directions = getattr(args, 'grom_num_directions', GROM_NUM_DIRECTIONS)
     hidden_dim = metadata.hidden_dim
     num_layers = len(available_layers)
     
@@ -31,7 +37,7 @@ def _create_grom_steering_object(
         intensity_hidden_dim = max(16, min(256, hidden_dim // 32))
     max_alpha = getattr(args, 'grom_max_alpha', None)
     if max_alpha is None:
-        max_alpha = 3.0
+        max_alpha = GROM_MAX_ALPHA
     
     # Initialize networks
     gate_network = GROMGateNetwork(hidden_dim, gate_hidden_dim)
@@ -143,6 +149,6 @@ def _create_grom_steering_object(
         gate_network=gate_network,
         intensity_network=intensity_network,
         layer_order=layer_order,
-        gate_temperature=getattr(args, 'grom_gate_temperature', 0.5),
+        gate_temperature=getattr(args, 'grom_gate_temperature', GROM_GATE_TEMPERATURE),
         max_alpha=max_alpha,
     )

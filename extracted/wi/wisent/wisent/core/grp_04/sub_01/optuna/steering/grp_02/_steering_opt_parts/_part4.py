@@ -17,6 +17,7 @@ from wisent.core.errors import (
     ModelArchitectureUnknownError,
     NoActivationDataError,
 )
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER
 
 logger = logging.getLogger(__name__)
 
@@ -34,7 +35,7 @@ class _SteeringOptimizerEval:
         batch_size: int,
         max_length: int,
         task_name: str,
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[List[str], List[str]]:
         """
         Collect unsteered model predictions for baseline comparison.

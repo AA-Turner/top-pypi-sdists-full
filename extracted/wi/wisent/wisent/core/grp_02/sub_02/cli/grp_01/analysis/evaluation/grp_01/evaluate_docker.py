@@ -1,6 +1,7 @@
 """Docker execution evaluation for evaluate-responses command."""
 import json
 import os
+from wisent.core.constants import EVAL_TIME_LIMIT_S, EVAL_CPU_LIMIT_S, EVAL_MEM_LIMIT_MB, DEFAULT_SCORE
 
 
 def evaluate_docker_execution(args, input_data, responses, task_name, evaluation_results, task_results):
@@ -68,9 +69,9 @@ def evaluate_docker_execution(args, input_data, responses, task_name, evaluation
     # Configure evaluator
     config = EvaluatorConfig(
         image=docker_config.get('image', 'coding/sandbox:polyglot-1.0'),
-        time_limit_s=docker_config.get('time_limit_s', 8),
-        cpu_limit_s=docker_config.get('cpu_limit_s', 3),
-        mem_limit_mb=docker_config.get('mem_limit_mb', 768),
+        time_limit_s=docker_config.get('time_limit_s', EVAL_TIME_LIMIT_S),
+        cpu_limit_s=docker_config.get('cpu_limit_s', EVAL_CPU_LIMIT_S),
+        mem_limit_mb=docker_config.get('mem_limit_mb', EVAL_MEM_LIMIT_MB),
         self_repair=False  # No self-repair for evaluation
     )
 
@@ -181,9 +182,9 @@ def evaluate_docker_execution(args, input_data, responses, task_name, evaluation
     print(f"✅ EVALUATION COMPLETE")
     print(f"{'='*80}")
     print(f"   Total problems: {len(task_results)}")
-    print(f"   Passed: {int(aggregated_metrics.get('total_passed', 0))}")
-    print(f"   Failed: {len(task_results) - int(aggregated_metrics.get('total_passed', 0))}")
-    print(f"   Pass rate: {aggregated_metrics.get('pass_rate', 0):.2%}")
+    print(f"   Passed: {int(aggregated_metrics.get('total_passed', DEFAULT_SCORE))}")
+    print(f"   Failed: {len(task_results) - int(aggregated_metrics.get('total_passed', DEFAULT_SCORE))}")
+    print(f"   Pass rate: {aggregated_metrics.get('pass_rate', DEFAULT_SCORE):.2%}")
     print(f"{'='*80}\n")
     return
 

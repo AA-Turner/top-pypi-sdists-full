@@ -13280,3 +13280,15 @@
     - Hawaii child and dependent care credit (hi_cdcc) no longer goes negative when
       spouse has negative self-employment income.
   date: 2026-02-20 22:56:55
+- bump: patch
+  changes:
+    fixed:
+    - Cap DC self-employment loss addition at the amount actually deducted in federal
+      AGI via loss_ald.
+  date: 2026-02-22 23:59:28
+- bump: patch
+  changes:
+    fixed:
+    - Fix circular dependency in NY A06774 Enhanced CDCC reform by using cdcc_potential
+      instead of cdcc, which avoids the income_tax_before_credits dependency cycle.
+  date: 2026-02-23 00:04:18

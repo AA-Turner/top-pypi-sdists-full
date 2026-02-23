@@ -7,6 +7,7 @@ import numpy as np
 import torch
 from typing import Dict, List, Optional, Any, Tuple
 from sklearn.decomposition import PCA
+from wisent.core.constants import ZERO_THRESHOLD
 
 
 def compute_direction_angles(
@@ -32,7 +33,7 @@ def compute_direction_angles(
     for d in directions:
         d_np = d.cpu().numpy() if isinstance(d, torch.Tensor) else d
         norm = np.linalg.norm(d_np)
-        dirs_np.append(d_np / norm if norm > 1e-10 else d_np)
+        dirs_np.append(d_np / norm if norm > ZERO_THRESHOLD else d_np)
 
     dirs_matrix = np.stack(dirs_np)
 
@@ -143,7 +144,7 @@ def plot_directions_in_pca_space(
 
     # Normalize for visualization (scale to unit length in projected space)
     norms = np.linalg.norm(dirs_proj, axis=1, keepdims=True)
-    dirs_proj_normalized = dirs_proj / (norms + 1e-10)
+    dirs_proj_normalized = dirs_proj / (norms + ZERO_THRESHOLD)
 
     return {
         "directions_projected": dirs_proj_normalized.tolist(),

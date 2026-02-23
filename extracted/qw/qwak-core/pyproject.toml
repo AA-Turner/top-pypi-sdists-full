@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "qwak-core"
-version = "0.7.29"
+version = "0.7.31"
 description = "Qwak Core contains the necessary objects and communication tools for using the Qwak Platform"
 authors = ["Qwak <info@qwak.com>"]
 readme = "README.md"

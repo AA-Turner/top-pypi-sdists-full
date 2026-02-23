@@ -2,6 +2,7 @@
 from typing import Dict, List, Any, Optional, Tuple
 import numpy as np
 import torch
+from wisent.core.constants import DEFAULT_RANDOM_SEED, NORM_EPS
 
 
 def name_concepts(
@@ -217,7 +218,7 @@ def decompose_and_name_concepts_with_labels(
 
     diff_vectors = pos_np - neg_np
     norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-    norms = np.where(norms < 1e-8, 1.0, norms)
+    norms = np.where(norms < NORM_EPS, 1.0, norms)
     diff_normalized = diff_vectors / norms
 
     return _build_result(
@@ -250,11 +251,11 @@ def decompose_and_name_concepts(
 
     diff_vectors = pos_np - neg_np
     norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-    norms = np.where(norms < 1e-8, 1.0, norms)
+    norms = np.where(norms < NORM_EPS, 1.0, norms)
     diff_normalized = diff_vectors / norms
 
     spectral = SpectralClustering(
-        n_clusters=n_concepts, random_state=42,
+        n_clusters=n_concepts, random_state=DEFAULT_RANDOM_SEED,
         affinity='nearest_neighbors', n_neighbors=min(10, n_pairs - 1)
     )
     cluster_labels = spectral.fit_predict(diff_normalized)

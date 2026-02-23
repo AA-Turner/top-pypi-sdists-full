@@ -21,6 +21,7 @@ from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
     detect_geometry_structure,
     GeometryAnalysisConfig,
 )
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
 
 
 # Best configs loaded from comprehensive test results
@@ -217,7 +218,7 @@ def run_single_config(args, wisent_model, pairs, collector, layer, aggregation, 
     
     # Compute visualization metrics
     pos_sparsity = (np.abs(pos_arr) < 0.1).mean(axis=1)
-    diff_norm = diff_arr / (np.linalg.norm(diff_arr, axis=1, keepdims=True) + 1e-8)
+    diff_norm = diff_arr / (np.linalg.norm(diff_arr, axis=1, keepdims=True) + NORM_EPS)
     cos_sim = diff_norm @ diff_norm.T
     cos_sim_flat = cos_sim[np.triu_indices(len(cos_sim), k=1)]
     
@@ -293,7 +294,7 @@ def run_single_config(args, wisent_model, pairs, collector, layer, aggregation, 
     ax.set_ylabel('PC2')
 
     # 3. t-SNE
-    tsne = TSNE(n_components=2, perplexity=min(30, len(all_arr)-1), random_state=42)
+    tsne = TSNE(n_components=2, perplexity=min(30, len(all_arr)-1), random_state=DEFAULT_RANDOM_SEED)
     all_tsne = tsne.fit_transform(all_arr)
     ax = axes[0, 2]
     ax.scatter(all_tsne[:len(pos_arr), 0], all_tsne[:len(pos_arr), 1], c='blue', alpha=0.6, label='True')

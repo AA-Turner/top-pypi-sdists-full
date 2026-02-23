@@ -11,6 +11,7 @@ import torch
 import numpy as np
 from typing import Dict, Any
 from scipy.spatial.distance import pdist, squareform
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
 
 
 def compute_cloud_shape(activations: torch.Tensor) -> Dict[str, Any]:
@@ -33,7 +34,7 @@ def compute_cloud_shape(activations: torch.Tensor) -> Dict[str, Any]:
         dim_50 = int(np.searchsorted(cumsum, 0.5) + 1)
         dim_90 = int(np.searchsorted(cumsum, 0.9) + 1)
         dim_99 = int(np.searchsorted(cumsum, 0.99) + 1)
-        participation_ratio = (total_var ** 2) / (np.sum(eigenvalues ** 2) + 1e-8)
+        participation_ratio = (total_var ** 2) / (np.sum(eigenvalues ** 2) + NORM_EPS)
     else:
         dim_50, dim_90, dim_99 = 1, 1, 1
         participation_ratio = 1
@@ -43,7 +44,7 @@ def compute_cloud_shape(activations: torch.Tensor) -> Dict[str, Any]:
         sphericity = 0
     norm_mean = float(norms.mean())
     norm_std = float(norms.std())
-    norm_cv = norm_std / (norm_mean + 1e-8)
+    norm_cv = norm_std / (norm_mean + NORM_EPS)
     return {
         "centroid_norm": float(centroid_norm),
         "mean_norm": norm_mean, "norm_std": norm_std, "norm_cv": norm_cv,
@@ -62,13 +63,13 @@ def compute_cone_fit(activations: torch.Tensor) -> Dict[str, Any]:
     if n < 3:
         return {"error": "need at least 3 points"}
     norms = np.linalg.norm(X, axis=1, keepdims=True)
-    valid = norms.squeeze() > 1e-8
+    valid = norms.squeeze() > NORM_EPS
     X_normalized = X[valid] / norms[valid]
     if len(X_normalized) < 3:
         return {"error": "too few valid points"}
     mean_dir = X_normalized.mean(axis=0)
     mean_dir_norm = np.linalg.norm(mean_dir)
-    if mean_dir_norm < 1e-8:
+    if mean_dir_norm < NORM_EPS:
         return {"is_cone": False, "cone_concentration": 0}
     cone_axis = mean_dir / mean_dir_norm
     cos_angles = X_normalized @ cone_axis
@@ -96,11 +97,11 @@ def compute_sphere_fit(activations: torch.Tensor) -> Dict[str, Any]:
     distances = np.linalg.norm(X - centroid, axis=1)
     mean_radius = float(distances.mean())
     radius_std = float(distances.std())
-    radius_cv = radius_std / (mean_radius + 1e-8)
+    radius_cv = radius_std / (mean_radius + NORM_EPS)
     origin_distances = np.linalg.norm(X, axis=1)
     origin_radius_mean = float(origin_distances.mean())
     origin_radius_std = float(origin_distances.std())
-    origin_radius_cv = origin_radius_std / (origin_radius_mean + 1e-8)
+    origin_radius_cv = origin_radius_std / (origin_radius_mean + NORM_EPS)
     return {
         "centroid_radius_mean": mean_radius,
         "centroid_radius_std": radius_std, "centroid_radius_cv": radius_cv,
@@ -152,7 +153,7 @@ def compute_cluster_structure(activations: torch.Tensor, max_clusters: int = 5) 
     silhouettes = {}
     inertias = {}
     for k in range(2, min(max_clusters + 1, n // 2)):
-        km = KMeans(n_clusters=k, random_state=42, n_init=10)
+        km = KMeans(n_clusters=k, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
         labels = km.fit_predict(X)
         try:
             sil = silhouette_score(X, labels)
@@ -193,7 +194,7 @@ def compute_density_structure(activations: torch.Tensor, k_neighbors: int = 10) 
     finite_densities = local_densities[np.isfinite(local_densities)]
     if len(finite_densities) == 0:
         return {"error": "all densities infinite"}
-    density_cv = float(finite_densities.std() / (finite_densities.mean() + 1e-8))
+    density_cv = float(finite_densities.std() / (finite_densities.mean() + NORM_EPS))
     return {
         "density_mean": float(finite_densities.mean()),
         "density_std": float(finite_densities.std()),
@@ -221,7 +222,7 @@ def compute_topology_indicators(activations: torch.Tensor) -> Dict[str, Any]:
     mst_edges = mst.data
     connectivity_radius = float(mst_edges.max()) if len(mst_edges) > 0 else 0
     mean_pairwise = float(sorted_edges.mean())
-    connectivity_ratio = connectivity_radius / (mean_pairwise + 1e-8)
+    connectivity_ratio = connectivity_radius / (mean_pairwise + NORM_EPS)
     return {
         "connectivity_radius": connectivity_radius,
         "mean_pairwise_distance": mean_pairwise,

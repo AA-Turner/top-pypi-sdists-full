@@ -31,7 +31,7 @@ def detect_multiple_concepts(
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
 
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
         if len(diff_normalized) < 10:
@@ -59,12 +59,12 @@ def split_by_concepts(
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
 
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
         n_neighbors = min(10, len(diff_normalized) - 1)
         spectral = SpectralClustering(
-            n_clusters=n_concepts, random_state=42,
+            n_clusters=n_concepts, random_state=DEFAULT_RANDOM_SEED,
             affinity='nearest_neighbors', n_neighbors=n_neighbors
         )
         labels = spectral.fit_predict(diff_normalized)
@@ -101,7 +101,7 @@ def analyze_concept_independence(
                 continue
             diff_mean = (pos[:n] - neg[:n]).float().cpu().numpy().mean(axis=0)
             norm = np.linalg.norm(diff_mean)
-            if norm > 1e-8:
+            if norm > NORM_EPS:
                 directions.append(diff_mean / norm)
 
         if len(directions) < 2:
@@ -140,7 +140,7 @@ def compute_concept_coherence(
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
 
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
         if len(diff_normalized) < 3:
@@ -219,3 +219,4 @@ from .concept_pairs import (
 
 # Clustering validation
 from ...validation.clustering_validation import validate_clustering_quality
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED

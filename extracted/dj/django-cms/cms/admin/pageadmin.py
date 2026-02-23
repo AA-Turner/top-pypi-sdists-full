@@ -63,6 +63,7 @@ from cms.models import (
     PageUrl,
     Placeholder,
 )
+from cms.models.permissionmodels import PermissionTuple
 from cms.operations.helpers import (
     send_post_page_operation,
     send_pre_page_operation,
@@ -615,7 +616,7 @@ class PageAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
                 can_change = True
             else:
                 page_path = permission.page.path
-                can_change = any(perm_tuple.contains(page_path) for perm_tuple in allowed_pages)
+                can_change = any(PermissionTuple(perm_tuple).contains(page_path) for perm_tuple in allowed_pages)
 
             row = PermissionRow(
                 is_global=False,
@@ -1210,8 +1211,11 @@ class PageContentAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
         target_page_content = page.get_content_obj(target_language, fallback=False)
 
         for placeholder in source_page_content.get_placeholders():
-            # TODO: Handle missing placeholder
-            target = target_page_content.get_placeholders().get(slot=placeholder.slot)
+            try:
+                target = target_page_content.get_placeholders().get(slot=placeholder.slot)
+            except Placeholder.DoesNotExist:
+                messages.warning(request, _("Placeholder '%s' does not exist in target language") % placeholder.slot)
+                continue
             plugins = placeholder.get_plugins_list(source_page_content.language)
 
             if not target.has_add_plugins_permission(request.user, plugins):

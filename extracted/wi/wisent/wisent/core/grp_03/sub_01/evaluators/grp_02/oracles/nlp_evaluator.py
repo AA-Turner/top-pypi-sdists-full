@@ -2,6 +2,7 @@ import re
 from typing import Any, Mapping
 
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
+from wisent.core.constants import COMPARE_TOL, NLI_MARGIN, NLI_ENT_MIN, EMB_DELTA_MIN, EMB_MATCH_MIN
 from wisent.core.evaluators.oracles._helpers._nlp_evaluator_helpers import (
     NLPEvaluatorHelpersMixin,
 )
@@ -27,10 +28,10 @@ class NLPEvaluator(NLPEvaluatorHelpersMixin, BaseEvaluator):
     description = "Robust NLP evaluator (rules + NLI cross-encoder + embeddings)."
     task_names = ()
 
-    NLI_MARGIN = 0.12
-    NLI_ENT_MIN = 0.40
-    EMB_DELTA_MIN = 0.04
-    EMB_MATCH_MIN = 0.35
+    NLI_MARGIN = NLI_MARGIN
+    NLI_ENT_MIN = NLI_ENT_MIN
+    EMB_DELTA_MIN = EMB_DELTA_MIN
+    EMB_MATCH_MIN = EMB_MATCH_MIN
 
     _ALIASES = {
         "a": 1, "1": 1, "one": 1, "first": 1, "1st": 1,
@@ -211,7 +212,7 @@ class NLPEvaluator(NLPEvaluatorHelpersMixin, BaseEvaluator):
                 ok = True
                 confidence = float(min(
                     0.8, 0.5 + 0.5 * (s - self.EMB_MATCH_MIN)
-                    / max(1e-6, (1 - self.EMB_MATCH_MIN))))
+                    / max(COMPARE_TOL, (1 - self.EMB_MATCH_MIN))))
                 return self._result(
                     ok, confidence,
                     "Embedding similarity decision (text)", meta)

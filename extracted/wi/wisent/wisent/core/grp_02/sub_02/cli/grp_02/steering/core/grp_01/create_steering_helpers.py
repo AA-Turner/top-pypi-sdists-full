@@ -2,6 +2,15 @@
 from __future__ import annotations
 import torch
 
+from wisent.core.constants import (
+    DEFAULT_SCORE,
+    TECZA_LEARNING_RATE,
+    TECZA_NUM_DIRECTIONS,
+    TECZA_OPTIMIZATION_STEPS,
+    TETNO_CONDITION_THRESHOLD,
+    TETNO_GATE_TEMPERATURE,
+)
+
 
 def _create_tecza_steering_object(
     metadata: SteeringObjectMetadata,
@@ -12,12 +21,12 @@ def _create_tecza_steering_object(
     """Create TECZA steering object with multiple directions."""
     from wisent.core.steering_methods.methods.advanced import TECZAMethod
     
-    num_directions = getattr(args, 'tecza_num_directions', 3)
+    num_directions = getattr(args, 'tecza_num_directions', TECZA_NUM_DIRECTIONS)
     
     method = TECZAMethod(
         num_directions=num_directions,
-        optimization_steps=getattr(args, 'tecza_optimization_steps', 100),
-        learning_rate=getattr(args, 'tecza_learning_rate', 0.01),
+        optimization_steps=getattr(args, 'tecza_optimization_steps', TECZA_OPTIMIZATION_STEPS),
+        learning_rate=getattr(args, 'tecza_learning_rate', TECZA_LEARNING_RATE),
         normalize=getattr(args, 'normalize', True),
     )
     
@@ -43,7 +52,7 @@ def _create_tecza_steering_object(
         # Equal weights by default
         direction_weights[layer_int] = torch.ones(layer_dirs.shape[0]) / layer_dirs.shape[0]
         
-        print(f"   Layer {layer_str}: {layer_dirs.shape[0]} directions, avg_cosine={meta.get('avg_cosine_similarity', 0):.3f}")
+        print(f"   Layer {layer_str}: {layer_dirs.shape[0]} directions, avg_cosine={meta.get('avg_cosine_similarity', DEFAULT_SCORE):.3f}")
     
     return TECZASteeringObject(
         metadata=metadata,
@@ -71,8 +80,8 @@ def _create_tetno_steering_object(
     
     method = TETNOMethod(
         sensor_layer=sensor_layer,
-        condition_threshold=getattr(args, 'tetno_condition_threshold', 0.5),
-        gate_temperature=getattr(args, 'tetno_gate_temperature', 0.1),
+        condition_threshold=getattr(args, 'tetno_condition_threshold', TETNO_CONDITION_THRESHOLD),
+        gate_temperature=getattr(args, 'tetno_gate_temperature', TETNO_GATE_TEMPERATURE),
         learn_threshold=getattr(args, 'tetno_learn_threshold', True),
         normalize=getattr(args, 'normalize', True),
     )
@@ -162,7 +171,7 @@ def _create_tetno_steering_object(
         sensor_layer=sensor_layer,
         threshold=best_threshold,
         layer_scales=layer_scales,
-        gate_temperature=getattr(args, 'tetno_gate_temperature', 0.1),
+        gate_temperature=getattr(args, 'tetno_gate_temperature', TETNO_GATE_TEMPERATURE),
     )
 
 

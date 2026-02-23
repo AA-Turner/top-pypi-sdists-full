@@ -20,9 +20,12 @@ import dataclasses
 import functools
 import gc
 import itertools
+import os
 import platform
+import subprocess
 import sys
 import sysconfig
+import textwrap
 import time
 import types
 from collections import OrderedDict, UserDict, defaultdict, deque, namedtuple
@@ -32,25 +35,39 @@ from typing import Any, NamedTuple
 import pytest
 
 import optree
-import optree._C
+from optree._C import (
+    OPTREE_HAS_SUBINTERPRETER_SUPPORT,
+    PYBIND11_HAS_NATIVE_ENUM,
+    PYBIND11_HAS_SUBINTERPRETER_SUPPORT,
+    Py_DEBUG,
+    Py_GIL_DISABLED,
+    get_registry_size,
+)
 from optree.registry import __GLOBAL_NAMESPACE as GLOBAL_NAMESPACE
+from optree.registry import _NODETYPE_REGISTRY as NODETYPE_REGISTRY
 
 
 TEST_ROOT = Path(__file__).absolute().parent
 
 
+INITIAL_REGISTRY_SIZE = get_registry_size()
+assert INITIAL_REGISTRY_SIZE == 8
+assert INITIAL_REGISTRY_SIZE + 2 == len(NODETYPE_REGISTRY)
+
+_ = PYBIND11_HAS_NATIVE_ENUM
+_ = PYBIND11_HAS_SUBINTERPRETER_SUPPORT
+_ = OPTREE_HAS_SUBINTERPRETER_SUPPORT
+
 if sysconfig.get_config_var('Py_DEBUG') is None:
-    Py_DEBUG = hasattr(sys, 'gettotalrefcount')
+    assert Py_DEBUG == hasattr(sys, 'gettotalrefcount')
 else:
-    Py_DEBUG = bool(int(sysconfig.get_config_var('Py_DEBUG') or '0'))
-assert Py_DEBUG == optree._C.Py_DEBUG
+    assert Py_DEBUG == bool(int(sysconfig.get_config_var('Py_DEBUG') or '0'))
 skipif_pydebug = pytest.mark.skipif(
     Py_DEBUG,
     reason='Py_DEBUG is enabled which causes too much overhead',
 )
 
-Py_GIL_DISABLED = bool(int(sysconfig.get_config_var('Py_GIL_DISABLED') or '0'))
-assert Py_GIL_DISABLED == optree._C.Py_GIL_DISABLED
+assert Py_GIL_DISABLED == bool(int(sysconfig.get_config_var('Py_GIL_DISABLED') or '0'))
 skipif_freethreading = pytest.mark.skipif(
     Py_GIL_DISABLED,
     reason='Py_GIL_DISABLED is set',
@@ -140,6 +157,54 @@ def disable_systrace(func):
             return func(*args, **kwargs)
 
     return wrapper
+
+
+class CalledProcessError(subprocess.CalledProcessError):
+    def __str__(self):
+        return ''.join(
+            (
+                super().__str__(),
+                f'\nOutput:\n{self.output}' if self.output is not None else '',
+                f'\nStderr:\n{self.stderr}' if self.stderr is not None else '',
+            ),
+        )
+
+
+def check_script_in_subprocess(
+    script,
+    /,
+    *,
+    output,
+    timeout=120.0,
+    cwd=TEST_ROOT,
+    env=None,
+    rerun=1,
+):
+    script = textwrap.dedent(script).strip()
+    result = ''
+    for _ in range(rerun):
+        try:
+            result = subprocess.check_output(
+                [sys.executable, '-u', '-X', 'dev', '-Walways', '-Werror', '-c', script],
+                stderr=subprocess.STDOUT,
+                text=True,
+                encoding='utf-8',
+                timeout=timeout,
+                cwd=cwd,
+                env={
+                    key: value
+                    for key, value in (env if env is not None else os.environ).items()
+                    if (
+                        not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
+                        or key in ('PYTHON_GIL', 'PYTHONDEVMODE', 'PYTHONHASHSEED')
+                    )
+                },
+            )
+        except subprocess.CalledProcessError as ex:
+            raise CalledProcessError(ex.returncode, ex.cmd, ex.output, ex.stderr) from None
+        if output is not None:
+            assert result == output
+    return result
 
 
 MISSING = object()

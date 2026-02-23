@@ -111,6 +111,13 @@ if __name__ == '__main__':
 
     # arun(c)
 
-    print(moonshot_client.base_url)
+    # print(moonshot_client.base_url)
 
-    moonshot_client.organization
+    # print(zhipuai_sdk_client.files.list(purpose="file-extract"))
+
+    # a = zhipuai_sdk_client.files.create(
+    #     file = Path("/Users/betterme/PycharmProjects/AI/MeUtils/meutils/llm/clients.py"),
+    #     purpose="file-extract"
+    # )
+
+    a = zhipuai_sdk_client.files.delete('1756180492_eb387ac8d3ba466b8bacdc3923d9732d')

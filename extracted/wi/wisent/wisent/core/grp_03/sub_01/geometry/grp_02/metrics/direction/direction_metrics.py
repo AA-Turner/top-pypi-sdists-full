@@ -10,6 +10,7 @@ import numpy as np
 from typing import Dict, Any
 
 from ...analysis.intrinsic_dim import estimate_local_intrinsic_dim
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
 
 
 def compute_direction_from_pairs(
@@ -64,7 +65,7 @@ def compute_direction_stability(
         pos_np = pos_activations.float().cpu().numpy()
         neg_np = neg_activations.float().cpu().numpy()
 
-        rng = np.random.RandomState(42)
+        rng = np.random.RandomState(DEFAULT_RANDOM_SEED)
         subset_size = max(int(n_pairs * subset_fraction), 5)
 
         directions = []
@@ -75,7 +76,7 @@ def compute_direction_stability(
 
             diff_mean = pos_subset.mean(axis=0) - neg_subset.mean(axis=0)
             norm = np.linalg.norm(diff_mean)
-            if norm > 1e-8:
+            if norm > NORM_EPS:
                 directions.append(diff_mean / norm)
 
         if len(directions) < 2:
@@ -156,7 +157,7 @@ def compute_pairwise_diff_consistency(
         diff_np = diff_vectors.float().cpu().numpy()
 
         norms = np.linalg.norm(diff_np, axis=1, keepdims=True)
-        valid_mask = (norms.squeeze() > 1e-8)
+        valid_mask = (norms.squeeze() > NORM_EPS)
 
         if valid_mask.sum() < 3:
             return {

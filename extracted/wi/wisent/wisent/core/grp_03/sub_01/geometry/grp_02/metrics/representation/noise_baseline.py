@@ -7,6 +7,7 @@ Compare actual metrics to random noise baselines.
 import torch
 import numpy as np
 from typing import Dict, Any
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
 
 
 def compute_noise_baseline_comparison(
@@ -41,12 +42,12 @@ def compute_noise_baseline_comparison(
 
     # Actual metrics
     diff_norms = np.linalg.norm(diffs, axis=1)
-    valid_mask = diff_norms > 1e-8
+    valid_mask = diff_norms > NORM_EPS
     if valid_mask.sum() < 2:
         return {"error": "not enough valid diffs"}
 
     diff_normalized = diffs[valid_mask] / diff_norms[valid_mask, np.newaxis]
-    mean_diff_normalized = mean_diff / (mean_diff_norm + 1e-8)
+    mean_diff_normalized = mean_diff / (mean_diff_norm + NORM_EPS)
 
     # Actual alignment
     actual_alignments = diff_normalized @ mean_diff_normalized
@@ -69,14 +70,14 @@ def compute_noise_baseline_comparison(
     X = np.vstack([pos, neg])
     y = np.array([1] * n + [0] * n)
     try:
-        clf = LogisticRegression( random_state=42)
+        clf = LogisticRegression( random_state=DEFAULT_RANDOM_SEED)
         clf.fit(X, y)
         actual_linear_probe = float(clf.score(X, y))
     except:
         actual_linear_probe = 0.5
 
     # Actual steering/activation ratio
-    actual_steering_ratio = mean_diff_norm / (mean_norm + 1e-8)
+    actual_steering_ratio = mean_diff_norm / (mean_norm + NORM_EPS)
 
     # Generate noise baselines
     np.random.seed(seed)
@@ -103,11 +104,11 @@ def compute_noise_baseline_comparison(
         noise_mean_diff_norm = np.linalg.norm(noise_mean_diff)
 
         noise_diff_norms = np.linalg.norm(noise_diffs, axis=1)
-        noise_valid = noise_diff_norms > 1e-8
+        noise_valid = noise_diff_norms > NORM_EPS
 
         if noise_valid.sum() >= 2:
             noise_diff_normalized = noise_diffs[noise_valid] / noise_diff_norms[noise_valid, np.newaxis]
-            noise_mean_normalized = noise_mean_diff / (noise_mean_diff_norm + 1e-8)
+            noise_mean_normalized = noise_mean_diff / (noise_mean_diff_norm + NORM_EPS)
             noise_alignments = noise_diff_normalized @ noise_mean_normalized
             noise_metrics['alignment_mean'].append(float(noise_alignments.mean()))
 
@@ -124,14 +125,14 @@ def compute_noise_baseline_comparison(
         # Noise linear probe
         noise_X = np.vstack([noise_pos, noise_neg])
         try:
-            noise_clf = LogisticRegression( random_state=42+i)
+            noise_clf = LogisticRegression( random_state=DEFAULT_RANDOM_SEED+i)
             noise_clf.fit(noise_X, y)
             noise_metrics['linear_probe'].append(float(noise_clf.score(noise_X, y)))
         except:
             noise_metrics['linear_probe'].append(0.5)
 
         # Noise steering ratio
-        noise_metrics['steering_ratio'].append(noise_mean_diff_norm / (mean_norm + 1e-8))
+        noise_metrics['steering_ratio'].append(noise_mean_diff_norm / (mean_norm + NORM_EPS))
 
     # Compute noise baselines (mean of noise samples)
     noise_baseline = {k: float(np.mean(v)) if v else None for k, v in noise_metrics.items()}
@@ -183,9 +184,9 @@ def compute_noise_baseline_comparison(
 
         # How many noise stds above baseline (z-score like)
         "stds_above_noise": {
-            "alignment_mean": alignment_vs_noise / (noise_std['alignment_mean'] + 1e-8) if noise_std['alignment_mean'] else None,
-            "variance_pc1": variance_vs_noise / (noise_std['variance_pc1'] + 1e-8) if noise_std['variance_pc1'] else None,
-            "linear_probe": linear_vs_noise / (noise_std['linear_probe'] + 1e-8) if noise_std['linear_probe'] else None,
+            "alignment_mean": alignment_vs_noise / (noise_std['alignment_mean'] + NORM_EPS) if noise_std['alignment_mean'] else None,
+            "variance_pc1": variance_vs_noise / (noise_std['variance_pc1'] + NORM_EPS) if noise_std['variance_pc1'] else None,
+            "linear_probe": linear_vs_noise / (noise_std['linear_probe'] + NORM_EPS) if noise_std['linear_probe'] else None,
         },
 
         # Metadata

@@ -44,7 +44,6 @@ dependencies = [
     "tenacity",
     "tqdm>=4.62.3",
 ]
-
 optional-dependencies.docs = [
     "myst-parser",
     "sphinx",
@@ -63,8 +62,8 @@ urls.Homepage = "https://gitlab.com/allianceauth/django-esi"
 urls.Source = "https://gitlab.com/allianceauth/django-esi"
 urls.Tracker = "https://gitlab.com/allianceauth/django-esi/-/issues"
 
-[tool.flit.module]
-name = "esi"
+[tool.flit]
+module.name = "esi"
 
 [tool.isort]
 profile = "django"

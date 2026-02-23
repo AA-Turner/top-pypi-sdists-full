@@ -1,4 +1,5 @@
 import os
+import socket
 
 import gevent.queue
 import gevent.socket
@@ -125,7 +126,7 @@ class ConnectionPool:
         if first_error:
             raise first_error
         else:
-            raise RuntimeError(f"Cannot resolve {self._host}:{self._port}")
+            raise RuntimeError(f"Cannot resolve {self._connection_host}:{self._connection_port}")
 
     def after_connect(self, sock):
         pass
@@ -149,19 +150,55 @@ class ConnectionPool:
             if not parts or parts[1] != b"200":
                 raise RuntimeError(f"Error response from Proxy server : {resp}")
 
+    def _is_socket_alive(self, sock):
+        """check if a socket is still connected and alive.
+
+        uses MSG_PEEK | MSG_DONTWAIT to check for eof without consuming data,
+        and without blocking.
+
+        returns false if connection is closed or broken.
+        """
+        try:
+            raw_sock = getattr(sock, "_sock", sock)
+            if raw_sock.fileno() < 0:
+                return False
+            data = raw_sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT)
+            if data == b"":
+                return False
+            return True
+        except BlockingIOError:
+            return True
+        except OSError:
+            return False
+
     def get_socket(self):
         """get a socket from the pool. This blocks until one is available."""
         self._semaphore.acquire()
         if self._closed:
             raise RuntimeError("connection pool closed")
-        try:
-            return self._socket_queue.get(block=False)
-        except gevent.queue.Empty:
+
+        # Try to get a valid connection from the pool
+        while not self._socket_queue.empty():
             try:
-                return self._create_socket()
-            except:  # noqa
-                self._semaphore.release()
-                raise
+                sock = self._socket_queue.get(block=False)
+                if self._is_socket_alive(sock):
+                    # Connection is still alive, return it
+                    return sock
+                else:
+                    # Connection is dead, close it and try next
+                    try:
+                        sock.close()
+                    except:  # noqa
+                        pass
+            except gevent.queue.Empty:
+                break
+
+        # No valid connections in pool, create a new one
+        try:
+            return self._create_socket()
+        except:  # noqa
+            self._semaphore.release()
+            raise
 
     def return_socket(self, sock):
         """return a socket to the pool."""

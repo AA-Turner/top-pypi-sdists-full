@@ -35,7 +35,6 @@ logger = logging.getLogger(__name__)
 
 T = TypeVar("T", bound="MyPyllantDataClass")
 
-
 config = ConfigDict(arbitrary_types_allowed=True)
 
 
@@ -383,6 +382,7 @@ class Circuit(MyPyllantDataClass):
     zones: list = field(default_factory=list)
     is_cooling_allowed: bool | None = None
     current_circuit_flow_temperature: float | None = None
+    heating_circuit_flow_setpoint: float | None = None
     heating_curve: float | None = None
     heating_flow_temperature_minimum_setpoint: float | None = None
     heating_flow_temperature_maximum_setpoint: float | None = None
@@ -961,6 +961,7 @@ class System(MyPyllantDataClass):
                 **z,
             )
             for z in system.merge_object("zones")
+            if z["is_active"]
         ]
         system.domestic_hot_water = [
             DomesticHotWater.from_api(

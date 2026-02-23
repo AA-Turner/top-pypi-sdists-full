@@ -19,14 +19,17 @@ limitations under the License.
 
 #include <cstdint>        // std::uint8_t
 #include <memory>         // std::shared_ptr
+#include <optional>       // std::optional, std::nullopt
 #include <string>         // std::string
 #include <unordered_map>  // std::unordered_map
 #include <unordered_set>  // std::unordered_set
-#include <utility>        // std::pair
+#include <utility>        // std::pair, std::make_pair
 
 #include <pybind11/pybind11.h>
 
+#include "optree/exceptions.h"
 #include "optree/hashing.h"
+#include "optree/pymacros.h"
 #include "optree/synchronization.h"
 
 namespace optree {
@@ -98,7 +101,11 @@ public:
 
     using RegistrationPtr = std::shared_ptr<const Registration>;
 
-    // Registers a new custom type. Objects of `cls` will be treated as container node types in
+    // Get the number of registered types.
+    [[nodiscard]] ssize_t Size(
+        const std::optional<std::string> &registry_namespace = std::nullopt) const;
+
+    // Register a new custom type. Objects of type `cls` will be treated as container node types in
     // PyTrees.
     static void Register(const py::object &cls,
                          const py::function &flatten_func,
@@ -106,23 +113,86 @@ public:
                          const py::object &path_entry_type,
                          const std::string &registry_namespace = "");
 
+    // Unregister a previously registered custom type.
     static void Unregister(const py::object &cls, const std::string &registry_namespace = "");
 
-    // Finds the custom type registration for `type`. Returns nullptr if none exists.
+    // Find the custom type registration for `type`. Return nullptr if none exists.
     template <bool NoneIsLeaf>
-    static RegistrationPtr Lookup(const py::object &cls, const std::string &registry_namespace);
+    [[nodiscard]] static RegistrationPtr Lookup(const py::object &cls,
+                                                const std::string &registry_namespace);
 
     // Compute the node kind of a given Python object.
     template <bool NoneIsLeaf>
-    static PyTreeKind GetKind(const py::handle &handle,
-                              RegistrationPtr &custom,  // NOLINT[runtime/references]
-                              const std::string &registry_namespace);
+    [[nodiscard]] static PyTreeKind GetKind(const py::handle &handle,
+                                            RegistrationPtr &custom,  // NOLINT[runtime/references]
+                                            const std::string &registry_namespace);
+
+    // Get the number of registered types.
+    [[nodiscard]] static inline Py_ALWAYS_INLINE ssize_t GetRegistrySize(
+        const std::optional<std::string> &registry_namespace = std::nullopt) {
+        auto &registry1 = GetSingleton<NONE_IS_NODE>();
+        auto &registry2 = GetSingleton<NONE_IS_LEAF>();
+
+        const ssize_t count1 = registry1.Size(registry_namespace);
+        const ssize_t count2 = registry2.Size(registry_namespace);
+        EXPECT_EQ(count1,
+                  count2 + 1,
+                  "The number of registered types in the two registries should match "
+                  "up to the extra None type in the NoneIsNode registry.");
+        return count1;
+    }
+
+    // Get the number of alive interpreters that have seen the registry.
+    [[nodiscard]] static inline Py_ALWAYS_INLINE ssize_t GetNumInterpretersAlive() {
+        const scoped_read_lock lock{sm_mutex};
+        return py::ssize_t_cast(sm_alive_interpids.size());
+    }
+
+    // Get the number of interpreters that have seen the registry.
+    [[nodiscard]] static inline Py_ALWAYS_INLINE ssize_t GetNumInterpretersSeen() {
+        const scoped_read_lock lock{sm_mutex};
+        return sm_num_interpreters_seen;
+    }
+
+    // Get the IDs of alive interpreters that have seen the registry.
+    [[nodiscard]] static inline Py_ALWAYS_INLINE std::unordered_set<interpid_t>
+    GetAliveInterpreterIDs() {
+        const scoped_read_lock lock{sm_mutex};
+        return sm_alive_interpids;
+    }
+
+    // Check if should preserve the insertion order of the dictionary keys during flattening.
+    [[nodiscard]] static inline Py_ALWAYS_INLINE bool IsDictInsertionOrdered(
+        const std::string &registry_namespace,
+        const bool &inherit_global_namespace = true) {
+        const scoped_read_lock lock{sm_dict_order_mutex};
+
+        const auto interpid = GetCurrentPyInterpreterID();
+        const auto &namespaces = sm_dict_insertion_ordered_namespaces;
+        return (namespaces.find({interpid, registry_namespace}) != namespaces.end()) ||
+               (inherit_global_namespace && namespaces.find({interpid, ""}) != namespaces.end());
+    }
+
+    // Set the namespace to preserve the insertion order of the dictionary keys during flattening.
+    static inline Py_ALWAYS_INLINE void SetDictInsertionOrdered(
+        const bool &mode,
+        const std::string &registry_namespace) {
+        const scoped_write_lock lock{sm_dict_order_mutex};
+
+        const auto interpid = GetCurrentPyInterpreterID();
+        const auto key = std::make_pair(interpid, registry_namespace);
+        if (mode) [[likely]] {
+            sm_dict_insertion_ordered_namespaces.insert(key);
+        } else [[unlikely]] {
+            sm_dict_insertion_ordered_namespaces.erase(key);
+        }
+    }
 
     friend void BuildModule(py::module_ &mod);  // NOLINT[runtime/references]
 
 private:
     template <bool NoneIsLeaf>
-    static PyTreeTypeRegistry *Singleton();
+    [[nodiscard]] static PyTreeTypeRegistry &GetSingleton();
 
     template <bool NoneIsLeaf>
     static void RegisterImpl(const py::object &cls,
@@ -132,17 +202,34 @@ private:
                              const std::string &registry_namespace);
 
     template <bool NoneIsLeaf>
-    static RegistrationPtr UnregisterImpl(const py::object &cls,
-                                          const std::string &registry_namespace);
+    [[nodiscard]] static RegistrationPtr UnregisterImpl(const py::object &cls,
+                                                        const std::string &registry_namespace);
 
-    // Clear the registry on cleanup.
+    // Initialize the registry for the current interpreter.
+    static void Init();
+
+    // Clear the registry on cleanup for the current interpreter.
     static void Clear();
 
-    std::unordered_map<py::handle, RegistrationPtr> m_registrations{};
-    std::unordered_map<std::pair<std::string, py::handle>, RegistrationPtr> m_named_registrations{};
+    using RegistrationsMap = std::unordered_map<py::handle, RegistrationPtr>;
+    using NamedRegistrationsMap =
+        std::unordered_map<std::pair<std::string, py::handle>, RegistrationPtr>;
+    using BuiltinsTypesSet = std::unordered_set<py::handle>;
 
-    static inline std::unordered_set<py::handle> sm_builtins_types{};
+    RegistrationsMap m_registrations{};
+    NamedRegistrationsMap m_named_registrations{};
+    BuiltinsTypesSet m_builtins_types{};
+
+    // A set of namespaces that preserve the insertion order of the dictionary keys during
+    // flattening.
+    static inline std::unordered_set<std::pair<interpid_t, std::string>>
+        sm_dict_insertion_ordered_namespaces{};
+    static inline read_write_mutex sm_dict_order_mutex{};
+    friend class PyTreeSpec;
+
+    static inline std::unordered_set<interpid_t> sm_alive_interpids{};
     static inline read_write_mutex sm_mutex{};
+    static inline ssize_t sm_num_interpreters_seen = 0;
 };
 
 }  // namespace optree

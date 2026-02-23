@@ -4,6 +4,7 @@ import json
 import sys
 import os
 from pathlib import Path
+from wisent.core.constants import DEFAULT_SCORE
 
 
 def execute_geometry_search(args):
@@ -119,9 +120,9 @@ def execute_geometry_search(args):
     # Determine if unified direction exists
     dist = results.get_structure_distribution()
     total = sum(dist.values())
-    linear_pct = 100 * dist.get('linear', 0) / total if total > 0 else 0
-    cone_pct = 100 * dist.get('cone', 0) / total if total > 0 else 0
-    orthogonal_pct = 100 * dist.get('orthogonal', 0) / total if total > 0 else 0
+    linear_pct = 100 * dist.get('linear', DEFAULT_SCORE) / total if total > 0 else 0
+    cone_pct = 100 * dist.get('cone', DEFAULT_SCORE) / total if total > 0 else 0
+    orthogonal_pct = 100 * dist.get('orthogonal', DEFAULT_SCORE) / total if total > 0 else 0
     
     if linear_pct > 50:
         print(f"UNIFIED LINEAR DIRECTION EXISTS ({linear_pct:.1f}% linear)")

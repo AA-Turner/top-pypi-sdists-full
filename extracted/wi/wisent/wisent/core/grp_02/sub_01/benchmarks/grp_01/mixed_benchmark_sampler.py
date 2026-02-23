@@ -31,6 +31,7 @@ builtins.print = _quiet_print
 from wisent.core.lm_harness_integration.only_benchmarks import CORE_BENCHMARKS
 from wisent.core.contrastive_pairs import ContrastivePairSet
 from .cache.managed_cached_benchmarks import ManagedCachedBenchmarks, get_managed_cache
+from wisent.core.constants import DEFAULT_SPLIT_RATIO
 
 logger = logging.getLogger(__name__)
 
@@ -116,7 +117,7 @@ class MixedBenchmarkSampler:
         self,
         tags: List[str],
         total_samples: int,
-        split_ratio: float = 0.8,
+        split_ratio: float = DEFAULT_SPLIT_RATIO,
         random_seed: Optional[int] = None,
         tag_mode: str = "any",
         benchmark_weights: Optional[Dict[str, float]] = None

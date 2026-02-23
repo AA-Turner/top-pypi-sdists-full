@@ -5,6 +5,7 @@ import torch
 from typing import List, Optional
 import io
 import base64
+from wisent.core.constants import DEFAULT_RANDOM_SEED
 
 
 def create_steering_multipanel_figure(
@@ -145,7 +146,7 @@ def create_interactive_steering_figure(
     pos, neg = to_numpy(pos_activations), to_numpy(neg_activations)
     base, steered = to_numpy(base_activations), to_numpy(steered_activations)
     reference = np.vstack([pos, neg])
-    pca = PCA(n_components=2, random_state=42)
+    pca = PCA(n_components=2, random_state=DEFAULT_RANDOM_SEED)
     pca.fit(reference)
     pos_2d, neg_2d = pca.transform(pos), pca.transform(neg)
     base_2d, steered_2d = pca.transform(base), pca.transform(steered)

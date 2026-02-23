@@ -17,6 +17,8 @@ limitations under the License.
 
 #pragma once
 
+#include <stdexcept>  // std::runtime_error
+
 #include <Python.h>
 
 #include <pybind11/pybind11.h>
@@ -27,6 +29,18 @@ limitations under the License.
 
 #if !(defined(PYBIND11_VERSION_HEX) && PYBIND11_VERSION_HEX >= 0x020C00F0)  // pybind11 2.12.0
 #    error "pybind11 2.12.0 or newer is required."
+#endif
+
+// NOLINTNEXTLINE[bugprone-macro-parentheses]
+#define NONZERO_OR_EMPTY(MACRO) ((MACRO + 0 != 0) || (0 - MACRO - 1 >= 0))
+
+#if !defined(PYPY_VERSION) && (PY_VERSION_HEX >= 0x030E0000 /* Python 3.14 */) &&                  \
+    (PYBIND11_VERSION_HEX >= 0x030002F0 /* pybind11 3.0.2 */) &&                                   \
+    (defined(PYBIND11_HAS_SUBINTERPRETER_SUPPORT) &&                                               \
+     NONZERO_OR_EMPTY(PYBIND11_HAS_SUBINTERPRETER_SUPPORT))
+#    define OPTREE_HAS_SUBINTERPRETER_SUPPORT 1
+#else
+#    undef OPTREE_HAS_SUBINTERPRETER_SUPPORT
 #endif
 
 namespace py = pybind11;
@@ -57,37 +71,49 @@ inline constexpr Py_ALWAYS_INLINE bool Py_IsConstant(PyObject *x) noexcept {
 }
 #define Py_IsConstant(x) Py_IsConstant(x)
 
-#define Py_Declare_ID(name)                                                                        \
-    namespace {                                                                                    \
-    inline PyObject *Py_ID_##name() {                                                              \
-        PYBIND11_CONSTINIT static py::gil_safe_call_once_and_store<PyObject *> storage;            \
-        return storage                                                                             \
-            .call_once_and_store_result([]() -> PyObject * {                                       \
-                PyObject * const ptr = PyUnicode_InternFromString(#name);                          \
-                if (ptr == nullptr) [[unlikely]] {                                                 \
-                    throw py::error_already_set();                                                 \
-                }                                                                                  \
-                Py_INCREF(ptr); /* leak a reference on purpose */                                  \
-                return ptr;                                                                        \
-            })                                                                                     \
-            .get_stored();                                                                         \
-    }                                                                                              \
-    }  // namespace
+using interpid_t = decltype(PyInterpreterState_GetID(nullptr));
 
-#define Py_Get_ID(name) (::Py_ID_##name())
+#if defined(PYBIND11_HAS_SUBINTERPRETER_SUPPORT) &&                                                \
+    NONZERO_OR_EMPTY(PYBIND11_HAS_SUBINTERPRETER_SUPPORT)
 
-Py_Declare_ID(optree);
-Py_Declare_ID(__main__);           // __main__
-Py_Declare_ID(__module__);         // type.__module__
-Py_Declare_ID(__qualname__);       // type.__qualname__
-Py_Declare_ID(__name__);           // type.__name__
-Py_Declare_ID(sort);               // list.sort
-Py_Declare_ID(copy);               // dict.copy
-Py_Declare_ID(default_factory);    // defaultdict.default_factory
-Py_Declare_ID(maxlen);             // deque.maxlen
-Py_Declare_ID(_fields);            // namedtuple._fields
-Py_Declare_ID(_make);              // namedtuple._make
-Py_Declare_ID(_asdict);            // namedtuple._asdict
-Py_Declare_ID(n_fields);           // structseq.n_fields
-Py_Declare_ID(n_sequence_fields);  // structseq.n_sequence_fields
-Py_Declare_ID(n_unnamed_fields);   // structseq.n_unnamed_fields
+[[nodiscard]] inline bool IsCurrentPyInterpreterMain() {
+    return PyInterpreterState_Get() == PyInterpreterState_Main();
+}
+
+[[nodiscard]] inline interpid_t GetCurrentPyInterpreterID() {
+    PyInterpreterState *interp = PyInterpreterState_Get();
+    if (PyErr_Occurred() != nullptr) [[unlikely]] {
+        throw py::error_already_set();
+    }
+    if (interp == nullptr) [[unlikely]] {
+        throw std::runtime_error("Failed to get the current Python interpreter state.");
+    }
+    const interpid_t interpid = PyInterpreterState_GetID(interp);
+    if (PyErr_Occurred() != nullptr) [[unlikely]] {
+        throw py::error_already_set();
+    }
+    return interpid;
+}
+
+[[nodiscard]] inline interpid_t GetMainPyInterpreterID() {
+    PyInterpreterState *interp = PyInterpreterState_Main();
+    if (PyErr_Occurred() != nullptr) [[unlikely]] {
+        throw py::error_already_set();
+    }
+    if (interp == nullptr) [[unlikely]] {
+        throw std::runtime_error("Failed to get the main Python interpreter state.");
+    }
+    const interpid_t interpid = PyInterpreterState_GetID(interp);
+    if (PyErr_Occurred() != nullptr) [[unlikely]] {
+        throw py::error_already_set();
+    }
+    return interpid;
+}
+
+#else
+
+[[nodiscard]] inline bool IsCurrentPyInterpreterMain() noexcept { return true; }
+[[nodiscard]] inline interpid_t GetCurrentPyInterpreterID() noexcept { return 0; }
+[[nodiscard]] inline interpid_t GetMainPyInterpreterID() noexcept { return 0; }
+
+#endif

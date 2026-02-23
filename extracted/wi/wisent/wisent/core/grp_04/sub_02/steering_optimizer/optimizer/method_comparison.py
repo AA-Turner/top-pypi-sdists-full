@@ -10,6 +10,7 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any, Union
 
 from wisent.core.steering_methods import SteeringMethodRegistry, SteeringMethodType
+from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_SPLIT_RATIO
 
 from ..types import (
     SteeringMethodConfig,
@@ -33,9 +34,9 @@ class MethodComparisonMixin:
         methods_to_test: Optional[Union[List[SteeringMethod], List[SteeringMethodConfig]]] = None,
         layer_range: Optional[str] = None,
         strength_range: Optional[List[float]] = None,
-        limit: int = 100,
+        limit: int = DEFAULT_LIMIT,
         max_time_minutes: float = 30.0,
-        split_ratio: float = 0.8
+        split_ratio: float = DEFAULT_SPLIT_RATIO
     ) -> SteeringOptimizationSummary:
         """
         Compare different steering methods to find the best one for a task.

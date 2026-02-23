@@ -1,27 +1,11 @@
 CLASS_NAME_SEPARATOR = 'ǁ'
 
-def build_trampoline(*, orig_name, mutants, class_name):
+def create_trampoline_lookup(*, orig_name, mutants, class_name):
     mangled_name = mangle_function_name(name=orig_name, class_name=class_name)
 
-    mutants_dict = f'{mangled_name}__mutmut_mutants : ClassVar[MutantDict] = {{\n' + ', \n    '.join(f'{repr(m)}: {m}' for m in mutants) + '\n}'
-    access_prefix = ''
-    access_suffix = ''
-    self_arg = ''
-    if class_name is not None:
-        access_prefix = f'object.__getattribute__(self, "'
-        access_suffix = '")'
-        self_arg = ', self'
-
-    trampoline_name = '_mutmut_trampoline'
-
+    mutants_dict = f'{mangled_name}__mutmut_mutants : ClassVar[MutantDict] = {{ # type: ignore\n' + ', \n    '.join(f'{repr(m)}: {m}' for m in mutants) + '\n}'
     return f"""
 {mutants_dict}
-
-def {orig_name}({'self, ' if class_name is not None else ''}*args, **kwargs):
-    result = {trampoline_name}({access_prefix}{mangled_name}__mutmut_orig{access_suffix}, {access_prefix}{mangled_name}__mutmut_mutants{access_suffix}, args, kwargs{self_arg})
-    return result 
-
-{orig_name}.__signature__ = _mutmut_signature({mangled_name}__mutmut_orig)
 {mangled_name}__mutmut_orig.__name__ = '{mangled_name}'
 """
 
@@ -37,37 +21,36 @@ def mangle_function_name(*, name, class_name):
 # noinspection PyUnresolvedReferences
 # language=python
 trampoline_impl = """
-from inspect import signature as _mutmut_signature
 from typing import Annotated
 from typing import Callable
 from typing import ClassVar
 
+MutantDict = Annotated[dict[str, Callable], "Mutant"] # type: ignore
 
-MutantDict = Annotated[dict[str, Callable], "Mutant"]
 
-
-def _mutmut_trampoline(orig, mutants, call_args, call_kwargs, self_arg = None):
+def _mutmut_trampoline(orig, mutants, call_args, call_kwargs, self_arg = None): # type: ignore
     \"""Forward call to original or mutated function, depending on the environment\"""
-    import os
-    mutant_under_test = os.environ['MUTANT_UNDER_TEST']
-    if mutant_under_test == 'fail':
-        from mutmut.__main__ import MutmutProgrammaticFailException
-        raise MutmutProgrammaticFailException('Failed programmatically')      
-    elif mutant_under_test == 'stats':
-        from mutmut.__main__ import record_trampoline_hit
-        record_trampoline_hit(orig.__module__ + '.' + orig.__name__)
-        result = orig(*call_args, **call_kwargs)
-        return result
-    prefix = orig.__module__ + '.' + orig.__name__ + '__mutmut_'
-    if not mutant_under_test.startswith(prefix):
-        result = orig(*call_args, **call_kwargs)
-        return result
-    mutant_name = mutant_under_test.rpartition('.')[-1]
-    if self_arg is not None:
+    import os # type: ignore
+    mutant_under_test = os.environ['MUTANT_UNDER_TEST'] # type: ignore
+    if mutant_under_test == 'fail': # type: ignore
+        from mutmut.__main__ import MutmutProgrammaticFailException # type: ignore
+        raise MutmutProgrammaticFailException('Failed programmatically')       # type: ignore
+    elif mutant_under_test == 'stats': # type: ignore
+        from mutmut.__main__ import record_trampoline_hit # type: ignore
+        record_trampoline_hit(orig.__module__ + '.' + orig.__name__) # type: ignore
+        # (for class methods, orig is bound and thus does not need the explicit self argument)
+        result = orig(*call_args, **call_kwargs) # type: ignore
+        return result # type: ignore
+    prefix = orig.__module__ + '.' + orig.__name__ + '__mutmut_' # type: ignore
+    if not mutant_under_test.startswith(prefix): # type: ignore
+        result = orig(*call_args, **call_kwargs) # type: ignore
+        return result # type: ignore
+    mutant_name = mutant_under_test.rpartition('.')[-1] # type: ignore
+    if self_arg is not None: # type: ignore
         # call to a class method where self is not bound
-        result = mutants[mutant_name](self_arg, *call_args, **call_kwargs)
+        result = mutants[mutant_name](self_arg, *call_args, **call_kwargs) # type: ignore
     else:
-        result = mutants[mutant_name](*call_args, **call_kwargs)
-    return result
+        result = mutants[mutant_name](*call_args, **call_kwargs) # type: ignore
+    return result # type: ignore
 
 """

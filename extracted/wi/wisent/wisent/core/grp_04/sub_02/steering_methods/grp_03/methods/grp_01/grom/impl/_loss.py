@@ -6,6 +6,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from wisent.core.activations.core.atoms import LayerActivations, RawActivationMap, LayerName
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
+from wisent.core.constants import NORM_EPS
 
 def _compute_grom_loss_impl(
     self,
@@ -89,8 +90,8 @@ def _compute_grom_loss_impl(
 
     # 4. Sparse loss - encourage sparse layer activation
     # Penalize uniform intensity distribution
-    pos_intensity_norm = pos_intensity / (pos_intensity.sum(dim=1, keepdim=True) + 1e-8)
-    sparse_loss = -torch.mean(torch.sum(pos_intensity_norm * torch.log(pos_intensity_norm + 1e-8), dim=1))
+    pos_intensity_norm = pos_intensity / (pos_intensity.sum(dim=1, keepdim=True) + NORM_EPS)
+    sparse_loss = -torch.mean(torch.sum(pos_intensity_norm * torch.log(pos_intensity_norm + NORM_EPS), dim=1))
     sparse_loss = -sparse_loss  # We want LOW entropy (sparse)
     loss_components["sparse"] = sparse_loss
 
@@ -173,7 +174,7 @@ def _compute_grom_loss_impl(
             K = weights.shape[0]
             if K > 1:
                 # Negative entropy - encourages sparsity/concentration
-                entropy = -(weights * torch.log(weights + 1e-8)).sum()
+                entropy = -(weights * torch.log(weights + NORM_EPS)).sum()
                 max_entropy = torch.log(torch.tensor(float(K)))
                 normalized_entropy = entropy / max_entropy
 

@@ -14,6 +14,7 @@ from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
 )
 
 from wisent.examples.scripts._pair_generators_neutral import (
+from wisent.core.constants import NORM_EPS
     ConceptMetrics,
     create_pairs_for_concept,
 )
@@ -115,7 +116,7 @@ def compute_cohens_d(
     neg_mean, neg_std = neg_proj.mean(), neg_proj.std()
     
     pooled_std = ((pos_std**2 + neg_std**2) / 2).sqrt()
-    cohens_d = abs(pos_mean - neg_mean) / (pooled_std + 1e-8)
+    cohens_d = abs(pos_mean - neg_mean) / (pooled_std + NORM_EPS)
     
     return float(cohens_d)
 

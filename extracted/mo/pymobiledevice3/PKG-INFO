@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymobiledevice3
-Version: 7.7.1
+Version: 7.7.2
 Summary: Pure python3 implementation for working with iDevices (iPhone, etc...)
 Author-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
 Maintainer-email: doronz88 <doron88@gmail.com>, matan <matan1008@gmail.com>
@@ -61,6 +61,7 @@ Requires-Dist: python-pcapng>=2.1.1
 Requires-Dist: plumbum
 Requires-Dist: pyimg4>=0.8.8
 Requires-Dist: typer>=0.20.0
+Requires-Dist: click>=8.2.0
 Requires-Dist: typer-injector>=0.2.0
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"

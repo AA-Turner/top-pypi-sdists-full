@@ -19,6 +19,15 @@ from wisent.core.activations.core.atoms import LayerActivations, RawActivationMa
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.errors import InsufficientDataError
 
+from wisent.core.constants import (
+    DEFAULT_VARIANCE_THRESHOLD,
+    NURT_NUM_DIMS,
+    NURT_TRAINING_EPOCHS,
+    NURT_LR,
+    NURT_LR_MIN,
+    NURT_NUM_INTEGRATION_STEPS,
+    NURT_T_MAX,
+)
 from .flow_network import FlowVelocityNetwork
 from .subspace import discover_concept_subspace, project_to_subspace
 
@@ -32,19 +41,19 @@ __all__ = [
 @dataclass
 class NurtConfig:
     """Configuration for Concept Flow steering method."""
-    num_dims: int = 0
+    num_dims: int = NURT_NUM_DIMS
     """Number of concept subspace dimensions. 0 = auto from variance threshold."""
-    variance_threshold: float = 0.80
+    variance_threshold: float = DEFAULT_VARIANCE_THRESHOLD
     """Cumulative variance threshold for auto dimension selection."""
-    training_epochs: int = 300
+    training_epochs: int = NURT_TRAINING_EPOCHS
     """Number of training epochs for flow matching."""
-    lr: float = 0.001
+    lr: float = NURT_LR
     """Learning rate for AdamW optimizer."""
-    lr_min: float = 0.0001
+    lr_min: float = NURT_LR_MIN
     """Minimum learning rate for cosine annealing."""
-    num_integration_steps: int = 4
+    num_integration_steps: int = NURT_NUM_INTEGRATION_STEPS
     """Number of Euler integration steps at inference."""
-    t_max: float = 1.0
+    t_max: float = NURT_T_MAX
     """Integration endpoint (t_max * strength = effective integration range)."""
     flow_hidden_dim: Optional[int] = None
     """Hidden dimension for velocity network. None = auto from concept_dim."""
@@ -80,13 +89,13 @@ class NurtMethod(BaseSteeringMethod):
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self.config = NurtConfig(
-            num_dims=kwargs.get("num_dims", 0),
-            variance_threshold=kwargs.get("variance_threshold", 0.80),
-            training_epochs=kwargs.get("training_epochs", 300),
-            lr=kwargs.get("lr", 0.001),
-            lr_min=kwargs.get("lr_min", 0.0001),
-            num_integration_steps=kwargs.get("num_integration_steps", 4),
-            t_max=kwargs.get("t_max", 1.0),
+            num_dims=kwargs.get("num_dims", NURT_NUM_DIMS),
+            variance_threshold=kwargs.get("variance_threshold", DEFAULT_VARIANCE_THRESHOLD),
+            training_epochs=kwargs.get("training_epochs", NURT_TRAINING_EPOCHS),
+            lr=kwargs.get("lr", NURT_LR),
+            lr_min=kwargs.get("lr_min", NURT_LR_MIN),
+            num_integration_steps=kwargs.get("num_integration_steps", NURT_NUM_INTEGRATION_STEPS),
+            t_max=kwargs.get("t_max", NURT_T_MAX),
             flow_hidden_dim=kwargs.get("flow_hidden_dim", None),
         )
 

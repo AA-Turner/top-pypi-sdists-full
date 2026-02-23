@@ -6,7 +6,7 @@ import tempfile
 from dataclasses import dataclass, asdict, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
-
+from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_N_TRIALS, RECOMMEND_COLLECTOR_PER_TYPE
 
 # ── Data types ─────────────────────────────────────────────────
 
@@ -87,13 +87,13 @@ _METHOD_KEY_MAP = {
 }
 
 
-def _load_zwiad_metrics(
-    model: str, benchmark: str, zwiad_dir: str,
-) -> Optional[Dict]:
-    model_slug = model.replace("/", "_")
-    path = Path(zwiad_dir) / f"{model_slug}__{benchmark}.json"
+def _load_zwiad_metrics(model: str, benchmark: str, zwiad_dir: str) -> Optional[Dict]:
+    slug, zd = model.replace("/", "_"), Path(zwiad_dir)
+    path = zd / f"{slug}__{benchmark}.json"
     if not path.exists():
-        print(f"  No zwiad file: {path}")
+        hits = sorted(zd.glob(f"{slug}__*_{benchmark}.json"))
+        path = hits[0] if hits else path
+    if not path.exists():
         return None
     data = json.loads(path.read_text())
     return data.get("metrics", data)
@@ -141,9 +141,9 @@ def _collect_all_layer_activations(
 def collect_benchmark_ground_truth(
     model_name: str, benchmark: str,
     zwiad_dir: str = "zwiad_results",
-    limit: int = 100, device: Optional[str] = None,
+    limit: int = DEFAULT_LIMIT, device: Optional[str] = None,
     methods: Optional[List[str]] = None,
-    n_trials: int = 100,
+    n_trials: int = DEFAULT_N_TRIALS,
 ) -> Optional[BenchmarkGroundTruth]:
     """Run Optuna optimization for each method on one benchmark."""
     import optuna
@@ -244,13 +244,13 @@ def collect_ground_truth(
     model: str, benchmarks: Optional[List[str]] = None,
     output_path: Optional[str] = None,
     zwiad_dir: str = "zwiad_results",
-    limit: int = 100, device: Optional[str] = None,
+    limit: int = DEFAULT_LIMIT, device: Optional[str] = None,
     methods: Optional[List[str]] = None,
-    n_trials: int = 100,
+    n_trials: int = DEFAULT_N_TRIALS,
     benchmark_start: Optional[int] = None,
     benchmark_end: Optional[int] = None,
     use_geometry_selection: bool = False,
-    per_type: int = 2, fine_geometry: bool = False,
+    per_type: int = RECOMMEND_COLLECTOR_PER_TYPE, fine_geometry: bool = False,
 ) -> GroundTruthDataset:
     """Collect ground truth. use_geometry_selection picks per_type per type."""
     if benchmarks is None:

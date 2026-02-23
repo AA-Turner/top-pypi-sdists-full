@@ -17,6 +17,7 @@ from .nonsense_cache import (
     get_cached_nonsense_from_db,
     cache_nonsense_to_db,
 )
+from wisent.core.constants import NONSENSE_N_PAIRS, NONSENSE_N_FOLDS
 
 # In-memory cache for nonsense activations
 _NONSENSE_CACHE: Dict[str, Tuple[torch.Tensor, torch.Tensor]] = {}
@@ -61,7 +62,7 @@ def clear_nonsense_cache() -> None:
 def generate_nonsense_activations(
     model,
     tokenizer,
-    n_pairs: int = 50,
+    n_pairs: int = NONSENSE_N_PAIRS,
     layer: int = None,
     device: str = "cuda",
     use_cache: bool = True,
@@ -144,7 +145,7 @@ def compute_nonsense_baseline(
     neg_activations: torch.Tensor,
     nonsense_pos: torch.Tensor,
     nonsense_neg: torch.Tensor,
-    n_folds: int = 5,
+    n_folds: int = NONSENSE_N_FOLDS,
 ) -> Dict[str, float]:
     """
     Compare metrics against nonsense baseline.
@@ -201,7 +202,7 @@ def analyze_with_nonsense_baseline(
     if model is not None and tokenizer is not None:
         try:
             nonsense_pos, nonsense_neg = generate_nonsense_activations(
-                model, tokenizer, n_pairs=50, layer=layer, device=device
+                model, tokenizer, n_pairs=NONSENSE_N_PAIRS, layer=layer, device=device
             )
             
             nonsense_metrics = {

@@ -5,6 +5,7 @@ import torch
 from wisent.core.classifiers.classifiers.core.atoms import ClassifierTrainReport
 from wisent.core.errors import UnknownTypeError
 from wisent.core.utils import preferred_dtype
+from wisent.core.constants import AGENT_CLASSIFIER_EPOCHS, DEFAULT_CLASSIFIER_LR
 
 
 def _torch_dtype_to_numpy(torch_dtype: torch.dtype):
@@ -50,8 +51,8 @@ def train_classifier_on_pairs(
     pair_set,
     target_layer: int,
     verbose: bool = False,
-    classifier_epochs: int = 50,
-    classifier_lr: float = 1e-3,
+    classifier_epochs: int = AGENT_CLASSIFIER_EPOCHS,
+    classifier_lr: float = DEFAULT_CLASSIFIER_LR,
     classifier_batch_size: int = None,
     token_aggregation: str = "average",
     prompt_strategy: str = "chat_template",

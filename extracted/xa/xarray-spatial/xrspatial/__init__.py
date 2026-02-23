@@ -1,6 +1,13 @@
 from xrspatial.aspect import aspect  # noqa
 from xrspatial.bump import bump  # noqa
+from xrspatial.cost_distance import cost_distance  # noqa
 from xrspatial.classify import binary  # noqa
+from xrspatial.classify import box_plot  # noqa
+from xrspatial.classify import head_tail_breaks  # noqa
+from xrspatial.classify import maximum_breaks  # noqa
+from xrspatial.classify import percentiles  # noqa
+from xrspatial.classify import std_mean  # noqa
+from xrspatial.diagnostics import diagnose  # noqa
 from xrspatial.classify import equal_interval  # noqa
 from xrspatial.classify import natural_breaks  # noqa
 from xrspatial.classify import quantile  # noqa

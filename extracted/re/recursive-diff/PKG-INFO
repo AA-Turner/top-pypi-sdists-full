@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: recursive_diff
-Version: 1.3.0
+Version: 2.0.0
 Summary: Recursively compare two Python data structures
 Project-URL: homepage, https://github.com/crusaderky/recursive_diff
 Project-URL: issues, https://github.com/crusaderky/recursive_diff/issues
@@ -28,6 +28,12 @@ Requires-Python: >=3.9
 Requires-Dist: numpy>=1.23
 Requires-Dist: pandas>=1.5
 Requires-Dist: xarray>=2023.8.0
+Provides-Extra: all
+Requires-Dist: dask>=2022.7.0; extra == 'all'
+Requires-Dist: msgpack>=1.0; extra == 'all'
+Requires-Dist: netcdf4>=1.6; extra == 'all'
+Requires-Dist: pyyaml>=5.4; extra == 'all'
+Requires-Dist: zarr>=2.15; extra == 'all'
 Description-Content-Type: text/plain
 
 Recursively compare two Python data structures

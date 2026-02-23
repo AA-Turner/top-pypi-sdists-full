@@ -149,49 +149,35 @@ class LOINCTool(BaseTool):
         return result
 
     def _get_answer_list(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """Get answer list (permissible values) for a LOINC code."""
+        """Search for LOINC answer-type codes matching a search term."""
         loinc_code = arguments.get("loinc_code", "").strip()
         if not loinc_code:
             return {"error": "loinc_code parameter is required"}
 
-        # Use the answer list endpoint
+        fields = ["LOINC_NUM", "LONG_COMMON_NAME", "COMPONENT", "SCALE_TYP"]
+
         params = {
-            "loinc_num": loinc_code,
+            "terms": loinc_code,
+            "df": ",".join(fields),
+            "maxList": 20,
+            "type": "answer",
         }
 
-        api_response = self._make_request("loinc_answers", params)
+        api_response = self._make_request("loinc_items/v3/search", params)
 
         if self._is_api_error(api_response):
             return api_response
 
-        # Parse answer list response
-        # Format: [count, [codes], [code_system], [[answer_details]]]
-        if not isinstance(api_response, list) or len(api_response) < 4:
+        parsed = self._parse_search_results(api_response, fields)
+
+        if parsed.get("count", 0) == 0:
             return {
-                "error": f"No answer list found for LOINC code: {loinc_code}",
+                "error": f"No LOINC answer codes found for: {loinc_code}",
                 "loinc_code": loinc_code,
             }
 
-        count = api_response[0]
-        if count == 0:
-            return {
-                "error": f"No answer list available for LOINC code: {loinc_code}",
-                "loinc_code": loinc_code,
-            }
-
-        answer_codes = api_response[1] if len(api_response) > 1 else []
-        answer_data = api_response[3] if len(api_response) > 3 else []
-
-        answers = []
-        for i, code in enumerate(answer_codes):
-            answer = {"code": code}
-            if i < len(answer_data) and answer_data[i]:
-                # Typically includes display text
-                if len(answer_data[i]) > 0:
-                    answer["display"] = answer_data[i][0]
-            answers.append(answer)
-
-        return {"loinc_code": loinc_code, "answer_count": count, "answers": answers}
+        parsed["query"] = loinc_code
+        return parsed
 
     def _search_forms(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Search LOINC forms and survey instruments (e.g., PHQ-9, GAD-7)."""

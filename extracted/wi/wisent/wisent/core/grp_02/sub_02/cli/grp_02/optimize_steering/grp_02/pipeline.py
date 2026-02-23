@@ -17,6 +17,7 @@ from wisent.core.cli.optimize_steering.data.activations_data import execute_get_
 from wisent.core.cli.optimize_steering.steering_objects import execute_create_steering_object
 from wisent.core.cli.optimize_steering.data.responses import execute_generate_responses
 from wisent.core.cli.optimize_steering.scores import execute_evaluate_responses
+from wisent.core.constants import COMPARE_TOL, LR_LOWER_BOUND, LR_UPPER_BOUND, ALPHA_LOWER_BOUND, ALPHA_UPPER_BOUND, DEFAULT_LIMIT, DEFAULT_LAYER
 
 
 @dataclass
@@ -40,7 +41,7 @@ def run_pipeline(
     task: str,
     config: MethodConfig,
     work_dir: str,
-    limit: int = 100,
+    limit: int = DEFAULT_LIMIT,
     device: Optional[str] = None,
     enriched_pairs_file: Optional[str] = None,
     cached_model=None,  # Pre-loaded WisentModel to avoid reloading
@@ -71,7 +72,7 @@ def run_pipeline(
         ))
 
         # 2. Collect activations
-        layer = getattr(config, 'layer', None) or getattr(config, 'sensor_layer', 16)
+        layer = getattr(config, 'layer', None) or getattr(config, 'sensor_layer', DEFAULT_LAYER)
         execute_get_activations(_make_args(
             pairs_file=pairs_file,
             model=model,
@@ -238,7 +239,7 @@ def create_optuna_objective(
                 layer=trial.suggest_int("layer", 1, num_layers),
                 variance_threshold=trial.suggest_float("variance_threshold", 0.5, 0.99),
                 training_epochs=trial.suggest_int("training_epochs", 50, 500),
-                lr=trial.suggest_float("lr", 1e-4, 1e-2, log=True),
+                lr=trial.suggest_float("lr", LR_LOWER_BOUND, LR_UPPER_BOUND, log=True),
                 num_integration_steps=trial.suggest_int("num_integration_steps", 2, 8),
                 t_max=trial.suggest_float("t_max", 0.5, 2.0),
                 extraction_strategy=extraction_strategy,
@@ -261,7 +262,7 @@ def create_optuna_objective(
                 concept_dim=trial.suggest_categorical("concept_dim", [0, 8, 16]),
                 variance_threshold=trial.suggest_float("variance_threshold", 0.65, 0.95),
                 num_steps=trial.suggest_int("num_steps", 1, 5),
-                alpha=trial.suggest_float("alpha", 1e-4, 1e-1, log=True),
+                alpha=trial.suggest_float("alpha", ALPHA_LOWER_BOUND, ALPHA_UPPER_BOUND, log=True),
                 eta=trial.suggest_float("eta", 0.1, 2.0),
                 beta=trial.suggest_float("beta", 0.0, 0.95),
                 alpha_decay=trial.suggest_float("alpha_decay", 0.3, 1.0),
@@ -274,7 +275,7 @@ def create_optuna_objective(
                 layer=trial.suggest_int("layer", 1, num_layers),
                 epsilon=trial.suggest_float("epsilon", 0.1, 5.0, log=True),
                 target_mode=trial.suggest_categorical("target_mode", ["uniform", "nearest"]),
-                regularization=trial.suggest_float("regularization", 1e-6, 1e-2, log=True),
+                regularization=trial.suggest_float("regularization", COMPARE_TOL, LR_UPPER_BOUND, log=True),
                 inference_k=trial.suggest_int("inference_k", 1, 15),
                 extraction_strategy=extraction_strategy,
                 steering_strategy=steering_strategy,

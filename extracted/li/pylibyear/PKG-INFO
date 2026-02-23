@@ -1,31 +1,26 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pylibyear
-Version: 0.3.4
+Version: 0.4.0
 Summary: A simple measure of software dependency freshness.
-Author: nasirhjafri
-Author-email: Sam Atkins <samatkins@outlook.com>
-License: MIT License
 Project-URL: Documentation, https://github.com/sam-atkins/pylibyear#readme
 Project-URL: Issues, https://github.com/sam-atkins/pylibyear/issues
 Project-URL: Source, https://github.com/sam-atkins/pylibyear
+Author: nasirhjafri
+Author-email: Sam Atkins <opensource.primary573@passfwd.com>
+License: MIT License
+License-File: LICENSE
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Requires-Python: >=3.11
-Description-Content-Type: text/markdown
-License-File: LICENSE
-Requires-Dist: requests>=2.31.0
+Requires-Dist: httpx[http2]>=0.28.1
 Requires-Dist: packaging>=24.0
 Requires-Dist: prettytable>=3.10.0
 Requires-Dist: python-dateutil>=2.9.0.post0
 Requires-Dist: typer>=0.12.3
-Provides-Extra: dev
-Requires-Dist: pytest>=8.2.0; extra == "dev"
-Requires-Dist: pytest-vcr>=1.0.2; extra == "dev"
-Requires-Dist: ruff>=0.4.4; extra == "dev"
-Provides-Extra: build
-Requires-Dist: build==1.2.1; extra == "build"
+Requires-Dist: typing-extensions>=4.15.0
+Description-Content-Type: text/markdown
 
 [![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg)](https://www.python.org/)
 [![Open Source Love svg1](https://badges.frapsoft.com/os/v1/open-source.svg?v=103)](https://github.com/sam-atkins/pylibyear/)
@@ -142,7 +137,7 @@ J. Cox, E. Bouwers, M. van Eekelen and J. Visser, Measuring Dependency Freshness
 To install dependencies
 
 ```bash
-uv pip install -r pyproject.toml --all-extras
+uv sync --all-extras
 ```
 
 Then run this command to install in editable mode for local development

@@ -11,6 +11,7 @@ from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.decomposition import PCA
 
 from wisent.core.contrastive_pairs.diagnostics.analysis.concept_analysis import (
+from wisent.core.constants import ZERO_THRESHOLD
     ConceptAnalysisResult,
     compute_icd,
     compute_eigenvalue_spectrum,
@@ -191,8 +192,8 @@ def analyze_concept_interference(
     dir_b = (pos_b[:n_b] - neg_b[:n_b]).mean(axis=0)
     
     # Normalize
-    dir_a = dir_a / (np.linalg.norm(dir_a) + 1e-10)
-    dir_b = dir_b / (np.linalg.norm(dir_b) + 1e-10)
+    dir_a = dir_a / (np.linalg.norm(dir_a) + ZERO_THRESHOLD)
+    dir_b = dir_b / (np.linalg.norm(dir_b) + ZERO_THRESHOLD)
     
     # Correlation
     correlation = float(np.dot(dir_a, dir_b))

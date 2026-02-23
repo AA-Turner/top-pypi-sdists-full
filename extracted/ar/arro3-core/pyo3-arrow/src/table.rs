@@ -1,4 +1,3 @@
-use std::collections::HashMap;
 use std::fmt::Display;
 use std::sync::Arc;
 
@@ -9,7 +8,7 @@ use arrow_cast::pretty::pretty_format_batches_with_options;
 use arrow_schema::{ArrowError, Field, Schema, SchemaRef};
 use arrow_select::concat::concat_batches;
 use indexmap::IndexMap;
-use pyo3::exceptions::{PyIndexError, PyKeyError, PyTypeError, PyValueError};
+use pyo3::exceptions::{PyTypeError, PyValueError};
 use pyo3::intern;
 use pyo3::prelude::*;
 use pyo3::types::{PyCapsule, PyTuple, PyType};
@@ -33,8 +32,8 @@ use crate::{PyChunkedArray, PyField, PyRecordBatch, PyRecordBatchReader, PySchem
 /// A Python-facing Arrow table.
 ///
 /// This is a wrapper around a [SchemaRef] and a `Vec` of [RecordBatch].
-#[pyclass(module = "arro3.core._core", name = "Table", subclass, frozen, eq)]
-#[derive(Debug, PartialEq)]
+#[pyclass(module = "arro3.core._core", name = "Table", subclass, frozen)]
+#[derive(Debug)]
 pub struct PyTable {
     batches: Vec<RecordBatch>,
     schema: SchemaRef,
@@ -137,12 +136,9 @@ impl PyTable {
     pub(crate) fn rechunk(&self, chunk_lengths: Vec<usize>) -> PyArrowResult<Self> {
         let total_chunk_length = chunk_lengths.iter().sum::<usize>();
         if total_chunk_length != self.num_rows() {
-            return Err(PyValueError::new_err(format!(
-                "Chunk lengths ({total_chunk_length})\
-                 do not add up to table length ({})",
-                self.num_rows()
-            ))
-            .into());
+            return Err(
+                PyValueError::new_err("Chunk lengths do not add up to table length").into(),
+            );
         }
 
         // If the desired rechunking is the existing chunking, return early
@@ -170,12 +166,9 @@ impl PyTable {
 
     pub(crate) fn slice(&self, mut offset: usize, mut length: usize) -> PyArrowResult<Self> {
         if offset + length > self.num_rows() {
-            return Err(PyValueError::new_err(format!(
-                "offset + length ({}) may not exceed length of array ({})",
-                offset + length,
-                self.num_rows()
-            ))
-            .into());
+            return Err(
+                PyValueError::new_err("offset + length may not exceed length of array").into(),
+            );
         }
 
         let mut sliced_batches: Vec<RecordBatch> = vec![];
@@ -228,6 +221,7 @@ impl Display for PyTable {
         Ok(())
     }
 }
+
 #[pymethods]
 impl PyTable {
     #[new]
@@ -244,9 +238,9 @@ impl PyTable {
         {
             Ok(data.extract::<AnyRecordBatch>()?.into_table()?)
         } else if let Ok(mapping) = data.extract::<IndexMap<String, AnyArray>>() {
-            Self::from_pydict(&py.get_type::<Self>(), mapping, schema, metadata)
+            Self::from_pydict(&py.get_type::<PyTable>(), mapping, schema, metadata)
         } else if let Ok(arrays) = data.extract::<Vec<AnyArray>>() {
-            Self::from_arrays(&py.get_type::<Self>(), arrays, names, schema, metadata)
+            Self::from_arrays(&py.get_type::<PyTable>(), arrays, names, schema, metadata)
         } else {
             Err(PyTypeError::new_err(
                 "Expected Table-like input or dict of arrays or sequence of arrays.",
@@ -271,6 +265,10 @@ impl PyTable {
             self.schema.clone(),
             requested_schema,
         )
+    }
+
+    fn __eq__(&self, other: &PyTable) -> bool {
+        self.batches == other.batches && self.schema == other.schema
     }
 
     fn __getitem__(&self, key: FieldIndexInput) -> PyArrowResult<Arro3ChunkedArray> {
@@ -341,10 +339,6 @@ impl PyTable {
         schema: Option<PySchema>,
         metadata: Option<MetadataInput>,
     ) -> PyArrowResult<Self> {
-        if schema.is_some() && metadata.is_some() {
-            return Err(PyValueError::new_err("Cannot pass both schema and metadata").into());
-        }
-
         let columns = arrays
             .into_iter()
             .map(|array| array.into_chunked_array())
@@ -405,57 +399,16 @@ impl PyTable {
         Ok(Self::try_new(batches, schema)?)
     }
 
-    fn drop_columns(&self, columns: Vec<String>) -> PyArrowResult<Arro3Table> {
-        let current_columns = self.column_names();
-        let mut pos: HashMap<&str, usize> = HashMap::with_capacity(current_columns.len());
-        for (i, s) in current_columns.iter().enumerate() {
-            pos.insert(s.as_str(), i);
-        }
-
-        let drop_indices: Vec<usize> = columns
-            .iter()
-            .filter_map(|s| pos.get(s.as_str()).copied())
-            .collect();
-
-        if drop_indices.len() < columns.len() {
-            // We have columns that don't exist
-            let missing: Vec<&str> = columns
-                .iter()
-                .map(|s| s.as_str())
-                .filter(|s| !pos.contains_key(s))
-                .collect();
-            return Err(PyKeyError::new_err(format!("Column(s): {missing:?} not found")).into());
-        }
-
-        let keep_indices: Vec<usize> = (0..self.num_columns())
-            .filter(|i| !drop_indices.contains(i))
-            .collect();
-
-        self.select(SelectIndices::Positions(keep_indices))
-    }
-
     fn add_column(
         &self,
         i: usize,
         field: NameOrField,
-        column: AnyArray,
+        column: PyChunkedArray,
     ) -> PyArrowResult<Arro3Table> {
-        let column = column.into_chunked_array()?;
         if self.num_rows() != column.len() {
-            return Err(PyValueError::new_err(format!(
-                "The number of rows in column ({}) does not match the table ({}).",
-                column.len(),
-                self.num_rows()
-            ))
-            .into());
-        }
-
-        if i > self.num_columns() {
-            return Err(PyIndexError::new_err(format!(
-                "Column index out of range, index is {i} but should be <= {}",
-                self.num_columns()
-            ))
-            .into());
+            return Err(
+                PyValueError::new_err("Number of rows in column does not match table.").into(),
+            );
         }
 
         let column = column.rechunk(self.chunk_lengths())?;
@@ -475,7 +428,7 @@ impl PyTable {
                 debug_assert_eq!(
                     array.len(),
                     batch.num_rows(),
-                    "Array and batch should have the same number of rows."
+                    "Array and batch should have same number of rows."
                 );
 
                 let mut columns = batch.columns().to_vec();
@@ -487,16 +440,15 @@ impl PyTable {
         Ok(PyTable::try_new(new_batches, new_schema)?.into())
     }
 
-    fn append_column(&self, field: NameOrField, column: AnyArray) -> PyArrowResult<Arro3Table> {
-        let column: PyChunkedArray = column.into_chunked_array()?;
-
+    fn append_column(
+        &self,
+        field: NameOrField,
+        column: PyChunkedArray,
+    ) -> PyArrowResult<Arro3Table> {
         if self.num_rows() != column.len() {
-            return Err(PyValueError::new_err(format!(
-                "The number of rows in column ({}) does not match the table ({}).",
-                column.len(),
-                self.num_rows()
-            ))
-            .into());
+            return Err(
+                PyValueError::new_err("Number of rows in column does not match table.").into(),
+            );
         }
 
         let column = column.rechunk(self.chunk_lengths())?;
@@ -516,7 +468,7 @@ impl PyTable {
                 debug_assert_eq!(
                     array.len(),
                     batch.num_rows(),
-                    "Array and batch should have the same number of rows."
+                    "Array and batch should have same number of rows."
                 );
 
                 let mut columns = batch.columns().to_vec();
@@ -608,10 +560,6 @@ impl PyTable {
     }
 
     fn remove_column(&self, i: usize) -> PyArrowResult<Arro3Table> {
-        if i >= self.num_columns() {
-            return Err(PyIndexError::new_err(format!("Invalid column index \"{i}\"")).into());
-        }
-
         let mut fields = self.schema.fields().to_vec();
         fields.remove(i);
         let new_schema = Arc::new(Schema::new_with_metadata(
@@ -634,13 +582,9 @@ impl PyTable {
 
     fn rename_columns(&self, names: Vec<String>) -> PyArrowResult<Arro3Table> {
         if names.len() != self.num_columns() {
-            return Err(PyValueError::new_err(format!(
-                "Expected {} names, got {}",
-                self.num_columns(),
-                names.len()
-            ))
-            .into());
+            return Err(PyValueError::new_err("When names is a list[str], must pass the same number of names as there are columns.").into());
         }
+
         let new_fields = self
             .schema
             .fields()
@@ -652,16 +596,7 @@ impl PyTable {
             new_fields,
             self.schema.metadata().clone(),
         ));
-
-        let new_batches = self
-            .batches
-            .iter()
-            .map(|batch| {
-                RecordBatch::try_new(new_schema.clone(), batch.columns().to_vec()).unwrap()
-            })
-            .collect();
-
-        Ok(PyTable::try_new(new_batches, new_schema)?.into())
+        Ok(PyTable::try_new(self.batches.clone(), new_schema)?.into())
     }
 
     #[getter]
@@ -685,16 +620,12 @@ impl PyTable {
         &self,
         i: usize,
         field: NameOrField,
-        column: AnyArray,
+        column: PyChunkedArray,
     ) -> PyArrowResult<Arro3Table> {
-        let column = column.into_chunked_array()?;
         if self.num_rows() != column.len() {
-            return Err(PyValueError::new_err(format!(
-                "The number of rows in column ({}) does not match the table ({}).",
-                column.len(),
-                self.num_rows()
-            ))
-            .into());
+            return Err(
+                PyValueError::new_err("Number of rows in column does not match table.").into(),
+            );
         }
 
         let column = column.rechunk(self.chunk_lengths())?;

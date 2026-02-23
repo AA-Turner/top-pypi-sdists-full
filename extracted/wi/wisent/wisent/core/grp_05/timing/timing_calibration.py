@@ -7,6 +7,7 @@ from typing import Dict, Optional, Tuple
 from pathlib import Path
 
 from wisent.core.errors import LayerRangeError, ModelConfigAccessError, CalibrationError, CalibrationDataMissingError
+from wisent.core.constants import TIMING_SAMPLES_PER_TASK
 
 
 class TimingCalibrator:
@@ -117,9 +118,9 @@ class TimingCalibrator:
         self,
         num_tasks: int,
         num_layers: int,
-        samples_per_task: int = 1000,
+        samples_per_task: int = TIMING_SAMPLES_PER_TASK,
         sample_sizes: list = None,
-        sample_size_limit: int = 1000,
+        sample_size_limit: int = TIMING_SAMPLES_PER_TASK,
         include_sample_size_opt: bool = True,
         include_classifier_training: bool = True,
         include_control_vectors: bool = True,

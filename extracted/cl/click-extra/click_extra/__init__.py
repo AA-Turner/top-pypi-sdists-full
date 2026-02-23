@@ -43,7 +43,7 @@ from .commands import (
     ExtraGroup,
     LazyGroup,
 )
-from .config import ConfigFormat, ConfigOption, NoConfigOption
+from .config import ConfigFormat, ConfigOption, NO_CONFIG, NoConfigOption
 from .decorators import (  # type: ignore[no-redef]
     argument,
     color_option,
@@ -161,6 +161,7 @@ __all__ = [  # noqa: F405
     "make_pass_decorator",
     "MissingParameter",
     "new_extra_logger",
+    "NO_CONFIG",
     "no_config_option",
     "NoConfigOption",
     "NoSuchOption",
@@ -226,7 +227,7 @@ __all__ = [  # noqa: F405
 """
 
 
-__version__ = "7.5.2"
+__version__ = "7.5.3"
 
 
 def __getattr__(name: str) -> object:

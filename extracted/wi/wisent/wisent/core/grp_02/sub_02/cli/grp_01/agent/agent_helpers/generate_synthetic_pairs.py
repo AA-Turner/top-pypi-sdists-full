@@ -3,6 +3,7 @@
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.synthetic.generators.core.atoms import GenerationReport
 from wisent.core.errors import PairGenerationError
+from wisent.core.constants import AGENT_MAX_WORKERS
 
 
 def generate_synthetic_pairs(
@@ -12,7 +13,7 @@ def generate_synthetic_pairs(
     verbose: bool = False,
     num_pairs: int = None,
     similarity_threshold: float = None,
-    max_workers: int = 4
+    max_workers: int = AGENT_MAX_WORKERS
 ) -> tuple[ContrastivePairSet, GenerationReport]:
     """
     Generate synthetic contrastive pairs for the given prompt.

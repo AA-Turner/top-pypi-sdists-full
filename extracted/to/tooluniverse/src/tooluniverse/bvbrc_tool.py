@@ -65,6 +65,24 @@ class BVBRCTool(BaseTool):
             return self._search_amr(arguments)
         elif self.data_type == "genome_feature":
             return self._search_features(arguments)
+        elif self.data_type == "epitope":
+            return self._search_epitopes(arguments)
+        elif self.data_type == "surveillance":
+            return self._search_surveillance(arguments)
+        elif self.data_type == "sp_gene":
+            return self._search_specialty_genes(arguments)
+        elif self.data_type == "protein_structure" and self.action == "get":
+            return self._get_protein_structure(arguments)
+        elif self.data_type == "protein_structure" and self.action == "search":
+            return self._search_protein_structures(arguments)
+        elif self.data_type == "taxonomy" and self.action == "get":
+            return self._get_taxonomy(arguments)
+        elif self.data_type == "taxonomy" and self.action == "search":
+            return self._search_taxonomy(arguments)
+        elif self.data_type == "pathway":
+            return self._search_pathways(arguments)
+        elif self.data_type == "subsystem":
+            return self._search_subsystems(arguments)
         else:
             return {
                 "error": f"Unknown data_type/action: {self.data_type}/{self.action}"
@@ -283,5 +301,406 @@ class BVBRCTool(BaseTool):
                 "total_results": len(results),
                 "query_gene": gene,
                 "query_product": product,
+            },
+        }
+
+    def _search_epitopes(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for pathogen epitopes (B-cell and T-cell)."""
+        conditions = []
+
+        taxon_id = arguments.get("taxon_id")
+        protein_name = arguments.get("protein_name")
+        epitope_type = arguments.get("epitope_type")
+        organism = arguments.get("organism")
+
+        if taxon_id:
+            conditions.append(f"eq(taxon_id,{taxon_id})")
+        if protein_name:
+            conditions.append(f"eq(protein_name,{protein_name})")
+        if epitope_type:
+            conditions.append(f"eq(epitope_type,{epitope_type})")
+        if organism:
+            conditions.append(f"keyword({organism})")
+
+        if not conditions:
+            return {
+                "error": "At least one of taxon_id, protein_name, epitope_type, or organism is required"
+            }
+
+        limit = min(arguments.get("limit") or 25, 100)
+
+        select_fields = [
+            "epitope_id",
+            "epitope_type",
+            "epitope_sequence",
+            "organism",
+            "protein_name",
+            "start",
+            "end",
+            "bcell_assays",
+            "tcell_assays",
+            "mhc_allele",
+            "taxon_id",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("epitope", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_taxon_id": taxon_id,
+                "query_protein_name": protein_name,
+            },
+        }
+
+    def _search_surveillance(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search influenza/pathogen surveillance data."""
+        conditions = []
+
+        subtype = arguments.get("subtype")
+        geographic_group = arguments.get("geographic_group")
+        host_group = arguments.get("host_group")
+        collection_country = arguments.get("collection_country")
+
+        if subtype:
+            conditions.append(f"eq(subtype,{subtype})")
+        if geographic_group:
+            conditions.append(f"eq(geographic_group,{geographic_group})")
+        if host_group:
+            conditions.append(f"eq(host_group,{host_group})")
+        if collection_country:
+            conditions.append(f"eq(collection_country,{collection_country})")
+
+        if not conditions:
+            return {
+                "error": "At least one of subtype, geographic_group, host_group, or collection_country is required"
+            }
+
+        limit = min(arguments.get("limit") or 25, 100)
+
+        select_fields = [
+            "sample_identifier",
+            "collection_date",
+            "geographic_group",
+            "host_group",
+            "host_species",
+            "subtype",
+            "collection_country",
+            "pathogen_test_result",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("surveillance", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_subtype": subtype,
+                "query_geographic_group": geographic_group,
+            },
+        }
+
+    def _search_specialty_genes(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for specialty genes (virulence factors, AMR genes, drug targets)."""
+        conditions = []
+
+        gene = arguments.get("gene")
+        prop = arguments.get("property")
+        source = arguments.get("source")
+        taxon_id = arguments.get("taxon_id")
+
+        if gene:
+            conditions.append(f"eq(gene,{gene})")
+        if prop:
+            # BV-BRC RQL requires wildcard for multi-word values in and() queries
+            prop_val = prop.replace(" ", "*") if " " in prop else prop
+            conditions.append(f"eq(property,{prop_val})")
+        if source:
+            conditions.append(f"eq(source,{source})")
+        if taxon_id:
+            conditions.append(f"eq(taxon_id,{taxon_id})")
+
+        if not conditions:
+            return {
+                "error": "At least one of gene, property, source, or taxon_id is required"
+            }
+
+        limit = min(arguments.get("limit") or 25, 100)
+
+        select_fields = [
+            "feature_id",
+            "gene",
+            "product",
+            "property",
+            "source",
+            "evidence",
+            "organism",
+            "source_id",
+            "taxon_id",
+            "genome_id",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("sp_gene", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_gene": gene,
+                "query_property": prop,
+            },
+        }
+
+    def _get_protein_structure(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get a specific protein structure by PDB ID."""
+        pdb_id = arguments.get("pdb_id", "")
+        if not pdb_id:
+            return {"error": "pdb_id parameter is required"}
+
+        url = f"{BVBRC_BASE_URL}/protein_structure/{pdb_id}"
+        headers = {"Accept": "application/json"}
+        response = requests.get(url, headers=headers, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+
+        if not data:
+            return {
+                "data": {},
+                "metadata": {"source": "BV-BRC", "query_pdb_id": pdb_id},
+            }
+
+        return {
+            "data": data,
+            "metadata": {"source": "BV-BRC", "query_pdb_id": pdb_id},
+        }
+
+    def _search_protein_structures(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for pathogen protein structures."""
+        conditions = []
+
+        taxon_id = arguments.get("taxon_id")
+        gene = arguments.get("gene")
+        method = arguments.get("method")
+
+        if taxon_id:
+            conditions.append(f"eq(taxon_id,{taxon_id})")
+        if gene:
+            conditions.append(f"eq(gene,{gene})")
+        if method:
+            conditions.append(f"eq(method,{method})")
+
+        if not conditions:
+            return {"error": "At least one of taxon_id, gene, or method is required"}
+
+        limit = min(arguments.get("limit") or 10, 100)
+
+        select_fields = [
+            "pdb_id",
+            "title",
+            "organism_name",
+            "gene",
+            "method",
+            "resolution",
+            "release_date",
+            "taxon_id",
+            "pmid",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("protein_structure", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_taxon_id": taxon_id,
+                "query_gene": gene,
+            },
+        }
+
+    def _get_taxonomy(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Get taxonomy details by taxon ID."""
+        taxon_id = arguments.get("taxon_id", "")
+        if not taxon_id:
+            return {"error": "taxon_id parameter is required"}
+
+        url = f"{BVBRC_BASE_URL}/taxonomy/{taxon_id}"
+        headers = {"Accept": "application/json"}
+        response = requests.get(url, headers=headers, timeout=self.timeout)
+        response.raise_for_status()
+        data = response.json()
+
+        if not data:
+            return {
+                "data": {},
+                "metadata": {"source": "BV-BRC", "query_taxon_id": str(taxon_id)},
+            }
+
+        return {
+            "data": data,
+            "metadata": {"source": "BV-BRC", "query_taxon_id": str(taxon_id)},
+        }
+
+    def _search_taxonomy(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search pathogen taxonomy."""
+        keyword = arguments.get("keyword", "")
+        if not keyword:
+            return {"error": "keyword parameter is required"}
+
+        limit = min(arguments.get("limit") or 10, 100)
+
+        select_fields = [
+            "taxon_id",
+            "taxon_name",
+            "taxon_rank",
+            "genomes",
+            "lineage_names",
+            "other_names",
+        ]
+
+        query = self._build_query_string(
+            [f"keyword({keyword})"],
+            limit=limit,
+            select_fields=select_fields,
+        )
+        data = self._make_request("taxonomy", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query": keyword,
+            },
+        }
+
+    def _search_pathways(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for metabolic pathways in pathogen genomes."""
+        conditions = []
+
+        taxon_id = arguments.get("taxon_id")
+        pathway_name = arguments.get("pathway_name")
+        ec_number = arguments.get("ec_number")
+        genome_id = arguments.get("genome_id")
+
+        if taxon_id:
+            conditions.append(f"eq(taxon_id,{taxon_id})")
+        if pathway_name:
+            conditions.append(f"keyword({pathway_name})")
+        if ec_number:
+            conditions.append(f"eq(ec_number,{ec_number})")
+        if genome_id:
+            conditions.append(f"eq(genome_id,{genome_id})")
+
+        if not conditions:
+            return {
+                "error": "At least one of taxon_id, pathway_name, ec_number, or genome_id is required"
+            }
+
+        limit = min(arguments.get("limit") or 25, 100)
+
+        select_fields = [
+            "pathway_id",
+            "pathway_name",
+            "pathway_class",
+            "genome_id",
+            "genome_name",
+            "ec_number",
+            "ec_description",
+            "taxon_id",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("pathway", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_taxon_id": taxon_id,
+                "query_pathway_name": pathway_name,
+            },
+        }
+
+    def _search_subsystems(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        """Search for functional subsystems in pathogen genomes."""
+        conditions = []
+
+        taxon_id = arguments.get("taxon_id")
+        superclass = arguments.get("superclass")
+        subsystem_name = arguments.get("subsystem_name")
+        role_name = arguments.get("role_name")
+        genome_id = arguments.get("genome_id")
+
+        if taxon_id:
+            conditions.append(f"eq(taxon_id,{taxon_id})")
+        if superclass:
+            # BV-BRC RQL requires wildcard for multi-word values in and() queries
+            sc_val = superclass.replace(" ", "*") if " " in superclass else superclass
+            conditions.append(f"eq(superclass,{sc_val})")
+        if subsystem_name:
+            conditions.append(f"keyword({subsystem_name})")
+        if role_name:
+            conditions.append(f"keyword({role_name})")
+        if genome_id:
+            conditions.append(f"eq(genome_id,{genome_id})")
+
+        if not conditions:
+            return {
+                "error": "At least one of taxon_id, superclass, subsystem_name, role_name, or genome_id is required"
+            }
+
+        limit = min(arguments.get("limit") or 25, 100)
+
+        select_fields = [
+            "subsystem_id",
+            "subsystem_name",
+            "superclass",
+            "class",
+            "subclass",
+            "genome_name",
+            "role_name",
+            "taxon_id",
+            "genome_id",
+        ]
+
+        query = self._build_query_string(
+            conditions, limit=limit, select_fields=select_fields
+        )
+        data = self._make_request("subsystem", query)
+
+        results = data if isinstance(data, list) else [data] if data else []
+        return {
+            "data": results,
+            "metadata": {
+                "source": "BV-BRC",
+                "total_results": len(results),
+                "query_taxon_id": taxon_id,
+                "query_subsystem_name": subsystem_name,
             },
         }

@@ -5,6 +5,8 @@ from typing import Dict, Any, List, Optional
 import io
 import base64
 
+from wisent.core.constants import VIZ_DPI
+
 
 def create_layer_accuracy_heatmap(
     concepts: List[Dict[str, Any]],
@@ -65,7 +67,7 @@ def create_layer_accuracy_heatmap(
     ax.set_title("Linear Separability by Concept and Layer\n(* = optimal layer)")
 
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=VIZ_DPI, bbox_inches='tight')
     buf.seek(0)
     plt.close(fig)
 
@@ -112,7 +114,7 @@ def create_inter_concept_similarity_heatmap(
     ax.set_title("Inter-Concept Similarity\n(centroid cosine similarity)")
 
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=VIZ_DPI, bbox_inches='tight')
     buf.seek(0)
     plt.close(fig)
 

@@ -12,6 +12,12 @@ from __future__ import annotations
 from typing import Tuple
 
 import torch
+from wisent.core.constants import (
+    LOG_EPS,
+    DEFAULT_VARIANCE_THRESHOLD,
+    MIN_CONCEPT_DIM,
+    NURT_NUM_DIMS,
+)
 
 
 __all__ = [
@@ -24,8 +30,8 @@ __all__ = [
 def discover_concept_subspace(
     pos: torch.Tensor,
     neg: torch.Tensor,
-    num_dims: int = 0,
-    variance_threshold: float = 0.80,
+    num_dims: int = NURT_NUM_DIMS,
+    variance_threshold: float = DEFAULT_VARIANCE_THRESHOLD,
 ) -> Tuple[torch.Tensor, torch.Tensor, int]:
     """
     Discover the concept subspace via SVD on difference vectors.
@@ -55,13 +61,13 @@ def discover_concept_subspace(
 
     if num_dims > 0:
         k = min(num_dims, S.shape[0], 10)
-        k = max(k, 2)
+        k = max(k, MIN_CONCEPT_DIM)
     else:
         # Auto-select k from cumulative variance
         variance = S ** 2
         total_var = variance.sum()
-        if total_var < 1e-12:
-            k = 2
+        if total_var < LOG_EPS:
+            k = MIN_CONCEPT_DIM
         else:
             cumvar = torch.cumsum(variance, dim=0) / total_var
             # Find first index where cumulative variance exceeds threshold
@@ -70,8 +76,8 @@ def discover_concept_subspace(
                 k = above[0].item() + 1
             else:
                 k = S.shape[0]
-            # Clamp to [2, 10]
-            k = max(2, min(k, 10))
+            # Clamp to [MIN_CONCEPT_DIM, 10]
+            k = max(MIN_CONCEPT_DIM, min(k, 10))
 
     return Vh[:k], S, k
 

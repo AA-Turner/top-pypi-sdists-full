@@ -6,7 +6,9 @@ use bytes::Bytes;
 use chrono::{DateTime, Utc};
 use futures::stream::{BoxStream, Fuse};
 use futures::StreamExt;
-use object_store::{Attributes, GetOptions, GetRange, GetResult, ObjectMeta, ObjectStore};
+use object_store::{
+    Attributes, GetOptions, GetRange, GetResult, ObjectMeta, ObjectStore, ObjectStoreExt,
+};
 use pyo3::exceptions::{PyStopAsyncIteration, PyStopIteration, PyValueError};
 use pyo3::prelude::*;
 use pyo3_async_runtimes::tokio::get_runtime;
@@ -30,11 +32,13 @@ pub(crate) struct PyGetOptions {
     head: bool,
 }
 
-impl<'py> FromPyObject<'py> for PyGetOptions {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
+impl<'py> FromPyObject<'_, 'py> for PyGetOptions {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
         // Update to use derive(FromPyObject) when default is implemented:
         // https://github.com/PyO3/pyo3/issues/4643
-        let dict = ob.extract::<HashMap<String, Bound<PyAny>>>()?;
+        let dict = obj.extract::<HashMap<String, Bound<PyAny>>>()?;
         Ok(Self {
             if_match: dict.get("if_match").map(|x| x.extract()).transpose()?,
             if_none_match: dict.get("if_none_match").map(|x| x.extract()).transpose()?,
@@ -102,13 +106,15 @@ pub(crate) struct PyGetRange(GetRange);
 // - [usize, usize] to refer to a bounded range from start to end (exclusive)
 // - {"offset": usize} to request all bytes starting from a given byte offset
 // - {"suffix": usize} to request the last `n` bytes
-impl<'py> FromPyObject<'py> for PyGetRange {
-    fn extract_bound(ob: &Bound<'py, PyAny>) -> PyResult<Self> {
-        if let Ok(bounded) = ob.extract::<[u64; 2]>() {
+impl<'py> FromPyObject<'_, 'py> for PyGetRange {
+    type Error = PyErr;
+
+    fn extract(obj: Borrowed<'_, 'py, PyAny>) -> Result<Self, Self::Error> {
+        if let Ok(bounded) = obj.extract::<[u64; 2]>() {
             Ok(Self(GetRange::Bounded(bounded[0]..bounded[1])))
-        } else if let Ok(offset_range) = ob.extract::<PyOffsetRange>() {
+        } else if let Ok(offset_range) = obj.extract::<PyOffsetRange>() {
             Ok(Self(offset_range.into()))
-        } else if let Ok(suffix_range) = ob.extract::<PySuffixRange>() {
+        } else if let Ok(suffix_range) = obj.extract::<PySuffixRange>() {
             Ok(Self(suffix_range.into()))
         } else {
             Err(PyValueError::new_err("Unexpected input for byte range.\nExpected two-integer tuple or list, or dict with 'offset' or 'suffix' key." ))
@@ -343,7 +349,7 @@ pub(crate) fn get(
         let fut = if let Some(options) = options {
             store.as_ref().get_opts(path, options.into())
         } else {
-            store.as_ref().get(path)
+            Box::pin(store.as_ref().get(path))
         };
         let out = runtime.block_on(fut)?;
         Ok::<_, PyObjectStoreError>(PyGetResult::new(out))
@@ -363,7 +369,7 @@ pub(crate) fn get_async(
         let fut = if let Some(options) = options {
             store.as_ref().get_opts(path, options.into())
         } else {
-            store.as_ref().get(path)
+            Box::pin(store.as_ref().get(path))
         };
         let out = fut.await.map_err(PyObjectStoreError::ObjectStoreError)?;
         Ok(PyGetResult::new(out))

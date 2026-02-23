@@ -40,7 +40,7 @@ from sqlalchemy.orm.decl_api import DeclarativeMeta, registry
 
 from polyfactory.exceptions import ConfigurationException, ParameterException
 from polyfactory.factories.base import BaseFactory
-from polyfactory.factories.sqlalchemy_factory import SQLAlchemyFactory
+from polyfactory.factories.sqlalchemy_factory import SQLAlchemyFactory, SQLAlchemyPersistenceMethod
 from polyfactory.fields import Ignore
 from tests.sqlalchemy_factory.models import (
     AsyncModel,
@@ -51,7 +51,7 @@ from tests.sqlalchemy_factory.models import (
     CollectionChildMixin,
     CollectionParentMixin,
     NonSQLAchemyClass,
-    _registry,
+    Shape,
 )
 from tests.sqlalchemy_factory.types import ListLike, SetLike
 
@@ -131,6 +131,34 @@ def test_properties() -> None:
     # Expect empty as requires session to be set
     assert instance.double_age is None
     assert instance.age * 3 == instance.triple_age
+
+
+def test_computed_column_sync_persistence(engine: Engine) -> None:
+    Base.metadata.create_all(engine)
+
+    class ShapeFactory(SQLAlchemyFactory[Shape]):
+        __model__ = Shape
+        __session__ = Session(engine)
+
+    instance = ShapeFactory.create_sync()
+    assert instance.area == pow(instance.side, 2)
+
+
+async def test_computed_column_async_persistence(engine: Engine, async_engine: AsyncEngine) -> None:
+    class ShapeFactory(SQLAlchemyFactory[Shape]):
+        __model__ = Shape
+        __async_session__ = AsyncSession(async_engine)
+
+    instance = await ShapeFactory.create_async()
+    assert instance.area == pow(instance.side, 2)
+
+
+def test_computed_column_no_persistence() -> None:
+    class ShapeFactory(SQLAlchemyFactory[Shape]):
+        __model__ = Shape
+
+    fields = ShapeFactory.get_model_fields()
+    assert "area" in [field.name for field in fields]
 
 
 @pytest.mark.parametrize(
@@ -454,6 +482,25 @@ def test_sync_persistence(engine: Engine, session_config: Callable[[Session], An
             assert inspect(batch_item).persistent  # type: ignore[union-attr]
 
 
+def test_sync_persistence_method_flush(engine: Engine) -> None:
+    Base.metadata.create_all(bind=engine)
+
+    with Session(bind=engine) as session:
+
+        class AuthorFactory(SQLAlchemyFactory[Author]):
+            __session__ = session
+            __model__ = Author
+            __persistence_method__ = SQLAlchemyPersistenceMethod.FLUSH
+
+        author = AuthorFactory.create_sync()
+        assert author.id is not None
+        assert inspect(author).persistent  # type: ignore[union-attr]
+
+        session.rollback()
+        result = session.query(Author).filter_by(id=author.id).first()
+        assert result is None
+
+
 @pytest.mark.parametrize(
     "session_config",
     (
@@ -472,16 +519,34 @@ async def test_async_persistence(
             __model__ = AsyncModel
 
         instance = await Factory.create_async()
-        batch_result = await Factory.create_batch_async(size=2)
-        assert len(batch_result) == 2
+        instance_id = instance.id
+        instances = await Factory.create_batch_async(size=2)
+        instance_ids = (instance.id for instance in instances)
+        assert len(instances) == 2
 
     async with AsyncSession(async_engine) as session:
-        result = await session.scalar(select(AsyncModel).where(AsyncModel.id == instance.id))
+        result = await session.scalar(select(AsyncModel).where(AsyncModel.id == instance_id))
         assert result
 
-        for batch_item in batch_result:
-            result = await session.scalar(select(AsyncModel).where(AsyncModel.id == batch_item.id))
+        for instance_id in instance_ids:
+            result = await session.scalar(select(AsyncModel).where(AsyncModel.id == instance_id))
             assert result
+
+
+async def test_async_persistence_method_flush(async_engine: AsyncEngine) -> None:
+    async with AsyncSession(async_engine) as session:
+
+        class Factory(SQLAlchemyFactory[AsyncModel]):
+            __async_session__ = session
+            __model__ = AsyncModel
+            __persistence_method__ = SQLAlchemyPersistenceMethod.FLUSH
+
+        instance = await Factory.create_async()
+        assert instance.id is not None
+
+        await session.rollback()
+        result = await session.scalar(select(AsyncModel).where(AsyncModel.id == instance.id))
+        assert result is None
 
 
 @pytest.mark.parametrize(
@@ -543,12 +608,14 @@ def test_sqlalchemy_custom_type_from_type_decorator(python_type_: type) -> None:
             def python_type(self) -> type:
                 return python_type_
 
+    test_registry = registry()
+
     class Base(metaclass=DeclarativeMeta):
         __abstract__ = True
         __allow_unmapped__ = True
 
-        registry = _registry
-        metadata = _registry.metadata
+        registry = test_registry
+        metadata = test_registry.metadata
 
     class Model(Base):
         __tablename__ = f"model_with_custom_types_{python_type_}"

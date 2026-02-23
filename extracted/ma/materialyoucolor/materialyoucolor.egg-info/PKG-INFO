@@ -1,16 +1,20 @@
 Metadata-Version: 2.4
 Name: materialyoucolor
-Version: 3.0.1
+Version: 3.0.2
 Summary: Material You color generation algorithms in pure python!
 Author: Ansh Dadwal
 Author-email: anshdadwal298@gmail.com
+Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: pillow
 Dynamic: author
 Dynamic: author-email
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
 Dynamic: summary
 
 # [Material You color algorithms](https://m3.material.io/styles/color/overview) for python!
@@ -99,7 +103,7 @@ Thanks :heart: to [@midn8hustlr](https://github.com/midn8hustlr) for this [AUR p
 
 Ensure these lines in `buildozer.spec`:
 ```python
-requirements = materialyoucolor==3.0.0
+requirements = materialyoucolor==3.0.2
 p4a.branch = develop
 ```
 

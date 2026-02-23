@@ -165,7 +165,7 @@ from typing import List, Optional, Dict, Tuple, Set, Any
 def compare_outputs(actual, expected):
     """Compare outputs, handling floating point and nested structures."""
     if isinstance(expected, float) and isinstance(actual, float):
-        return abs(actual - expected) < 1e-6
+        return abs(actual - expected) < COMPARE_TOL
     if isinstance(expected, list) and isinstance(actual, list):
         if len(expected) != len(actual):
             return False
@@ -250,6 +250,7 @@ import functools
 import math
 import bisect
 from collections import defaultdict, Counter, deque
+from wisent.core.constants import COMPARE_TOL
 """
 
     @staticmethod

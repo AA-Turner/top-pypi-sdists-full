@@ -6,6 +6,7 @@ using Cohen's d effect size by comparing outputs before and after steering.
 from typing import Dict, List, Optional, Any
 import numpy as np
 import torch
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_STRENGTH, MAX_NEW_TOKENS_STEERED
 
 
 def compute_steering_effect_size(
@@ -36,7 +37,7 @@ def compute_steering_effect_size(
     mean_after = float(scores_after.mean())
     std_pooled = np.sqrt((scores_before.var() + scores_after.var()) / 2)
 
-    if std_pooled < 1e-10:
+    if std_pooled < ZERO_THRESHOLD:
         effect_size = 0.0
     else:
         effect_size = (mean_after - mean_before) / std_pooled
@@ -64,10 +65,10 @@ def validate_steering_effectiveness(
     steering_vector: torch.Tensor,
     test_prompts: List[str],
     layer: int,
-    steering_strength: float = 1.0,
+    steering_strength: float = DEFAULT_STRENGTH,
     metric_fn: Optional[callable] = None,
     target_direction: str = "increase",
-    max_new_tokens: int = 50,
+    max_new_tokens: int = MAX_NEW_TOKENS_STEERED,
 ) -> Dict[str, Any]:
     """
     Validate steering by comparing outputs before and after.

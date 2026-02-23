@@ -58,14 +58,14 @@ jax = ["jax"]
 numpy = ["numpy"]
 torch = ["torch"]
 lint = [
-    "ruff",
-    "pylint[spelling]",
-    "mypy",
-    "doc8",
-    "pyenchant",
-    "xdoctest",
     "cpplint",
+    "doc8",
+    "mypy",
     "pre-commit",
+    "pyenchant",
+    "pylint[spelling]",
+    "ruff",
+    "xdoctest",
 ]
 test = [
     "pytest",
@@ -81,13 +81,13 @@ test = [
     "typing-extensions == 4.12.0; python_version >= '3.13' and platform_system == 'Windows'",
 ]
 docs = [
-    "sphinx",
+    "sphinx ~= 8.0",
     "sphinx-autoapi",
     "sphinx-autobuild",
+    "sphinx-autodoc-typehints",
     "sphinx-copybutton",
     "sphinx-rtd-theme",
     "sphinxcontrib-bibtex",
-    "sphinx-autodoc-typehints",
     "docutils",
     "jax[cpu]",
     "numpy",

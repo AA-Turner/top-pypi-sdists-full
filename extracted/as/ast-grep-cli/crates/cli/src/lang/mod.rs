@@ -15,7 +15,7 @@ use ignore::types::Types;
 use serde::{Deserialize, Serialize};
 
 use std::borrow::Cow;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Display, Formatter};
 use std::path::Path;
 use std::str::FromStr;
@@ -49,14 +49,11 @@ impl SgLang {
   // TODO: add tests
   // register_globs must be called after register_custom_language
   pub fn register_globs(langs: LanguageGlobs) -> Result<()> {
-    unsafe {
-      lang_globs::register(langs)?;
-    }
-    Ok(())
+    lang_globs::register(langs)
   }
 
   pub fn register_injections(injections: Vec<SerializableInjection>) -> Result<()> {
-    unsafe { injection::register_injetables(injections) }
+    injection::register_injetables(injections)
   }
 
   pub fn all_langs() -> Vec<Self> {
@@ -70,8 +67,12 @@ impl SgLang {
     // TODO: handle injected languages not found
     // e.g vue can inject scss which is not supported by sg
     // we should report an error here
-    let iter = langs.iter().filter_map(|s| SgLang::from_str(s).ok());
-    Some(iter)
+    // Dedup because aliases like "ts" and "typescript" resolve to the same SgLang
+    let deduped: HashSet<_> = langs
+      .iter()
+      .filter_map(|s| SgLang::from_str(s).ok())
+      .collect();
+    Some(deduped.into_iter())
   }
 
   pub fn augmented_file_type(&self) -> Types {
@@ -216,7 +217,7 @@ impl LanguageExt for SgLang {
   fn extract_injections<L: LanguageExt>(
     &self,
     root: Node<StrDoc<L>>,
-  ) -> HashMap<String, Vec<TSRange>> {
+  ) -> Vec<(String, Vec<TSRange>)> {
     injection::extract_injections(self, root)
   }
 }

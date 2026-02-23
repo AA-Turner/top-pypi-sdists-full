@@ -8,6 +8,10 @@ from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
 import matplotlib.pyplot as plt
+from wisent.core.constants import (
+    ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
+    VIZ_N_COMPONENTS_2D, STABILITY_N_CLUSTERS, VIZ_DPI,
+)
 
 
 def visualize_k_concepts(
@@ -29,11 +33,11 @@ def visualize_k_concepts(
                  fontsize=14, fontweight='bold')
     
     # PCA projection
-    pca = PCA(n_components=2)
+    pca = PCA(n_components=VIZ_N_COMPONENTS_2D)
     proj_2d = pca.fit_transform(diff_vectors)
-    
+
     # Cluster with optimal k
-    km = KMeans(n_clusters=optimal_k, random_state=42, n_init=10)
+    km = KMeans(n_clusters=optimal_k, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
     cluster_labels = km.fit_predict(diff_vectors)
     
     # Color palettes
@@ -123,7 +127,6 @@ def visualize_k_concepts(
     # === Plot 6: Cluster Composition ===
     ax6 = axes[1, 2]
     
-    from collections import Counter
     cluster_compositions = []
     for i in range(optimal_k):
         mask = cluster_labels == i
@@ -147,7 +150,7 @@ def visualize_k_concepts(
     plt.tight_layout()
     
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=VIZ_DPI, bbox_inches='tight')
         print(f"  Saved visualization to: {output_path}")
     
     if show_plot:
@@ -174,11 +177,11 @@ def visualize_concept_detection(
     fig.suptitle(title, fontsize=14, fontweight='bold')
     
     # PCA projection
-    pca = PCA(n_components=2)
+    pca = PCA(n_components=VIZ_N_COMPONENTS_2D)
     proj_2d = pca.fit_transform(diff_vectors)
-    
+
     # K-means clustering
-    km = KMeans(n_clusters=2, random_state=42, n_init=10)
+    km = KMeans(n_clusters=STABILITY_N_CLUSTERS, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
     cluster_labels = km.fit_predict(diff_vectors)
     
     # Compute cluster directions
@@ -187,8 +190,8 @@ def visualize_concept_detection(
     
     dir_0 = diff_vectors[cluster_0_mask].mean(axis=0)
     dir_1 = diff_vectors[cluster_1_mask].mean(axis=0)
-    dir_0_norm = dir_0 / (np.linalg.norm(dir_0) + 1e-10)
-    dir_1_norm = dir_1 / (np.linalg.norm(dir_1) + 1e-10)
+    dir_0_norm = dir_0 / (np.linalg.norm(dir_0) + ZERO_THRESHOLD)
+    dir_1_norm = dir_1 / (np.linalg.norm(dir_1) + ZERO_THRESHOLD)
     cluster_sim = np.abs(np.dot(dir_0_norm, dir_1_norm))
     
     # Project directions to 2D for visualization
@@ -243,7 +246,6 @@ def visualize_concept_detection(
     cluster_0_sources = [sources[i] for i in range(len(sources)) if cluster_labels[i] == 0]
     cluster_1_sources = [sources[i] for i in range(len(sources)) if cluster_labels[i] == 1]
     
-    from collections import Counter
     c0_counts = Counter(cluster_0_sources)
     c1_counts = Counter(cluster_1_sources)
     
@@ -282,7 +284,7 @@ def visualize_concept_detection(
     plt.tight_layout()
     
     if output_path:
-        plt.savefig(output_path, dpi=150, bbox_inches='tight')
+        plt.savefig(output_path, dpi=VIZ_DPI, bbox_inches='tight')
         print(f"  Saved visualization to: {output_path}")
     
     if show_plot:

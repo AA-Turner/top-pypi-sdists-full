@@ -651,7 +651,57 @@ class AntigravityAuthManager(AuthFileMixin):
             except Exception as e:
                 debug.log(f"Project discovery failed at {base_url}: {e}")
                 continue
-        
+        # If discovery failed, attempt to onboard a managed project for the user.
+        # Read optional configuration from environment
+        attempts = int(os.environ.get("ANTIGRAVITY_ONBOARD_ATTEMPTS", "10"))
+        delay_seconds = float(os.environ.get("ANTIGRAVITY_ONBOARD_DELAY_S", "5"))
+        tier_id = os.environ.get("ANTIGRAVITY_TIER_ID", "free-tier")
+        # Use any preconfigured project id as metadata if available
+        configured_project = os.environ.get("ANTIGRAVITY_PROJECT_ID", "")
+
+        if tier_id:
+            onboard_request_body = {"tierId": tier_id, "metadata": {}}
+            if configured_project:
+                # include requested project id in metadata
+                onboard_request_body["metadata"]["cloudaicompanionProject"] = configured_project
+
+            # Try onboarding across endpoints with retries
+            for base_url in BASE_URLS:
+                for attempt in range(attempts):
+                    try:
+                        url = f"{base_url}:onboardUser"
+                        onboard_headers = {
+                            "Authorization": f"Bearer {access_token}",
+                            "Content-Type": "application/json",
+                            **ANTIGRAVITY_HEADERS,
+                        }
+                        async with session.post(url, headers=onboard_headers, json=onboard_request_body, timeout=timeout) as resp:
+                            if not resp.ok:
+                                print(f"Onboarding attempt {attempt+1} at {base_url} failed with status {resp.status}")
+                                print(await resp.text())
+                                # Stop attempts on this endpoint and try next base_url
+                                break
+
+                            payload = await resp.json()
+                            # payload.response?.cloudaicompanionProject?.id
+                            response_obj = payload.get("response") or {}
+                            managed = response_obj.get("cloudaicompanionProject")
+                            if isinstance(managed, dict):
+                                managed_id = managed.get("id")
+                            else:
+                                managed_id = None
+
+                            done = bool(payload.get("done", False))
+                            if done and managed_id:
+                                return managed_id
+                            if done and configured_project:
+                                return configured_project
+                    except Exception as e:
+                        debug.log(f"Failed to onboard managed project at {base_url}: {e}")
+                        break
+
+                    await asyncio.sleep(delay_seconds)
+
         return ""
 
     @classmethod
@@ -858,24 +908,18 @@ class AntigravityProvider:
 
         # Fall back to API discovery
         try:
-            load_response = await self.auth_manager.call_endpoint(
-                "loadCodeAssist",
-                {
-                    "cloudaicompanionProject": "default-project",
-                    "metadata": {"duetProject": "default-project"},
-                },
-                use_auth_headers=True,
-            )
+            access_token = self.auth_manager.get_access_token()
+            if not access_token:
+                raise RuntimeError("No valid access token available for project discovery")
             
-            # Handle both string and object formats for cloudaicompanionProject
-            project = load_response.get("cloudaicompanionProject")
-            if isinstance(project, dict):
-                project = project.get("id")
-            
+            async with aiohttp.ClientSession() as session:
+                project = await self.auth_manager._fetch_project_id(
+                    session=session,
+                    access_token=access_token
+                )
             if project:
                 self._project_id = project
                 return project
-            
             raise RuntimeError(
                 "Project ID discovery failed - set ANTIGRAVITY_PROJECT_ID in environment."
             )
@@ -1144,6 +1188,17 @@ class AntigravityProvider:
         async with ClientSession(headers=headers, timeout=timeout, connector=connector) as session:
             async with session.post(url, json=req_body) as resp:
                 if not resp.ok:
+                    if resp.status == 503:
+                        try:
+                            max_retry_delay = int(max([d.get("retryDelay", 0) for d in (await resp.json(content_type=None)).get("error", {}).get("details", [])]))
+                        except ValueError:
+                            max_retry_delay = 30  # Default retry delay if not specified
+                        debug.log(f"Received 503 error, retrying after {max_retry_delay}")
+                        await asyncio.sleep(max_retry_delay)
+                        resp = await session.post(url, json=req_body)
+                        if not resp.ok:
+                            debug.error(f"Retry after 503 failed with status {resp.status}")
+                if not resp.ok:
                     if resp.status == 401:
                         raise MissingAuthError("Unauthorized (401) from Antigravity API")
                     error_body = await resp.text()
@@ -1221,14 +1276,13 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
     login_url = "https://cloud.google.com/code-assist"
     url = "https://antigravity.google"
 
-    default_model = "gemini-3-pro-preview"
+    default_model = "gemini-3-flash"
     fallback_models = [
         # Gemini 2.5 models
         "gemini-2.5-pro",
         "gemini-2.5-flash",
         "gemini-2.5-flash-lite",
         # Gemini 3 models
-        "gemini-3-pro-preview",
         "gemini-3-flash",
         # Claude models (via Antigravity proxy)
         "claude-sonnet-4.5",
@@ -1248,7 +1302,6 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
     active_by_default = True
 
     auth_manager: AntigravityAuthManager = None
-    _dynamic_models: List[str] = None
 
     @classmethod
     def get_models(cls, **kwargs) -> List[str]:
@@ -1297,8 +1350,7 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
     @classmethod
     async def get_quota(cls, api_key: Optional[str] = None) -> dict:
         """
-        Fetch and summarize quota usage for Antigravity account.
-        Returns a dict with OpenAI Usage keys if possible, or quota info.
+        Fetch usage/quota information from the Antigravity API.
         """
         if cls.auth_manager is None:
             cls.auth_manager = AntigravityAuthManager(env=os.environ)
@@ -1309,42 +1361,10 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
         if not access_token or not project_id:
             raise MissingAuthError("Cannot fetch usage without valid authentication")
 
-        data = await cls.auth_manager.call_endpoint(
+        return await cls.auth_manager.call_endpoint(
             method="fetchAvailableModels",
             body={"project": cls.auth_manager.get_project_id()}
         )
-
-        def classify_group(model_name, display_name=None):
-            combined = f"{model_name} {display_name or ''}".lower()
-            if "claude" in combined:
-                return "claude"
-            if "gemini-3" in combined or "gemini 3" in combined:
-                if "flash" in combined:
-                    return "gemini-flash"
-                return "gemini-pro"
-            if "gemini-2.5" in combined or "gemini 2.5" in combined:
-                if "flash" in combined:
-                    return "gemini-flash"
-                return "gemini-pro"
-            return None
-
-        groups = {}
-        models = data.get("models", {})
-        for model_name, entry in models.items():
-            group = classify_group(model_name, entry.get("displayName") or entry.get("modelName"))
-            if not group:
-                continue
-            quota_info = entry.get("quotaInfo", {})
-            remaining = quota_info.get("remainingFraction")
-            reset_time = quota_info.get("resetTime")
-            if group not in groups:
-                groups[group] = {"remainingFraction": remaining, "resetTime": reset_time, "modelCount": 1}
-            else:
-                g = groups[group]
-                g["remainingFraction"] = min(g["remainingFraction"], remaining) if g["remainingFraction"] is not None and remaining is not None else g["remainingFraction"] or remaining
-                g["resetTime"] = reset_time if not g["resetTime"] or (reset_time and reset_time < g["resetTime"]) else g["resetTime"]
-                g["modelCount"] += 1
-        return {**data, "groups": groups}
 
     @classmethod
     async def create_async_generator(
@@ -1446,7 +1466,7 @@ class Antigravity(AsyncGeneratorProvider, ProviderModelMixin):
         return cache_path
 
 
-async def main():
+async def main(args: Optional[List[str]] = None):
     """CLI entry point for Antigravity authentication."""
     import argparse
     
@@ -1484,7 +1504,7 @@ Examples:
     # Logout command
     subparsers.add_parser("logout", help="Remove saved credentials")
     
-    args = parser.parse_args()
+    args = parser.parse_args(args)
     
     if args.command == "login":
         try:
@@ -1563,9 +1583,9 @@ Examples:
         parser.print_help()
 
 
-def cli_main():
+def cli_main(args: Optional[List[str]] = None):
     """Synchronous CLI entry point for setup.py console_scripts."""
-    asyncio.run(main())
+    asyncio.run(main(args))
 
 
 if __name__ == "__main__":

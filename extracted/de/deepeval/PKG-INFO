@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: deepeval
-Version: 3.8.4
+Version: 3.8.5
 Summary: The LLM Evaluation Framework
 Home-page: https://github.com/confident-ai/deepeval
 License: Apache-2.0
@@ -13,13 +13,12 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Requires-Dist: aiohttp
-Requires-Dist: click (>=8.0.0,<8.3.0)
+Requires-Dist: click (>=8.0.0,<8.4.0)
 Requires-Dist: grpcio (>=1.67.1,<2.0.0)
 Requires-Dist: jinja2
 Requires-Dist: nest_asyncio
 Requires-Dist: openai
 Requires-Dist: opentelemetry-api (>=1.24.0,<2.0.0)
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc (>=1.24.0,<2.0.0)
 Requires-Dist: opentelemetry-sdk (>=1.24.0,<2.0.0)
 Requires-Dist: portalocker
 Requires-Dist: posthog (>=5.4.0,<6.0.0)

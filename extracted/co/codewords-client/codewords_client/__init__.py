@@ -380,6 +380,44 @@ def _patch_perplexity():
     except Exception as e:
         logger.warning("Failed to patch Perplexity", error=str(e))
 
+def _patch_composio():
+    """Auto-configure Composio SDK to route through CodeWords proxy.
+
+    Unlike other patches that monkey-patch __init__, Composio natively reads
+    COMPOSIO_BASE_URL and COMPOSIO_API_KEY from environment variables.
+    This patch:
+    1. Sets COMPOSIO_BASE_URL to point to the CodeWords composio proxy (if not already set)
+    2. Sets COMPOSIO_API_KEY to the caller's CW API key (if not already set)
+    3. Disables Composio telemetry to prevent data leaking to telemetry.composio.dev
+    """
+    try:
+        import composio  # noqa: F401 — only to check if SDK is installed
+
+        # Set env vars for the Composio SDK to pick up automatically.
+        # The SDK reads these in its __init__ before any user code runs.
+        if not os.environ.get('COMPOSIO_BASE_URL'):
+            runtime_uri = os.environ.get('CODEWORDS_RUNTIME_URI', 'https://runtime.codewords.ai')
+            os.environ['COMPOSIO_BASE_URL'] = urljoin(runtime_uri, 'run/composio')
+
+        if not os.environ.get('COMPOSIO_API_KEY'):
+            cw_key = os.environ.get('CODEWORDS_API_KEY')
+            if cw_key:
+                os.environ['COMPOSIO_API_KEY'] = cw_key
+
+        # Disable telemetry
+        try:
+            from composio.utils.logging import allow_tracking
+            allow_tracking.set(False)
+        except (ImportError, AttributeError):
+            pass
+
+        logger.debug("Composio auto-configured for CodeWords proxy")
+
+    except ImportError:
+        pass
+    except Exception as e:
+        logger.warning("Failed to configure Composio", error=str(e))
+
 # Import redis_client from separate module (lazy loading)
 from .redis import redis_client
 
@@ -388,6 +426,7 @@ _patch_firecrawl()
 _patch_openai()
 _patch_anthropic()
 _patch_perplexity()
+_patch_composio()
 
 # Export everything
 __all__ = [

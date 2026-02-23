@@ -52,7 +52,7 @@ dependencies = [
     "typing-inspection>=0.4.2",
     "annotated-doc>=0.0.2",
 ]
-version = "0.129.2"
+version = "0.131.0"
 
 [project.urls]
 Homepage = "https://github.com/fastapi/fastapi"
@@ -89,8 +89,6 @@ all = [
     "python-multipart >=0.0.18",
     "itsdangerous >=1.1.0",
     "pyyaml >=5.3.1",
-    "ujson >=5.8.0",
-    "orjson >=3.9.3",
     "email-validator >=2.0.0",
     "uvicorn[standard] >=0.12.0",
     "pydantic-settings >=2.0.0",
@@ -129,6 +127,8 @@ docs = [
 docs-tests = [
     "httpx >=0.23.0,<1.0.0",
     "ruff >=0.14.14",
+    "ujson >=5.8.0",
+    "orjson >=3.9.3",
 ]
 github-actions = [
     "httpx >=0.27.0,<1.0.0",

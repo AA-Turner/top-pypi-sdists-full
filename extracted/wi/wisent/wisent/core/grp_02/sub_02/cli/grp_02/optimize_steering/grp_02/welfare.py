@@ -12,6 +12,8 @@ from wisent.core.cli.optimize_steering.data.activations_data import execute_get_
 from wisent.core.cli.optimize_steering.steering_objects import execute_create_steering_object
 from wisent.core.cli.optimize_steering.data.responses import execute_generate_responses
 from wisent.core.cli.optimize_steering.scores import execute_evaluate_responses
+from wisent.core.constants import (DEFAULT_N_TRIALS, WELFARE_LIMIT, DEFAULT_NUM_HIDDEN_LAYERS,
+    DEFAULT_NUM_STRENGTH_STEPS, DEFAULT_LAYER)
 
 
 def _execute_welfare_optimization(args):
@@ -27,8 +29,8 @@ def _execute_welfare_optimization(args):
     trait = args.trait
     direction = getattr(args, 'direction', 'positive')
     model = args.model
-    n_trials = getattr(args, 'n_trials', 100)
-    limit = getattr(args, 'limit', 50)
+    n_trials = getattr(args, 'n_trials', DEFAULT_N_TRIALS)
+    limit = getattr(args, 'limit', WELFARE_LIMIT)
     device = getattr(args, 'device', None)
     output_dir = getattr(args, 'output_dir', './welfare_optimization')
 
@@ -71,9 +73,9 @@ def _execute_welfare_optimization(args):
     from transformers import AutoConfig
     try:
         config = AutoConfig.from_pretrained(model, trust_remote_code=True)
-        num_layers = getattr(config, 'num_hidden_layers', 32)
+        num_layers = getattr(config, 'num_hidden_layers', DEFAULT_NUM_HIDDEN_LAYERS)
     except Exception:
-        num_layers = 32
+        num_layers = DEFAULT_NUM_HIDDEN_LAYERS
 
     # Determine layers to search
     layers = getattr(args, 'layers', None)
@@ -85,7 +87,7 @@ def _execute_welfare_optimization(args):
 
     # Strength range
     strength_range = getattr(args, 'strength_range', [0.5, 3.0])
-    num_strength_steps = getattr(args, 'num_strength_steps', 5)
+    num_strength_steps = getattr(args, 'num_strength_steps', DEFAULT_NUM_STRENGTH_STEPS)
     strengths = [
         strength_range[0] + i * (strength_range[1] - strength_range[0]) / (num_strength_steps - 1)
         for i in range(num_strength_steps)
@@ -219,7 +221,7 @@ def _run_welfare_pipeline(
     scores_file = os.path.join(work_dir, "scores.json")
 
     # 1. Get activations from pairs
-    layer = getattr(config, 'layer', 16)
+    layer = getattr(config, 'layer', DEFAULT_LAYER)
     execute_get_activations(_make_args(
         pairs_file=pairs_file,
         model=model,

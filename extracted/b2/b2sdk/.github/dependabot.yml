@@ -1,0 +1,11 @@
+# Documentation available at
+# https://help.github.com/github/administering-a-repository/configuration-options-for-dependency-updates
+
+version: 2
+updates:
+  - package-ecosystem: "pip"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    # This setting does not affect security updates
+    open-pull-requests-limit: 0

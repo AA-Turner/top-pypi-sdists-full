@@ -9,6 +9,7 @@ from dataclasses import dataclass
 import torch
 import numpy as np
 from sklearn.metrics import roc_curve, auc, precision_recall_curve
+from wisent.core.constants import ZERO_THRESHOLD
 
 S3_BUCKET = "wisent-bucket"
 S3_PREFIX = "threshold_analysis"
@@ -206,7 +207,7 @@ def compute_precision_recall_for_gap(
     precision, recall, thresholds = precision_recall_curve(labels, gaps)
     
     # Compute F1
-    f1 = [2 * p * r / (p + r + 1e-10) for p, r in zip(precision, recall)]
+    f1 = [2 * p * r / (p + r + ZERO_THRESHOLD) for p, r in zip(precision, recall)]
     
     return thresholds.tolist(), precision.tolist(), recall.tolist(), f1
 

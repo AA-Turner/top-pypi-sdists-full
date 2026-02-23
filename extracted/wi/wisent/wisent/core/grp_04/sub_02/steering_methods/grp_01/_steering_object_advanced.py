@@ -5,6 +5,7 @@ import torch
 from wisent.core.steering_methods._steering_object_base import (
     BaseSteeringObject, SteeringObjectMetadata, LayerName,
 )
+from wisent.core.constants import TETNO_GATE_TEMPERATURE
 
 class TECZASteeringObject(BaseSteeringObject):
     """
@@ -127,7 +128,7 @@ class TETNOSteeringObject(BaseSteeringObject):
         sensor_layer: int,
         threshold: float,
         layer_scales: Dict[int, float],
-        gate_temperature: float = 0.1,
+        gate_temperature: float = TETNO_GATE_TEMPERATURE,
     ):
         super().__init__(metadata)
         self.behavior_vectors = behavior_vectors
@@ -216,7 +217,7 @@ class TETNOSteeringObject(BaseSteeringObject):
             sensor_layer=data['sensor_layer'],
             threshold=data['threshold'],
             layer_scales=layer_scales,
-            gate_temperature=data.get('gate_temperature', 0.1),
+            gate_temperature=data.get('gate_temperature', TETNO_GATE_TEMPERATURE),
         )
 
 

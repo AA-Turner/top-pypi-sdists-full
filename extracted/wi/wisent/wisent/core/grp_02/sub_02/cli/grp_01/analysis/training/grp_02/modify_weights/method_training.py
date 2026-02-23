@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Optional, List, Dict, Any, Tuple
 
 import torch
+from wisent.core.constants import CLASSIFIER_THRESHOLD, DEFAULT_SCORE, GROM_NUM_DIRECTIONS, TECZA_NUM_DIRECTIONS
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -82,18 +83,18 @@ def auto_select_steering_method(
     metrics = compute_geometry_metrics(pos_tensor, neg_tensor, n_folds=3)
     recommendation = compute_recommendation(metrics)
     recommended_method = recommendation.get("recommended_method", "GROM").upper()
-    confidence = recommendation.get("confidence", 0.5)
+    confidence = recommendation.get("confidence", CLASSIFIER_THRESHOLD)
     reasoning = recommendation.get("reasoning", "")
 
     coherence = compute_concept_coherence(pos_tensor, neg_tensor)
 
     if verbose:
         print(f"\n   Repscan Analysis Results:")
-        print(f"   - Linear probe accuracy: {metrics.get('linear_probe_accuracy', 0):.3f}")
-        print(f"   - Signal strength:       {metrics.get('signal_strength', 0):.3f}")
+        print(f"   - Linear probe accuracy: {metrics.get('linear_probe_accuracy', DEFAULT_SCORE):.3f}")
+        print(f"   - Signal strength:       {metrics.get('signal_strength', DEFAULT_SCORE):.3f}")
         print(f"   - Concept coherence:     {coherence:.3f}")
-        print(f"   - Steerability score:    {metrics.get('steer_steerability_score', 0):.3f}")
-        print(f"   - ICD:                   {metrics.get('icd_icd', 0):.1f}")
+        print(f"   - Steerability score:    {metrics.get('steer_steerability_score', DEFAULT_SCORE):.3f}")
+        print(f"   - ICD:                   {metrics.get('icd_icd', DEFAULT_SCORE):.1f}")
         print(f"   - Recommendation:        {recommended_method} (confidence={confidence:.2f})")
         print(f"       Reasoning: {reasoning}")
 
@@ -153,7 +154,7 @@ def train_grom_for_task(args, model: "WisentModel", pairs: List["ContrastivePair
     layer_indices = [int(l) for l in layers]
     grom_method = GROMMethod(
         model=model,
-        num_directions=getattr(args, 'grom_num_directions', 8),
+        num_directions=getattr(args, 'grom_num_directions', GROM_NUM_DIRECTIONS),
         manifold_method="pca",
         steering_layers=layer_indices,
         sensor_layer=layer_indices[0],
@@ -244,7 +245,7 @@ def train_tecza_for_task(args, wisent_model: "WisentModel", pairs: List["Contras
     if args.verbose:
         print(f"  Collected activations for {len(enriched_pairs)} pairs")
 
-    num_directions = getattr(args, 'tecza_num_directions', 3)
+    num_directions = getattr(args, 'tecza_num_directions', TECZA_NUM_DIRECTIONS)
     tecza_method = TECZAMethod(model=model, num_directions=num_directions)
 
     tecza_result = tecza_method.train(pair_set)

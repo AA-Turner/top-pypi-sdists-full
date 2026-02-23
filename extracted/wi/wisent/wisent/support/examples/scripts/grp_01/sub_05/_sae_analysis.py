@@ -5,6 +5,7 @@ import torch
 from pathlib import Path
 from typing import Dict, Tuple
 
+from wisent.core.constants import VIZ_DPI
 from wisent.examples.scripts._sae import SparseAutoencoder
 
 
@@ -189,7 +190,7 @@ def visualize_sae_analysis(
     
     plt.suptitle(f'Sparse Autoencoder Feature Analysis - {model_name}\nHidden dim: {sae.hidden_dim}, L1: {sae.l1_coef}', fontsize=14)
     plt.tight_layout()
-    plt.savefig(output_path / 'sae_feature_analysis.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'sae_feature_analysis.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'sae_feature_analysis.png'}")
     
@@ -211,7 +212,7 @@ def visualize_sae_analysis(
     ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(output_path / 'sae_feature_profiles.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'sae_feature_profiles.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'sae_feature_profiles.png'}")
 

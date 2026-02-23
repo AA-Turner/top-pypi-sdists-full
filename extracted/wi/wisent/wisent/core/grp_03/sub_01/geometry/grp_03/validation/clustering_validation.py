@@ -2,13 +2,14 @@
 import torch
 import numpy as np
 from typing import Dict, Any, Optional
+from wisent.core.constants import NORM_EPS, N_STABILITY_RUNS, DEFAULT_RANDOM_SEED
 
 
 def validate_clustering_quality(
     pos_activations: torch.Tensor,
     neg_activations: torch.Tensor,
     n_concepts: int = None,
-    n_stability_runs: int = 5,
+    n_stability_runs: int = N_STABILITY_RUNS,
 ) -> Dict[str, Any]:
     """
     Validate clustering quality with multiple tests.
@@ -41,7 +42,7 @@ def validate_clustering_quality(
 
         # L2 normalize
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
         if len(diff_normalized) < 20:
@@ -87,7 +88,7 @@ def validate_clustering_quality(
         silhouette_scores = {}
         for k in range(2, min(6, len(diff_normalized) // 5)):
             spectral = SpectralClustering(
-                n_clusters=k, random_state=42,
+                n_clusters=k, random_state=DEFAULT_RANDOM_SEED,
                 affinity='nearest_neighbors', n_neighbors=n_neighbors
             )
             labels = spectral.fit_predict(diff_normalized)

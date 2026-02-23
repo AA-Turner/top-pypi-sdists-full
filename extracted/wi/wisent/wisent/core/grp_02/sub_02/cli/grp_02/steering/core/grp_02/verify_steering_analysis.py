@@ -1,6 +1,7 @@
 """Activation analysis helpers for verify-steering."""
 import torch
 from typing import Any, Dict, List, Optional
+from wisent.core.constants import COMPARE_TOL
 
 
 def _compare_activations(
@@ -86,7 +87,7 @@ def _compare_activations(
                 shift = steered_act - base_act
                 shift_norm = shift.norm().item()
 
-                if shift_norm > 1e-6:
+                if shift_norm > COMPARE_TOL:
                     alignment = F.cosine_similarity(
                         shift.unsqueeze(0), direction.unsqueeze(0)
                     ).item()

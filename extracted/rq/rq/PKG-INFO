@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rq
-Version: 2.6.1
+Version: 2.7.0
 Summary: RQ is a simple, lightweight, library for creating background jobs, and processing them.
 Project-URL: changelog, https://github.com/rq/rq/blob/master/CHANGES.md
 Project-URL: documentation, https://python-rq.org/docs/
@@ -27,6 +27,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Software Development :: Libraries :: Python Modules

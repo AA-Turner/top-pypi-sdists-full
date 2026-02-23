@@ -2,6 +2,11 @@
 
 import numpy as np
 import warnings
+from wisent.core.constants import (
+    NORM_EPS, DEFAULT_RANDOM_SEED,
+    VIZ_PERPLEXITY, VIZ_N_NEIGHBORS, VIZ_MIN_DIST,
+    VIZ_N_NEIGHBORS_TRIMAP, VIZ_NUM_ITERS, VIZ_N_COMPONENTS_2D,
+)
 
 
 def get_eval_colors(evaluations, n_points):
@@ -53,7 +58,7 @@ def plot_pca_panel(ax, pos, neg, base, steered, base_evals, steered_evals):
     """PCA projection panel."""
     from sklearn.decomposition import PCA
     reference = np.vstack([pos, neg])
-    pca = PCA(n_components=2, random_state=42)
+    pca = PCA(n_components=VIZ_N_COMPONENTS_2D, random_state=DEFAULT_RANDOM_SEED)
     pca.fit(reference)
     var_explained = sum(pca.explained_variance_ratio_) * 100
     plot_projection_panel(ax, pca.transform(pos), pca.transform(neg),
@@ -71,7 +76,7 @@ def plot_lda_panel(ax, pos, neg, base, steered, base_evals, steered_evals):
         lda = LinearDiscriminantAnalysis(n_components=1)
         lda.fit(reference, labels)
         lda_ref = lda.transform(reference)
-        pca = PCA(n_components=1, random_state=42)
+        pca = PCA(n_components=1, random_state=DEFAULT_RANDOM_SEED)
         residual = reference - (lda_ref @ lda.scalings_.T + lda.xbar_)
         pca.fit(residual)
         ref_2d = np.hstack([lda_ref, pca.transform(residual)])
@@ -102,7 +107,7 @@ def plot_tsne_panel(ax, pos, neg, base, steered, base_evals, steered_evals):
         return
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
-        tsne = TSNE(n_components=2, perplexity=min(30, n-1), random_state=42)
+        tsne = TSNE(n_components=VIZ_N_COMPONENTS_2D, perplexity=min(VIZ_PERPLEXITY, n-1), random_state=DEFAULT_RANDOM_SEED)
         all_2d = tsne.fit_transform(all_data)
     n_pos, n_neg = len(pos), len(neg)
     plot_projection_panel(ax, all_2d[:n_pos], all_2d[n_pos:n_pos+n_neg],
@@ -124,7 +129,7 @@ def plot_umap_panel(ax, pos, neg, base, steered, base_evals, steered_evals):
         ax.text(0.5, 0.5, "Not enough samples", ha='center', va='center', transform=ax.transAxes)
         ax.set_title("UMAP (failed)")
         return
-    reducer = umap.UMAP(n_components=2, n_neighbors=min(15, n-1), min_dist=0.1, random_state=42)
+    reducer = umap.UMAP(n_components=VIZ_N_COMPONENTS_2D, n_neighbors=min(VIZ_N_NEIGHBORS, n-1), min_dist=VIZ_MIN_DIST, random_state=DEFAULT_RANDOM_SEED)
     all_2d = reducer.fit_transform(all_data)
     n_pos, n_neg = len(pos), len(neg)
     plot_projection_panel(ax, all_2d[:n_pos], all_2d[n_pos:n_pos+n_neg],
@@ -140,7 +145,7 @@ def plot_pacmap_panel(ax, pos, neg, base, steered, base_evals, steered_evals):
         n = len(all_data)
         if n < 5:
             raise ValueError("Not enough samples")
-        all_2d = pacmap_embedding(all_data, n_components=2, n_neighbors=min(10, n//4), num_iters=50)
+        all_2d = pacmap_embedding(all_data, n_components=VIZ_N_COMPONENTS_2D, n_neighbors=min(10, n//4), num_iters=50)
         n_pos, n_neg = len(pos), len(neg)
         plot_projection_panel(ax, all_2d[:n_pos], all_2d[n_pos:n_pos+n_neg],
                               all_2d[n_pos+n_neg:n_pos+n_neg+len(base)],
@@ -155,14 +160,14 @@ def plot_pca_with_boundary(ax, pos, neg, base, steered, base_evals, steered_eval
     from sklearn.decomposition import PCA
     from sklearn.linear_model import LogisticRegression
     reference = np.vstack([pos, neg])
-    pca = PCA(n_components=2, random_state=42)
+    pca = PCA(n_components=VIZ_N_COMPONENTS_2D, random_state=DEFAULT_RANDOM_SEED)
     pca.fit(reference)
     pos_2d, neg_2d = pca.transform(pos), pca.transform(neg)
     base_2d, steered_2d = pca.transform(base), pca.transform(steered)
 
     X_2d = np.vstack([pos_2d, neg_2d])
     y_2d = np.concatenate([np.ones(len(pos_2d)), np.zeros(len(neg_2d))])
-    clf = LogisticRegression(random_state=42, )
+    clf = LogisticRegression(random_state=DEFAULT_RANDOM_SEED, )
     clf.fit(X_2d, y_2d)
 
     x_min, x_max = X_2d[:, 0].min() - 1, X_2d[:, 0].max() + 1
@@ -182,10 +187,10 @@ def plot_movement_vectors(ax, pos, neg, base, steered):
     n = min(len(base), len(steered))
     movements = steered[:n] - base[:n]
     mean_steering = pos.mean(axis=0) - neg.mean(axis=0)
-    mean_steering_norm = mean_steering / (np.linalg.norm(mean_steering) + 1e-8)
+    mean_steering_norm = mean_steering / (np.linalg.norm(mean_steering) + NORM_EPS)
 
     if len(movements) > 2:
-        pca = PCA(n_components=2, random_state=42)
+        pca = PCA(n_components=VIZ_N_COMPONENTS_2D, random_state=DEFAULT_RANDOM_SEED)
         movements_2d = pca.fit_transform(movements)
         mean_steering_2d = pca.transform(mean_steering.reshape(1, -1))[0]
 
@@ -193,12 +198,12 @@ def plot_movement_vectors(ax, pos, neg, base, steered):
         ax.scatter([0], [0], c='black', s=100, marker='x', zorder=5)
 
         scale = np.max(np.abs(movements_2d)) * 0.8
-        norm_ms = np.linalg.norm(mean_steering_2d) + 1e-8
+        norm_ms = np.linalg.norm(mean_steering_2d) + NORM_EPS
         ax.arrow(0, 0, mean_steering_2d[0]*scale/norm_ms, mean_steering_2d[1]*scale/norm_ms,
                  head_width=scale*0.1, head_length=scale*0.05, fc='red', ec='red')
 
         movement_norms = np.linalg.norm(movements, axis=1)
-        valid = movement_norms > 1e-8
+        valid = movement_norms > NORM_EPS
         alignments = np.zeros(n)
         alignments[valid] = (movements[valid] / movement_norms[valid, np.newaxis]) @ mean_steering_norm
         mean_align = alignments[valid].mean() if valid.any() else 0
@@ -236,11 +241,11 @@ def plot_norm_distribution(ax, pos, neg, base, steered):
 def plot_alignment_histogram(ax, pos, neg, base, steered):
     """Alignment with steering direction histogram."""
     mean_steering = pos.mean(axis=0) - neg.mean(axis=0)
-    mean_steering_norm = mean_steering / (np.linalg.norm(mean_steering) + 1e-8)
+    mean_steering_norm = mean_steering / (np.linalg.norm(mean_steering) + NORM_EPS)
 
     def compute_alignments(data):
         norms = np.linalg.norm(data, axis=1, keepdims=True)
-        valid = norms.squeeze() > 1e-8
+        valid = norms.squeeze() > NORM_EPS
         normalized = np.zeros_like(data)
         normalized[valid] = data[valid] / norms[valid]
         return normalized @ mean_steering_norm

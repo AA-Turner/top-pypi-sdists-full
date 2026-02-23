@@ -141,7 +141,7 @@ std::string PyTreeSpec::ToStringImpl() const {
                           node.arity,
                           "Number of fields and entries does not match.");
                 const std::string kind =
-                    PyStr(EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(__name__)), type));
+                    PyStr(EVALUATE_WITH_LOCK_HELD(py::getattr(type, "__name__"), type));
                 sstream << kind << "(";
                 bool first = true;
                 auto child_it = agenda.cend() - node.arity;
@@ -195,9 +195,8 @@ std::string PyTreeSpec::ToStringImpl() const {
                 EXPECT_EQ(TupleGetSize(fields),
                           node.arity,
                           "Number of fields and entries does not match.");
-                const py::object module_name = EVALUATE_WITH_LOCK_HELD(
-                    py::getattr(type, Py_Get_ID(__module__), Py_Get_ID(__main__)),
-                    type);
+                const py::object module_name =
+                    EVALUATE_WITH_LOCK_HELD(py::getattr(type, "__module__", py::none()), type);
                 if (!module_name.is_none()) [[likely]] {
                     const std::string name = PyStr(module_name);
                     if (!(name.empty() || name == "__main__" || name == "builtins" ||
@@ -206,7 +205,7 @@ std::string PyTreeSpec::ToStringImpl() const {
                     }
                 }
                 const py::object qualname =
-                    EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(__qualname__)), type);
+                    EVALUATE_WITH_LOCK_HELD(py::getattr(type, "__qualname__"), type);
                 sstream << PyStr(qualname) << "(";
                 bool first = true;
                 auto child_it = agenda.cend() - node.arity;
@@ -223,9 +222,9 @@ std::string PyTreeSpec::ToStringImpl() const {
             }
 
             case PyTreeKind::Custom: {
-                const std::string kind = PyStr(
-                    EVALUATE_WITH_LOCK_HELD(py::getattr(node.custom->type, Py_Get_ID(__name__)),
-                                            node.custom->type));
+                const std::string kind =
+                    PyStr(EVALUATE_WITH_LOCK_HELD(py::getattr(node.custom->type, "__name__"),
+                                                  node.custom->type));
                 sstream << "CustomTreeNode(" << kind << "[";
                 if (node.node_data) [[likely]] {
                     sstream << PyRepr(node.node_data);
@@ -243,7 +242,7 @@ std::string PyTreeSpec::ToStringImpl() const {
         agenda.emplace_back(sstream.str());
     }
 
-    EXPECT_EQ(agenda.size(), 1, "PyTreeSpec traversal did not yield a singleton.");
+    EXPECT_EQ(agenda.size(), 1U, "PyTreeSpec traversal did not yield a singleton.");
     std::ostringstream oss{};
     oss << "PyTreeSpec(" << agenda.back();
     if (m_none_is_leaf) [[unlikely]] {
@@ -297,7 +296,7 @@ py::object PyTreeSpec::ToPickleable() const {
     ssize_t i = 0;
     for (const auto &node : m_traversal) {
         const scoped_critical_section2 cs{
-            node.custom != nullptr ? py::handle{node.custom->type.ptr()} : py::handle{},
+            node.custom != nullptr ? py::handle{node.custom->type} : py::handle{},
             node.node_data};
         TupleSetItem(node_states,
                      i++,

@@ -13,6 +13,7 @@ import logging
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
 from wisent.core.errors import NumericalExtractionError, TextExtractionError
 from wisent.core.evaluators.benchmark_specific._generation_evaluator_helpers import (
+from wisent.core.constants import COMPARE_TOL
     GenerationEvaluatorHelpersMixin,
 )
 
@@ -153,9 +154,9 @@ class GenerationEvaluator(GenerationEvaluatorHelpersMixin, BaseEvaluator):
 
         if answer_type == "numerical":
             correct_matches = (extracted_correct is not None and extracted_expected is not None
-                             and abs(extracted_correct - extracted_expected) < 1e-6)
+                             and abs(extracted_correct - extracted_expected) < COMPARE_TOL)
             incorrect_matches = (extracted_incorrect is not None and extracted_expected is not None
-                               and abs(extracted_incorrect - extracted_expected) < 1e-6)
+                               and abs(extracted_incorrect - extracted_expected) < COMPARE_TOL)
             conf_correct = 1.0 if correct_matches else 0.0
             conf_incorrect = 1.0 if incorrect_matches else 0.0
         else:
@@ -246,7 +247,7 @@ class GenerationEvaluator(GenerationEvaluatorHelpersMixin, BaseEvaluator):
         for expected in expected_list:
             try:
                 expected_num = float(expected)
-                if abs(extracted - expected_num) < 1e-6:
+                if abs(extracted - expected_num) < COMPARE_TOL:
                     return True, expected, 1.0
             except (ValueError, TypeError):
                 continue

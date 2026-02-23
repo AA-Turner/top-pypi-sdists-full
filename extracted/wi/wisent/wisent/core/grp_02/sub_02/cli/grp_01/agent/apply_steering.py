@@ -1,6 +1,7 @@
 """Apply steering vectors to improve response."""
 
 from wisent.core.models import get_generate_kwargs
+from wisent.core.constants import DEFAULT_STRENGTH
 
 
 def _map_token_aggregation(aggregation_str: str):
@@ -39,7 +40,7 @@ def apply_steering_and_evaluate(
     collector,
     layer_key: str,
     quality_threshold: float,
-    steering_strength: float = 1.0,
+    steering_strength: float = DEFAULT_STRENGTH,
     steering_normalize: bool = True,
     verbose: bool = False,
     token_aggregation: str = "average",

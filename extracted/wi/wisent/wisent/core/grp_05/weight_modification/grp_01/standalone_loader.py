@@ -17,6 +17,11 @@ from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
+from wisent.core.constants import (
+    GROM_HIDDEN_DIM, GROM_ROUTER_TEMPERATURE, GROM_ROUTER_HIDDEN_DIM,
+    GROM_MAX_ALPHA, DEFAULT_STRENGTH,
+)
+
 from wisent.core.weight_modification._standalone_loader_helpers import (
     TETNOHooks,
     load_model as _load_model,
@@ -25,7 +30,7 @@ from wisent.core.weight_modification._standalone_loader_helpers import (
 
 class GatingNetwork(nn.Module):
     """Learned gating network matching GROM architecture."""
-    def __init__(self, input_dim: int, hidden_dim: int = 128):
+    def __init__(self, input_dim: int, hidden_dim: int = GROM_HIDDEN_DIM):
         super().__init__()
         self.net = nn.Sequential(
             nn.Linear(input_dim, hidden_dim),
@@ -37,7 +42,7 @@ class GatingNetwork(nn.Module):
         )
 
     def forward(self, x: torch.Tensor,
-                temperature: float = 0.5) -> torch.Tensor:
+                temperature: float = GROM_ROUTER_TEMPERATURE) -> torch.Tensor:
         logit = self.net(x)
         return torch.sigmoid(logit / temperature)
 
@@ -45,7 +50,7 @@ class GatingNetwork(nn.Module):
 class IntensityNetwork(nn.Module):
     """Predicts per-layer steering intensity matching GROM architecture."""
     def __init__(self, input_dim: int, num_layers: int,
-                 hidden_dim: int = 64, max_alpha: float = 3.0):
+                 hidden_dim: int = GROM_ROUTER_HIDDEN_DIM, max_alpha: float = GROM_MAX_ALPHA):
         super().__init__()
         self.max_alpha = max_alpha
         self.num_layers = num_layers
@@ -69,7 +74,7 @@ class GROMHooks:
     """Runtime hooks for GROM dynamic steering."""
 
     def __init__(self, model, grom_data: Dict[str, Any],
-                 base_strength: float = 1.0):
+                 base_strength: float = DEFAULT_STRENGTH):
         self.model = model
         self.grom_data = grom_data
         self.base_strength = base_strength

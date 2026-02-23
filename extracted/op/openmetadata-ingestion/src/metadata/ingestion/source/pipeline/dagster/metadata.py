@@ -58,9 +58,11 @@ from metadata.ingestion.source.pipeline.dagster.models import (
 )
 from metadata.ingestion.source.pipeline.pipeline_service import PipelineServiceSource
 from metadata.utils import fqn
+from metadata.utils.filters import filter_by_pipeline
 from metadata.utils.helpers import clean_uri
 from metadata.utils.logger import ingestion_logger
 from metadata.utils.tag_utils import get_ometa_tag_and_classification, get_tag_labels
+from metadata.utils.time_utils import convert_timestamp_to_milliseconds
 
 logger = ingestion_logger()
 
@@ -90,12 +92,6 @@ class DagsterSource(PipelineServiceSource):
                 f"Expected DagsterConnection, but got {connection}"
             )
         return cls(config, metadata)
-
-    def __init__(self, config: WorkflowSource, metadata: OpenMetadata):
-        super().__init__(config, metadata)
-        self.strip_asset_key_prefix_length = (
-            self.service_connection.stripAssetKeyPrefixLength or 0
-        )
 
     def _get_downstream_tasks(self, job: SolidHandle) -> Optional[List[str]]:
         """Method to get downstream tasks"""
@@ -188,23 +184,30 @@ class DagsterSource(PipelineServiceSource):
     ) -> Iterable[Either[OMetaPipelineStatus]]:
         """Prepare the OMetaPipelineStatus"""
         try:
-            # Convert Dagster timestamps from seconds to milliseconds
             task_status = TaskStatus(
                 name=task_name,
                 executionStatus=STATUS_MAP.get(
                     run.status.lower(), StatusType.Pending.value
                 ),
-                startTime=int(run.startTime * 1000) if run.startTime else None,
-                endTime=int(run.endTime * 1000) if run.endTime else None,
+                startTime=(
+                    round(convert_timestamp_to_milliseconds(run.startTime))
+                    if run.startTime
+                    else None
+                ),
+                endTime=(
+                    round(convert_timestamp_to_milliseconds(run.endTime))
+                    if run.endTime
+                    else None
+                ),
             )
             pipeline_status = PipelineStatus(
                 taskStatus=[task_status],
                 executionStatus=STATUS_MAP.get(
                     run.status.lower(), StatusType.Pending.value
                 ),
-                timestamp=Timestamp(int(run.startTime * 1000))
-                if run.startTime
-                else None,
+                timestamp=Timestamp(
+                    round(convert_timestamp_to_milliseconds(timestamp=run.startTime))
+                ),
             )
             pipeline_fqn = fqn.build(
                 metadata=self.metadata,
@@ -309,12 +312,8 @@ class DagsterSource(PipelineServiceSource):
                 )
 
                 if not to_result.is_resolved:
-                    normalized_key = asset.assetKey.normalize(
-                        self.strip_asset_key_prefix_length
-                    ).to_string()
                     logger.debug(
-                        f"Could not resolve table for asset: {asset.assetKey.to_string()} "
-                        f"(normalized: {normalized_key})"
+                        f"Could not resolve table for asset: {asset.assetKey.to_string()}"
                     )
                     continue
 
@@ -365,9 +364,18 @@ class DagsterSource(PipelineServiceSource):
         try:
             results = self.client.get_run_list()
             for result in results:
-                self.context.get().repository_location = result.location.name
-                self.context.get().repository_name = result.name
                 for job in result.pipelines or []:
+                    if filter_by_pipeline(
+                        self.source_config.pipelineFilterPattern,
+                        job.name,
+                    ):
+                        self.status.filter(
+                            job.name,
+                            "Pipeline Filtered Out",
+                        )
+                        continue
+                    self.context.get().repository_location = result.location.name
+                    self.context.get().repository_name = result.name
                     yield job
         except Exception as exc:
             logger.debug(traceback.format_exc())
@@ -416,12 +424,9 @@ class DagsterSource(PipelineServiceSource):
 
         Returns: TableResolutionResult with table_fqn and table_entity (or None if not found)
         """
-        normalized_asset_key = asset.assetKey.normalize(
-            self.strip_asset_key_prefix_length
-        )
-        asset_key_str = normalized_asset_key.to_string()
+        asset_key_str = asset.assetKey.to_string()
 
-        parts = normalized_asset_key.path
+        parts = asset.assetKey.path
         if len(parts) == 3:
             database, schema, table = parts
         elif len(parts) == 2:
@@ -432,10 +437,7 @@ class DagsterSource(PipelineServiceSource):
             schema = None
             table = parts[0]
         else:
-            logger.debug(
-                f"Unexpected asset key format after normalization: {asset_key_str} "
-                f"(original: {asset.assetKey.to_string()}, stripped {self.strip_asset_key_prefix_length} segments)"
-            )
+            logger.debug(f"Unexpected asset key format: {asset_key_str}")
             return TableResolutionResult()
 
         if not database or not schema:

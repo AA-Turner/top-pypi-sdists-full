@@ -7,9 +7,7 @@ import math
 
 import torch
 from wisent.core.utils import preferred_dtype
-
-
-
+from wisent.core.constants import NEAR_ZERO_TOL, CONE_THRESHOLD, CONE_DIRECTIONS, DIAG_NUM_COMPONENTS, MAX_CLUSTERS, MANIFOLD_NEIGHBORS
 from wisent.core.cli.analysis.diagnosis.diagnose_vectors_analysis import (
     _run_cone_analysis, _run_geometry_analysis,
 )
@@ -67,7 +65,7 @@ def execute_diagnose_vectors(args):
             mean_val = sum(vector_list) / len(vector_list)
 
             # Count zeros
-            zero_count = sum(1 for x in vector_list if abs(x) < 1e-9)
+            zero_count = sum(1 for x in vector_list if abs(x) < NEAR_ZERO_TOL)
             zero_pct = (zero_count / len(vector_list)) * 100
 
             layer_stats.append({
@@ -147,8 +145,8 @@ def execute_diagnose_vectors(args):
                 _run_cone_analysis(
                     args.activations_file, 
                     args.verbose,
-                    getattr(args, 'cone_threshold', 0.7),
-                    getattr(args, 'cone_directions', 5)
+                    getattr(args, 'cone_threshold', CONE_THRESHOLD),
+                    getattr(args, 'cone_directions', CONE_DIRECTIONS)
                 )
             else:
                 print(f"\n⚠️  Cone Analysis: Requires --activations-file with positive/negative activations")
@@ -160,9 +158,9 @@ def execute_diagnose_vectors(args):
                 _run_geometry_analysis(
                     args.activations_file,
                     args.verbose,
-                    getattr(args, 'cone_directions', 5),
-                    getattr(args, 'max_clusters', 5),
-                    getattr(args, 'manifold_neighbors', 10),
+                    getattr(args, 'cone_directions', CONE_DIRECTIONS),
+                    getattr(args, 'max_clusters', MAX_CLUSTERS),
+                    getattr(args, 'manifold_neighbors', MANIFOLD_NEIGHBORS),
                 )
             else:
                 print(f"\n⚠️  Geometry Analysis: Requires --activations-file with positive/negative activations")

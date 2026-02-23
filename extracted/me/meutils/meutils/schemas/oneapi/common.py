@@ -901,6 +901,11 @@ MODEL_RATIO = {
     "longcat-flash-thinking": 2,
 
     # 阿里千问 https://dashscope.console.aliyun.com/billing
+    "qwen3.5-plus": 0.4,
+    "qwen3.5-plus-thinking": 0.4,
+    "qwen3.5-plus-2026-02-15": 0.4,
+    "qwen3.5-397b-a17b": 0.4,
+
     "qwen-long": 0.25,
     "qwen-turbo": 0.05,
     "qwen-plus": 0.4 * 1,
@@ -1260,6 +1265,7 @@ MODEL_RATIO = {
     "claude-sonnet-4-20250514-thinking": 1.5,
     "claude-sonnet-4-5-20250929": 1.5,
     "claude-sonnet-4-5-20250929-thinking": 1.5,
+    "claude-sonnet-4-6": 1.5,
 
     "claude-opus-4-20250514": 7.5,
     "claude-opus-4-20250514-thinking": 7.5,
@@ -1663,6 +1669,7 @@ COMPLETION_RATIO = {
     "claude-sonnet-4-20250514-thinking": 5,
     "claude-sonnet-4-5-20250929": 5,
     "claude-sonnet-4-5-20250929-thinking": 5,
+    "claude-sonnet-4-6": 5,
 
     "claude-opus-4-20250514": 5,
     "claude-opus-4-20250514-thinking": 5,
@@ -1790,6 +1797,11 @@ COMPLETION_RATIO = {
     "qwq-32b": 2,
 
     "qvq-72b-preview": 3,
+
+    "qwen3.5-plus": 6,
+    "qwen3.5-plus-thinking": 6,
+    "qwen3.5-plus-2026-02-15": 6,
+    "qwen3.5-397b-a17b": 6,
 
     "qwen-long": 4,
     "qwen-max": 4,

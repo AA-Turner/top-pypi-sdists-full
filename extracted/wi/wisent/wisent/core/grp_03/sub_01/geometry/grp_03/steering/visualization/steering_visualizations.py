@@ -6,6 +6,7 @@ from typing import List, Optional
 import io
 import base64
 from sklearn.decomposition import PCA
+from wisent.core.constants import VIZ_DPI, DEFAULT_RANDOM_SEED
 
 
 def create_steering_effect_figure(
@@ -31,7 +32,7 @@ def create_steering_effect_figure(
     pos, neg, base, steered = _prepare_arrays(pos_activations, neg_activations,
                                                base_activations, steered_activations)
     reference = np.vstack([pos, neg])
-    pca = PCA(n_components=2, random_state=42)
+    pca = PCA(n_components=2, random_state=DEFAULT_RANDOM_SEED)
     pca.fit(reference)
 
     pos_2d, neg_2d = pca.transform(pos), pca.transform(neg)
@@ -64,7 +65,7 @@ def create_steering_effect_figure(
     ax.grid(True, alpha=0.3)
 
     buf = io.BytesIO()
-    fig.savefig(buf, format='png', dpi=150, bbox_inches='tight')
+    fig.savefig(buf, format='png', dpi=VIZ_DPI, bbox_inches='tight')
     buf.seek(0)
     plt.close(fig)
     return base64.b64encode(buf.read()).decode('utf-8')
@@ -102,7 +103,7 @@ def _draw_decision_boundary(ax, pos_2d, neg_2d):
     from sklearn.linear_model import LogisticRegression
     X_2d = np.vstack([pos_2d, neg_2d])
     y_2d = np.concatenate([np.ones(len(pos_2d)), np.zeros(len(neg_2d))])
-    clf_2d = LogisticRegression(random_state=42, )
+    clf_2d = LogisticRegression(random_state=DEFAULT_RANDOM_SEED, )
     clf_2d.fit(X_2d, y_2d)
     x_min, x_max = X_2d[:, 0].min() - 1, X_2d[:, 0].max() + 1
     y_min, y_max = X_2d[:, 1].min() - 1, X_2d[:, 1].max() + 1

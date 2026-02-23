@@ -6,6 +6,7 @@ from wisent.core.cli.optimize_steering.method_configs import (
     MethodConfig, CAAConfig, OstrzeConfig, TECZAConfig, TETNOConfig, GROMConfig,
     NurtConfig, SzlakConfig, WicherConfig,
 )
+from wisent.core.constants import LAYER_SWEEP_STRENGTH
 
 
 class HierarchicalResult:
@@ -24,7 +25,7 @@ class HierarchicalResult:
 class HierarchicalConfig:
     """Configuration for hierarchical search."""
     # Stage 1: Layer sweep
-    layer_sweep_strength: float = 1.0
+    layer_sweep_strength: float = LAYER_SWEEP_STRENGTH
     layer_sweep_normalize: bool = True
 
     # Stage 2: Strength sweep

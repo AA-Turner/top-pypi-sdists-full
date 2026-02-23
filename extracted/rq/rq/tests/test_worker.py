@@ -1,4 +1,5 @@
 import json
+import multiprocessing
 import os
 import shutil
 import signal
@@ -121,9 +122,9 @@ class TestWorker(RQTestCase):
         w2 = Worker([foo_queue], name='w2')
         w2.register_birth()
 
-        self.assertEqual(set(Worker.all(connection=foo_queue.connection)), set([w1, w2]))
-        self.assertEqual(set(Worker.all(queue=foo_queue)), set([w1, w2]))
-        self.assertEqual(set(Worker.all(queue=bar_queue)), set([w1]))
+        self.assertEqual(set(Worker.all(connection=foo_queue.connection)), {w1, w2})
+        self.assertEqual(set(Worker.all(queue=foo_queue)), {w1, w2})
+        self.assertEqual(set(Worker.all(queue=bar_queue)), {w1})
 
         w1.register_death()
         w2.register_death()
@@ -195,15 +196,15 @@ class TestWorker(RQTestCase):
         job.refresh()
         self.assertTrue(
             before <= job.enqueued_at.replace(tzinfo=timezone.utc) <= after,
-            'Not %s <= %s <= %s' % (before, job.enqueued_at, after),
+            f'Not {before} <= {job.enqueued_at} <= {after}',
         )
         self.assertTrue(
             before <= job.started_at.replace(tzinfo=timezone.utc) <= after,
-            'Not %s <= %s <= %s' % (before, job.started_at, after),
+            f'Not {before} <= {job.started_at} <= {after}',
         )
         self.assertTrue(
             before <= job.ended_at.replace(tzinfo=timezone.utc) <= after,
-            'Not %s <= %s <= %s' % (before, job.ended_at, after),
+            f'Not {before} <= {job.ended_at} <= {after}',
         )
 
     def test_work_is_unreadable(self):
@@ -770,26 +771,26 @@ class TestWorker(RQTestCase):
         q = Queue(connection=self.connection)
         job = q.enqueue(say_hello, args=('Frank',), result_ttl=10)
         w = Worker([q])
-        self.assertIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
         w.work(burst=True)
         self.assertNotEqual(self.connection.ttl(job.key), 0)
-        self.assertNotIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertNotIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
 
         # Job with -1 result_ttl don't expire
         job = q.enqueue(say_hello, args=('Frank',), result_ttl=-1)
         w = Worker([q])
-        self.assertIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
         w.work(burst=True)
         self.assertEqual(self.connection.ttl(job.key), -1)
-        self.assertNotIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertNotIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
 
         # Job with result_ttl = 0 gets deleted immediately
         job = q.enqueue(say_hello, args=('Frank',), result_ttl=0)
         w = Worker([q])
-        self.assertIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
         w.work(burst=True)
         self.assertEqual(self.connection.get(job.key), None)
-        self.assertNotIn(job.get_id().encode(), self.connection.lrange(q.key, 0, -1))
+        self.assertNotIn(job.id.encode(), self.connection.lrange(q.key, 0, -1))
 
     def test_worker_sets_job_status(self):
         """Ensure that worker correctly sets job status."""
@@ -923,19 +924,6 @@ class TestWorker(RQTestCase):
         self.assertEqual(job._status, JobStatus.STARTED)
         self.assertEqual(job.worker_name, worker.name)
 
-    def test_cleanup_execution(self):
-        """Cleanup execution does the necessary bookkeeping."""
-        queue = Queue(connection=self.connection)
-        job = queue.enqueue(say_hello)
-        worker = Worker([queue])
-        worker.prepare_job_execution(job)
-        with self.connection.pipeline() as pipeline:
-            worker.cleanup_execution(job, pipeline=pipeline)
-            pipeline.execute()
-
-        self.assertEqual(worker.get_current_job_id(), None)
-        self.assertIsNone(worker.execution)
-
     @min_redis_version((6, 2, 0))
     def test_prepare_job_execution_removes_key_from_intermediate_queue(self):
         """Prepare job execution removes job from intermediate queue."""
@@ -1049,7 +1037,7 @@ class TestWorker(RQTestCase):
         w1 = Worker([q], name='worker1')
         w2 = Worker([q], name='worker2')
         w3 = Worker([q], name='worker1')
-        worker_set = set([w1, w2, w3])
+        worker_set = {w1, w2, w3}
         self.assertEqual(len(worker_set), 2)
 
     def test_worker_sets_birth(self):
@@ -1293,11 +1281,11 @@ class TestWorker(RQTestCase):
         self.assertEqual(worker.python_version, python_version)
 
     def test_dequeue_random_strategy(self):
-        qs = [Queue('q%d' % i, connection=self.connection) for i in range(5)]
+        qs = [Queue(f'q{i}', connection=self.connection) for i in range(5)]
 
         for i in range(5):
             for j in range(3):
-                qs[i].enqueue(say_pid, job_id='q%d_%d' % (i, j))
+                qs[i].enqueue(say_pid, job_id=f'q{i}_{j}')
 
         w = Worker(qs, connection=self.connection)
         w.work(burst=True, dequeue_strategy='random')
@@ -1305,12 +1293,12 @@ class TestWorker(RQTestCase):
         start_times = []
         for i in range(5):
             for j in range(3):
-                job = Job.fetch('q%d_%d' % (i, j), connection=self.connection)
-                start_times.append(('q%d_%d' % (i, j), job.started_at))
+                job = Job.fetch(f'q{i}_{j}', connection=self.connection)
+                start_times.append((f'q{i}_{j}', job.started_at))
         sorted_by_time = sorted(start_times, key=lambda tup: tup[1])
         sorted_ids = [tup[0] for tup in sorted_by_time]
-        expected_rr = ['q%d_%d' % (i, j) for j in range(3) for i in range(5)]
-        expected_ser = ['q%d_%d' % (i, j) for i in range(5) for j in range(3)]
+        expected_rr = [f'q{i}_{j}' for j in range(3) for i in range(5)]
+        expected_ser = [f'q{i}_{j}' for i in range(5) for j in range(3)]
 
         self.assertNotEqual(sorted_ids, expected_rr)
         self.assertNotEqual(sorted_ids, expected_ser)
@@ -1337,11 +1325,11 @@ class TestWorker(RQTestCase):
             self.assertRaises(SystemExit, worker.request_force_stop, 1, frame=None)
 
     def test_dequeue_round_robin(self):
-        qs = [Queue('q%d' % i, connection=self.connection) for i in range(5)]
+        qs = [Queue(f'q{i}', connection=self.connection) for i in range(5)]
 
         for i in range(5):
             for j in range(3):
-                qs[i].enqueue(say_pid, job_id='q%d_%d' % (i, j))
+                qs[i].enqueue(say_pid, job_id=f'q{i}_{j}')
 
         w = Worker(qs)
         w.work(burst=True, dequeue_strategy='round_robin')
@@ -1349,8 +1337,8 @@ class TestWorker(RQTestCase):
         start_times = []
         for i in range(5):
             for j in range(3):
-                job = Job.fetch('q%d_%d' % (i, j), connection=self.connection)
-                start_times.append(('q%d_%d' % (i, j), job.started_at))
+                job = Job.fetch(f'q{i}_{j}', connection=self.connection)
+                start_times.append((f'q{i}_{j}', job.started_at))
         sorted_by_time = sorted(start_times, key=lambda tup: tup[1])
         sorted_ids = [tup[0] for tup in sorted_by_time]
         expected = [
@@ -1417,7 +1405,7 @@ class TimeoutTestCase:
 
     def _timeout(self, signal, frame):
         raise AssertionError(
-            "test still running after %i seconds, likely the worker wasn't shutdown correctly" % self.killtimeout
+            f"test still running after {self.killtimeout} seconds, likely the worker wasn't shutdown correctly"
         )
 
 
@@ -1557,7 +1545,7 @@ class TestWorkerSubprocess(RQTestCase):
     def setUp(self):
         super().setUp()
         db_num = self.connection.connection_pool.connection_kwargs['db']
-        self.redis_url = 'redis://127.0.0.1:6379/%d' % db_num
+        self.redis_url = f'redis://127.0.0.1:6379/{db_num}'
 
     def test_run_empty_queue(self):
         """Run the worker in its own process with an empty queue"""
@@ -1597,7 +1585,9 @@ class HerokuWorkerShutdownTestCase(TimeoutTestCase, RQTestCase):
     @slow
     def test_immediate_shutdown(self):
         """Heroku work horse shutdown with immediate (0 second) kill"""
-        p = Process(target=run_dummy_heroku_worker, args=(self.sandbox, 0, self.connection))
+        # Use 'fork' context to avoid pickling issues with Redis connections in Python 3.14+
+        ForkProcess = multiprocessing.get_context('fork').Process
+        p = ForkProcess(target=run_dummy_heroku_worker, args=(self.sandbox, 0, self.connection))
         p.start()
         time.sleep(0.5)
 
@@ -1611,7 +1601,9 @@ class HerokuWorkerShutdownTestCase(TimeoutTestCase, RQTestCase):
     @slow
     def test_1_sec_shutdown(self):
         """Heroku work horse shutdown with 1 second kill"""
-        p = Process(target=run_dummy_heroku_worker, args=(self.sandbox, 1, self.connection))
+        # Use 'fork' context to avoid pickling issues with Redis connections in Python 3.14+
+        ForkProcess = multiprocessing.get_context('fork').Process
+        p = ForkProcess(target=run_dummy_heroku_worker, args=(self.sandbox, 1, self.connection))
         p.start()
         time.sleep(0.5)
 
@@ -1627,7 +1619,9 @@ class HerokuWorkerShutdownTestCase(TimeoutTestCase, RQTestCase):
     @slow
     def test_shutdown_double_sigrtmin(self):
         """Heroku work horse shutdown with long delay but SIGRTMIN sent twice"""
-        p = Process(target=run_dummy_heroku_worker, args=(self.sandbox, 10, self.connection))
+        # Use 'fork' context to avoid pickling issues with Redis connections in Python 3.14+
+        ForkProcess = multiprocessing.get_context('fork').Process
+        p = ForkProcess(target=run_dummy_heroku_worker, args=(self.sandbox, 10, self.connection))
         p.start()
         time.sleep(0.5)
 
@@ -1648,7 +1642,9 @@ class HerokuWorkerShutdownTestCase(TimeoutTestCase, RQTestCase):
         w = HerokuWorker('foo', connection=self.connection)
 
         path = os.path.join(self.sandbox, 'shouldnt_exist')
-        p = Process(target=create_file_after_timeout_and_setpgrp, args=(path, 2))
+        # Use 'fork' context to avoid pickling issues with Redis connections in Python 3.14+
+        ForkProcess = multiprocessing.get_context('fork').Process
+        p = ForkProcess(target=create_file_after_timeout_and_setpgrp, args=(path, 2))
         p.start()
         self.assertEqual(p.exitcode, None)
         time.sleep(0.1)
@@ -1685,19 +1681,19 @@ class TestExceptionHandlerMessageEncoding(RQTestCase):
 
 class TestRoundRobinWorker(RQTestCase):
     def test_round_robin(self):
-        qs = [Queue('q%d' % i, connection=self.connection) for i in range(5)]
+        qs = [Queue(f'q{i}', connection=self.connection) for i in range(5)]
 
         for i in range(5):
             for j in range(3):
-                qs[i].enqueue(say_pid, job_id='q%d_%d' % (i, j))
+                qs[i].enqueue(say_pid, job_id=f'q{i}_{j}')
 
         w = RoundRobinWorker(qs)
         w.work(burst=True)
         start_times = []
         for i in range(5):
             for j in range(3):
-                job = Job.fetch('q%d_%d' % (i, j), connection=self.connection)
-                start_times.append(('q%d_%d' % (i, j), job.started_at))
+                job = Job.fetch(f'q{i}_{j}', connection=self.connection)
+                start_times.append((f'q{i}_{j}', job.started_at))
         sorted_by_time = sorted(start_times, key=lambda tup: tup[1])
         sorted_ids = [tup[0] for tup in sorted_by_time]
         expected = [
@@ -1722,23 +1718,23 @@ class TestRoundRobinWorker(RQTestCase):
 
 class TestRandomWorker(RQTestCase):
     def test_random_worker(self):
-        qs = [Queue('q%d' % i, connection=self.connection) for i in range(5)]
+        qs = [Queue(f'q{i}', connection=self.connection) for i in range(5)]
 
         for i in range(5):
             for j in range(3):
-                qs[i].enqueue(say_pid, job_id='q%d_%d' % (i, j))
+                qs[i].enqueue(say_pid, job_id=f'q{i}_{j}')
 
         w = RandomWorker(qs)
         w.work(burst=True)
         start_times = []
         for i in range(5):
             for j in range(3):
-                job = Job.fetch('q%d_%d' % (i, j), connection=self.connection)
-                start_times.append(('q%d_%d' % (i, j), job.started_at))
+                job = Job.fetch(f'q{i}_{j}', connection=self.connection)
+                start_times.append((f'q{i}_{j}', job.started_at))
         sorted_by_time = sorted(start_times, key=lambda tup: tup[1])
         sorted_ids = [tup[0] for tup in sorted_by_time]
-        expected_rr = ['q%d_%d' % (i, j) for j in range(3) for i in range(5)]
-        expected_ser = ['q%d_%d' % (i, j) for i in range(5) for j in range(3)]
+        expected_rr = [f'q{i}_{j}' for j in range(3) for i in range(5)]
+        expected_ser = [f'q{i}_{j}' for i in range(5) for j in range(3)]
         self.assertNotEqual(sorted_ids, expected_rr)
         self.assertNotEqual(sorted_ids, expected_ser)
         expected_rr.reverse()

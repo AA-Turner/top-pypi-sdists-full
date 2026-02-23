@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-mpm
-Version: 5.9.20
+Version: 5.9.27
 Summary: Claude Code workflow and agent management framework - Multi-agent orchestration, skills system, MCP integration, session management, and semantic code search for AI-powered development
 Author-email: Bob Matsuoka <bob@matsuoka.com>
 Maintainer: Claude MPM Team
@@ -68,6 +68,7 @@ Requires-Dist: httpx>=0.24.0
 Requires-Dist: keyring>=24.0.0
 Requires-Dist: cryptography>=41.0.0
 Requires-Dist: mcp>=1.0.0
+Requires-Dist: huey>=2.5.0
 Provides-Extra: mcp
 Requires-Dist: mcp>=0.1.0; extra == "mcp"
 Requires-Dist: mcp-vector-search>=0.1.0; extra == "mcp"

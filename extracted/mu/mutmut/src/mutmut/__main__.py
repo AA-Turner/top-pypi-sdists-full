@@ -1,3 +1,13 @@
+from typing import Iterable
+from mutmut.type_checking import TypeCheckingError
+from mutmut.type_checking import run_type_checker
+from typing import Any
+import os
+import sys
+import platform
+if platform.system() == 'Windows':
+    print('To run mutmut on Windows, please use the WSL. Native windows support is tracked in issue https://github.com/boxed/mutmut/issues/397')
+    sys.exit(1)
 import ast
 import fnmatch
 import gc
@@ -5,12 +15,10 @@ import inspect
 import itertools
 import json
 from multiprocessing import Pool, set_start_method, Lock
-import os
 import resource
 import shutil
 import signal
 import subprocess
-import sys
 from abc import ABC
 from collections import defaultdict
 from configparser import (
@@ -19,7 +27,7 @@ from configparser import (
     NoSectionError,
 )
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import (
     datetime,
     timedelta,
@@ -43,12 +51,6 @@ from time import (
     process_time,
     sleep,
 )
-from typing import (
-    Dict,
-    List,
-    Union,
-    Optional,
-)
 import warnings
 
 import click
@@ -65,7 +67,6 @@ from mutmut.trampoline_templates import CLASS_NAME_SEPARATOR
 # Document: surviving mutants are retested when you ask mutmut to retest them, interactively in the UI or via command line
 
 # TODO: pragma no mutate should end up in `skipped` category
-# TODO: hash of function. If hash changes, retest all mutants as mutant IDs are not stable
 
 
 status_by_exit_code = defaultdict(lambda: 'suspicious', {
@@ -80,6 +81,7 @@ status_by_exit_code = defaultdict(lambda: 'suspicious', {
     34: 'skipped',
     35: 'suspicious',
     36: 'timeout',
+    37: 'caught by type check',
     -24: 'timeout',  # SIGXCPU
     24: 'timeout',  # SIGXCPU
     152: 'timeout',  # SIGXCPU
@@ -94,6 +96,7 @@ emoji_by_status = {
     'timeout': '⏰',
     'suspicious': '🤔',
     'skipped': '🔇',
+    'caught by type check': '🧙',
     'check was interrupted by user': '🛑',
     'not checked': '?',
     'killed': '🎉',
@@ -183,34 +186,56 @@ class BadTestExecutionCommandsException(Exception):
 
 
 class InvalidGeneratedSyntaxException(Exception):
-    def __init__(self, file: Union[Path, str]) -> None:
+    def __init__(self, file: Path | str) -> None:
         super().__init__(f'Mutmut generated invalid python syntax for {file}. '
                           'If the original file has valid python syntax, please file an issue '
                           'with a minimal reproducible example file.')
 
 
 def copy_src_dir():
-    for path in mutmut.config.paths_to_mutate:
-        output_path: Path = Path('mutants') / path
-        if isdir(path):
-            shutil.copytree(path, output_path, dirs_exist_ok=True)
+    for root, name in walk_all_files():
+        source_path = Path(root) / name
+        target_path = Path('mutants') / root / name
+        
+        if target_path.exists():
+            continue
+
+        if isdir(source_path):
+            shutil.copytree(source_path, target_path)
         else:
-            output_path.parent.mkdir(exist_ok=True, parents=True)
-            shutil.copyfile(path, output_path)
+            target_path.parent.mkdir(exist_ok=True, parents=True)
+            # copy mtime, so we later know that when source_mtime == target_mtime, the file is not (yet) mutated.
+            shutil.copy2(source_path, target_path)
 
 @dataclass
 class FileMutationResult:
     """Dataclass to transfer warnings and errors from child processes to the parent"""
-    warnings: list[Warning]
-    error: Optional[Exception] = None
+    warnings: list[Warning] = field(default_factory=list)
+    error: Exception | None = None
+    unmodified: bool = False
+    ignored: bool = False
 
-def create_mutants(max_children: int):
+@dataclass
+class MutantGenerationStats:
+    mutated: int = 0
+    unmodified: int = 0
+    ignored: int = 0
+
+def create_mutants(max_children: int) -> MutantGenerationStats:
+    stats = MutantGenerationStats()
     with Pool(processes=max_children) as p:
         for result in p.imap_unordered(create_file_mutants, walk_source_files()):
             for warning in result.warnings:
                 warnings.warn(warning)
             if result.error:
                 raise result.error
+            if result.unmodified:
+                stats.unmodified += 1
+            elif result.ignored:
+                stats.ignored += 1
+            else:
+                stats.mutated += 1
+    return stats
 
 def create_file_mutants(path: Path) -> FileMutationResult:
     try:
@@ -220,11 +245,11 @@ def create_file_mutants(path: Path) -> FileMutationResult:
 
         if mutmut.config.should_ignore_for_mutation(path):
             shutil.copy(path, output_path)
-            return FileMutationResult(warnings=[])
+            return FileMutationResult(ignored=True)
         else:
             return create_mutants_for_file(path, output_path)
     except Exception as e:
-        return FileMutationResult(warnings=[], error=e)
+        return FileMutationResult(error=e)
 
 def setup_source_paths():
     # ensure that the mutated source code can be imported by the tests
@@ -253,25 +278,43 @@ def copy_also_copy_files():
         if not path.exists():
             continue
         if path.is_file():
-            shutil.copy(path, destination)
+            shutil.copy2(path, destination)
         else:
             shutil.copytree(path, destination, dirs_exist_ok=True)
 
-def create_mutants_for_file(filename, output_path) -> FileMutationResult:
-    input_stat = os.stat(filename)
+def create_mutants_for_file(filename: Path, output_path: Path) -> FileMutationResult:
     warnings: list[Warning] = []
+
+    try:
+        source_mtime = os.path.getmtime(filename)
+        mutant_mtime = os.path.getmtime(output_path)
+        # We have three possible cases here:
+        # source_mtime > mutant_mtime: the source file was modified after the mutant has been created
+        # source_mtime == mutant_mtime: only copied, otherwise the mutant file is untouched
+        # source_mtime < mutant_mtime: the mutations have been saved after copying; source file untouched
+        if source_mtime < mutant_mtime:
+            # reset the mutation stats
+            source_file_mutation_data = SourceFileMutationData(path=filename)
+            source_file_mutation_data.load()
+            for key in source_file_mutation_data.exit_code_by_key:
+                source_file_mutation_data.exit_code_by_key[key] = None
+            source_file_mutation_data.save()
+
+            return FileMutationResult(unmodified=True)
+    except OSError:
+        pass
 
     with open(filename) as f:
         source = f.read()
 
     with open(output_path, 'w') as out:
         try:
-            mutant_names, hash_by_function_name = write_all_mutants_to_file(out=out, source=source, filename=filename)
+            mutant_names = write_all_mutants_to_file(out=out, source=source, filename=filename)
         except cst.ParserSyntaxError as e:
             # if libcst cannot parse it, then copy the source without any mutations
             warnings.append(SyntaxWarning(f'Unsupported syntax in {filename} ({str(e)}), skipping'))
             out.write(source)
-            mutant_names, hash_by_function_name = [], {}
+            mutant_names = []
 
     # validate no syntax errors of mutants
     with open(output_path) as f:
@@ -283,28 +326,27 @@ def create_mutants_for_file(filename, output_path) -> FileMutationResult:
             return FileMutationResult(warnings=warnings, error=invalid_syntax_error)
 
     source_file_mutation_data = SourceFileMutationData(path=filename)
-    module_name = strip_prefix(str(filename)[:-len(filename.suffix)].replace(os.sep, '.'), prefix='src.')
-
     source_file_mutation_data.exit_code_by_key = {
-         '.'.join([module_name, x]).replace('.__init__.', '.'): None
-        for x in mutant_names
+        get_mutant_name(filename, mutant_name): None for mutant_name in mutant_names
     }
-    source_file_mutation_data.hash_by_function_name = hash_by_function_name
-    assert None not in hash_by_function_name
     source_file_mutation_data.save()
 
-    os.utime(output_path, (input_stat.st_atime, input_stat.st_mtime))
     return FileMutationResult(warnings=warnings)
 
+def get_mutant_name(relative_source_path: Path, mutant_method_name: str) -> str:
+    module_name = str(relative_source_path)[:-len(relative_source_path.suffix)].replace(os.sep, '.')
+    module_name = strip_prefix(module_name, prefix='src.')
+
+    # FYI, we currently use "mutant_name" inconsistently, for both the whole identifier including the path and only the mangled method name
+    mutant_name = f'{module_name}.{mutant_method_name}'
+    mutant_name = mutant_name.replace('.__init__.', '.')
+    return mutant_name
 
 def write_all_mutants_to_file(*, out, source, filename):
     result, mutant_names = mutate_file_contents(filename, source, get_covered_lines_for_file(filename, mutmut._covered_lines))
     out.write(result)
 
-    # TODO: function hashes are currently not used. Reimplement this when needed.
-    hash_by_function_name = {}
-
-    return mutant_names, hash_by_function_name
+    return mutant_names
 
 
 class SourceFileMutationData:
@@ -315,7 +357,7 @@ class SourceFileMutationData:
         self.key_by_pid = {}
         self.exit_code_by_key = {}
         self.durations_by_key = {}
-        self.hash_by_function_name = {}
+        self.type_check_error_by_key: dict[str, str] = {}
         self.start_time_by_pid = {}
 
     def load(self):
@@ -326,10 +368,10 @@ class SourceFileMutationData:
             return
 
         self.exit_code_by_key = meta.pop('exit_code_by_key')
-        self.hash_by_function_name = meta.pop('hash_by_function_name')
         self.durations_by_key = meta.pop('durations_by_key')
         self.estimated_time_of_tests_by_mutant = meta.pop('estimated_durations_by_key')
-        assert not meta, f'Meta file {self.meta_path} constains unexpected keys: {set(meta.keys())}'
+        self.type_check_error_by_key = meta.pop('type_check_error_by_key')
+        assert not meta, f'Meta file {self.meta_path} contains unexpected keys: {set(meta.keys())}'
 
     def register_pid(self, *, pid, key):
         self.key_by_pid[pid] = key
@@ -355,10 +397,92 @@ class SourceFileMutationData:
         with open(self.meta_path, 'w') as f:
             json.dump(dict(
                 exit_code_by_key=self.exit_code_by_key,
-                hash_by_function_name=self.hash_by_function_name,
                 durations_by_key=self.durations_by_key,
+                type_check_error_by_key=self.type_check_error_by_key,
                 estimated_durations_by_key=self.estimated_time_of_tests_by_mutant,
             ), f, indent=4)
+
+def filter_mutants_with_type_checker():
+    with change_cwd(Path('mutants')):
+        errors = run_type_checker(mutmut.config.type_check_command)
+        errors_by_path = group_by_path(errors)
+
+        mutants_to_skip: dict[str, FailedTypeCheckMutant] = {}
+
+        for path, errors_of_file in errors_by_path.items():
+            with open(path, 'r', encoding='utf-8') as file:
+                source = file.read()
+            wrapper = cst.MetadataWrapper(cst.parse_module(source))
+            visitor = MutatedMethodsCollector(path)
+            wrapper.visit(visitor)
+            mutated_methods = visitor.found_mutants
+
+            for error in errors_of_file:
+                assert error.file_path == visitor.file
+                mutant = next((m for m in mutated_methods if m.line_number_start <= error.line_number <= m.line_number_end), None)
+                if mutant is None:
+                    raise Exception(f'Could not find mutant for type error {error.file_path}:{error.line_number} ({error.error_description}). '
+                                    'Probably, a code mutation influenced types in unexpected locations. '
+                                    'If your project normally has no type errors and uses mypy/pyrefly, please file an issue with steps to reproduce on github.')
+
+                mutant_name = get_mutant_name(path.relative_to(Path('.').absolute()), mutant.function_name)
+
+                mutants_to_skip[mutant_name] = FailedTypeCheckMutant(
+                    method_location=mutant,
+                    name=mutant_name,
+                    error=error,
+                )
+        
+        return mutants_to_skip
+
+
+def group_by_path(errors: list[TypeCheckingError]) -> dict[Path, list[TypeCheckingError]]:
+    grouped: dict[Path, list[TypeCheckingError]] = defaultdict(list)
+
+    for error in errors:
+        grouped[error.file_path].append(error)
+
+    return grouped
+
+@dataclass
+class MutatedMethodLocation:
+    file: Path
+    function_name: str
+    line_number_start: int
+    line_number_end: int
+
+
+@dataclass
+class FailedTypeCheckMutant:
+    method_location: MutatedMethodLocation
+    name: str
+    error: TypeCheckingError
+
+
+class MutatedMethodsCollector(cst.CSTVisitor):
+    METADATA_DEPENDENCIES = (cst.metadata.PositionProvider,)
+    
+    def __init__(self, file: Path):
+        self.file = file
+        self.found_mutants: list[MutatedMethodLocation] = []
+
+    def visit_FunctionDef(self, node: cst.FunctionDef) -> bool:
+        name = node.name.value
+        if is_mutated_method_name(name):
+            range = self.get_metadata(cst.metadata.PositionProvider, node)
+            self.found_mutants.append(MutatedMethodLocation(
+                file=self.file,
+                function_name=name,
+                line_number_start=range.start.line,
+                line_number_end=range.end.line,
+            ))
+
+        # do not continue visting children of this function
+        # mutated methods are not nested within other methods
+        return False
+
+def is_mutated_method_name(name: str):
+    return name.startswith(('x_', 'xǁ')) and '__mutmut' in name
 
 
 def unused(*_):
@@ -425,8 +549,8 @@ class ListAllTestsResult:
 
 class PytestRunner(TestRunner):
     def __init__(self):
-        self._pytest_add_cli_args: List[str] = mutmut.config.pytest_add_cli_args
-        self._pytest_add_cli_args_test_selection: List[str] = mutmut.config.pytest_add_cli_args_test_selection
+        self._pytest_add_cli_args: list[str] = mutmut.config.pytest_add_cli_args
+        self._pytest_add_cli_args_test_selection: list[str] = mutmut.config.pytest_add_cli_args_test_selection
 
         # tests_dir is a special case of a test selection option,
         # so also use pytest_add_cli_args_test_selection for the implementation
@@ -608,6 +732,7 @@ class Stat:
     timeout: int
     check_was_interrupted_by_user: int
     segfault: int
+    caught_by_type_check: int
 
 
 def collect_stat(m: SourceFileMutationData):
@@ -637,12 +762,13 @@ def calculate_summary_stats(source_file_mutation_data_by_path):
         timeout=sum(x.timeout for x in stats),
         check_was_interrupted_by_user=sum(x.check_was_interrupted_by_user for x in stats),
         segfault=sum(x.segfault for x in stats),
+        caught_by_type_check=sum(x.caught_by_type_check for x in stats),
     )
 
 
 def print_stats(source_file_mutation_data_by_path, force_output=False):
     s = calculate_summary_stats(source_file_mutation_data_by_path)
-    print_status(f'{(s.total - s.not_checked)}/{s.total}  🎉 {s.killed} 🫥 {s.no_tests}  ⏰ {s.timeout}  🤔 {s.suspicious}  🙁 {s.survived}  🔇 {s.skipped}', force_output=force_output)
+    print_status(f'{(s.total - s.not_checked)}/{s.total}  🎉 {s.killed} 🫥 {s.no_tests}  ⏰ {s.timeout}  🤔 {s.suspicious}  🙁 {s.survived}  🔇 {s.skipped}  🧙 {s.caught_by_type_check}', force_output=force_output)
 
 
 def run_forced_fail_test(runner):
@@ -709,15 +835,16 @@ class CatchOutput:
 
 @dataclass
 class Config:
-    also_copy: List[Path]
-    do_not_mutate: List[str]
+    also_copy: list[Path]
+    do_not_mutate: list[str]
     max_stack_depth: int
     debug: bool
-    paths_to_mutate: List[Path]
-    pytest_add_cli_args: List[str]
-    pytest_add_cli_args_test_selection: List[str]
-    tests_dir: List[str]
+    paths_to_mutate: list[Path]
+    pytest_add_cli_args: list[str]
+    pytest_add_cli_args_test_selection: list[str]
+    tests_dir: list[str]
     mutate_only_covered_lines: bool
+    type_check_command: list[str]
 
     def should_ignore_for_mutation(self, path):
         if not str(path).endswith('.py'):
@@ -754,7 +881,7 @@ def config_reader():
     config_parser = ConfigParser()
     config_parser.read('setup.cfg')
 
-    def s(key: str, default):
+    def s(key: str, default) -> Any:
         try:
             result = config_parser.get('mutmut', key)
         except (NoOptionError, NoSectionError):
@@ -790,6 +917,8 @@ def load_config():
             Path('test/'),
             Path('setup.cfg'),
             Path('pyproject.toml'),
+            Path('pytest.ini'),
+            Path('.gitignore'),
         ] + list(Path('.').glob('test*.py')),
         max_stack_depth=s('max_stack_depth', -1),
         debug=s('debug', False),
@@ -801,6 +930,7 @@ def load_config():
         tests_dir=s('tests_dir', []),
         pytest_add_cli_args=s('pytest_add_cli_args', []),
         pytest_add_cli_args_test_selection=s('pytest_add_cli_args_test_selection', []),
+        type_check_command=s('type_check_command', []),
     )
 
 
@@ -899,9 +1029,53 @@ def save_stats():
             stats_time=mutmut.stats_time,
         ), f, indent=4)
 
+def save_cicd_stats(source_file_mutation_data_by_path):
+    s = calculate_summary_stats(source_file_mutation_data_by_path)
+    with open('mutants/mutmut-cicd-stats.json', 'w') as f:
+        json.dump(dict(
+            killed=s.killed,
+            survived=s.survived,
+            total=s.total,
+            no_tests=s.no_tests,
+            skipped=s.skipped,
+            suspicious=s.suspicious,
+            timeout=s.timeout,
+            check_was_interrupted_by_user=s.check_was_interrupted_by_user,
+            segfault=s.segfault
+        ), f, indent=4)
+
+# exports CI/CD stats to block pull requests from merging if mutation score is too low, or used in other ways in CI/CD pipelines
+@cli.command()
+def export_cicd_stats():
+    ensure_config_loaded()
+
+    source_file_mutation_data_by_path: dict[str, SourceFileMutationData] = {}
+
+    for path in walk_source_files():
+        if mutmut.config.should_ignore_for_mutation(path):
+            continue
+
+        meta_path = Path('mutants') / (str(path) + '.meta')
+        if not meta_path.exists():
+            continue
+
+        m = SourceFileMutationData(path=path)
+        m.load()
+        if not m.exit_code_by_key:
+            continue
+
+        source_file_mutation_data_by_path[str(path)] = m
+
+    if not source_file_mutation_data_by_path:
+        print('No previous mutation data found. Run "mutmut run" first.')
+        return
+
+    save_cicd_stats(source_file_mutation_data_by_path)
+    print('Saved CI/CD stats to mutants/mutmut-cicd-stats.json')
+
 
 def collect_source_file_mutation_data(*, mutant_names):
-    source_file_mutation_data_by_path: Dict[str, SourceFileMutationData] = {}
+    source_file_mutation_data_by_path: dict[str, SourceFileMutationData] = {}
 
     for path in walk_source_files():
         if mutmut.config.should_ignore_for_mutation(path):
@@ -1006,7 +1180,7 @@ def run(mutant_names, *, max_children):
     _run(mutant_names, max_children)
 
 # separate function, so we can call it directly from the tests
-def _run(mutant_names: Union[tuple, list], max_children: Union[None, int]):
+def _run(mutant_names: tuple | list, max_children: None | int):
     # TODO: run no-ops once in a while to detect if we get false negatives
     # TODO: we should be able to get information on which tests killed mutants, which means we can get a list of tests and how many mutants each test kills. Those that kill zero mutants are redundant!
     os.environ['MUTANT_UNDER_TEST'] = 'mutant_generation'
@@ -1022,10 +1196,16 @@ def _run(mutant_names: Union[tuple, list], max_children: Union[None, int]):
         copy_also_copy_files()
         setup_source_paths()
         store_lines_covered_by_tests()            
-        create_mutants(max_children)
+        stats = create_mutants(max_children)
 
     time = datetime.now() - start
-    print(f'    done in {round(time.total_seconds()*1000)}ms', )
+    print(f'    done in {round(time.total_seconds()*1000)}ms ({stats.mutated} files mutated, {stats.ignored} ignored, {stats.unmodified} unmodified)', )
+
+    if mutmut.config.type_check_command:
+        with CatchOutput(spinner_title='Filtering mutations with type checker'):
+            mutants_caught_by_type_checker = filter_mutants_with_type_checker()
+    else:
+        mutants_caught_by_type_checker = {}
 
     # TODO: config/option for runner
     # runner = HammettRunner()
@@ -1061,7 +1241,7 @@ def _run(mutant_names: Union[tuple, list], max_children: Union[None, int]):
             print('    worker exit code', exit_code)
         source_file_mutation_data_by_pid[pid].register_result(pid=pid, exit_code=exit_code)
 
-    source_file_mutation_data_by_pid: Dict[int, SourceFileMutationData] = {}  # many pids map to one MutationData
+    source_file_mutation_data_by_pid: dict[int, SourceFileMutationData] = {}  # many pids map to one MutationData
     running_children = 0
     count_tried = 0
 
@@ -1095,9 +1275,15 @@ def _run(mutant_names: Union[tuple, list], max_children: Union[None, int]):
 
             tests = mutmut.tests_by_mangled_function_name.get(mangled_name_from_mutant_name(mutant_name), [])
 
-            # print(tests)
             if not tests:
                 m.exit_code_by_key[mutant_name] = 33
+                m.save()
+                continue
+
+            failed_type_check_mutant = mutants_caught_by_type_checker.get(mutant_name)
+            if failed_type_check_mutant:
+                m.exit_code_by_key[mutant_name] = 37
+                m.type_check_error_by_key[mutant_name] = failed_type_check_mutant.error.error_description
                 m.save()
                 continue
 
@@ -1205,7 +1391,7 @@ def read_orig_module(path) -> cst.Module:
         return cst.parse_module(f.read())
 
 
-def find_top_level_function_or_method(module: cst.Module, name: str) -> Union[cst.FunctionDef, None]:
+def find_top_level_function_or_method(module: cst.Module, name: str) -> cst.FunctionDef | None:
     name = name.split('.')[-1]
     for child in module.body:
         if isinstance(child, cst.FunctionDef) and child.name.value == name:
@@ -1315,7 +1501,7 @@ def apply_mutant(mutant_name):
 
 
 @cli.command()
-@click.option("--show-killed", is_flag=True, default=False, help="Display killed mutants.")
+@click.option("--show-killed", is_flag=True, default=False, help="Display mutants killed by tests and type checker.")
 def browse(show_killed):
     ensure_config_loaded()
 
@@ -1417,7 +1603,7 @@ def browse(show_killed):
                 source_file_mutation_data, stat = self.source_file_mutation_data_and_stat_by_path[event.row_key.value]
                 for k, v in source_file_mutation_data.exit_code_by_key.items():
                     status = status_by_exit_code[v]
-                    if status != 'killed' or show_killed:
+                    if status not in ('killed', 'caught by type check') or show_killed:
                         mutants_table.add_row(k, emoji_by_status[status], key=k)
             else:
                 assert event.data_table.id == 'mutants'
@@ -1432,6 +1618,7 @@ def browse(show_killed):
                 status = status_by_exit_code[exit_code]
                 estimated_duration = source_file_mutation_data.estimated_time_of_tests_by_mutant.get(mutant_name, '?')
                 duration = source_file_mutation_data.durations_by_key.get(mutant_name, '?')
+                type_check_error = source_file_mutation_data.type_check_error_by_key.get(mutant_name, '?')
 
                 view_tests_description = f'(press t to view tests executed for this mutant)'
 
@@ -1444,6 +1631,8 @@ def browse(show_killed):
                         description = f'Skipped ({exit_code=})'
                     case 'check was interrupted by user':
                         description = f'User interrupted ({exit_code=})'
+                    case 'caught by type check':
+                        description = f'Caught by type checker ({exit_code=}): {type_check_error}'
                     case 'timeout':
                         description = (f'Timeout ({exit_code=}): Timed out because tests did not finish within {duration:.3f} seconds. '
                                             f'Tests without mutation took {estimated_duration:.3f} seconds. {view_tests_description}')

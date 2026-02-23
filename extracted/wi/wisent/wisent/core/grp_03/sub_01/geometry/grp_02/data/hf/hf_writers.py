@@ -45,7 +45,7 @@ def _retry_upload(fn, max_retries=8, base_wait=120):
             return fn()
         except Exception as exc:
             msg = str(exc)
-            retryable = any(k in msg for k in ("429", "412", "Precondition", "ReadTimeout", "timed out"))
+            retryable = any(k in msg for k in ("429", "412", "500", "Precondition", "ReadTimeout", "timed out", "Internal"))
             if not retryable or attempt == max_retries - 1:
                 raise
             wait = int(base_wait * (2 ** min(attempt, 3)) * random.uniform(0.5, 1.5))

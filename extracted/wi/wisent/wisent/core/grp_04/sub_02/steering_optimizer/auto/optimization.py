@@ -9,6 +9,11 @@ from typing import Dict, List, Optional, Any
 import torch
 
 from wisent.core.config_manager import ModelConfigManager
+from wisent.core.constants import (
+    DEFAULT_LIMIT, DEFAULT_SCORE, BLEND_DEFAULT,
+    AUTO_MAX_TIME_MINUTES, AUTO_MIN_PAIRS, AUTO_SAMPLE_SIZE,
+    AUTO_LAYER_FRACTION, AUTO_N_FOLDS, AUTO_DEFAULT_STRENGTHS,
+)
 from .training import train_recommended_method
 from .grid_search import run_grid_search
 
@@ -18,11 +23,11 @@ logger = logging.getLogger(__name__)
 def run_auto_steering_optimization(
     model_name: str,
     task_name: Optional[str] = None,
-    limit: int = 100,
+    limit: int = DEFAULT_LIMIT,
     device: str = None,
     verbose: bool = False,
     use_classification_config: bool = True,
-    max_time_minutes: float = 60.0,
+    max_time_minutes: float = AUTO_MAX_TIME_MINUTES,
     methods_to_test: Optional[List[str]] = None,
     strength_range: Optional[List[float]] = None,
     layer_range: Optional[str] = None
@@ -45,7 +50,7 @@ def run_auto_steering_optimization(
         print(f"Generating contrastive pairs for {task_name}...", flush=True)
 
     pairs = _generate_pairs(task_name, limit)
-    if not pairs or len(pairs) < 10:
+    if not pairs or len(pairs) < AUTO_MIN_PAIRS:
         return {"error": f"Could not generate enough pairs for {task_name}"}
     if verbose:
         print(f"Generated {len(pairs)} contrastive pairs\n")
@@ -58,7 +63,7 @@ def run_auto_steering_optimization(
     # Determine search space
     layers_to_test = _get_layers_to_test(layer_range, num_layers)
     if strength_range is None:
-        strength_range = [0.25, 0.5, 0.75, 1.0, 1.25, 1.5, 2.0]
+        strength_range = list(AUTO_DEFAULT_STRENGTHS)
 
     if verbose:
         print(f"\nGRID SEARCH for {recommended_method}")
@@ -78,7 +83,7 @@ def run_auto_steering_optimization(
         task_name=task_name, verbose=verbose,
     )
 
-    best_score = best_config.get('score', 0.0) if best_config else 0.0
+    best_score = best_config.get('score', DEFAULT_SCORE) if best_config else DEFAULT_SCORE
     _save_config(model_name, task_name, recommended_method, best_layer,
                  best_strength, best_score, confidence, reasoning,
                  metrics, coherence, layers_to_test, strength_range, grid_results)
@@ -93,10 +98,10 @@ def run_auto_steering_optimization(
         'optimal_layer': best_layer, 'optimal_strength': best_strength,
         'best_score': best_score, 'confidence': confidence, 'reasoning': reasoning,
         'zwiad_metrics': {
-            'linear_probe_accuracy': metrics.get('linear_probe_accuracy', 0),
-            'signal_strength': metrics.get('signal_strength', 0),
-            'steerability_score': metrics.get('steer_steerability_score', 0),
-            'icd': metrics.get('icd_icd', 0),
+            'linear_probe_accuracy': metrics.get('linear_probe_accuracy', DEFAULT_SCORE),
+            'signal_strength': metrics.get('signal_strength', DEFAULT_SCORE),
+            'steerability_score': metrics.get('steer_steerability_score', DEFAULT_SCORE),
+            'icd': metrics.get('icd_icd', DEFAULT_SCORE),
             'concept_coherence': coherence,
         },
         'grid_search_results': grid_results,
@@ -125,9 +130,9 @@ def _run_zwiad_analysis(wisent_model: Any, pairs: List, num_layers: int, verbose
     if verbose:
         print("Collecting activations for geometry analysis...", flush=True)
 
-    analysis_layer = str(int(num_layers * 0.75))
+    analysis_layer = str(int(num_layers * AUTO_LAYER_FRACTION))
     collector = ActivationCollector(model=wisent_model)
-    sample_pairs = pairs[:min(50, len(pairs))]
+    sample_pairs = pairs[:min(AUTO_SAMPLE_SIZE, len(pairs))]
     pos_activations, neg_activations = [], []
 
     for pair in sample_pairs:
@@ -139,24 +144,24 @@ def _run_zwiad_analysis(wisent_model: Any, pairs: List, num_layers: int, verbose
         if neg_act is not None:
             neg_activations.append(neg_act)
 
-    if len(pos_activations) < 10 or len(neg_activations) < 10:
-        return "GROM", 0.5, "Insufficient activations", {}, 0.0
+    if len(pos_activations) < AUTO_MIN_PAIRS or len(neg_activations) < AUTO_MIN_PAIRS:
+        return "GROM", BLEND_DEFAULT, "Insufficient activations", {}, DEFAULT_SCORE
 
     if verbose:
         print(f"Collected {len(pos_activations)} pos and {len(neg_activations)} neg activations\n")
 
     pos_tensor = torch.stack(pos_activations)
     neg_tensor = torch.stack(neg_activations)
-    metrics = compute_geometry_metrics(pos_tensor, neg_tensor, n_folds=3)
+    metrics = compute_geometry_metrics(pos_tensor, neg_tensor, n_folds=AUTO_N_FOLDS)
     recommendation = compute_recommendation(metrics)
     coherence = compute_concept_coherence(pos_tensor, neg_tensor)
 
     recommended_method = recommendation.get("recommended_method", "GROM").upper()
-    confidence = recommendation.get("confidence", 0.5)
+    confidence = recommendation.get("confidence", BLEND_DEFAULT)
     reasoning = recommendation.get("reasoning", "")
 
     if verbose:
-        print(f"   Repscan: Linear accuracy: {metrics.get('linear_probe_accuracy', 0):.3f}")
+        print(f"   Repscan: Linear accuracy: {metrics.get('linear_probe_accuracy', DEFAULT_SCORE):.3f}")
         print(f"   Recommendation: {recommended_method} (confidence={confidence:.2f})")
 
     return recommended_method, confidence, reasoning, metrics, coherence
@@ -196,10 +201,10 @@ def _save_config(
         'best_strength': strength, 'best_score': score,
         'optimization_date': datetime.now().isoformat(),
         'zwiad_metrics': {
-            'linear_probe_accuracy': metrics.get('linear_probe_accuracy', 0),
-            'signal_strength': metrics.get('signal_strength', 0),
-            'steerability_score': metrics.get('steer_steerability_score', 0),
-            'icd': metrics.get('icd_icd', 0),
+            'linear_probe_accuracy': metrics.get('linear_probe_accuracy', DEFAULT_SCORE),
+            'signal_strength': metrics.get('signal_strength', DEFAULT_SCORE),
+            'steerability_score': metrics.get('steer_steerability_score', DEFAULT_SCORE),
+            'icd': metrics.get('icd_icd', DEFAULT_SCORE),
             'concept_coherence': coherence,
         },
         'confidence': confidence, 'reasoning': reasoning,

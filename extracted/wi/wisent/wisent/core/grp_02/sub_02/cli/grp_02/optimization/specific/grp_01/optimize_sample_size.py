@@ -12,6 +12,7 @@ from wisent.core.classifiers.classifiers.models.logistic import LogisticClassifi
 from wisent.core.classifiers.classifiers.core.atoms import ClassifierTrainConfig
 from wisent.core.evaluators.rotator import EvaluatorRotator
 from wisent.core.models import get_generate_kwargs
+from wisent.core.constants import DEFAULT_CLASSIFIER_LR
 
 
 def execute_optimize_sample_size(args):
@@ -143,7 +144,7 @@ def execute_optimize_sample_size(args):
 
             X_train = np.array(X_train_list); y_train = np.array(y_train_list)
             classifier = LogisticClassifier(threshold=args.threshold, device=args.device)
-            train_config = ClassifierTrainConfig(test_size=0.2, num_epochs=50, batch_size=32, learning_rate=1e-3, monitor='f1', random_state=args.seed)
+            train_config = ClassifierTrainConfig(test_size=0.2, num_epochs=50, batch_size=32, learning_rate=DEFAULT_CLASSIFIER_LR, monitor='f1', random_state=args.seed)
             classifier.fit(X_train, y_train, config=train_config)
 
             correct, total = 0, 0

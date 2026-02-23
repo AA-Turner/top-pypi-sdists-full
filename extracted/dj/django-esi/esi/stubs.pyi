@@ -27,15 +27,15 @@ class GetAlliancesOperation(EsiOperation):
 
 class GetAlliancesAllianceIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> AlliancesAllianceIdGet:
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> AllianceDetail:
         """Public information about an alliance"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[AlliancesAllianceIdGet]:
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[AllianceDetail]:
         """Public information about an alliance"""
         ...
 
-    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[AlliancesAllianceIdGet]]:
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[AllianceDetail]]:
         """Public information about an alliance"""
         ...
 
@@ -213,15 +213,15 @@ class PutCharactersCharacterIdCalendarEventIdOperation(EsiOperation):
 
 class GetCharactersCharacterIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CharactersCharacterIdGet:
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CharactersDetail:
         """Public information about a character"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersCharacterIdGet]:
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CharactersDetail]:
         """Public information about a character"""
         ...
 
-    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersCharacterIdGet]]:
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CharactersDetail]]:
         """Public information about a character"""
         ...
 
@@ -705,15 +705,15 @@ class GetCorporationsCorporationIdContractsContractIdItemsOperation(EsiOperation
 
 class GetCorporationsCorporationIdOperation(EsiOperation):
     """EsiOperation, use result(), results() or results_localized()"""
-    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CorporationsCorporationIdGet:
+    def result(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> CorporationsDetail:
         """Public information about a corporation"""
         ...
 
-    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CorporationsCorporationIdGet]:
+    def results(self, use_etag: bool = True, return_response: bool = False, force_refresh: bool = False, use_cache: bool = True, **extra) -> list[CorporationsDetail]:
         """Public information about a corporation"""
         ...
 
-    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CorporationsCorporationIdGet]]:
+    def results_localized(self, languages: list[str] | str | None = None, **extra) -> dict[str, list[CorporationsDetail]]:
         """Public information about a corporation"""
         ...
 
@@ -3128,12 +3128,21 @@ class PostUiOpenwindowNewmailOperationBody(BaseModel):
 AlliancesGet = list[int]
 
 
-class AlliancesAllianceIdGet(BaseModel):
-    creator_corporation_id: int
-    creator_id: int
+CorporationID = int
+
+
+CharacterID = int
+
+
+FactionID = int
+
+
+class AllianceDetail(BaseModel):
+    creator_corporation_id: CorporationID
+    creator_id: CharacterID
     date_founded: datetime
-    executor_corporation_id: int | None
-    faction_id: int | None
+    executor_corporation_id: CorporationID | None
+    faction_id: FactionID | None
     name: str
     ticker: str
 
@@ -3206,16 +3215,25 @@ class CharactersCharacterIdCalendarEventIdAttendeesGetItem(BaseModel):
 CharactersCharacterIdCalendarEventIdAttendeesGet = list[CharactersCharacterIdCalendarEventIdAttendeesGetItem]
 
 
-class CharactersCharacterIdGet(BaseModel):
-    alliance_id: int | None
+AllianceID = int
+
+
+BloodlineID = int
+
+
+RaceID = int
+
+
+class CharactersDetail(BaseModel):
+    alliance_id: AllianceID | None
     birthday: datetime
-    bloodline_id: int
-    corporation_id: int
+    bloodline_id: BloodlineID
+    corporation_id: CorporationID
     description: str | None
-    faction_id: int | None
-    gender: Literal['female', 'male']
+    faction_id: FactionID | None
+    gender: Literal['male', 'female']
     name: str
-    race_id: int
+    race_id: RaceID
     security_status: float | None
     title: str | None
 
@@ -3570,14 +3588,17 @@ class CorporationsCorporationIdContractsContractIdItemsGetItem(BaseModel):
 CorporationsCorporationIdContractsContractIdItemsGet = list[CorporationsCorporationIdContractsContractIdItemsGetItem]
 
 
-class CorporationsCorporationIdGet(BaseModel):
-    alliance_id: int | None
-    ceo_id: int
-    creator_id: int
+StationID = int
+
+
+class CorporationsDetail(BaseModel):
+    alliance_id: AllianceID | None
+    ceo_id: CharacterID
+    creator_id: CharacterID
     date_founded: datetime | None
     description: str | None
-    faction_id: int | None
-    home_station_id: int | None
+    faction_id: FactionID | None
+    home_station_id: StationID | None
     member_count: int
     name: str
     shares: int | None
@@ -3840,9 +3861,6 @@ class CorporationsProjectsContribution(BaseModel):
     last_modified: datetime | None
 
 
-CharacterID = int
-
-
 class CorporationsProjectsContributorsContributor(BaseModel):
     contributed: int
     id: CharacterID
@@ -3864,9 +3882,6 @@ ArchetypeID = int
 
 class CorporationsProjectsDetailConfigurationmatcherarchetype(BaseModel):
     archetype_id: ArchetypeID | None
-
-
-FactionID = int
 
 
 class CorporationsProjectsDetailConfigurationmatcherfaction(BaseModel):
@@ -3905,14 +3920,8 @@ class CorporationsProjectsDetailConfigurationdamageship_IdentitiesItemAlt0(BaseM
     character_id: CharacterID | None
 
 
-CorporationID = int
-
-
 class CorporationsProjectsDetailConfigurationdamageship_IdentitiesItemAlt1(BaseModel):
     corporation_id: CorporationID | None
-
-
-AllianceID = int
 
 
 class CorporationsProjectsDetailConfigurationdamageship_IdentitiesItemAlt2(BaseModel):
@@ -3986,9 +3995,6 @@ ItemID = int
 
 class CorporationsProjectsDetailConfigurationdeliveritem_Docking_locationsItemAlt0(BaseModel):
     structure_id: ItemID | None
-
-
-StationID = int
 
 
 class CorporationsProjectsDetailConfigurationdeliveritem_Docking_locationsItemAlt1(BaseModel):

@@ -20,6 +20,7 @@ import torch.nn as nn
 from transformers import AutoTokenizer, AutoConfig, AutoModel, PreTrainedModel
 
 from wisent.core.evaluators.custom.custom_evaluator import (
+from wisent.core.constants import NEAR_ZERO_TOL
     CustomEvaluator,
     CustomEvaluatorConfig,
 )
@@ -45,7 +46,7 @@ class DesklibAIDetectionModel(PreTrainedModel):
         # Mean pooling
         input_mask_expanded = attention_mask.unsqueeze(-1).expand(last_hidden_state.size()).float()
         sum_embeddings = torch.sum(last_hidden_state * input_mask_expanded, dim=1)
-        sum_mask = torch.clamp(input_mask_expanded.sum(dim=1), min=1e-9)
+        sum_mask = torch.clamp(input_mask_expanded.sum(dim=1), min=NEAR_ZERO_TOL)
         pooled_output = sum_embeddings / sum_mask
         logits = self.classifier(pooled_output)
         

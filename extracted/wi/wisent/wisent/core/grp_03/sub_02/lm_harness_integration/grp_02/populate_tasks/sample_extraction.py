@@ -3,6 +3,7 @@
 from typing import Dict, Any, List, Optional, Tuple
 
 from wisent.core.utils import get_all_docs_from_task, create_deterministic_split
+from wisent.core.constants import DEFAULT_NUM_SAMPLES
 
 
 def get_evaluation_method(task) -> str:
@@ -87,7 +88,7 @@ def extract_examples_from_task(task_name: str, task) -> Dict[str, str]:
     return examples
 
 
-def get_task_samples_for_analysis(task_name: str, num_samples: int = 5) -> Dict[str, Any]:
+def get_task_samples_for_analysis(task_name: str, num_samples: int = DEFAULT_NUM_SAMPLES) -> Dict[str, Any]:
     """Retrieve sample questions and answers from a benchmark task for AI analysis."""
     from lm_eval import evaluator
     from .group_handling import find_working_task_from_group

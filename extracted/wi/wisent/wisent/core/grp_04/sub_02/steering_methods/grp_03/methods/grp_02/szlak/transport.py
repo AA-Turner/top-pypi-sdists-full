@@ -19,6 +19,13 @@ import torch
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import shortest_path
 from sklearn.neighbors import NearestNeighbors
+from wisent.core.constants import (
+    NORM_EPS,
+    SZLAK_SINKHORN_REG,
+    SZLAK_MAX_ITER,
+    SZLAK_HIGH_REG,
+    SZLAK_SPARSE_K,
+)
 
 __all__ = [
     "sinkhorn",
@@ -31,9 +38,9 @@ __all__ = [
 
 def sinkhorn(
     cost: torch.Tensor,
-    reg: float = 0.1,
-    max_iter: int = 100,
-    tol: float = 1e-8,
+    reg: float = SZLAK_SINKHORN_REG,
+    max_iter: int = SZLAK_MAX_ITER,
+    tol: float = NORM_EPS,
 ) -> torch.Tensor:
     """
     Sinkhorn-Knopp algorithm for entropic optimal transport.
@@ -71,9 +78,9 @@ def sinkhorn(
 
 def sinkhorn_one_sided(
     cost: torch.Tensor,
-    reg: float = 1.0,
-    max_iter: int = 100,
-    tol: float = 1e-8,
+    reg: float = SZLAK_HIGH_REG,
+    max_iter: int = SZLAK_MAX_ITER,
+    tol: float = NORM_EPS,
 ) -> torch.Tensor:
     """
     One-sided entropic OT: free target marginal (per the attention = EOT paper).
@@ -140,7 +147,7 @@ def compute_attention_affinity_cost(
 
 def build_knn_graph(
     X: np.ndarray,
-    k: int = 10,
+    k: int = SZLAK_SPARSE_K,
 ) -> csr_matrix:
     """
     Build a symmetric k-NN graph with Euclidean edge weights.
@@ -163,7 +170,7 @@ def build_knn_graph(
 def compute_geodesic_cost(
     neg: torch.Tensor,
     pos: torch.Tensor,
-    k: int = 10,
+    k: int = SZLAK_SPARSE_K,
 ) -> Tuple[torch.Tensor, np.ndarray]:
     """
     Compute geodesic cost matrix between neg and pos activations.

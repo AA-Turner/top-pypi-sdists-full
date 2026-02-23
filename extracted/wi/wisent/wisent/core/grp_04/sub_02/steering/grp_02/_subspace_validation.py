@@ -5,6 +5,7 @@ import torch
 from wisent.core.cli.cli_logger import setup_logger
 from wisent.core.activations.core.atoms import LayerName
 from wisent.core.steering._subspace_analysis import UNIVERSAL_SUBSPACE_RANK
+from wisent.core.constants import ZERO_THRESHOLD
 
 UNIVERSAL_SUBSPACE_THRESHOLDS = {
     "linear_variance_threshold": 0.85,
@@ -85,7 +86,7 @@ def verify_subspace_preservation(
     # 1. Row norm preservation
     orig_norms = orig.norm(dim=1)
     mod_norms = mod.norm(dim=1)
-    norm_ratio = (mod_norms / (orig_norms + 1e-10)).mean().item()
+    norm_ratio = (mod_norms / (orig_norms + ZERO_THRESHOLD)).mean().item()
     metrics["norm_ratio"] = norm_ratio
     metrics["norm_preserved"] = abs(norm_ratio - 1.0) < 0.05
     
@@ -96,13 +97,13 @@ def verify_subspace_preservation(
     # 3. Frobenius norm of difference (relative)
     diff_norm = (orig - mod).norm().item()
     orig_norm = orig.norm().item()
-    relative_change = diff_norm / (orig_norm + 1e-10)
+    relative_change = diff_norm / (orig_norm + ZERO_THRESHOLD)
     metrics["relative_change"] = relative_change
     
     # 4. Spectral norm preservation
     orig_spectral = torch.linalg.svdvals(orig)[0].item()
     mod_spectral = torch.linalg.svdvals(mod)[0].item()
-    spectral_ratio = mod_spectral / (orig_spectral + 1e-10)
+    spectral_ratio = mod_spectral / (orig_spectral + ZERO_THRESHOLD)
     metrics["spectral_ratio"] = spectral_ratio
     
     # Overall preservation check

@@ -5,6 +5,7 @@ import os
 import time
 import tempfile
 from argparse import Namespace
+from wisent.core.constants import TECZA_NUM_DIRECTIONS
 
 from ..pairs.generate_pairs_from_task import execute_generate_pairs_from_task
 from ...analysis.geometry.get_activations import execute_get_activations
@@ -193,7 +194,7 @@ def execute_generate_vector_from_task(args):
             # Universal Subspace options for TECZA/GROM
             auto_num_directions=getattr(args, 'auto_num_directions', False),
             use_universal_basis_init=getattr(args, 'use_universal_basis_init', False),
-            num_directions=getattr(args, 'num_directions', 3),
+            num_directions=getattr(args, 'num_directions', TECZA_NUM_DIRECTIONS),
         )
         
         execute_create_steering_object(vector_args)

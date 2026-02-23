@@ -1,8 +1,6 @@
 use crate::lang::SgLang;
 use ansi_term::Style;
-use ast_grep_core::{
-  matcher::PatternNode, meta_var::MetaVariable, tree_sitter::TSLanguage, MatchStrictness, Pattern,
-};
+use ast_grep_core::{matcher::DumpPattern, Pattern};
 use ast_grep_language::LanguageExt;
 use clap::ValueEnum;
 use tree_sitter as ts;
@@ -18,14 +16,23 @@ pub enum DebugFormat {
   /// Print the query in S-expression format
   Sexp,
 }
+
+fn get_mapping(lang: SgLang) -> impl Fn(u16) -> Option<Cow<'static, str>> {
+  let ts_lang = lang.get_ts_language();
+  move |kind_id: u16| ts_lang.node_kind_for_id(kind_id).map(Cow::Borrowed)
+}
+
 impl DebugFormat {
   pub fn debug_pattern(&self, pattern: &Pattern, lang: SgLang, colored: bool) {
     match self {
       DebugFormat::Pattern => {
-        let lang = lang.get_ts_language();
         let mut ret = String::new();
         let fmt = DumpFmt::named(colored);
-        if dump_pattern(&pattern.node, &pattern.strictness, &lang, &fmt, 0, &mut ret).is_ok() {
+        let Some(pattern_node) = pattern.dump(&get_mapping(lang)) else {
+          eprintln!("Pattern has no root node");
+          return;
+        };
+        if dump_pattern(&pattern_node, &fmt, 0, &mut ret).is_ok() {
           eprintln!("Debug Pattern:\n{ret}");
         } else {
           eprintln!("unexpected error in writing pattern string");
@@ -59,71 +66,29 @@ impl DebugFormat {
 }
 
 fn dump_pattern(
-  pattern: &PatternNode,
-  strictness: &MatchStrictness,
-  lang: &TSLanguage,
+  pattern: &DumpPattern,
   style: &DumpFmt,
   indent: usize,
   ret: &mut String,
 ) -> FmtResult {
   let indent_str = "  ".repeat(indent);
-  match pattern {
-    PatternNode::MetaVar { meta_var } => {
-      let meta_var = match meta_var {
-        MetaVariable::Capture(name, _) => format!("${name}"),
-        MetaVariable::MultiCapture(name) => format!("$$${name}"),
-        MetaVariable::Multiple => "$$$".to_string(),
-        MetaVariable::Dropped(_) => "$_".to_string(),
-      };
-      let meta_var = style.kind_style.paint(meta_var);
-      writeln!(
-        ret,
-        "{indent_str}{} {meta_var}",
-        style.field_style.paint("MetaVar")
-      )?;
-    }
-    PatternNode::Terminal {
-      text,
-      kind_id,
-      is_named,
-    } => {
-      if !*is_named {
-        if matches!(
-          strictness,
-          MatchStrictness::Cst | MatchStrictness::Smart | MatchStrictness::Template
-        ) {
-          writeln!(ret, "{indent_str}{text}")?;
-        }
-        return Ok(());
-      }
-      let kind = if matches!(strictness, MatchStrictness::Template) {
-        text
-      } else {
-        lang.node_kind_for_id(*kind_id).unwrap()
-      };
-      let kind = style.kind_style.paint(kind);
-      let text = if matches!(
-        strictness,
-        MatchStrictness::Signature | MatchStrictness::Template
-      ) {
-        ""
-      } else {
-        text
-      };
+  if pattern.is_meta_var {
+    let kind = style.field_style.paint("MetaVar");
+    let text = style.kind_style.paint(&*pattern.text);
+    writeln!(ret, "{indent_str}{kind} {text}")?;
+  } else if let Some(kind) = &pattern.kind {
+    let kind = style.kind_style.paint(kind.as_ref());
+    let text = &pattern.text;
+    if text.is_empty() {
+      writeln!(ret, "{indent_str}{kind}")?;
+    } else {
       writeln!(ret, "{indent_str}{kind} {text}")?;
     }
-    PatternNode::Internal { kind_id, children } => {
-      if matches!(strictness, MatchStrictness::Template) {
-        writeln!(ret, "{indent_str}(node)")?;
-      } else {
-        let kind = lang.node_kind_for_id(*kind_id).unwrap();
-        let kind = style.kind_style.paint(kind);
-        writeln!(ret, "{indent_str}{kind}")?;
-      };
-      for child in children {
-        dump_pattern(child, strictness, lang, style, indent + 1, ret)?;
-      }
-    }
+  } else {
+    writeln!(ret, "{indent_str}{}", &pattern.text)?;
+  }
+  for child in &pattern.children {
+    dump_pattern(child, style, indent + 1, ret)?
   }
   Ok(())
 }
@@ -162,7 +127,10 @@ impl DumpFmt {
   }
 }
 
-use std::fmt::{Result as FmtResult, Write};
+use std::{
+  borrow::Cow,
+  fmt::{Result as FmtResult, Write},
+};
 impl DumpNode {
   pub fn ast(&self, colored: bool) -> String {
     let mut result = String::new();
@@ -266,7 +234,8 @@ fn dump_nodes(cursor: &mut ts::TreeCursor, target: &mut Vec<DumpNode>) {
 #[cfg(test)]
 mod test {
   use super::*;
-  use ast_grep_language::{TypeScript, C};
+  use ast_grep_language::{JavaScript, TypeScript, C};
+
   const DUMPED: &str = r#"
 program (0,0)-(0,11)
   variable_declaration (0,0)-(0,11)
@@ -296,5 +265,91 @@ translation_unit (0,0)-(0,9)
     let root = lang.ast_grep("int a = 1");
     let dumped = dump_node(root.root().get_inner_node());
     assert_eq!(MISSING.trim(), dumped.cst(false).trim());
+  }
+
+  #[test]
+  fn test_dump_pattern_simple_metavar() {
+    let lang = SgLang::Builtin(JavaScript.into());
+    let pattern = Pattern::new("$VAR", lang);
+    let fmt = DumpFmt::named(false);
+    let mut result = String::new();
+
+    let pattern_node = pattern
+      .dump(&get_mapping(lang))
+      .expect("pattern must have root node");
+    dump_pattern(&pattern_node, &fmt, 0, &mut result).expect("dump_pattern should succeed");
+
+    let expected = "MetaVar $VAR";
+    assert_eq!(result.trim(), expected.trim());
+  }
+
+  #[test]
+  fn test_dump_pattern_with_metavars() {
+    let lang = SgLang::Builtin(JavaScript.into());
+    let pattern = Pattern::new("let $VAR = $VALUE", lang);
+    let fmt = DumpFmt::named(false);
+    let mut result = String::new();
+
+    let pattern_node = pattern
+      .dump(&get_mapping(lang))
+      .expect("pattern must have root node");
+    dump_pattern(&pattern_node, &fmt, 0, &mut result).expect("dump_pattern should succeed");
+
+    let expected = r#"lexical_declaration
+  let
+  variable_declarator
+    MetaVar $VAR
+    =
+    MetaVar $VALUE"#;
+    assert_eq!(result.trim(), expected.trim());
+  }
+
+  #[test]
+  fn test_dump_pattern_multi_capture() {
+    let lang = SgLang::Builtin(JavaScript.into());
+    let pattern = Pattern::new("function foo($$$ARGS) {}", lang);
+    let fmt = DumpFmt::named(false);
+    let mut result = String::new();
+
+    let pattern_node = pattern
+      .dump(&get_mapping(lang))
+      .expect("pattern must have root node");
+    dump_pattern(&pattern_node, &fmt, 0, &mut result).expect("dump_pattern should succeed");
+
+    let expected = r#"function_declaration
+  function
+  identifier foo
+  formal_parameters
+    (
+    MetaVar $$$ARGS
+    )
+  statement_block
+    {
+    }"#;
+    assert_eq!(result.trim(), expected.trim());
+  }
+
+  #[test]
+  fn test_dump_pattern_nested_nodes() {
+    let lang = SgLang::Builtin(JavaScript.into());
+    let pattern = Pattern::new("console.log($MSG)", lang);
+    let fmt = DumpFmt::named(false);
+    let mut result = String::new();
+
+    let pattern_node = pattern
+      .dump(&get_mapping(lang))
+      .expect("pattern must have root node");
+    dump_pattern(&pattern_node, &fmt, 0, &mut result).expect("dump_pattern should succeed");
+
+    let expected = r#"call_expression
+  member_expression
+    identifier console
+    .
+    property_identifier log
+  arguments
+    (
+    MetaVar $MSG
+    )"#;
+    assert_eq!(result.trim(), expected.trim());
   }
 }

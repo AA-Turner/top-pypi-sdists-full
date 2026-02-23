@@ -127,6 +127,9 @@ async def get_user_for_quota(api_key):
         return data
 
 
+
+
+
 if __name__ == '__main__':
     pass
     # api-key => get_one_log => get_user => put_user
@@ -135,7 +138,7 @@ if __name__ == '__main__':
     # print(payload)
     # arun(put_user(payload['data'], -1))
 
-    arun(get_api_key_log("sk-41qOAlugpMxlLhfHYppZa9kpfBtz2NytdiclobG307KVBU9q"))
+    arun(get_api_key_log("sk-"))
 
     # arun(get_api_key_log(os.getenv("OPENAI_API_KEY")))
 

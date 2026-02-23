@@ -218,8 +218,7 @@ inline bool IsNamedTupleClassImpl(const py::handle &type) {
     // We can only identify namedtuples heuristically, here by the presence of a _fields attribute.
     if (PyType_FastSubclass(reinterpret_cast<PyTypeObject *>(type.ptr()),
                             Py_TPFLAGS_TUPLE_SUBCLASS)) [[unlikely]] {
-        if (PyObject * const _fields = PyObject_GetAttr(type.ptr(), Py_Get_ID(_fields)))
-            [[unlikely]] {
+        if (PyObject * const _fields = PyObject_GetAttrString(type.ptr(), "_fields")) [[unlikely]] {
             bool fields_ok = static_cast<bool>(PyTuple_CheckExact(_fields));
             if (fields_ok) [[likely]] {
                 for (const auto &field : py::reinterpret_borrow<py::tuple>(_fields)) {
@@ -232,8 +231,9 @@ inline bool IsNamedTupleClassImpl(const py::handle &type) {
             Py_DECREF(_fields);
             if (fields_ok) [[likely]] {
                 // NOLINTNEXTLINE[readability-use-anyofallof]
-                for (PyObject * const name : {Py_Get_ID(_make), Py_Get_ID(_asdict)}) {
-                    if (PyObject * const attr = PyObject_GetAttr(type.ptr(), name)) [[likely]] {
+                for (const char * const name : {"_make", "_asdict"}) {
+                    if (PyObject * const attr = PyObject_GetAttrString(type.ptr(), name))
+                        [[likely]] {
                         const bool result = static_cast<bool>(PyCallable_Check(attr));
                         Py_DECREF(attr);
                         if (!result) [[unlikely]] {
@@ -261,6 +261,9 @@ inline bool IsNamedTupleClass(const py::handle &type) {
     static read_write_mutex mutex{};
 
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_read_lock lock{mutex};
         const auto it = cache.find(type);
         if (it != cache.end()) [[likely]] {
@@ -270,8 +273,14 @@ inline bool IsNamedTupleClass(const py::handle &type) {
 
     const bool result = EVALUATE_WITH_LOCK_HELD(IsNamedTupleClassImpl(type), type);
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_write_lock lock{mutex};
         if (cache.size() < MAX_TYPE_CACHE_SIZE) [[likely]] {
+#if !defined(Py_GIL_DISABLED)
+            const py::gil_scoped_acquire_simple gil_acquire{};
+#endif
             cache.emplace(type, result);
             (void)py::weakref(type, py::cpp_function([type](py::handle weakref) -> void {
                                   const scoped_write_lock lock{mutex};
@@ -311,7 +320,7 @@ inline py::tuple NamedTupleGetFields(const py::handle &object) {
                                  PyRepr(object) + ".");
         }
     }
-    return EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(_fields)), type);
+    return EVALUATE_WITH_LOCK_HELD(py::getattr(type, "_fields"), type);
 }
 
 inline bool IsStructSequenceClassImpl(const py::handle &type) {
@@ -325,9 +334,8 @@ inline bool IsStructSequenceClassImpl(const py::handle &type) {
         PyTuple_GET_ITEM(type_object->tp_bases, 0) == reinterpret_cast<PyObject *>(&PyTuple_Type))
         [[unlikely]] {
         // NOLINTNEXTLINE[readability-use-anyofallof]
-        for (PyObject * const name :
-             {Py_Get_ID(n_fields), Py_Get_ID(n_sequence_fields), Py_Get_ID(n_unnamed_fields)}) {
-            if (PyObject * const attr = PyObject_GetAttr(type.ptr(), name)) [[unlikely]] {
+        for (const char * const name : {"n_fields", "n_sequence_fields", "n_unnamed_fields"}) {
+            if (PyObject * const attr = PyObject_GetAttrString(type.ptr(), name)) [[unlikely]] {
                 const bool result = static_cast<bool>(PyLong_CheckExact(attr));
                 Py_DECREF(attr);
                 if (!result) [[unlikely]] {
@@ -364,6 +372,9 @@ inline bool IsStructSequenceClass(const py::handle &type) {
     static read_write_mutex mutex{};
 
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_read_lock lock{mutex};
         const auto it = cache.find(type);
         if (it != cache.end()) [[likely]] {
@@ -373,8 +384,14 @@ inline bool IsStructSequenceClass(const py::handle &type) {
 
     const bool result = EVALUATE_WITH_LOCK_HELD(IsStructSequenceClassImpl(type), type);
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_write_lock lock{mutex};
         if (cache.size() < MAX_TYPE_CACHE_SIZE) [[likely]] {
+#if !defined(Py_GIL_DISABLED)
+            const py::gil_scoped_acquire_simple gil_acquire{};
+#endif
             cache.emplace(type, result);
             (void)py::weakref(type, py::cpp_function([type](py::handle weakref) -> void {
                                   const scoped_write_lock lock{mutex};
@@ -418,7 +435,7 @@ inline py::tuple StructSequenceGetFieldsImpl(const py::handle &type) {
     return py::tuple{fields};
 #else
     const auto n_sequence_fields = thread_safe_cast<py::ssize_t>(
-        EVALUATE_WITH_LOCK_HELD(py::getattr(type, Py_Get_ID(n_sequence_fields)), type));
+        EVALUATE_WITH_LOCK_HELD(py::getattr(type, "n_sequence_fields"), type));
     const auto * const members = reinterpret_cast<PyTypeObject *>(type.ptr())->tp_members;
     py::tuple fields{n_sequence_fields};
     for (py::ssize_t i = 0; i < n_sequence_fields; ++i) {
@@ -447,17 +464,29 @@ inline py::tuple StructSequenceGetFields(const py::handle &object) {
     static read_write_mutex mutex{};
 
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_read_lock lock{mutex};
         const auto it = cache.find(type);
         if (it != cache.end()) [[likely]] {
+#if !defined(Py_GIL_DISABLED)
+            const py::gil_scoped_acquire_simple gil_acquire{};
+#endif
             return py::reinterpret_borrow<py::tuple>(it->second);
         }
     }
 
     const py::tuple fields = EVALUATE_WITH_LOCK_HELD(StructSequenceGetFieldsImpl(type), type);
     {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_release_simple gil_release{};
+#endif
         const scoped_write_lock lock{mutex};
         if (cache.size() < MAX_TYPE_CACHE_SIZE) [[likely]] {
+#if !defined(Py_GIL_DISABLED)
+            const py::gil_scoped_acquire_simple gil_acquire{};
+#endif
             cache.emplace(type, fields);
             fields.inc_ref();
             (void)py::weakref(type, py::cpp_function([type](py::handle weakref) -> void {
@@ -489,15 +518,15 @@ inline void TotalOrderSort(py::list &list) {  // NOLINT[runtime/references]
                 // Sort with `(f'{obj.__class__.__module__}.{obj.__class__.__qualname__}', obj)`
                 const auto sort_key_fn = py::cpp_function([](const py::object &obj) -> py::tuple {
                     const py::handle cls = py::type::handle_of(obj);
-                    const py::str qualname{EVALUATE_WITH_LOCK_HELD(
-                        PyStr(py::getattr(cls, Py_Get_ID(__module__))) + "." +
-                            PyStr(py::getattr(cls, Py_Get_ID(__qualname__))),
-                        cls)};
+                    const py::str qualname{
+                        EVALUATE_WITH_LOCK_HELD(PyStr(py::getattr(cls, "__module__")) + "." +
+                                                    PyStr(py::getattr(cls, "__qualname__")),
+                                                cls)};
                     return py::make_tuple(qualname, obj);
                 });
                 {
                     const scoped_critical_section cs{list};
-                    py::getattr(list, Py_Get_ID(sort))(py::arg("key") = sort_key_fn);
+                    py::getattr(list, "sort")(py::arg("key") = sort_key_fn);
                 }
             } catch (py::error_already_set &ex2) {
                 if (ex2.matches(PyExc_TypeError)) [[likely]] {

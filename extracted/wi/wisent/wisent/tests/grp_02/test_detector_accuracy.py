@@ -15,6 +15,7 @@ from wisent.core.activations.activations_collector import ActivationCollector
 from wisent.core.activations import ExtractionStrategy
 from wisent.core.contrastive_pairs.lm_eval_pairs.lm_extractor_registry import get_extractor
 from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
+from wisent.core.constants import NORM_EPS
     detect_geometry_structure,
     GeometryAnalysisConfig,
 )
@@ -74,7 +75,7 @@ def main():
     print(f"Sparsity (fraction < 0.1): {sparsity:.2%}")
     
     # 2. Cosine similarity of difference vectors (for cone detection)
-    diff_norm = diff_np / (np.linalg.norm(diff_np, axis=1, keepdims=True) + 1e-8)
+    diff_norm = diff_np / (np.linalg.norm(diff_np, axis=1, keepdims=True) + NORM_EPS)
     cos_sim = diff_norm @ diff_norm.T
     cos_sim_flat = cos_sim[np.triu_indices(len(cos_sim), k=1)]
     mean_cos_sim = cos_sim_flat.mean()

@@ -1,43 +1,58 @@
 from __future__ import annotations
 
-from collections.abc import Collection, Hashable
+import enum
 from functools import singledispatch
+from typing import Any
 
 import numpy as np
 import pandas as pd
 import xarray
 
-from recursive_diff.proper_unstack import proper_unstack
+
+class MissingKeys(enum.Enum):
+    """key:value pair to add to dicts returned by cast()
+    to change behaviour when a key is missing left or right:
+
+    {MissingKeys: MissingKeys.IGNORE}
+        Do not print a message about missing keys.
+    {MissingKeys: MissingKeys.DIMENSION}
+        Print message `Dimension {key} is in LHS/RHS only`.
+        Do not print value.
+    {MissingKeys: MissingKeys.PAIR} (default if nothing is present):
+        Print message `Pair {key}:{value} is in LHS/RHS only`.
+    """
+
+    IGNORE = enum.auto()
+    DIMENSION = enum.auto()
+    PAIR = enum.auto()
 
 
 @singledispatch
-def cast(obj: object, brief_dims: Collection[Hashable]) -> object:  # noqa: ARG001
+def cast(obj: object) -> object:
     """Helper function of :func:`recursive_diff`.
 
     Cast objects into simpler object types:
 
     - Cast tuple to list
     - Cast frozenset to set
-    - Cast all numpy-based objects to :class:`xarray.DataArray`, as it is the
+    - Cast NumPy generics to pure-Python objects
+    - Cast array-based objects to :class:`xarray.DataArray`, as it is the
       most generic format that can describe all use cases:
 
       - :class:`numpy.ndarray`
       - :class:`pandas.Series`
       - :class:`pandas.DataFrame`
-      - :class:`pandas.Index`, except :class:`pandas.RangeIndex`, which is
-        instead returned unaltered
       - :class:`xarray.Dataset`
 
     The data will be potentially wrapped by a dict to hold the various
     attributes and marked so that it doesn't trigger an infinite recursion.
 
-    - Do nothing for any other object types.
+    Do nothing for any other object types.
+
+    See :doc:`extend` for more details.
 
     :param obj:
         complex object that must be simplified
-    :param brief_dims:
-        xarray dimensions that must be compacted.
-        See documentation on :func:`recursive_diff`.
     :returns:
         simpler object to compare
     """
@@ -46,187 +61,8 @@ def cast(obj: object, brief_dims: Collection[Hashable]) -> object:  # noqa: ARG0
     return obj
 
 
-@cast.register(np.integer)
-def cast_npint(obj: np.integer, brief_dims: Collection[Hashable]) -> int:  # noqa: ARG001
-    """Single dispatch specialised variant of :func:`cast` for all numpy scalar
-    integers (not to be confused with numpy arrays of integers)
-    """
-    return int(obj)
-
-
-@cast.register(np.floating)
-def cast_npfloat(obj: np.floating, brief_dims: Collection[Hashable]) -> float:  # noqa: ARG001
-    """Single dispatch specialised variant of :func:`cast` for all numpy scalar
-    floats (not to be confused with numpy arrays of floats)
-    """
-    return float(obj)
-
-
-@cast.register(np.ndarray)
-def cast_nparray(
-    obj: np.ndarray, brief_dims: Collection[Hashable]
-) -> dict[str, object]:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`numpy.ndarray`.
-
-    Map to a DataArray with dimensions dim_0, dim_1, ... and
-    RangeIndex() as the coords.
-    """
-    data = _strip_dataarray(xarray.DataArray(obj), brief_dims)
-    out = {f"dim_{i}": pd.RangeIndex(size) for i, size in enumerate(obj.shape)}
-    out["data"] = data
-    return out
-
-
-@cast.register(pd.Series)
-def cast_series(obj: pd.Series, brief_dims: Collection[Hashable]) -> dict[str, object]:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`pandas.Series`.
-
-    Map to a DataArray.
-    """
-    return {
-        "name": obj.name,
-        "data": _strip_dataarray(xarray.DataArray(obj, dims=["index"]), brief_dims),
-        "index": obj.index,
-    }
-
-
-@cast.register(pd.DataFrame)
-def cast_dataframe(
-    obj: pd.DataFrame, brief_dims: Collection[Hashable]
-) -> dict[str, object]:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`pandas.DataFrame`.
-
-    Map to a DataArray.
-
-    TODO: proper support for columns with different dtypes. Right now
-    they are cast to the closest common type by DataFrame.values.
-    """
-    return {
-        "data": _strip_dataarray(
-            xarray.DataArray(obj, dims=["index", "column"]), brief_dims
-        ),
-        "index": obj.index,
-        "columns": obj.columns,
-    }
-
-
-@cast.register(xarray.DataArray)
-def cast_dataarray(obj: xarray.DataArray, brief_dims: Collection[Hashable]) -> object:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`xarray.DataArray`.
-
-    Map to a simpler DataArray, with separate indices, non-index coords,
-    name, and attributes.
-    """
-    # Prevent infinite recursion - see _strip_dataarray()
-    if "__strip_dataarray__" in obj.attrs:
-        return obj
-
-    # Strip out the non-index coordinates and attributes
-    return {
-        "name": obj.name,
-        "attrs": obj.attrs,
-        # Index is handled separately, and created as a default
-        # RangeIndex(shape[i]) if it doesn't exist, as it is compared
-        # with outer join, whereas non-index coords and data are
-        # compared with inner joinu
-        "index": {k: obj.coords[k].to_index() for k in obj.dims},
-        "coords": {
-            k: _strip_dataarray(v, brief_dims)
-            for k, v in obj.coords.items()
-            if not isinstance(v.variable, xarray.IndexVariable)
-        },
-        "data": _strip_dataarray(obj, brief_dims),
-    }
-
-
-@cast.register(xarray.Dataset)
-def cast_dataset(
-    obj: xarray.Dataset, brief_dims: Collection[Hashable]
-) -> dict[str, object]:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`xarray.Dataset`.
-
-    Map to a dict of DataArrays.
-    """
-    return {
-        "attrs": obj.attrs,
-        # There may be coords, index or not, that are not
-        # used in any data variable.
-        # See above on why indices are handled separately
-        "index": {k: obj.coords[k].to_index() for k in obj.dims},
-        "coords": {
-            k: _strip_dataarray(v, brief_dims)
-            for k, v in obj.coords.items()
-            if not isinstance(v.variable, xarray.IndexVariable)
-        },
-        "data_vars": {
-            k: _strip_dataarray(v, brief_dims) for k, v in obj.data_vars.items()
-        },
-    }
-
-
-@cast.register(pd.MultiIndex)
-def cast_multiindex(
-    obj: pd.MultiIndex,
-    brief_dims: Collection[Hashable],  # noqa: ARG001
-) -> dict[str, object]:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`pandas.MultiIndex`.
-
-    Map to a set of tuples. Note that this means that levels are
-    positional. Using a set allows comparing the indices non-positionally.
-    """
-    return {"names": obj.names, "data": set(obj.tolist())}
-
-
-@cast.register(pd.RangeIndex)
-def cast_rangeindex(
-    obj: pd.RangeIndex,
-    brief_dims: Collection[Hashable],  # noqa: ARG001
-) -> pd.RangeIndex:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`pandas.RangeIndex`.
-
-    This function does nothing - RangeIndex objects are dealt with
-    directly by :func:`_recursive_diff`. This function is defined
-    to prevent RangeIndex objects to be processed by the more generic
-    ``cast(obj: pd.Index)`` below.
-    """
-    return obj
-
-
-@cast.register(pd.Index)
-def cast_index(obj: pd.Index, brief_dims: Collection[Hashable]) -> xarray.DataArray:
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`pandas.Index`.
-
-    Cast to a DataArray.
-
-    .. note::
-       :func:`~functools.singledispatch` always prefers a more specialised
-       variant if available, so this function will not be called for
-       :class:`pandas.MultiIndex` or :class:`pandas.RangeIndex`, as they have
-       their own single dispatch variants.
-    """
-    return _strip_dataarray(xarray.DataArray(obj), brief_dims)
-
-
-@cast.register(frozenset)
-def cast_frozenset(obj: frozenset, brief_dims: Collection[Hashable]) -> set:  # noqa: ARG001
-    """Single dispatch specialised variant of :func:`cast` for
-    :class:`frozenset`.
-
-    Cast to a set.
-    """
-    return set(obj)
-
-
 @cast.register(tuple)
-def cast_tuple(obj: tuple, brief_dims: Collection[Hashable]) -> list:  # noqa: ARG001
+def cast_tuple(obj: tuple) -> list:
     """Single dispatch specialised variant of :func:`cast` for
     :class:`tuple`.
 
@@ -235,48 +71,183 @@ def cast_tuple(obj: tuple, brief_dims: Collection[Hashable]) -> list:  # noqa: A
     return list(obj)
 
 
-def _strip_dataarray(
-    obj: xarray.DataArray, brief_dims: Collection[Hashable]
-) -> xarray.DataArray:
+@cast.register(frozenset)
+def cast_frozenset(obj: frozenset) -> set:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`frozenset`.
+
+    Cast to a set.
+    """
+    return set(obj)
+
+
+@cast.register(np.integer)
+def cast_npint(obj: np.integer) -> int:
+    """Single dispatch specialised variant of :func:`cast` for all numpy scalar
+    integers (not to be confused with numpy arrays of integers)
+    """
+    return int(obj)
+
+
+@cast.register(np.floating)
+def cast_npfloat(obj: np.floating) -> float:
+    """Single dispatch specialised variant of :func:`cast` for all numpy scalar
+    floats (not to be confused with numpy arrays of floats)
+    """
+    return float(obj)
+
+
+@cast.register(np.complexfloating)
+def cast_npcomplex(obj: np.complexfloating) -> complex:
+    """Single dispatch specialised variant of :func:`cast` for all numpy scalar
+    complex numbers (not to be confused with numpy arrays of complex numbers)
+    """
+    return complex(obj)
+
+
+@cast.register(np.ndarray)
+def cast_nparray(obj: np.ndarray) -> dict[Any, Any]:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`numpy.ndarray`.
+
+    Cast to a DataArray with dimensions dim_0, dim_1, ... and
+    RangeIndex() as the coords.
+    """
+    out: dict[Any, Any] = {
+        MissingKeys: MissingKeys.DIMENSION,
+        "data": _strip_dataarray(xarray.DataArray(obj)),
+    }
+    for i, size in enumerate(obj.shape):
+        out[f"dim_{i}"] = pd.RangeIndex(size)
+    return out
+
+
+@cast.register(pd.Series)
+def cast_series(obj: pd.Series) -> dict[str, Any]:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`pandas.Series`.
+
+    Cast to a DataArray.
+    """
+    return {
+        "name": obj.name,
+        "index": obj.index,
+        "data": _strip_dataarray(xarray.DataArray(obj, dims=["index"])),
+    }
+
+
+@cast.register(pd.DataFrame)
+def cast_dataframe(obj: pd.DataFrame) -> dict[str, Any]:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`pandas.DataFrame`.
+
+    Cast to a dict of DataArrays, or to a single DataArray
+    if there is only one dtype.
+    """
+    if obj.dtypes.unique().size == 1:
+        return {
+            "index": obj.index,
+            "columns": obj.columns,
+            "data": _strip_dataarray(xarray.DataArray(obj, dims=["index", "column"])),
+        }
+
+    data: dict[Any, Any] = {
+        k: _strip_dataarray(xarray.DataArray(obj[k], dims=["index"]))
+        for k in obj.columns
+    }
+    # Missing columns are already reported in the [columns] section
+    data[MissingKeys] = MissingKeys.IGNORE
+    dtypes: dict[Any, Any] = {
+        k: pd.Series([], dtype=dtype) for k, dtype in obj.dtypes.items()
+    }
+    dtypes[MissingKeys] = MissingKeys.IGNORE
+    return {"index": obj.index, "columns": obj.columns, "data": data, "dtypes": dtypes}
+
+
+@cast.register(xarray.DataArray)
+def cast_dataarray(obj: xarray.DataArray) -> xarray.DataArray | dict[Any, Any]:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`xarray.DataArray`.
+
+    Cast to a simpler DataArray, with separate indices, non-index coords,
+    name, and attributes.
+    """
+    # Prevent infinite recursion - see _strip_dataarray()
+    if "__strip_dataarray__" in obj.attrs:
+        return obj
+
+    # Strip out the non-index coordinates and attributes
+    out: dict[str, Any] = {
+        "name": obj.name,
+        "attrs": obj.attrs,
+        # Index is handled separately, and created as a default
+        # RangeIndex(shape[i]) if it doesn't exist
+        "index": {k: obj.coords[k].to_index() for k in obj.dims},
+        "coords": {
+            k: _strip_dataarray(v)
+            for k, v in obj.coords.items()
+            if not isinstance(v.variable, xarray.IndexVariable)
+        },
+        "data": _strip_dataarray(obj),
+    }
+    out["index"][MissingKeys] = MissingKeys.DIMENSION
+    return out
+
+
+@cast.register(xarray.Dataset)
+def cast_dataset(obj: xarray.Dataset) -> dict[str, Any]:
+    """Single dispatch specialised variant of :func:`cast` for
+    :class:`xarray.Dataset`.
+
+    Cast to a dict of DataArrays.
+    """
+    out: dict[str, Any] = {
+        "attrs": obj.attrs,
+        # There may be coords, index or not, that are not
+        # used in any data variable.
+        # See above on why indices are handled separately
+        "index": {k: obj.coords[k].to_index() for k in obj.dims},
+        "coords": {
+            k: _strip_dataarray(v)
+            for k, v in obj.coords.items()
+            if not isinstance(v.variable, xarray.IndexVariable)
+        },
+        "data_vars": {k: _strip_dataarray(v) for k, v in obj.data_vars.items()},
+    }
+    out["index"][MissingKeys] = MissingKeys.DIMENSION
+    return out
+
+
+def _strip_dataarray(obj: xarray.DataArray) -> xarray.DataArray:
     """Helper function of :func:`recursive_diff`.
 
-    Analyse a :class:`xarray.DataArray` and:
+    Return a shallow copy of a :class:`xarray.DataArray` with:
 
-    - strip away any non-index coordinates (including scalar coords)
-    - create stub coords for dimensions without coords
-    - sort dimensions alphabetically
-    - ravel the array to a 1D array with (potentially) a MultiIndex.
-      brief_dims, if any, are excluded.
+    - no non-index coordinates (including scalar coords)
+    - all indices have a coordinate
+    - dimensions sorted alphabetically
 
     :param obj:
         any xarray.DataArray
-    :param brief_dims:
-        collection of dims, or "all"
     :returns:
-        a stripped-down shallow copy of obj; otherwise None
+        a stripped-down shallow copy of obj
     """
-    res = obj.copy()
+    res = obj.copy(deep=False)
 
     # Remove non-index coordinates
     for k, v in obj.coords.items():
         if not isinstance(v.variable, xarray.IndexVariable):
             del res[k]
 
-    # Ravel the array to make it become 1-dimensional.
-    # To do this, we must first unstack any already stacked dimension.
-    for dim in obj.dims:
-        if isinstance(obj.get_index(dim), pd.MultiIndex):
-            res = proper_unstack(res, dim)
+    # Add missing index coordinates
+    # This is needed to align e.g. two numpy arrays of different sizes
+    for k, size in zip(obj.dims, obj.shape):
+        if k not in res.coords:
+            res.coords[k] = pd.RangeIndex(size)
 
     # Transpose to ignore dimensions order
     res = res.transpose(*sorted(res.dims, key=str))
 
-    # Finally stack everything back together
-    if brief_dims != "all":
-        stack_dims = sorted(set(res.dims) - set(brief_dims), key=str)
-        if stack_dims:
-            res = res.stack(__stacked__=stack_dims)
-
-    # Prevent infinite recursion - see cast(obj: xarray.DataArray)
+    # Prevent infinite recursion - see cast_dataarray()
     res.attrs["__strip_dataarray__"] = True
     return res

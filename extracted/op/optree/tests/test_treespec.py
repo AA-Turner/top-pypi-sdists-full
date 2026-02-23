@@ -43,6 +43,7 @@ from helpers import (
     MyAnotherDict,
     MyDict,
     Py_DEBUG,
+    check_script_in_subprocess,
     disable_systrace,
     gc_collect,
     parametrize,
@@ -69,36 +70,31 @@ def test_treespec_construct():
     treespec = optree.PyTreeSpec.__new__(optree.PyTreeSpec)
     with pytest.raises(TypeError, match=re.escape('No constructor defined!')):
         treespec.__init__()
+    del treespec
 
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
-    }
-    script = textwrap.dedent(
-        r"""
-        import signal
-        import sys
+    gc_collect()
 
-        import optree
-        import optree._C
-
-        for _ in range(32):
-            treespec = optree.PyTreeSpec.__new__(optree.PyTreeSpec)
-            try:
-                repr(treespec)
-            except optree._C.InternalError as ex:
-                assert 'src/treespec/serialization.cpp' in str(ex).replace('\\', '/')
-                sys.exit(0)
-        """,
-    ).strip()
     returncode = 0
     try:
         with tempfile.TemporaryDirectory() as tmpdir:
-            subprocess.check_call(
-                [sys.executable, '-Walways', '-Werror', '-c', script],
+            check_script_in_subprocess(
+                r"""
+                import signal
+                import sys
+
+                import optree
+                import optree._C
+
+                for _ in range(32):
+                    treespec = optree.PyTreeSpec.__new__(optree.PyTreeSpec)
+                    try:
+                        repr(treespec)
+                    except optree._C.InternalError as ex:
+                        assert 'src/treespec/serialization.cpp' in str(ex).replace('\\', '/')
+                        sys.exit(0)
+                """,
                 cwd=tmpdir,
-                env=env,
+                output=None,
             )
     except subprocess.CalledProcessError as ex:
         returncode = abs(ex.returncode)
@@ -544,11 +540,6 @@ def test_treespec_pickle_missing_registration():
     treespec = optree.tree_structure(Foo(0, 1), namespace='foo')
     serialized = pickle.dumps(treespec)
 
-    env = {
-        key: value
-        for key, value in os.environ.items()
-        if not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
-    }
     try:
         output = subprocess.run(
             [
@@ -576,7 +567,15 @@ def test_treespec_pickle_missing_registration():
             text=True,
             encoding='utf-8',
             cwd=TEST_ROOT,
-            env=env,
+            env={
+                key: value
+                for key, value in os.environ.items()
+                if (
+                    not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
+                    or key in ('PYTHON_GIL', 'PYTHONDEVMODE', 'PYTHONHASHSEED')
+                )
+            },
+            timeout=120.0,
         )
         message = output.stdout.strip()
     except subprocess.CalledProcessError as ex:
@@ -1154,7 +1153,7 @@ def test_treespec_transform():
         ValueError,
         match=re.escape(
             'Expected the PyTreeSpec transform function returns '
-            'an one-level PyTreeSpec as the input',
+            'a one-level PyTreeSpec as the input',
         ),
     ):
         optree.treespec_transform(

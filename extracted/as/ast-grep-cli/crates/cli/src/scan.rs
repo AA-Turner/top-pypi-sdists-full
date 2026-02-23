@@ -14,9 +14,9 @@ use crate::print::{
   CloudPrinter, ColoredPrinter, Diff, FileNamePrinter, InteractivePrinter, JSONPrinter, Platform,
   PrintProcessor, Printer, ReportStyle, SimpleFile,
 };
-use crate::utils::ErrorContext as EC;
 use crate::utils::RuleOverwrite;
 use crate::utils::{filter_file_rule, ContextArgs, InputArgs, OutputArgs, OverwriteArgs};
+use crate::utils::{ErrorContext as EC, MaxItemCounter};
 use crate::utils::{FileTrace, ScanTrace};
 use crate::utils::{Items, PathWorker, StdInWorker, Worker};
 
@@ -67,6 +67,12 @@ pub struct ScanArg {
   /// context related options
   #[clap(flatten)]
   context: ContextArgs,
+
+  /// Show at most NUM results and stop running once the limit is reached.
+  ///
+  /// Useful for big codebase to fail scan/search fast.
+  #[clap(long, conflicts_with = "interactive", value_name = "NUM")]
+  max_results: Option<u16>,
 }
 
 impl ScanArg {
@@ -128,6 +134,7 @@ struct ScanWithConfig {
   proj_dir: PathBuf,
   // TODO: remove this
   error_count: AtomicUsize,
+  max_item_counter: Option<MaxItemCounter>,
 }
 impl ScanWithConfig {
   fn try_new(arg: ScanArg, project: Result<ProjectConfig>) -> Result<Self> {
@@ -153,6 +160,7 @@ impl ScanWithConfig {
     let absolute_proj_dir = proj_dir
       .canonicalize()
       .or_else(|_| std::env::current_dir())?;
+    let max_item_counter = arg.max_results.map(MaxItemCounter::new);
     Ok(Self {
       arg,
       configs,
@@ -160,6 +168,7 @@ impl ScanWithConfig {
       trace,
       proj_dir: absolute_proj_dir,
       error_count: AtomicUsize::new(0),
+      max_item_counter,
     })
   }
 }
@@ -241,8 +250,24 @@ impl PathWorker for ScanWithConfig {
         ret.push(processed);
       }
       for (rule, matches) in scanned.matches {
+        // Atomically reserve slots for matches, truncating if needed
+        let matches: Vec<_> = if let Some(counter) = &self.max_item_counter {
+          let wanted = matches.len();
+          // Atomically claim as many slots as we can (up to wanted)
+          let claimed = counter.claim(wanted);
+          if claimed == 0 {
+            break;
+          }
+          matches.into_iter().take(claimed).collect()
+        } else {
+          matches
+        };
+        if matches.is_empty() {
+          continue;
+        }
+        let match_count = matches.len();
         if matches!(rule.severity, Severity::Error) {
-          error_count = error_count.saturating_add(matches.len());
+          error_count = error_count.saturating_add(match_count);
         }
         let processed = match_rule_on_file(path, matches, rule, file_content, processor)?;
         ret.push(processed);
@@ -251,12 +276,20 @@ impl PathWorker for ScanWithConfig {
     self.error_count.fetch_add(error_count, Ordering::AcqRel);
     Ok(ret)
   }
+
+  fn should_stop(&self) -> bool {
+    match &self.max_item_counter {
+      Some(max) => max.reached_max(),
+      None => false,
+    }
+  }
 }
 
 struct ScanStdin {
   rules: Vec<RuleConfig<SgLang>>,
   // TODO: remove this
   error_count: AtomicUsize,
+  max_diagnostics_shown: Option<usize>,
 }
 impl ScanStdin {
   fn try_new(arg: ScanArg) -> Result<Self> {
@@ -271,6 +304,7 @@ impl ScanStdin {
     Ok(Self {
       rules,
       error_count: AtomicUsize::new(0),
+      max_diagnostics_shown: arg.max_results.map(usize::from),
     })
   }
 }
@@ -310,10 +344,26 @@ impl StdInWorker for ScanStdin {
     // do not separate_fix rule in stdin mode
     let scanned = combined.scan(&grep, false);
     let mut error_count = 0usize;
+    let mut diagnostic_count = 0usize;
     let mut ret = vec![];
     for (rule, matches) in scanned.matches {
+      // Truncate matches if max_diagnostics_shown is set
+      let matches: Vec<_> = if let Some(max) = self.max_diagnostics_shown {
+        let remaining = max.saturating_sub(diagnostic_count);
+        if remaining == 0 {
+          break;
+        }
+        matches.into_iter().take(remaining).collect()
+      } else {
+        matches
+      };
+      if matches.is_empty() {
+        continue;
+      }
+      let match_count = matches.len();
+      diagnostic_count += match_count;
       if matches!(rule.severity, Severity::Error) {
-        error_count = error_count.saturating_add(matches.len());
+        error_count = error_count.saturating_add(match_count);
       }
       let processed = match_rule_on_file(path, matches, rule, file_content, processor)?;
       ret.push(processed);
@@ -426,6 +476,7 @@ rule:
         context: 0,
       },
       format: None,
+      max_results: None,
     }
   }
 

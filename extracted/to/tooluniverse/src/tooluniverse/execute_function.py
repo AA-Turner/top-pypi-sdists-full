@@ -1192,7 +1192,7 @@ class ToolUniverse:
 
                 # Create auto loader instance
                 self.logger.debug("Creating auto loader instance...")
-                auto_loader = tool_type_mappings["MCPAutoLoaderTool"](loader_config)
+                auto_loader = get_tool_class_lazy("MCPAutoLoaderTool")(loader_config)
                 self.logger.debug("Auto loader instance created")
 
                 # Run auto-load process with proper session cleanup and timeout
@@ -1848,6 +1848,96 @@ class ToolUniverse:
         )
         return self.tool_specification(tool_name, return_prompt=return_prompt)
 
+    def _sanitize_schema_for_openai(self, schema):
+        """Recursively sanitize a JSON Schema object for OpenAI function calling compatibility.
+
+        Handles three categories of issues that cause OpenAI to reject schemas:
+
+        1. **Legacy required flags** — ``required: True/False`` embedded on individual
+           property schemas (not valid JSON Schema).  Collected and rebuilt as a proper
+           top-level ``required`` array on the enclosing object schema.
+
+        2. **Array type unions** — ``type: ["string", "null"]`` (JSON Schema draft-4
+           shorthand).  OpenAI only accepts a single string for ``type``; this converts
+           them to ``anyOf: [{"type": "string"}, {"type": "null"}]``.
+
+        3. **``additionalProperties: True``** — OpenAI's validator rejects this value;
+           the key is removed.
+
+        Recurses into ``properties``, ``items``, and ``anyOf`` / ``oneOf`` / ``allOf``
+        so that deeply-nested sub-schemas are also cleaned up.
+
+        Args:
+            schema (dict): A JSON Schema dict to sanitize (not mutated in place).
+
+        Returns:
+            dict: A new dict with all issues resolved.
+        """
+        if not isinstance(schema, dict):
+            return schema
+
+        schema = dict(schema)
+
+        # ── Fix 1: array type unions → anyOf ─────────────────────────────────
+        if isinstance(schema.get("type"), list):
+            type_list = schema.pop("type")
+            # Preserve items if present at this level (belongs to the array sub-schema)
+            outer_items = schema.pop("items", None)
+            any_of = []
+            for t in type_list:
+                sub: dict = {"type": t}
+                if t == "array":
+                    sub["items"] = outer_items if outer_items is not None else {}
+                any_of.append(sub)
+            # Merge with existing anyOf if already present
+            existing_any = schema.pop("anyOf", [])
+            schema["anyOf"] = existing_any + any_of
+
+        # ── Fix 2: legacy required:bool flags on properties ──────────────────
+        if "properties" in schema and isinstance(schema["properties"], dict):
+            required_from_booleans = []
+            new_props = {}
+            for prop_name, prop_config in schema["properties"].items():
+                if isinstance(prop_config, dict):
+                    prop_config = dict(prop_config)
+                    if prop_config.get("required") is True:
+                        required_from_booleans.append(prop_name)
+                    prop_config.pop("required", None)
+                    new_props[prop_name] = self._sanitize_schema_for_openai(prop_config)
+                else:
+                    new_props[prop_name] = prop_config
+            schema["properties"] = new_props
+
+            existing_required = schema.get("required")
+            if isinstance(existing_required, list):
+                merged = list(set(existing_required + required_from_booleans))
+                schema["required"] = merged
+            elif required_from_booleans:
+                schema["required"] = required_from_booleans
+            elif "required" in schema and not isinstance(schema["required"], list):
+                del schema["required"]
+
+        # ── Fix 3: additionalProperties: True ────────────────────────────────
+        if schema.get("additionalProperties") is True:
+            del schema["additionalProperties"]
+
+        # ── Recurse into items and combiners ─────────────────────────────────
+        if "items" in schema and isinstance(schema["items"], dict):
+            schema["items"] = self._sanitize_schema_for_openai(schema["items"])
+
+        for combiner in ("anyOf", "oneOf", "allOf"):
+            if combiner in schema and isinstance(schema[combiner], list):
+                schema[combiner] = [
+                    self._sanitize_schema_for_openai(s) if isinstance(s, dict) else s
+                    for s in schema[combiner]
+                ]
+
+        # Final safety pass: remove any boolean required that survived
+        if isinstance(schema.get("required"), bool):
+            del schema["required"]
+
+        return schema
+
     def tool_specification(self, tool_name, return_prompt=False, format="default"):
         """
         Retrieve a single tool configuration by name.
@@ -1871,47 +1961,43 @@ class ToolUniverse:
         if return_prompt:
             return self.prepare_one_tool_prompt(tool_config)
 
+        import copy
+
         # Process parameter schema based on format
         if "parameter" in tool_config and isinstance(tool_config["parameter"], dict):
-            import copy
-
             processed_config = copy.deepcopy(tool_config)
             parameter_schema = processed_config["parameter"]
+
+            if format == "openai":
+                # Recursively sanitize for OpenAI: removes legacy required:bool flags
+                # from nested property schemas, rebuilds required arrays, and strips
+                # additionalProperties:True which OpenAI rejects.
+                sanitized = self._sanitize_schema_for_openai(parameter_schema)
+                return {
+                    "name": processed_config["name"],
+                    "description": processed_config["description"],
+                    "parameters": sanitized,
+                }
 
             if (
                 "properties" in parameter_schema
                 and parameter_schema["properties"] is not None
             ):
                 required_properties = parameter_schema.get("required", [])
+                # For default format: add required fields to properties
+                for prop_name, prop_config in parameter_schema["properties"].items():
+                    if isinstance(prop_config, dict):
+                        prop_config["required"] = prop_name in required_properties
 
-                if format == "openai":
-                    # For OpenAI format: remove property-level required fields
-                    for _prop_name, prop_config in parameter_schema[
-                        "properties"
-                    ].items():
-                        if isinstance(prop_config, dict) and "required" in prop_config:
-                            del prop_config["required"]
+                return processed_config
 
-                    # Ensure required is a list
-                    if not isinstance(parameter_schema.get("required"), list):
-                        parameter_schema["required"] = (
-                            required_properties if required_properties else []
-                        )
-
-                    return {
-                        "name": processed_config["name"],
-                        "description": processed_config["description"],
-                        "parameters": parameter_schema,
-                    }
-                else:
-                    # For default format: add required fields to properties
-                    for prop_name, prop_config in parameter_schema[
-                        "properties"
-                    ].items():
-                        if isinstance(prop_config, dict):
-                            prop_config["required"] = prop_name in required_properties
-
-                    return processed_config
+        if format == "openai":
+            # Tool has no structured parameter schema — return a valid empty spec
+            return {
+                "name": tool_config["name"],
+                "description": tool_config.get("description", ""),
+                "parameters": {"type": "object", "properties": {}},
+            }
 
         return tool_config
 
@@ -2858,13 +2944,19 @@ class ToolUniverse:
                 kwargs["validate"] = validate
 
             # Call with all supported parameters
-            return tool_instance.run(tool_arguments, **kwargs), tool_arguments
+            result = tool_instance.run(tool_arguments, **kwargs)
+            if inspect.iscoroutine(result):
+                result = asyncio.run(result)
+            return result, tool_arguments
 
         except (ValueError, TypeError) as e:
             # If inspection fails or tool doesn't accept extra params,
             # fall back to simple execution with just arguments
             self.logger.debug(f"Falling back to simple run() call: {e}")
-            return tool_instance.run(tool_arguments), tool_arguments
+            result = tool_instance.run(tool_arguments)
+            if inspect.iscoroutine(result):
+                result = asyncio.run(result)
+            return result, tool_arguments
 
     async def _invoke_tool_async(self, tool_instance, tool_arguments, **kwargs):
         """Invoke tool.run, using await for async tools or a thread pool for sync tools."""

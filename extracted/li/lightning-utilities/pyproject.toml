@@ -1,5 +1,6 @@
 [build-system]
 requires = [
+  "packaging",
   "setuptools",
   "wheel",
 ]
@@ -141,6 +142,7 @@ exclude_lines = [
   "pragma: no cover",
   "pass",
 ]
+
 #[tool.coverage.run]
 #parallel = true
 #concurrency = ['thread']

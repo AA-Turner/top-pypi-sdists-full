@@ -3,13 +3,14 @@
 import numpy as np
 from typing import Dict, Any
 from scipy import stats
+from wisent.core.constants import STAT_ALPHA, TARGET_POWER
 
 
 def compute_statistical_power(
     n_samples: int,
     effective_dim: float,
-    alpha: float = 0.05,
-    target_power: float = 0.80,
+    alpha: float = STAT_ALPHA,
+    target_power: float = TARGET_POWER,
 ) -> Dict[str, Any]:
     """
     Compute statistical power for detecting effects in high-dimensional setting.

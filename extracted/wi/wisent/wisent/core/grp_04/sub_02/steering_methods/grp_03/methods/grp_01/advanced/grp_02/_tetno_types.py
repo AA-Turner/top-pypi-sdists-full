@@ -28,6 +28,16 @@ from wisent.core.steering_methods.core.atoms import BaseSteeringMethod
 from wisent.core.activations.core.atoms import LayerActivations, RawActivationMap, LayerName
 from wisent.core.contrastive_pairs.core.set import ContrastivePairSet
 from wisent.core.errors import InsufficientDataError
+from wisent.core.constants import (
+    TETNO_CONDITION_THRESHOLD,
+    TETNO_GATE_TEMPERATURE,
+    TETNO_ENTROPY_FLOOR,
+    TETNO_ENTROPY_CEILING,
+    TETNO_MAX_ALPHA,
+    TETNO_OPTIMIZATION_STEPS,
+    TETNO_LEARNING_RATE,
+    TETNO_THRESHOLD_SEARCH_STEPS,
+)
 
 __all__ = [
     "TETNOMethod",
@@ -66,10 +76,10 @@ class TETNOConfig:
             self.steering_layers = list(range(start, end))
     
     # Condition gating
-    condition_threshold: float = 0.5
+    condition_threshold: float = TETNO_CONDITION_THRESHOLD
     """Threshold for condition activation (0-1)."""
     
-    gate_temperature: float = 0.1
+    gate_temperature: float = TETNO_GATE_TEMPERATURE
     """Temperature for sigmoid gating (lower = sharper)."""
     
     learn_threshold: bool = True
@@ -79,20 +89,20 @@ class TETNOConfig:
     use_entropy_scaling: bool = True
     """Enable entropy-based intensity modulation."""
     
-    entropy_floor: float = 0.5
+    entropy_floor: float = TETNO_ENTROPY_FLOOR
     """Minimum entropy to trigger scaling (below = no steering)."""
     
-    entropy_ceiling: float = 2.0
+    entropy_ceiling: float = TETNO_ENTROPY_CEILING
     """Entropy at which max_alpha is reached."""
     
-    max_alpha: float = 2.0
+    max_alpha: float = TETNO_MAX_ALPHA
     """Maximum steering strength."""
     
     # Training
-    optimization_steps: int = 100
+    optimization_steps: int = TETNO_OPTIMIZATION_STEPS
     """Steps for condition vector optimization."""
     
-    learning_rate: float = 0.01
+    learning_rate: float = TETNO_LEARNING_RATE
     """Learning rate for optimization."""
     
     use_caa_init: bool = True
@@ -102,7 +112,7 @@ class TETNOConfig:
     """L2-normalize vectors."""
     
     # Threshold search
-    threshold_search_steps: int = 20
+    threshold_search_steps: int = TETNO_THRESHOLD_SEARCH_STEPS
     """Number of threshold values to try in grid search."""
 
 
@@ -157,7 +167,7 @@ class TETNOResult:
         
         return similarity.item() > thresh, similarity.item()
     
-    def compute_gate(self, hidden_state: torch.Tensor, temperature: float = 0.1) -> torch.Tensor:
+    def compute_gate(self, hidden_state: torch.Tensor, temperature: float = TETNO_GATE_TEMPERATURE) -> torch.Tensor:
         """
         Compute soft gate value for steering.
         

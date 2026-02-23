@@ -1,0 +1,2 @@
+import{t as e}from"./src-ztBDyvoF.js";const t=e([`not-disabled:bg-component-node-widget-background`,`not-disabled:text-component-node-foreground`,`border-none`,`rounded-lg`]);export{t};
+//# sourceMappingURL=layout-CtGlf9We.js.map

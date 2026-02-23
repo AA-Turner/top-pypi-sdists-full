@@ -11,7 +11,7 @@ from .activations.activations_collector import ActivationCollector
 from .activations.extraction_strategy import ExtractionStrategy
 
 from wisent.core.errors import OptimizationError, NoActivationDataError, InsufficientDataError
-
+from wisent.core.constants import VAL_SPLIT, MAX_COMBINATIONS, DEFAULT_RANDOM_SEED
 from wisent.core.opti._hyperparameter_evaluate import (
     HyperparameterEvaluateMixin,
     detect_model_layers,
@@ -54,13 +54,13 @@ class OptimizationConfig:
     cv_folds: int = 0
 
     # Validation split ratio (used when cv_folds=0)
-    val_split: float = 0.2
+    val_split: float = VAL_SPLIT
 
     # Maximum number of combinations to try (for performance)
-    max_combinations: int = 1000
+    max_combinations: int = MAX_COMBINATIONS
 
     # Random seed for reproducibility
-    seed: int = 42
+    seed: int = DEFAULT_RANDOM_SEED
 
 
 @dataclass

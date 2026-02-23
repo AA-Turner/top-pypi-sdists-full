@@ -580,12 +580,17 @@ def storage_to_cookie(storage: Union[str, Path, dict]):
 
 
 @lru_cache()
-def url2fileview(url):
+def url2fileview(url, watermark_text: Optional[str] = None):
     encoded_url = base64.b64encode(url.encode()).decode()
     # import urllib.parse
     # encoded_url = urllib.parse.quote(encoded_url)
 
-    return f"https://v.ffire.cc/onlinePreview?url={encoded_url}"
+    url = f"https://file.kkview.cn/onlinePreview?url={encoded_url}&key=000"
+
+    if watermark_text:
+        url += f"&watermarkTxt={watermark_text}"
+
+    return url
 
 
 def logany(*objs, threshold: int = 1000):
@@ -621,5 +626,8 @@ if __name__ == '__main__':
 
     # logany("request")
 
-    logany(["request"] * 10)
-    logany("reques", "request2")
+    # logany(["request"] * 10)
+    # logany("reques", "request2")
+
+    print(url2fileview(
+        "https://sf-maas-uat-prod.oss-cn-shanghai.aliyuncs.com/outputs/dd25c8e0-fc6b-4d9b-aede-f6a489b04dee_00001_.png"))

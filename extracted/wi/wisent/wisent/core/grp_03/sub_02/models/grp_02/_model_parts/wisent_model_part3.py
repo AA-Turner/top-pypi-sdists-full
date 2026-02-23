@@ -11,6 +11,10 @@ from wisent.core.activations.core.atoms import RawActivationMap
 from wisent.core.prompts.core.atom import ChatMessage
 from wisent.core.contrastive_pairs.diagnostics import run_control_steering_diagnostics
 from wisent.core.errors import ControlVectorDiagnosticsError
+from wisent.core.constants import (
+    DEFAULT_MAX_NEW_TOKENS, DEFAULT_INFERENCE_TEMPERATURE,
+    DEFAULT_TOP_P, DEFAULT_TOP_K, DEFAULT_REPETITION_PENALTY,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -19,11 +23,11 @@ logger = logging.getLogger(__name__)
 def _generate(
     self,
     inputs: list[list[ChatMessage]] | str,
-    max_new_tokens: int = 128,
-    temperature: float = 0.7,
-    top_p: float = 0.95,
-    top_k: int = 50,
-    repetition_penalty: float = 1.12,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
+    temperature: float = DEFAULT_INFERENCE_TEMPERATURE,
+    top_p: float = DEFAULT_TOP_P,
+    top_k: int = DEFAULT_TOP_K,
+    repetition_penalty: float = DEFAULT_REPETITION_PENALTY,
     no_repeat_ngram_size: int = 4,
     do_sample: bool = True,
     num_return_sequences: int = 1,

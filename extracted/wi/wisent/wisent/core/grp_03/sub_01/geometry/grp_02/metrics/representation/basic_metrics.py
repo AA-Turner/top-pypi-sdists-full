@@ -7,6 +7,7 @@ Metrics for magnitude, sparsity, and per-pair quality.
 import torch
 import numpy as np
 from typing import Dict, Any
+from wisent.core.constants import NORM_EPS
 
 
 def compute_magnitude_metrics(
@@ -57,8 +58,8 @@ def compute_magnitude_metrics(
 
         # Steering vector
         "steering_vector_norm": float(steering_norm),
-        "steering_to_activation_ratio": float(steering_norm / (all_norms.mean() + 1e-8)),
-        "steering_to_diff_ratio": float(steering_norm / (diff_norms.mean() + 1e-8)),
+        "steering_to_activation_ratio": float(steering_norm / (all_norms.mean() + NORM_EPS)),
+        "steering_to_diff_ratio": float(steering_norm / (diff_norms.mean() + NORM_EPS)),
     }
 
 
@@ -105,13 +106,13 @@ def compute_sparsity_metrics(
         x = np.sort(x)
         n = len(x)
         cumsum = np.cumsum(x)
-        return (2 * np.sum((np.arange(1, n+1) * x)) - (n + 1) * cumsum[-1]) / (n * cumsum[-1] + 1e-8)
+        return (2 * np.sum((np.arange(1, n+1) * x)) - (n + 1) * cumsum[-1]) / (n * cumsum[-1] + NORM_EPS)
 
     # Per-neuron contribution to steering direction
     mean_diff = diffs.mean(axis=0)
     neuron_contributions = np.abs(mean_diff)
     sorted_contributions = np.sort(neuron_contributions)[::-1]
-    cumsum_contributions = np.cumsum(sorted_contributions) / (sorted_contributions.sum() + 1e-8)
+    cumsum_contributions = np.cumsum(sorted_contributions) / (sorted_contributions.sum() + NORM_EPS)
 
     # How many neurons needed for X% of signal
     neurons_for_50 = int(np.searchsorted(cumsum_contributions, 0.5) + 1)
@@ -143,7 +144,7 @@ def compute_sparsity_metrics(
         # Top neurons
         "top_20_neuron_indices": top_neuron_indices,
         "top_20_neuron_contributions": top_neuron_contributions,
-        "top_10_contribution_fraction": float(sorted_contributions[:10].sum() / (sorted_contributions.sum() + 1e-8)),
+        "top_10_contribution_fraction": float(sorted_contributions[:10].sum() / (sorted_contributions.sum() + NORM_EPS)),
     }
 
 
@@ -170,14 +171,14 @@ def compute_pair_quality_metrics(
     mean_diff = diffs.mean(axis=0)
     mean_diff_norm = np.linalg.norm(mean_diff)
 
-    if mean_diff_norm < 1e-8:
+    if mean_diff_norm < NORM_EPS:
         return {"error": "mean_diff_norm too small"}
 
     mean_diff_normalized = mean_diff / mean_diff_norm
 
     # Per-pair alignment with mean direction
     diff_norms = np.linalg.norm(diffs, axis=1)
-    valid_mask = diff_norms > 1e-8
+    valid_mask = diff_norms > NORM_EPS
 
     alignments = np.zeros(n)
     alignments[valid_mask] = (diffs[valid_mask] / diff_norms[valid_mask, np.newaxis]) @ mean_diff_normalized
@@ -197,7 +198,7 @@ def compute_pair_quality_metrics(
         mask[i] = False
         loo_mean = diffs[mask].mean(axis=0)
         loo_norm = np.linalg.norm(loo_mean)
-        if loo_norm > 1e-8:
+        if loo_norm > NORM_EPS:
             loo_normalized = loo_mean / loo_norm
             angle = np.arccos(np.clip(np.dot(mean_diff_normalized, loo_normalized), -1, 1))
             loo_angles.append(np.degrees(angle))

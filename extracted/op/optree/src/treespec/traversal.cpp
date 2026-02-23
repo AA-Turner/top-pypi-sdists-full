@@ -162,14 +162,19 @@ py::object PyTreeIter::NextImpl() {
 }
 
 py::object PyTreeIter::Next() {
-#if defined(Py_GIL_DISABLED)
-    const scoped_lock lock{m_mutex};
+#if !defined(Py_GIL_DISABLED)
+    const py::gil_scoped_release_simple gil_release{};
 #endif
-
-    if (m_none_is_leaf) [[unlikely]] {
-        return NextImpl<NONE_IS_LEAF>();
-    } else [[likely]] {
-        return NextImpl<NONE_IS_NODE>();
+    const scoped_lock lock{m_mutex};
+    {
+#if !defined(Py_GIL_DISABLED)
+        const py::gil_scoped_acquire_simple gil_acquire{};
+#endif
+        if (m_none_is_leaf) [[unlikely]] {
+            return NextImpl<NONE_IS_LEAF>();
+        } else [[likely]] {
+            return NextImpl<NONE_IS_NODE>();
+        }
     }
 }
 
@@ -248,7 +253,7 @@ py::object PyTreeSpec::WalkImpl(const py::iterable &leaves,
         throw py::value_error("Too many leaves for PyTreeSpec.");
     }
 
-    EXPECT_EQ(agenda.size(), 1, "PyTreeSpec traversal did not yield a singleton.");
+    EXPECT_EQ(agenda.size(), 1U, "PyTreeSpec traversal did not yield a singleton.");
     return agenda.back();
 }
 

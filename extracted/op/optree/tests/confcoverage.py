@@ -38,7 +38,10 @@ def is_importable(mod: str) -> bool:
     env = {
         key: value
         for key, value in os.environ.items()
-        if not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
+        if (
+            not key.startswith(('PYTHON', 'PYTEST', 'COV_'))
+            or key in ('PYTHON_GIL', 'PYTHONDEVMODE', 'PYTHONHASHSEED')
+        )
     }
     try:
         subprocess.check_call(
@@ -57,8 +60,9 @@ def is_importable(mod: str) -> bool:
             ],
             cwd=TEST_ROOT,
             env=env,
+            timeout=120.0,
         )
-    except subprocess.CalledProcessError:
+    except subprocess.SubprocessError:
         return False
     return True
 

@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 
+from wisent.core.constants import OPTUNA_N_TRIALS_SMALL
 from wisent.core.cli.optimization.core.optimize_helpers import (
     get_checkpoint_path, get_s3_checkpoint_key, load_checkpoint,
     save_checkpoint, get_all_benchmarks, get_personalization_traits,
@@ -188,7 +189,7 @@ def execute_optimize(args: argparse.Namespace) -> Dict[str, Any]:
                         trait=task,
                         task=None,
                         steering_vectors=None,
-                        trials=getattr(args, 'n_trials', 20),
+                        trials=getattr(args, 'n_trials', OPTUNA_N_TRIALS_SMALL),
                         target_metric="score",
                         target_value=0.8,
                         device=args.device,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-imagekit
-Version: 6.0.0
+Version: 6.1.0
 Summary: Automated image processing for Django models.
 Home-page: http://github.com/matthewwithanm/django-imagekit/
 Author: Matthew Tretter

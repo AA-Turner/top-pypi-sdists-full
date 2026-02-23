@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geventhttpclient
-Version: 2.3.7
+Version: 2.3.8
 Summary: HTTP client library for gevent
 Author-email: Antonin Amand <antonin.amand@gmail.com>
 License-Expression: MIT

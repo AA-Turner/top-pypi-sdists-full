@@ -349,42 +349,52 @@ class ClinGenTool(BaseTool):
     def _get_variant_classifications(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Get variant pathogenicity classifications from ClinGen Evidence Repository."""
         try:
-            url = f"{EREPO_BASE_URL}/classifications/all?format=json"
+            url = f"{EREPO_BASE_URL}/classifications/all"
 
-            headers = {"Accept": "application/json"}
-            response = requests.get(url, headers=headers, timeout=self.timeout)
+            response = requests.get(url, timeout=self.timeout)
             response.raise_for_status()
 
-            data = response.json()
+            # API returns TSV (tab-separated) with first line starting with #
+            tsv_text = response.text
+            lines = tsv_text.strip().split("\n")
+
+            # Strip leading # from header line
+            if lines and lines[0].startswith("#"):
+                lines[0] = lines[0][1:]
+
+            data = []
+            if len(lines) > 1:
+                reader = csv.DictReader(io.StringIO("\n".join(lines)), delimiter="\t")
+                for row in reader:
+                    cleaned = {k.strip(): v.strip() for k, v in row.items() if k and v}
+                    if cleaned:
+                        data.append(cleaned)
 
             # Optional filtering by gene
             gene = arguments.get("gene")
             if gene:
                 gene_upper = gene.upper()
-                if isinstance(data, list):
-                    data = [
-                        v
-                        for v in data
-                        if gene_upper in str(v.get("gene", "")).upper()
-                        or gene_upper in str(v.get("Gene", "")).upper()
-                    ]
+                data = [
+                    v
+                    for v in data
+                    if gene_upper in str(v.get("HGNC Gene Symbol", "")).upper()
+                ]
 
             # Optional filtering by variant
             variant = arguments.get("variant")
-            if variant and isinstance(data, list):
+            if variant:
                 variant_str = str(variant).upper()
                 data = [
                     v
                     for v in data
-                    if variant_str in str(v.get("variant", "")).upper()
-                    or variant_str in str(v.get("Variant", "")).upper()
-                    or variant_str in str(v.get("hgvs", "")).upper()
+                    if variant_str in str(v.get("Variation", "")).upper()
+                    or variant_str in str(v.get("HGVS Expressions", "")).upper()
                 ]
 
             return {
                 "status": "success",
-                "data": data[:100] if isinstance(data, list) else data,
-                "total": len(data) if isinstance(data, list) else 1,
+                "data": data[:100],
+                "total": len(data),
                 "source": "ClinGen Evidence Repository",
             }
         except requests.exceptions.Timeout:

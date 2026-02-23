@@ -4,7 +4,7 @@ requires = ["setuptools>=77.0.3"]
 
 [project]
 name = "types-icalendar"
-version = "6.3.2.20260213"
+version = "6.3.2.20260223"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for icalendar"
@@ -34,7 +34,7 @@ This package was tested with the following type checkers:
 * [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`da3de3ac0950f967d63a97a2d27de2ab8c1f4fa3`](https://github.com/python/typeshed/commit/da3de3ac0950f967d63a97a2d27de2ab8c1f4fa3).
+[`24827c4590595507c5542ecea5c0850b070df4fc`](https://github.com/python/typeshed/commit/24827c4590595507c5542ecea5c0850b070df4fc).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

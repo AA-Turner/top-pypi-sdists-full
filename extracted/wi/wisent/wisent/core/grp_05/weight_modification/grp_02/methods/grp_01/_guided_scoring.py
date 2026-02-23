@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from torch import Tensor
 
 from wisent.core.weight_modification.methods.guided import (
+from wisent.core.constants import NORM_EPS
     LayerDiagnostics,
     GuidedModificationConfig,
 )
@@ -78,7 +79,7 @@ def _compute_fisher_ratio(
     within_scatter = within_scatter / (pos_tensor.shape[0] + neg_tensor.shape[0])
     
     # Fisher ratio
-    fisher_ratio = between_scatter / (within_scatter + 1e-8)
+    fisher_ratio = between_scatter / (within_scatter + NORM_EPS)
     
     return float(fisher_ratio)
 

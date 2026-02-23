@@ -12,6 +12,7 @@ from wisent.core.activations import (
     extract_activation,
 )
 from wisent.core.errors import NoHiddenStatesError
+from wisent.core.constants import LOG_EPS, ACTIVATIONS_BATCH_SIZE
 
 if TYPE_CHECKING:
     from wisent.core.models.wisent_model import WisentModel
@@ -172,7 +173,7 @@ class ActivationCollector:
         texts: list[str],
         strategy: ExtractionStrategy = ExtractionStrategy.CHAT_LAST,
         layers: Sequence[LayerName] | None = None,
-        batch_size: int = 8,
+        batch_size: int = ACTIVATIONS_BATCH_SIZE,
         show_progress: bool = True,
     ) -> list[dict[str, torch.Tensor]]:
         """Collect activations for multiple texts in batches."""
@@ -265,7 +266,7 @@ class ActivationCollector:
             out.append(i - 1)
         return sorted(set(out))
 
-    def _normalize(self, x: torch.Tensor, dim: int = -1, eps: float = 1e-12) -> torch.Tensor:
+    def _normalize(self, x: torch.Tensor, dim: int = -1, eps: float = LOG_EPS) -> torch.Tensor:
         """Safely L2-normalize tensor."""
         if not torch.is_floating_point(x):
             return x

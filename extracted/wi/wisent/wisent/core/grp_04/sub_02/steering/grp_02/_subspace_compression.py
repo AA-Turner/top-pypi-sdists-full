@@ -10,6 +10,7 @@ import torch.nn.functional as F
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.activations.core.atoms import LayerName
 from wisent.core.steering._subspace_analysis import UNIVERSAL_SUBSPACE_RANK
+from wisent.core.constants import ZERO_THRESHOLD
 
 _LOG = setup_logger(__name__)
 
@@ -260,7 +261,7 @@ def explained_variance_analysis(
     
     # Variance ratios
     total_var = (S ** 2).sum()
-    if total_var < 1e-10:
+    if total_var < ZERO_THRESHOLD:
         return [1.0], [1.0]
     
     k = min(max_components, len(S))

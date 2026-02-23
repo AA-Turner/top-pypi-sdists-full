@@ -7,6 +7,7 @@ import json
 import random
 import numpy as np
 from pathlib import Path
+from wisent.core.constants import NORM_EPS
 
 
 def execute_discover_steering(args):
@@ -54,7 +55,7 @@ def execute_discover_steering(args):
 
     # Original steering vector
     original_direction = pos_np.mean(axis=0) - neg_np.mean(axis=0)
-    original_direction = original_direction / (np.linalg.norm(original_direction) + 1e-8)
+    original_direction = original_direction / (np.linalg.norm(original_direction) + NORM_EPS)
 
     # Load model and evaluator
     print(f"\nLoading model: {args.model}")

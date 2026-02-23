@@ -9,11 +9,14 @@ import calendar
 import datetime
 import importlib
 import inspect
+import json
 import logging
 import numbers
 import os
+import sys
 import warnings
 from collections.abc import Generator, Iterable, Sequence
+from enum import Enum
 
 # TODO: Change import path to "collections.abc" after we stop supporting Python 3.8
 from typing import (
@@ -35,7 +38,7 @@ if TYPE_CHECKING:
 
     from .job import Job
     from .queue import Queue
-    from .worker import Worker
+    from .worker import BaseWorker
 
 
 _T = TypeVar('_T')
@@ -44,6 +47,37 @@ ObjOrStr = Union[_O, str]
 
 
 logger = logging.getLogger(__name__)
+
+
+class Platform(Enum):
+    """Enum representing the operating system platform."""
+
+    WINDOWS = 'windows'
+    MAC = 'mac'
+    LINUX = 'linux'
+    OTHERS = 'others'
+
+
+def get_platform() -> Platform:
+    """Detect and return the current operating system platform.
+
+    Returns:
+        Platform: The detected platform enum value.
+            - Platform.WINDOWS for Windows systems
+            - Platform.MAC for macOS systems
+            - Platform.LINUX for Linux systems
+            - Platform.OTHERS for any other platform
+    """
+    platform = sys.platform.lower()
+
+    if platform.startswith('win'):
+        return Platform.WINDOWS
+    elif platform == 'darwin':
+        return Platform.MAC
+    elif platform.startswith('linux'):
+        return Platform.LINUX
+    else:
+        return Platform.OTHERS
 
 
 def resolve_function_reference(func) -> tuple[Any, str]:
@@ -102,7 +136,7 @@ def as_text(v: Union[bytes, str]) -> str:
     elif isinstance(v, str):
         return v
     else:
-        raise ValueError('Unknown type %r' % type(v))
+        raise ValueError(f'Unknown type {type(v)!r}')
 
 
 def decode_redis_hash(h: dict[Union[bytes, str], Any], *, decode_values: bool = False) -> dict[str, Any]:
@@ -118,8 +152,19 @@ def decode_redis_hash(h: dict[Union[bytes, str], Any], *, decode_values: bool = 
         When decode_values=True, returns Dict[str, str]
     """
     if decode_values:
-        return dict((as_text(k), as_text(v)) for k, v in h.items())
-    return dict((as_text(k), v) for k, v in h.items())
+        return {as_text(k): as_text(v) for k, v in h.items()}
+    return {as_text(k): v for k, v in h.items()}
+
+
+NOT_JSON_SERIALIZABLE = '<not JSON serializable>'
+
+
+def safe_json_dumps(value: Any) -> str:
+    """Return JSON string if serializable, otherwise a placeholder string."""
+    try:
+        return json.dumps(value)
+    except (TypeError, ValueError):
+        return NOT_JSON_SERIALIZABLE
 
 
 def import_attribute(name: str) -> Callable[..., Any]:
@@ -168,23 +213,23 @@ def import_attribute(name: str) -> Callable[..., Any]:
     try:
         attribute_owner = getattr(module, attribute_owner_name)
     except:  # noqa
-        raise ValueError('Invalid attribute name: %s' % attribute_name)
+        raise ValueError(f'Invalid attribute name: {attribute_name}')
 
     if not hasattr(attribute_owner, attribute_name):
-        raise ValueError('Invalid attribute name: %s' % name)
+        raise ValueError(f'Invalid attribute name: {name}')
     return getattr(attribute_owner, attribute_name)
 
 
-def import_worker_class(name: str) -> type['Worker']:
+def import_worker_class(name: str) -> type['BaseWorker']:
     """Import a worker class from a dotted path name."""
     cls = import_attribute(name)
 
     if not isinstance(cls, type):
         raise ValueError(f'Invalid worker class: {name}')
 
-    from .worker import Worker
+    from .worker import BaseWorker
 
-    if not issubclass(cls, Worker):
+    if not issubclass(cls, BaseWorker):
         raise ValueError(f'Invalid worker class: {name}')
 
     return cls

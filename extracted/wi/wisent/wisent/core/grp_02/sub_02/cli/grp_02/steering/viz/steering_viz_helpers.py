@@ -11,6 +11,7 @@ from wisent.core.cli.steering_behavioral import (
     collect_behavioral_labels_all_layers,
 )
 
+from wisent.core.constants import NORM_EPS, VIZ_LIMIT
 # Re-export from steering_viz_utils for backwards compatibility
 from wisent.core.geometry.steering_viz_utils import (
     create_steering_object_from_pairs,
@@ -76,7 +77,7 @@ def select_steering_direction(
             clf = LogisticRegression( solver='lbfgs')
             clf.fit(behavioral_activations, behavioral_labels)
             direction = clf.coef_[0]
-            direction = direction / (np.linalg.norm(direction) + 1e-8)
+            direction = direction / (np.linalg.norm(direction) + NORM_EPS)
             steering_vector = torch.from_numpy(direction).float()
             acc = clf.score(behavioral_activations, behavioral_labels)
             desc = f"behavioral direction from actual outputs (acc={acc:.2f})"
@@ -134,7 +135,7 @@ def load_all_layer_activations(
     train_ids: set,
     prompt_format: str = "chat",
     extraction_strategy: str = "last_token",
-    limit: int = 200,
+    limit: int = VIZ_LIMIT,
     database_url: str = None,
     layers: list = None,
 ) -> Tuple[dict, dict]:

@@ -7,17 +7,21 @@ import torch
 
 from wisent.core.models.core.atoms import SteeringPlan, GenerationStats, TopLogits
 from wisent.core.prompts.core.atom import ChatMessage
+from wisent.core.constants import (
+    DEFAULT_MAX_NEW_TOKENS, DEFAULT_INFERENCE_TEMPERATURE,
+    DEFAULT_TOP_P, DEFAULT_TOP_K, DEFAULT_REPETITION_PENALTY,
+)
 
 
 @torch.inference_mode()
 def _generate_with_stats(
     self,
     inputs: list[list[ChatMessage]],
-    max_new_tokens: int = 64,
-    temperature: float = 0.7,
-    top_p: float = 0.95,
-    top_k: int = 50,
-    repetition_penalty: float = 1.12,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
+    temperature: float = DEFAULT_INFERENCE_TEMPERATURE,
+    top_p: float = DEFAULT_TOP_P,
+    top_k: int = DEFAULT_TOP_K,
+    repetition_penalty: float = DEFAULT_REPETITION_PENALTY,
     no_repeat_ngram_size: int = 4,
     do_sample: bool = True,
     num_return_sequences: int = 1,

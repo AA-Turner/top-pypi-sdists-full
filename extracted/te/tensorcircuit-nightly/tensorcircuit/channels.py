@@ -194,21 +194,35 @@ def generaldepolarizingchannel(
     if not np.all(np.array(probs) >= 0):
         raise ValueError(f"Invalid probability input {p}")
 
-    paulis = [gates.i().tensor, gates.x().tensor, gates.y().tensor, gates.z().tensor]  # type: ignore
-    tup = paulis
+    # paulis = [gates.i().tensor, gates.x().tensor, gates.y().tensor, gates.z().tensor]  # type: ignore
+    # vectorized implementation
+    base = np.stack(
+        [
+            gates._i_matrix,
+            gates._x_matrix,
+            gates._y_matrix,
+            gates._z_matrix,
+        ]
+    )
+    current = base
     for _ in range(num_qubits - 1):
-        old_tup = tup
-        tup = []
-        for pauli in paulis:
-            for term in old_tup:
-                mat = np.kron(pauli, term).reshape([2, 2] * num_qubits)
-                tup.append(mat)
+        n_prev = current.shape[1]
+        b = base[:, None, :, None, :, None]
+        c = current[None, :, None, :, None, :]
+        res = b * c
+        current = res.reshape(-1, 2 * n_prev, 2 * n_prev)
+
+    final_shape = [-1] + [2] * (2 * num_qubits)
+    tup = current.reshape(final_shape)
 
     assert len(tup) == len(probs)
 
-    Gkarus = []
-    for pro, paugate in zip(probs, tup):
-        Gkarus.append(Gate(_sqrt(pro) * paugate))
+    tup = backend.convert_to_tensor(tup)
+    tup = backend.cast(tup, dtype=cons.dtypestr)
+    sqrt_probs = backend.reshape(
+        _sqrt(probs), [-1] + [1] * (len(backend.shape_tuple(tup)) - 1)
+    )
+    Gkarus = [Gate(g) for g in sqrt_probs * tup]
 
     return KrausList(Gkarus, name="depolarizing", is_unitary=True)
 
@@ -505,13 +519,14 @@ def kraus_identity_check(kraus: Sequence[Gate]) -> None:
 
     dim = backend.shape_tuple(kraus[0].tensor)
     dim2 = int(2 ** (len(dim) / 2))
-    shape = (dim2, dim2)
-    placeholder = backend.zeros(shape)
+    kraus_tensors = backend.stack(
+        [backend.reshape(k.tensor, [dim2, dim2]) for k in kraus]
+    )
+    placeholder = backend.einsum(
+        "kji,kjl->il", backend.conj(kraus_tensors), kraus_tensors
+    )
     placeholder = backend.cast(placeholder, dtype=cons.dtypestr)
-    for k in kraus:
-        k = Gate(backend.reshape(k.tensor, [dim2, dim2]))
-        placeholder += backend.conj(backend.transpose(k.tensor, [1, 0])) @ k.tensor
-    np.testing.assert_allclose(placeholder, np.eye(int(shape[0])), atol=1e-5)
+    np.testing.assert_allclose(placeholder, np.eye(dim2), atol=1e-5)
 
 
 single_qubit_kraus_identity_check = kraus_identity_check  # backward compatibility

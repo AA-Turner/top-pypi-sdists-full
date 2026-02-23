@@ -4,6 +4,8 @@ import os
 import subprocess
 import time
 
+from wisent.core.constants import DEFAULT_SHOW_COMPARISONS
+
 
 def upload_to_s3(local_path: str, s3_bucket: str, s3_key: str) -> bool:
     """Upload a file or directory to S3."""
@@ -143,7 +145,7 @@ def _finalize_optimization(
 
     # Show/save before/after comparisons if requested
     save_comparisons_path = getattr(args, 'save_comparisons', None)
-    show_comparisons_count = getattr(args, 'show_comparisons', 0)
+    show_comparisons_count = getattr(args, 'show_comparisons', DEFAULT_SHOW_COMPARISONS)
     if show_comparisons_count > 0 or save_comparisons_path:
         _show_response_comparisons(
             base_model=base_model,

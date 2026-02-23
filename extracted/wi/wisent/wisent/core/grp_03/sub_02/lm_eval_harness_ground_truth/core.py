@@ -6,6 +6,7 @@ import json
 from typing import Any, Dict
 
 from wisent.core.activations import ExtractionStrategy
+from wisent.core.constants import COMPARE_TOL
 
 logger = logging.getLogger(__name__)
 
@@ -144,7 +145,7 @@ class LMEvalHarnessGroundTruth:
             generated_answer = self._extract_numerical_answer(generated)
             ground_truth_answer = self._extract_numerical_answer(str(ground_truth))
             if generated_answer is not None and ground_truth_answer is not None:
-                return abs(generated_answer - ground_truth_answer) < 1e-6
+                return abs(generated_answer - ground_truth_answer) < COMPARE_TOL
             return generated.strip().lower() == str(ground_truth).strip().lower()
         except Exception as e:
             logger.error(f"Error evaluating GSM8K response: {e}")

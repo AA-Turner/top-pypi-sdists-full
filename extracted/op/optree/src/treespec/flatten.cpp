@@ -106,7 +106,7 @@ bool PyTreeSpec::FlattenIntoImpl(const py::handle &handle,
                     node.arity = DictGetSize(dict);
                     keys = DictKeys(dict);
                     if (node.kind != PyTreeKind::OrderedDict) [[likely]] {
-                        node.original_keys = py::getattr(keys, Py_Get_ID(copy))();
+                        node.original_keys = py::getattr(keys, "copy")();
                         if constexpr (DictShouldBeSorted) {
                             TotalOrderSort(keys);
                         }
@@ -117,8 +117,8 @@ bool PyTreeSpec::FlattenIntoImpl(const py::handle &handle,
                 }
                 if (node.kind == PyTreeKind::DefaultDict) [[unlikely]] {
                     const scoped_critical_section cs{handle};
-                    node.node_data = py::make_tuple(py::getattr(handle, Py_Get_ID(default_factory)),
-                                                    std::move(keys));
+                    node.node_data =
+                        py::make_tuple(py::getattr(handle, "default_factory"), std::move(keys));
                 } else [[likely]] {
                     node.node_data = std::move(keys);
                 }
@@ -139,8 +139,7 @@ bool PyTreeSpec::FlattenIntoImpl(const py::handle &handle,
             case PyTreeKind::Deque: {
                 const auto list = thread_safe_cast<py::list>(handle);
                 node.arity = ListGetSize(list);
-                node.node_data =
-                    EVALUATE_WITH_LOCK_HELD(py::getattr(handle, Py_Get_ID(maxlen)), handle);
+                node.node_data = EVALUATE_WITH_LOCK_HELD(py::getattr(handle, "maxlen"), handle);
                 for (ssize_t i = 0; i < node.arity; ++i) {
                     recurse(ListGetItem(list, i));
                 }
@@ -208,12 +207,13 @@ bool PyTreeSpec::FlattenInto(const py::handle &handle,
     bool is_dict_insertion_ordered = false;
     bool is_dict_insertion_ordered_in_current_namespace = false;
     {
-#if defined(HAVE_READ_WRITE_LOCK)
-        const scoped_read_lock lock{sm_is_dict_insertion_ordered_mutex};
+#if defined(OPTREE_HAS_READ_WRITE_LOCK)
+        const scoped_read_lock lock{PyTreeTypeRegistry::sm_dict_order_mutex};
 #endif
-        is_dict_insertion_ordered = IsDictInsertionOrdered(registry_namespace);
+        is_dict_insertion_ordered = PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace);
         is_dict_insertion_ordered_in_current_namespace =
-            IsDictInsertionOrdered(registry_namespace, /*inherit_global_namespace=*/false);
+            PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace,
+                                                       /*inherit_global_namespace=*/false);
     }
 
     if (none_is_leaf) [[unlikely]] {
@@ -371,7 +371,7 @@ bool PyTreeSpec::FlattenIntoWithPathImpl(const py::handle &handle,
                 node.arity = DictGetSize(dict);
                 py::list keys = DictKeys(dict);
                 if (node.kind != PyTreeKind::OrderedDict) [[likely]] {
-                    node.original_keys = py::getattr(keys, Py_Get_ID(copy))();
+                    node.original_keys = py::getattr(keys, "copy")();
                     if constexpr (DictShouldBeSorted) {
                         TotalOrderSort(keys);
                     }
@@ -380,8 +380,8 @@ bool PyTreeSpec::FlattenIntoWithPathImpl(const py::handle &handle,
                     recurse(DictGetItem(dict, key), key);
                 }
                 if (node.kind == PyTreeKind::DefaultDict) [[unlikely]] {
-                    node.node_data = py::make_tuple(py::getattr(handle, Py_Get_ID(default_factory)),
-                                                    std::move(keys));
+                    node.node_data =
+                        py::make_tuple(py::getattr(handle, "default_factory"), std::move(keys));
                 } else [[likely]] {
                     node.node_data = std::move(keys);
                 }
@@ -402,8 +402,7 @@ bool PyTreeSpec::FlattenIntoWithPathImpl(const py::handle &handle,
             case PyTreeKind::Deque: {
                 const auto list = thread_safe_cast<py::list>(handle);
                 node.arity = ListGetSize(list);
-                node.node_data =
-                    EVALUATE_WITH_LOCK_HELD(py::getattr(handle, Py_Get_ID(maxlen)), handle);
+                node.node_data = EVALUATE_WITH_LOCK_HELD(py::getattr(handle, "maxlen"), handle);
                 for (ssize_t i = 0; i < node.arity; ++i) {
                     recurse(ListGetItem(list, i), py::int_(i));
                 }
@@ -485,12 +484,13 @@ bool PyTreeSpec::FlattenIntoWithPath(const py::handle &handle,
     bool is_dict_insertion_ordered = false;
     bool is_dict_insertion_ordered_in_current_namespace = false;
     {
-#if defined(HAVE_READ_WRITE_LOCK)
-        const scoped_read_lock lock{sm_is_dict_insertion_ordered_mutex};
+#if defined(OPTREE_HAS_READ_WRITE_LOCK)
+        const scoped_read_lock lock{PyTreeTypeRegistry::sm_dict_order_mutex};
 #endif
-        is_dict_insertion_ordered = IsDictInsertionOrdered(registry_namespace);
+        is_dict_insertion_ordered = PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace);
         is_dict_insertion_ordered_in_current_namespace =
-            IsDictInsertionOrdered(registry_namespace, /*inherit_global_namespace=*/false);
+            PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace,
+                                                       /*inherit_global_namespace=*/false);
     }
 
     auto stack = reserved_vector<py::handle>(4);
@@ -828,38 +828,6 @@ bool IsLeaf(const py::object &object,
         return IsLeafImpl<NONE_IS_LEAF>(object, leaf_predicate, registry_namespace);
     } else [[likely]] {
         return IsLeafImpl<NONE_IS_NODE>(object, leaf_predicate, registry_namespace);
-    }
-}
-
-template <bool NoneIsLeaf>
-bool AllLeavesImpl(const py::iterable &iterable,
-                   const std::optional<py::function> &leaf_predicate,
-                   const std::string &registry_namespace) {
-    PyTreeTypeRegistry::RegistrationPtr custom{nullptr};
-    for (const py::handle &handle : iterable) {
-        if (leaf_predicate &&
-            EVALUATE_WITH_LOCK_HELD2(thread_safe_cast<bool>((*leaf_predicate)(handle)),
-                                     handle,
-                                     *leaf_predicate)) [[unlikely]] {
-            continue;
-        }
-        if (PyTreeTypeRegistry::GetKind<NoneIsLeaf>(handle, custom, registry_namespace) !=
-            PyTreeKind::Leaf) [[unlikely]] {
-            return false;
-        }
-    }
-    return true;
-}
-
-bool AllLeaves(const py::iterable &iterable,
-               const std::optional<py::function> &leaf_predicate,
-               const bool &none_is_leaf,
-               const std::string &registry_namespace) {
-    const scoped_critical_section cs{iterable};
-    if (none_is_leaf) [[unlikely]] {
-        return AllLeavesImpl<NONE_IS_LEAF>(iterable, leaf_predicate, registry_namespace);
-    } else [[likely]] {
-        return AllLeavesImpl<NONE_IS_NODE>(iterable, leaf_predicate, registry_namespace);
     }
 }
 

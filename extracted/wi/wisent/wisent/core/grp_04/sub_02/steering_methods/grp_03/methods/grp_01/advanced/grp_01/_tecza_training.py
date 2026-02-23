@@ -5,6 +5,7 @@ import torch
 import torch.nn.functional as F
 from wisent.core.activations.core.atoms import LayerActivations, RawActivationMap, LayerName
 from wisent.core.steering_methods.methods.advanced._tecza_types import TECZAConfig
+from wisent.core.constants import NORM_EPS
 
 class TECZATrainingMixin:
     """Mixin: direction training, initialization, and loss."""
@@ -192,7 +193,7 @@ class TECZATrainingMixin:
             
             # Correlation matrix of effects
             effects_centered = effects - effects.mean(dim=0, keepdim=True)
-            effects_std = effects_centered.std(dim=0, keepdim=True) + 1e-8
+            effects_std = effects_centered.std(dim=0, keepdim=True) + NORM_EPS
             effects_norm = effects_centered / effects_std
             corr_matrix = (effects_norm.T @ effects_norm) / effects_norm.shape[0]
             
@@ -214,7 +215,7 @@ class TECZATrainingMixin:
             # Penalize if too dissimilar (< min) or too similar (> max)
             too_dissimilar = F.relu(self.config.min_cosine_similarity - off_diag)
             too_similar = F.relu(off_diag - self.config.max_cosine_similarity)
-            similarity_loss = (too_dissimilar + too_similar).sum() / (K * (K - 1) + 1e-8)
+            similarity_loss = (too_dissimilar + too_similar).sum() / (K * (K - 1) + NORM_EPS)
             loss_components["similarity"] = similarity_loss
         else:
             similarity_loss = torch.tensor(0.0)
@@ -232,7 +233,7 @@ class TECZATrainingMixin:
             ablation_effect += proj_scalar * dirs_normalized[i:i+1]
         
         # Retain loss: how much the negative examples change
-        retain_loss = (ablation_effect.norm(dim=1) / (neg_norms.squeeze() + 1e-8)).mean()
+        retain_loss = (ablation_effect.norm(dim=1) / (neg_norms.squeeze() + NORM_EPS)).mean()
         loss_components["retain"] = retain_loss
         
         # Combine losses

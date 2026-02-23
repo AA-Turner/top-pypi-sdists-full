@@ -643,11 +643,23 @@ class EsiOperation(BaseEsiOperation):
             return_response: bool = False,
             force_refresh: bool = False,
             use_cache: bool = True,
+            store_cache: bool = True,
             **extra) -> tuple[Any, Response] | Any:
         """Executes the request and returns the response from ESI for the current operation.
+
+        Keyword Arguments:
+            use_etag -- Use the inbuilt e-tag matching system (default True)
+            return_response -- return the headers and request information (default False)
+            force_refresh -- ignore etag and cache and force a re-fetch from ESI (default False)
+            use_cache -- check cache prior to fetching from ESI (default True)
+            store_cache -- store the returned data from ESI in cache (default True)
+
         Raises:
             ESIErrorLimitException: _description_
             ESIBucketLimitException: _description_
+            HTTPNotModified: _description_
+            HTTPServerError: _description_
+            HTTPClientError: _description_
         Returns:
             _type_: _description_
         """
@@ -725,8 +737,9 @@ class EsiOperation(BaseEsiOperation):
                 latency=default_timer() - _t
             )
 
-            # store the ETAG in cache
-            self._store_etag(response.headers)
+            # store the ETAG in cache if using it.
+            if use_etag:
+                self._store_etag(response.headers)
 
             # Throw a 304 exception for catching.
             if response.status_code == 304:
@@ -738,7 +751,8 @@ class EsiOperation(BaseEsiOperation):
                 )
 
             # last step store cache after 304 logic, we dont want to catch the 304 `None` responses
-            self._store_cache(cache_key, response)
+            if store_cache:
+                self._store_cache(cache_key, response)
 
         else:
             # send signal for cached data too
@@ -756,12 +770,26 @@ class EsiOperation(BaseEsiOperation):
             return_response: bool = False,
             force_refresh: bool = False,
             use_cache: bool = True,
+            store_cache: bool = True,
             **extra) -> tuple[list[Any], Response | Any | None] | list[Any]:
         all_results: list[Any] = []
         last_response: Response | None = None
         """Executes the request and returns the response from ESI for the current
         operation. Response will include all pages if there are more available.
 
+        Keyword Arguments:
+            use_etag -- Use the inbuilt e-tag matching system (default True)
+            return_response -- return the headers and request information (default False)
+            force_refresh -- ignore etag and cache and force a re-fetch from ESI (default False)
+            use_cache -- check cache prior to fetching from ESI (default True)
+            store_cache -- store the returned data from ESI in cache (default True)
+
+        Raises:
+            ESIErrorLimitException: _description_
+            ESIBucketLimitException: _description_
+            HTTPNotModified: _description_
+            HTTPServerError: _description_
+            HTTPClientError: _description_
         Returns:
             _type_: _description_
         """
@@ -780,6 +808,7 @@ class EsiOperation(BaseEsiOperation):
                         return_response=True,
                         force_refresh=force_refresh,
                         use_cache=use_cache,
+                        store_cache=store_cache,
                         **extra
                     )
                     last_response = response
@@ -836,6 +865,7 @@ class EsiOperation(BaseEsiOperation):
                     return_response=True,
                     force_refresh=force_refresh,
                     use_cache=use_cache,
+                    store_cache=store_cache,
                     **params
                 )
                 last_response = response
@@ -853,6 +883,7 @@ class EsiOperation(BaseEsiOperation):
                 return_response=True,
                 force_refresh=force_refresh,
                 use_cache=use_cache,
+                store_cache=store_cache,
                 **extra
             )
             all_results.extend(data if isinstance(data, list) else [data])

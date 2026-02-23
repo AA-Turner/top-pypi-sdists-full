@@ -17,6 +17,7 @@ from wisent.core.parser_arguments.optimization.steering.optimize_steering_parser
     setup_personalization_parsers,
 )
 from wisent.core.parser_arguments.optimization.steering.optimize_steering_parser_welfare import (
+from wisent.core.constants import TIKHONOV_REG
     setup_welfare_universal_parsers,
 )
 
@@ -41,7 +42,7 @@ def _setup_transport_rl_parser(steering_subparsers):
                    help="Step size for cost shaping or ES update (default: 0.1)")
     p.add_argument("--epsilon", type=float, default=1.0,
                    help="Entropic regularization temperature for transport methods (default: 1.0)")
-    p.add_argument("--regularization", type=float, default=1e-4,
+    p.add_argument("--regularization", type=float, default=TIKHONOV_REG,
                    help="Tikhonov regularization for pseudoinverse (default: 1e-4)")
     p.add_argument("--inference-k", type=int, default=5, dest="inference_k",
                    help="k-NN neighbors at inference (default: 5)")

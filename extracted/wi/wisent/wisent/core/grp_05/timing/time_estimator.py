@@ -4,6 +4,7 @@ from typing import Dict, Tuple, Optional
 from pathlib import Path
 
 from .timing_calibration import TimingCalibrator
+from wisent.core.constants import DATA_LOAD_LIMIT, TIMING_SAMPLES_PER_TASK
 from wisent.core.errors import (
     ModelConfigAccessError,
     CalibrationRequiredError,
@@ -67,7 +68,7 @@ class OptimizationTimeEstimator:
     def estimate_classification_time(
         self,
         num_tasks: int,
-        sample_limit: int = 200,
+        sample_limit: int = DATA_LOAD_LIMIT,
         layers: Optional[list] = None
     ) -> Tuple[float, Dict[str, float]]:
         """
@@ -92,9 +93,9 @@ class OptimizationTimeEstimator:
     def estimate_full_optimization_time(
         self,
         num_tasks: int,
-        classification_limit: int = 200,
+        classification_limit: int = DATA_LOAD_LIMIT,
         sample_sizes: list = None,
-        sample_size_limit: int = 1000,
+        sample_size_limit: int = TIMING_SAMPLES_PER_TASK,
         include_sample_size_opt: bool = True,
         include_classifier_training: bool = True,
         include_control_vectors: bool = True

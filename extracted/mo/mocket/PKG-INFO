@@ -1,23 +1,11 @@
 Metadata-Version: 2.4
 Name: mocket
-Version: 3.14.0
+Version: 3.14.1
 Summary: Socket Mock Framework - for all kinds of socket animals, web-clients included - with gevent/asyncio/SSL support
 Project-URL: Homepage, https://pypi.org/project/mocket
 Project-URL: Repository, https://github.com/mindflayer/python-mocket
 Author-email: Giorgio Salluzzo <giorgio.salluzzo@gmail.com>
-License: Copyright (c) 2017-2025 Giorgio Salluzzo and individual contributors. All rights reserved.
-        Copyright (c) 2013-2017 Andrea de Marco, Giorgio Salluzzo and individual contributors.
-        All rights reserved.
-        
-        Redistribution and use in source and binary forms, with or without modification, are permitted provided that the following conditions are met:
-        
-            1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following disclaimer.
-        
-            2. Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following disclaimer in the documentation and/or other materials provided with the distribution.
-        
-            3. Neither the name of the Mocket nor the names of its contributors may be used to endorse or promote products derived from this software without specific prior written permission.
-        
-        THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 6 - Mature
 Classifier: Intended Audience :: Developers
@@ -53,7 +41,7 @@ Requires-Dist: fastapi; extra == 'test'
 Requires-Dist: flake8>5; extra == 'test'
 Requires-Dist: gevent; extra == 'test'
 Requires-Dist: httpx; extra == 'test'
-Requires-Dist: mypy; extra == 'test'
+Requires-Dist: mypy; (platform_python_implementation != 'PyPy') and extra == 'test'
 Requires-Dist: pipfile; extra == 'test'
 Requires-Dist: pre-commit; extra == 'test'
 Requires-Dist: psutil; extra == 'test'
@@ -119,12 +107,13 @@ The main goal of Mocket is to make it easier to test Python clients that communi
 Outside GitHub
 ==============
 
-Mocket packages are available for `openSUSE`_, `NixOS`_, `ALT Linux`_, `NetBSD`_, and of course from `PyPI`_.
+Mocket packages are available for `openSUSE`_, `NixOS`_, `ALT Linux`_, `NetBSD`_, `AUR Arch Linux`_, and of course from `PyPI`_.
 
 .. _`openSUSE`: https://software.opensuse.org/search?baseproject=ALL&q=mocket
 .. _`NixOS`: https://search.nixos.org/packages?query=mocket
 .. _`ALT Linux`: https://packages.altlinux.org/en/sisyphus/srpms/python3-module-mocket/
 .. _`NetBSD`: https://cdn.netbsd.org/pub/pkgsrc/current/pkgsrc/devel/py-mocket/index.html
+.. _`AUR Arch Linux`: https://aur.archlinux.org/packages/python-mocket
 .. _`PyPI`: https://pypi.org/project/mocket/
 
 

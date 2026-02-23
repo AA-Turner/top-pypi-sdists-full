@@ -8,6 +8,7 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple
 
 import torch
+from wisent.core.constants import NORM_EPS
 
 logger = logging.getLogger(__name__)
 
@@ -63,7 +64,7 @@ def run_grid_search(
         if steering_vector is None:
             continue
 
-        steering_vector = steering_vector / (steering_vector.norm() + 1e-8)
+        steering_vector = steering_vector / (steering_vector.norm() + NORM_EPS)
 
         for strength in strength_range:
             combo_idx += 1
@@ -132,12 +133,12 @@ def _get_steering_vector(
         if layer_key_simple in result.directions:
             dirs = result.directions[layer_key_simple]
             weights = result.direction_weights[layer_key_simple]
-            weights_norm = weights / (weights.sum() + 1e-8)
+            weights_norm = weights / (weights.sum() + NORM_EPS)
             return (dirs * weights_norm.unsqueeze(-1)).sum(dim=0)
         elif layer_key_prefixed in result.directions:
             dirs = result.directions[layer_key_prefixed]
             weights = result.direction_weights[layer_key_prefixed]
-            weights_norm = weights / (weights.sum() + 1e-8)
+            weights_norm = weights / (weights.sum() + NORM_EPS)
             return (dirs * weights_norm.unsqueeze(-1)).sum(dim=0)
 
     elif method == "TECZA":

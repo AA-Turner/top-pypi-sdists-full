@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: unstructured
-Version: 0.20.8
+Version: 0.21.2
 Summary: A library that prepares raw documents for downstream ML tasks.
 Project-URL: Homepage, https://github.com/Unstructured-IO/unstructured
 Author-email: Unstructured Technologies <devops@unstructuredai.io>
@@ -22,11 +22,12 @@ Requires-Python: <3.14,>=3.11
 Requires-Dist: beautifulsoup4<5.0.0,>=4.14.3
 Requires-Dist: charset-normalizer<4.0.0,>=3.4.4
 Requires-Dist: emoji<3.0.0,>=2.15.0
+Requires-Dist: filelock<4.0.0,>=3.12.0
 Requires-Dist: filetype<2.0.0,>=1.2.0
 Requires-Dist: html5lib<2.0.0,>=1.1
+Requires-Dist: installer<1.0.0,>=0.7.0
 Requires-Dist: langdetect<2.0.0,>=1.0.9
 Requires-Dist: lxml<7.0.0,>=5.0.0
-Requires-Dist: nltk<4.0.0,>=3.9.2
 Requires-Dist: numba<1.0.0,>=0.60.0
 Requires-Dist: numpy<3.0.0,>=1.26.0
 Requires-Dist: psutil<8.0.0,>=7.2.2
@@ -34,7 +35,9 @@ Requires-Dist: python-iso639<2027.0.0,>=2026.1.31
 Requires-Dist: python-magic<1.0.0,>=0.4.27
 Requires-Dist: python-oxmsg<1.0.0,>=0.0.2
 Requires-Dist: rapidfuzz<4.0.0,>=3.14.3
+Requires-Dist: regex<2027.0.0,>=2024.0.0
 Requires-Dist: requests<3.0.0,>=2.32.5
+Requires-Dist: spacy<4.0.0,>=3.7.0
 Requires-Dist: tqdm<5.0.0,>=4.67.3
 Requires-Dist: typing-extensions<5.0.0,>=4.15.0
 Requires-Dist: unstructured-client<1.0.0,>=0.25.9

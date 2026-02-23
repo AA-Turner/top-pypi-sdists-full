@@ -8,6 +8,9 @@ for a given set of activations.
 import torch
 import numpy as np
 from typing import Dict, Any
+from wisent.core.constants import (
+    NORM_EPS, STEERABILITY_AMBIENT_DIM, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT,
+)
 
 
 def _empty_steerability_metrics() -> Dict[str, Any]:
@@ -46,13 +49,13 @@ def compute_steerability_metrics(
         diff_mean = diff_vectors.mean(axis=0)
         diff_mean_norm = np.linalg.norm(diff_mean)
         
-        if diff_mean_norm < 1e-8:
+        if diff_mean_norm < NORM_EPS:
             return _empty_steerability_metrics()
         
         diff_mean_normalized = diff_mean / diff_mean_norm
         
         diff_norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = diff_norms.squeeze() > 1e-8
+        valid_mask = diff_norms.squeeze() > NORM_EPS
         
         if valid_mask.sum() < 5:
             return _empty_steerability_metrics()
@@ -64,11 +67,11 @@ def compute_steerability_metrics(
         pct_positive_alignment = float((alignments > 0).mean())
         
         avg_diff_norm = float(diff_norms[valid_mask].mean())
-        steering_vector_norm_ratio = diff_mean_norm / (avg_diff_norm + 1e-8)
+        steering_vector_norm_ratio = diff_mean_norm / (avg_diff_norm + NORM_EPS)
         
         from sklearn.cluster import KMeans
         
-        km = KMeans(n_clusters=2, random_state=42, n_init=10)
+        km = KMeans(n_clusters=2, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
         cluster_labels = km.fit_predict(diff_normalized)
         
         c0_mask = cluster_labels == 0
@@ -78,8 +81,8 @@ def compute_steerability_metrics(
             dir_c0 = diff_vectors[valid_mask][c0_mask].mean(axis=0)
             dir_c1 = diff_vectors[valid_mask][c1_mask].mean(axis=0)
             
-            dir_c0_norm = dir_c0 / (np.linalg.norm(dir_c0) + 1e-8)
-            dir_c1_norm = dir_c1 / (np.linalg.norm(dir_c1) + 1e-8)
+            dir_c0_norm = dir_c0 / (np.linalg.norm(dir_c0) + NORM_EPS)
+            dir_c1_norm = dir_c1 / (np.linalg.norm(dir_c1) + NORM_EPS)
             
             cos_angle = np.clip(np.dot(dir_c0_norm, dir_c1_norm), -1, 1)
             cluster_direction_angle = float(np.degrees(np.arccos(np.abs(cos_angle))))
@@ -141,10 +144,10 @@ def compute_steerability_metrics(
             neg_np = neg_activations[:n_pairs].float().cpu().numpy()
             X = np.vstack([pos_np, neg_np])
             y = np.array([1] * n_pairs + [0] * n_pairs)
-            probe = LogisticRegression( random_state=42)
+            probe = LogisticRegression( random_state=DEFAULT_RANDOM_SEED)
             probe.fit(X, y)
             probe_dir = probe.coef_[0]
-            probe_dir_norm = probe_dir / (np.linalg.norm(probe_dir) + 1e-8)
+            probe_dir_norm = probe_dir / (np.linalg.norm(probe_dir) + NORM_EPS)
             caa_probe_alignment = float(np.dot(diff_mean_normalized, probe_dir_norm))
         except:
             caa_probe_alignment = diff_mean_alignment
@@ -169,7 +172,7 @@ def compute_linearity_score(
     direction_stability: float,
     diff_intrinsic_dim: float,
     pairwise_consistency: float,
-    ambient_dim: int = 4096,
+    ambient_dim: int = STEERABILITY_AMBIENT_DIM,
 ) -> Dict[str, Any]:
     """
     Return raw metrics relevant to linearity assessment.

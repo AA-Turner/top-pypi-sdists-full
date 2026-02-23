@@ -137,13 +137,18 @@ def update_registry(config, plandir, cluster, data):
 def create_ignition_files(config, plandir, cluster, domain, api_ip=None, bucket_url=None, ignition_version=None):
     clusterdir = os.path.expanduser(f"~/.kcli/clusters/{cluster}")
     ignition_overrides = {'api_ip': api_ip, 'cluster': cluster, 'domain': domain, 'role': 'master'}
-    ctlplane_ignition = config.process_inputfile(cluster, f"{plandir}/ignition.j2", overrides=ignition_overrides)
+    ctlplane_ignition = config.process_inputfile(cluster, f"{plandir}/ignition.j2",
+                                                 overrides={**ignition_overrides, **{'role': 'master'}})
     with open(f"{clusterdir}/ctlplane.ign", 'w') as f:
         f.write(ctlplane_ignition)
-    del ignition_overrides['role']
-    worker_ignition = config.process_inputfile(cluster, f"{plandir}/ignition.j2", overrides=ignition_overrides)
+    worker_ignition = config.process_inputfile(cluster, f"{plandir}/ignition.j2",
+                                               overrides={**ignition_overrides, **{'role': 'worker'}})
     with open(f"{clusterdir}/worker.ign", 'w') as f:
         f.write(worker_ignition)
+    arbiter_ignition = config.process_inputfile(cluster, f"{plandir}/ignition.j2",
+                                                overrides={**ignition_overrides, **{'role': 'arbiter'}})
+    with open(f"{clusterdir}/arbiter.ign", 'w') as f:
+        f.write(arbiter_ignition)
     if bucket_url is not None:
         if config.type == 'openstack':
             ignition_overrides['ca_file'] = config.k.ca_file
@@ -625,7 +630,7 @@ def scale(config, plandir, cluster, overrides):
         if result['result'] != 'success':
             return result
         overrides['workers'] = overrides.get('workers', 0) - len(new_baremetal_hosts)
-    for role in ['ctlplanes', 'workers']:
+    for role in ['ctlplanes', 'workers', 'arbiters']:
         overrides = data.copy()
         threaded = data.get('threaded', False) or data.get(f'{role}_threaded', False)
         if overrides.get(role, 0) <= 0:
@@ -663,6 +668,13 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
     workers = data['workers']
     if workers < 0:
         return {'result': 'failure', 'reason': f"Invalid number of workers {workers}"}
+    arbiters = data.get('arbiters', 0)
+    if arbiters > 0 and ctlplanes != 2:
+        ctlplanes = 2
+        data['ctlplanes'] = ctlplanes
+        warning("Forcing ctlplanes number to 2 since arbiters are used")
+    elif arbiters < 0:
+        return {'result': 'failure', 'reason': f"Invalid number of arbiters {arbiters}"}
     if data['dual_api_ip'] is not None:
         warning("Forcing dualstack")
         data['dualstack'] = True
@@ -1632,6 +1644,12 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         result = config.plan(plan, inputfile=f'{plandir}/ctlplanes.yml', overrides=overrides, threaded=threaded)
         if result['result'] != 'success':
             return result
+        if arbiters > 0:
+            pprint("Deploying arbiters")
+            threaded = data['threaded'] or data['arbiters_threaded']
+            result = config.plan(plan, inputfile=f'{plandir}/arbiters.yml', overrides=overrides, threaded=threaded)
+            if result['result'] != 'success':
+                return result
         if dnsconfig is not None and keepalived:
             dns_overrides = {'api_ip': api_ip, 'ingress_ip': ingress_ip, 'cluster': cluster, 'domain': domain}
             result = dnsconfig.plan(plan, inputfile=f'{plandir}/cloud_dns.yml', overrides=dns_overrides)
@@ -1665,6 +1683,12 @@ def create(config, plandir, cluster, overrides, dnsconfig=None):
         result = config.plan(plan, inputfile=f'{plandir}/cloud_lb_api.yml', overrides=overrides)
         if result['result'] != 'success':
             return result
+        if arbiters > 0:
+            pprint("Deploying arbiters")
+            threaded = data['threaded'] or data['arbiters_threaded']
+            result = config.plan(plan, inputfile=f'{plandir}/cloud_arbiters.yml', overrides=overrides, threaded=threaded)
+            if result['result'] != 'success':
+                return result
         if workers == 0:
             result = config.plan(plan, inputfile=f'{plandir}/cloud_lb_apps.yml', overrides=overrides)
             if result['result'] != 'success':

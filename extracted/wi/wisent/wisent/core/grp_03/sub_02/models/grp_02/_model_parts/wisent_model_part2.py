@@ -12,15 +12,16 @@ from wisent.core.models.layer import extract_token_ids
 from wisent.core.models.core.atoms import SteeringVector
 from wisent.core.prompts.core.atom import ChatMessage
 from wisent.core.errors import ChatTemplateNotAvailableError
+from wisent.core.constants import DEFAULT_STRENGTH, DEFAULT_MAX_NEW_TOKENS
 
 
 def _apply_steering_object(
     self,
     steering_obj: "BaseSteeringObject",
-    base_strength: float = 1.0,
+    base_strength: float = DEFAULT_STRENGTH,
     steering_strategy: str = "constant",
     steering_strategy_config: dict | None = None,
-    max_new_tokens: int = 128,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS,
 ) -> None:
     """
     Register forward hooks using a SteeringObject with full method-specific logic.

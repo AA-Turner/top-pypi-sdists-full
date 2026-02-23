@@ -29,8 +29,9 @@ sys.path.insert(0, current_dir)
 # Import the sample retrieval function and benchmark list
 from populate_tasks import get_task_samples_for_analysis
 from only_benchmarks import CORE_BENCHMARKS
+from wisent.core.constants import DEFAULT_NUM_SAMPLES
 
-def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samples: int = 5) -> Dict:
+def time_benchmark_loading(benchmark_name: str, benchmark_config: dict, num_samples: int = DEFAULT_NUM_SAMPLES) -> Dict:
     """
     Time the loading of samples from a single benchmark.
     

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-swagger-ui-tag
-Version: 0.7.2
+Version: 0.8.0
 Summary: A MkDocs plugin supports for add Swagger UI in page.
 Project-URL: Homepage, https://blueswen.github.io/mkdocs-swagger-ui-tag/
 Project-URL: Source, https://github.com/blueswen/mkdocs-swagger-ui-tag
@@ -117,9 +117,10 @@ A MkDocs plugin supports adding [Swagger UI](https://github.com/swagger-api/swag
 
 ### Upgrading the Swagger-UI version
 
-To upgrade the version of `swagger-ui-dist` update the version in the [package.json](./package.json) and install with `npm i`. 
-
-After this, run the provided [update swagger ui script](./update-swagger-ui.sh) to move the files to the appropriate folders and commit the changes.
+```bash
+SWAGGER_UI_VERSION=GIVEN_VERSION
+./update-swagger-ui.sh $SWAGGER_UI_VERSION
+```
 
 ## License
 

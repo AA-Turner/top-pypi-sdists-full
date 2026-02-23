@@ -13,7 +13,6 @@
 
 # check api https://github.com/eosphoros-ai/DB-GPT/blob/04af30e3db9bf5e7a60ab55ade01dc8ddeba06f8/dbgpt/app/openapi/api_v2.py#L46
 
-from meutils.pipe import *
 from fastapi import FastAPI, APIRouter
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.exceptions import RequestValidationError, HTTPException

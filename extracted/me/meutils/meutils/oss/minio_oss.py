@@ -213,11 +213,11 @@ if __name__ == '__main__':
     # )
     # print(arun(_, debug=True))
 
-    # _ = client.put_object_for_openai(
-    #     url,
-    #     filename='cff.png'
-    # )
-    # arun(_)
+    _ = client.put_object_for_openai(
+        url,
+        # filename='cff.png'
+    )
+    arun(_)
 
-    f = client.upload(Path("/Users/betterme/PycharmProjects/AI/qun.png").read_bytes(), filename='x.png')
-    arun(f)
+    # f = client.upload(Path("/Users/betterme/PycharmProjects/AI/qun.png").read_bytes(), filename='x.png')
+    # arun(f)

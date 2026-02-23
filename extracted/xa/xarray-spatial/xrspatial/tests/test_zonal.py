@@ -68,6 +68,23 @@ def result_default_stats():
         'sum':   [0, 6, 8, 12],
         'std':   [0, 0, 0, 1.2],
         'var':   [0, 0, 0, 1.44],
+        'count': [5, 6, 4, 5],
+        'majority': [0, 1, 2, 3]
+    }
+    return expected_result
+
+
+@pytest.fixture
+def result_default_stats_no_majority():
+    """Expected result for dask backend which doesn't support majority."""
+    expected_result = {
+        'zone':  [0, 1, 2, 3],
+        'mean':  [0, 1, 2, 2.4],
+        'max':   [0, 1, 2, 3],
+        'min':   [0, 1, 2, 0],
+        'sum':   [0, 6, 8, 12],
+        'std':   [0, 0, 0, 1.2],
+        'var':   [0, 0, 0, 1.44],
         'count': [5, 6, 4, 5]
     }
     return expected_result
@@ -102,13 +119,35 @@ def result_default_stats_dataarray():
 
          [[5., 5., 6., 6., 4., 4., 5., 5.],
           [5., 5., 6., 6., 4., 4., 5., 5.],
-          [5., 5., 6., 6., 4., np.nan, 5., 5.]]]
+          [5., 5., 6., 6., 4., np.nan, 5., 5.]],
+
+         [[0., 0., 1., 1., 2., 2., 3., 3.],
+          [0., 0., 1., 1., 2., 2., 3., 3.],
+          [0., 0., 1., 1., 2., np.nan, 3., 3.]]]
     )
     return expected_result
 
 
 @pytest.fixture
 def result_zone_ids_stats():
+    zone_ids = [0, 3]
+    expected_result = {
+        'zone':  [0, 3],
+        'mean':  [0, 2.4],
+        'max':   [0, 3],
+        'min':   [0, 0],
+        'sum':   [0, 12],
+        'std':   [0, 1.2],
+        'var':   [0, 1.44],
+        'count': [5, 5],
+        'majority': [0, 3]
+    }
+    return zone_ids, expected_result
+
+
+@pytest.fixture
+def result_zone_ids_stats_no_majority():
+    """Expected result for dask backend which doesn't support majority."""
     zone_ids = [0, 3]
     expected_result = {
         'zone':  [0, 3],
@@ -153,7 +192,11 @@ def result_zone_ids_stats_dataarray():
 
          [[5., 5., np.nan, np.nan, np.nan, np.nan, 5., 5.],
           [5., 5., np.nan, np.nan, np.nan, np.nan, 5., 5.],
-          [5., 5., np.nan, np.nan, np.nan, np.nan, 5., 5.]]])
+          [5., 5., np.nan, np.nan, np.nan, np.nan, 5., 5.]],
+
+         [[0., 0., np.nan, np.nan, np.nan, np.nan, 3., 3.],
+          [0., 0., np.nan, np.nan, np.nan, np.nan, 3., 3.],
+          [0., 0., np.nan, np.nan, np.nan, np.nan, 3., 3.]]])
 
     return zone_ids, expected_result
 
@@ -362,7 +405,8 @@ def check_results(
 
 
 @pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy'])
-def test_default_stats(backend, data_zones, data_values_2d, result_default_stats):
+def test_default_stats(backend, data_zones, data_values_2d, result_default_stats,
+                       result_default_stats_no_majority):
     if backend == 'cupy' and not has_cuda_and_cupy():
         pytest.skip("Requires CUDA and CuPy")
 
@@ -374,7 +418,9 @@ def test_default_stats(backend, data_zones, data_values_2d, result_default_stats
     copied_data_values_2d = copy.deepcopy(data_values_2d)
 
     df_result = stats(zones=data_zones, values=data_values_2d)
-    check_results(backend, df_result, result_default_stats)
+    # dask doesn't support majority stat (can't be computed block-by-block)
+    expected_result = result_default_stats_no_majority if 'dask' in backend else result_default_stats
+    check_results(backend, df_result, expected_result)
 
     assert_input_data_unmodified(data_zones, copied_data_zones)
     assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
@@ -401,9 +447,11 @@ def test_default_stats_dataarray(
     assert_input_data_unmodified(data_zones, copied_data_zones)
     assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
 
-
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore:invalid value encountered in divide:RuntimeWarning")
 @pytest.mark.parametrize("backend", ['numpy', 'dask+numpy', 'cupy'])
-def test_zone_ids_stats(backend, data_zones, data_values_2d, result_zone_ids_stats):
+def test_zone_ids_stats(backend, data_zones, data_values_2d, result_zone_ids_stats,
+                        result_zone_ids_stats_no_majority):
     if backend == 'cupy' and not has_cuda_and_cupy():
         pytest.skip("Requires CUDA and CuPy")
 
@@ -414,7 +462,11 @@ def test_zone_ids_stats(backend, data_zones, data_values_2d, result_zone_ids_sta
     copied_data_zones = copy.deepcopy(data_zones)
     copied_data_values_2d = copy.deepcopy(data_values_2d)
 
-    zone_ids, expected_result = result_zone_ids_stats
+    # dask doesn't support majority stat (can't be computed block-by-block)
+    if 'dask' in backend:
+        zone_ids, expected_result = result_zone_ids_stats_no_majority
+    else:
+        zone_ids, expected_result = result_zone_ids_stats
     df_result = stats(zones=data_zones, values=data_values_2d,
                       zone_ids=zone_ids)
     check_results(backend, df_result, expected_result)
@@ -491,6 +543,53 @@ def test_custom_stats_dataarray(backend, data_zones, data_values_2d, result_cust
     assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
 
 
+@pytest.mark.parametrize("backend", ['numpy', 'cupy'])
+def test_majority_stats(backend, data_zones, data_values_2d):
+    """Test that majority stat returns the most frequent value in each zone."""
+    if backend == 'cupy' and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+
+    # copy input data to verify they're unchanged after running the function
+    copied_data_zones = copy.deepcopy(data_zones)
+    copied_data_values_2d = copy.deepcopy(data_values_2d)
+
+    df_result = stats(zones=data_zones, values=data_values_2d, stats_funcs=['majority'])
+    expected_result = {
+        'zone': [0, 1, 2, 3],
+        'majority': [0, 1, 2, 3]
+    }
+    check_results(backend, df_result, expected_result)
+    assert_input_data_unmodified(data_zones, copied_data_zones)
+    assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
+
+
+@pytest.mark.parametrize("backend", ['numpy', 'cupy'])
+def test_majority_with_ties(backend):
+    """Test majority when there are ties - should return the smallest value."""
+    if backend == 'cupy' and not has_cuda_and_cupy():
+        pytest.skip("Requires CUDA and CuPy")
+
+    # Create test data with ties
+    zones_data = np.array([[1, 1, 1, 1],
+                           [1, 1, 2, 2],
+                           [2, 2, 2, 2]])
+    values_data = np.array([[1, 1, 2, 2],  # zone 1 has two 1s and two 2s - tie
+                            [3, 3, 5, 5],  # zone 1 also has two 3s, zone 2 has two 5s
+                            [5, 5, 6, 6]]) # zone 2 has two more 5s and two 6s
+
+    zones = create_test_raster(zones_data, backend)
+    values = create_test_raster(values_data, backend)
+
+    df_result = stats(zones=zones, values=values, stats_funcs=['majority'])
+    # Zone 1: values [1, 1, 2, 2, 3, 3] - three values with count 2, majority is 1 (smallest)
+    # Zone 2: values [5, 5, 5, 5, 6, 6] - majority is 5 (count 4)
+    expected_result = {
+        'zone': [1, 2],
+        'majority': [1, 5]
+    }
+    check_results(backend, df_result, expected_result)
+
+
 def test_zonal_stats_against_qgis(elevation_raster_no_nans, raster, qgis_zonal_stats):
     stats_funcs = list(set(qgis_zonal_stats.keys()) - set(['zone']))
     zones_agg = create_test_raster(raster)
@@ -518,6 +617,169 @@ def test_zonal_stats_inputs_unmodified(backend, data_zones, data_values_2d, resu
 
     assert_input_data_unmodified(data_zones, copied_data_zones)
     assert_input_data_unmodified(data_values_2d, copied_data_values_2d)
+
+
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore:invalid value encountered in divide:RuntimeWarning")
+@pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
+def test_stats_3d_timeseries_via_dataset(backend):
+    """Convert a 3D time-series DataArray to a Dataset and verify per-timestep stats."""
+    if 'dask' in backend and not dask_array_available():
+        pytest.skip("Requires Dask")
+
+    zones_data = np.array([[0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, np.nan, 3, 3]])
+    values_data = np.asarray([
+        [0, 0, 1, 1, 2, 2, 3, np.inf],
+        [0, 0, 1, 1, 2, np.nan, 3, 0],
+        [np.inf, 0, 1, 1, 2, 2, 3, 3]
+    ])
+
+    # Stack original (t0) and doubled (t1) into a 3D DataArray
+    values_3d = xr.DataArray(
+        np.stack([values_data, values_data * 2], axis=0),
+        dims=['time', 'y', 'x'],
+        coords={'time': ['t0', 't1']},
+    )
+
+    if 'dask' in backend:
+        zones = xr.DataArray(da.from_array(zones_data, chunks=(3, 4)), dims=['y', 'x'])
+        values_3d = values_3d.chunk({'y': 3, 'x': 4})
+    else:
+        zones = xr.DataArray(zones_data, dims=['y', 'x'])
+
+    ds = values_3d.to_dataset(dim='time')
+    df_result = stats(zones=zones, values=ds)
+
+    if 'dask' in backend:
+        # dask doesn't support majority stat
+        expected = {
+            'zone':     [0, 1, 2, 3],
+            't0_mean':  [0, 1, 2, 2.4],
+            't0_max':   [0, 1, 2, 3],
+            't0_min':   [0, 1, 2, 0],
+            't0_sum':   [0, 6, 8, 12],
+            't0_std':   [0, 0, 0, 1.2],
+            't0_var':   [0, 0, 0, 1.44],
+            't0_count': [5, 6, 4, 5],
+            't1_mean':  [0, 2, 4, 4.8],
+            't1_max':   [0, 2, 4, 6],
+            't1_min':   [0, 2, 4, 0],
+            't1_sum':   [0, 12, 16, 24],
+            't1_std':   [0, 0, 0, 2.4],
+            't1_var':   [0, 0, 0, 5.76],
+            't1_count': [5, 6, 4, 5],
+        }
+    else:
+        expected = {
+            'zone':         [0, 1, 2, 3],
+            't0_mean':      [0, 1, 2, 2.4],
+            't0_max':       [0, 1, 2, 3],
+            't0_min':       [0, 1, 2, 0],
+            't0_sum':       [0, 6, 8, 12],
+            't0_std':       [0, 0, 0, 1.2],
+            't0_var':       [0, 0, 0, 1.44],
+            't0_count':     [5, 6, 4, 5],
+            't0_majority':  [0, 1, 2, 3],
+            't1_mean':      [0, 2, 4, 4.8],
+            't1_max':       [0, 2, 4, 6],
+            't1_min':       [0, 2, 4, 0],
+            't1_sum':       [0, 12, 16, 24],
+            't1_std':       [0, 0, 0, 2.4],
+            't1_var':       [0, 0, 0, 5.76],
+            't1_count':     [5, 6, 4, 5],
+            't1_majority':  [0, 2, 4, 6],
+        }
+
+    check_results(backend, df_result, expected)
+
+
+@pytest.mark.filterwarnings("ignore:All-NaN slice encountered:RuntimeWarning")
+@pytest.mark.filterwarnings("ignore:invalid value encountered in divide:RuntimeWarning")
+@pytest.mark.parametrize("backend", ['numpy'])
+def test_stats_3d_timeseries_via_dataset_zone_ids(backend):
+    """Zone filtering works with Dataset from 3D time-series DataArray."""
+    zones_data = np.array([[0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, np.nan, 3, 3]])
+    values_data = np.asarray([
+        [0, 0, 1, 1, 2, 2, 3, np.inf],
+        [0, 0, 1, 1, 2, np.nan, 3, 0],
+        [np.inf, 0, 1, 1, 2, 2, 3, 3]
+    ])
+
+    values_3d = xr.DataArray(
+        np.stack([values_data, values_data * 2], axis=0),
+        dims=['time', 'y', 'x'],
+        coords={'time': ['t0', 't1']},
+    )
+    zones = xr.DataArray(zones_data, dims=['y', 'x'])
+    ds = values_3d.to_dataset(dim='time')
+
+    df_result = stats(zones=zones, values=ds, zone_ids=[0, 3])
+
+    expected = {
+        'zone':         [0, 3],
+        't0_mean':      [0, 2.4],
+        't0_max':       [0, 3],
+        't0_min':       [0, 0],
+        't0_sum':       [0, 12],
+        't0_std':       [0, 1.2],
+        't0_var':       [0, 1.44],
+        't0_count':     [5, 5],
+        't0_majority':  [0, 3],
+        't1_mean':      [0, 4.8],
+        't1_max':       [0, 6],
+        't1_min':       [0, 0],
+        't1_sum':       [0, 24],
+        't1_std':       [0, 2.4],
+        't1_var':       [0, 5.76],
+        't1_count':     [5, 5],
+        't1_majority':  [0, 6],
+    }
+
+    check_results(backend, df_result, expected)
+
+
+@pytest.mark.parametrize("backend", ['numpy'])
+def test_stats_3d_timeseries_via_dataset_custom_stats(backend):
+    """Custom stats_funcs work with Dataset from 3D time-series DataArray."""
+    zones_data = np.array([[0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, 2, 3, 3],
+                            [0, 0, 1, 1, 2, np.nan, 3, 3]])
+    values_data = np.asarray([
+        [0, 0, 1, 1, 2, 2, 3, np.inf],
+        [0, 0, 1, 1, 2, np.nan, 3, 0],
+        [np.inf, 0, 1, 1, 2, 2, 3, 3]
+    ])
+
+    values_3d = xr.DataArray(
+        np.stack([values_data, values_data * 2], axis=0),
+        dims=['time', 'y', 'x'],
+        coords={'time': ['t0', 't1']},
+    )
+    zones = xr.DataArray(zones_data, dims=['y', 'x'])
+    ds = values_3d.to_dataset(dim='time')
+
+    custom_stats = {
+        'double_sum': _double_sum,
+        'range': _range,
+    }
+    df_result = stats(
+        zones=zones, values=ds, stats_funcs=custom_stats,
+        zone_ids=[1, 2], nodata_values=0,
+    )
+
+    expected = {
+        'zone':          [1, 2],
+        't0_double_sum': [12, 16],
+        't0_range':      [0, 0],
+        't1_double_sum': [24, 32],
+        't1_range':      [0, 0],
+    }
+
+    check_results(backend, df_result, expected)
 
 
 @pytest.mark.parametrize("backend", ['numpy', 'dask+numpy'])
@@ -616,6 +878,56 @@ def test_nodata_values_crosstab_3d(
     check_results(backend, df_result, expected_result)
     assert_input_data_unmodified(data_zones, copied_data_zones)
     assert_input_data_unmodified(data_values_3d, copied_data_values_3d)
+
+
+@pytest.mark.skipif(not dask_array_available(), reason="Requires Dask")
+def test_crosstab_dask_from_dataset():
+    """
+    Test crosstab with dask arrays originating from xarray Datasets.
+
+    This is a regression test for issue #777 where dask arrays created via
+    Dataset.to_array().sel() had misaligned chunks that caused IndexError.
+    """
+    # Simulate what happens with rioxarray band_as_variable=True
+    data_band1 = np.array([[0, 0, 1, 1, 2, 2, 3, 3],
+                           [0, 0, 1, 1, 2, 2, 3, 3],
+                           [0, 0, 1, 1, 2, 2, 3, 3]], dtype=float)
+    data_band2 = np.array([[1, 1, 2, 2, 3, 3, 0, 0],
+                           [1, 1, 2, 2, 3, 3, 0, 0],
+                           [1, 1, 2, 2, 3, 3, 0, 0]], dtype=float)
+
+    # Use different chunk sizes to simulate real-world scenario
+    dask_band1 = da.from_array(data_band1, chunks=(2, 3))
+    dask_band2 = da.from_array(data_band2, chunks=(2, 3))
+
+    ds = xr.Dataset({
+        'band_1': (['y', 'x'], dask_band1),
+        'band_2': (['y', 'x'], dask_band2),
+    })
+
+    # This is the pattern from issue #777: to_array().sel(variable='band_1', drop=True)
+    values = ds.to_array().sel(variable='band_1', drop=True)
+
+    # Create zones with different chunks
+    zones_data = np.array([[0, 0, 1, 1, 2, 2, 3, 3],
+                           [0, 0, 1, 1, 2, 2, 3, 3],
+                           [0, 0, 1, 1, 2, 2, 3, 3]], dtype=float)
+    zones_dask = da.from_array(zones_data, chunks=(3, 4))
+    zones = xr.DataArray(zones_dask, dims=['y', 'x'])
+
+    # This should not raise an error
+    result = crosstab(zones, values)
+    assert isinstance(result, dd.DataFrame)
+
+    result_df = result.compute()
+    expected = {
+        'zone': [0.0, 1.0, 2.0, 3.0],
+        0.0: [6, 0, 0, 0],
+        1.0: [0, 6, 0, 0],
+        2.0: [0, 0, 6, 0],
+        3.0: [0, 0, 0, 6],
+    }
+    check_results('dask+numpy', result, expected)
 
 
 def test_apply():
@@ -848,6 +1160,44 @@ def test_crop():
 
     compare = trimmed_arr == result.data
     assert compare.all()
+
+
+@pytest.mark.skipif(not dask_array_available(), reason="Requires Dask")
+def test_dask_zonal_stats_no_concat_warnings():
+    """Regression test for #774: dd.concat should not warn about unknown divisions."""
+    import warnings
+
+    zones_data = np.array([[0, 0, 1, 1],
+                           [0, 0, 1, 1],
+                           [2, 2, 3, 3]])
+    values_data = np.array([[1, 2, 3, 4],
+                            [5, 6, 7, 8],
+                            [9, 10, 11, 12]], dtype=float)
+
+    zones = xr.DataArray(da.from_array(zones_data, chunks=(3, 2)), dims=['y', 'x'])
+    values = xr.DataArray(da.from_array(values_data, chunks=(3, 2)), dims=['y', 'x'])
+
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+
+        # all zones (exercises column-wise concat, line 262)
+        result_all = stats(zones=zones, values=values)
+        assert isinstance(result_all, dd.DataFrame)
+        result_all.compute()
+
+        # filtered zone_ids (exercises row-wise concat, line 275)
+        result_filtered = stats(zones=zones, values=values, zone_ids=[0, 3])
+        assert isinstance(result_filtered, dd.DataFrame)
+        result_filtered.compute()
+
+    division_warnings = [
+        w for w in caught
+        if "unknown divisions" in str(w.message).lower()
+    ]
+    assert division_warnings == [], (
+        f"Expected no 'unknown divisions' warnings, got: "
+        f"{[str(w.message) for w in division_warnings]}"
+    )
 
 
 def test_crop_nothing_to_crop():

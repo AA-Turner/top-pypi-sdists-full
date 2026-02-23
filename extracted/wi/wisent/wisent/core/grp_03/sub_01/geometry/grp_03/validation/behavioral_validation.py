@@ -7,6 +7,13 @@ from dataclasses import dataclass
 from typing import List, Dict, Any, Optional, Tuple
 import numpy as np
 import torch
+from wisent.core.constants import (
+    MOVEMENT_THRESHOLD, BEHAVIOR_THRESHOLD,
+    DEFAULT_STRENGTH, DEFAULT_MAX_NEW_TOKENS_EVAL,
+    DEFAULT_RANDOM_SEED, CLASSIFIER_THRESHOLD,
+    BEHAVIORAL_CONF_IMPROPERLY, BEHAVIORAL_CONF_UNEXPECTED,
+    BEHAVIORAL_CONF_INEFFECTIVE,
+)
 
 
 @dataclass
@@ -51,7 +58,7 @@ def compute_activation_movement(
     from sklearn.linear_model import LogisticRegression
     X_train = np.vstack([pos, neg])
     y_train = np.concatenate([np.ones(len(pos)), np.zeros(len(neg))])
-    clf = LogisticRegression( random_state=42)
+    clf = LogisticRegression(random_state=DEFAULT_RANDOM_SEED)
     clf.fit(X_train, y_train)
 
     base_probs = clf.predict_proba(base)[:, 1]
@@ -115,8 +122,8 @@ def validate_steering_behavioral(
     base_evaluations: List[str],
     steered_evaluations: List[str],
     positive_label: str = "TRUTHFUL",
-    movement_threshold: float = 0.6,
-    behavior_threshold: float = 0.0,
+    movement_threshold: float = MOVEMENT_THRESHOLD,
+    behavior_threshold: float = BEHAVIOR_THRESHOLD,
 ) -> BehavioralValidationResult:
     """
     Validate if steering actually works by comparing activation movement vs behavior.
@@ -184,8 +191,8 @@ def run_behavioral_validation(
     test_prompts: List[str],
     evaluator,
     layer_name: str,
-    strength: float = 1.0,
-    max_new_tokens: int = 100,
+    strength: float = DEFAULT_STRENGTH,
+    max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL,
     positive_label: str = "TRUTHFUL",
     extraction_strategy: str = "chat_last",
 ) -> BehavioralValidationResult:

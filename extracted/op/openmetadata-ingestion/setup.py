@@ -66,6 +66,7 @@ VERSIONS = {
     "cockroach": "sqlalchemy-cockroachdb~=2.0",
     "cassandra": "cassandra-driver>=3.28.0",
     "opensearch": "opensearch-py~=2.4.0",
+    "starrocks": "pymysql~=1.0",
     "pydoris": "pydoris-custom>=1.0.2,<1.5",
     "pyiceberg": "pyiceberg==0.5.1",
     "google-cloud-bigtable": "google-cloud-bigtable>=2.0.0",
@@ -172,6 +173,7 @@ base_requirements = {
     "shapely",
     "collate-data-diff>=0.11.9",
     "jaraco.functools<4.2.0",  # above 4.2 breaks the build
+    "jaraco.context==6.0.1",
     # TODO: Remove one once we have updated datadiff version
     VERSIONS["snowflake-connector"],
     "mysql-connector-python>=8.0.29;python_version<'3.9'",
@@ -263,6 +265,7 @@ plugins: Dict[str, Set[str]] = {
     "deltalake-spark": {"delta-spark>=3.0.0,<4.0.0", "pyspark==3.5.6"},
     "domo": {VERSIONS["pydomo"]},
     "doris": {VERSIONS["pydoris"]},
+    "starrocks": {VERSIONS["pymysql"]},
     "druid": {"pydruid>=0.6.5"},
     "dynamodb": {VERSIONS["boto3"]},
     "elasticsearch": {
@@ -408,6 +411,7 @@ test_unit = {
     "pytest==7.0.1",
     "pytest-cov",
     "pytest-order",
+    "pytest-rerunfailures",
     "dirty-equals",
     "faker==37.1.0",  # The version needs to be fixed to prevent flaky tests!
     # TODO: Remove once no unit test requires testcontainers
@@ -454,6 +458,7 @@ test = {
     VERSIONS["neo4j"],
     VERSIONS["cockroach"],
     VERSIONS["pydoris"],
+    VERSIONS["starrocks"],
     VERSIONS["pyiceberg"],
     "testcontainers==3.7.1;python_version<'3.9'",
     "testcontainers~=4.8.0;python_version>='3.9'",

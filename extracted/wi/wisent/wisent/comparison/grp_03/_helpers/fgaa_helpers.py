@@ -7,6 +7,7 @@ import json
 from pathlib import Path
 
 import torch
+from wisent.core.constants import NORM_EPS
 
 __all__ = [
     "compute_v_target",
@@ -72,11 +73,11 @@ def compute_v_target(
 
 def compute_v_opt(v_target: torch.Tensor, W: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
     """Compute v_opt using the effect approximator."""
-    v_target_norm = v_target / (v_target.abs().sum() + 1e-8)
+    v_target_norm = v_target / (v_target.abs().sum() + NORM_EPS)
     Wv = W @ v_target_norm
-    Wv_normalized = Wv / (Wv.norm() + 1e-8)
+    Wv_normalized = Wv / (Wv.norm() + NORM_EPS)
     Wb = W @ b
-    Wb_normalized = Wb / (Wb.norm() + 1e-8)
+    Wb_normalized = Wb / (Wb.norm() + NORM_EPS)
     v_opt = Wv_normalized - Wb_normalized
     print(f"   v_opt computed, shape: {v_opt.shape}, norm: {v_opt.norm():.6f}")
     return v_opt

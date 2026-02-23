@@ -11,6 +11,7 @@ import torch
 import torch.nn as nn
 
 from wisent.core.activations.core.atoms import LayerActivations
+from wisent.core.constants import NORM_EPS
 
 
 class SteeringHookMixin:
@@ -97,7 +98,7 @@ class SteeringHookMixin:
             # Default: linear steering
             v = vector.to(output.device, output.dtype)
             if config.normalize:
-                v = v / (v.norm(dim=-1, keepdim=True) + 1e-8)
+                v = v / (v.norm(dim=-1, keepdim=True) + NORM_EPS)
             v = v * scale
             while v.dim() < output.dim():
                 v = v.unsqueeze(0)

@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 from wisent.core.evaluators.custom.custom_evaluator import CustomEvaluator
+from wisent.core.constants import DEFAULT_INFERENCE_TEMPERATURE
 
 # Re-export from helpers
 from wisent.core.evaluators.core._synthetic_evaluator_helpers import (
@@ -55,7 +56,7 @@ class SyntheticEvaluatorConfig:
     test_prompts_file: Optional[str] = None
     generate_prompts: bool = False
     cache_criteria: bool = True
-    temperature: float = 0.7
+    temperature: float = DEFAULT_INFERENCE_TEMPERATURE
     max_tokens: int = 512
 
 
@@ -183,7 +184,7 @@ Score 7-10: Response strongly demonstrates "{self.trait_description}" """
             print(f"\n   Generated evaluation criteria:\n{self._criteria}\n")
         return self._criteria
 
-    def _generate_with_model(self, prompt: str, temperature: float = 0.7) -> str:
+    def _generate_with_model(self, prompt: str, temperature: float = DEFAULT_INFERENCE_TEMPERATURE) -> str:
         """Generate text using the model."""
         if self.model is None:
             raise ValueError("No model available for generation")

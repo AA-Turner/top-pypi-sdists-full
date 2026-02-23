@@ -3,6 +3,7 @@
 import torch
 import numpy as np
 from typing import Tuple
+from wisent.core.constants import NORM_EPS, L1_DEFAULT_COEF
 
 
 # =============================================================================
@@ -23,7 +24,7 @@ class SparseAutoencoder(torch.nn.Module):
         self,
         input_dim: int,
         hidden_dim: int,  # Usually 4x-8x input_dim for overcomplete
-        l1_coef: float = 1e-3,
+        l1_coef: float = L1_DEFAULT_COEF,
         tied_weights: bool = True,
     ):
         super().__init__()
@@ -92,7 +93,7 @@ def train_sparse_autoencoder(
     l1_coef: float = 5e-4,
     n_epochs: int = 500,
     batch_size: int = 64,
-    lr: float = 1e-3,
+    lr: float = L1_DEFAULT_COEF,
     device: str = "cpu",
     verbose: bool = True,
 ) -> SparseAutoencoder:
@@ -121,7 +122,7 @@ def train_sparse_autoencoder(
     
     # Normalize activations (important for SAE training)
     mean = activations.mean(dim=0, keepdim=True)
-    std = activations.std(dim=0, keepdim=True) + 1e-8
+    std = activations.std(dim=0, keepdim=True) + NORM_EPS
     activations_norm = (activations - mean) / std
     
     # Create SAE

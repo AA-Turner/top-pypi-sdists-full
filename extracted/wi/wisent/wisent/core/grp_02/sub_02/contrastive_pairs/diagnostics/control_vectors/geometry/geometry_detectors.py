@@ -7,6 +7,7 @@ from typing import Dict
 import torch
 
 from .geometry_types import StructureType, StructureScore, GeometryAnalysisConfig
+from wisent.core.constants import NORM_EPS, COMPARE_TOL
 
 
 def detect_linear_structure(
@@ -22,7 +23,7 @@ def detect_linear_structure(
     try:
         mean_diff = pos_tensor.mean(dim=0) - neg_tensor.mean(dim=0)
         mean_diff_norm = mean_diff.norm()
-        if mean_diff_norm < 1e-8:
+        if mean_diff_norm < NORM_EPS:
             return StructureScore(StructureType.LINEAR, 0.0, 0.0, {"reason": "no_separation"})
 
         primary_dir = mean_diff / mean_diff_norm
@@ -33,19 +34,19 @@ def detect_linear_structure(
         pos_mean, pos_std = pos_proj.mean(), pos_proj.std()
         neg_mean, neg_std = neg_proj.mean(), neg_proj.std()
         pooled_std = ((pos_std**2 + neg_std**2) / 2).sqrt()
-        cohens_d = abs(pos_mean - neg_mean) / (pooled_std + 1e-8)
+        cohens_d = abs(pos_mean - neg_mean) / (pooled_std + NORM_EPS)
 
         pos_residual = pos_tensor - (pos_proj.unsqueeze(1) * primary_dir.unsqueeze(0))
         neg_residual = neg_tensor - (neg_proj.unsqueeze(1) * primary_dir.unsqueeze(0))
 
         total_var = pos_tensor.var() + neg_tensor.var()
         residual_var = pos_residual.var() + neg_residual.var()
-        variance_explained = 1 - (residual_var / (total_var + 1e-8))
+        variance_explained = 1 - (residual_var / (total_var + NORM_EPS))
         variance_explained = max(0, min(1, float(variance_explained)))
 
         within_class_spread = (pos_std + neg_std) / 2
         between_class_dist = abs(pos_mean - neg_mean)
-        spread_ratio = within_class_spread / (between_class_dist + 1e-8)
+        spread_ratio = within_class_spread / (between_class_dist + NORM_EPS)
         consistency = max(0, 1 - spread_ratio)
 
         linear_score = (
@@ -78,7 +79,7 @@ def detect_cone_structure_score(
 
         diff_vectors = pos_tensor[:n_pairs] - neg_tensor[:n_pairs]
         norms = diff_vectors.norm(dim=1, keepdim=True)
-        valid_mask = (norms.squeeze() > 1e-8)
+        valid_mask = (norms.squeeze() > NORM_EPS)
         if valid_mask.sum() < 3:
             return StructureScore(StructureType.CONE, 0.0, 0.0, {"reason": "zero_differences"})
 
@@ -200,7 +201,7 @@ def detect_bimodal_structure(
     """Detect bimodal distribution in projections."""
     try:
         mean_diff = pos_tensor.mean(dim=0) - neg_tensor.mean(dim=0)
-        mean_diff = mean_diff / (mean_diff.norm() + 1e-8)
+        mean_diff = mean_diff / (mean_diff.norm() + NORM_EPS)
         all_activations = torch.cat([pos_tensor, neg_tensor], dim=0)
         projections = all_activations @ mean_diff
         # Simple bimodality check: gap between pos and neg means
@@ -208,10 +209,10 @@ def detect_bimodal_structure(
         neg_proj = neg_tensor @ mean_diff
         gap = abs(pos_proj.mean() - neg_proj.mean())
         std = projections.std()
-        bimodal_score = min(1.0, gap / (2 * std + 1e-8))
+        bimodal_score = min(1.0, gap / (2 * std + NORM_EPS))
         return StructureScore(
             StructureType.BIMODAL, score=float(bimodal_score),
-            confidence=0.7, details={"gap_over_std": float(gap / (std + 1e-8))}
+            confidence=0.7, details={"gap_over_std": float(gap / (std + NORM_EPS))}
         )
     except Exception as e:
         return StructureScore(StructureType.BIMODAL, 0.0, 0.0, {"error": str(e)})
@@ -230,7 +231,7 @@ def detect_orthogonal_structure(
             return StructureScore(StructureType.ORTHOGONAL, 0.0, 0.0, {})
         diff = pos_tensor[:n_pairs] - neg_tensor[:n_pairs]
         norms = diff.norm(dim=1, keepdim=True)
-        valid = norms.squeeze() > 1e-8
+        valid = norms.squeeze() > NORM_EPS
         if valid.sum() < 3:
             return StructureScore(StructureType.ORTHOGONAL, 0.0, 0.0, {})
         diff_norm = diff[valid] / norms[valid]
@@ -260,7 +261,7 @@ def _kmeans_with_silhouette(data: torch.Tensor, k: int, max_iters: int = 50):
             data[labels == i].mean(dim=0) if (labels == i).sum() > 0 else centroids[i]
             for i in range(k)
         ])
-        if torch.allclose(centroids, new_centroids, atol=1e-6):
+        if torch.allclose(centroids, new_centroids, atol=COMPARE_TOL):
             break
         centroids = new_centroids
 
@@ -283,6 +284,6 @@ def _kmeans_with_silhouette(data: torch.Tensor, k: int, max_iters: int = 50):
                     b = min(b, (data[i] - other).norm(dim=1).mean().item())
         if b == float('inf'):
             b = 0.0
-        s = (b - a) / (max(a, b) + 1e-8)
+        s = (b - a) / (max(a, b) + NORM_EPS)
         silhouettes.append(s)
     return labels, centroids, sum(silhouettes) / len(silhouettes) if silhouettes else -1.0

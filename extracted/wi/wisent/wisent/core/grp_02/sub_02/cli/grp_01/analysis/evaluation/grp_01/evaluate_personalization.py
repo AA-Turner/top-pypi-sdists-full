@@ -2,6 +2,7 @@
 import json
 import os
 import sys
+from wisent.core.constants import QUALITY_THRESHOLD, DEFAULT_SCORE
 
 from wisent.core.evaluators.steering_evaluators import (
     SteeringEvaluatorFactory,
@@ -117,10 +118,10 @@ def evaluate_personalization(args, input_data, responses, task_name, evaluation_
             evaluated_count += 1
 
             # Use aggregate scores from batch evaluation
-            diff_score = eval_results.get('difference_score', 50.0)
-            qual_score = eval_results.get('quality_score', 50.0)
-            align_score = eval_results.get('alignment_score', 50.0)
-            overall = eval_results.get('overall_score', 0.0)
+            diff_score = eval_results.get('difference_score', QUALITY_THRESHOLD)
+            qual_score = eval_results.get('quality_score', QUALITY_THRESHOLD)
+            align_score = eval_results.get('alignment_score', QUALITY_THRESHOLD)
+            overall = eval_results.get('overall_score', DEFAULT_SCORE)
 
             # Collect scores
             difference_scores.append(diff_score)

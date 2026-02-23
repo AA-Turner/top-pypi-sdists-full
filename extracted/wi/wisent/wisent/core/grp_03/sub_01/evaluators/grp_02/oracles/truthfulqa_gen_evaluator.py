@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any, List, Mapping
 
 from wisent.core.evaluators.core.atoms import BaseEvaluator, EvalResult
+from wisent.core.constants import TRUTHFUL_MIN_SIMILARITY, TRUTHFUL_MIN_MARGIN
 
 __all__ = ["TruthfulQAGenEvaluator"]
 
@@ -32,9 +33,9 @@ class TruthfulQAGenEvaluator(BaseEvaluator):
     EMB_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
 
     # Minimum similarity threshold to make a decision
-    MIN_SIMILARITY_THRESHOLD = 0.3
+    MIN_SIMILARITY_THRESHOLD = TRUTHFUL_MIN_SIMILARITY
     # Minimum margin between correct and incorrect similarity to decide
-    MIN_MARGIN = 0.05
+    MIN_MARGIN = TRUTHFUL_MIN_MARGIN
 
     _emb_model = None
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chardet
-Version: 6.0.0
+Version: 6.0.0.post1
 Summary: Universal encoding detector for Python 3
 Project-URL: Documentation, https://chardet.readthedocs.io/
 Project-URL: Homepage, http://chardet.github.io

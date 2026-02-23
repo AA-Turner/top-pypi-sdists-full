@@ -27,8 +27,9 @@ except ImportError:
     class cupy(object):
         ndarray = False
 
-from xrspatial.convolution import convolve_2d, custom_kernel
+from xrspatial.convolution import convolve_2d, custom_kernel, _convolve_2d_numpy
 from xrspatial.utils import ArrayTypeFunctionMapping, cuda_args, ngjit, not_implemented_func
+from xrspatial.dataset_support import supports_dataset
 
 # TODO: Make convolution more generic with numba first-class functions.
 
@@ -158,6 +159,7 @@ def _mean(data, excludes):
     return out
 
 
+@supports_dataset
 def mean(agg, passes=1, excludes=[np.nan], name='mean'):
     """
     Returns Mean filtered array using a 3x3 window.
@@ -165,8 +167,10 @@ def mean(agg, passes=1, excludes=[np.nan], name='mean'):
 
     Parameters
     ----------
-    agg : xarray.DataArray
+    agg : xarray.DataArray or xr.Dataset
         2D array of input values to be filtered.
+        If a Dataset is passed, the operation is applied to each
+        data variable independently.
     passes : int, default=1
         Number of times to run mean.
     name : str, default='mean'
@@ -174,7 +178,10 @@ def mean(agg, passes=1, excludes=[np.nan], name='mean'):
 
     Returns
     -------
-    mean_agg : xarray.DataArray of same type as `agg`
+    mean_agg : xarray.DataArray or xr.Dataset
+        If `agg` is a DataArray, returns a DataArray of the same type.
+        If `agg` is a Dataset, returns a Dataset with mean computed
+        for each data variable.
         2D aggregate array of filtered values.
 
     Examples
@@ -768,7 +775,7 @@ def _focal_stats_cupy(agg, kernel, stats_funcs):
             attrs=agg.attrs
           )
         stats_aggs.append(stats_agg)
-    stats = xr.concat(stats_aggs, pd.Index(stats_funcs, name='stats'))
+    stats = xr.concat(stats_aggs, pd.Index(stats_funcs, name='stats', dtype=object))
     return stats
 
 
@@ -786,7 +793,7 @@ def _focal_stats_cpu(agg, kernel, stats_funcs):
     for stats in stats_funcs:
         stats_agg = apply(agg, kernel, func=_function_mapping[stats])
         stats_aggs.append(stats_agg)
-    stats = xr.concat(stats_aggs, pd.Index(stats_funcs, name='stats'))
+    stats = xr.concat(stats_aggs, pd.Index(stats_funcs, name='stats', dtype=object))
     return stats
 
 
@@ -931,32 +938,50 @@ def _hotspots_numpy(raster, kernel):
 
 
 def _hotspots_dask_numpy(raster, kernel):
-    data = raster.data.astype(np.float32)
+    data = raster.data
+    if not np.issubdtype(data.dtype, np.floating):
+        data = data.astype(np.float32)
 
-    # apply kernel to raster values
-    mean_array = convolve_2d(data, kernel / kernel.sum())
+    # Pass 1: eagerly compute global statistics (two scalars).
+    # This reads all chunks once, produces 16 bytes, then frees all
+    # intermediate state -- no barrier that would force materialization
+    # of the full convolution output.
+    global_mean, global_std = da.compute(da.nanmean(data), da.nanstd(data))
+    global_mean = np.float32(global_mean)
+    global_std = np.float32(global_std)
 
-    # calculate z-scores
-    global_mean = da.nanmean(data)
-    global_std = da.nanstd(data)
+    if global_std == 0:
+        raise ZeroDivisionError(
+            "Standard deviation of the input raster values is 0."
+        )
 
-    # commented out to avoid early compute to check if global_std is zero
-    # if global_std == 0:
-    #     raise ZeroDivisionError(
-    #         "Standard deviation of the input raster values is 0."
-    #     )
+    norm_kernel = (kernel / kernel.sum()).astype(np.float32)
+    pad_h = norm_kernel.shape[0] // 2
+    pad_w = norm_kernel.shape[1] // 2
 
-    z_array = (mean_array - global_mean) / global_std
-
-    _func = partial(_calc_hotspots_numpy)
-    pad_h = kernel.shape[0] // 2
-    pad_w = kernel.shape[1] // 2
-
-    out = z_array.map_overlap(_func,
-                              depth=(pad_h, pad_w),
-                              boundary=np.nan,
-                              meta=np.array(()))
+    # Pass 2: fuse convolution + z-score + classification into one
+    # map_overlap call. Each chunk reads source + halo, produces int8
+    # output, and frees all intermediates immediately. No spill needed.
+    _func = partial(
+        _hotspots_chunk,
+        kernel=norm_kernel,
+        global_mean=global_mean,
+        global_std=global_std,
+    )
+    out = data.map_overlap(
+        _func,
+        depth=(pad_h, pad_w),
+        boundary=np.nan,
+        meta=np.array((), dtype=np.int8),
+    )
     return out
+
+
+def _hotspots_chunk(chunk, kernel, global_mean, global_std):
+    """Fused per-chunk: convolve -> z-score -> classify."""
+    convolved = _convolve_2d_numpy(chunk, kernel)
+    z = (convolved - global_mean) / global_std
+    return _calc_hotspots_numpy(z)
 
 
 @nb.cuda.jit(device=True)

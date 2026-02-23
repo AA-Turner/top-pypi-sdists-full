@@ -12,6 +12,7 @@ import torch.nn.functional as F
 # from wisent.core.classifier.classifier import Classifier
 
 from wisent.core.contrastive_pairs import ContrastivePairSet
+from wisent.core.constants import DEFAULT_STRENGTH
 from .steering_method import CAA
 from wisent.core.errors import (
     MissingParameterError,
@@ -92,7 +93,7 @@ class SteeringMethod(SteeringLoggingMixin, SteeringOptimizationMixin, SteeringEv
 
         return results
 
-    def apply_steering(self, activations: torch.Tensor, strength: float = 1.0) -> torch.Tensor:
+    def apply_steering(self, activations: torch.Tensor, strength: float = DEFAULT_STRENGTH) -> torch.Tensor:
         """
         Apply steering to activations (vector-based methods only).
 

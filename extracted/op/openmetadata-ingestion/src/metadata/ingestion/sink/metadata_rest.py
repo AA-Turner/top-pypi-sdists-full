@@ -24,10 +24,17 @@ from metadata.config.common import ConfigModel
 from metadata.data_quality.api.models import TestCaseResultResponse, TestCaseResults
 from metadata.generated.schema.analytics.reportData import ReportData
 from metadata.generated.schema.api.data.createContainer import CreateContainerRequest
+from metadata.generated.schema.api.data.createDashboardDataModel import (
+    CreateDashboardDataModelRequest,
+)
 from metadata.generated.schema.api.data.createDataContract import (
     CreateDataContractRequest,
 )
+from metadata.generated.schema.api.data.createGlossary import CreateGlossaryRequest
 from metadata.generated.schema.api.data.createPipeline import CreatePipelineRequest
+from metadata.generated.schema.api.domains.createDataProduct import (
+    CreateDataProductRequest,
+)
 from metadata.generated.schema.api.domains.createDomain import CreateDomainRequest
 from metadata.generated.schema.api.lineage.addLineage import AddLineageRequest
 from metadata.generated.schema.api.teams.createRole import CreateRoleRequest
@@ -146,6 +153,9 @@ class MetadataRestSink(Sink):  # pylint: disable=too-many-public-methods
         self.buffer: list[BaseModel] = []
         self.deferred_lifecycle_records: list[OMetaLifeCycleData] = []
         self.deferred_lifecycle_processed = False
+        # Track entity names in buffer for O(1) duplicate checking
+        # Key: (entity_type, name), Value: True
+        self.buffered_entity_names: Dict[tuple, bool] = {}
 
     @classmethod
     def create(
@@ -207,6 +217,7 @@ class MetadataRestSink(Sink):  # pylint: disable=too-many-public-methods
                 entity_request,
                 (
                     CreateDomainRequest,
+                    CreateDataProductRequest,
                     CreateDataContractRequest,
                     CreateTeamRequest,
                     CreateContainerRequest,
@@ -214,10 +225,28 @@ class MetadataRestSink(Sink):  # pylint: disable=too-many-public-methods
                     CreateTestCaseRequest,
                     CreateTestSuiteRequest,
                     CreateTestDefinitionRequest,
+                    CreateGlossaryRequest,
                 ),
             )
         ):
             return self.write_create_single_request(entity_request)
+
+        # Deduplicate entities by name to avoid duplicate FQN hash errors
+        # These are CreateRequest types that may have duplicate names from source systems
+        if isinstance(
+            entity_request,
+            (
+                CreateDashboardDataModelRequest,  # QuickSight: multiple tables with same DataSourceId
+            ),
+        ):
+            if self._is_duplicate_in_buffer(entity_request):
+                logger.debug(
+                    f"Skipping duplicate {type(entity_request).__name__} with name: {entity_request.name.root}"
+                )
+                return Either(right=None)
+
+            # Track this entity for future duplicate checks (only for types that need deduplication)
+            self._track_entity_in_buffer(entity_request)
 
         self.buffer.append(entity_request)
         try:
@@ -233,6 +262,41 @@ class MetadataRestSink(Sink):  # pylint: disable=too-many-public-methods
                     stackTrace=None,
                 )
             )
+
+    def _track_entity_in_buffer(self, entity_request) -> None:
+        """
+        Track an entity name in the buffer for O(1) duplicate detection.
+        Only called for entity types that require deduplication.
+        """
+        if not hasattr(entity_request, "name"):
+            return
+
+        entity_type = type(entity_request).__name__
+        current_name = (
+            entity_request.name.root
+            if hasattr(entity_request.name, "root")
+            else entity_request.name
+        )
+
+        self.buffered_entity_names[(entity_type, current_name)] = True
+
+    def _is_duplicate_in_buffer(self, entity_request) -> bool:
+        """
+        Check if an entity with the same name already exists in the buffer.
+        Uses O(1) lookup via buffered_entity_names dict.
+        """
+        if not hasattr(entity_request, "name"):
+            return False
+
+        entity_type = type(entity_request).__name__
+        current_name = (
+            entity_request.name.root
+            if hasattr(entity_request.name, "root")
+            else entity_request.name
+        )
+
+        # O(1) lookup
+        return (entity_type, current_name) in self.buffered_entity_names
 
     def write_create_single_request(self, entity_request) -> Either[Entity]:
         try:
@@ -286,7 +350,10 @@ class MetadataRestSink(Sink):  # pylint: disable=too-many-public-methods
                 right=None,
             )
 
+        # Clear buffer and tracking set
         self.buffer = []
+        self.buffered_entity_names.clear()
+
         if result and result.status == basic.Status.success:
             self.status.scanned_all(result.successRequest)
             return Either(right=result, left=None)

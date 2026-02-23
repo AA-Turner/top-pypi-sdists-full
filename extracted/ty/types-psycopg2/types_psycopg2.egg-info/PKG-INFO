@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-psycopg2
-Version: 2.9.21.20251012
+Version: 2.9.21.20260223
 Summary: Typing stubs for psycopg2
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -31,8 +31,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.406
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`776508741d76b58f9dcb2aaf42f7d4596a48d580`](https://github.com/python/typeshed/commit/776508741d76b58f9dcb2aaf42f7d4596a48d580).
+[`24827c4590595507c5542ecea5c0850b070df4fc`](https://github.com/python/typeshed/commit/24827c4590595507c5542ecea5c0850b070df4fc).

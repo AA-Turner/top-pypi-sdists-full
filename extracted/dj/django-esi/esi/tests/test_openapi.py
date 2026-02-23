@@ -596,6 +596,147 @@ class TestOpenapiClientProvider(NoSocketsTestCase):
         self.assertEqual(result.players, 1234)
 
     @patch.object(httpx.Client, "send")
+    def test_etag_stored_no_cached_data(self, send: MagicMock):
+        etag = "'123456789abcdef123456789abcdef'"
+
+        expires = (
+            timezone.now() + timedelta(minutes=5)
+        ).strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        send.return_value = httpx.Response(
+            200,
+            json={
+                "players": 1234,
+                "server_version": "1234",
+                "start_time": "2029-09-19T11:02:08Z"
+            },
+            headers={
+                "etag": etag,
+                "expires": expires
+            },
+            request=httpx.Request(
+                "GET",
+                "test",
+            ),
+        )
+
+        self.esi.client.Status.GetStatus().result(store_cache=False)
+        self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
+        self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._etag_key(), None))
+
+    @patch.object(httpx.Client, "send")
+    def test_etag_not_stored_cache_stored(self, send: MagicMock):
+        etag = "'123456789abcdef123456789abcdef'"
+
+        expires = (
+            timezone.now() + timedelta(minutes=5)
+        ).strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        send.return_value = httpx.Response(
+            200,
+            json={
+                "players": 1234,
+                "server_version": "1234",
+                "start_time": "2029-09-19T11:02:08Z"
+            },
+            headers={
+                "etag": etag,
+                "expires": expires
+            },
+            request=httpx.Request(
+                "GET",
+                "test",
+            ),
+        )
+
+        self.esi.client.Status.GetStatus().result(use_etag=False)
+        self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._etag_key(), None))
+        self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
+
+    @patch.object(httpx.Client, "send")
+    def test_cache_not_stored(self, send: MagicMock):
+
+        expires = (
+            timezone.now() + timedelta(minutes=5)
+        ).strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        send.return_value = httpx.Response(
+            200,
+            json={
+                "players": 1234,
+                "server_version": "1234",
+                "start_time": "2029-09-19T11:02:08Z"
+            },
+            headers={
+                "expires": expires
+            },
+            request=httpx.Request(
+                "GET",
+                "test",
+            ),
+        )
+
+        self.esi.client.Status.GetStatus().result(store_cache=False)
+        self.esi.client.Status.GetStatus().result(store_cache=False)
+        self.assertIsNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
+        self.assertEqual(send.call_count, 2)
+
+    @patch.object(httpx.Client, "send")
+    def test_cache_stored(self, send: MagicMock):
+
+        expires = (
+            timezone.now() + timedelta(minutes=5)
+        ).strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        send.return_value = httpx.Response(
+            200,
+            json={
+                "players": 1234,
+                "server_version": "1234",
+                "start_time": "2029-09-19T11:02:08Z"
+            },
+            headers={
+                "expires": expires
+            },
+            request=httpx.Request(
+                "GET",
+                "test",
+            ),
+        )
+
+        self.esi.client.Status.GetStatus().result()
+        self.esi.client.Status.GetStatus().result()
+        self.assertIsNotNone(cache.get(self.esi.client.Status.GetStatus()._cache_key(), None))
+        self.assertEqual(send.call_count, 1)
+
+    @patch.object(httpx.Client, "send")
+    def test_no_cache(self, send: MagicMock):
+
+        expires = (
+            timezone.now() + timedelta(minutes=5)
+        ).strftime('%a, %d %b %Y %H:%M:%S %Z')
+
+        send.return_value = httpx.Response(
+            200,
+            json={
+                "players": 1234,
+                "server_version": "1234",
+                "start_time": "2029-09-19T11:02:08Z"
+            },
+            headers={
+                "expires": expires
+            },
+            request=httpx.Request(
+                "GET",
+                "test",
+            ),
+        )
+
+        self.esi.client.Status.GetStatus().result(use_cache=False)
+        self.esi.client.Status.GetStatus().result(use_cache=False)
+        self.assertEqual(send.call_count, 2)
+
+    @patch.object(httpx.Client, "send")
     def test_force_refresh(self, send: MagicMock):
         etag = "'123456789abcdef123456789abcdef'"
 

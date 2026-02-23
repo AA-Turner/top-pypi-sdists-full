@@ -234,14 +234,23 @@ class SpanInterceptor(SpanProcessor):
             span.set_attribute("confident.trace.name", self.settings.name)
         if self.settings.confident_prompt:
             span.set_attribute(
-                "confident.span.prompt",
-                json.dumps(
-                    {
-                        "alias": self.settings.confident_prompt.alias,
-                        "version": self.settings.confident_prompt.version,
-                    }
-                ),
+                "confident.span.prompt_alias",
+                self.settings.confident_prompt.alias,
             )
+            span.set_attribute(
+                "confident.span.prompt_commit_hash",
+                self.settings.confident_prompt.hash,
+            )
+            if self.settings.confident_prompt.version:
+                span.set_attribute(
+                    "confident.span.prompt_label",
+                    self.settings.confident_prompt.label,
+                )
+            if self.settings.confident_prompt.version:
+                span.set_attribute(
+                    "confident.span.prompt_version",
+                    self.settings.confident_prompt.version,
+                )
 
         # set trace metric collection
         if self.settings.trace_metric_collection:

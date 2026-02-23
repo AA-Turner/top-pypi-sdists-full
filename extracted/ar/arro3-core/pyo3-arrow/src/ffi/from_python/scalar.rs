@@ -1,14 +1,12 @@
 use crate::array::*;
 use crate::PyScalar;
 use pyo3::prelude::*;
-use pyo3::PyAny;
+use pyo3::{PyAny, PyResult};
 
-impl<'a> FromPyObject<'_, 'a> for PyScalar {
-    type Error = PyErr;
-
-    fn extract(obj: Borrowed<'_, 'a, PyAny>) -> Result<Self, Self::Error> {
-        let array = obj.extract::<PyArray>()?;
+impl<'a> FromPyObject<'a> for PyScalar {
+    fn extract_bound(ob: &Bound<'a, PyAny>) -> PyResult<Self> {
+        let array = ob.extract::<PyArray>()?;
         let (array, field) = array.into_inner();
-        Ok(Self::try_new(array, field)?)
+        Self::try_new(array, field).map_err(|err| err.into())
     }
 }

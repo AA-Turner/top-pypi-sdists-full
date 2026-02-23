@@ -20,6 +20,7 @@ from wisent.core.activations import ExtractionStrategy
 from wisent.core.activations.activations_collector import ActivationCollector
 from wisent.core.contrastive_pairs.core.pair import ContrastivePair
 from wisent.core.contrastive_pairs.core.io.response import PositiveResponse, NegativeResponse
+from wisent.core.constants import ZERO_THRESHOLD
 
 
 WORD_LIST = [
@@ -96,7 +97,7 @@ def compute_cohens_d(pos_acts: np.ndarray, neg_acts: np.ndarray) -> float:
     pooled_std = np.sqrt(((n1 - 1) * pos_var + (n2 - 1) * neg_var) / (n1 + n2 - 2))
     pooled_std = np.mean(pooled_std)  # average across dimensions
     
-    if pooled_std < 1e-10:
+    if pooled_std < ZERO_THRESHOLD:
         return 0.0
     
     diff = np.linalg.norm(pos_mean - neg_mean)

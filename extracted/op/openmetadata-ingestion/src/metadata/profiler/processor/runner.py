@@ -28,6 +28,9 @@ from metadata.utils.sqa_utils import (
     get_query_group_by_for_runner,
 )
 
+if TYPE_CHECKING:
+    from pandas import DataFrame
+
 logger = query_runner_logger()
 
 

@@ -10,6 +10,9 @@
 
 from meutils.common import *
 from meutils.async_utils.common import arun, aclose, alru_cache, async2sync_generator, close_event_loop, achain
+import logfire
+
+logfire.configure()
 
 
 class Pipe(object):
@@ -391,5 +394,4 @@ data: [DONE]"""
 
     # sse.splitlines() | xsse_parser(skip_strings=['DONE', 'TRACEID']) | xprint
 
-
-    a = [[{"a":1}]] | xgroup(2)
+    a = [[{"a": 1}]] | xgroup(2)

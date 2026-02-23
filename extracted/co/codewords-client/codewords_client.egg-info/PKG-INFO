@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codewords-client
-Version: 0.4.1
+Version: 0.4.2
 Summary: Python client for CodeWords with auto-configured FastAPI integration.
 Author-email: Osman Ramadan <osman@agemo.ai>
 License-Expression: MIT
@@ -20,11 +20,14 @@ Provides-Extra: firecrawl
 Requires-Dist: firecrawl>=1.0.0; extra == "firecrawl"
 Provides-Extra: perplexityai
 Requires-Dist: perplexityai>=1.0.0; extra == "perplexityai"
+Provides-Extra: composio
+Requires-Dist: composio>=0.10.0; extra == "composio"
 Provides-Extra: all
 Requires-Dist: openai>=1.0.0; extra == "all"
 Requires-Dist: anthropic>=0.25.0; extra == "all"
 Requires-Dist: firecrawl>=1.0.0; extra == "all"
 Requires-Dist: perplexityai>=1.0.0; extra == "all"
+Requires-Dist: composio>=0.10.0; extra == "all"
 
 # Codewords Client
 

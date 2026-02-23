@@ -18,8 +18,59 @@ from openai._types import FileTypes
 from openai.types import ImagesResponse as _ImagesResponse
 from openai.types.shared_params import FunctionDefinition
 from openai.types.chat import ChatCompletionToolParam
+from openai.types.file_object import FileObject as _FileObject
 
-from meutils.schemas.image_types import ImageRequest, ImagesResponse
+
+class FileObject(_FileObject):
+    id: str = Field(default_factory=lambda: shortuuid.random())
+
+    bytes: int = -1
+    filename: str = Field(default_factory=lambda: shortuuid.random())
+
+    object: str = "file"
+    purpose: str = "user_data"
+    created_at: int = Field(default_factory=lambda: int(time.time()))
+    status: str = "processed"
+
+    # 拓展
+    url: Optional[str] = None  # 兼容文件 url
+    file_view_url: Optional[str] = None  # 文件预览链接
+
+    # 文件元数据
+    metadata: Optional[dict] = None
+
+    # filename
+    # file_title: Optional[str] = None
+    # file_type: Optional[str] = None
+    # file_content: Optional[str] = None
+    # {
+    #     "file_id": "doc_20240221_001",
+    #     "filename": "2024年销售策略.pdf",
+    #     "file_type": "application/pdf",
+    #     "page_count": 25,
+    #     "author": "销售部",
+    #     "created_at": "2024-01-15",
+    #
+    #     "chunk_id": "chunk_42",
+    #     "page_number": 5,
+    #     "section_path": ["Q1战略", "华东区域"],
+    #     "content_type": "正文",
+    #
+    #     "keywords": ["销售目标", "华东", "Q1"],
+    #     "entities": {"region": "华东", "quarter": "Q1"},
+    #     "embedding_model": "text-embedding-3-large",
+    #
+    #     "access_level": "内部",
+    #     "department": "销售部",
+    #     "valid_until": "2024-12-31"
+    # }
+
+    def __init__(self, **data: Any):
+        super().__init__(**data)
+
+        if self.url and self.file_view_url is None:
+            self.file_view_url = url2fileview(self.url)
+
 
 TOOLS = [
     {"type": "web_browser"},
@@ -605,31 +656,31 @@ if __name__ == '__main__':
     # print(CompletionRequest(messages=messages).last_urls)
     # print(CompletionRequest(messages=messages).last_urls)
     data = {
-                "model": "doubao-seedance-1-5-pro-251215",
-                "content": [
-                     {
-                        "type": "text",
-                        "text": "图中女孩对着镜头说“茄子”，360度环绕运镜"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_first_frame.jpeg"
-                        },
-                        "role": "first_frame"
-                    },
-                    {
-                        "type": "image_url",
-                        "image_url": {
-                            "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_last_frame.jpeg"
-                        },
-                        "role": "last_frame"
-                    }
-                ],
-                "generate_audio":True,
-                "ratio": "adaptive",
-                "duration": 5,
+        "model": "doubao-seedance-1-5-pro-251215",
+        "content": [
+            {
+                "type": "text",
+                "text": "图中女孩对着镜头说“茄子”，360度环绕运镜"
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_first_frame.jpeg"
+                },
+                "role": "first_frame"
+            },
+            {
+                "type": "image_url",
+                "image_url": {
+                    "url": "https://ark-project.tos-cn-beijing.volces.com/doc_image/seepro_last_frame.jpeg"
+                },
+                "role": "last_frame"
             }
+        ],
+        "generate_audio": True,
+        "ratio": "adaptive",
+        "duration": 5,
+    }
     r = CompletionRequest(**data)
 
     # print(mesages)

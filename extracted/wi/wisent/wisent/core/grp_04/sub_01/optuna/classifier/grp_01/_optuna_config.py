@@ -22,6 +22,10 @@ from wisent.core.errors import NoActivationDataError, ClassifierCreationError
 
 from .activation_generator import ActivationData, ActivationGenerator, GenerationConfig
 from .classifier_cache import CacheConfig, ClassifierCache
+from wisent.core.constants import (
+    LR_LOWER_BOUND, LR_UPPER_BOUND, DEFAULT_N_TRIALS,
+    DEFAULT_RANDOM_SEED, CLASSIFIER_TEST_SIZE,
+)
 
 
 def get_model_dtype(model) -> torch.dtype:
@@ -60,10 +64,10 @@ class ClassifierOptimizationConfig:
     model_dtype: Optional[torch.dtype] = None  # Auto-detect if None
 
     # Optuna settings
-    n_trials: int = 100
+    n_trials: int = DEFAULT_N_TRIALS
     timeout: Optional[float] = None
     n_jobs: int = 1
-    sampler_seed: int = 42
+    sampler_seed: int = DEFAULT_RANDOM_SEED
 
     # Model type search space
     model_types: list[str] = None
@@ -74,13 +78,13 @@ class ClassifierOptimizationConfig:
 
     # Training settings
     num_epochs_range: tuple[int, int] = (20, 100)
-    learning_rate_range: tuple[float, float] = (1e-4, 1e-2)
+    learning_rate_range: tuple[float, float] = (LR_LOWER_BOUND, LR_UPPER_BOUND)
     batch_size_options: list[int] = None
 
     # Evaluation settings
     cv_folds: int = 3
-    test_size: float = 0.2
-    random_state: int = 42
+    test_size: float = CLASSIFIER_TEST_SIZE
+    random_state: int = DEFAULT_RANDOM_SEED
 
     # Optimization objective
     primary_metric: str = "f1"  # "accuracy", "f1", "auc", "precision", "recall"

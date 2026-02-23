@@ -8,8 +8,9 @@ import torch
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.activations.core.atoms import LayerName
 from wisent.core.steering._subspace_compression import UniversalBasis, compute_universal_basis
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_VARIANCE_THRESHOLD, TECZA_MAX_DIRECTIONS
 
-VARIANCE_EXPLAINED_THRESHOLD = 0.80
+VARIANCE_EXPLAINED_THRESHOLD = DEFAULT_VARIANCE_THRESHOLD
 MARGINAL_VARIANCE_THRESHOLD = 0.05
 
 _LOG = setup_logger(__name__)
@@ -45,7 +46,7 @@ def explained_variance_analysis(
     
     # Variance ratios
     total_var = (S ** 2).sum()
-    if total_var < 1e-10:
+    if total_var < ZERO_THRESHOLD:
         return [1.0], [1.0]
     
     k = min(max_components, len(S))
@@ -60,7 +61,7 @@ def compute_optimal_num_directions(
     neg_activations: torch.Tensor,
     variance_threshold: float = VARIANCE_EXPLAINED_THRESHOLD,
     marginal_threshold: float = MARGINAL_VARIANCE_THRESHOLD,
-    max_directions: int = 10,
+    max_directions: int = TECZA_MAX_DIRECTIONS,
     min_directions: int = 1,
 ) -> Tuple[int, Dict[str, Any]]:
     """

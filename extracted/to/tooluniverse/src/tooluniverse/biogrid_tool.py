@@ -81,11 +81,9 @@ class BioGRIDRESTTool(BaseTool):
             organism = arguments["organism"]
             params["taxId"] = self._ORGANISM_MAP.get(organism.lower(), organism)
 
-        # Handle interaction type filtering
-        if "interaction_type" in arguments:
-            interaction_type = arguments["interaction_type"]
-            if interaction_type in ("physical", "genetic"):
-                params["evidenceList"] = interaction_type
+        # Note: BioGRID API does not support filtering by "physical"/"genetic" via evidenceList.
+        # The interaction_type parameter is informational only; filtering must be done client-side
+        # using the EXPERIMENTAL_SYSTEM_TYPE field in the results.
 
         # Handle residue filtering for PTMs
         if arguments.get("residue"):

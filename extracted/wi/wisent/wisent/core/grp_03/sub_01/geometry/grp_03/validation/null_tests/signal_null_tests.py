@@ -4,6 +4,8 @@ from typing import Dict, List, Tuple
 import torch
 import numpy as np
 
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, CONFIDENCE_LEVEL
+
 from ...metrics.probe.signal_metrics import (
     _adaptive_k, _adaptive_cv, _adaptive_pca_components,
     _adaptive_mlp_hidden, _adaptive_n_permutations,
@@ -16,7 +18,7 @@ def _compute_null_distribution(
     y: np.ndarray,
     metric_fn,
     n_permutations: int,
-    random_state: int = 42,
+    random_state: int = DEFAULT_RANDOM_SEED,
 ) -> np.ndarray:
     """Compute null distribution by permuting labels."""
     rng = np.random.RandomState(random_state)
@@ -53,7 +55,7 @@ def compute_signal_vs_null(
     # Subsample pairs for permutation testing when dataset is large
     n_pairs = len(pos_np)
     if n_pairs > MAX_PAIRS_FOR_NULL_TEST:
-        idx = np.random.RandomState(42).choice(n_pairs, MAX_PAIRS_FOR_NULL_TEST, replace=False)
+        idx = np.random.RandomState(DEFAULT_RANDOM_SEED).choice(n_pairs, MAX_PAIRS_FOR_NULL_TEST, replace=False)
         idx.sort()
         pos_np = pos_np[idx]
         neg_np = neg_np[idx]
@@ -66,7 +68,7 @@ def compute_signal_vs_null(
     pca_max = min(n_samples - 1, n_features, 50)
     if pca_max < n_features and pca_max >= 2:
         from sklearn.decomposition import PCA
-        X = PCA(n_components=pca_max, random_state=42).fit_transform(X)
+        X = PCA(n_components=pca_max, random_state=DEFAULT_RANDOM_SEED).fit_transform(X)
         n_features = pca_max
     k = _adaptive_k(n_samples)
     cv = _adaptive_cv(n_samples)
@@ -92,10 +94,10 @@ def compute_signal_vs_null(
         null_mean = float(null_dist.mean())
         null_std = float(null_dist.std())
 
-        if null_std > 1e-10:
+        if null_std > ZERO_THRESHOLD:
             z_score = (real_score - null_mean) / null_std
         else:
-            z_score = 0.0 if abs(real_score - null_mean) < 1e-10 else float('inf')
+            z_score = 0.0 if abs(real_score - null_mean) < ZERO_THRESHOLD else float('inf')
 
         p_value = float((null_dist >= real_score).mean())
 
@@ -246,7 +248,7 @@ def compute_signal_with_bounds(
     neg_activations: torch.Tensor,
     metric_keys: List[str],
     n_permutations: int = None,
-    confidence_level: float = 0.95,
+    confidence_level: float = CONFIDENCE_LEVEL,
 ) -> Dict[str, Dict[str, float]]:
     """
     Compute signal metrics with estimation error bounds.
@@ -271,7 +273,7 @@ def compute_signal_with_bounds(
 
         null_mean = metric_result["null_mean"]
         null_std = metric_result["null_std"]
-        effect_size = (acc - null_mean) / (null_std + 1e-10)
+        effect_size = (acc - null_mean) / (null_std + ZERO_THRESHOLD)
 
         metric_result.update({
             "accuracy_lower": max(0.0, acc - margin),

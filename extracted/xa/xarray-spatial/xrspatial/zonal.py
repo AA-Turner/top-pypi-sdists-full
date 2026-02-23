@@ -53,6 +53,21 @@ def _stats_count(data):
     return stats_count
 
 
+def _stats_majority(data):
+    if isinstance(data, np.ndarray):
+        # numpy case
+        values, counts = np.unique(data, return_counts=True)
+        return values[np.argmax(counts)]
+    elif isinstance(data, cupy.ndarray):
+        # cupy case
+        values, counts = cupy.unique(data, return_counts=True)
+        return values[cupy.argmax(counts)]
+    else:
+        # dask case
+        values, counts = da.unique(data, return_counts=True)
+        return values[da.argmax(counts)]
+
+
 _DEFAULT_STATS = dict(
     mean=lambda z: z.mean(),
     max=lambda z: z.max(),
@@ -61,6 +76,7 @@ _DEFAULT_STATS = dict(
     std=lambda z: z.std(),
     var=lambda z: z.var(),
     count=lambda z: _stats_count(z),
+    majority=lambda z: _stats_majority(z),
 )
 
 
@@ -243,11 +259,12 @@ def _stats_dask_numpy(
         )
 
     # generate dask dataframe
-    stats_df = dd.concat([dd.from_dask_array(s) for s in stats_dict.values()], axis=1)
+    stats_df = dd.concat([dd.from_dask_array(s) for s in stats_dict.values()], axis=1, ignore_unknown_divisions=True)
     # name columns
     stats_df.columns = stats_dict.keys()
-    # select columns
-    stats_df = stats_df[['zone'] + list(stats_funcs.keys())]
+    # select columns (only include stats that were actually computed)
+    computed_stats = [s for s in stats_funcs.keys() if s in stats_dict]
+    stats_df = stats_df[['zone'] + computed_stats]
 
     if not select_all_zones:
         # only return zones specified in `zone_ids`
@@ -255,7 +272,7 @@ def _stats_dask_numpy(
         for index, row in stats_df.iterrows():
             if row['zone'] in zone_ids:
                 selected_rows.append(stats_df.loc[index])
-        stats_df = dd.concat(selected_rows)
+        stats_df = dd.concat(selected_rows, ignore_unknown_divisions=True)
 
     return stats_df
 
@@ -414,6 +431,7 @@ def stats(
         "std",
         "var",
         "count",
+        "majority",
     ],
     nodata_values: Union[int, float] = None,
     return_type: str = 'pandas.DataFrame',
@@ -437,19 +455,24 @@ def stats(
         the shape, values, and locations of the zones. An integer field
         in the input `zones` DataArray defines a zone.
 
-    values : xr.DataArray
+    values : xr.DataArray or xr.Dataset
         values is a 2D xarray DataArray of numeric values (integers or floats).
         The input `values` raster contains the input values used in
         calculating the output statistic for each zone. In dask case,
         the chunksizes of `zones` and `values` should be matching. If not,
         `values` will be rechunked to be the same as of `zones`.
+        When a Dataset is passed, stats are computed for each variable
+        and columns are prefixed with the variable name
+        (e.g. ``elevation_mean``).
+        For 3D time-series DataArrays, convert to a Dataset first using
+        ``.to_dataset(dim='time')`` and pass the resulting Dataset.
 
     zone_ids : list of ints, or floats
         List of zones to be included in calculation. If no zone_ids provided,
         all zones will be used.
 
     stats_funcs : dict, or list of strings, default=['mean', 'max', 'min',
-        'sum', 'std', 'var', 'count']
+        'sum', 'std', 'var', 'count', 'majority']
         The statistics to calculate for each zone. If a list, possible
         choices are subsets of the default options.
         In the dictionary case, all of its values must be
@@ -474,6 +497,10 @@ def stats(
     stats_df : Union[pandas.DataFrame, dask.dataframe.DataFrame]
         A pandas DataFrame, or a dask DataFrame where each column
         is a statistic and each row is a zone with zone id.
+        When ``values`` is a Dataset, the returned DataFrame has
+        columns prefixed by the variable name (e.g. ``elevation_mean``,
+        ``elevation_max``), and ``return_type`` must be
+        ``'pandas.DataFrame'``.
 
     Examples
     --------
@@ -546,7 +573,42 @@ def stats(
         1    10  27.0   49    5   675  14.21267  202.0     25
         2    20  72.0   94   50  1800  14.21267  202.0     25
         3    30  77.0   99   55  1925  14.21267  202.0     25
+
+    stats() works with 3D time-series DataArrays via Dataset conversion
+
+    .. sourcecode:: python
+
+        >>> # Convert a 3D time-series DataArray to a Dataset,
+        >>> # then pass to stats() to get per-timestep statistics.
+        >>> values_3d = xr.DataArray(
+        ...     np.random.rand(2, 10, 10),
+        ...     dims=['time', 'dim_0', 'dim_1'],
+        ...     coords={'time': [2020, 2021]})
+        >>> ds = values_3d.to_dataset(dim='time')
+        >>> stats_df = stats(zones=zones, values=ds)
+        >>> # Columns: zone, 2020_mean, 2020_max, ..., 2021_mean, 2021_max, ...
     """
+
+    # Dataset support: run stats per variable and merge into one DataFrame
+    if isinstance(values, xr.Dataset):
+        if return_type != 'pandas.DataFrame':
+            raise ValueError(
+                "return_type must be 'pandas.DataFrame' when values is a Dataset"
+            )
+        dfs = []
+        for var_name in values.data_vars:
+            df = stats(
+                zones, values[var_name], zone_ids, stats_funcs,
+                nodata_values, 'pandas.DataFrame',
+            )
+            df = df.rename(
+                columns={c: f'{var_name}_{c}' for c in df.columns if c != 'zone'}
+            )
+            dfs.append(df)
+        result = dfs[0]
+        for df in dfs[1:]:
+            result = result.merge(df, on='zone', how='outer')
+        return result
 
     validate_arrays(zones, values)
 
@@ -573,12 +635,12 @@ def stats(
     if isinstance(stats_funcs, list):
         # create a dict of stats
         stats_funcs_dict = {}
-        for stats in stats_funcs:
-            func = _DEFAULT_STATS.get(stats, None)
+        for stat_name in stats_funcs:
+            func = _DEFAULT_STATS.get(stat_name, None)
             if func is None:
-                err_str = f"Invalid stat name. {stats} option not supported."
+                err_str = f"Invalid stat name. {stat_name} option not supported."
                 raise ValueError(err_str)
-            stats_funcs_dict[stats] = func
+            stats_funcs_dict[stat_name] = func
 
     elif isinstance(stats_funcs, dict):
         stats_funcs_dict = stats_funcs.copy()
@@ -1015,6 +1077,12 @@ def crosstab(
 
     if values.ndim not in [2, 3]:
         raise ValueError("`values` must use either 2D or 3D coordinates.")
+
+    # For 2D values, validate and align chunks between zones and values
+    # This is critical for dask arrays that may come from different sources
+    # (e.g., xarray Datasets via to_array().sel())
+    if values.ndim == 2:
+        validate_arrays(zones, values)
 
     agg_2d = ["percentage", "count"]
     agg_3d_numpy = _DEFAULT_STATS.keys()
@@ -1492,10 +1560,10 @@ def regions(
     Parameters
     ----------
     raster : xr.DataArray
-    connections : int, default=4
+    neighborhood : int, default=4
         4 or 8 pixel-based connectivity.
-    name: str, default='regions'
-        output xr.DataArray.name property.
+    name : str, default='regions'
+        Output xr.DataArray.name property.
 
     Returns
     -------
@@ -1507,90 +1575,56 @@ def regions(
 
     Examples
     --------
-    .. plot::
-       :include-source:
-
-        import matplotlib.pyplot as plt
-        import numpy as np
-        import xarray as xr
-
-        from xrspatial import generate_terrain
-        from xrspatial.zonal import regions
-
-
-        # Generate Example Terrain
-        W = 500
-        H = 300
-
-        template_terrain = xr.DataArray(np.zeros((H, W)))
-        x_range=(-20e6, 20e6)
-        y_range=(-20e6, 20e6)
-
-        terrain_agg = generate_terrain(
-            template_terrain, x_range=x_range, y_range=y_range
-        )
-
-        # Edit Attributes
-        terrain_agg = terrain_agg.assign_attrs(
-            {
-                'Description': 'Example Terrain',
-                'units': 'km',
-                'Max Elevation': '4000',
-            }
-        )
-
-        terrain_agg = terrain_agg.rename({'x': 'lon', 'y': 'lat'})
-        terrain_agg = terrain_agg.rename('Elevation')
-
-        # Create Regions
-        regions_agg = regions(terrain_agg)
-
-        # Edit Attributes
-        regions_agg = regions_agg.assign_attrs({'Description': 'Example Regions',
-                                                'units': ''})
-        regions_agg = regions_agg.rename('Region Value')
-
-        # Plot Terrain (Values)
-        terrain_agg.plot(cmap = 'terrain', aspect = 2, size = 4)
-        plt.title("Terrain (Values)")
-        plt.ylabel("latitude")
-        plt.xlabel("longitude")
-
-        # Plot Regions
-        regions_agg.plot(cmap = 'terrain', aspect = 2, size = 4)
-        plt.title("Regions")
-        plt.ylabel("latitude")
-        plt.xlabel("longitude")
-
     .. sourcecode:: python
 
-        >>> print(terrain_agg[200:203, 200:202])
-        <xarray.DataArray 'Elevation' (lat: 3, lon: 2)>
-        array([[1264.02296597, 1261.947921  ],
-               [1285.37105519, 1282.48079719],
-               [1306.02339636, 1303.4069579 ]])
-        Coordinates:
-        * lon      (lon) float64 -3.96e+06 -3.88e+06
-        * lat      (lat) float64 6.733e+06 6.867e+06 7e+06
-        Attributes:
-            res:            (80000.0, 133333.3333333333)
-            Description:    Example Terrain
-            units:          km
-            Max Elevation:  4000
+        >>> import numpy as np
+        >>> import xarray as xr
+        >>> from xrspatial.zonal import regions
 
-        >>> print(regions_agg[200:203, 200:202])
-        <xarray.DataArray 'Region Value' (lat: 3, lon: 2)>
-        array([[39557., 39558.],
-               [39943., 39944.],
-               [40327., 40328.]])
-        Coordinates:
-        * lon      (lon) float64 -3.96e+06 -3.88e+06
-        * lat      (lat) float64 6.733e+06 6.867e+06 7e+06
-        Attributes:
-            res:            (80000.0, 133333.3333333333)
-            Description:    Example Regions
-            units:
-            Max Elevation:  4000
+        >>> # Create a raster with distinct value regions
+        >>> arr = np.array([[1, 1, 0, 2, 2],
+        ...                 [1, 1, 0, 2, 2],
+        ...                 [0, 0, 0, 0, 0],
+        ...                 [3, 3, 0, 3, 3],
+        ...                 [3, 3, 0, 3, 3]], dtype=np.float64)
+        >>> raster = xr.DataArray(arr, dims=['y', 'x'])
+        >>> print(raster.values)
+        [[1. 1. 0. 2. 2.]
+         [1. 1. 0. 2. 2.]
+         [0. 0. 0. 0. 0.]
+         [3. 3. 0. 3. 3.]
+         [3. 3. 0. 3. 3.]]
+
+        >>> # With 4-connectivity, each group of connected same-value
+        >>> # pixels becomes a unique region
+        >>> result = regions(raster, neighborhood=4)
+        >>> print(result.values)
+        [[1. 1. 2. 3. 3.]
+         [1. 1. 2. 3. 3.]
+         [2. 2. 2. 2. 2.]
+         [5. 5. 2. 6. 6.]
+         [5. 5. 2. 6. 6.]]
+
+        >>> # Note: The two bottom-corner 3-regions are separate because
+        >>> # they are not connected (the zero-valued cross separates them)
+        >>> print(f"Number of unique regions: {len(np.unique(result.values))}")
+        Number of unique regions: 5
+
+        >>> # With 8-connectivity, diagonal neighbors also connect regions
+        >>> diagonal = np.array([[1, 0, 1],
+        ...                      [0, 1, 0],
+        ...                      [1, 0, 1]], dtype=np.float64)
+        >>> raster_diag = xr.DataArray(diagonal, dims=['y', 'x'])
+        >>> result_8 = regions(raster_diag, neighborhood=8)
+        >>> print(result_8.values)
+        [[1. 2. 1.]
+         [2. 1. 2.]
+         [1. 2. 1.]]
+
+        >>> # All 1s are connected diagonally into one region,
+        >>> # all 0s form another region
+        >>> print(f"Number of unique regions: {len(np.unique(result_8.values))}")
+        Number of unique regions: 2
     """
     if neighborhood not in (4, 8):
         raise ValueError("`neighborhood` value must be either 4 or 8)")

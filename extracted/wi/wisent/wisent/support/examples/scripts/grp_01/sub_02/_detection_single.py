@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from wisent.core.constants import ZERO_THRESHOLD, LINEARITY_N_INIT
 
 
 def detect_multiple_concepts_single_sample(
@@ -73,7 +74,7 @@ def detect_multiple_concepts_single_sample(
     cluster_stability = np.mean(cluster_agreements)
     
     # 3. Silhouette Score
-    km = KMeans(n_clusters=2, random_state=seed, n_init=10)
+    km = KMeans(n_clusters=2, random_state=seed, n_init=LINEARITY_N_INIT)
     cluster_labels = km.fit_predict(diff_vectors)
     silhouette = silhouette_score(diff_vectors, cluster_labels)
     
@@ -86,8 +87,8 @@ def detect_multiple_concepts_single_sample(
     if cluster_0_mask.sum() >= 5 and cluster_1_mask.sum() >= 5:
         dir_0 = diff_vectors[cluster_0_mask].mean(axis=0)
         dir_1 = diff_vectors[cluster_1_mask].mean(axis=0)
-        dir_0 = dir_0 / (np.linalg.norm(dir_0) + 1e-10)
-        dir_1 = dir_1 / (np.linalg.norm(dir_1) + 1e-10)
+        dir_0 = dir_0 / (np.linalg.norm(dir_0) + ZERO_THRESHOLD)
+        dir_1 = dir_1 / (np.linalg.norm(dir_1) + ZERO_THRESHOLD)
         cluster_direction_similarity = np.abs(np.dot(dir_0, dir_1))
     else:
         cluster_direction_similarity = 1.0  # Can't compute, assume same

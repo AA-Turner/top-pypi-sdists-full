@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import torch
 from typing import TYPE_CHECKING
+from wisent.core.constants import DEFAULT_STRENGTH, GROM_GATE_TEMPERATURE
+from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.cli.cli_logger import setup_logger, bind
 
 if TYPE_CHECKING:
@@ -15,7 +17,7 @@ _LOG = setup_logger(__name__)
 class GROMRuntimeHooks:
     """Runtime hook system for GROM dynamic steering."""
 
-    def __init__(self, model: Module, grom_result, base_strength: float = 1.0, gate_threshold: float = 0.5, use_soft_gating: bool = True):
+    def __init__(self, model: Module, grom_result, base_strength: float = DEFAULT_STRENGTH, gate_threshold: float = GROM_GATE_TEMPERATURE, use_soft_gating: bool = True):
         self.model = model
         self.grom_result = grom_result
         self.base_strength = base_strength
@@ -111,7 +113,7 @@ class GROMRuntimeHooks:
 
 
 def project_weights_grom(
-    model: Module, grom_result, components: list[str] | None = None, base_strength: float = 1.0,
+    model: Module, grom_result, components: list[str] | None = None, base_strength: float = DEFAULT_STRENGTH,
     use_learned_intensities: bool = True, verbose: bool = True
 ) -> dict[str, int]:
     """Bake GROM effective directions into model weights using ADDITIVE steering."""

@@ -7,6 +7,7 @@ Functions for assigning pairs to concepts and analyzing concept structure.
 import torch
 import numpy as np
 from typing import Dict, Any, List, Tuple
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
 
 
 def compute_concept_linear_separability(
@@ -79,18 +80,18 @@ def get_pair_concept_assignments(
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
 
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
         if len(diff_normalized) < n_concepts * 2:
             return {"assignments": [0] * n_pairs, "confidences": [1.0] * n_pairs, "error": "not enough samples"}
 
-        km = KMeans(n_clusters=n_concepts, random_state=42, n_init=10)
+        km = KMeans(n_clusters=n_concepts, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
         labels = km.fit_predict(diff_normalized)
         distances = km.transform(diff_normalized)
 
         assigned_distances = distances[np.arange(len(labels)), labels]
-        max_dist = distances.max() + 1e-8
+        max_dist = distances.max() + NORM_EPS
         confidences_valid = 1 - (assigned_distances / max_dist)
 
         valid_indices = np.where(valid_mask)[0]
@@ -146,10 +147,10 @@ def find_mixed_pairs(
         diff_vectors = (pos_activations[:n_pairs] - neg_activations[:n_pairs]).float().cpu().numpy()
 
         norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-        valid_mask = norms.squeeze() > 1e-8
+        valid_mask = norms.squeeze() > NORM_EPS
         diff_normalized = diff_vectors[valid_mask] / norms[valid_mask]
 
-        km = KMeans(n_clusters=2, random_state=42, n_init=10)
+        km = KMeans(n_clusters=2, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
         km.fit(diff_normalized)
 
         distances = km.transform(diff_normalized).min(axis=1)

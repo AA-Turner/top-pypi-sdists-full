@@ -1,4 +1,5 @@
 """Parser setup for the 'agent' command."""
+from wisent.core.constants import DEFAULT_CLASSIFIER_LR
 
 
 def setup_agent_parser(parser):
@@ -55,7 +56,7 @@ def setup_agent_parser(parser):
         "--classifier-epochs", type=int, default=50, help="Number of epochs for classifier training (default: 50)"
     )
     parser.add_argument(
-        "--classifier-lr", type=float, default=1e-3, help="Learning rate for classifier training (default: 1e-3)"
+        "--classifier-lr", type=float, default=DEFAULT_CLASSIFIER_LR, help="Learning rate for classifier training (default: 1e-3)"
     )
     parser.add_argument(
         "--classifier-batch-size",

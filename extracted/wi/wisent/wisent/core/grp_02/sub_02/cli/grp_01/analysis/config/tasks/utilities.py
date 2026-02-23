@@ -3,6 +3,7 @@
 import os
 import json
 import sys
+from wisent.core.constants import MAX_COMBINATIONS
 
 
 # ============================================================================
@@ -126,7 +127,7 @@ def execute_optimization(args, model, LMEvalDataLoader):
         threshold_range=[0.3, 0.5, 0.7],
         classifier_types=[args.classifier_type],
         metric=getattr(args, 'optimize_metric', 'f1'),
-        max_combinations=getattr(args, 'optimize_max_combinations', 1000)
+        max_combinations=getattr(args, 'optimize_max_combinations', MAX_COMBINATIONS)
     )
 
     total_combos = (len(layer_range) * len(config.aggregation_methods) *

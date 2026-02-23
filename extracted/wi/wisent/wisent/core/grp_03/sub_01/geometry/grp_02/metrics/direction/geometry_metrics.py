@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.model_selection import cross_val_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.neural_network import MLPClassifier
+from wisent.core.constants import DEFAULT_RANDOM_SEED
 
 
 def _adaptive_cv(n_samples: int) -> int:
@@ -43,14 +44,14 @@ def compute_linear_nonlinear_gap(
     # Adaptive regularization: stronger for high-d
     C = n_samples / n_features  # Lower C = more regularization when n_features >> n_samples
     C = max(0.01, min(C, 10.0))
-    linear_clf = LogisticRegression(C=C, random_state=42)
+    linear_clf = LogisticRegression(C=C, random_state=DEFAULT_RANDOM_SEED)
     linear_scores = cross_val_score(linear_clf, X, y, cv=cv, scoring="accuracy")
     linear_acc = float(linear_scores.mean())
 
     # Nonlinear probe (MLP)
     mlp_clf = MLPClassifier(
         hidden_layer_sizes=(mlp_hidden,),
-        random_state=42,
+        random_state=DEFAULT_RANDOM_SEED,
         early_stopping=True,
         alpha=1.0 / n_samples,  # Adaptive L2 regularization
     )

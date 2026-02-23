@@ -21,6 +21,7 @@ from wisent.core.errors import (
 )
 
 from ._part2 import SteeringMethodTrainer, SteeringTrainer
+from wisent.core.constants import CLASSIFIER_BATCH_SIZE, DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER
 
 
 class _SteeringOptimizerCore:
@@ -58,10 +59,10 @@ class _SteeringOptimizerCore:
         model,
         tokenizer,
         device: str,
-        batch_size: int = 32,
+        batch_size: int = CLASSIFIER_BATCH_SIZE,
         max_length: int = 512,
         task_name: str = "gsm8k",
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[Dict[str, Any], List]:
         """
         Optimize hyperparameters for a steering method using grid search.

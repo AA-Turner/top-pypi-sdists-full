@@ -1,7 +1,8 @@
 Metadata-Version: 2.4
 Name: mutmut
-Version: 3.4.0
+Version: 3.5.0
 Summary: mutation testing for Python 3
+Keywords: mutmut,mutant,mutation,test,testing
 Author: Anders Hovmöller
 Author-email: Anders Hovmöller <boxed@killingar.net>
 License-Expression: BSD-3-Clause
@@ -197,6 +198,34 @@ If you only want to mutate lines that are called (according to coverage.py), you
 .. code-block::
 
     mutate_only_covered_lines=true
+
+
+Filter generated mutants with type checker
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+When your project is type checked using `mypy` or `pyrefly`, you can also use it to filter out invalid mutants.
+For instance, mutmut mutates `x: str = 'foo'` to `x: str = None` which can easily caught by type checkers.
+
+Using this filter can improve performance and reduce noise, however it can also hide a few relevant mutations:
+
+1. `x: str = None` may not be valid, but if your tests do not detect such a change it indicates that
+    the value of `x` is not properly tested (even if your type checker would catch this particular modification)
+2. In some edge cases with class properties (usually in the `__init__` method), the way `mypy` and `pyrefly` infer types does not work well
+    with the way mutmut mutates code. Some valid mutations like changing `self.x = 123` to `self.x = None` can
+    be filtered out, even though the may be valid.
+
+To enable this filtering, configure the `type_check_command` to output json results as follows:
+
+.. code-block::
+
+    # for pyrefly
+    type_check_command = ['pyrefly', 'check', '--output-format=json']
+    # for mypy
+    type_check_command = ['mypy', 'traces_parser', '--output', 'json']
+
+Currently, only `pyrefly` and `mypy` are supported.
+With `pyright` and `ty`, mutating a class method `Foo.bar()` can break the types of all methods of `Foo`,
+and therefore mutmut cannot match the type error with the mutant that caused the type error.
 
 
 Enable debug output (increase verbosity)

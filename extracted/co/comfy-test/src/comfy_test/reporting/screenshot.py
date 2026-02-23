@@ -37,6 +37,163 @@ class ScreenshotError(TestError):
     pass
 
 
+def _detect_gpu() -> bool:
+    """Check if a GPU is available on this machine (independent of test mode)."""
+    import shutil
+    if shutil.which("nvidia-smi"):
+        try:
+            result = subprocess.run(
+                ["nvidia-smi", "--query-gpu=name", "--format=csv,noheader"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _detect_vulkan() -> bool:
+    """Check if Vulkan is available on this machine."""
+    import shutil
+    if shutil.which("vulkaninfo"):
+        try:
+            result = subprocess.run(
+                ["vulkaninfo", "--summary"],
+                capture_output=True, text=True, timeout=5,
+            )
+            if result.returncode == 0 and "deviceName" in result.stdout:
+                return True
+        except Exception:
+            pass
+    return False
+
+
+def _ensure_vulkan_linux(log: Callable[[str], None]) -> bool:
+    """Install Vulkan stack on Linux if not present, then re-detect."""
+    if _detect_vulkan():
+        return True
+    import platform
+    if platform.system() != "Linux":
+        return False
+    log("  Installing Vulkan stack (apt)...")
+    try:
+        subprocess.run(["sudo", "apt-get", "update", "-qq"], capture_output=True, timeout=60)
+        result = subprocess.run(
+            ["sudo", "apt-get", "install", "-y", "-qq",
+             "vulkan-tools", "libvulkan1", "mesa-vulkan-drivers"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            log("  Vulkan packages installed")
+            if _detect_vulkan():
+                return True
+            # Log vulkaninfo output for debugging
+            try:
+                diag = subprocess.run(
+                    ["vulkaninfo", "--summary"],
+                    capture_output=True, text=True, timeout=5,
+                )
+                log(f"  vulkaninfo exit={diag.returncode} stdout={diag.stdout[:300]}")
+                if diag.stderr.strip():
+                    log(f"  vulkaninfo stderr={diag.stderr[:300]}")
+            except Exception:
+                log("  vulkaninfo not available after install")
+        else:
+            log(f"  Vulkan install failed: {result.stderr[:200]}")
+    except Exception as e:
+        log(f"  Vulkan install error: {e}")
+    return False
+
+
+def _detect_mesa_llvmpipe() -> bool:
+    """Check if Mesa llvmpipe (software OpenGL) is available."""
+    import platform
+    if platform.system() == "Linux":
+        # Check if EGL is available via Mesa
+        for lib in ["/usr/lib/x86_64-linux-gnu/libEGL_mesa.so.0",
+                    "/usr/lib/x86_64-linux-gnu/libEGL_mesa.so",
+                    "/usr/lib64/libEGL_mesa.so.0"]:
+            if os.path.exists(lib):
+                return True
+    elif platform.system() == "Windows":
+        # Check if Mesa opengl32.dll has been placed next to Chromium
+        # (handled by _ensure_mesa_windows)
+        pass
+    return False
+
+
+def _ensure_mesa_linux(log: Callable[[str], None]) -> bool:
+    """Install Mesa EGL/llvmpipe on Linux if not present."""
+    if _detect_mesa_llvmpipe():
+        return True
+    log("  Installing Mesa llvmpipe (apt)...")
+    try:
+        subprocess.run(["sudo", "apt-get", "update", "-qq"], capture_output=True, timeout=60)
+        result = subprocess.run(
+            ["sudo", "apt-get", "install", "-y", "-qq", "libegl1-mesa", "libegl-mesa0", "libgl1-mesa-dri"],
+            capture_output=True, text=True, timeout=120,
+        )
+        if result.returncode == 0:
+            log("  Mesa llvmpipe installed")
+            return True
+        else:
+            log(f"  Mesa install failed: {result.stderr[:200]}")
+    except Exception as e:
+        log(f"  Mesa install error: {e}")
+    return False
+
+
+# Mesa DLL URL for Windows (x64, release MSVC build from mesa-dist-win)
+_MESA_WIN_URL = "https://github.com/pal1000/mesa-dist-win/releases/download/25.3.6/mesa3d-25.3.6-release-msvc.7z"
+
+
+def _ensure_mesa_windows(chromium_dir: Path, log: Callable[[str], None]) -> bool:
+    """Download and place Mesa opengl32.dll next to Chromium on Windows."""
+    opengl_dll = chromium_dir / "opengl32.dll"
+    gallium_dll = chromium_dir / "libgallium_wgl.dll"
+    if opengl_dll.exists() and gallium_dll.exists():
+        log("  Mesa llvmpipe DLLs already present")
+        return True
+
+    log("  Downloading Mesa llvmpipe for Windows...")
+    try:
+        import urllib.request
+        import shutil
+
+        archive_path = chromium_dir / "mesa3d.7z"
+        urllib.request.urlretrieve(_MESA_WIN_URL, str(archive_path))
+
+        # Extract with 7z (available on Windows runners)
+        extract_dir = chromium_dir / "_mesa_extract"
+        result = subprocess.run(
+            ["7z", "x", str(archive_path), f"-o{extract_dir}", "-y"],
+            capture_output=True, text=True, timeout=60,
+        )
+        if result.returncode != 0:
+            log(f"  7z extract failed: {result.stderr[:200]}")
+            return False
+
+        # Find and copy the x64 DLLs
+        for root, dirs, files in os.walk(str(extract_dir)):
+            root_path = Path(root)
+            if "x64" in root_path.parts or root_path.name == "x64":
+                for fname in ["opengl32.dll", "libgallium_wgl.dll"]:
+                    src = root_path / fname
+                    if src.exists():
+                        shutil.copy2(str(src), str(chromium_dir / fname))
+                        log(f"  Copied {fname} to Chromium dir")
+
+        # Cleanup
+        archive_path.unlink(missing_ok=True)
+        shutil.rmtree(str(extract_dir), ignore_errors=True)
+
+        return opengl_dll.exists() and gallium_dll.exists()
+    except Exception as e:
+        log(f"  Mesa download error: {e}")
+    return False
+
+
 def check_dependencies() -> None:
     """Check that required dependencies are installed.
 
@@ -245,9 +402,48 @@ class WorkflowScreenshot:
         self._log("Starting headless browser...")
         self._playwright = sync_playwright().start()
 
+        # Detect rendering backend: GPU > Mesa llvmpipe > SwiftShader
+        import platform
+        has_gpu = _detect_gpu()
+        has_vulkan = _ensure_vulkan_linux(self._log) if has_gpu else False
+
+        if has_gpu and has_vulkan:
+            self._log("  GPU + Vulkan detected — using ANGLE/Vulkan rendering")
+            chrome_args = [
+                "--use-gl=angle",
+                "--use-angle=vulkan",
+                "--enable-features=Vulkan",
+                "--disable-vulkan-surface",     # use bit blit for headless (no swapchain)
+                "--ignore-gpu-blocklist",
+                "--enable-unsafe-swiftshader",  # fallback if Vulkan fails
+            ]
+        elif has_gpu:
+            self._log("  GPU detected (no Vulkan) — using ANGLE/OpenGL rendering")
+            chrome_args = [
+                "--use-gl=angle",
+                "--ignore-gpu-blocklist",
+                "--enable-unsafe-swiftshader",  # fallback if HW accel fails
+            ]
+        elif platform.system() == "Linux" and _ensure_mesa_linux(self._log):
+            self._log("  Using Mesa llvmpipe (EGL) — multithreaded CPU rendering")
+            chrome_args = ["--use-gl=egl", "--ignore-gpu-blocklist"]
+        elif platform.system() == "Windows":
+            # Get Chromium dir from Playwright to drop Mesa DLLs next to it
+            chromium_path = Path(self._playwright.chromium.executable_path)
+            chromium_dir = chromium_path.parent
+            if _ensure_mesa_windows(chromium_dir, self._log):
+                self._log("  Using Mesa llvmpipe (desktop GL) — multithreaded CPU rendering")
+                chrome_args = ["--use-gl=desktop"]
+            else:
+                self._log("  Mesa unavailable — falling back to SwiftShader")
+                chrome_args = ["--disable-gpu", "--use-gl=angle", "--use-angle=swiftshader"]
+        else:
+            self._log("  No GPU, no Mesa — using SwiftShader software rendering")
+            chrome_args = ["--disable-gpu", "--use-gl=angle", "--use-angle=swiftshader"]
+
         self._browser = self._playwright.chromium.launch(
             headless=True,
-            args=["--disable-gpu", "--use-gl=angle", "--use-angle=swiftshader"],
+            args=chrome_args,
         )
         self._page = self._browser.new_page(
             viewport={"width": self.width, "height": self.height},
@@ -270,7 +466,7 @@ class WorkflowScreenshot:
     def save_console_logs(self, output_path: Path) -> None:
         """Save captured console logs to file."""
         if self._console_logs:
-            output_path.write_text("\n".join(self._console_logs))
+            output_path.write_text("\n".join(self._console_logs), encoding="utf-8")
 
     def clear_console_logs(self) -> None:
         """Clear captured console logs."""
@@ -1100,6 +1296,8 @@ class WorkflowScreenshot:
             frame_num = 1
             screenshot_interval_ms = 50  # Capture every 50ms to catch fast nodes
 
+            gif_ws_disconnected_since: Optional[float] = None
+            GIF_WS_DEAD_TIMEOUT = 30
             while time.time() - start_time < timeout:
                 current_time = time.time()
 
@@ -1107,9 +1305,26 @@ class WorkflowScreenshot:
                 state = self._page.evaluate("""
                     () => ({
                         complete: window._executionComplete,
-                        error: window._executionError
+                        error: window._executionError,
+                        wsState: (window.app && window.app.api && window.app.api.socket)
+                            ? window.app.api.socket.readyState : -1
                     })
                 """)
+
+                # Detect server crash via WebSocket disconnect
+                gif_ws_state = state.get("wsState", -1)
+                if gif_ws_state != 1:
+                    if gif_ws_disconnected_since is None:
+                        gif_ws_disconnected_since = time.time()
+                        self._log(f"  [gif-loop] WebSocket disconnected (readyState={gif_ws_state})")
+                    elif time.time() - gif_ws_disconnected_since > GIF_WS_DEAD_TIMEOUT:
+                        self._log(f"  [gif-loop] Server appears dead — WebSocket disconnected for {GIF_WS_DEAD_TIMEOUT}s")
+                        raise WorkflowError(
+                            f"ComfyUI server crashed during execution (WebSocket closed for {GIF_WS_DEAD_TIMEOUT}s)",
+                            workflow_file=str(workflow_path),
+                        )
+                else:
+                    gif_ws_disconnected_since = None
 
                 # Take periodic screenshot to catch execution state (green boxes)
                 if (current_time - last_screenshot_time) * 1000 >= screenshot_interval_ms:
@@ -1405,17 +1620,47 @@ class WorkflowScreenshot:
             last_screenshot_time = time.time()
             PERIODIC_INTERVAL = 2.0
 
+            loop_iter = 0
+            ws_disconnected_since: Optional[float] = None  # timestamp of first WS disconnect
+            WS_DEAD_TIMEOUT = 30  # seconds of sustained WS disconnect before aborting
             while time.time() - capture_start < timeout:
+                loop_iter += 1
+                t0 = time.time()
                 state = self._page.evaluate("""
                     () => ({
                         complete: window._executionComplete,
                         error: window._executionError,
-                        executedCount: window._executedNodeCount
+                        executedCount: window._executedNodeCount,
+                        wsState: (window.app && window.app.api && window.app.api.socket)
+                            ? window.app.api.socket.readyState : -1
                     })
                 """)
+                t_eval = time.time() - t0
 
                 elapsed = time.time() - capture_start
                 log_snapshot = "\n".join(log_lines) if log_lines else ""
+
+                # Detect server crash via WebSocket disconnect.
+                # readyState: 0=CONNECTING, 1=OPEN, 2=CLOSING, 3=CLOSED, -1=missing
+                ws_state = state.get("wsState", -1)
+                if ws_state != 1:  # not OPEN
+                    if ws_disconnected_since is None:
+                        ws_disconnected_since = time.time()
+                        self._log(f"  [capture-loop] WebSocket disconnected (readyState={ws_state})")
+                    elif time.time() - ws_disconnected_since > WS_DEAD_TIMEOUT:
+                        self._log(f"  [capture-loop] Server appears dead — WebSocket disconnected for {WS_DEAD_TIMEOUT}s")
+                        raise WorkflowError(
+                            f"ComfyUI server crashed during execution (WebSocket closed for {WS_DEAD_TIMEOUT}s)",
+                            workflow_file=str(workflow_path),
+                        )
+                else:
+                    if ws_disconnected_since is not None:
+                        self._log(f"  [capture-loop] WebSocket reconnected after {time.time()-ws_disconnected_since:.1f}s")
+                    ws_disconnected_since = None
+
+                # Debug: log every 10th iteration or when something interesting happens
+                if loop_iter % 50 == 0:
+                    self._log(f"  [capture-loop] iter={loop_iter} t={elapsed:.1f}s state={state} eval_ms={t_eval*1000:.0f}")
 
                 # Screenshot on node completion (with freeze to avoid GPU stalls)
                 if state["executedCount"] > last_executed_count:
@@ -1423,25 +1668,42 @@ class WorkflowScreenshot:
                     self._page.wait_for_timeout(150)  # let UI render
                     elapsed = time.time() - capture_start
                     try:
+                        t1 = time.time()
                         self._page.evaluate(_QUICK_FREEZE_JS)
+                        t_freeze = time.time() - t1
+                        t1 = time.time()
                         shot = self._page.screenshot(type="png", animations="disabled", scale="css")
+                        t_shot = time.time() - t1
                         if not state["complete"]:
+                            t1 = time.time()
                             self._page.evaluate(_QUICK_UNFREEZE_JS)
-                        _save_frame_if_new(shot, round(elapsed, 2), log_snapshot)
-                    except Exception:
-                        pass
+                            t_unfreeze = time.time() - t1
+                        else:
+                            t_unfreeze = 0
+                        saved = _save_frame_if_new(shot, round(elapsed, 2), log_snapshot)
+                        self._log(f"  [capture-node] freeze={t_freeze*1000:.0f}ms shot={t_shot*1000:.0f}ms unfreeze={t_unfreeze*1000:.0f}ms saved={saved}")
+                    except Exception as e:
+                        self._log(f"  [capture-node] exception: {e}")
                     last_executed_count = state["executedCount"]
                     last_screenshot_time = time.time()
 
                 # Periodic capture (with freeze to suppress animation noise)
                 elif time.time() - last_screenshot_time >= PERIODIC_INTERVAL:
                     try:
+                        t1 = time.time()
                         self._page.evaluate(_QUICK_FREEZE_JS)
+                        t_freeze = time.time() - t1
+                        t1 = time.time()
                         shot = self._page.screenshot(type="png", animations="disabled", scale="css")
+                        t_shot = time.time() - t1
+                        t1 = time.time()
                         self._page.evaluate(_QUICK_UNFREEZE_JS)
-                        _save_frame_if_new(shot, round(elapsed, 2), log_snapshot)
-                    except Exception:
-                        pass
+                        t_unfreeze = time.time() - t1
+                        saved = _save_frame_if_new(shot, round(elapsed, 2), log_snapshot)
+                        if saved:
+                            self._log(f"  [capture-periodic] freeze={t_freeze*1000:.0f}ms shot={t_shot*1000:.0f}ms unfreeze={t_unfreeze*1000:.0f}ms saved=True")
+                    except Exception as e:
+                        self._log(f"  [capture-periodic] exception: {e}")
                     last_screenshot_time = time.time()
 
                 if state["complete"]:
@@ -1467,46 +1729,63 @@ class WorkflowScreenshot:
                         })()
                     """)
                     if has_3d_viewer:
+                        t_3d_start = time.time()
                         # Phase 1: Wait for built-in Load3D widget to finish loading
                         # (Preview3D/Load3D show "Loading 3D Model..." text that disappears when done)
                         try:
-                            self._log(f"  [3d-wait] Waiting for 'Loading 3D Model' text to disappear...")
+                            self._log(f"  [3d-wait] Phase 1: Waiting for 'Loading 3D Model' text to disappear...")
+                            t1 = time.time()
                             self._page.wait_for_function("""
                                 () => {
                                     const body = document.body.innerText || '';
                                     return !body.includes('Loading 3D Model');
                                 }
                             """, timeout=60000)
-                            self._log(f"  [3d-wait] No more loading indicators")
+                            self._log(f"  [3d-wait] Phase 1 done in {time.time()-t1:.1f}s")
                         except Exception as e:
-                            self._log(f"  [3d-wait] Loading wait exception: {e}")
+                            self._log(f"  [3d-wait] Phase 1 exception after {time.time()-t1:.1f}s: {e}")
 
                         # Phase 2: Handle iframe-based viewers (Gaussian splat)
                         has_iframes = self._page.evaluate("document.querySelectorAll('iframe').length > 0")
+                        iframe_count = self._page.evaluate("document.querySelectorAll('iframe').length")
+                        self._log(f"  [3d-wait] Phase 2: iframes={iframe_count}")
                         if has_iframes:
                             try:
                                 matching_logs = [log for log in self._console_logs if "Loaded successfully" in log]
                                 viewer_ready = len(matching_logs) > 0
-                                self._log(f"  [3d-wait] iframe viewer_ready={viewer_ready}")
+                                self._log(f"  [3d-wait] iframe viewer_ready={viewer_ready} (matched {len(matching_logs)} console logs)")
                                 if not viewer_ready:
                                     self._log(f"  [3d-wait] Waiting for 'Loaded successfully' console message (timeout=60s)...")
+                                    t1 = time.time()
                                     self._page.wait_for_event(
                                         "console",
                                         predicate=lambda msg: "Loaded successfully" in msg.text,
                                         timeout=60000,
                                     )
-                                    self._log(f"  [3d-wait] Got it!")
+                                    self._log(f"  [3d-wait] Got 'Loaded successfully' after {time.time()-t1:.1f}s")
+                                # Unfreeze rAF and let the viewer render freely for 5s.
+                                # Use CDP to halt JS execution afterwards — this operates
+                                # at the V8 engine level (not through the JS main thread),
+                                # so it works even when rAF is starving the main thread.
+                                t1 = time.time()
                                 self._page.evaluate(_QUICK_UNFREEZE_JS)
-                                self._log(f"  [3d-wait] Unfrozen, waiting for first paint...")
-                                self._page.wait_for_timeout(500)
+                                self._log(f"  [3d-wait] Unfrozen in {time.time()-t1:.3f}s, rendering for 5s...")
+                                time.sleep(5)
+                                cdp = self._page.context.new_cdp_session(self._page)
+                                cdp.send("Emulation.setScriptExecutionDisabled", {"value": True})
+                                self._log(f"  [3d-wait] JS halted via CDP after {time.time()-t1:.1f}s")
+                                time.sleep(1)  # let renderer flush tiles
+                                cdp.send("Emulation.setScriptExecutionDisabled", {"value": False})
                                 self._page.evaluate(_QUICK_FREEZE_JS)
-                                self._log(f"  [3d-wait] Frozen after viewer render")
+                                cdp.detach()
+                                self._log(f"  [3d-wait] Re-frozen in {time.time()-t1:.1f}s")
                             except Exception as e:
                                 self._log(f"  [3d-wait] iframe wait exception: {e}")
                                 try:
                                     self._page.evaluate(_QUICK_FREEZE_JS)
                                 except Exception:
                                     pass
+                        self._log(f"  [3d-wait] Total 3D wait: {time.time()-t_3d_start:.1f}s")
                     break
 
                 self._page.wait_for_timeout(100)
@@ -1634,6 +1913,9 @@ class WorkflowScreenshot:
                 t = time.time()
                 self._trigger_3d_previews()
                 self._log(f"  [timing] trigger_3d_previews: {time.time()-t:.1f}s")
+
+                # Freeze all rAF loops before screenshot to prevent compositor stalls
+                self._freeze_animations()
 
                 t = time.time()
                 with tempfile.NamedTemporaryFile(suffix=".png", delete=False) as tmp:

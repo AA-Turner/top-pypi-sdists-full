@@ -33,6 +33,9 @@ from wisent.core.cli.optimize_steering.continual._loop_helpers import (
     check_convergence,
     get_task_priority,
 )
+from wisent.core.constants import (DEFAULT_LIMIT, CONTINUAL_EWC_LAMBDA, WELFARE_LIMIT,
+    CONTINUAL_REPLAY_INTERVAL, CONTINUAL_FORGETTING_THRESHOLD,
+    CONTINUAL_CONVERGENCE_WINDOW)
 
 
 def _run_replay_check(state, model, pairs_dir, limit, device,
@@ -74,15 +77,15 @@ def execute_continual_learning(args):
     model = args.model
     tasks_str = getattr(args, 'tasks', None)
     method = getattr(args, 'method', None)
-    max_cycles = getattr(args, 'max_cycles', 100)
+    max_cycles = getattr(args, 'max_cycles', DEFAULT_LIMIT)
     pairs_dir = getattr(args, 'enriched_pairs_dir', './pairs/')
     checkpoint_dir = getattr(args, 'checkpoint_dir', './checkpoints/')
-    ewc_lambda = getattr(args, 'ewc_lambda', 1000.0)
-    replay_size = getattr(args, 'replay_size', 50)
-    replay_interval = getattr(args, 'replay_interval', 5)
-    forgetting_threshold = getattr(args, 'forgetting_threshold', 0.9)
-    convergence_window = getattr(args, 'convergence_window', 10)
-    limit = getattr(args, 'limit', 100)
+    ewc_lambda = getattr(args, 'ewc_lambda', CONTINUAL_EWC_LAMBDA)
+    replay_size = getattr(args, 'replay_size', WELFARE_LIMIT)
+    replay_interval = getattr(args, 'replay_interval', CONTINUAL_REPLAY_INTERVAL)
+    forgetting_threshold = getattr(args, 'forgetting_threshold', CONTINUAL_FORGETTING_THRESHOLD)
+    convergence_window = getattr(args, 'convergence_window', CONTINUAL_CONVERGENCE_WINDOW)
+    limit = getattr(args, 'limit', DEFAULT_LIMIT)
     device = getattr(args, 'device', None)
     s3_bucket = getattr(args, 's3_bucket', None)
 

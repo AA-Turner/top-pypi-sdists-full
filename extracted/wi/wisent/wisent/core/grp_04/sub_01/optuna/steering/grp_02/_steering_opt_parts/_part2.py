@@ -19,6 +19,7 @@ from wisent.core.response import Response
 from wisent.core.steering_methods import get_steering_method
 from wisent.core.tasks.base.task_interface import get_task
 from wisent.core.errors import ModelArchitectureUnknownError
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +41,7 @@ class SteeringMethodTrainer(ABC):
         tokenizer,
         device: str,
         task_name: str = "gsm8k",
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[bool, Dict[str, Any]]:
         """Train the steering method on training data."""
 
@@ -57,7 +58,7 @@ class SteeringMethodTrainer(ABC):
         batch_size: int,
         max_length: int,
         task_name: str = "gsm8k",
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[List[str], List[str]]:
         """Apply steering and generate predictions for evaluation."""
 
@@ -81,7 +82,7 @@ class SteeringTrainer(SteeringMethodTrainer):
         tokenizer,
         device: str,
         task_name: str = "gsm8k",
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[bool, Dict[str, Any]]:
         """Train steering method on training data to create steering vectors."""
         try:
@@ -119,7 +120,7 @@ class SteeringTrainer(SteeringMethodTrainer):
         batch_size: int,
         max_length: int,
         task_name: str = "gsm8k",
-        max_new_tokens: int = 200,
+        max_new_tokens: int = DEFAULT_MAX_NEW_TOKENS_EVAL_DOCKER,
     ) -> Tuple[List[str], List[str]]:
         """Apply steering and generate predictions using task extractor."""
 

@@ -4,6 +4,38 @@ from .base_tool import BaseTool
 from .http_utils import request_with_retry
 from .tool_registry import register_tool
 
+BASE_URL = "https://www.sasbdb.org/rest-api"
+
+
+@register_tool("SASBDBSearchTool")
+class SASBDBSearchTool(BaseTool):
+    """SASBDB search tool - lists entries by molecular type or all entries."""
+
+    def __init__(self, tool_config: Dict):
+        super().__init__(tool_config)
+        self.session = requests.Session()
+        self.session.headers.update({"Accept": "application/json"})
+        self.timeout = 30
+
+    def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
+        mol_type = arguments.get("molecular_type")
+        if mol_type:
+            url = f"{BASE_URL}/entry/codes/molecular_type/{mol_type}/"
+        else:
+            url = f"{BASE_URL}/entry/codes/all/"
+        try:
+            resp = request_with_retry(
+                self.session, "GET", url, timeout=self.timeout, max_attempts=3
+            )
+            if resp.status_code != 200:
+                return {
+                    "status": "error",
+                    "error": f"SASBDB API error: HTTP {resp.status_code}",
+                }
+            return {"status": "success", "data": resp.json()}
+        except Exception as e:
+            return {"status": "error", "error": f"SASBDB API error: {e}"}
+
 
 @register_tool("SASBDBRESTTool")
 class SASBDBRESTTool(BaseTool):
@@ -12,7 +44,9 @@ class SASBDBRESTTool(BaseTool):
     def __init__(self, tool_config: Dict):
         super().__init__(tool_config)
         self.session = requests.Session()
-        self.session.headers.update({"Accept": "application/json", "User-Agent": "ToolUniverse/1.0"})
+        self.session.headers.update(
+            {"Accept": "application/json", "User-Agent": "ToolUniverse/1.0"}
+        )
         self.timeout = 30
 
     def _build_url(self, args: Dict[str, Any]) -> str:
@@ -25,7 +59,11 @@ class SASBDBRESTTool(BaseTool):
     def _build_query_params(self, args: Dict[str, Any]) -> Dict[str, Any]:
         """Return query parameters (those not used as path parameters)."""
         endpoint = self.tool_config["fields"]["endpoint"]
-        return {k: v for k, v in args.items() if f"{{{k}}}" not in endpoint and v is not None}
+        return {
+            k: v
+            for k, v in args.items()
+            if f"{{{k}}}" not in endpoint and v is not None
+        }
 
     def run(self, arguments: Dict[str, Any]) -> Dict[str, Any]:
         """Execute the SASBDB API request."""
@@ -35,7 +73,9 @@ class SASBDBRESTTool(BaseTool):
             params = self._build_query_params(arguments)
 
             response = request_with_retry(
-                self.session, "GET", url,
+                self.session,
+                "GET",
+                url,
                 params=params or None,
                 timeout=self.timeout,
                 max_attempts=3,

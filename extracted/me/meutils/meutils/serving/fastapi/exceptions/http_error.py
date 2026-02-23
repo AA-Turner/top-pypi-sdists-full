@@ -217,6 +217,9 @@ async def chatfire_api_exception_handler(request: Request, exc: Exception):
 
     send_message([content, content_detail], title=__name__)
 
+    import logfire
+    logfire.exception(json.dumps(content), _exc_info=exc, _tags=('chatfire_api_exception_handler', ))
+
     # from meutils.pipe import logger
     #
     # try:

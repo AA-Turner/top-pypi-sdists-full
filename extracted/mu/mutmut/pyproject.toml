@@ -1,8 +1,8 @@
 [project]
 name = "mutmut"
-version = "3.4.0"
+version = "3.5.0"
 description = "mutation testing for Python 3"
-keyowrds = ["mutmut", "mutant", "mutation", "test", "testing"]
+keywords = ["mutmut", "mutant", "mutation", "test", "testing"]
 authors = [
     { name = "Anders Hovmöller", email = "boxed@killingar.net" },
 ]
@@ -53,10 +53,17 @@ source-include = ["HISTORY.rst"]
 
 [dependency-groups]
 dev = [
+    "inline-snapshot>=0.32.0",
+    "pyrefly>=0.53.0",
     "pytest-asyncio>=1.0.0",
+    "ruff>=0.15.1",
 ]
 
 [tool.pytest.ini_options]
 testpaths = [
     "tests",
 ]
+asyncio_default_fixture_loop_scope = "function"
+
+[tool.inline-snapshot]
+format-command="ruff format --stdin-filename {filename}"

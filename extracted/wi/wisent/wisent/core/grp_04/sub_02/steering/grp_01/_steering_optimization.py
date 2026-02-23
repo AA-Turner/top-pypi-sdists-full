@@ -3,6 +3,7 @@ import torch
 import torch.nn.functional as F
 from typing import Any, Dict, Optional
 from wisent.core.contrastive_pairs import ContrastivePairSet
+from wisent.core.constants import TIKHONOV_REG, EWC_PERTURBATION_SCALE
 
 
 class SteeringOptimizationMixin:
@@ -13,9 +14,9 @@ class SteeringOptimizationMixin:
         model,
         target_layer,
         pair_set: ContrastivePairSet,
-        learning_rate: float = 1e-4,
+        learning_rate: float = TIKHONOV_REG,
         num_epochs: int = 10,
-        regularization_strength: float = 0.01,
+        regularization_strength: float = EWC_PERTURBATION_SCALE,
     ) -> Dict[str, Any]:
         """
         Optimize model parameters to improve steering effectiveness.

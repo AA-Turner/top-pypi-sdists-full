@@ -4,9 +4,10 @@ import os
 import glob
 import random
 from typing import Optional, Tuple, Any
+from wisent.core.constants import MAX_DEPTH
 
 
-def find_working_task_from_group(group_dict, max_depth=3, current_depth=0):
+def find_working_task_from_group(group_dict, max_depth=MAX_DEPTH, current_depth=0):
     """Recursively search through nested ConfigurableGroup structures to find a working individual task."""
     if current_depth >= max_depth:
         print(f"   {'  ' * current_depth}⚠️  Max depth reached")

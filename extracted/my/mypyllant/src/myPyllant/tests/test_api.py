@@ -61,6 +61,17 @@ async def test_login_glow_worm(mypyllant_aioresponses) -> None:
             assert "Authorization" in mocked_api.get_authorized_headers()
 
 
+async def test_login_demirdokum(mypyllant_aioresponses) -> None:
+    with mypyllant_aioresponses() as _:
+        async with MyPyllantAPI(
+            "test@example.com", "test", "demirdokum", None
+        ) as mocked_api:
+            assert isinstance(mocked_api.oauth_session_expires, datetime)
+            assert mocked_api.oauth_session_expires > datetime.now(timezone.utc)
+            assert mocked_api.access_token == "access_token"
+            assert "Authorization" in mocked_api.get_authorized_headers()
+
+
 async def test_login_invalid_country(mypyllant_aioresponses) -> None:
     with pytest.raises(RealmInvalid):
         MyPyllantAPI("test@example.com", "test", "sdbg", "germany")
@@ -202,6 +213,8 @@ async def test_quick_veto(
 ) -> None:
     with mypyllant_aioresponses(test_data) as aio:
         system = await anext(mocked_api.get_systems())
+        if not system.zones:
+            pytest.skip("Skipping test, because there are no zones in the system")
         zone: Zone = system.zones[0]
         # Activating quick veto
         zone.current_special_function = ZoneCurrentSpecialFunction.NONE

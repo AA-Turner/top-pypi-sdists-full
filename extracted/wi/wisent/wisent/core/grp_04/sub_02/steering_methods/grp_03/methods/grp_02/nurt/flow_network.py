@@ -13,6 +13,8 @@ from typing import Optional
 import torch
 import torch.nn as nn
 
+from wisent.core.constants import NURT_T_MAX, NURT_NUM_INTEGRATION_STEPS
+
 
 __all__ = [
     "FlowVelocityNetwork",
@@ -78,8 +80,8 @@ class FlowVelocityNetwork(nn.Module):
 def euler_integrate(
     network: FlowVelocityNetwork,
     z_0: torch.Tensor,
-    t_max: float = 1.0,
-    num_steps: int = 4,
+    t_max: float = NURT_T_MAX,
+    num_steps: int = NURT_NUM_INTEGRATION_STEPS,
 ) -> torch.Tensor:
     """
     Euler integration of the learned velocity field.

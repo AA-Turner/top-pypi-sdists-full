@@ -7,13 +7,14 @@ import torch.nn.functional as F
 from pathlib import Path
 from typing import Optional, Tuple, Dict, Any
 from transformers import AutoModelForCausalLM, AutoTokenizer
+from wisent.core.constants import DEFAULT_STRENGTH
 
 
 class TETNOHooks:
     """Runtime hooks for TETNO conditional steering."""
 
     def __init__(self, model, tetno_data: Dict[str, Any],
-                 base_strength: float = 1.0):
+                 base_strength: float = DEFAULT_STRENGTH):
         self.model = model
         self.tetno_data = tetno_data
         self.base_strength = base_strength

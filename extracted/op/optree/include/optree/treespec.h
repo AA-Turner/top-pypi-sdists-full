@@ -17,14 +17,13 @@ limitations under the License.
 
 #pragma once
 
-#include <memory>         // std::unique_ptr
-#include <optional>       // std::optional, std::nullopt
-#include <string>         // std::string
-#include <thread>         // std::thread::id
-#include <tuple>          // std::tuple
-#include <unordered_set>  // std::unordered_set
-#include <utility>        // std::pair
-#include <vector>         // std::vector
+#include <memory>    // std::unique_ptr
+#include <optional>  // std::optional, std::nullopt
+#include <string>    // std::string
+#include <thread>    // std::thread::id
+#include <tuple>     // std::tuple
+#include <utility>   // std::pair
+#include <vector>    // std::vector
 
 #include <pybind11/pybind11.h>
 
@@ -49,26 +48,15 @@ constexpr ssize_t MAX_RECURSION_DEPTH = 1000;
 #endif
 
 // Test whether the given object is a leaf node.
-bool IsLeaf(const py::object &object,
-            const std::optional<py::function> &leaf_predicate,
-            const bool &none_is_leaf = false,
-            const std::string &registry_namespace = "");
-
-// Test whether all elements in the given iterable are all leaves.
-bool AllLeaves(const py::iterable &iterable,
-               const std::optional<py::function> &leaf_predicate,
-               const bool &none_is_leaf = false,
-               const std::string &registry_namespace = "");
+[[nodiscard]] bool IsLeaf(const py::object &object,
+                          const std::optional<py::function> &leaf_predicate,
+                          const bool &none_is_leaf = false,
+                          const std::string &registry_namespace = "");
 
 template <bool NoneIsLeaf>
-bool IsLeafImpl(const py::handle &handle,
-                const std::optional<py::function> &leaf_predicate,
-                const std::string &registry_namespace);
-
-template <bool NoneIsLeaf>
-bool AllLeavesImpl(const py::iterable &iterable,
-                   const std::optional<py::function> &leaf_predicate,
-                   const std::string &registry_namespace);
+[[nodiscard]] bool IsLeafImpl(const py::handle &handle,
+                              const std::optional<py::function> &leaf_predicate,
+                              const std::string &registry_namespace);
 
 py::module_ GetCxxModule(const std::optional<py::module_> &module = std::nullopt);
 
@@ -99,7 +87,7 @@ public:
     // Flatten a PyTree into a list of leaves and a PyTreeSpec.
     // Return references to the flattened objects, which might be temporary objects in the case of
     // custom PyType handlers.
-    static std::pair<std::vector<py::object>, std::unique_ptr<PyTreeSpec>> Flatten(
+    [[nodiscard]] static std::pair<std::vector<py::object>, std::unique_ptr<PyTreeSpec>> Flatten(
         const py::object &tree,
         const std::optional<py::function> &leaf_predicate = std::nullopt,
         const bool &none_is_leaf = false,
@@ -108,11 +96,12 @@ public:
     // Flatten a PyTree into a list of leaves with a list of paths and a PyTreeSpec.
     // Return references to the flattened objects, which might be temporary objects in the case of
     // custom PyType handlers.
-    static std::tuple<std::vector<py::tuple>, std::vector<py::object>, std::unique_ptr<PyTreeSpec>>
-    FlattenWithPath(const py::object &tree,
-                    const std::optional<py::function> &leaf_predicate = std::nullopt,
-                    const bool &none_is_leaf = false,
-                    const std::string &registry_namespace = "");
+    [[nodiscard]] static std::
+        tuple<std::vector<py::tuple>, std::vector<py::object>, std::unique_ptr<PyTreeSpec>>
+        FlattenWithPath(const py::object &tree,
+                        const std::optional<py::function> &leaf_predicate = std::nullopt,
+                        const bool &none_is_leaf = false,
+                        const std::string &registry_namespace = "");
 
     // Return an unflattened PyTree given an iterable of leaves and a PyTreeSpec.
     [[nodiscard]] py::object Unflatten(const py::iterable &leaves) const;
@@ -251,52 +240,29 @@ public:
 
     // Transform the object returned by `ToPickleable()` back to PyTreeSpec.
     // Used to implement `PyTreeSpec.__setstate__`.
-    static std::unique_ptr<PyTreeSpec> FromPickleable(const py::object &pickleable);
+    [[nodiscard]] static std::unique_ptr<PyTreeSpec> FromPickleable(const py::object &pickleable);
 
     // Make a PyTreeSpec representing a leaf node.
-    static std::unique_ptr<PyTreeSpec> MakeLeaf(const bool &none_is_leaf = false,
-                                                const std::string &registry_namespace = "");
-
-    // Make a PyTreeSpec representing a `None` node.
-    static std::unique_ptr<PyTreeSpec> MakeNone(const bool &none_is_leaf = false,
-                                                const std::string &registry_namespace = "");
-
-    // Make a PyTreeSpec out of a collection of PyTreeSpecs.
-    static std::unique_ptr<PyTreeSpec> MakeFromCollection(
-        const py::object &object,
+    [[nodiscard]] static std::unique_ptr<PyTreeSpec> MakeLeaf(
         const bool &none_is_leaf = false,
         const std::string &registry_namespace = "");
 
-    // Check if should preserve the insertion order of the dictionary keys during flattening.
-    static inline Py_ALWAYS_INLINE bool IsDictInsertionOrdered(
-        const std::string &registry_namespace,
-        const bool &inherit_global_namespace = true) {
-        const scoped_read_lock lock{sm_is_dict_insertion_ordered_mutex};
+    // Make a PyTreeSpec representing a `None` node.
+    [[nodiscard]] static std::unique_ptr<PyTreeSpec> MakeNone(
+        const bool &none_is_leaf = false,
+        const std::string &registry_namespace = "");
 
-        return (sm_is_dict_insertion_ordered.find(registry_namespace) !=
-                sm_is_dict_insertion_ordered.end()) ||
-               (inherit_global_namespace &&
-                sm_is_dict_insertion_ordered.find("") != sm_is_dict_insertion_ordered.end());
-    }
-
-    // Set the namespace to preserve the insertion order of the dictionary keys during flattening.
-    static inline Py_ALWAYS_INLINE void SetDictInsertionOrdered(
-        const bool &mode,
-        const std::string &registry_namespace) {
-        const scoped_write_lock lock{sm_is_dict_insertion_ordered_mutex};
-
-        if (mode) [[likely]] {
-            sm_is_dict_insertion_ordered.insert(registry_namespace);
-        } else [[unlikely]] {
-            sm_is_dict_insertion_ordered.erase(registry_namespace);
-        }
-    }
+    // Make a PyTreeSpec out of a collection of PyTreeSpecs.
+    [[nodiscard]] static std::unique_ptr<PyTreeSpec> MakeFromCollection(
+        const py::object &object,
+        const bool &none_is_leaf = false,
+        const std::string &registry_namespace = "");
 
     friend void BuildModule(py::module_ &mod);  // NOLINT[runtime/references]
 
 private:
     using RegistrationPtr = PyTreeTypeRegistry::RegistrationPtr;
-    using ThreadedIdentity = std::pair<const optree::PyTreeSpec *, std::thread::id>;
+    using ThreadedIdentity = std::pair<const PyTreeSpec *, std::thread::id>;
 
     struct Node {
         PyTreeKind kind = PyTreeKind::Leaf;
@@ -341,56 +307,58 @@ private:
     // The registry namespace used to resolve the custom pytree node types.
     std::string m_namespace{};
 
-    // Helper that returns the string representation of a node kind.
-    static std::string NodeKindToString(const Node &node);
+    // Return the string representation of a node kind.
+    [[nodiscard]] static std::string NodeKindToString(const Node &node);
 
-    // Helper that manufactures an instance of a node given its children.
-    static py::object MakeNode(const Node &node,
-                               const py::object children[],  // NOLINT[hicpp-avoid-c-arrays]
-                               const size_t &num_children);
+    // Manufacture an instance of a node given its children.
+    [[nodiscard]] static py::object MakeNode(
+        const Node &node,
+        const py::object children[],  // NOLINT[hicpp-avoid-c-arrays]
+        const size_t &num_children);
 
-    // Helper that identifies the path entry class for a node.
-    static py::object GetPathEntryType(const Node &node);
+    // Identify the path entry class for a node.
+    [[nodiscard]] static py::object GetPathEntryType(const Node &node);
 
     // Recursive helper used to implement Flatten().
-    bool FlattenInto(const py::handle &handle,
-                     std::vector<py::object> &leaves,  // NOLINT[runtime/references]
-                     const std::optional<py::function> &leaf_predicate,
-                     const bool &none_is_leaf,
-                     const std::string &registry_namespace);
+    [[nodiscard]] bool FlattenInto(const py::handle &handle,
+                                   std::vector<py::object> &leaves,  // NOLINT[runtime/references]
+                                   const std::optional<py::function> &leaf_predicate,
+                                   const bool &none_is_leaf,
+                                   const std::string &registry_namespace);
 
     template <bool NoneIsLeaf, bool DictShouldBeSorted, typename Vector>
-    bool FlattenIntoImpl(const py::handle &handle,
-                         Vector &leaves,  // NOLINT[runtime/references]
-                         const ssize_t &depth,
-                         const std::optional<py::function> &leaf_predicate,
-                         const std::string &registry_namespace);
+    [[nodiscard]] bool FlattenIntoImpl(const py::handle &handle,
+                                       Vector &leaves,  // NOLINT[runtime/references]
+                                       const ssize_t &depth,
+                                       const std::optional<py::function> &leaf_predicate,
+                                       const std::string &registry_namespace);
 
     // Recursive helper used to implement FlattenWithPath().
-    bool FlattenIntoWithPath(const py::handle &handle,
-                             std::vector<py::object> &leaves,  // NOLINT[runtime/references]
-                             std::vector<py::tuple> &paths,    // NOLINT[runtime/references]
-                             const std::optional<py::function> &leaf_predicate,
-                             const bool &none_is_leaf,
-                             const std::string &registry_namespace);
+    [[nodiscard]] bool FlattenIntoWithPath(
+        const py::handle &handle,
+        std::vector<py::object> &leaves,  // NOLINT[runtime/references]
+        std::vector<py::tuple> &paths,    // NOLINT[runtime/references]
+        const std::optional<py::function> &leaf_predicate,
+        const bool &none_is_leaf,
+        const std::string &registry_namespace);
 
     template <bool NoneIsLeaf,
               bool DictShouldBeSorted,
               typename LeafVector,
               typename PathVector,
               typename Stack>
-    bool FlattenIntoWithPathImpl(const py::handle &handle,
-                                 LeafVector &leaves,  // NOLINT[runtime/references]
-                                 PathVector &paths,   // NOLINT[runtime/references]
-                                 Stack &stack,        // NOLINT[runtime/references]
-                                 const ssize_t &depth,
-                                 const std::optional<py::function> &leaf_predicate,
-                                 const std::string &registry_namespace);
+    [[nodiscard]] bool FlattenIntoWithPathImpl(const py::handle &handle,
+                                               LeafVector &leaves,  // NOLINT[runtime/references]
+                                               PathVector &paths,   // NOLINT[runtime/references]
+                                               Stack &stack,        // NOLINT[runtime/references]
+                                               const ssize_t &depth,
+                                               const std::optional<py::function> &leaf_predicate,
+                                               const std::string &registry_namespace);
 
     template <typename Span>
-    py::object UnflattenImpl(const Span &leaves) const;
+    [[nodiscard]] py::object UnflattenImpl(const Span &leaves) const;
 
-    static std::tuple<ssize_t, ssize_t, ssize_t, ssize_t> BroadcastToCommonSuffixImpl(
+    [[nodiscard]] static std::tuple<ssize_t, ssize_t, ssize_t, ssize_t> BroadcastToCommonSuffixImpl(
         std::vector<Node> &nodes,  // NOLINT[runtime/references]
         const std::vector<Node> &traversal,
         const ssize_t &pos,
@@ -420,19 +388,15 @@ private:
     [[nodiscard]] ssize_t HashValueImpl() const;
 
     template <bool NoneIsLeaf>
-    static std::unique_ptr<PyTreeSpec> MakeFromCollectionImpl(const py::handle &handle,
-                                                              std::string registry_namespace);
+    [[nodiscard]] static std::unique_ptr<PyTreeSpec> MakeFromCollectionImpl(
+        const py::handle &handle,
+        std::string registry_namespace);
 
     // Used in tp_traverse for GC support.
     static int PyTpTraverse(PyObject *self_base, visitproc visit, void *arg);
 
     // Used in tp_clear for GC support.
     static int PyTpClear(PyObject *self_base);
-
-    // A set of namespaces that preserve the insertion order of the dictionary keys during
-    // flattening.
-    static inline std::unordered_set<std::string> sm_is_dict_insertion_ordered{};
-    static inline read_write_mutex sm_is_dict_insertion_ordered_mutex{};
 };
 
 class PyTreeIter {
@@ -446,7 +410,8 @@ public:
           m_leaf_predicate{leaf_predicate},
           m_none_is_leaf{none_is_leaf},
           m_namespace{registry_namespace},
-          m_is_dict_insertion_ordered{PyTreeSpec::IsDictInsertionOrdered(registry_namespace)} {}
+          m_is_dict_insertion_ordered{
+              PyTreeTypeRegistry::IsDictInsertionOrdered(registry_namespace)} {}
 
     PyTreeIter() = delete;
     ~PyTreeIter() = default;
@@ -469,9 +434,7 @@ private:
     const bool m_none_is_leaf;
     const std::string m_namespace;
     const bool m_is_dict_insertion_ordered;
-#if defined(Py_GIL_DISABLED)
     mutable mutex m_mutex{};
-#endif
 
     template <bool NoneIsLeaf>
     [[nodiscard]] py::object NextImpl();

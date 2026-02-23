@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: codecarbon
-Version: 3.2.2
+Version: 3.2.3
 Author: Mila, DataForGood, BCG GAMMA, Comet.ml, Haverford College
 License-Expression: MIT
 Project-URL: Homepage, https://codecarbon.io/
@@ -10,7 +10,6 @@ Project-URL: Documentation, https://mlco2.github.io/codecarbon/
 Project-URL: Issues, https://github.com/mlco2/codecarbon/issues
 Project-URL: Changelog, https://github.com/mlco2/codecarbon/releases
 Classifier: Natural Language :: English
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
@@ -18,12 +17,12 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.7
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: arrow
+Requires-Dist: authlib>=1.2.1
 Requires-Dist: click
-Requires-Dist: fief-client[cli]
 Requires-Dist: pandas>=2.3.3; python_version >= "3.14"
 Requires-Dist: pandas; python_version < "3.14"
 Requires-Dist: prometheus_client
@@ -46,12 +45,14 @@ Requires-Dist: dash_bootstrap_components>1.0.0; extra == "viz-legacy"
 Requires-Dist: fire; extra == "viz-legacy"
 Provides-Extra: api
 Requires-Dist: alembic<2.0.0; extra == "api"
+Requires-Dist: authlib>=1.2.1; extra == "api"
 Requires-Dist: bcrypt<5.0.0; extra == "api"
 Requires-Dist: python-dateutil<3.0.0; extra == "api"
 Requires-Dist: dependency-injector<5.0.0; extra == "api"
 Requires-Dist: fastapi<1.0.0; extra == "api"
 Requires-Dist: fief-client[fastapi]; extra == "api"
 Requires-Dist: httpx; extra == "api"
+Requires-Dist: itsdangerous; extra == "api"
 Requires-Dist: pydantic[email]<2.0.0; extra == "api"
 Requires-Dist: psycopg2-binary<3.0.0; extra == "api"
 Requires-Dist: requests<3.0.0; extra == "api"
@@ -67,7 +68,6 @@ Requires-Dist: psutil; extra == "api"
 Requires-Dist: requests-mock; extra == "api"
 Requires-Dist: rapidfuzz; extra == "api"
 Requires-Dist: PyJWT; extra == "api"
-Requires-Dist: logfire[fastapi]>=1.0.1; extra == "api"
 Dynamic: license-file
 
 ![banner](docs/edit/images/banner.png)
@@ -89,6 +89,7 @@ CodeCarbon websites:
 [![DOI](https://zenodo.org/badge/263364731.svg)](https://zenodo.org/badge/latestdoi/263364731)
 <!-- [![Downloads](https://static.pepy.tech/badge/codecarbon/month)](https://pepy.tech/project/codecarbon) -->
 [![OpenSSF Scorecard](https://api.scorecard.dev/projects/github.com/mlco2/codecarbon/badge)](https://scorecard.dev/viewer/?uri=github.com/mlco2/codecarbon)
+[![codecov](https://codecov.io/gh/mlco2/codecarbon/graph/badge.svg)](https://codecov.io/gh/mlco2/codecarbon)
 
 
 - [About CodeCarbon 💡](#about-codecarbon-)

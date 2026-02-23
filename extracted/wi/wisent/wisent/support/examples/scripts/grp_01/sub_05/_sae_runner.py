@@ -7,6 +7,7 @@ from typing import Dict, Tuple
 
 from wisent.examples.scripts._sae import train_sparse_autoencoder
 from wisent.examples.scripts._sae_analysis import (
+from wisent.core.constants import DEFAULT_CLASSIFIER_LR
     analyze_sae_features,
     visualize_sae_analysis,
 )
@@ -82,7 +83,7 @@ def run_sae_analysis(
         l1_coef=l1_coef,
         n_epochs=n_epochs,
         batch_size=64,
-        lr=1e-3,
+        lr=DEFAULT_CLASSIFIER_LR,
         device=device,
         verbose=True,
     )

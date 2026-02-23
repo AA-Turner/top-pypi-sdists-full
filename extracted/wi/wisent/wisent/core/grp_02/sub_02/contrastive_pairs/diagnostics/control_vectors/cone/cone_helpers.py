@@ -6,6 +6,7 @@ from typing import Dict, Any, List, Tuple
 
 import torch
 import torch.nn.functional as F
+from wisent.core.constants import COMPARE_TOL
 
 
 def compute_pca_directions(
@@ -187,7 +188,7 @@ def compute_cone_score(
     separation_scores: List[float],
 ) -> float:
     """Compute overall cone score combining all metrics."""
-    var_ratio = cone_explained / max(pca_explained, 1e-6)
+    var_ratio = cone_explained / max(pca_explained, COMPARE_TOL)
     var_score = min(var_ratio, 1.0)
 
     half_space_component = half_space_score

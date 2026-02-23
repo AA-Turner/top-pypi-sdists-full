@@ -410,7 +410,7 @@ impl PyArray {
             return buf.try_into();
         }
 
-        let numpy_array: Bound<PyUntypedArray> = numpy_array.extract()?;
+        let numpy_array: Bound<PyUntypedArray> = FromPyObject::extract_bound(&numpy_array)?;
         let arrow_array = from_numpy(py, &numpy_array)?;
         Ok(Self::from_array_ref(arrow_array))
     }

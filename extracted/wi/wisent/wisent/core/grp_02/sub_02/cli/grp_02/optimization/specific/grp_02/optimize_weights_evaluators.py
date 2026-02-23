@@ -1,6 +1,7 @@
 """Evaluator creation for optimize-weights."""
 from typing import Any, Callable
 
+from wisent.core.constants import DEFAULT_NUM_EVAL_PROMPTS
 from wisent.core.models.wisent_model import WisentModel
 from wisent.core.evaluators.steering_evaluators import (
     SteeringEvaluatorFactory,
@@ -72,7 +73,7 @@ def _create_evaluator(args, model_name: str, wisent_model: WisentModel = None,
         task=task if evaluator_type == "task" else None,
         eval_prompts_path=getattr(args, 'eval_prompts', None),
         eval_topics=getattr(args, 'eval_topics', None),
-        num_eval_prompts=getattr(args, 'num_eval_prompts', 30),
+        num_eval_prompts=getattr(args, 'num_eval_prompts', DEFAULT_NUM_EVAL_PROMPTS),
     )
 
     # Create shared evaluator
@@ -141,7 +142,7 @@ def _create_custom_evaluator(args, model_name: str) -> Callable:
     elif getattr(args, 'trait', None):
         # Use default prompts from PersonalizationEvaluator
         from wisent.core.evaluators.steering_evaluators import PersonalizationEvaluator
-        num_prompts = getattr(args, 'num_eval_prompts', 30)
+        num_prompts = getattr(args, 'num_eval_prompts', DEFAULT_NUM_EVAL_PROMPTS)
         eval_prompts = PersonalizationEvaluator.DEFAULT_PROMPTS[:num_prompts]
     else:
         # Default generic prompts

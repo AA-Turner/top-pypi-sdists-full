@@ -10,7 +10,7 @@
 
 from meutils.pipe import *
 from meutils.io.files_utils import to_bytes, guess_mime_type
-from meutils.llm.clients import moonshot_client, zhipuai_client, APIStatusError
+from meutils.llm.clients import moonshot_client, zhipuai_client, APIStatusError, zhipuai_sdk_client
 from meutils.notice.feishu import send_message as _send_message, FILES
 from meutils.caches import cache, rcache
 from meutils.apis.jina import url_reader
@@ -22,10 +22,7 @@ send_message = partial(
     title=__name__,
     url=FILES
 )
-"""
-
-# 智谱
-# 格式限制：.PDF .DOCX .DOC .XLS .XLSX .PPT .PPTX .PNG .JPG .JPEG .CSV .PY .TXT .MD .BMP .GIF
+"""todo
 
 # kimi todo: 定期删除文件
 文件接口与 Kimi 智能助手中上传文件功能所使用的相同，支持相同的文件格式，它们包括 
@@ -38,11 +35,11 @@ send_message = partial(
 """
 
 
-async def delete_files(client, threshold: int = 666):
-    _ = await client.files.list()
+async def delete_files(client, threshold: int = 99):
+    _ =  await client.files.list(purpose="file-extract")
     file_objects = _.data
 
-    print(file_objects)
+    # print(file_objects)
 
     if len(file_objects) > threshold:
         tasks = [client.files.delete(file.id) for file in file_objects]
@@ -50,20 +47,20 @@ async def delete_files(client, threshold: int = 666):
 
 
 @rcache(ttl=7 * 24 * 3600)
-async def file_extract(file, enable_reader: bool = True):
+async def file_extract(file, filename: Optional[str] = None, enable_reader: bool = True):
     """
 
     :param file: url bytes path
     :return:
     """
-    logger.debug(f"FileExtract: {file}")
+    # print(f"FileExtract: {file}")
 
     if isinstance(file, list):
         return await asyncio.gather(*map(file_extract, file))
 
-    filename = Path(file).name if isinstance(file, str) else 'untitled'
+    filename = filename or (Path(file).name if isinstance(file, str) else 'untitled')
     filename = f"{str(datetime.datetime.today())[:19]} {filename}"
-    mime_type = guess_mime_type(file)
+    mime_type = guess_mime_type(filename)
 
     if enable_reader and str(file).startswith("http") and mime_type in {"application/octet-stream", "text/html"}:
         logger.debug(f"jina reader")
@@ -78,7 +75,7 @@ async def file_extract(file, enable_reader: bool = True):
 
     file: bytes = await to_bytes(file)
 
-    for i, client in enumerate([moonshot_client, zhipuai_client]):
+    for i, client in enumerate([zhipuai_client]):
 
         try:
             # 1 / 0
@@ -86,30 +83,30 @@ async def file_extract(file, enable_reader: bool = True):
                 file=(filename, file, mime_type),
                 purpose="file-extract"
             )
-            logger.debug(file_object)
+            logfire.debug(file_object.model_dump_json())
 
             response = await client.files.content(file_id=file_object.id)
-            return response.json()
+            data = response.json()
+            data['filename'] = filename[20:]
+            return data
 
         except Exception as e:
             logger.debug(e)
-            if i == 1:
-                _ = await delete_files(moonshot_client)
-                logger.debug(_)
+
+            _ = await delete_files(client)
+            logger.debug(_)
 
     # 兜底
     data = {
-        'filename': filename,
-
-        'type': 'file',
+        'filename': filename[20:],
         'file_type': mime_type,
         'content': '',
     }
-    try:
+    if hasattr(file, "decode"):  # file-like object
         data['content'] = file.decode('utf-8')
+    else:
+        data['content'] = file
 
-    except Exception as e:
-        logger.debug(e)
     return data
 
 
@@ -155,20 +152,23 @@ if __name__ == '__main__':
     # with timer():
     #     arun(file_extract("https://top.baidu.com/board?tab=realtime"))
 
+    logfire.debug("test file extract")
+
     with timer():
         # file = "https://top.baidu.com/board?tab=realtime"
         # file = "https://oss.ffire.cc/files/百炼系列手机产品介绍.docx"
-        # file = "https://app.yinxiang.com/fx/8b8bba1e-b254-40ff-81e1-fa3427429efe"
-        # file = "https://s3.ffire.cc/files/pdf_to_markdown.jpg"
+        file = "https://app.yinxiang.com/fx/8b8bba1e-b254-40ff-81e1-fa3427429efe"
+        file = "https://s3.ffire.cc/files/pdf_to_markdown.jpg"
 
-        file = "https://119.29.101.125:25388/down/D2coOP0jVkNx.xlsx"
-        file = "https://cos.imyaigc.com/files/2025-12-24/72c839ea54555018b8eaadb28a660c043_i3aGe.pdf"
+        # file = "https://119.29.101.125:25388/down/D2coOP0jVkNx.xlsx"
+        # file = "https://cos.imyaigc.com/files/2025-12-24/72c839ea54555018b8eaadb28a660c043_i3aGe.pdf"
 
-        print(guess_mime_type(file))
+        # print(guess_mime_type(file))
 
         arun(file_extract(file))
 
         # arun(delete_files(moonshot_client, threshold=1))
+        # arun(delete_files(zhipuai_client, threshold=1))
 
         # arun(file_extract("/Users/betterme/PycharmProjects/AI/data/041【精选】海门招商重工5G+智慧工厂解决方案.pptx"))
         # arun(file_extract("/Users/betterme/PycharmProjects/AI/data/098【采集】基于室内定位导航的医院解决方案.pdf"))

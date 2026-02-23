@@ -8,6 +8,8 @@ from typing import List, Optional
 import numpy as np
 import torch
 
+from wisent.core.constants import DATA_CHUNK_SIZE
+
 from .hf_writers import (
     flush_staging_dir,
     write_marker,
@@ -217,7 +219,7 @@ def migrate_raw_activation_table(
     model_name: str,
     task_name: str,
     prompt_format: str,
-    chunk_size: int = 50,
+    chunk_size: int = DATA_CHUNK_SIZE,
     database_url: Optional[str] = None,
     dry_run: bool = False,
 ) -> int:

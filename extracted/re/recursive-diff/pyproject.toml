@@ -28,6 +28,17 @@ dependencies = [
 ]
 dynamic = ["version"]
 
+[project.optional-dependencies]
+all = [
+  "dask >= 2022.7.0",
+  # netcdf4 supports both NetCDF v3 and v4, unlike h5netcdf which
+  # supports only v4 and scipy which supports only v3
+  "netcdf4 >= 1.6",
+  "msgpack >= 1.0",
+  "PyYAML >= 5.4",
+  "zarr >= 2.15",
+]
+
 [project.urls]
 homepage = "https://github.com/crusaderky/recursive_diff"
 issues = "https://github.com/crusaderky/recursive_diff/issues"
@@ -39,7 +50,8 @@ text = "Recursively compare two Python data structures"
 content-type = "text/plain"
 
 [project.scripts]
-ncdiff = "recursive_diff.ncdiff:main"
+recursive-diff = "recursive_diff.cli.recursive_diff:main"
+ncdiff = "recursive_diff.cli.ncdiff:main"
 
 [build-system]
 requires = ["hatchling", "hatch-vcs"]
@@ -54,6 +66,11 @@ xfail_strict = true
 python_files = ["test_*.py"]
 testpaths = ["recursive_diff/tests"]
 filterwarnings = ["error"]
+markers = [
+  "slow: test takes a long time to run",
+  # Needed when pytest-run-parallel is not installed
+  "thread_unsafe: always run on a single thread",
+]
 
 [tool.coverage.report]
 show_missing = true
@@ -74,7 +91,7 @@ ignore = [
   "N806", # Variable should be lowercase
   "N816", # Variable in global scope should not be mixedCase
   "PT006", # Wrong type passed to first argument of `pytest.mark.parametrize`; expected `tuple`
-  "PLC0414", # Import alias does not rename original package
+  "PLC0415", # `import` should be at the top-level of a file
   "PLR0912", # Too many branches
   "PLR0913", # Too many arguments in function definition
   "PLR0915", # Too many statements
@@ -132,7 +149,7 @@ enable_error_code = ["ignore-without-code", "possibly-undefined", "truthy-bool"]
 module = ["*.tests.*"]
 disallow_untyped_defs = false
 
-[tool.pixi.project]
+[tool.pixi.workspace]
 channels = ["https://prefix.dev/conda-forge"]
 platforms = ["linux-64", "linux-aarch64", "osx-64", "osx-arm64", "win-64"]
 
@@ -142,12 +159,16 @@ numpy = "*"
 pandas = "*"
 xarray = "*"
 
-[tool.pixi.feature.optional.dependencies]
+[tool.pixi.feature.dask.dependencies]
 dask-core = "*"
-# NetCDF engines
-scipy = "*"
-h5netcdf = "*"
-hdf5 = "*"
+
+[tool.pixi.feature.files.dependencies]
+msgpack-python = "*"
+PyYAML = "*"
+netcdf4 = "*" # netCDF engine
+scipy = "*" # netCDF engine
+h5netcdf = "*" # netCDF engine
+zarr = "*"
 
 [tool.pixi.feature.lint.dependencies]
 lefthook = "*"
@@ -155,12 +176,15 @@ ruff = "*"
 mypy = "*"
 dprint = "*"
 actionlint = "*"
+shellcheck = "*" # Runs inside actionlint
+pyflakes = "*" # Runs inside actionlint
 codespell = "*"
 blacken-docs = "*"
 validate-pyproject = "*"
 sphinx-lint = "*"
 # mypy check dependencies
-# TODO typed libraries for mypy here
+dask-core = "*"
+types-PyYAML = "*"
 
 [tool.pixi.feature.lint.tasks]
 install-git-hooks = { cmd = "lefthook install", description = "Install pre-commit hooks" }
@@ -172,6 +196,7 @@ smoke-test = { cmd = "python smoke_test.py", description = "Test import the libr
 [tool.pixi.feature.tests.dependencies]
 pytest = "*"
 pytest-cov = "*"
+psutil = "*"
 
 [tool.pixi.feature.tests.tasks]
 tests = { cmd = "pytest", description = "Run tests" }
@@ -208,13 +233,13 @@ python = "=3.14"
 python-freethreading = "=3.14"
 pytest-run-parallel = "*"
 
-[tool.pixi.feature.nogil.pypi-dependencies]
-# FIXME Need pandas 3
-# https://github.com/pandas-dev/pandas/issues/61844
-# TODO after reverting to published versions, update .github/workflows/pytest.yml
-# to stop disregarding pixi.lock
-pandas = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
-xarray = "*"
+# Cut-down `files` feature
+# netcdf4 = "*" # cftime not yet available for 3.14t
+scipy = "*"
+# h5netcdf = "*"  # h5py not yet available for 3.14t
+msgpack-python = "*"
+PyYAML = "*"
+# zarr = "*"  # numcodecs not yet available for 3.14t
 
 [tool.pixi.feature.mindeps.dependencies]
 python = "=3.9"
@@ -223,9 +248,31 @@ pandas = "=1.5"
 xarray = "=2023.8.0"
 # Optional dependencies
 dask-core = "=2022.7.0"
-# NetCDF engines
-scipy = "=1.8"
-h5netcdf = "=1.0"
+netcdf4 = "=1.6" # netCDF engine
+scipy = "=1.8" # netCDF engine
+h5netcdf = "=1.0" # netCDF engine
+h5py = "=3.6" # h5netcdf dependency
+msgpack-python = "=1.0"
+PyYAML = "=5.4"
+zarr = "=2.15"
+
+# xarray 2024.5 is the first xarray release to be memory-efficient
+# when accessing large NetCDF and Zarr files
+[tool.pixi.feature.xarray2024-5.dependencies]
+python = "=3.9"
+numpy = "=1.23"
+pandas = "=2.0"
+xarray = "=2024.5.0"
+
+# Optional dependencies
+dask-core = "=2024.5.0"
+netcdf4 = "=1.6" # netCDF engine
+scipy = "=1.10" # netCDF engine
+h5netcdf = "=1.1" # netCDF engine
+h5py = "=3.8" # h5netcdf dependency
+msgpack-python = "=1.0"
+PyYAML = "=5.4"
+zarr = "=2.15"
 
 [tool.pixi.feature.upstream.dependencies]
 python = "=3.14"
@@ -233,8 +280,12 @@ python = "=3.14"
 [tool.pixi.feature.upstream.pypi-dependencies]
 numpy = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
 pandas = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
+scipy = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
+h5py = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
 xarray = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
+zarr = { index = "https://pypi.anaconda.org/scientific-python-nightly-wheels/simple" }
 dask = { git = "https://github.com/dask/dask.git" }
+h5netcdf = { git = "https://github.com/h5netcdf/h5netcdf.git" }
 
 [tool.pixi.feature.dist.dependencies]
 python-build = "*"
@@ -248,16 +299,17 @@ twine-check = { cmd = "python -m twine check dist/*" }
 twine-upload = { cmd = "python -m twine upload dist/*" }
 
 [tool.pixi.environments]
-# FIXME use same solve-groups with and without numba
-default = { features = ["py314", "optional", "docs", "smoke", "tests", "ipython"], solve-group = "py314" }
+default = { features = ["py314", "dask", "files", "docs", "smoke", "tests", "ipython"] }
 dist = { features = ["dist"], no-default-feature = true }
-lint = { features = ["lint"], no-default-feature = true }
-docs = { features = ["py314", "docs"], solve-group = "py314" }
+lint = { features = ["lint"] }
+docs = { features = ["py314", "docs"] }
 mindeps = { features = ["mindeps", "smoke", "tests"] }
-py39 = { features = ["py39", "optional", "smoke", "tests"] }
-py311 = { features = ["py311", "optional", "smoke", "tests"] }
-py314 = { features = ["py314", "optional", "smoke", "tests"], solve-group = "py314" }
-no-optional = { features = ["py314", "smoke", "tests"], solve-group = "py314" }
-nogil = { features = ["nogil", "smoke", "tests"], no-default-feature = true }
+xarray2024-5 = { features = ["xarray2024-5", "smoke", "tests"] }
+py39 = { features = ["py39", "dask", "files", "smoke", "tests"] }
+py311 = { features = ["py311", "dask", "files", "smoke", "tests"] }
+py314 = { features = ["py314", "dask", "files", "smoke", "tests"] }
+no-dask = { features = ["py314", "files", "smoke", "tests"] }
+no-optional = { features = ["py314", "smoke", "tests"] }
+nogil = { features = ["nogil", "dask", "smoke", "tests"] }
 upstream = { features = ["upstream", "smoke", "tests"], no-default-feature = true }
 smoke = { features = ["smoke"] }

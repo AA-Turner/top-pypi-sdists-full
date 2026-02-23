@@ -1,3 +1,5 @@
+"""Mocket - socket mocking library for Python."""
+
 import importlib
 import sys
 
@@ -31,4 +33,4 @@ __all__ = (
     "FakeSSLContext",
 )
 
-__version__ = "3.14.0"
+__version__ = "3.14.1"

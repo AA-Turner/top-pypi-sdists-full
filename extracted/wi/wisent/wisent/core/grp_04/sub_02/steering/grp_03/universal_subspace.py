@@ -17,10 +17,11 @@ import torch.nn.functional as F
 
 from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.activations.core.atoms import LayerActivations, LayerName
+from wisent.core.constants import DEFAULT_VARIANCE_THRESHOLD
 
 # Constants
 UNIVERSAL_SUBSPACE_RANK = 16
-VARIANCE_EXPLAINED_THRESHOLD = 0.80
+VARIANCE_EXPLAINED_THRESHOLD = DEFAULT_VARIANCE_THRESHOLD
 MARGINAL_VARIANCE_THRESHOLD = 0.05
 
 # Re-exports from extracted modules

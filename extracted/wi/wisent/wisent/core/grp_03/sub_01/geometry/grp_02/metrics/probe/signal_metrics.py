@@ -7,6 +7,7 @@ from sklearn.model_selection import cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.neural_network import MLPClassifier
 from sklearn.decomposition import PCA
+from wisent.core.constants import DEFAULT_RANDOM_SEED
 
 
 def _adaptive_n_permutations(n_samples: int) -> int:
@@ -101,7 +102,7 @@ def _mlp_accuracy(X: np.ndarray, y: np.ndarray, hidden: int, cv: int) -> float:
     # Internal split takes 10%, so need >=20 training samples per fold for safety.
     n_per_fold = len(X) * (cv - 1) // cv
     use_early_stopping = n_per_fold >= 20
-    clf = MLPClassifier(hidden_layer_sizes=(hidden,), random_state=42, early_stopping=use_early_stopping, max_iter=500)
+    clf = MLPClassifier(hidden_layer_sizes=(hidden,), random_state=DEFAULT_RANDOM_SEED, early_stopping=use_early_stopping, max_iter=500)
     scores = cross_val_score(clf, X, y, cv=cv, scoring="accuracy")
     return float(scores.mean())
 
@@ -111,7 +112,7 @@ def _knn_umap_accuracy(X: np.ndarray, y: np.ndarray, n_components: int, k: int, 
     try:
         import umap
         umap_neighbors = max(5, min(15, len(y) // 20))
-        reducer = umap.UMAP(n_components=n_components, n_neighbors=umap_neighbors, random_state=42, n_jobs=1)
+        reducer = umap.UMAP(n_components=n_components, n_neighbors=umap_neighbors, random_state=DEFAULT_RANDOM_SEED, n_jobs=1)
         X_umap = reducer.fit_transform(X)
         clf = KNeighborsClassifier(n_neighbors=k)
         scores = cross_val_score(clf, X_umap, y, cv=cv, scoring="accuracy")
@@ -125,7 +126,7 @@ def _knn_pacmap_accuracy(X: np.ndarray, y: np.ndarray, n_components: int, k: int
     try:
         import pacmap
         pacmap_neighbors = max(5, min(15, len(y) // 20))
-        reducer = pacmap.PaCMAP(n_components=n_components, n_neighbors=pacmap_neighbors, random_state=42)
+        reducer = pacmap.PaCMAP(n_components=n_components, n_neighbors=pacmap_neighbors, random_state=DEFAULT_RANDOM_SEED)
         X_pacmap = reducer.fit_transform(X)
         clf = KNeighborsClassifier(n_neighbors=k)
         scores = cross_val_score(clf, X_pacmap, y, cv=cv, scoring="accuracy")

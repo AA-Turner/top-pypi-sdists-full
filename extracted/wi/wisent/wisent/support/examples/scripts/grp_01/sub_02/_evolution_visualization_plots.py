@@ -4,6 +4,7 @@ import numpy as np
 from pathlib import Path
 from typing import Dict, List, Tuple
 
+from wisent.core.constants import VIZ_DPI
 from wisent.examples.scripts._pair_generators_neutral import ConceptMetrics
 
 
@@ -89,7 +90,7 @@ def visualize_concept_evolution_plots(
     
     plt.suptitle(f'Concept Activations - {model_name}', fontsize=14)
     plt.tight_layout()
-    plt.savefig(output_path / 'concept_pca_activations.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'concept_pca_activations.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'concept_pca_activations.png'}")
     
@@ -130,7 +131,7 @@ def visualize_concept_evolution_plots(
         ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(output_path / 'concept_direction_vectors.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'concept_direction_vectors.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'concept_direction_vectors.png'}")
     
@@ -175,7 +176,7 @@ def visualize_concept_evolution_plots(
     plt.suptitle(f'Direction Cosine Similarities Across Layers - {model_name}', fontsize=14)
     fig.colorbar(im, ax=axes, shrink=0.6, label='Cosine Similarity')
     plt.tight_layout()
-    plt.savefig(output_path / 'concept_similarity_heatmaps.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'concept_similarity_heatmaps.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'concept_similarity_heatmaps.png'}")
     
@@ -208,7 +209,7 @@ def visualize_concept_evolution_plots(
     ax.set_ylim(-0.6, 1.0)
     
     plt.tight_layout()
-    plt.savefig(output_path / 'concept_similarity_evolution.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'concept_similarity_evolution.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'concept_similarity_evolution.png'}")
     
@@ -249,7 +250,7 @@ def visualize_concept_evolution_plots(
         ax.grid(True, alpha=0.3)
     
     plt.tight_layout()
-    plt.savefig(output_path / 'concept_combined_visualization.png', dpi=150, bbox_inches='tight')
+    plt.savefig(output_path / 'concept_combined_visualization.png', dpi=VIZ_DPI, bbox_inches='tight')
     plt.close()
     print(f"Saved: {output_path / 'concept_combined_visualization.png'}")
     

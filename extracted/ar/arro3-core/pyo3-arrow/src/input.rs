@@ -104,7 +104,7 @@ impl AnyArray {
 pub enum AnyDatum {
     /// A single Array, held in a [PyArray].
     Array(PyArray),
-    /// An Arrow Scalar, held in a [PyScalar]
+    /// An Arrow Scalar, held in a [pyScalar]
     Scalar(PyScalar),
 }
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: types-google-cloud-ndb
-Version: 2.4.0.20251217
+Version: 2.4.0.20260223
 Summary: Typing stubs for google-cloud-ndb
 License-Expression: Apache-2.0
 Project-URL: Homepage, https://github.com/python/typeshed
@@ -10,7 +10,7 @@ Project-URL: Issue tracker, https://github.com/python/typeshed/issues
 Project-URL: Chat, https://gitter.im/python/typing
 Classifier: Programming Language :: Python :: 3
 Classifier: Typing :: Stubs Only
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Dynamic: license-file
@@ -35,8 +35,8 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 1.18.2
-* [pyright](https://github.com/microsoft/pyright) 1.1.407
+* [mypy](https://github.com/python/mypy/) 1.19.1
+* [pyright](https://github.com/microsoft/pyright) 1.1.408
 
 It was generated from typeshed commit
-[`8d96801533918957fb194e101cb321bfe1f836f8`](https://github.com/python/typeshed/commit/8d96801533918957fb194e101cb321bfe1f836f8).
+[`24827c4590595507c5542ecea5c0850b070df4fc`](https://github.com/python/typeshed/commit/24827c4590595507c5542ecea5c0850b070df4fc).

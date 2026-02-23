@@ -8,13 +8,12 @@ from typing import Optional
 import questionary
 import requests
 import typer
-from fief_client import Fief
-from fief_client.integrations.cli import FiefAuth
 from rich import print
 from rich.prompt import Confirm
 from typing_extensions import Annotated
 
 from codecarbon import __app_name__, __version__
+from codecarbon.cli.auth import authorize, get_access_token
 from codecarbon.cli.cli_utils import (
     create_new_config_file,
     get_api_endpoint,
@@ -22,17 +21,11 @@ from codecarbon.cli.cli_utils import (
     get_existing_local_exp_id,
     overwrite_local_config,
 )
+from codecarbon.cli.monitor import run_and_monitor
 from codecarbon.core.api_client import ApiClient, get_datetime_with_timezone
 from codecarbon.core.schemas import ExperimentCreate, OrganizationCreate, ProjectCreate
 from codecarbon.emissions_tracker import EmissionsTracker, OfflineEmissionsTracker
 
-AUTH_CLIENT_ID = os.environ.get(
-    "AUTH_CLIENT_ID",
-    "jsUPWIcUECQFE_ouanUuVhXx52TTjEVcVNNtNGeyAtU",
-)
-AUTH_SERVER_URL = os.environ.get(
-    "AUTH_SERVER_URL", "https://auth.codecarbon.io/codecarbon"
-)
 API_URL = os.environ.get("API_URL", "https://dashboard.codecarbon.io/api")
 
 DEFAULT_PROJECT_ID = "e60afa92-17b7-4720-91a0-1ae91e409ba1"
@@ -78,7 +71,7 @@ def show_config(path: Path = Path("./.codecarbon.config")) -> None:
     d = get_config(path)
     api_endpoint = get_api_endpoint(path)
     api = ApiClient(endpoint_url=api_endpoint)
-    api.set_access_token(_get_access_token())
+    api.set_access_token(get_access_token())
     print("Current configuration : \n")
     print("Config file content : ")
     print(d)
@@ -114,28 +107,6 @@ def show_config(path: Path = Path("./.codecarbon.config")) -> None:
         )
 
 
-def get_fief_auth():
-    fief = Fief(AUTH_SERVER_URL, AUTH_CLIENT_ID)
-    fief_auth = FiefAuth(fief, "./credentials.json")
-    return fief_auth
-
-
-def _get_access_token():
-    try:
-        access_token_info = get_fief_auth().access_token_info()
-        access_token = access_token_info["access_token"]
-        return access_token
-    except Exception as e:
-        raise ValueError(
-            f"Not able to retrieve the access token, please run `codecarbon login` first! (error: {e})"
-        )
-
-
-def _get_id_token():
-    id_token = get_fief_auth()._tokens["id_token"]
-    return id_token
-
-
 @codecarbon.command(
     "test-api", short_help="Make an authenticated GET request to an API endpoint"
 )
@@ -144,16 +115,16 @@ def api_get():
     ex: test-api
     """
     api = ApiClient(endpoint_url=API_URL)  # TODO: get endpoint from config
-    api.set_access_token(_get_access_token())
+    api.set_access_token(get_access_token())
     organizations = api.get_list_organizations()
     print(organizations)
 
 
 @codecarbon.command("login", short_help="Login to CodeCarbon")
 def login():
-    get_fief_auth().authorize()
+    authorize()
     api = ApiClient(endpoint_url=API_URL)  # TODO: get endpoint from config
-    access_token = _get_access_token()
+    access_token = get_access_token()
     api.set_access_token(access_token)
     api.check_auth()
 
@@ -166,7 +137,7 @@ def get_api_key(project_id: str):
             "name": "api token",
             "x_token": "???",
         },
-        headers={"Authorization": f"Bearer {_get_access_token()}"},
+        headers={"Authorization": f"Bearer {get_access_token()}"},
     )
     api_key = req.json()["token"]
     return api_key
@@ -175,7 +146,7 @@ def get_api_key(project_id: str):
 @codecarbon.command("get-token", short_help="Get project token")
 def get_token(project_id: str):
     # api = ApiClient(endpoint_url=API_URL) # TODO: get endpoint from config
-    # api.set_access_token(_get_access_token())
+    # api.set_access_token(get_access_token())
     token = get_api_key(project_id)
     print("Your token: " + token)
     print("Add it to the api_key field in your configuration file")
@@ -223,7 +194,7 @@ def config():
     )
     overwrite_local_config("api_endpoint", api_endpoint, path=file_path)
     api = ApiClient(endpoint_url=api_endpoint)
-    api.set_access_token(_get_access_token())
+    api.set_access_token(get_access_token())
     organizations = api.get_list_organizations()
     org = questionary_prompt(
         "Pick existing organization from list or Create new organization ?",
@@ -339,13 +310,18 @@ def config():
     )
 
 
-@codecarbon.command("monitor", short_help="Monitor your machine's carbon emissions.")
+@codecarbon.command(
+    "monitor",
+    short_help="Monitor your machine's carbon emissions.",
+    context_settings={"allow_extra_args": True, "ignore_unknown_options": True},
+)
 def monitor(
+    ctx: typer.Context,
     measure_power_secs: Annotated[
-        int, typer.Argument(help="Interval between two measures.")
+        int, typer.Option(help="Interval between two measures.")
     ] = 10,
     api_call_interval: Annotated[
-        int, typer.Argument(help="Number of measures between API calls.")
+        int, typer.Option(help="Number of measures between API calls.")
     ] = 30,
     api: Annotated[
         bool, typer.Option(help="Choose to call Code Carbon API or not")
@@ -359,6 +335,13 @@ def monitor(
     ] = None,
 ):
     """Monitor your machine's carbon emissions."""
+
+    # Shared tracker args so monitor and run_and_monitor behave the same
+    tracker_args = {
+        "measure_power_secs": measure_power_secs,
+        "api_call_interval": api_call_interval,
+    }
+    # Set up the tracker arguments based on mode (offline vs online) and validate required args for each mode
     if offline:
         if not country_iso_code:
             print(
@@ -366,11 +349,11 @@ def monitor(
             )
             raise typer.Exit(1)
 
-        tracker = OfflineEmissionsTracker(
-            measure_power_secs=measure_power_secs,
-            country_iso_code=country_iso_code,
-            region=region,
-        )
+        tracker_args = {
+            **tracker_args,
+            "country_iso_code": country_iso_code,
+            "region": region,
+        }
     else:
         experiment_id = get_existing_local_exp_id()
         if api and experiment_id is None:
@@ -380,11 +363,17 @@ def monitor(
             )
             raise typer.Exit(1)
 
-        tracker = EmissionsTracker(
-            measure_power_secs=measure_power_secs,
-            api_call_interval=api_call_interval,
-            save_to_api=api,
-        )
+        tracker_args = {**tracker_args, "save_to_api": api}
+
+    # If extra args are provided (e.g. `codecarbon monitor -- my_script.py`), delegate to `run_and_monitor`
+    if getattr(ctx, "args", None):
+        return run_and_monitor(ctx, **tracker_args)
+
+    # Instantiate the tracker
+    if offline:
+        tracker = OfflineEmissionsTracker(**tracker_args)
+    else:
+        tracker = EmissionsTracker(**tracker_args)
 
     def signal_handler(signum, frame):
         print("\nReceived signal to stop. Saving emissions data...")

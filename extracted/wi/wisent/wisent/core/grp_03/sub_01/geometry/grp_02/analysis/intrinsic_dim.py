@@ -8,6 +8,7 @@ space, which indicates how complex the learned structure is.
 import torch
 import numpy as np
 from typing import Tuple
+from wisent.core.constants import ZERO_THRESHOLD
 
 
 def estimate_local_intrinsic_dim(X: np.ndarray, k: int = 10) -> float:
@@ -35,9 +36,9 @@ def estimate_local_intrinsic_dim(X: np.ndarray, k: int = 10) -> float:
     dims = []
     for i in range(len(X)):
         T_k = sorted_dists[i, k-1]
-        if T_k < 1e-10:
+        if T_k < ZERO_THRESHOLD:
             continue
-        log_ratios = np.log(sorted_dists[i, :k-1] / T_k + 1e-10)
+        log_ratios = np.log(sorted_dists[i, :k-1] / T_k + ZERO_THRESHOLD)
         if len(log_ratios) > 0 and log_ratios.sum() < 0:
             dim_est = -(k - 1) / log_ratios.sum()
             dims.append(min(dim_est, X.shape[1]))
@@ -69,7 +70,7 @@ def compute_local_intrinsic_dims(
         
         dim_pos = estimate_local_intrinsic_dim(pos, k)
         dim_neg = estimate_local_intrinsic_dim(neg, k)
-        ratio = dim_pos / (dim_neg + 1e-10)
+        ratio = dim_pos / (dim_neg + ZERO_THRESHOLD)
         
         return dim_pos, dim_neg, ratio
     except Exception:
@@ -127,7 +128,7 @@ def participation_ratio(X: np.ndarray) -> float:
     sum_eig = eigenvalues.sum()
     sum_eig_sq = (eigenvalues ** 2).sum()
 
-    if sum_eig_sq < 1e-10:
+    if sum_eig_sq < ZERO_THRESHOLD:
         return 1.0
 
     pr = (sum_eig ** 2) / sum_eig_sq
@@ -143,13 +144,13 @@ def effective_rank(X: np.ndarray) -> float:
     More robust than participation ratio to outliers.
     """
     U, s, Vt = np.linalg.svd(X - X.mean(axis=0), full_matrices=False)
-    s = s[s > 1e-10]
+    s = s[s > ZERO_THRESHOLD]
 
     if len(s) == 0:
         return 1.0
 
     p = s / s.sum()
-    entropy = -np.sum(p * np.log(p + 1e-10))
+    entropy = -np.sum(p * np.log(p + ZERO_THRESHOLD))
 
     return float(np.exp(entropy))
 
@@ -164,7 +165,7 @@ def stable_rank(X: np.ndarray) -> float:
     X_centered = X - X.mean(axis=0)
     U, s, Vt = np.linalg.svd(X_centered, full_matrices=False)
 
-    if len(s) == 0 or s[0] < 1e-10:
+    if len(s) == 0 or s[0] < ZERO_THRESHOLD:
         return 1.0
 
     frobenius_sq = (s ** 2).sum()
@@ -189,7 +190,7 @@ def pca_variance_dimensions(X: np.ndarray, thresholds: list = None) -> dict:
     eigenvalues = np.maximum(eigenvalues, 0)
 
     total_var = eigenvalues.sum()
-    if total_var < 1e-10:
+    if total_var < ZERO_THRESHOLD:
         return {t: 1 for t in thresholds}
 
     cumvar = np.cumsum(eigenvalues) / total_var
@@ -224,7 +225,7 @@ def two_nn_dimension(X: np.ndarray) -> float:
     r1 = sorted_dists[:, 0]
     r2 = sorted_dists[:, 1]
 
-    valid = (r1 > 1e-10) & (r2 > 1e-10)
+    valid = (r1 > ZERO_THRESHOLD) & (r2 > ZERO_THRESHOLD)
     if valid.sum() < 2:
         return float(X.shape[1])
 

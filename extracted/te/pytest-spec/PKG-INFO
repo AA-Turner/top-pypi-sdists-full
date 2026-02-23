@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-spec
-Version: 5.2.0
+Version: 6.0.0
 Summary: Library pytest-spec is a pytest plugin to display test execution output like a SPECIFICATION.
 Author-email: Pawel Chomicki <pawel.chomicki@gmail.com>
 License: GPL-2.0-or-later
@@ -14,11 +14,11 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Utilities

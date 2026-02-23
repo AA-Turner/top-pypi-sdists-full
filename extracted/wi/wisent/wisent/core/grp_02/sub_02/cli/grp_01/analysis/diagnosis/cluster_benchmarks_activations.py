@@ -4,6 +4,7 @@ from typing import Dict, List, Tuple
 import numpy as np
 
 from wisent.core.data_loaders.loaders.lm_eval.lm_loader import LMEvalDataLoader
+from wisent.core.constants import NORM_EPS, GEO_PAIRS_PER_BENCHMARK
 
 
 class ConfigResult:
@@ -185,7 +186,7 @@ def load_benchmark_pairs(benchmark_name: str, loader: LMEvalDataLoader, limit: i
     return pairs
 
 
-def compute_directions_for_strategy(model, tokenizer, pairs: List, layer: int, device: str, strategy: str, max_pairs: int = 50):
+def compute_directions_for_strategy(model, tokenizer, pairs: List, layer: int, device: str, strategy: str, max_pairs: int = GEO_PAIRS_PER_BENCHMARK):
     pos_acts, neg_acts = [], []
     
     for pair in pairs[:max_pairs]:
@@ -212,7 +213,7 @@ def compute_directions_for_strategy(model, tokenizer, pairs: List, layer: int, d
     neg_tensor = torch.stack(neg_acts)
     direction = pos_tensor.mean(dim=0) - neg_tensor.mean(dim=0)
     norm = torch.norm(direction)
-    if norm > 1e-8:
+    if norm > NORM_EPS:
         direction = direction / norm
     return direction, pos_tensor, neg_tensor
 

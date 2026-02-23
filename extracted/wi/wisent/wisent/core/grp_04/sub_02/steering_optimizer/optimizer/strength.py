@@ -18,6 +18,7 @@ from wisent.core.errors import (
     InsufficientDataError,
 )
 from wisent.core.steering_methods import SteeringMethodType
+from wisent.core.constants import DEFAULT_STRENGTH, DEFAULT_LIMIT
 
 from ..types import SteeringOptimizationResult, SteeringOptimizationSummary
 
@@ -35,8 +36,8 @@ class StrengthOptimizationMixin:
         task_name: str,
         steering_method: SteeringMethod = SteeringMethod.CAA,
         layer_search_range: Optional[Tuple[int, int]] = None,
-        strength: float = 1.0,
-        limit: int = 100
+        strength: float = DEFAULT_STRENGTH,
+        limit: int = DEFAULT_LIMIT
     ) -> SteeringOptimizationResult:
         """
         Find optimal steering layer for a specific method and task.
@@ -75,7 +76,7 @@ class StrengthOptimizationMixin:
         layer: Optional[int] = None,
         strength_range: Optional[Tuple[float, float]] = None,
         strength_steps: int = 10,
-        limit: int = 100,
+        limit: int = DEFAULT_LIMIT,
         method_params: Optional[Dict[str, Any]] = None
     ) -> SteeringOptimizationResult:
         """
@@ -206,8 +207,8 @@ class StrengthOptimizationMixin:
         task_name: str,
         steering_method: SteeringMethod,
         base_layer: Optional[int] = None,
-        base_strength: float = 1.0,
-        limit: int = 100
+        base_strength: float = DEFAULT_STRENGTH,
+        limit: int = DEFAULT_LIMIT
     ) -> SteeringOptimizationResult:
         """Optimize method-specific parameters for a steering approach."""
         logger.info(f"Optimizing {steering_method.value}-specific parameters for {task_name}")
@@ -237,7 +238,7 @@ class StrengthOptimizationMixin:
         self,
         tasks: Optional[List[str]] = None,
         methods: Optional[List[SteeringMethod]] = None,
-        limit: int = 100,
+        limit: int = DEFAULT_LIMIT,
         max_time_per_task_minutes: float = 20.0,
         save_results: bool = True
     ) -> SteeringOptimizationSummary:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import torch
 import torch.nn.functional as F
 from typing import TYPE_CHECKING
+from wisent.core.constants import DEFAULT_STRENGTH
+from wisent.core.cli.cli_logger import setup_logger, bind
 from wisent.core.cli.cli_logger import setup_logger, bind
 
 if TYPE_CHECKING:
@@ -20,7 +22,7 @@ def project_weights_norm_preserved(
     harmless_vectors: dict[int, Tensor] | None = None,
     components: list[str] | None = None,
     layer_weights: dict[int, float] | None = None,
-    strength: float = 1.0,
+    strength: float = DEFAULT_STRENGTH,
     use_biprojection: bool = True,
     verbose: bool = True,
 ) -> dict[str, int]:
@@ -85,7 +87,7 @@ def project_weights(
     harmless_vectors: dict[int, Tensor] | None = None,
     components: list[str] | None = None,
     layer_weights: dict[int, float] | None = None,
-    strength: float = 1.0,
+    strength: float = DEFAULT_STRENGTH,
     normalize_vectors: bool = True,
     norm_preserve: bool = True,
     use_biprojection: bool = True,

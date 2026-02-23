@@ -2,6 +2,7 @@
 
 import sys
 import json
+from wisent.core.constants import DEFAULT_SCORE
 from wisent.core.config_manager import (
     get_cache,
     get_cached_optimization,
@@ -271,7 +272,7 @@ def execute_import(args, cache: OptimizationCache):
                 method=result_data.get("method", "CAA"),
                 token_aggregation=result_data.get("token_aggregation", "average"),
                 prompt_strategy=result_data.get("prompt_strategy", "question_only"),
-                score=result_data.get("score", 0.0),
+                score=result_data.get("score", DEFAULT_SCORE),
                 metric=result_data.get("metric", "accuracy"),
                 metadata=result_data.get("metadata", {}),
                 set_as_default=False

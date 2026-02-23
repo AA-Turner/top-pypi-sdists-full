@@ -7,6 +7,7 @@ from typing import Dict, List, Any
 
 import torch
 import numpy as np
+from wisent.core.constants import DEFAULT_RANDOM_SEED
 
 try:
     import matplotlib.pyplot as plt
@@ -155,7 +156,7 @@ def create_tsne_plot(
         X = pca.fit_transform(X)
     
     # t-SNE
-    tsne = TSNE(n_components=2, perplexity=min(30, len(X) // 4), random_state=42)
+    tsne = TSNE(n_components=2, perplexity=min(30, len(X) // 4), random_state=DEFAULT_RANDOM_SEED)
     X_2d = tsne.fit_transform(X)
     
     # Color scheme based on diagnosis

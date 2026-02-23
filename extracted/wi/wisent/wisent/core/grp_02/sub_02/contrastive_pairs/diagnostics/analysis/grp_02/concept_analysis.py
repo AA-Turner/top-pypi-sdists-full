@@ -22,6 +22,7 @@ import torch
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score, adjusted_rand_score
 from sklearn.decomposition import PCA
+from wisent.core.constants import ZERO_THRESHOLD, DEFAULT_RANDOM_SEED, LINEARITY_N_INIT
 
 
 @dataclass
@@ -97,7 +98,7 @@ def compute_icd(diff_vectors: np.ndarray) -> float:
         return float(diff_vectors.shape[1])
     
     # Filter near-zero singular values
-    S = S[S > 1e-10]
+    S = S[S > ZERO_THRESHOLD]
     
     if len(S) == 0:
         return 0.0
@@ -177,13 +178,13 @@ def decompose_concepts(
     if n_samples < 4:
         direction = diff_vectors.mean(axis=0)
         norm = np.linalg.norm(direction)
-        if norm > 1e-10:
+        if norm > ZERO_THRESHOLD:
             direction = direction / norm
         return 1, np.zeros(n_samples, dtype=int), [direction], {1: 0.0}
     
     # Normalize difference vectors for clustering
     norms = np.linalg.norm(diff_vectors, axis=1, keepdims=True)
-    norms = np.maximum(norms, 1e-10)
+    norms = np.maximum(norms, ZERO_THRESHOLD)
     diff_normalized = diff_vectors / norms
     
     # Try different k values
@@ -195,10 +196,10 @@ def decompose_concepts(
     for k in range(2, min(k_max + 1, n_samples // 2)):
         try:
             if method == "kmeans":
-                clusterer = KMeans(n_clusters=k, random_state=42, n_init=10)
+                clusterer = KMeans(n_clusters=k, random_state=DEFAULT_RANDOM_SEED, n_init=LINEARITY_N_INIT)
             else:
                 from sklearn.cluster import SpectralClustering
-                clusterer = SpectralClustering(n_clusters=k, random_state=42)
+                clusterer = SpectralClustering(n_clusters=k, random_state=DEFAULT_RANDOM_SEED)
             
             labels = clusterer.fit_predict(diff_normalized)
             
@@ -220,7 +221,7 @@ def decompose_concepts(
     if best_score < 0.1:  # Threshold for meaningful clustering
         direction = diff_vectors.mean(axis=0)
         norm = np.linalg.norm(direction)
-        if norm > 1e-10:
+        if norm > ZERO_THRESHOLD:
             direction = direction / norm
         return 1, np.zeros(n_samples, dtype=int), [direction], silhouette_scores
     
@@ -231,7 +232,7 @@ def decompose_concepts(
         if mask.sum() > 0:
             direction = diff_vectors[mask].mean(axis=0)
             norm = np.linalg.norm(direction)
-            if norm > 1e-10:
+            if norm > ZERO_THRESHOLD:
                 direction = direction / norm
             directions.append(direction)
     

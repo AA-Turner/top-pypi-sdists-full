@@ -9,6 +9,7 @@ import numpy as np
 from typing import Optional, Tuple
 from pynndescent import NNDescent
 from sklearn.decomposition import PCA
+from wisent.core.constants import NORM_EPS, DEFAULT_RANDOM_SEED
 
 
 def find_neighbors(
@@ -24,7 +25,7 @@ def find_neighbors(
         n_neighbors=n_neighbors + 1,
         metric='euclidean',
         n_jobs=1,
-        random_state=42,
+        random_state=DEFAULT_RANDOM_SEED,
     )
     neighbors, _ = index.neighbor_graph
     return neighbors[:, 1:n_neighbors + 1]
@@ -38,7 +39,7 @@ def create_pairs(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
     """Create near, mid, and far pairs for PaCMAP optimization."""
     n_samples = X.shape[0]
-    rng = np.random.RandomState(42)
+    rng = np.random.RandomState(DEFAULT_RANDOM_SEED)
 
     # Near pairs from neighbor graph
     near_pairs = []
@@ -84,7 +85,7 @@ def pacmap_embedding(
     n_neighbors: int = 10,
     num_iters: int = 100,
     learning_rate: float = 1.0,
-    random_state: int = 42,
+    random_state: int = DEFAULT_RANDOM_SEED,
 ) -> np.ndarray:
     """
     Compute PaCMAP embedding using pynndescent for neighbor search.
@@ -119,7 +120,7 @@ def pacmap_embedding(
     # Initialize embedding with PCA
     pca_init = PCA(n_components=n_components, random_state=random_state)
     Y = pca_init.fit_transform(X_reduced).astype(np.float32)
-    Y = Y / (np.std(Y) + 1e-8) * 0.01  # Small initial scale
+    Y = Y / (np.std(Y) + NORM_EPS) * 0.01  # Small initial scale
 
     # Optimization weights
     w_near = 1.0
@@ -142,7 +143,7 @@ def pacmap_embedding(
         # Near pair attractive forces
         for i, j in near_pairs:
             diff = Y[i] - Y[j]
-            dist_sq = np.sum(diff ** 2) + 1e-8
+            dist_sq = np.sum(diff ** 2) + NORM_EPS
             force = w_near_curr * diff / (1 + dist_sq)
             grad[i] -= force
             grad[j] += force
@@ -150,7 +151,7 @@ def pacmap_embedding(
         # Mid pair forces
         for i, j in mid_pairs:
             diff = Y[i] - Y[j]
-            dist_sq = np.sum(diff ** 2) + 1e-8
+            dist_sq = np.sum(diff ** 2) + NORM_EPS
             force = w_mid_curr * diff / (1 + dist_sq)
             grad[i] -= force
             grad[j] += force
@@ -158,14 +159,14 @@ def pacmap_embedding(
         # Far pair repulsive forces
         for i, j in far_pairs:
             diff = Y[i] - Y[j]
-            dist_sq = np.sum(diff ** 2) + 1e-8
+            dist_sq = np.sum(diff ** 2) + NORM_EPS
             force = w_far_curr * diff / (dist_sq + 0.01)
             grad[i] += force
             grad[j] -= force
 
         # Update with adaptive learning rate
         lr = learning_rate * (1 - iteration / num_iters)
-        Y -= lr * grad / (n_samples + 1e-8)
+        Y -= lr * grad / (n_samples + NORM_EPS)
 
     return Y
 

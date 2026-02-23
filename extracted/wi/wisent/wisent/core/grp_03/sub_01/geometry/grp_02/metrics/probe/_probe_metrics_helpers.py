@@ -2,6 +2,7 @@
 
 import numpy as np
 import torch
+from wisent.core.constants import DEFAULT_RANDOM_SEED
 
 
 def compute_knn_pacmap_accuracy(
@@ -50,7 +51,7 @@ def compute_knn_pacmap_accuracy(
             n_neighbors=min(10, len(X) // 4),
             MN_ratio=0.5,
             FP_ratio=2.0,
-            random_state=42,
+            random_state=DEFAULT_RANDOM_SEED,
         )
         X_pacmap = reducer.fit_transform(X)
 

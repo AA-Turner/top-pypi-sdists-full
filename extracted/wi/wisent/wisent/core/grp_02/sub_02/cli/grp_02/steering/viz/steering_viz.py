@@ -7,6 +7,7 @@ import os
 os.environ["NUMBA_NUM_THREADS"] = "1"
 
 import json
+from wisent.core.constants import DEFAULT_LIMIT, DEFAULT_MAX_NEW_TOKENS_EVAL
 import base64
 import tempfile
 from pathlib import Path
@@ -106,7 +107,7 @@ def _load_or_generate_reference_activations(args):
             model_name=args.model, task_name=args.task, layer=args.layer,
             prompt_format=getattr(args, 'prompt_format', 'chat'),
             extraction_strategy=getattr(args, 'extraction_strategy', 'chat_last'),
-            limit=getattr(args, 'limit', 100),
+            limit=getattr(args, 'limit', DEFAULT_LIMIT),
             database_url=getattr(args, 'database_url', None),
         )
         print(f"  Found activations in database")
@@ -128,7 +129,7 @@ def _generate_reference_activations(args):
         tmpdir = Path(tmpdir)
         pairs_path = tmpdir / "pairs.json"
         pair_texts = load_pair_texts_from_database(
-            task_name=args.task, limit=getattr(args, 'limit', 100),
+            task_name=args.task, limit=getattr(args, 'limit', DEFAULT_LIMIT),
             database_url=getattr(args, 'database_url', None)
         )
         pairs_list = [{"prompt": p.get("prompt", ""),
@@ -184,13 +185,13 @@ def _generate_and_extract(args, steering_vector):
     strategy_map = {"last_token": "chat_last", "first_token": "chat_first", "mean": "chat_mean"}
     strategy_str = strategy_map.get(strategy_str, strategy_str)
     extraction_strategy = ExtractionStrategy(strategy_str)
-    max_new_tokens = getattr(args, 'max_new_tokens', 100)
+    max_new_tokens = getattr(args, 'max_new_tokens', DEFAULT_MAX_NEW_TOKENS_EVAL)
 
     steering_vectors = LayerActivations({layer_name: steering_vector})
     config = SteeringConfig(scale={layer_name: args.strength})
 
     pair_texts = load_pair_texts_from_database(
-        task_name=args.task, limit=getattr(args, 'limit', 100),
+        task_name=args.task, limit=getattr(args, 'limit', DEFAULT_LIMIT),
         database_url=getattr(args, 'database_url', None)
     )
 

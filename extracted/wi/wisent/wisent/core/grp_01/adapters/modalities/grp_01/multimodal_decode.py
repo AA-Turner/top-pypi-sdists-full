@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 import torch
 import torch.nn as nn
+from wisent.core.constants import DEFAULT_MAX_NEW_TOKENS_ADAPTER
 
 __all__ = ["decode_llava", "decode_qwen_vl", "decode_idefics", "decode_generic", "greedy_decode"]
 
@@ -54,7 +55,7 @@ def decode_generic(model: nn.Module, latent: torch.Tensor, processor: Any) -> st
     return f"[Latent decoded: shape={latent.shape}, mean={latent.mean().item():.4f}]"
 
 
-def greedy_decode(logits: torch.Tensor, processor: Any, max_length: int = 256) -> str:
+def greedy_decode(logits: torch.Tensor, processor: Any, max_length: int = DEFAULT_MAX_NEW_TOKENS_ADAPTER) -> str:
     """Perform greedy decoding from logits."""
     if logits.dim() == 3:
         next_token_logits = logits[:, -1, :]

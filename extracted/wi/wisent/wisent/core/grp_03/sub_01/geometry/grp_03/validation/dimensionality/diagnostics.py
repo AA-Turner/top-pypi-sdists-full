@@ -7,6 +7,7 @@ from dataclasses import dataclass
 
 from .sample_adequacy import compute_sample_dimension_ratio, compute_effective_sample_size
 from .power_analysis import compute_statistical_power
+from wisent.core.constants import STAT_ALPHA
 from .shrinkage import compute_shrinkage_covariance
 
 
@@ -36,7 +37,7 @@ class DimensionalityDiagnostics:
 def run_dimensionality_diagnostics(
     pos: torch.Tensor,
     neg: torch.Tensor,
-    alpha: float = 0.05,
+    alpha: float = STAT_ALPHA,
 ) -> DimensionalityDiagnostics:
     """Run complete curse of dimensionality diagnostics."""
     pos_np = pos.cpu().numpy() if isinstance(pos, torch.Tensor) else pos

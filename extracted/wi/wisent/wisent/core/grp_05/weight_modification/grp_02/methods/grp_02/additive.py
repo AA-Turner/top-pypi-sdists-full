@@ -31,6 +31,7 @@ from typing import TYPE_CHECKING
 
 from wisent.core.errors import UnknownTypeError
 from wisent.core.cli.cli_logger import setup_logger, bind
+from wisent.core.constants import NORM_EPS, DEFAULT_STRENGTH
 
 if TYPE_CHECKING:
     from torch import Tensor
@@ -49,7 +50,7 @@ _LOG = setup_logger(__name__)
 def add_output_bias(
     module: Module,
     bias_vector: Tensor,
-    alpha: float = 1.0,
+    alpha: float = DEFAULT_STRENGTH,
 ) -> None:
     """
     Add bias vector to a module's output.
@@ -143,7 +144,7 @@ def bake_steering_into_weights(
     model: Module,
     steering_vectors: dict[int, Tensor],
     components: list[str] | None = None,
-    alpha: float = 1.0,
+    alpha: float = DEFAULT_STRENGTH,
     layer_weights: dict[int, float] | None = None,
     method: str = "bias",
     verbose: bool = True,
@@ -282,7 +283,7 @@ def bake_steering_with_kernel(
     n_layers = max(layer_indices) + 1
     center = max_alpha_position if max_alpha_position is not None else n_layers / 2.0
     dist = min_alpha_distance if min_alpha_distance is not None else n_layers * 0.6
-    if dist < 1e-8:
+    if dist < NORM_EPS:
         dist = 1.0
     sigma = dist / 2.0
     layer_weights = {}

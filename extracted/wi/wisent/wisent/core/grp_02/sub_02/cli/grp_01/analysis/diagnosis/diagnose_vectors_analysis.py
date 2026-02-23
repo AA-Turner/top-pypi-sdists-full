@@ -2,13 +2,14 @@
 from typing import Dict
 
 import torch
+from wisent.core.constants import CONE_THRESHOLD, CONE_DIRECTIONS, DIAG_NUM_COMPONENTS, MAX_CLUSTERS, MANIFOLD_NEIGHBORS
 
 
 def _run_cone_analysis(
     activations_file: str, 
     verbose: bool = False,
-    cone_threshold: float = 0.7,
-    cone_directions: int = 5,
+    cone_threshold: float = CONE_THRESHOLD,
+    cone_directions: int = CONE_DIRECTIONS,
 ):
     """Run cone structure analysis on activations."""
     from wisent.core.contrastive_pairs.diagnostics.control_vectors import (
@@ -127,9 +128,9 @@ def _run_cone_analysis(
 def _run_geometry_analysis(
     activations_file: str,
     verbose: bool = False,
-    num_components: int = 5,
-    max_clusters: int = 5,
-    manifold_neighbors: int = 10,
+    num_components: int = DIAG_NUM_COMPONENTS,
+    max_clusters: int = MAX_CLUSTERS,
+    manifold_neighbors: int = MANIFOLD_NEIGHBORS,
 ):
     """Run comprehensive geometry structure analysis on activations."""
     from wisent.core.contrastive_pairs.diagnostics.control_vectors import (

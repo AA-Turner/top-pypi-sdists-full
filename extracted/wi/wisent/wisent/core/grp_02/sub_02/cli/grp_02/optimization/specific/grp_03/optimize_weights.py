@@ -26,6 +26,7 @@ from dataclasses import dataclass
 
 import torch
 
+from wisent.core.constants import DEFAULT_CHECKPOINT_INTERVAL
 from wisent.core.errors import UnknownTypeError, InsufficientDataError
 from wisent.core.models.wisent_model import WisentModel
 from wisent.core.evaluators.steering_evaluators import (
@@ -205,7 +206,7 @@ def execute_optimize_weights(args):
     
     # Use checkpointing if checkpoint path is provided
     checkpoint_path = getattr(args, 'checkpoint', None)
-    checkpoint_interval = getattr(args, 'checkpoint_interval', 5)
+    checkpoint_interval = getattr(args, 'checkpoint_interval', DEFAULT_CHECKPOINT_INTERVAL)
     s3_bucket = getattr(args, 's3_bucket', None)
     
     # Generate S3 key prefix for this optimization run

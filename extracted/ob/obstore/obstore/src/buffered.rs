@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use object_store::buffered::{BufReader, BufWriter};
-use object_store::{ObjectMeta, ObjectStore};
+use object_store::{ObjectMeta, ObjectStore, ObjectStoreExt};
 use pyo3::exceptions::{PyIOError, PyStopAsyncIteration, PyStopIteration};
 use pyo3::prelude::*;
 use pyo3::types::PyString;
@@ -192,7 +192,10 @@ async fn read(reader: Arc<Mutex<BufReader>>, size: Option<usize>) -> PyResult<Py
     let mut reader = reader.lock().await;
     if let Some(size) = size {
         let mut buf = vec![0; size as _];
-        reader.read_exact(&mut buf).await?;
+        let n = reader.read(&mut buf).await?;
+        if n < buf.len() {
+            buf.truncate(n);
+        }
         Ok(Bytes::from(buf).into())
     } else {
         let mut buf = Vec::new();

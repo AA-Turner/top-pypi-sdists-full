@@ -20,6 +20,8 @@ from wisent.core.steering_methods.steering_object import (
     load_steering_object,
     CAASteeringObject,
 )
+from wisent.core.constants import (TIKHONOV_REG, RL_NUM_EPISODES, RL_EPSILON,
+    PRZELOM_EPSILON, SZLAK_INFERENCE_K, DEFAULT_LIMIT)
 
 
 def ensure_enriched_pairs(
@@ -134,13 +136,13 @@ def run_rl_iteration(
             rl_args = _make_args(
                 model=model, task=task, enriched_pairs_file=enriched_path,
                 method=method_lower,
-                max_iterations=getattr(args, 'max_iterations', 10),
-                learning_rate=getattr(args, 'learning_rate', 0.1),
-                epsilon=getattr(args, 'epsilon', 1.0),
-                regularization=getattr(args, 'regularization', 1e-4),
-                inference_k=getattr(args, 'inference_k', 5),
-                noise_scale=getattr(args, 'noise_scale', 0.1),
-                limit=getattr(args, 'limit', 100),
+                max_iterations=getattr(args, 'max_iterations', RL_NUM_EPISODES),
+                learning_rate=getattr(args, 'learning_rate', RL_EPSILON),
+                epsilon=getattr(args, 'epsilon', PRZELOM_EPSILON),
+                regularization=getattr(args, 'regularization', TIKHONOV_REG),
+                inference_k=getattr(args, 'inference_k', SZLAK_INFERENCE_K),
+                noise_scale=getattr(args, 'noise_scale', RL_EPSILON),
+                limit=getattr(args, 'limit', DEFAULT_LIMIT),
                 output=output_path,
                 device=getattr(args, 'device', None),
             )
@@ -152,10 +154,10 @@ def run_rl_iteration(
             rl_args = _make_args(
                 model=model, task=task, enriched_pairs_file=enriched_path,
                 method=method,
-                max_iterations=getattr(args, 'max_iterations', 10),
-                learning_rate=getattr(args, 'learning_rate', 0.1),
-                noise_scale=getattr(args, 'noise_scale', 0.1),
-                limit=getattr(args, 'limit', 100),
+                max_iterations=getattr(args, 'max_iterations', RL_NUM_EPISODES),
+                learning_rate=getattr(args, 'learning_rate', RL_EPSILON),
+                noise_scale=getattr(args, 'noise_scale', RL_EPSILON),
+                limit=getattr(args, 'limit', DEFAULT_LIMIT),
                 output=output_path,
                 device=getattr(args, 'device', None),
             )

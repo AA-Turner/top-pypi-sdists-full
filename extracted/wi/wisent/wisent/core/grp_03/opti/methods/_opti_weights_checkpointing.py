@@ -10,7 +10,7 @@ import optuna
 import torch
 
 from wisent.core.opti.core.atoms import Direction, HPOConfig, HPORun
-
+from wisent.core.constants import DEFAULT_CHECKPOINT_INTERVAL
 
 class WeightsCheckpointingMixin:
     """Mixin providing checkpointing support for WeightsOptimizer."""
@@ -105,7 +105,7 @@ class WeightsCheckpointingMixin:
         self,
         cfg: HPOConfig,
         checkpoint_path: str | None = None,
-        checkpoint_interval: int = 5,
+        checkpoint_interval: int = DEFAULT_CHECKPOINT_INTERVAL,
         output_dir: str | None = None,
         tokenizer: Any = None,
         s3_bucket: str | None = None,

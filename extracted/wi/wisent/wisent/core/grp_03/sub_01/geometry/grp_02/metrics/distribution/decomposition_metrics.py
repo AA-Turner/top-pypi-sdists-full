@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 from sklearn.decomposition import PCA
 from sklearn.metrics import silhouette_score
+from wisent.core.constants import DEFAULT_RANDOM_SEED, ZERO_THRESHOLD
 
 
 def _adaptive_max_k(n_samples: int) -> int:
@@ -41,13 +42,13 @@ def find_optimal_clustering(
 
     pca_dims = min(n_samples - 1, n_features, 50)
     if pca_dims < n_features and pca_dims >= 2:
-        _pca = PCA(n_components=pca_dims, random_state=42)
+        _pca = PCA(n_components=pca_dims, random_state=DEFAULT_RANDOM_SEED)
         diff_np = _pca.fit_transform(diff_np)
 
     # Subsample for silhouette search (O(n²)), refit on full data with best k
     MAX_FOR_SIL = 1000
     if n_samples > MAX_FOR_SIL:
-        _idx = np.random.RandomState(42).choice(n_samples, MAX_FOR_SIL, replace=False)
+        _idx = np.random.RandomState(DEFAULT_RANDOM_SEED).choice(n_samples, MAX_FOR_SIL, replace=False)
         diff_sub = diff_np[_idx]
         n_sub = MAX_FOR_SIL
     else:
@@ -65,7 +66,7 @@ def find_optimal_clustering(
     best_silhouette = -1.0
 
     for k in range(2, max_k + 1):
-        km = KMeans(n_clusters=k, random_state=42, n_init=n_init)
+        km = KMeans(n_clusters=k, random_state=DEFAULT_RANDOM_SEED, n_init=n_init)
         labels = km.fit_predict(diff_sub)
         cluster_sizes = np.bincount(labels)
         if len(cluster_sizes) < 2 or cluster_sizes.min() < min_cluster_size:
@@ -79,7 +80,7 @@ def find_optimal_clustering(
         return 1, [0] * n_samples, float(best_silhouette)
 
     # Refit on full data with best k to get labels for all samples
-    final_km = KMeans(n_clusters=best_k, random_state=42, n_init=n_init)
+    final_km = KMeans(n_clusters=best_k, random_state=DEFAULT_RANDOM_SEED, n_init=n_init)
     best_labels = final_km.fit_predict(diff_np).tolist()
     return best_k, best_labels, float(best_silhouette)
 
@@ -203,11 +204,11 @@ def chow_test_analog(
         X = np.vstack([pos_np[mask], neg_np[mask]])
         y = np.array([1] * mask.sum() + [0] * mask.sum())
 
-        model = LogisticRegression( solver="lbfgs", random_state=42)
+        model = LogisticRegression( solver="lbfgs", random_state=DEFAULT_RANDOM_SEED)
         model.fit(X, y)
 
         coef = model.coef_[0]
-        coef_norm = coef / (np.linalg.norm(coef) + 1e-10)
+        coef_norm = coef / (np.linalg.norm(coef) + ZERO_THRESHOLD)
         coefficients.append(coef_norm)
 
     if len(coefficients) < 2:
